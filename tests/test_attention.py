@@ -8,9 +8,12 @@ import pytest
 import voluptuous as vol
 from freezegun.api import FrozenDateTimeFactory
 from health_tree.types import Loudness, Notification, ResolutionNotice
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_capture_events,
+)
 
 from custom_components.homeostatic import async_setup_entry
 from custom_components.homeostatic.attention import (
@@ -178,8 +181,7 @@ async def test_reminder_quiet_escalation_and_restart(
     config_data["policy"] = owner_policy(quiet=True)
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     runtime = await start_monitor(hass, entry)
     assert [event.data["action"] for event in events] == ["open"]
     assert events[0].data["channels"] == ["event"]
@@ -205,7 +207,6 @@ async def test_reminder_quiet_escalation_and_restart(
     ]
     assert len({event.data["delivery_id"] for event in events}) == 4
     assert await hass.config_entries.async_unload(entry.entry_id)
-    cancel()
 
 
 async def test_activation_rebases_and_preview_does_not_mutate(
@@ -217,8 +218,7 @@ async def test_activation_rebases_and_preview_does_not_mutate(
     config_data.update(notifications=False, policy=owner_policy())
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     runtime = await start_monitor(hass, entry)
     episode = next(iter(runtime.episodes.values()))
     freezer.tick(timedelta(hours=8))
@@ -270,7 +270,6 @@ async def test_activation_rebases_and_preview_does_not_mutate(
     await hass.async_block_till_done()
     assert events[-1].data["action"] == "escalate"
     assert await hass.config_entries.async_unload(entry.entry_id)
-    cancel()
 
 
 async def test_digest_membership_and_resolution(
@@ -291,8 +290,7 @@ async def test_digest_membership_and_resolution(
     hass.states.async_set("sensor.observed", "unavailable")
     hass.states.async_set("sensor.other", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     runtime = await start_monitor(hass, entry)
     assert not events
     freezer.tick(timedelta(hours=2))
@@ -312,7 +310,6 @@ async def test_digest_membership_and_resolution(
     assert events[-1].data["action"] == "resolve"
     assert all(event.data["tag"] == tag for event in events)
     assert await hass.config_entries.async_unload(entry.entry_id)
-    cancel()
 
 
 async def test_policy_change_withdraws_removed_route(
@@ -322,8 +319,7 @@ async def test_policy_change_withdraws_removed_route(
     """Editing routing clears old tags and activates only the new recipient."""
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     await start_monitor(hass, entry)
     data = {
         "timezone": "UTC",
@@ -342,7 +338,6 @@ async def test_policy_change_withdraws_removed_route(
     ]
     assert events[-1].data["channels"] == ["phone"]
     assert await hass.config_entries.async_unload(entry.entry_id)
-    cancel()
 
 
 def test_silent_deduplication_and_durable_summary_replay() -> None:

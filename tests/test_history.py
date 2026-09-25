@@ -11,11 +11,14 @@ import voluptuous as vol
 from freezegun.api import FrozenDateTimeFactory
 from health_tree.types import Episode, EpisodeResolved, Finding, Importance, Status
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_capture_events,
+)
 
 from custom_components.homeostatic.catalog import Source
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
@@ -67,8 +70,7 @@ async def test_recovery_history_persists_without_query_side_effects(
     hass.states.async_set(
         "sensor.observed", "unavailable", {"friendly_name": "Original name"}
     )
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     runtime = await start_monitor(hass, config_entry)
     episode_id = next(iter(runtime.episodes))
     opened = deepcopy(runtime.episodes[episode_id])
@@ -108,7 +110,6 @@ async def test_recovery_history_persists_without_query_side_effects(
     ]["name"] == "Original name"
     assert await hass.config_entries.async_remove(config_entry.entry_id)
     assert f"{DOMAIN}.{config_entry.entry_id}" not in hass_storage
-    cancel()
 
 
 async def test_removal_during_reload_is_not_recovery(

@@ -6,6 +6,8 @@ The combined 0.1.0b1 candidate targets Home Assistant 2026.9.3 and Python 3.14, 
 
 On 2026-09-25 the required check command passed 303 Python tests and eight Node frontend tests, plus Ruff, formatting and strict typing. Combined branch-aware coverage was 98.79%, with statement and branch coverage individually above 95%. Official hassfest reported one valid integration and no invalid integrations.
 
+Notification-order assertions use HA's `async_capture_events` helper so observation stays on the event loop; worker-thread scheduling cannot reorder the test's recorded events.
+
 The separate [dashboard walkthrough](dashboard-walkthrough.md) records native setup, failure/recovery, future enrollment, area changes, reload, full restart and the embedded return-navigation regression. It used the same library behavior from its pre-release commit. The combined suite now uses the released wheel.
 
 ## Package acceptance
@@ -14,7 +16,7 @@ The separate [dashboard walkthrough](dashboard-walkthrough.md) records native se
 
 `script/smoke_pilot.py` accepts that ZIP and requires a separate environment containing HA 2026.9.3 without HealthTree already installed. It verifies the package hashes, copies only the component into a temporary configuration, and lets HA install the manifest dependency. It exercises native config flow, function readiness, frontend asset serving, failure/recovery, resolved history and reload. Notifications stay off; synthetic timings are explicitly zero so the check never sleeps. The browser walkthrough independently used normal timing defaults.
 
-The CI job builds the ZIP, runs this clean-install check and uploads the archive only after success. Local package installation **passed on 2026-09-25** from the combined candidate ZIP. The environment initially contained HA without HealthTree. HA installed `health-tree==0.2.0` into the isolated environment's site-packages, with no editable/direct-URL metadata. Setup, all three frontend assets, ready → blocked → ready behavior, one retained cleared episode, controls query, empty notification requests and history across reload passed.
+The CI job builds the ZIP, runs this clean-install check and uploads the archive only after success. Local package installation **passed on 2026-09-25** from the combined candidate ZIP. The environment initially contained HA without HealthTree. HA installed `health-tree==0.2.0` into the isolated environment's site-packages, with no editable/direct-URL metadata. Setup, all three frontend assets, ready â†’ blocked â†’ ready behavior, one retained cleared episode, controls query, empty notification requests and history across reload passed.
 
 The Linux test host lacks optional FFmpeg and TurboJPEG system libraries, so HA logged media-related errors/warnings while importing its frontend dependencies. Those media features are outside this check. No Homeostatic installation, runtime or assertion failure occurred. The normal custom-integration and optional zlib acceleration warnings also remain visible.
 

@@ -22,6 +22,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
+    async_capture_events,
     async_fire_time_changed,
 )
 
@@ -77,8 +78,7 @@ async def test_shelf_holds_all_recipients_across_reload(
         ],
     }
     hass.states.async_set("sensor.observed", "unavailable")
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     episode_id = next(iter(runtime.episodes))
@@ -115,7 +115,6 @@ async def test_shelf_holds_all_recipients_across_reload(
     assert restored.episodes[episode_id]["opened_at"] == opened_at
     assert (await action(hass, "operator_controls", {})) == {"controls": []}
     assert await hass.config_entries.async_unload(entry.entry_id)
-    cancel()
 
 
 @pytest.mark.parametrize("include_dependents,expected_count", [(False, 1), (True, 0)])
@@ -198,8 +197,7 @@ async def test_maintenance_keeps_existing_alerts_and_recovery(
     }
     config_entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     hass.states.async_set("sensor.observed", "unavailable")
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     runtime = await start_monitor(hass, config_entry)
     episode_id = next(iter(runtime.episodes))
     result = await action(hass, "start_maintenance", {"node_id": NODE, "until": end()})
@@ -223,7 +221,6 @@ async def test_maintenance_keeps_existing_alerts_and_recovery(
     assert not runtime.episodes
     assert runtime.readiness == "ready"
     assert await hass.config_entries.async_unload(config_entry.entry_id)
-    cancel()
 
 
 async def test_shelf_extension_resolution_and_expiry_without_reminders(
