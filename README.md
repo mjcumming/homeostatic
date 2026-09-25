@@ -4,11 +4,11 @@ Health monitoring and situation alerts for Home Assistant, powered by the separa
 
 Homeostatic answers **what is wrong, what depends on it, and what needs attention**. HealthTree supplies the dependency graph, episodes, readiness, and attention policy. This integration supplies Home Assistant observations, configuration, timers, persistence, entities, and notification requests. Consumers deliver those requests to people.
 
-**Status: development foundation, not a distribution release.** Tested against Home Assistant 2026.9.3 on Python 3.14. The unreleased health-tree dependency must be installed from the sibling checkout. Normal HACS installation and real-house observation proofs remain release gates.
+**Status: development build with passive rule enrollment, not a distribution release.** Tested against Home Assistant 2026.9.3 on Python 3.14. The unreleased health-tree dependency must be installed from the sibling checkout. Normal HACS installation and real-house observation proofs remain release gates.
 
 ## What works now
 
-- Native setup/options with explicit entity and integration selection; registered sources keep their identity across renames.
+- Native setup/options with editable attach/exclude catalog rules, match previews, passive enrollment of future sources, and explanations of every attachment/exclusion. Registered sources keep their identity across renames.
 - Integration setup, retries and authentication evidence; entity availability; dependency correlation into episodes.
 - Named functions with importance and required entities, each exporting readiness as `ready`, `unknown`, `degraded`, or `blocked`.
 - Named situation alerts bound to existing HA entities: `on` is active, `off` is clear, missing/unknown/unavailable is unknown. A situation remains independent of equipment readiness.
@@ -18,13 +18,75 @@ Homeostatic answers **what is wrong, what depends on it, and what needs attentio
 
 A passing availability check shows that HA currently reports an available control path. It does not verify physical-device freshness, detector progress, command completion, or phone receipt. Those require their own evidence producers and real traces.
 
-The full rule catalog, automatic enrollment, richer function configuration, owner-authored YAML policy, shelving/maintenance, Repairs links, problem panel, history, and external watchdog are tracked in the [build roadmap](docs/roadmap.md). Manual enrollment and the structured YAML forms are development interfaces. The target rule model uses additive attach rules and exclusions that always win.
+Richer evidence checks, function configuration, owner-authored YAML policy, shelving/maintenance, Repairs links, problem panel, episode history, and external watchdog are tracked in the [build roadmap](docs/roadmap.md). The structured YAML forms are development interfaces.
 
 ## Try the development build
 
 Use an isolated development HA instance on Linux or WSL. Install the sibling health-tree checkout into the **same Python environment that runs HA**, place `custom_components/homeostatic` under `<HA config>/custom_components/`, restart that instance, and add **Homeostatic** through **Settings → Devices & services → Add integration**.
 
-Select the integrations/entities to monitor. New sources are not yet enrolled automatically. Missing selected sources remain unknown requirements until explicitly removed. Startup grace and recovery confirmation default to two minutes; ordinary notification batching defaults to thirty seconds. See the [specification](docs/spec.md) for every timing and its meaning.
+Review the supplied passive availability rule. Matching entities and integration instances enroll automatically, including future sources. Notifications remain off until activated. Missing enrolled sources remain unknown across restarts until their rules explicitly remove them from scope. Startup grace and recovery confirmation default to two minutes; ordinary notification batching defaults to thirty seconds. See the [specification](docs/spec.md) for every timing and its meaning.
+
+### Choose what to watch
+
+The **Catalog rules (YAML list)** field starts with:
+
+```yaml
+- id: passive_availability
+  action: attach
+  match: {}
+  checks: [availability]
+```
+
+This watches HA availability for every eligible entity and integration instance, excluding Homeostatic itself. It performs no device polling or active probes. Edit or disable this rule with `enabled: false`, or replace it with narrower attach rules. An empty list intentionally watches no equipment. All matching attachments contribute; **every matching exclusion wins**, regardless of rule order. Check timings are house settings below the rules field.
+
+For example, keep the broad rule and add:
+
+```yaml
+- id: ignore_workbench
+  action: exclude
+  match:
+    area: YOUR_AREA_ID
+
+- id: ignore_one_source
+  action: exclude
+  match:
+    entity: sensor.experimental_temperature
+  checks: [availability]
+```
+
+These are additional rows in the same list. `availability` is the only supported catalog check in this increment. Omitting `checks` has the same effect today; other checks/parameters are rejected. Equipment exclusions do not suppress situation alerts.
+
+| Match field | Value |
+| --- | --- |
+| `domain` | Entity domain (`sensor`, `light`, etc.), or integration domain for an integration node |
+| `device_class` | Effective HA device class, such as `temperature` |
+| `integration` | Config-entry id; matches that instance and its entities |
+| `device` | Device registry id; matches its entities |
+| `entity` | Current entity id on input, saved as `registry:<id>` when registered |
+| `area` | Effective area id: entity override, otherwise device area |
+| `floor` | Floor id of that effective area |
+| `label` | Label id on the entity, device, or effective area |
+| `kind` | `entity` or `integration`, when a rule should affect only one kind |
+
+A field accepts a string or a list of alternatives. Different fields must all match. Names never drive matching. Get exact ids and matching attributes from `homeostatic.inventory`; entity display names can change without changing rule identity. State-only entities use the weaker `entity_id:` reference and need edits after a rename.
+
+Turn on **Preview without saving**, then submit to see each rule's match count and the resulting number of watched sources. Edit and preview again as needed; turn Preview off and submit to apply. For full per-source explanations without saving:
+
+```yaml
+action: homeostatic.preview_rules
+data:
+  rules:
+    - id: temperature_sources
+      action: attach
+      match:
+        domain: sensor
+        device_class: temperature
+response_variable: preview
+```
+
+Device/area/label moves trigger matching again; the periodic reconciliation also catches new integration instances. Inventory includes `attached_by`, `excluded_by`, and the last 50 enrollment changes from the current runtime, with before/after attributes. It includes excluded candidates so an absent check can be explained. Previously enrolled missing identities retain their last known attributes for matching until explicitly excluded or unmatched by edited rules.
+
+Existing development selections appear as narrow `selected_entities` / `selected_integrations` rules when opening options. Saving converts them to the same rule model. This preserves existing scope rather than turning on the broad default for an existing installation.
 
 ### Define a function
 
@@ -39,9 +101,9 @@ In the **Functions (YAML list)** field, enter, for example:
     - binary_sensor.garage_obstruction
 ```
 
-Requirements are enrolled automatically. Keep `id` stable; it identifies the function and its readiness entity. Names may change. Importance is `low`, `normal`, `high`, or `critical`. Registry identities are saved instead of changeable entity ids; later edits may show `registry:...` references, which are also accepted. Removing a registry entry leaves the requirement unknown.
+Requirements always remain in the graph; catalog rules decide which checks watch them. Excluded or unmatched requirements leave the function unknown. The supplied broad rule watches available requirements automatically. Keep `id` stable; it identifies the function and its readiness entity. Names may change. Importance is `low`, `normal`, `high`, or `critical`. Registry identities are saved instead of changeable entity ids; later edits may show `registry:...` references, which are also accepted. Removing a registry entry leaves the requirement unknown.
 
-The function's readiness sensor can drive fallback automations. Any answer other than `ready` means that its requirements are not all proven ready. Selecting entities also adds them to the overall readiness answer.
+The function's readiness sensor can drive fallback automations. Any answer other than `ready` means that its requirements are not all proven ready. All rule-enrolled capabilities also contribute to overall readiness.
 
 ### Bind a situation
 
@@ -68,7 +130,7 @@ The integration emits events and retains the last requested content. A consumer 
 
 ### Inspect the model
 
-In **Developer tools → Actions**, call `homeostatic.inventory` for node ids, episodes, and notification requests. Pass a node id to `homeostatic.explain` or `homeostatic.impact`. `homeostatic.readiness` and `homeostatic.rollup` default to selected capabilities/functions and accept `node_ids`. These actions are read-only. Situation ids are `situation:<id>` and function ids are `function:<id>`.
+In **Developer tools → Actions**, call `homeostatic.inventory` for node ids, rule explanations, recent enrollment changes, episodes, and notification requests. Pass a node id to `homeostatic.explain` or `homeostatic.impact`. `homeostatic.readiness` and `homeostatic.rollup` default to selected capabilities/functions and accept `node_ids`. These actions are read-only. Situation ids are `situation:<id>` and function ids are `function:<id>`.
 
 ## Development and checks
 

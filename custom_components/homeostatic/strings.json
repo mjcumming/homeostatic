@@ -4,10 +4,8 @@
     "step": {
       "user": {
         "title": "Monitor your home",
-        "description": "Select sources and define functions or entity-bound situations. Notifications are off initially and are emitted as events for your consumer automation. Situation rules must report source loss as unavailable, never off. Timing values are seconds except the coalescing count. See the README for YAML examples.",
+        "description": "Edit passive attach/exclude rules and define functions or entity-bound situations. Exclusions always win. Enable Preview to inspect matches without saving, then turn it off to apply. Notifications need an enabled consumer automation. Situation sources must report evidence loss as unavailable. Timing values are seconds except coalescing count. See README examples.\n\n{preview}",
         "data": {
-          "entity_ids": "Entities",
-          "config_entries": "Integration instances",
           "notifications": "Activate notification events",
           "settle": "Dependency settle time",
           "rejoin_grace": "Dependency recovery grace",
@@ -20,7 +18,9 @@
           "retry_hold": "Setup retry warning period",
           "functions": "Functions (YAML list)",
           "situations": "Situation alerts (YAML list)",
-          "consumer": "Notification consumer automation"
+          "consumer": "Notification consumer automation",
+          "rules": "Catalog rules (YAML list)",
+          "preview": "Preview without saving"
         }
       }
     },
@@ -36,12 +36,9 @@
     "step": {
       "init": {
         "title": "Monitoring options",
-        "description": "Select sources and define functions or entity-bound situations. Notifications are off initially and are emitted as events for your consumer automation. Situation rules must report source loss as unavailable, never off. Timing values are seconds except the coalescing count. See the README for YAML examples.",
+        "description": "Edit passive attach/exclude rules and define functions or entity-bound situations. Exclusions always win. Enable Preview to inspect matches without saving, then turn it off to apply. Notifications need an enabled consumer automation. Situation sources must report evidence loss as unavailable. Timing values are seconds except coalescing count. See README examples.\n\n{preview}",
         "data": {
-          "entity_ids": "Entities",
-          "config_entries": "Integration instances",
           "notifications": "Activate notification events",
-          "forget_missing": "Remove selections whose entity registry entry no longer exists",
           "settle": "Dependency settle time",
           "rejoin_grace": "Dependency recovery grace",
           "startup_grace": "Startup grace",
@@ -53,7 +50,9 @@
           "retry_hold": "Setup retry warning period",
           "functions": "Functions (YAML list)",
           "situations": "Situation alerts (YAML list)",
-          "consumer": "Notification consumer automation"
+          "consumer": "Notification consumer automation",
+          "rules": "Catalog rules (YAML list)",
+          "preview": "Preview without saving"
         }
       }
     },

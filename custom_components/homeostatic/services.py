@@ -11,7 +11,15 @@ from homeassistant.helpers import config_validation as cv
 from .const import DOMAIN
 from .runtime import Runtime
 
-SERVICES = ("inventory", "explain", "readiness", "impact", "coverage", "rollup")
+SERVICES = (
+    "inventory",
+    "explain",
+    "readiness",
+    "impact",
+    "coverage",
+    "rollup",
+    "preview_rules",
+)
 
 
 @callback
@@ -21,6 +29,8 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
     async def handle(call: ServiceCall) -> dict[str, JSONValue]:
         try:
             return runtime.query(call.service, dict(call.data))
+        except (ValueError, vol.Invalid) as err:
+            raise ServiceValidationError(str(err)) from err
         except KeyError as err:
             raise ServiceValidationError(
                 f"Unknown Homeostatic node: {err.args[0]}"
@@ -28,7 +38,9 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
 
     for service in SERVICES:
         fields: dict[Any, Any] = {}
-        if service in {"explain", "impact"}:
+        if service == "preview_rules":
+            fields = {vol.Required("rules"): list}
+        elif service in {"explain", "impact"}:
             fields = {vol.Required("node_id"): cv.string}
         elif service in {"readiness", "rollup"}:
             fields = {vol.Optional("node_ids"): vol.All(cv.ensure_list, [cv.string])}

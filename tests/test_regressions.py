@@ -64,7 +64,17 @@ async def test_notification_options_reload(
     episode_id = next(iter(runtime.episodes))
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     await hass.config_entries.options.async_configure(
-        result["flow_id"], {"entity_ids": ["sensor.observed"], "notifications": False}
+        result["flow_id"],
+        {
+            "rules": [
+                {
+                    "id": "observed",
+                    "action": "attach",
+                    "match": {"entity": "sensor.observed"},
+                }
+            ],
+            "notifications": False,
+        },
     )
     await hass.async_block_till_done()
     restored = config_entry.runtime_data
@@ -89,7 +99,7 @@ async def test_unenrollment_options_reload(
     await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
-            "entity_ids": [],
+            "rules": [],
             "notifications": True,
             "consumer": "automation.homeostatic_test_consumer",
         },

@@ -8,44 +8,20 @@ from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
-from .config import Settings, data_from_input, resolve_entity
+from .config import Settings, data_from_input, rule_data
 from .const import DOMAIN, NAME
+from .enrollment import inventory, report
+from .rules import DEFAULT_RULES, Attributes, parse_rules
 
 
 def form_schema(hass: HomeAssistant, data: dict[str, Any]) -> vol.Schema:
     """Offer existing source identities and editable adapter defaults."""
     settings = Settings.from_data(data)
-    choices: list[selector.SelectOptionDict] = [
-        {"value": entry.entry_id, "label": f"{entry.title} ({entry.domain})"}
-        for entry in hass.config_entries.async_entries(
-            include_ignore=False, include_disabled=False
-        )
-        if entry.domain != DOMAIN
-    ]
-    known = {choice["value"] for choice in choices}
-    choices.extend(
-        {"value": entry_id, "label": f"Unavailable entry ({entry_id})"}
-        for entry_id in settings.config_entries
-        if entry_id not in known
-    )
-    entities = [
-        entity_id
-        for reference in settings.entities
-        if (entity_id := resolve_entity(hass, reference)) is not None
-    ]
     fields: dict[Any, Any] = {
-        vol.Optional("entity_ids", default=entities): selector.EntitySelector(
-            selector.EntitySelectorConfig(multiple=True)
-        ),
         vol.Optional(
-            "config_entries", default=list(settings.config_entries)
-        ): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=choices,
-                multiple=True,
-                mode=selector.SelectSelectorMode.DROPDOWN,
-            )
-        ),
+            "rules", default=rule_data(hass, settings) if data else DEFAULT_RULES
+        ): selector.ObjectSelector(),
+        vol.Optional("preview", default=False): selector.BooleanSelector(),
         vol.Optional(
             "functions", default=data.get("functions", [])
         ): selector.ObjectSelector(),
@@ -59,10 +35,6 @@ def form_schema(hass: HomeAssistant, data: dict[str, Any]) -> vol.Schema:
             "notifications", default=settings.notifications
         ): selector.BooleanSelector(),
     }
-    if any(resolve_entity(hass, reference) is None for reference in settings.entities):
-        fields[vol.Optional("forget_missing", default=False)] = (
-            selector.BooleanSelector()
-        )
     fields.update(
         {
             vol.Required(key, default=value): vol.All(
@@ -87,17 +59,28 @@ class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
         errors: dict[str, str] = {}
+        preview = ""
+        form_data: dict[str, Any] = {}
         if user_input is not None:
             try:
                 data = data_from_input(self.hass, user_input)
             except ValueError, vol.Invalid:
                 errors["base"] = "invalid_config"
             else:
-                await self.async_set_unique_id(DOMAIN)
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(title=NAME, data=data)
+                if user_input.get("preview"):
+                    preview = preview_summary(self.hass, data)
+                    form_data = data
+                else:
+                    await self.async_set_unique_id(DOMAIN)
+                    self._abort_if_unique_id_configured()
+                    return self.async_create_entry(title=NAME, data=data)
         return self.async_show_form(
-            step_id="user", data_schema=form_schema(self.hass, {}), errors=errors
+            step_id="user",
+            data_schema=self.add_suggested_values_to_schema(
+                form_schema(self.hass, form_data), user_input if errors else None
+            ),
+            errors=errors,
+            description_placeholders={"preview": preview},
         )
 
     @staticmethod
@@ -117,20 +100,43 @@ class HomeostaticOptionsFlow(config_entries.OptionsFlowWithReload):
     ) -> ConfigFlowResult:
         """Validate the replacement settings and retain missing selections."""
         current = dict(self.config_entry.options or self.config_entry.data)
+        preview = ""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
                 data = data_from_input(self.hass, user_input)
-                if not user_input.get("forget_missing", False):
-                    data["entities"].extend(
-                        reference
-                        for reference in current.get("entities", [])
-                        if resolve_entity(self.hass, reference) is None
-                    )
             except ValueError, vol.Invalid:
                 errors["base"] = "invalid_config"
             else:
-                return self.async_create_entry(title="", data=data)
+                if user_input.get("preview"):
+                    runtime = getattr(self.config_entry, "runtime_data", None)
+                    preview = preview_summary(
+                        self.hass, data, runtime.enrolled if runtime else {}
+                    )
+                    current = data
+                else:
+                    return self.async_create_entry(title="", data=data)
         return self.async_show_form(
-            step_id="init", data_schema=form_schema(self.hass, current), errors=errors
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(
+                form_schema(self.hass, current), user_input if errors else None
+            ),
+            errors=errors,
+            description_placeholders={"preview": preview},
         )
+
+
+def preview_summary(
+    hass: HomeAssistant,
+    data: dict[str, Any],
+    known: dict[str, Attributes] | None = None,
+) -> str:
+    """Describe current rule matches without saving or starting a monitor."""
+    settings = Settings.from_data(data)
+    result = report(
+        inventory(hass, settings, known or {}), parse_rules(rule_data(hass, settings))
+    )
+    counts = "; ".join(
+        f"{rule['id']}: {rule['matches']} matches" for rule in result["rules"]
+    )
+    return f"Preview: {result['watched']} watched sources. {counts}"

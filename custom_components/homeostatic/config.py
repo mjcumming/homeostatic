@@ -20,6 +20,7 @@ from homeassistant.helpers import entity_registry as er
 
 from .const import DEFAULTS, DOMAIN
 from .definitions import Function, Situation, definitions
+from .rules import DEFAULT_RULES, CatalogRule, parse_rules
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -33,6 +34,7 @@ class Settings:
     functions: tuple[Function, ...] = ()
     situations: tuple[Situation, ...] = ()
     consumer: str | None = None
+    rules: tuple[CatalogRule, ...] | None = None
 
     @classmethod
     def from_data(cls, data: Mapping[str, Any]) -> Settings:
@@ -59,9 +61,7 @@ class Settings:
         functions, situations = definitions(data)
         consumer = data.get("consumer")
         if consumer is not None and (
-            not isinstance(consumer, str)
-            or not isinstance(consumer, str)
-            or not consumer.startswith("automation.")
+            not isinstance(consumer, str) or not consumer.startswith("automation.")
         ):
             raise ValueError("consumer must be an automation entity id")
         return cls(
@@ -72,6 +72,7 @@ class Settings:
             functions=functions,
             situations=situations,
             consumer=consumer,
+            rules=parse_rules(data["rules"]) if "rules" in data else None,
         )
 
     def engine_settings(self) -> EngineSettings:
@@ -186,5 +187,86 @@ def data_from_input(
             or not consumer.startswith("automation.")
         ):
             raise vol.Invalid("Enable a notification consumer automation first")
+    if "rules" in user_input:
+        data["rules"] = normalize_rules(hass, user_input["rules"])
+    elif not {"entity_ids", "config_entries"}.intersection(user_input):
+        data["rules"] = normalize_rules(hass, DEFAULT_RULES)
     Settings.from_data(data)
     return data
+
+
+def normalize_rules(hass: HomeAssistant, value: Any) -> list[dict[str, Any]]:
+    """Resolve friendly entity input once; retain stable ids in saved rules."""
+    rules = parse_rules(value)
+    result = []
+    for rule in rules:
+        match = {key: list(values) for key, values in rule.match.items()}
+        if "entity" in match:
+            match["entity"] = [
+                value
+                if value.startswith(("registry:", "entity_id:"))
+                else entity_reference(hass, value)
+                for value in match["entity"]
+            ]
+        for reference in match.get("entity", []):
+            entity_id = resolve_entity(hass, reference)
+            registered = er.async_get(hass).async_get(entity_id) if entity_id else None
+            if registered is not None and registered.platform == DOMAIN:
+                raise vol.Invalid("Homeostatic cannot monitor its own entities")
+        for entry_id in match.get("integration", []):
+            entry = hass.config_entries.async_get_entry(entry_id)
+            if entry is not None and entry.domain == DOMAIN:
+                raise vol.Invalid("Homeostatic cannot monitor itself")
+        result.append(
+            {
+                "id": rule.id,
+                "enabled": rule.enabled,
+                "action": rule.action,
+                "match": match,
+                "checks": ["availability"],
+            }
+        )
+    return result
+
+
+def rule_data(hass: HomeAssistant, settings: Settings) -> list[dict[str, Any]]:
+    """Translate legacy selections into the same editable rule catalog."""
+    if settings.rules is not None:
+        return [
+            {
+                "id": rule.id,
+                "action": rule.action,
+                "enabled": rule.enabled,
+                "match": {key: list(values) for key, values in rule.match.items()},
+                "checks": ["availability"],
+            }
+            for rule in settings.rules
+        ]
+    references = set(settings.entities) | {
+        reference for function in settings.functions for reference in function.entities
+    }
+    entries = set(settings.config_entries)
+    registry = er.async_get(hass)
+    for reference in references:
+        entity_id = resolve_entity(hass, reference)
+        registered = registry.async_get(entity_id) if entity_id else None
+        if registered is not None and registered.config_entry_id:
+            entries.add(registered.config_entry_id)
+    rules: list[dict[str, Any]] = []
+    if references:
+        rules.append(
+            {
+                "id": "selected_entities",
+                "action": "attach",
+                "match": {"entity": sorted(references)},
+            }
+        )
+    if entries:
+        rules.append(
+            {
+                "id": "selected_integrations",
+                "action": "attach",
+                "match": {"kind": "integration", "integration": sorted(entries)},
+            }
+        )
+    return rules

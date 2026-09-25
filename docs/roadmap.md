@@ -4,11 +4,11 @@ Updated 2026-09-25. This file tracks delivery; [spec.md](spec.md) controls imple
 
 | Increment | Status | Acceptance |
 | --- | --- | --- |
-| Reliable HA adapter | In this increment | Ordered observations, retry continuity, policy-controlled content, consistent unload; regression scenarios |
-| First function and situation | In this increment | Stable bindings, function readiness entity, edgeless situation, unknown preserves episode, named delivery content |
-| Consumer delivery foundation | In this increment | Notifications off initially; activation summary; versioned events and durable outbox; consumer blueprint and tests |
-| Rule catalog and enrollment | Next | All stable match fields: domain, device class, integration, device, entity, area, floor, label; additive attach, exclude wins; passive enrollment of future sources; match preview and provenance |
-| Full function configuration | Planned | Declared external capabilities, importance, per-function candidate edges, excluded requirements stay unknown |
+| Reliable HA adapter | Complete | Ordered observations, retry continuity, policy-controlled content, consistent unload; regression scenarios |
+| First function and situation | Complete | Stable bindings, function readiness entity, edgeless situation, unknown preserves episode, named delivery content |
+| Consumer delivery foundation | Complete | Notifications off initially; activation summary; versioned events and durable outbox; consumer blueprint and tests |
+| Rule catalog and enrollment | Complete for availability | All stable match fields: domain, device class, integration, device, entity, area, floor, label; additive attach, exclude wins; passive enrollment of future sources; match preview and provenance |
+| Full function configuration | Planned | Declared external capabilities and per-function candidate edges; importance and excluded requirements staying unknown are already implemented |
 | Owner YAML policy | Planned | Validated rules/recipients; quiet hours, reminders, escalation and digests; explain decisions; activation clocks start at enablement |
 | Operator controls | Planned | Shelving, expiring scoped maintenance; no global equipment quiet window; situation edge lint |
 | Product presentation | Planned | Review story notification texts first; then problems/functions/maintenance/coverage, remedies, native Repair links, recently resolved history |
@@ -16,4 +16,4 @@ Updated 2026-09-25. This file tracks delivery; [spec.md](spec.md) controls imple
 | Watchdog | Release gate | External observer and alert route verified independently of HA |
 | Distribution | Release gate | Released/pinned health-tree, actual HA deployment check, metadata validation and reviewed release; no fabricated package pin |
 
-The current manual entity enrollment and structured YAML forms are development interfaces. Do not grow them into a competing per-entity override system or a native condition builder. No phone receipt, physical-device freshness, or production readiness is inferred from passing synthetic tests.
+The structured YAML rule/function/situation forms are development interfaces. Legacy entity selections migrate to catalog rules; there is one attach/exclude model. The current catalog contains availability checks only. Check-specific parameters and additional evidence producers will arrive with their own contracts and traces. A richer interactive rule editor and configuration-health suggestions for excessive one-entity rules remain presentation work. Do not add a competing per-entity override system or a native condition builder. No phone receipt, physical-device freshness, or production readiness is inferred from passing synthetic tests.

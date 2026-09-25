@@ -1,6 +1,6 @@
 """HA control-path checks, deliberately distinct from physical freshness."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from health_tree.types import Check, Edge, Importance, Node, Observation, Status
@@ -9,6 +9,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import State
 
 from .config import Settings
+from .rules import Attributes
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -24,6 +25,10 @@ class Source:
     disabled: bool = False
     requirements: tuple[str, ...] = ()
     importance: Importance = Importance.NORMAL
+    watched: bool = True
+    attributes: Attributes = field(default_factory=dict)
+    attached_by: tuple[str, ...] = ()
+    excluded_by: tuple[str, ...] = ()
 
     def node(self, settings: Settings) -> Node:
         """Declare a check for the observed HA control-path capability."""
@@ -53,7 +58,9 @@ class Source:
                     unknown_hold=settings.duration("unknown_hold"),
                     labels={"category": "situation" if situation else "fault"},
                 ),
-            ),
+            )
+            if self.watched
+            else (),
         )
 
 

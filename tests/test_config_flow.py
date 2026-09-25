@@ -34,16 +34,22 @@ async def test_user_flow(hass: HomeAssistant) -> None:
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
-                "entity_ids": [registry_entry.entity_id],
-                "config_entries": [source.entry_id],
+                "rules": [
+                    {
+                        "id": "selected",
+                        "action": "attach",
+                        "match": {"entity": registry_entry.entity_id},
+                    }
+                ],
                 "notifications": True,
                 "consumer": "automation.homeostatic_test_consumer",
             },
         )
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["entities"] == [f"registry:{registry_entry.id}"]
-    assert result["data"]["config_entries"] == [source.entry_id]
+    assert result["data"]["rules"][0]["match"]["entity"] == [
+        f"registry:{registry_entry.id}"
+    ]
 
 
 async def test_singleton(hass: HomeAssistant, config_entry: MockConfigEntry) -> None:
@@ -81,19 +87,23 @@ async def test_invalid_input_keeps_form(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"entity_ids": [own_sensor.entity_id]}
+        result["flow_id"],
+        {
+            "rules": [
+                {
+                    "id": "self",
+                    "action": "attach",
+                    "match": {"entity": own_sensor.entity_id},
+                }
+            ]
+        },
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_config"}
 
 
-@pytest.mark.parametrize(
-    "forget_missing,expected", [(False, ["registry:missing"]), (True, [])]
-)
-async def test_options_missing_selection(
-    hass: HomeAssistant, forget_missing: bool, expected: list[str]
-) -> None:
-    """Missing requirements survive an unrelated options edit unless removed."""
+async def test_options_missing_selection(hass: HomeAssistant) -> None:
+    """Legacy missing requirements become editable rules on options save."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={"entities": ["registry:missing"], "config_entries": ["missing_entry"]},
@@ -105,13 +115,13 @@ async def test_options_missing_selection(
         hass.config_entries, "async_reload", new=AsyncMock(return_value=True)
     ):
         result = await hass.config_entries.options.async_configure(
-            result["flow_id"],
-            {"forget_missing": forget_missing, "notifications": False},
+            result["flow_id"], {"notifications": False}
         )
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["entities"] == expected
-    assert result["data"]["notifications"] is False
+    assert result["data"]["rules"][0]["match"]["entity"] == ["registry:missing"]
+    assert result["data"]["rules"][1]["match"]["integration"] == ["missing_entry"]
+    assert result["data"]["entities"] == []
 
 
 async def test_options_invalid(
@@ -124,7 +134,16 @@ async def test_options_invalid(
     )
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"entity_ids": [own_sensor.entity_id]}
+        result["flow_id"],
+        {
+            "rules": [
+                {
+                    "id": "self",
+                    "action": "attach",
+                    "match": {"entity": own_sensor.entity_id},
+                }
+            ]
+        },
     )
     assert result["errors"] == {"base": "invalid_config"}
 

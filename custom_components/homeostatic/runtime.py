@@ -31,7 +31,11 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP, EVENT_STATE_CHANGED
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import floor_registry as fr
+from homeassistant.helpers import label_registry as lr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import (
     async_track_point_in_utc_time,
@@ -46,9 +50,11 @@ from .catalog import (
     entity_state_signature,
     entry_observation,
 )
-from .config import Settings, resolve_entity
+from .config import Settings, normalize_rules, resolve_entity, rule_data
 from .const import DOMAIN, EVENT_NOTIFICATION, NAME, RECONCILE_INTERVAL, STORE_VERSION
 from .delivery import DeliveryState
+from .enrollment import evaluate, inventory, report, restore_enrollment
+from .rules import Attributes, parse_rules
 from .serialization import json_object
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,6 +78,9 @@ class Runtime:
         self.policy: Policy | None = None
         self.sources: dict[str, Source] = {}
         self.targets: list[str] = []
+        self.enrolled: dict[str, Attributes] = {}
+        self.candidates: dict[str, Source] = {}
+        self.enrollment_changes: deque[dict[str, JSONValue]] = deque(maxlen=50)
         self.episodes: dict[str, dict[str, JSONValue]] = {}
         self.delivery = DeliveryState(entry.entry_id)
         self._legacy_notifications: set[str] = set()
@@ -146,6 +155,7 @@ class Runtime:
             self.delivery.restore(self.saved["delivery"])
             if type(self.saved.get("notifications_enabled")) is not bool:
                 raise ValueError("Invalid notification activation state")
+        self.enrolled = restore_enrollment(self.saved.get("enrollment", {}))
         notifications = self.saved.get("notifications")
         if not isinstance(notifications, list) or not all(
             isinstance(item, str) for item in notifications
@@ -179,6 +189,15 @@ class Runtime:
                 async_track_time_interval(hass, self._timer, RECONCILE_INTERVAL),
             )
         )
+        self._subscriptions.extend(
+            hass.bus.async_listen(event_type, self._registry_changed)
+            for event_type in (
+                dr.EVENT_DEVICE_REGISTRY_UPDATED,
+                ar.EVENT_AREA_REGISTRY_UPDATED,
+                fr.EVENT_FLOOR_REGISTRY_UPDATED,
+                lr.EVENT_LABEL_REGISTRY_UPDATED,
+            )
+        )
         await self.async_refresh()
 
     @callback
@@ -187,7 +206,9 @@ class Runtime:
             return
         entity_id = event.data["entity_id"]
         sources = [
-            source for source in self.sources.values() if source.entity_id == entity_id
+            source
+            for source in self.sources.values()
+            if source.entity_id == entity_id and source.watched
         ]
         if sources and (
             any(source.kind == "situation" for source in sources)
@@ -205,7 +226,15 @@ class Runtime:
                 )
             )
             self._request_refresh()
-        elif entity_id == self.settings.consumer:
+        elif (
+            event.data["old_state"] is None
+            or (
+                event.data["new_state"] is not None
+                and event.data["old_state"].attributes.get("device_class")
+                != event.data["new_state"].attributes.get("device_class")
+            )
+            or entity_id == self.settings.consumer
+        ):
             self._request_refresh()
 
     @callback
@@ -240,54 +269,55 @@ class Runtime:
         await self.async_stop()
 
     def _discover(self) -> dict[str, Source]:
-        sources: dict[str, Source] = {}
-        targets: list[str] = []
-        entry_ids = set(self.settings.config_entries)
-        registry = er.async_get(self.hass)
-        references = dict.fromkeys(
-            (
-                *self.settings.entities,
-                *(
-                    reference
-                    for function in self.settings.functions
-                    for reference in function.entities
-                ),
-            )
+        rules = parse_rules(rule_data(self.hass, self.settings))
+        candidates = evaluate(inventory(self.hass, self.settings, self.enrolled), rules)
+        for node_id, source in candidates.items():
+            previous = self.candidates.get(node_id)
+            if previous is not None and (
+                previous.watched,
+                previous.attached_by,
+                previous.excluded_by,
+            ) != (source.watched, source.attached_by, source.excluded_by):
+                self.enrollment_changes.append(
+                    {
+                        "node_id": node_id,
+                        "at": dt_util.utcnow().isoformat(),
+                        "reason": "match_attributes_changed"
+                        if previous.attributes != source.attributes
+                        else "rules_changed",
+                        "before": json_object(previous),
+                        "after": json_object(source),
+                    }
+                )
+            elif previous is None and source.watched:
+                self.enrollment_changes.append(
+                    {
+                        "node_id": node_id,
+                        "at": dt_util.utcnow().isoformat(),
+                        "reason": "source_enrolled",
+                        "after": json_object(source),
+                    }
+                )
+        self.candidates = candidates
+        required = {
+            f"entity:{reference}"
+            for function in self.settings.functions
+            for reference in function.entities
+        }
+        selected = {
+            node_id for node_id, source in candidates.items() if source.watched
+        } | required
+        selected.update(
+            f"entry:{candidates[node_id].owner_id}"
+            for node_id in tuple(selected)
+            if candidates[node_id].owner_id
         )
-        for reference in references:
-            entity_id = resolve_entity(self.hass, reference)
-            registered = registry.async_get(entity_id) if entity_id else None
-            owner_id = registered.config_entry_id if registered else None
-            if owner_id == self.entry.entry_id:
-                raise ValueError("Homeostatic cannot monitor its own entities")
-            node_id = f"entity:{reference}"
-            state = self.hass.states.get(entity_id) if entity_id else None
-            source = Source(
-                node_id=node_id,
-                name=state.name if state else entity_id or node_id,
-                kind="entity",
-                entity_id=entity_id,
-                owner_id=owner_id,
-                disabled=registered is not None and registered.disabled_by is not None,
-            )
-            sources[node_id] = source
-            if reference in self.settings.entities:
-                targets.append(node_id)
-            if owner_id:
-                entry_ids.add(owner_id)
-        for entry_id in sorted(entry_ids):
-            entry = self.hass.config_entries.async_get_entry(entry_id)
-            if entry_id == self.entry.entry_id:
-                raise ValueError("Homeostatic cannot monitor itself")
-            node_id = f"entry:{entry_id}"
-            sources[node_id] = Source(
-                node_id=node_id,
-                name=entry.title if entry else entry_id,
-                kind="integration",
-                entry_id=entry_id,
-            )
-            if entry_id in self.settings.config_entries:
-                targets.append(node_id)
+        sources = {node_id: candidates[node_id] for node_id in sorted(selected)}
+        self.enrolled = {
+            node_id: source.attributes for node_id, source in sources.items()
+        }
+        targets = [node_id for node_id, source in sources.items() if source.watched]
+        registry = er.async_get(self.hass)
         for function in self.settings.functions:
             node_id = f"function:{function.id}"
             sources[node_id] = Source(
@@ -321,7 +351,9 @@ class Runtime:
 
     def _listen_entries(self) -> None:
         selected = {
-            source.entry_id for source in self.sources.values() if source.entry_id
+            source.entry_id
+            for source in self.sources.values()
+            if source.entry_id and source.watched
         }
         for entry_id, (previous, cancel) in list(self._entries.items()):
             current = self.hass.config_entries.async_get_entry(entry_id)
@@ -423,6 +455,8 @@ class Runtime:
             self.saved = None
         observations = []
         for source in sources.values():
+            if not source.watched:
+                continue
             if source.kind in {"entity", "situation"}:
                 state = (
                     self.hass.states.get(source.entity_id) if source.entity_id else None
@@ -565,6 +599,10 @@ class Runtime:
         assert self.policy is not None
         return {
             "schema_version": 2,
+            "enrollment": {
+                node_id: {key: list(values) for key, values in metadata.items()}
+                for node_id, metadata in self.enrolled.items()
+            },
             "engine": self.engine.snapshot(),
             "policy": self.policy.snapshot(),
             "episodes": self.episodes.copy(),
@@ -588,9 +626,22 @@ class Runtime:
         """Read the public model for response-only HA actions."""
         if not self.available or self.engine is None:
             raise HomeAssistantError("Homeostatic is not ready")
+        if action == "preview_rules":
+            candidate_data = normalize_rules(self.hass, data["rules"])
+            settings = Settings.from_data(
+                {"rules": candidate_data, "functions": [], "situations": []}
+            )
+            return report(
+                inventory(self.hass, settings, self.enrolled),
+                parse_rules(candidate_data),
+            )
         if action == "inventory":
             return {
                 "nodes": [json_object(source) for source in self.sources.values()],
+                "catalog": report(
+                    self.candidates, parse_rules(rule_data(self.hass, self.settings))
+                ),
+                "enrollment_changes": list(self.enrollment_changes),
                 "targets": list(self.targets),
                 "episodes": list(self.episodes.values()),
                 "physical_freshness_supported": False,

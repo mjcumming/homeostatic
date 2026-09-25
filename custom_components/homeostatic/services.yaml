@@ -36,3 +36,12 @@ rollup:
     node_ids:
       selector:
         object:
+preview_rules:
+  name: Preview rules
+  description: Show candidate rule matches and resulting availability checks without saving or sending notifications.
+  fields:
+    rules:
+      required: true
+      description: A list of attach or exclude catalog rules. Entity names are resolved to stable references for this preview.
+      selector:
+        object:
