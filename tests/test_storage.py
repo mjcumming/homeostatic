@@ -25,6 +25,7 @@ from tests.test_lifecycle import start_monitor
     [
         {"schema_version": 2},
         {"engine": []},
+        {"integration_evidence": []},
         {"notifications": "bad"},
         {"notifications": [2]},
         {"episodes": {"bad": {"episode_id": "different"}}},
@@ -34,6 +35,7 @@ from tests.test_lifecycle import start_monitor
     ids=[
         "version",
         "engine-shape",
+        "integration-evidence-shape",
         "notifications-shape",
         "notification-id",
         "episode-identity",

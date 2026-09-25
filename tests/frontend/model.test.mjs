@@ -166,3 +166,35 @@ test("native destinations encode untrusted identifiers and old findings have hon
   assert.equal(integrationProblem(entry,[{reason:"__proto__"}]),null);
   assert.equal(integrationProblem(entry,[{node_id:"entry:other",reason:"setup_error"}]),null);
 });
+
+
+test("retry presentation keeps earlier evidence separate from current unknown findings",()=>{
+  const entry=source("entry:receiver",{kind:"integration",name:"Home Theater",attributes:{domain:["denonavr"]}});
+  const failure={reason:"setup_retry",message:"Connection timed out",observed_at:"2026-09-25T15:42:00Z"};
+  const current={reason:"setup_in_progress",message:"setup in progress",observed_at:"2026-09-25T15:44:00Z"};
+  const evidence={current,last_failure:failure};
+  const result=integrationProblem(entry,[],()=>"Denon AVR",evidence);
+  assert.equal(result.headline,"Trying setup again");
+  assert.equal(result.reported,"Connection timed out");
+  assert.equal(result.reportedAt,failure.observed_at);
+  assert.equal(result.historical,true);
+  assert.match(result.summary,/Recovery is not yet confirmed/);
+  assert.equal(result.currentReason,"setup_in_progress");
+  assert.doesNotMatch(result.summary,/timed out/);
+  assert.equal(integrationProblem(entry,[],()=>null,{current,last_failure:null}).headline,"Integration starting");
+  assert.equal(evidence.last_failure,failure);
+});
+
+test("disabled conditions and recovery stay distinct from failure and held unknown findings",()=>{
+  const entry=source("entry:music",{kind:"integration",name:"Music Assistant"});
+  const disabled=integrationProblem(entry,[{reason:"stale",message:"Evidence is unknown"}],()=>null,
+    {current:{reason:"disabled"},last_failure:null});
+  assert.equal(disabled.headline,"Integration disabled");
+  assert.equal(disabled.tone,"neutral");
+  assert.match(disabled.summary,/availability is unknown/);
+  assert.doesNotMatch(disabled.summary,/broken|failed/);
+  const running=integrationProblem(entry,[],()=>null,{current:{reason:"loaded"},last_failure:null});
+  assert.equal(running.headline,"Integration running");
+  assert.equal(running.reported,"");
+  assert.equal(running.historical,false);
+});

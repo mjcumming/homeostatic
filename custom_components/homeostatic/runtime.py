@@ -58,6 +58,7 @@ from .const import DOMAIN, EVENT_NOTIFICATION, NAME, RECONCILE_INTERVAL, STORE_V
 from .controls import OperatorControl, expiry, presentation, restore_controls
 from .delivery import DeliveryState
 from .enrollment import evaluate, inventory, report, restore_enrollment
+from .evidence import IntegrationEvidence
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
 from .rules import Attributes, parse_rules
@@ -89,6 +90,7 @@ class Runtime:
         self.enrollment_changes: deque[dict[str, JSONValue]] = deque(maxlen=50)
         self.episodes: dict[str, dict[str, JSONValue]] = {}
         self.history = ResolvedHistory()
+        self.integration_evidence = IntegrationEvidence()
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
         self._legacy_notifications: set[str] = set()
@@ -168,6 +170,7 @@ class Runtime:
                 raise ValueError("Invalid notification activation state")
         if "resolved_history" in self.saved:
             self.history.restore(self.saved["resolved_history"])
+        self.integration_evidence.restore(self.saved.get("integration_evidence", {}))
         self.controls = restore_controls(self.saved.get("operator_controls", []))
         self.enrolled = restore_enrollment(self.saved.get("enrollment", {}))
         notifications = self.saved.get("notifications")
@@ -264,6 +267,7 @@ class Runtime:
         assert self.policy is not None
         while self._pending:
             now, observations = self._pending.popleft()
+            self._record_observations(observations)
             self._handle(self.engine.ingest_many(observations, now), now)
             self._deliveries(self.policy.advance(now, PolicyContext()))
 
@@ -550,6 +554,13 @@ class Runtime:
         for node_id in self.sources.keys() - sources.keys():
             events.extend(self.engine.remove(node_id, now))
         self.sources = sources
+        self.integration_evidence.retain(
+            {
+                source.node_id
+                for source in sources.values()
+                if source.kind == "integration" and source.watched
+            }
+        )
         self._listen_entries()
         if first and self.saved is not None:
             self.episodes = self.saved["episodes"].copy()
@@ -588,10 +599,17 @@ class Runtime:
             elif source.kind == "integration":
                 observations.append(self._observe_entry(source, now))
         if observations:
+            self._record_observations(observations)
             events.extend(self.engine.ingest_many(observations, now))
         else:
             events.extend(self.engine.advance(now))
         return events
+
+    def _record_observations(self, observations: list[Observation]) -> None:
+        for observation in observations:
+            source = self.sources[observation.node_id]
+            if source.kind == "integration":
+                self.integration_evidence.observe(observation, source.name)
 
     def _observe_entry(self, source: Source, now: datetime) -> Observation:
         assert source.entry_id is not None
@@ -734,6 +752,7 @@ class Runtime:
                 for node_id, metadata in self.enrolled.items()
             },
             "resolved_history": self.history.snapshot(),
+            "integration_evidence": self.integration_evidence.snapshot(),
             "operator_controls": presentation(self.controls),
             "engine": self.engine.snapshot(),
             "policy": self.policy.snapshot(),
@@ -840,6 +859,13 @@ class Runtime:
                 "enrollment_changes": list(self.enrollment_changes),
                 "targets": list(self.targets),
                 "episodes": list(self.episodes.values()),
+                "integration_evidence": {
+                    str(episode["anchor"]): self.integration_evidence.view(
+                        str(episode["anchor"])
+                    )
+                    for episode in self.episodes.values()
+                    if self.sources[str(episode["anchor"])].kind == "integration"
+                },
                 "resolved_history": self.history.view(dt_util.utcnow()),
                 "operator_controls": [
                     json_object(control) for control in self.controls

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Problem cards and details separate current integration activity from the last reported failure, preserving timestamped context through retries and reloads without changing health or alert decisions. Disabled entries remain unknown but have a distinct, neutral presentation.
+- Overview summaries omit raw exceptions; integration identity, recovery progress, next steps and reported-error details remain accessible. Expanded details stay open during live updates.
+
 ## [0.1.0b3] - 2026-09-25
 
 ### Fixed

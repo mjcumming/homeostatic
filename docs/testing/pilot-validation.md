@@ -1,5 +1,15 @@
 # Pilot validation
 
+## Unreleased problem-view improvements — local validation
+
+Validated 2026-09-25 against HA 2026.9.3 and published HealthTree 0.3.0. The complete required check suite passed: 323 Python tests, 12 frontend tests, strict types, lint and formatting, with 98.83% combined coverage and both independent floors above 95%. The new integration-evidence module has full statement and branch coverage.
+
+Real HA WebSocket scenarios cover setup error/retry, empty findings during setup-in-progress, retention across reload, unchanged episode identity/onset, loaded evidence during the recovery hold, confirmed clearing, disabled evidence after the library emits `stale`, explicit unenrollment, malformed persistence and detached read-only results. Notification requests remain off in these scenarios.
+
+The actual browser component passed the synthetic preview regression for missing cause, reauthentication, retry continuity, disabled presentation, recovery hold, recovery, safe text, native links and expanded disclosures surviving live updates. Desktop and 390 × 844 phone layouts were inspected. Raw exceptions no longer lead the overview; reported errors remain inspectable inside problem details.
+
+These changes are local and unreleased. The live HA baseline below remains 0.1.0b3; no live restart, deployment or notification test was performed for this increment. A pre-existing failure that has already lost its cause cannot be reconstructed; retention starts with newly observed evidence after installation.
+
 ## 0.1.0b3 package and live upgrade
 
 On 2026-09-25, commit `fec29f09b718d5a1870ae8e9d7dca05e81795b88` passed the required checks (316 Python tests, 10 frontend tests and 98.79% combined coverage), official hassfest, and the fresh HA-only package smoke test. HA installed published HealthTree 0.3.0 from the manifest. The smoke test also fetched the new problem-presentation module alongside the other frontend assets and verified failure/recovery, history and reload behavior.
