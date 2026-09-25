@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Homeostatic component test</title>
+  <style>
+    :root{--primary-text-color:#182a34;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--secondary-text-color:#546875;--divider-color:#dce4e9;--primary-color:#007eab;--text-primary-color:#fff}
+    body{margin:0;font:14px Arial,sans-serif}#controls{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #ddd}button,select{padding:8px;font:inherit}homeostatic-card{max-width:1100px;margin:auto}
+  </style>
+</head>
+<body>
+  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="failure">Shared failure</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="navigation-check">Run navigation regression</button><span id="feedback" role="status"></span></div>
+  <homeostatic-card></homeostatic-card>
+  <script type="module">
+    import "../../custom_components/homeostatic/frontend/homeostatic.js";
+    const card=document.querySelector("homeostatic-card");
+    const scenario=document.querySelector("#scenario");
+    const unsafe=document.querySelector("#unsafe");
+    const admin=document.querySelector("#admin");
+    const handlers=new Map();
+    let subscribed;
+    const connection={
+      addEventListener(name,fn){handlers.set(name,fn);},
+      removeEventListener(name,fn){if(handlers.get(name)===fn)handlers.delete(name);},
+      async subscribeMessage(fn){subscribed=fn;queueMicrotask(()=>fn(data()));return ()=>{subscribed=null;};},
+    };
+    const baseSource=(node_id,name,kind,extra={})=>({
+      node_id,name,kind,requirements:[],attributes:{},attached_by:["passive_availability"],
+      excluded_by:[],watched:true,entity_id:null,entry_id:null,owner_id:null,...extra,
+    });
+    function data(){
+      if(scenario.value==="unloaded")return{schema_version:1,available:false,updated_at:"2026-09-25T15:52:00Z",error:null};
+      const failing=scenario.value==="failure",unknown=scenario.value==="unknown";
+      const name=unsafe.checked?'<img src=x onerror="alert(1)"> Frigate':"Frigate integration";
+      const entry=baseSource("entry:frigate",name,"integration",{entry_id:"frigate"});
+      const sensor=baseSource("entity:person","Basement person sensor","entity",{entity_id:"binary_sensor.person",owner_id:"frigate",attributes:{area:["basement"]}});
+      const fn=baseSource("function:lighting","Basement motion lighting","function",{requirements:["entity:person"],watched:false});
+      const unwatched=baseSource("entity:excluded","Workshop test sensor","entity",{watched:false,excluded_by:["ignore_workbench"]});
+      const answer=failing?"blocked":unknown?"unknown":"ready";
+      const reasons=failing?[{reason:"setup_error",message:name+": setup error",status:"fail"}]:[];
+      const episode={episode_id:"demo-episode",anchor:"entry:frigate",status:"fail",importance:"high",impact:["entity:person","function:lighting"],recorded:["entity:person"],opened_at:"2026-09-25T15:42:00Z",reasons};
+      const nodes=[entry,sensor,fn];
+      const readiness={answer,nodes:failing?[{node_id:"entry:frigate",own:"fail",watched:true,reasons:["setup_error"]}]:unknown?[{node_id:"entity:person",own:"unknown",watched:true,reasons:["state_unknown"]}]:[]};
+      return{schema_version:1,available:true,entry_id:"demo",updated_at:"2026-09-25T15:52:00Z",readiness,
+        functions:[{...fn,readiness}],evidence_gaps:unknown?1:0,
+        inventory:{nodes,catalog:{watched:2,candidates:[entry,sensor,unwatched]},episodes:failing?[episode]:[],operator_controls:[],enrollment_changes:[],notification_requests:[]},
+        coverage:{no_checks:["function:lighting"],never_observed:unknown?[{node_id:"entity:person",check_id:"availability"}]:[],stale:[],notification_consumer_missing:false},
+        policy:{notifications_enabled:false,routes:{owner:["phone"]},episodes:[]},
+        areas:[{id:"basement",name:"Basement",floor_id:"lower"}],floors:[{id:"lower",name:"Lower floor"}]};
+    }
+    const hass={connection,user:{id:"demo",is_admin:true},async callWS({node_id}){
+      const current=data(),source=current.inventory?.nodes.find(item=>item.node_id===node_id);
+      if(!source)throw{message:"This capability is no longer monitored"};
+      return{source,readiness:current.readiness,updated_at:current.updated_at,
+        explanation:{findings:current.inventory.episodes[0]?.reasons??[],nodes:source.kind==="function"?current.readiness.nodes:[]},
+        impact:{nodes:current.inventory.nodes.filter(n=>n.node_id!==node_id).map(n=>({node_id:n.node_id,importance:"normal"}))}};
+    }};
+    card.setConfig({view:"overview"});
+    card.hass=hass;
+    function change(){
+      if(scenario.value==="disconnected"){handlers.get("disconnected")?.();return;}
+      handlers.get("ready")?.();subscribed?.(data());
+    }
+    scenario.addEventListener("change",change);
+    unsafe.addEventListener("change",change);
+    admin.addEventListener("change",()=>{
+      card.hass={...hass,user:{id:admin.checked?"demo":"viewer",is_admin:admin.checked}};
+    });
+    document.querySelector("#navigation-check").addEventListener("click",()=>{
+      const feedback=document.querySelector("#feedback");
+      const expect=(condition,message)=>{if(!condition)throw new Error(message);};
+      try {
+        card.setConfig({view:"overview",navigation:false});
+        expect(card.shadowRoot.querySelector(".nav").hidden,"Embedded page tabs should be hidden");
+        card.shadowRoot.querySelector('main [data-page="coverage"]').click();
+        expect(card.shadowRoot.querySelector("h1").textContent==="What is monitored","Coverage drill-down should open");
+        const back=card.shadowRoot.querySelector('[data-action="back"]');
+        expect(!back.hidden && back.textContent.includes("Overview"),"A return to Overview must be available");
+        back.click();
+        expect(card.shadowRoot.querySelector("h1").textContent==="Your home, at a glance","Return should restore Overview");
+        expect(back.hidden,"The return button should disappear at the configured view");
+        feedback.textContent="PASS: embedded coverage drill-down returns to Overview";
+      } catch(error) {feedback.textContent="FAIL: "+error.message;}
+    });
+    card.addEventListener("hass-more-info",event=>{document.querySelector("#feedback").textContent="Entity requested: "+event.detail.entityId;});
+  </script>
+</body>
+</html>

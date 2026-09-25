@@ -1,6 +1,6 @@
 # Build roadmap
 
-Updated 2026-09-25. This file tracks delivery; [spec.md](spec.md) controls implemented behavior. The owner decisions in health-tree's UI worksheet section 16 remain the target. The library owns health and attention semantics.
+Updated 2026-09-25. This file tracks delivery; [spec.md](spec.md) controls implemented behavior. The owner decisions in [ui.md](ui.md) sections 16 and 17 remain the target. The library owns health and attention semantics.
 
 | Increment | Status | Acceptance |
 | --- | --- | --- |
@@ -12,9 +12,10 @@ Updated 2026-09-25. This file tracks delivery; [spec.md](spec.md) controls imple
 | Owner YAML policy | Complete for static recipients | Validated rules and routes; recipient quiet hours and reminders; escalation and grouped digests; read-only explanations/activation preview; activation resets escalation without rewriting episode history |
 | Operator controls | Complete for bounded creation and shelving | Administrator actions; scope preview; seven-day maximum and explicit expiry; durable control records; existing alerts and situations stay active during equipment maintenance; early cancellation and acknowledgment remain planned |
 | Resolution history backend | Complete for terminal episodes | Last 100 observed resolutions within 30 days; durable findings/identity, distinct removal/absorption, read-only inventory/action contract; dashboard rendering and full journal remain planned |
-| Product presentation | Planned | Review story notification texts first; then problems/functions/maintenance/coverage, remedies, native Repair links, recently resolved history |
+| Product presentation | First live read-only dashboard implemented; remaining presentation planned | Review story notification texts first; then auto-populated dashboard and reusable cards: needs attention, home functions, house browsing, visible coverage, recent changes; problem detail, maintenance, remedies, native Repair links, recently resolved history; walkthroughs in UI section 17; first prototype and draft story messages described in section 18; sidebar, cards, strategy, live read transport and HA area/floor browsing implemented; [isolated HA walkthrough](testing/dashboard-walkthrough.md) passed, including a corrected embedded return path; operator UI, specific remedies/Repairs, notification links, full wording and resolved history remain |
+| Optional TopoMation connection | Planned enrichment; not a release gate | HA areas/floors work independently; optional richer location navigation, then occupancy/automation context; later per-function suggestions require review; location membership never creates causal edges; monitoring survives loss of TopoMation |
 | Evidence producers | Release gate | Real healthy/failure/recovery traces for detector progress, device-originated freshness and command completion, replayed as fixtures |
 | Watchdog | Release gate | External observer and alert route verified independently of HA |
-| Distribution | Release gate | Released/pinned health-tree, actual HA deployment check, metadata validation and reviewed release; no fabricated package pin |
+| Distribution | Manual pilot candidate | Published health-tree 0.2.0 pin, reproducible ZIP, isolated package-install smoke and metadata checks; actual-house observation and HACS distribution remain |
 
 The structured YAML rule/function/situation forms are development interfaces. Legacy entity selections migrate to catalog rules; there is one attach/exclude model. The current catalog contains availability checks only. Check-specific parameters and additional evidence producers will arrive with their own contracts and traces. A richer interactive rule editor and configuration-health suggestions for excessive one-entity rules remain presentation work. Do not add a competing per-entity override system or a native condition builder. No phone receipt, physical-device freshness, or production readiness is inferred from passing synthetic tests.

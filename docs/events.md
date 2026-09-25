@@ -55,3 +55,7 @@ Shelving holds future alerts for the selected episode across recipients, includi
 ## Resolution history
 
 The `resolved_history` action and inventory field retain library resolution events even when no notification was requested. Transport actions such as `notifications_disabled` or `replaced` are not problem resolutions and never create history entries. History distinguishes `cleared`, `removed` and `absorbed`; only `cleared` represents the library's recovery decision. The historical episode is the evidence carried by the library resolution event, and `resolved_at` records when the adapter handled it. History queries never replay notification requests.
+
+## Dashboard read transport
+
+The dashboard uses authenticated administrator-only WebSocket commands, separate from notification events. `homeostatic/subscribe` acknowledges the subscription, sends a schema-version-1 presentation, then pushes updates; standard `unsubscribe_events` removes it. `homeostatic/node` accepts `node_id` for current evidence and potential impact. These commands never trigger notification deliveries or operator actions. Startup, errors and unload return explicit unavailability. The authoritative payload and lifecycle contract is in [spec.md](spec.md#live-dashboard).

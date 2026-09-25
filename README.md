@@ -4,9 +4,11 @@ Health monitoring and situation alerts for Home Assistant, powered by the separa
 
 Homeostatic answers **what is wrong, what depends on it, and what needs attention**. HealthTree supplies the dependency graph, episodes, readiness, and attention policy. This integration supplies Home Assistant observations, configuration, timers, persistence, entities, and notification requests. Consumers deliver those requests to people.
 
-**Status: development build with passive rule enrollment, not a distribution release.** Tested against Home Assistant 2026.9.3 on Python 3.14. The policy features require the unreleased HealthTree prerequisite described below, installed from a local checkout. Normal HACS installation and real-house observation proofs remain release gates.
+**Status: 0.1.0b1 pilot candidate.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.2.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). The first dashboard is read-only; operator actions and bounded resolution history are available through native HA actions. HACS distribution and real-house validation remain outstanding.
 
 ## What works now
+
+- Automatically populated Homeostatic sidebar dashboard, reusable cards and a dashboard strategy, with live problems, functions, HA location browsing, coverage, rule provenance and current problem details. The first aggregate surface requires an administrator.
 
 - Native setup/options with editable attach/exclude catalog rules, match previews, passive enrollment of future sources, and explanations of every attachment/exclusion. Registered sources keep their identity across renames.
 - Integration setup, retries and authentication evidence; entity availability; dependency correlation into episodes.
@@ -19,13 +21,30 @@ Homeostatic answers **what is wrong, what depends on it, and what needs attentio
 
 A passing availability check shows that HA currently reports an available control path. It does not verify physical-device freshness, detector progress, command completion, or phone receipt. Those require their own evidence producers and real traces.
 
-Richer evidence checks, owner-authored YAML policy, shelving/maintenance, Repairs links, problem panel, episode history, and external watchdog are tracked in the [build roadmap](docs/roadmap.md). The structured YAML forms are development interfaces.
+Richer evidence checks, dashboard operator controls, specific Repairs links, history presentation, optional TopoMation enrichment, and the external watchdog are tracked in the [build roadmap](docs/roadmap.md). The structured YAML forms are development interfaces.
 
-## Try the development build
+## Install the pilot
 
-Use an isolated development HA instance on Linux or WSL. Install the sibling health-tree checkout into the **same Python environment that runs HA**, place `custom_components/homeostatic` under `<HA config>/custom_components/`, restart that instance, and add **Homeostatic** through **Settings → Devices & services → Add integration**.
+Use an isolated development HA instance on Linux or WSL. Install the sibling health-tree checkout into the **same Python environment that runs HA**, place `custom_components/homeostatic` under `<HA config>/custom_components/`, restart that instance, and add **Homeostatic** through **Settings â†’ Devices & services â†’ Add integration**.
 
 Review the supplied passive availability rule. Matching entities and integration instances enroll automatically, including future sources. Notifications remain off until activated. Missing enrolled sources remain unknown across restarts until their rules explicitly remove them from scope. Startup grace and recovery confirmation default to two minutes; ordinary notification batching defaults to thirty seconds. See the [specification](docs/spec.md) for every timing and its meaning.
+
+### Open the dashboard
+
+After setup, administrators can open **Homeostatic** in the HA sidebar. It updates from the integration's inventory and public health queries as sources enroll, move, fail or recover. Overview, house browsing, coverage, and problem/function details use one shared live subscription. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
+
+The integration also registers a **Homeostatic** community dashboard strategy in HA's new-dashboard dialog. Add it there for a separate dashboard, or add the Homeostatic card to an existing dashboard:
+
+```yaml
+type: custom:homeostatic-card
+view: overview
+```
+
+Supported views are `overview`, `house`, `coverage`, `functions`, and `problems`. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
+
+This first dashboard is read-only and administrator-only because it includes installation-wide configuration, inventory and routing. Readiness entities retain their ordinary HA access controls. Problem details show current evidence, affected functions, potential impact, notification requests and active-control information. Action buttons hand off to native HA source pages; shelving and maintenance creation still use the existing administrator actions. Availability does not prove physical freshness or command completion.
+
+Recent changes currently show the last 50 enrollment changes from the runtime, not a durable recovery journal. TopoMation is not required or read by this increment. Notification event/blueprint links and automatic Repairs remedies remain follow-up work.
 
 ### Choose what to watch
 
@@ -257,22 +276,18 @@ attention under the replacement policy. Summaries and digests update silently as
 members resolve; the last resolution clears the group. An individual reminder or
 escalation replaces that episode's membership with its own message.
 
-Presence-dependent recipients, acknowledgment and operator shelving remain future
-integration work. Policies cannot execute corrective actions.
+Presence-dependent recipients and acknowledgment remain future integration work.
+Shelving is available through the administrator action described below. Policies cannot execute corrective actions.
 
 ### Inspect the model
 
-In **Developer tools → Actions**, call `homeostatic.inventory` for node ids, rule explanations, recent enrollment changes, episodes, and notification requests. Pass a node id to `homeostatic.explain` or `homeostatic.impact`. `homeostatic.readiness` and `homeostatic.rollup` default to selected capabilities/functions and accept `node_ids`. These actions are read-only. Situation ids are `situation:<id>`, function ids are `function:<id>`, and external capability ids are `external:<id>`.
+In **Developer tools â†’ Actions**, call `homeostatic.inventory` for node ids, rule explanations, recent enrollment changes, episodes, and notification requests. Pass a node id to `homeostatic.explain` or `homeostatic.impact`. `homeostatic.readiness` and `homeostatic.rollup` default to selected capabilities/functions and accept `node_ids`. These actions are read-only. Situation ids are `situation:<id>`, function ids are `function:<id>`, and external capability ids are `external:<id>`.
 
 ## Development and checks
 
-Use Python 3.14.2 or newer within the 3.14 series, on Linux or WSL:
+Use Python 3.14.2 or newer within the 3.14 series and Node.js 22 or newer, on Linux or WSL:
 
-```text
-GitHub/
-  health-tree/
-  homeostatic/
-```
+Only this repository is required; development and HA installation use the same published HealthTree version.
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 
@@ -284,24 +299,9 @@ uv run python script/check.py
 
 `make check` invokes the same command. It checks Ruff lint/formatting, strict mypy, the real Home Assistant integration tests, and separate 95% statement and branch coverage floors. The commit hook and CI use that same entry point. The consumer blueprint is exercised by HA's real automation engine with a mocked phone service; tests never send messages to a live installation.
 
-CI checks out health-tree at `a525938c2d866956a4cefab8261da39d96347de1`, including public attention activation/explanations and recipient-specific reminder holds. The local environment uses the sibling checkout, which must include that commit.
-Library behavior changes belong in its own RFP/ADR and tests. Publish the library
-commit before running remote CI against this integration commit.
+The lockfile and integration manifest pin `health-tree==0.2.0` from PyPI. CI installs that published package. Library behavior changes belong in the separate library RFP/ADR and tests; release a new library version before updating this pin.
 
-For an isolated library prerequisite worktree, run the same checks with an explicit
-override, for example:
-
-```bash
-uv run --with-editable ../health-tree-policy python script/check.py
-```
-
-The current prerequisite is on `codex/notification-policy` in that separate worktree,
-so independent work in the primary library checkout can continue. To run the commit hook
-against that same worktree in the prepared WSL environment, install it explicitly
-with `uv pip install --python "$UV_PROJECT_ENVIRONMENT/bin/python" -e ../health-tree-policy`
-and use `UV_NO_SYNC=1 git commit`; otherwise uv restores the sibling declared in the
-lockfile. After the prerequisite is merged into the sibling checkout, ordinary
-`uv sync --locked` and the default check command apply again.
+Build a reproducible installation archive from a clean committed checkout with `uv run python script/build_pilot.py`. The ZIP includes frontend assets, the optional consumer blueprint, installation instructions and exact build identity.
 
 On this workstation, the prepared environment is outside the mounted Windows filesystem:
 
@@ -319,11 +319,11 @@ Run commits from WSL after installing the WSL hook. Home Assistant metadata is v
 docker run --rm --mount "type=bind,source=$PWD,target=/github/workspace,readonly" ghcr.io/home-assistant/hassfest
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow, [docs/spec.md](docs/spec.md) for implemented behavior, [docs/roadmap.md](docs/roadmap.md) for remaining scope, and [CHANGELOG.md](CHANGELOG.md) for changes.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow, [docs/spec.md](docs/spec.md) for implemented behavior, [docs/roadmap.md](docs/roadmap.md) for remaining scope, [docs/ui.md](docs/ui.md) for owner-facing working notes, and [CHANGELOG.md](CHANGELOG.md) for changes.
 
 ## Recently resolved problems
 
-`homeostatic.resolved_history` returns the latest 100 terminal episodes observed within 30 days, newest first. The same response is available under `homeostatic.inventory` → `resolved_history`. It includes collection start time and retention limits. History survives a restart and includes problems that cleared before a notification was requested.
+`homeostatic.resolved_history` returns the latest 100 terminal episodes observed within 30 days, newest first. The same response is available under `homeostatic.inventory` â†’ `resolved_history`. It includes collection start time and retention limits. History survives a restart and includes problems that cleared before a notification was requested.
 
 Each row retains the original episode id, opening time, findings and display labels under `episode`, plus `resolved_at`, `resolution`, `absorbed_into` and a source display snapshot when available. `cleared` means the library observed recovery; `removed` means monitoring ended; `absorbed` links to a larger problem. Resolution time is when Homeostatic learned of the event, including after downtime. Old findings describe the past episode, not current device health. Upgrading starts collection from that point; earlier resolutions are not reconstructed. This is bounded problem history, not a full activity or delivery journal.
 
@@ -356,8 +356,8 @@ data:
 
 Shelving leaves the problem and its current message visible. Silent updates and resolution still work. The shelf holds reminders and escalation, including urgent alerts, until expiry; other policy holds still apply. Shelves and maintenance survive restarts. A shelf can be extended. Early cancellation, acknowledgment and dashboard buttons are planned. If an action reports a storage error, inspect active controls after the monitor recovers before retrying.
 
-## Before distribution
+## Beyond the pilot
 
-Release and pin the reviewed health-tree version; complete product presentation; capture healthy/failure/recovery traces for detector liveness, device-originated freshness and command completion; verify an external watchdog and notification consumers; validate the actual deployment. Synthetic fixtures and high coverage do not satisfy the real-house evidence gates.
+Complete product presentation; capture healthy/failure/recovery traces for detector liveness, device-originated freshness and command completion; verify an external watchdog and notification consumers; validate the actual deployment. Synthetic fixtures and high coverage do not satisfy the real-house evidence gates.
 
 MIT licensed. See [SECURITY.md](SECURITY.md) for reporting a security concern.

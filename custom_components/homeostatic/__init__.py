@@ -13,6 +13,7 @@ from homeassistant.helpers.storage import Store
 
 from .config import Settings
 from .const import DOMAIN, EVENT_NOTIFICATION, STORE_VERSION
+from .dashboard import async_register_dashboard, async_remove_dashboard
 from .runtime import Runtime
 from .services import async_register_services, async_remove_services
 
@@ -29,6 +30,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
             f"Invalid Homeostatic configuration or snapshot: {err}"
         ) from err
     entry.runtime_data = runtime
+    await async_register_dashboard(hass, runtime)
+    entry.async_on_unload(lambda: async_remove_dashboard(hass))
     async_register_services(hass, runtime)
     entry.async_on_unload(lambda: async_remove_services(hass))
     await hass.config_entries.async_forward_entry_setups(entry, [Platform.SENSOR])

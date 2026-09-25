@@ -2,9 +2,16 @@
 
 ## [Unreleased]
 
+## [0.1.0b1] - 2026-09-25
+
 ### Added
 
+- Reproducible manual-install pilot archive, installation/rollback guide and published HealthTree 0.2.0 dependency; development and HA no longer require an editable library checkout.
+
 - Persisted recently resolved episode history, capped at 100 entries and 30 days, with recovery/removal/absorption distinctions and detached read-only responses.
+
+- Live administrator dashboard: automatic sidebar registration, reusable cards and a dashboard strategy; shared authenticated subscriptions for problems, functions, HA areas/floors, coverage and enrollment provenance.
+- Read-only problem/function details, notification-request explanations, unavailable/disconnected states, reload-safe asset registration, and backend/frontend lifecycle tests.
 
 - Administrator operator actions for episode shelving and bounded equipment maintenance, with scope previews, explicit expiry, reason/actor records and restart persistence.
 - Current-control queries and expiry scheduling, with scenarios for situation isolation, continuing existing alerts, authorization, concurrent observations and storage failures.
@@ -30,8 +37,12 @@
 
 ### Changed
 
+- Documented agreed dashboard and optional TopoMation product direction, enrollment behavior, location/dependency boundaries, and acceptance walkthroughs; implementation remains planned.
+- Added a first dashboard design review with draft notification text for all ten library stories, evidence requirements, and presentation findings; no runtime or notification behavior changed.
+
 - Activation uses the public library API, preserves episode history, starts escalation afresh and respects delivery holds. Policy edits withdraw old routes before activation.
 
+- Owner-facing working notes now live in `docs/ui.md`. They are proposals, not implemented behavior.
 - Empty functions are explicit unwatched drafts; missing function/external declarations remain unknown requirements.
 - Native setup/options preview now includes function requirements and candidate decisions, with readable graph validation errors.
 
@@ -43,6 +54,8 @@
 - CI uses the reviewed HealthTree baseline including accepted situation ADRs.
 
 ### Fixed
+
+- Keep a return path after opening coverage or house details from an embedded Homeostatic card with page tabs hidden, including the generated dashboard.
 
 - Repeated reminder requests are preserved even when their text is unchanged; summary resolutions update the remaining group.
 

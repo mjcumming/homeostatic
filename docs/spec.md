@@ -36,6 +36,22 @@ Ordinary available-value changes do not trigger a new availability observation o
 
 An overall readiness sensor preserves `ready`, `unknown`, `degraded`, and `blocked`. It uses all rule-enrolled capabilities and declared functions; no selections yield unknown. Additional diagnostic sensors show open episode count and evidence-gap count. Intentionally composite function nodes are not counted as unwatched evidence gaps; their requirements provide the evidence. The raw coverage query retains the library no-checks list. Queries/actions expose inventory, explain, readiness, impact, coverage, and rollup through service responses. Queries use only public library APIs. Episode presentation is maintained from engine events and persisted independently, never extracted from engine snapshot internals.
 
+### Live dashboard
+
+The integration registers a Homeostatic sidebar dashboard at `/homeostatic`, a reusable `custom:homeostatic-card`, and a `custom:homeostatic` dashboard strategy. Local modules are registered with the HA frontend; no remote script, manual entity list, or external service is required. The strategy creates overview, house, and coverage views from the same live card. Existing user dashboards are not rewritten.
+
+This first surface is read-only and administrator-only because the aggregate view includes installation-wide inventory, configuration and notification routing. Both WebSocket commands enforce administrator access; hiding the sidebar is not the authorization boundary. Non-administrators get an explicit access message. Existing readiness entities remain available through HA's entity access controls.
+
+`homeostatic/subscribe` sends a schema-version-1 snapshot after subscription acknowledgement and on runtime publication. One adapter-owned presentation is shared by clients. It contains availability, last completed update, overall readiness, configured function readiness/requirements, inventory and rule provenance, current episodes and operator controls, coverage, policy explanations, and HA area/floor names. It never reads engine snapshot internals or advances time. Initial startup, a storage error, and unload publish `available: false`; no empty payload means healthy. Subscriptions remain valid across entry reload and are removed on client unsubscribe/disconnect. Static routes and WebSocket command registration are process-scoped to avoid duplicate routes after reload.
+
+`homeostatic/node` accepts one `node_id` and returns its source, public explanation, potential impact and readiness (null for situations). Unknown nodes return `not_found`; unavailable monitoring returns `not_ready`. No endpoint changes configuration, acknowledges problems, starts maintenance, shelves, or sends notifications.
+
+The overview shows open episodes, current function readiness, and coverage independently. Situations are labeled as situations and never enter function readiness. Potential impact is labeled separately from currently affected functions. Functions and rooms use stable ids, current display names, and current enrollment metadata. House browsing uses HA areas/floors only; grouping creates no dependency edges. Unassigned sources remain accessible through coverage.
+
+Coverage displays excluded candidates, required but unwatched capabilities, never-observed and stale checks, attach/exclude provenance, and the consumer gap. HA availability evidence does not verify physical freshness, detector progress or command completion. Recent changes show only the existing last-50 enrollment log for the current runtime; this increment does not claim resolved-history persistence.
+
+Client disconnect/error replaces any current-status claim with an explicit unavailable/stale message. Reconnection waits for a fresh subscribed snapshot. An open detail view refreshes against updates, and removed/resolved selections are identified rather than left as current problems. Frontend content treats names, findings and reasons as text, including when creating links to native HA configuration. Cards share one subscription per HA connection while mounted and release it when the last card is removed. When embedded with navigation tabs hidden, a drill-down to another page offers a return button to the card's configured view; selecting an already-active HA dashboard tab is not required to reset the card.
+
 ## Attention and persistence
 
 Notifications default to off. The integration emits `homeostatic_notification` events for policy deliveries; it does not deliver episode messages through notify services or persistent notifications. An optional consumer blueprint owns Companion app delivery. Persistent notifications are reserved for failures of Homeostatic itself. Delivery means requested, never received or read.
@@ -100,7 +116,7 @@ Tests use real Home Assistant helpers and the real health-tree engine. They cove
 
 ## Development dependency
 
-The policy prerequisite extends the library's 0.1.0 release and is not yet a released dependency. Development installs a checkout containing the pinned prerequisite commit from CI. The custom integration manifest intentionally has no fabricated PyPI pin; development HA must have that checkout installed in its Python environment. Before distribution, release the reviewed library, pin its real version in the manifest and development configuration, and remove this development-only installation requirement. HACS distribution is not enabled until that gate is met.
+The pilot pins the published `health-tree==0.2.0` in both the custom integration manifest and development dependency. HA installs the manifest requirement through its normal dependency mechanism. The reproducible manual-install archive includes the dashboard assets and build identity; it requires no sibling library checkout. Home Assistant 2026.9.3 is the tested baseline. Actual-house evidence and HACS distribution remain separate milestones; see [pilot.md](pilot.md).
 
 
 ## HA registry references
