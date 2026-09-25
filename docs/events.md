@@ -51,3 +51,7 @@ Turning notifications off withdraws requested messages without claiming recovery
 ## Operator controls
 
 Shelving holds future alerts for the selected episode across recipients, including reminders and escalation. It preserves existing messages and permits library-authorized silent updates and resolution. It does not acknowledge receipt. Maintenance prevents new episodes in its equipment scope but leaves already-open episodes and situation alerts active. Controls are saved before resulting events are published. Previously authorized durable outbox entries keep their delivery ids and replay behavior; an operator action cannot recall a request that may already have been published.
+
+## Resolution history
+
+The `resolved_history` action and inventory field retain library resolution events even when no notification was requested. Transport actions such as `notifications_disabled` or `replaced` are not problem resolutions and never create history entries. History distinguishes `cleared`, `removed` and `absorbed`; only `cleared` represents the library's recovery decision. The historical episode is the evidence carried by the library resolution event, and `resolved_at` records when the adapter handled it. History queries never replay notification requests.

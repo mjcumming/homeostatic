@@ -59,6 +59,7 @@ from .controls import OperatorControl, expiry, presentation, restore_controls
 from .delivery import DeliveryState
 from .enrollment import evaluate, inventory, report, restore_enrollment
 from .function_model import compose, describe, preview
+from .history import ResolvedHistory
 from .rules import Attributes, parse_rules
 from .serialization import json_object
 
@@ -87,6 +88,7 @@ class Runtime:
         self.candidates: dict[str, Source] = {}
         self.enrollment_changes: deque[dict[str, JSONValue]] = deque(maxlen=50)
         self.episodes: dict[str, dict[str, JSONValue]] = {}
+        self.history = ResolvedHistory()
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
         self._legacy_notifications: set[str] = set()
@@ -164,6 +166,8 @@ class Runtime:
             self.delivery.restore(self.saved["delivery"])
             if type(self.saved.get("notifications_enabled")) is not bool:
                 raise ValueError("Invalid notification activation state")
+        if "resolved_history" in self.saved:
+            self.history.restore(self.saved["resolved_history"])
         self.controls = restore_controls(self.saved.get("operator_controls", []))
         self.enrolled = restore_enrollment(self.saved.get("enrollment", {}))
         notifications = self.saved.get("notifications")
@@ -381,6 +385,7 @@ class Runtime:
             self._deliveries(self.policy.activate(now, PolicyContext()))
         self._deliveries(self.policy.advance(now, PolicyContext()))
         self._prune_controls(now)
+        self.history.advance(now)
         if not self.settings.notifications:
             self.delivery.deactivate()
         await self._save()
@@ -611,6 +616,7 @@ class Runtime:
             if isinstance(event, EpisodeOpened | EpisodeUpdated):
                 self.episodes[event.episode.episode_id] = json_object(event.episode)
             elif isinstance(event, EpisodeResolved):
+                self.history.record(event, self.sources.get(event.episode.anchor), now)
                 self.episodes.pop(event.episode.episode_id, None)
             elif isinstance(event, ProbeRequested):
                 # Reconciliation has already read the available HA evidence. A
@@ -723,6 +729,7 @@ class Runtime:
                 node_id: {key: list(values) for key, values in metadata.items()}
                 for node_id, metadata in self.enrolled.items()
             },
+            "resolved_history": self.history.snapshot(),
             "operator_controls": presentation(self.controls),
             "engine": self.engine.snapshot(),
             "policy": self.policy.snapshot(),
@@ -771,6 +778,8 @@ class Runtime:
         """Read the public model for response-only HA actions."""
         if not self.available or self.engine is None:
             raise HomeAssistantError("Homeostatic is not ready")
+        if action == "resolved_history":
+            return self.history.view(dt_util.utcnow())
         if action == "preview_maintenance":
             return self._preview_maintenance(data, dt_util.utcnow())
         if action == "operator_controls":
@@ -827,6 +836,7 @@ class Runtime:
                 "enrollment_changes": list(self.enrollment_changes),
                 "targets": list(self.targets),
                 "episodes": list(self.episodes.values()),
+                "resolved_history": self.history.view(dt_util.utcnow()),
                 "operator_controls": [
                     json_object(control) for control in self.controls
                 ],
