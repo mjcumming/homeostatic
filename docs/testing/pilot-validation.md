@@ -14,7 +14,9 @@ The separate [dashboard walkthrough](dashboard-walkthrough.md) records native se
 
 `script/smoke_pilot.py` accepts that ZIP and requires a separate environment containing HA 2026.9.3 without HealthTree already installed. It verifies the package hashes, copies only the component into a temporary configuration, and lets HA install the manifest dependency. It exercises native config flow, function readiness, frontend asset serving, failure/recovery, resolved history and reload. Notifications stay off; synthetic timings are explicitly zero so the check never sleeps. The browser walkthrough independently used normal timing defaults.
 
-The CI job builds the ZIP, runs this clean-install check and uploads the archive only after success. Local package acceptance is recorded once this candidate is built.
+The CI job builds the ZIP, runs this clean-install check and uploads the archive only after success. Local package installation **passed on 2026-09-25** from the combined candidate ZIP. The environment initially contained HA without HealthTree. HA installed `health-tree==0.2.0` into the isolated environment's site-packages, with no editable/direct-URL metadata. Setup, all three frontend assets, ready → blocked → ready behavior, one retained cleared episode, controls query, empty notification requests and history across reload passed.
+
+The Linux test host lacks optional FFmpeg and TurboJPEG system libraries, so HA logged media-related errors/warnings while importing its frontend dependencies. Those media features are outside this check. No Homeostatic installation, runtime or assertion failure occurred. The normal custom-integration and optional zlib acceleration warnings also remain visible.
 
 ## Reproduce
 

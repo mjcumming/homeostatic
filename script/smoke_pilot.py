@@ -6,6 +6,7 @@ import importlib.metadata
 import json
 import socket
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
@@ -130,7 +131,11 @@ def main() -> None:
             "logger:\n  default: warning\n",
             encoding="utf-8",
         )
-        asyncio.run(exercise(config, port), loop_factory=create_event_loop)
+        # HA's blocking-I/O detector stays attached to its loop thread after shutdown.
+        with ThreadPoolExecutor(max_workers=1) as runner:
+            runner.submit(
+                asyncio.run, exercise(config, port), loop_factory=create_event_loop
+            ).result()
         installed = importlib.metadata.distribution("health-tree")
         assert installed.version == "0.2.0", installed.version
         assert installed.read_text("direct_url.json") is None
