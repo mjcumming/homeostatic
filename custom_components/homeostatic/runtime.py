@@ -1,0 +1,659 @@
+"""Home Assistant lifecycle, observation, persistence, and delivery adapter."""
+
+import asyncio
+import logging
+from collections import deque
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from functools import partial
+from typing import Any
+
+from health_tree.engine import Engine
+from health_tree.policy import Policy
+from health_tree.types import (
+    Delivery,
+    EpisodeOpened,
+    EpisodeResolved,
+    EpisodeUpdated,
+    Importance,
+    JSONValue,
+    Notification,
+    Observation,
+    PolicyContext,
+    ProbeRequested,
+    View,
+)
+from health_tree.types import (
+    Event as HealthEvent,
+)
+from homeassistant.components import persistent_notification
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP, EVENT_STATE_CHANGED
+from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.event import (
+    async_track_point_in_utc_time,
+    async_track_time_interval,
+)
+from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
+
+from .catalog import (
+    Source,
+    entity_observation,
+    entity_state_signature,
+    entry_observation,
+)
+from .config import Settings, resolve_entity
+from .const import DOMAIN, EVENT_NOTIFICATION, NAME, RECONCILE_INTERVAL, STORE_VERSION
+from .delivery import DeliveryState
+from .serialization import json_object
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class Runtime:
+    """Serialize engine calls and publish durable adapter state on the HA loop."""
+
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, settings: Settings
+    ) -> None:
+        """Prepare storage and listeners without starting the engine clock."""
+        self.hass = hass
+        self.entry = entry
+        self.settings = settings
+        self.store: Store[dict[str, Any]] = Store(
+            hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}", atomic_writes=True
+        )
+        self.signal = f"{DOMAIN}_{entry.entry_id}_updated"
+        self.engine: Engine | None = None
+        self.policy: Policy | None = None
+        self.sources: dict[str, Source] = {}
+        self.targets: list[str] = []
+        self.episodes: dict[str, dict[str, JSONValue]] = {}
+        self.delivery = DeliveryState(entry.entry_id)
+        self._legacy_notifications: set[str] = set()
+        self._activating = False
+        self._pending: deque[tuple[datetime, list[Observation]]] = deque()
+        self.retry_since: dict[str, datetime] = {}
+        self.saved: dict[str, Any] | None = None
+        self.running = False
+        self._stopped = False
+        self.error: str | None = None
+        self.updated_at: datetime | None = None
+        self._lock = asyncio.Lock()
+        self._subscriptions: list[Callable[[], None]] = []
+        self._entries: dict[str, tuple[ConfigEntry, Callable[[], None]]] = {}
+        self._deadline_cancel: Callable[[], None] | None = None
+
+    @property
+    def desired_notifications(self) -> set[str]:
+        """Episode ids represented in the last requested notification information."""
+        return self.delivery.episode_ids
+
+    @property
+    def consumer_missing(self) -> bool:
+        """An enabled notification route needs an enabled consumer automation."""
+        state = (
+            self.hass.states.get(self.settings.consumer)
+            if self.settings.consumer
+            else None
+        )
+        return self.settings.notifications and (state is None or state.state != "on")
+
+    @property
+    def available(self) -> bool:
+        """Whether presentation is a current answer from a running adapter."""
+        return self.running and self.engine is not None and self.error is None
+
+    @property
+    def readiness(self) -> str:
+        """Read overall readiness without conflating no enrollment with ready."""
+        if self.engine is None or not self.targets:
+            return "unknown"
+        return self.engine.readiness(self.targets).answer
+
+    @property
+    def evidence_gaps(self) -> int:
+        """Count distinct unwatched nodes and unknown/stale check references."""
+        if self.engine is None:
+            return 0
+        coverage = self.engine.coverage()
+        return (
+            int(self.consumer_missing)
+            + sum(
+                self.sources[node_id].kind != "function"
+                for node_id in coverage.no_checks
+            )
+            + len(set(coverage.never_observed) | set(coverage.stale))
+        )
+
+    async def async_load(self) -> None:
+        """Read and validate the envelope before Home Assistant starts."""
+        self.saved = await self.store.async_load()
+        if self.saved is None:
+            return
+        if not isinstance(self.saved, dict):
+            raise ValueError("Invalid Homeostatic snapshot envelope")
+        if self.saved.get("schema_version") not in (1, 2):
+            raise ValueError("Unsupported Homeostatic snapshot version")
+        for key in ("engine", "policy", "episodes", "retry_since"):
+            if not isinstance(self.saved.get(key), dict):
+                raise ValueError(f"Invalid stored {key}")
+        if self.saved["schema_version"] == 2:
+            self.delivery.restore(self.saved["delivery"])
+            if type(self.saved.get("notifications_enabled")) is not bool:
+                raise ValueError("Invalid notification activation state")
+        notifications = self.saved.get("notifications")
+        if not isinstance(notifications, list) or not all(
+            isinstance(item, str) for item in notifications
+        ):
+            raise ValueError("Invalid stored notifications")
+        for episode_id, episode in self.saved["episodes"].items():
+            if not isinstance(episode, dict) or episode.get("episode_id") != episode_id:
+                raise ValueError("Invalid stored episode")
+            if not isinstance(episode.get("anchor"), str) or not isinstance(
+                episode.get("reasons"), list
+            ):
+                raise ValueError("Invalid stored episode presentation")
+            for finding in episode["reasons"]:
+                if not isinstance(finding, dict) or not isinstance(
+                    finding.get("reason"), str
+                ):
+                    raise ValueError("Invalid stored episode reason")
+
+    async def async_start(self, hass: HomeAssistant) -> None:
+        """Begin startup grace only once HA has completed startup."""
+        if self._stopped or self.running:
+            return
+        self.running = True
+        self._subscriptions.extend(
+            (
+                hass.bus.async_listen(EVENT_STATE_CHANGED, self._state_changed),
+                hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, self._stop_event),
+                hass.bus.async_listen(
+                    er.EVENT_ENTITY_REGISTRY_UPDATED, self._registry_changed
+                ),
+                async_track_time_interval(hass, self._timer, RECONCILE_INTERVAL),
+            )
+        )
+        await self.async_refresh()
+
+    @callback
+    def _state_changed(self, event: Event[Any]) -> None:
+        if not self.running:
+            return
+        entity_id = event.data["entity_id"]
+        sources = [
+            source for source in self.sources.values() if source.entity_id == entity_id
+        ]
+        if sources and (
+            any(source.kind == "situation" for source in sources)
+            or entity_state_signature(event.data["old_state"])
+            != entity_state_signature(event.data["new_state"])
+        ):
+            now = dt_util.utcnow()
+            self._pending.append(
+                (
+                    now,
+                    [
+                        entity_observation(source, event.data["new_state"], now)
+                        for source in sources
+                    ],
+                )
+            )
+            self._request_refresh()
+        elif entity_id == self.settings.consumer:
+            self._request_refresh()
+
+    @callback
+    def _entry_changed(self, entry: ConfigEntry) -> None:
+        if self.running:
+            source = self.sources[f"entry:{entry.entry_id}"]
+            now = dt_util.utcnow()
+            self._pending.append((now, [self._observe_entry(source, now)]))
+            self._request_refresh()
+
+    def _drain_pending(self) -> None:
+        assert self.engine is not None
+        assert self.policy is not None
+        while self._pending:
+            now, observations = self._pending.popleft()
+            self._handle(self.engine.ingest_many(observations, now), now)
+            self._deliveries(self.policy.advance(now, PolicyContext()))
+
+    @callback
+    def _registry_changed(self, event: Event[Any]) -> None:
+        self._request_refresh()
+
+    @callback
+    def _request_refresh(self) -> None:
+        if self.running:
+            self.hass.async_create_task(self.async_refresh())
+
+    async def _timer(self, now: datetime) -> None:
+        await self.async_refresh()
+
+    async def _stop_event(self, event: Event[Any]) -> None:
+        await self.async_stop()
+
+    def _discover(self) -> dict[str, Source]:
+        sources: dict[str, Source] = {}
+        targets: list[str] = []
+        entry_ids = set(self.settings.config_entries)
+        registry = er.async_get(self.hass)
+        references = dict.fromkeys(
+            (
+                *self.settings.entities,
+                *(
+                    reference
+                    for function in self.settings.functions
+                    for reference in function.entities
+                ),
+            )
+        )
+        for reference in references:
+            entity_id = resolve_entity(self.hass, reference)
+            registered = registry.async_get(entity_id) if entity_id else None
+            owner_id = registered.config_entry_id if registered else None
+            if owner_id == self.entry.entry_id:
+                raise ValueError("Homeostatic cannot monitor its own entities")
+            node_id = f"entity:{reference}"
+            state = self.hass.states.get(entity_id) if entity_id else None
+            source = Source(
+                node_id=node_id,
+                name=state.name if state else entity_id or node_id,
+                kind="entity",
+                entity_id=entity_id,
+                owner_id=owner_id,
+                disabled=registered is not None and registered.disabled_by is not None,
+            )
+            sources[node_id] = source
+            if reference in self.settings.entities:
+                targets.append(node_id)
+            if owner_id:
+                entry_ids.add(owner_id)
+        for entry_id in sorted(entry_ids):
+            entry = self.hass.config_entries.async_get_entry(entry_id)
+            if entry_id == self.entry.entry_id:
+                raise ValueError("Homeostatic cannot monitor itself")
+            node_id = f"entry:{entry_id}"
+            sources[node_id] = Source(
+                node_id=node_id,
+                name=entry.title if entry else entry_id,
+                kind="integration",
+                entry_id=entry_id,
+            )
+            if entry_id in self.settings.config_entries:
+                targets.append(node_id)
+        for function in self.settings.functions:
+            node_id = f"function:{function.id}"
+            sources[node_id] = Source(
+                node_id=node_id,
+                name=function.name,
+                kind="function",
+                importance=function.importance,
+                requirements=tuple(
+                    f"entity:{reference}" for reference in function.entities
+                ),
+            )
+            targets.append(node_id)
+        for situation in self.settings.situations:
+            entity_id = resolve_entity(self.hass, situation.entity)
+            registered = registry.async_get(entity_id) if entity_id else None
+            if registered is not None and registered.platform == DOMAIN:
+                raise ValueError("Homeostatic cannot use its own entities")
+            node_id = f"situation:{situation.id}"
+            sources[node_id] = Source(
+                node_id=node_id,
+                name=situation.name,
+                kind="situation",
+                entity_id=entity_id,
+                importance=situation.importance,
+                disabled=registered is not None and registered.disabled_by is not None,
+            )
+        self.targets = targets
+        return dict(
+            sorted(sources.items(), key=lambda item: item[1].kind != "integration")
+        )
+
+    def _listen_entries(self) -> None:
+        selected = {
+            source.entry_id for source in self.sources.values() if source.entry_id
+        }
+        for entry_id, (previous, cancel) in list(self._entries.items()):
+            current = self.hass.config_entries.async_get_entry(entry_id)
+            if entry_id not in selected or current is not previous:
+                cancel()
+                del self._entries[entry_id]
+        for entry_id in selected - self._entries.keys():
+            entry = self.hass.config_entries.async_get_entry(entry_id)
+            if entry is not None:
+                self._entries[entry_id] = (
+                    entry,
+                    entry.async_on_state_change(partial(self._entry_changed, entry)),
+                )
+
+    async def async_refresh(self) -> None:
+        """Reconcile a full observation batch, persist, then apply deliveries."""
+        async with self._lock:
+            if not self.running:
+                return
+            now = dt_util.utcnow()
+            try:
+                if self.engine is not None:
+                    self._drain_pending()
+                events = self._evaluate(now)
+                self._handle(events, now)
+                assert self.policy is not None
+                self._deliveries(self.policy.advance(now, PolicyContext()))
+                if self._activating:
+                    self.delivery.activate(
+                        [self._content(episode_id) for episode_id in self.episodes]
+                    )
+                    self._activating = False
+                if not self.settings.notifications:
+                    self.delivery.deactivate()
+                await self._save()
+                if self.running:
+                    await self._flush_events()
+            except (
+                OSError,
+                HomeAssistantError,
+                ValueError,
+                KeyError,
+                TypeError,
+            ) as err:
+                if self.saved is not None:
+                    self.engine = None
+                    self.policy = None
+                if self.error != str(err):
+                    _LOGGER.error("Homeostatic refresh failed: %s", err)
+                self.error = str(err)
+                persistent_notification.async_create(
+                    self.hass,
+                    "Homeostatic cannot provide current health. Check its configuration, storage, and logs.",
+                    NAME,
+                    f"{DOMAIN}_{self.entry.entry_id}_error",
+                )
+            else:
+                self.error = None
+                self.updated_at = now
+                persistent_notification.async_dismiss(
+                    self.hass, f"{DOMAIN}_{self.entry.entry_id}_error"
+                )
+                if self.running:
+                    self._schedule(now)
+            async_dispatcher_send(self.hass, self.signal)
+
+    def _evaluate(self, now: datetime) -> list[HealthEvent]:
+        sources = self._discover()
+        events: list[HealthEvent] = []
+        first = self.engine is None
+        if first:
+            self.engine = Engine(self.settings.engine_settings())
+            self.policy = Policy(self.settings.policy_config())
+        assert self.engine is not None
+        assert self.policy is not None
+        for node_id, source in sources.items():
+            if first or source != self.sources.get(node_id):
+                events.extend(self.engine.register(source.node(self.settings), now))
+        for node_id in self.sources.keys() - sources.keys():
+            events.extend(self.engine.remove(node_id, now))
+        self.sources = sources
+        self._listen_entries()
+        if first and self.saved is not None:
+            self.episodes = self.saved["episodes"].copy()
+            self._legacy_notifications = (
+                set(self.saved["notifications"])
+                if self.saved["schema_version"] == 1
+                else set()
+            )
+            self._activating = self.settings.notifications and not self.saved.get(
+                "notifications_enabled", False
+            )
+            self.retry_since = {
+                entry_id: datetime.fromisoformat(value)
+                for entry_id, value in self.saved["retry_since"].items()
+            }
+            self.policy.restore(self.saved["policy"], now)
+            events = self.engine.restore(self.saved["engine"], now)
+            self.saved = None
+        observations = []
+        for source in sources.values():
+            if source.kind in {"entity", "situation"}:
+                state = (
+                    self.hass.states.get(source.entity_id) if source.entity_id else None
+                )
+                observations.append(entity_observation(source, state, now))
+            elif source.kind == "integration":
+                observations.append(self._observe_entry(source, now))
+        if observations:
+            events.extend(self.engine.ingest_many(observations, now))
+        else:
+            events.extend(self.engine.advance(now))
+        return events
+
+    def _observe_entry(self, source: Source, now: datetime) -> Observation:
+        assert source.entry_id is not None
+        entry = self.hass.config_entries.async_get_entry(source.entry_id)
+        if entry is not None and entry.state is ConfigEntryState.SETUP_RETRY:
+            self.retry_since.setdefault(source.entry_id, now)
+        elif entry is None or entry.state is not ConfigEntryState.SETUP_IN_PROGRESS:
+            self.retry_since.pop(source.entry_id, None)
+        reauth = any(
+            flow["context"].get("source") == "reauth"
+            and flow["context"].get("entry_id") == source.entry_id
+            for flow in self.hass.config_entries.flow.async_progress()
+        )
+        return entry_observation(
+            source,
+            entry,
+            now,
+            self.retry_since.get(source.entry_id),
+            self.settings,
+            reauth,
+        )
+
+    def _handle(self, events: list[HealthEvent], now: datetime) -> None:
+        assert self.policy is not None
+        for event in events:
+            if isinstance(event, EpisodeOpened | EpisodeUpdated):
+                self.episodes[event.episode.episode_id] = json_object(event.episode)
+            elif isinstance(event, EpisodeResolved):
+                self.episodes.pop(event.episode.episode_id, None)
+            elif isinstance(event, ProbeRequested):
+                # Reconciliation has already read the available HA evidence. A
+                # cached entity update cannot establish physical freshness.
+                continue
+            self._deliveries(self.policy.handle(event, now, PolicyContext()))
+
+    def _deliveries(self, deliveries: list[Delivery]) -> None:
+        if not self.settings.notifications or self._activating:
+            return
+        for delivery in deliveries:
+            content = (
+                self._content(delivery.episode_id)
+                if isinstance(delivery, Notification)
+                else {}
+            )
+            self.delivery.record(delivery, content)
+
+    def _content(self, episode_id: str) -> dict[str, JSONValue]:
+        assert self.engine is not None
+        episode = self.episodes[episode_id]
+        anchor = str(episode["anchor"])
+        source = self.sources[anchor]
+        functions = [
+            self.sources[item.node_id]
+            for item in self.engine.impact(anchor).nodes
+            if self.sources[item.node_id].kind == "function"
+        ]
+        names: list[JSONValue] = [item.name for item in functions]
+        title = source.name
+        if functions:
+            title = f"{', '.join(item.name for item in functions)}: {self.engine.readiness([item.node_id for item in functions]).answer}"
+        findings = episode["reasons"]
+        assert isinstance(findings, list)
+        message = (
+            "\n".join(
+                str(finding.get("message") or finding["reason"])
+                for finding in findings
+                if isinstance(finding, dict)
+            )
+            or "Current evidence is unknown."
+        )
+        return {
+            "schema_version": 1,
+            "entry_id": self.entry.entry_id,
+            "episode_id": episode_id,
+            "tag": self.notification_id(episode_id),
+            "title": title,
+            "message": message,
+            "functions": names,
+            "cause": anchor,
+            "loudness": "urgent"
+            if episode["importance"] == Importance.CRITICAL.value
+            else "notify",
+        }
+
+    async def _flush_events(self) -> None:
+        for episode_id in self._legacy_notifications:
+            persistent_notification.async_dismiss(
+                self.hass, self.notification_id(episode_id)
+            )
+        self._legacy_notifications.clear()
+        if not self.delivery.outbox:
+            return
+        pending = list(self.delivery.outbox)
+        for payload in pending:
+            self.hass.bus.async_fire(EVENT_NOTIFICATION, dict(payload))
+        self.delivery.outbox.clear()
+        try:
+            await self._save()
+        except OSError, HomeAssistantError, ValueError, TypeError:
+            self.delivery.outbox[:0] = pending
+            raise
+
+    def notification_id(self, episode_id: str) -> str:
+        """Stable id for replacement and dismissal, scoped to this installation."""
+        return f"{DOMAIN}_{self.entry.entry_id}_{episode_id}"
+
+    def _schedule(self, now: datetime) -> None:
+        if self._deadline_cancel is not None:
+            self._deadline_cancel()
+            self._deadline_cancel = None
+        assert self.engine is not None
+        assert self.policy is not None
+        deadlines = [self.engine.next_deadline(), self.policy.next_deadline()]
+        deadlines.extend(
+            since + self.settings.duration("retry_hold")
+            for since in self.retry_since.values()
+            if since + self.settings.duration("retry_hold") > now
+        )
+        deadline = min((time for time in deadlines if time is not None), default=None)
+        if deadline is not None:
+            self._deadline_cancel = async_track_point_in_utc_time(
+                self.hass, self._timer, max(deadline, now + timedelta(milliseconds=1))
+            )
+
+    def snapshot(self) -> dict[str, Any]:
+        """Envelope holding opaque library state and adapter-owned presentation."""
+        assert self.engine is not None
+        assert self.policy is not None
+        return {
+            "schema_version": 2,
+            "engine": self.engine.snapshot(),
+            "policy": self.policy.snapshot(),
+            "episodes": self.episodes.copy(),
+            "notifications": sorted(self.desired_notifications),
+            "notifications_enabled": self.settings.notifications,
+            "delivery": self.delivery.snapshot(),
+            "retry_since": {
+                key: value.isoformat() for key, value in self.retry_since.items()
+            },
+        }
+
+    async def _save(self) -> None:
+        snapshot = self.snapshot()
+        await self.store.async_save(snapshot)
+        # Store logs some write failures without raising. Read-back prevents
+        # delivering a problem whose new persistence state was not accepted.
+        if await self.store.async_load() != snapshot:
+            raise HomeAssistantError("Homeostatic snapshot could not be saved")
+
+    def query(self, action: str, data: dict[str, Any]) -> dict[str, JSONValue]:
+        """Read the public model for response-only HA actions."""
+        if not self.available or self.engine is None:
+            raise HomeAssistantError("Homeostatic is not ready")
+        if action == "inventory":
+            return {
+                "nodes": [json_object(source) for source in self.sources.values()],
+                "targets": list(self.targets),
+                "episodes": list(self.episodes.values()),
+                "physical_freshness_supported": False,
+                "notification_consumer_missing": self.consumer_missing,
+                "situation_availability_verified": False,
+                "notification_requests": list(self.delivery.messages.values()),
+                "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            }
+        if action == "coverage":
+            return {
+                **json_object(self.engine.coverage()),
+                "notification_consumer_missing": self.consumer_missing,
+            }
+        if action == "readiness":
+            nodes = data.get("node_ids", self.targets)
+            if not nodes:
+                return {"answer": "unknown", "nodes": [], "blocked_by": None}
+            return json_object(self.engine.readiness(nodes))
+        if action == "rollup":
+            nodes = frozenset(data.get("node_ids", self.targets))
+            return json_object(
+                self.engine.rollup(
+                    View(view_id="selection", groups={"selected": nodes}), "selected"
+                )
+            )
+        if action == "impact":
+            return json_object(self.engine.impact(data["node_id"]))
+        return json_object(self.engine.explain(data["node_id"]))
+
+    async def async_stop(self) -> None:
+        """Cancel future work and save the final state before unloading."""
+        self.running = False
+        self._stopped = True
+        for cancel in self._subscriptions:
+            cancel()
+        self._subscriptions.clear()
+        for _, cancel in self._entries.values():
+            cancel()
+        self._entries.clear()
+        if self._deadline_cancel is not None:
+            self._deadline_cancel()
+            self._deadline_cancel = None
+        async with self._lock:
+            if (
+                self.engine is not None
+                and self.policy is not None
+                and self.saved is None
+            ):
+                try:
+                    self._drain_pending()
+                    await self._save()
+                except (
+                    OSError,
+                    HomeAssistantError,
+                    ValueError,
+                    KeyError,
+                    TypeError,
+                ) as err:
+                    self.error = str(err)
+                    _LOGGER.error("Homeostatic final save failed: %s", err)
+                    persistent_notification.async_create(
+                        self.hass,
+                        "Homeostatic stopped, but its latest state could not be saved. Check storage before restarting monitoring.",
+                        NAME,
+                        f"{DOMAIN}_{self.entry.entry_id}_error",
+                    )

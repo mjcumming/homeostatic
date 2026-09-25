@@ -1,0 +1,27 @@
+- id: available
+  state: "42"
+  attributes: {}
+  readiness: ready
+  episodes: 0
+- id: unavailable
+  state: unavailable
+  attributes: {}
+  readiness: blocked
+  episodes: 1
+- id: unknown
+  state: unknown
+  attributes: {}
+  readiness: unknown
+  episodes: 0
+- id: restored-unavailable
+  state: unavailable
+  attributes:
+    restored: true
+  readiness: unknown
+  episodes: 0
+- id: restored-plausible
+  state: "42"
+  attributes:
+    restored: true
+  readiness: unknown
+  episodes: 0

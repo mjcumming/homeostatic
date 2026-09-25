@@ -1,0 +1,77 @@
+{
+  "title": "Homeostatic",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Monitor your home",
+        "description": "Select sources and define functions or entity-bound situations. Notifications are off initially and are emitted as events for your consumer automation. Situation rules must report source loss as unavailable, never off. Timing values are seconds except the coalescing count. See the README for YAML examples.",
+        "data": {
+          "entity_ids": "Entities",
+          "config_entries": "Integration instances",
+          "notifications": "Activate notification events",
+          "settle": "Dependency settle time",
+          "rejoin_grace": "Dependency recovery grace",
+          "startup_grace": "Startup grace",
+          "coalesce_count": "Failures needed to group a problem",
+          "coalesce_window": "Failure grouping window",
+          "batch": "Notification delay",
+          "clear_hold": "Recovery confirmation time",
+          "unknown_hold": "Unknown evidence grace",
+          "retry_hold": "Setup retry warning period",
+          "functions": "Functions (YAML list)",
+          "situations": "Situation alerts (YAML list)",
+          "consumer": "Notification consumer automation"
+        }
+      }
+    },
+    "error": {
+      "invalid_config": "Check sources, definitions, and timings. Notifications require an enabled consumer automation. Homeostatic cannot monitor itself."
+    },
+    "abort": {
+      "single_instance_allowed": "Homeostatic is already configured. Use its options to change monitoring.",
+      "already_configured": "Homeostatic is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Monitoring options",
+        "description": "Select sources and define functions or entity-bound situations. Notifications are off initially and are emitted as events for your consumer automation. Situation rules must report source loss as unavailable, never off. Timing values are seconds except the coalescing count. See the README for YAML examples.",
+        "data": {
+          "entity_ids": "Entities",
+          "config_entries": "Integration instances",
+          "notifications": "Activate notification events",
+          "forget_missing": "Remove selections whose entity registry entry no longer exists",
+          "settle": "Dependency settle time",
+          "rejoin_grace": "Dependency recovery grace",
+          "startup_grace": "Startup grace",
+          "coalesce_count": "Failures needed to group a problem",
+          "coalesce_window": "Failure grouping window",
+          "batch": "Notification delay",
+          "clear_hold": "Recovery confirmation time",
+          "unknown_hold": "Unknown evidence grace",
+          "retry_hold": "Setup retry warning period",
+          "functions": "Functions (YAML list)",
+          "situations": "Situation alerts (YAML list)",
+          "consumer": "Notification consumer automation"
+        }
+      }
+    },
+    "error": {
+      "invalid_config": "Check sources, definitions, and timings. Notifications require an enabled consumer automation. Homeostatic cannot monitor itself."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "readiness": {
+        "name": "Readiness"
+      },
+      "episodes": {
+        "name": "Open problems"
+      },
+      "evidence_gaps": {
+        "name": "Evidence gaps"
+      }
+    }
+  }
+}

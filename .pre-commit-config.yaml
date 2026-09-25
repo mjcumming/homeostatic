@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: project-checks
+        name: Homeostatic checks
+        entry: uv run python script/check.py
+        language: system
+        pass_filenames: false
+        always_run: true

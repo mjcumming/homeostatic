@@ -1,0 +1,38 @@
+inventory:
+  name: Inventory
+  description: List monitored node identities, current episodes, and evidence limitations.
+explain:
+  name: Explain
+  description: Explain a capability and its failing or unknown dependencies.
+  fields:
+    node_id:
+      required: true
+      example: "entry:01K00000000000000000000000"
+      selector:
+        text:
+readiness:
+  name: Readiness
+  description: Return ready, unknown, degraded, or blocked for selected capabilities.
+  fields:
+    node_ids:
+      description: Omit to use the monitor's selected capabilities.
+      selector:
+        object:
+impact:
+  name: Impact
+  description: List the capabilities that depend on a node.
+  fields:
+    node_id:
+      required: true
+      selector:
+        text:
+coverage:
+  name: Coverage
+  description: List unwatched nodes, never-observed checks, and stale checks.
+rollup:
+  name: Rollup
+  description: Count selected nodes by observed status and episode membership.
+  fields:
+    node_ids:
+      selector:
+        object:
