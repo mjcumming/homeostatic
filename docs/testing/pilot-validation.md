@@ -1,5 +1,17 @@
 # Pilot validation
 
+## 0.1.0b3 package and live upgrade
+
+On 2026-09-25, commit `fec29f09b718d5a1870ae8e9d7dca05e81795b88` passed the required checks (316 Python tests, 10 frontend tests and 98.79% combined coverage), official hassfest, and the fresh HA-only package smoke test. HA installed published HealthTree 0.3.0 from the manifest. The smoke test also fetched the new problem-presentation module alongside the other frontend assets and verified failure/recovery, history and reload behavior.
+
+The owner approved upgrading the existing HA 2026.9.3 pilot from 0.1.0b1. A native HA configuration/storage backup and separate prior component/storage copies were saved before changing files. All 27 installed component files were read back and matched the archive. Configuration validation passed before and after upload; the native UI confirmed version 0.1.0b3 after one Core restart. The 127 watched integration instances and notifications-off setting remained in place; diagnostic sensors resumed with no adapter error, and existing episodes retained their opening times. The configuration checkpoint was ended successfully.
+
+An existing integration delayed HA startup, during which Homeostatic correctly showed monitoring unavailable. Once monitoring resumed, provider connection-timeout detail appeared in the updated problem summary. This validates carrying HA's reported error through the live adapter; it does not claim provider authentication succeeded or physical equipment recovered.
+
+Archive SHA-256: `812bd50f24564ee5b011ea5e27153cdbe2a632ca7a815ad2cab8cdd20c169988`.
+
+Further presentation work: retain the last reported cause while an open episode's integration temporarily returns to setup-in-progress; distinguish an original disabled condition when the engine exposes its held unknown finding as `stale`. The current fallback remains explicit about unknown evidence. Whole-house enrollment and bounded dashboard transfer remain separate qualification work.
+
 ## 0.1.0b2 package validation
 
 On 2026-09-25, the scaling candidate passed the complete required suite against
