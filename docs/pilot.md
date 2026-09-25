@@ -10,13 +10,25 @@ The tested baseline is Home Assistant **2026.9.3** with Python 3.14. HA OS and C
 2. Extract `homeostatic-0.1.0b1-pilot.zip` on your computer. `BUILD_INFO.json` identifies the exact commit and lists checksums for the packaged files. The adjacent `.sha256` file verifies the ZIP itself.
 3. Copy the extracted `custom_components/homeostatic` folder to your Home Assistant configuration directory, resulting in `<HA config>/custom_components/homeostatic/manifest.json`. On HA OS this configuration directory is normally `/config`; with Container it is the host directory mounted at `/config`. Use your existing method of accessing those configuration files. Replace an old component folder in full so obsolete files do not remain. Do not copy the whole repository or ZIP inside the component folder.
 4. Restart Home Assistant. In **Settings > Devices & services > Add integration**, search for **Homeostatic**. An existing entry should load the updated component after restart instead of creating another entry.
-5. Leave **Notification events** off. Review the passive availability rule and save. Open **Homeostatic** in the sidebar using an administrator account. No manual JavaScript-resource registration is needed.
+5. Leave **Notification events** off. Narrow the passive availability rule using the first-observation guidance below before previewing or saving on a large installation. Open **Homeostatic** in the sidebar using an administrator account. No manual JavaScript-resource registration is needed.
 
 If Homeostatic does not appear in Add integration, first check the folder nesting and restart; then inspect the HA logs for `homeostatic` and dependency-install errors. The dashboard deliberately shows monitoring unavailable during startup, reload or failure. A browser refresh after an upgrade reloads the frontend assets. This pilot uses manual installation; HACS installation is not yet the documented distribution path.
 
 ## First observation
 
-Start with a small area or a few familiar sources. The default rule matches all eligible HA entities and integration instances, including future sources. Narrow it in the setup/options form if that would make the first trial easier to inspect. For example, replace `sensor.YOUR_ENTITY` with a real sensor:
+Start with a small area or a few familiar sources. The default rule matches all eligible HA entities and integration instances, including future sources. **Replace the broad default before preview or setup on large installations.** The first live pilot found that a whole-catalog preview on an installation with more than 6,000 registered entities left HA unresponsive for several minutes. Large graph initialization and event-loop responsiveness need work before whole-house enrollment is enabled.
+
+An integration-only rule successfully started the first pilot with 127 watched integration instances. It monitors their HA setup/availability state; it does not monitor the availability of their individual entities:
+
+```yaml
+- id: pilot_integrations
+  action: attach
+  match:
+    kind: integration
+  checks: [availability]
+```
+
+Alternatively, select a few familiar entities. Replace `sensor.YOUR_ENTITY` with a real sensor:
 
 ```yaml
 - id: pilot_sources

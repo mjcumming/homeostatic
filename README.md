@@ -4,7 +4,7 @@ Health monitoring and situation alerts for Home Assistant, powered by the separa
 
 Homeostatic answers **what is wrong, what depends on it, and what needs attention**. HealthTree supplies the dependency graph, episodes, readiness, and attention policy. This integration supplies Home Assistant observations, configuration, timers, persistence, entities, and notification requests. Consumers deliver those requests to people.
 
-**Status: 0.1.0b1 pilot candidate.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.2.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). The first dashboard is read-only; operator actions and bounded resolution history are available through native HA actions. HACS distribution and real-house validation remain outstanding.
+**Status: 0.1.0b1 pilot candidate.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.2.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). The first dashboard is read-only; operator actions and bounded resolution history are available through native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Whole-house enrollment has a known scaling problem: narrow the catalog rule before preview or setup on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
 
 ## What works now
 

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Known limitations
+
+- Whole-house enrollment can make HA unresponsive on large installations. Documented the first live finding and the integration-only scope used to start the passive pilot; README, pilot instructions and roadmap now carry this limitation.
+
 ## [0.1.0b1] - 2026-09-25
 
 ### Added

@@ -20,6 +20,14 @@ The CI job builds the ZIP, runs this clean-install check and uploads the archive
 
 The Linux test host lacks optional FFmpeg and TurboJPEG system libraries, so HA logged media-related errors/warnings while importing its frontend dependencies. Those media features are outside this check. No Homeostatic installation, runtime or assertion failure occurred. The normal custom-integration and optional zlib acceleration warnings also remain visible.
 
+## First live installation
+
+On 2026-09-25, the pilot from commit `8c614a8` was installed through the owner's Vibe Coding MCP setup on HA 2026.9.3. All 26 deployed component files matched the tested archive byte-for-byte, and HA configuration validation passed before and after copying them. A Vibe configuration checkpoint was created; this is not a full Home Assistant backup.
+
+A whole-catalog setup preview exposed a scaling failure on an installation with more than 6,000 registered entities: HA stopped responding for several minutes and its browser disconnected. The preview had not saved a config entry. HA recovered without another restart. The synchronous graph construction path is a suspected bottleneck, not a profiled root-cause finding. Reproduce and fix this in isolation before repeating broad enrollment on the live house.
+
+Setup then completed with a rule matching integration instances only: 127 watched sources, normal timing defaults, no declared functions and notification events off. All three sensors loaded with a null runtime error, and the sidebar dashboard displayed current overview and coverage data. Coverage explicitly distinguished unwatched entities from watched integrations. After startup grace, three actual HA integration setup problems appeared in the overview and problem-count sensor; no device failure was induced and notification events remained off. This begins passive observation; it does not complete the 24-48 hour trial, physical failure/recovery checks, phone delivery testing or a scale qualification.
+
 ## Reproduce
 
 ```bash
