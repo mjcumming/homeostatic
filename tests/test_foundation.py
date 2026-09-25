@@ -344,10 +344,6 @@ async def test_form_binds_stable_definitions(hass: HomeAssistant) -> None:
             id="missing-name",
         ),
         pytest.param(
-            {"functions": [{"id": "a", "name": "A", "entities": []}]},
-            id="no-requirements",
-        ),
-        pytest.param(
             {"situations": [{"id": "a", "name": "A", "entity": "function:a"}]},
             id="situation-edge",
         ),

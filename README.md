@@ -10,7 +10,7 @@ Homeostatic answers **what is wrong, what depends on it, and what needs attentio
 
 - Native setup/options with editable attach/exclude catalog rules, match previews, passive enrollment of future sources, and explanations of every attachment/exclusion. Registered sources keep their identity across renames.
 - Integration setup, retries and authentication evidence; entity availability; dependency correlation into episodes.
-- Named functions with importance and required entities, each exporting readiness as `ready`, `unknown`, `degraded`, or `blocked`.
+- Named functions with entity, integration, function and external capability requirements; editable importance; per-function automation suggestions and confirmed/rejected decisions; each exporting readiness as `ready`, `unknown`, `degraded`, or `blocked`.
 - Named situation alerts bound to existing HA entities: `on` is active, `off` is clear, missing/unknown/unavailable is unknown. A situation remains independent of equipment readiness.
 - Overall readiness, open-problem and evidence-gap sensors, plus `inventory`, `explain`, `readiness`, `impact`, `coverage`, and `rollup` response actions.
 - Notifications off by default, one activation summary, versioned `homeostatic_notification` events, and a [Companion app consumer blueprint](blueprints/automation/homeostatic/companion_notification.yaml).
@@ -18,7 +18,7 @@ Homeostatic answers **what is wrong, what depends on it, and what needs attentio
 
 A passing availability check shows that HA currently reports an available control path. It does not verify physical-device freshness, detector progress, command completion, or phone receipt. Those require their own evidence producers and real traces.
 
-Richer evidence checks, function configuration, owner-authored YAML policy, shelving/maintenance, Repairs links, problem panel, episode history, and external watchdog are tracked in the [build roadmap](docs/roadmap.md). The structured YAML forms are development interfaces.
+Richer evidence checks, owner-authored YAML policy, shelving/maintenance, Repairs links, problem panel, episode history, and external watchdog are tracked in the [build roadmap](docs/roadmap.md). The structured YAML forms are development interfaces.
 
 ## Try the development build
 
@@ -90,20 +90,83 @@ Existing development selections appear as narrow `selected_entities` / `selected
 
 ### Define a function
 
-In the **Functions (YAML list)** field, enter, for example:
+In **Functions (YAML list)**:
 
 ```yaml
 - id: garage_access
   name: Garage access
   importance: high
-  entities:
+  requires:
     - cover.garage_door
     - binary_sensor.garage_obstruction
+
+- id: arriving_home
+  name: Arriving home
+  importance: critical
+  requires:
+    - function:garage_access
+    - entry:YOUR_CONFIG_ENTRY_ID
 ```
 
-Requirements always remain in the graph; catalog rules decide which checks watch them. Excluded or unmatched requirements leave the function unknown. The supplied broad rule watches available requirements automatically. Keep `id` stable; it identifies the function and its readiness entity. Names may change. Importance is `low`, `normal`, `high`, or `critical`. Registry identities are saved instead of changeable entity ids; later edits may show `registry:...` references, which are also accepted. Removing a registry entry leaves the requirement unknown.
+Keep `id` stable; it identifies the function and its readiness entity. Names may change. Importance is `low`, `normal`, `high`, or `critical`, and HealthTree propagates it upstream to shared causes. It does not directly choose notification routing.
 
-The function's readiness sensor can drive fallback automations. Any answer other than `ready` means that its requirements are not all proven ready. All rule-enrolled capabilities also contribute to overall readiness.
+Requirements may name an entity, an integration (`entry:<id>`), another function (`function:<id>`), or an external capability (`external:<id>`). Entity inputs are saved as `entity:registry:<id>` when registered; already-saved references are accepted too. The earlier `entities` list still works alongside `requires`. Cycles and situation-node requirements are rejected before saving.
+
+Catalog rules decide which checks watch each requirement. Missing, excluded or unmatched requirements remain explicit unknowns. An excluded entity cannot borrow readiness from its healthy integration. A function with no requirements is an unwatched draft. Any answer other than `ready` means the requirements are not all proven ready. Availability checks still do not prove successful command completion or physical-device freshness.
+
+For a capability outside HA, enter this in **External capabilities (YAML list)**:
+
+```yaml
+- id: backyard_network
+  name: Backyard network service
+  importance: high
+```
+
+Then add `external:backyard_network` to a function's `requires`. This declares an unwatched requirement, so the function stays unknown until an appropriate evidence producer exists. This increment implements declarations and dependencies; it does not probe the external service or accept external health reports. Deleting a declaration that a function still requires leaves a visible missing requirement.
+
+### Review automation suggestions
+
+Associate existing automations with the function whose needs you are defining:
+
+```yaml
+- id: basement_lighting
+  name: Basement motion lighting
+  importance: high
+  automations:
+    - automation.basement_motion_lighting
+  accept:
+    - binary_sensor.basement_motion
+    - light.basement
+  reject:
+    - input_boolean.optional_mode
+```
+
+Start with `automations` and preview before choosing `accept` or `reject`. The preview lists statically discoverable entity references and current members of device/area/floor/label targets. Every suggestion identifies the automation and reference type. Conditions, optional actions and notification targets can all appear; **accept only a capability whose failure prevents this function from working**. Listing an automation does not itself create a dependency on its availability.
+
+Accepted candidates become required edges for this function. Rejected and unreviewed candidates create no edges. Decisions use stable entity identities and survive refresh/reload. If an automation stops referencing an accepted entity, the requirement remains until explicitly removed; the preview marks it as no longer suggested. Automations outside a function contribute no suggestions to that function and no inferred dependency edges.
+
+Candidate discovery is deliberately marked incomplete: runtime templates and downstream scripts/scenes are not recursively analyzed. Declare any missing requirement explicitly. Situation alerts remain independent of this equipment graph.
+
+### Preview function changes
+
+Turn on **Preview without saving** in setup/options for rule counts, function readiness, gaps, and candidate decisions. Correct any validation error, review the result, then turn Preview off to save. For full explanations, use `homeostatic.functions` for current monitoring, or preview an unsaved replacement list:
+
+```yaml
+action: homeostatic.preview_functions
+data:
+  functions:
+    - id: garage_access
+      name: Garage access
+      importance: high
+      requires:
+        - cover.garage_door
+        - binary_sensor.garage_obstruction
+response_variable: preview
+```
+
+The response includes added/removed requirement edges, rule attachment/exclusion explanations, missing requirements, effective upstream importance and affected functions. Optional `external_capabilities` and `rules` fields replace those settings for the preview; omitting them retains current settings. The `functions` list replaces the entire function list in the preview.
+
+Preview uses current observations in an isolated HealthTree model. It does not reproduce previous hold timers or episode history, save options, fire notifications, or execute automations. `present` means a current HA state/entry exists, or that a function/external declaration exists; it does not establish health. Readiness and monitoring status are separate fields.
 
 ### Bind a situation
 
@@ -130,7 +193,7 @@ The integration emits events and retains the last requested content. A consumer 
 
 ### Inspect the model
 
-In **Developer tools → Actions**, call `homeostatic.inventory` for node ids, rule explanations, recent enrollment changes, episodes, and notification requests. Pass a node id to `homeostatic.explain` or `homeostatic.impact`. `homeostatic.readiness` and `homeostatic.rollup` default to selected capabilities/functions and accept `node_ids`. These actions are read-only. Situation ids are `situation:<id>` and function ids are `function:<id>`.
+In **Developer tools → Actions**, call `homeostatic.inventory` for node ids, rule explanations, recent enrollment changes, episodes, and notification requests. Pass a node id to `homeostatic.explain` or `homeostatic.impact`. `homeostatic.readiness` and `homeostatic.rollup` default to selected capabilities/functions and accept `node_ids`. These actions are read-only. Situation ids are `situation:<id>`, function ids are `function:<id>`, and external capability ids are `external:<id>`.
 
 ## Development and checks
 

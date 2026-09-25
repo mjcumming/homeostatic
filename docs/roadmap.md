@@ -8,8 +8,8 @@ Updated 2026-09-25. This file tracks delivery; [spec.md](spec.md) controls imple
 | First function and situation | Complete | Stable bindings, function readiness entity, edgeless situation, unknown preserves episode, named delivery content |
 | Consumer delivery foundation | Complete | Notifications off initially; activation summary; versioned events and durable outbox; consumer blueprint and tests |
 | Rule catalog and enrollment | Complete for availability | All stable match fields: domain, device class, integration, device, entity, area, floor, label; additive attach, exclude wins; passive enrollment of future sources; match preview and provenance |
-| Full function configuration | Planned | Declared external capabilities and per-function candidate edges; importance and excluded requirements staying unknown are already implemented |
-| Owner YAML policy | Planned | Validated rules/recipients; quiet hours, reminders, escalation and digests; explain decisions; activation clocks start at enablement |
+| Function configuration | Complete for declared capabilities and static suggestions | Entity/integration/function/external requirements; cycle validation; per-function accept/reject decisions; watched/excluded/missing previews; external evidence producers remain a release gate |
+| Owner YAML policy | Next | Validated rules/recipients; quiet hours, reminders, escalation and digests; explain decisions; activation clocks start at enablement |
 | Operator controls | Planned | Shelving, expiring scoped maintenance; no global equipment quiet window; situation edge lint |
 | Product presentation | Planned | Review story notification texts first; then problems/functions/maintenance/coverage, remedies, native Repair links, recently resolved history |
 | Evidence producers | Release gate | Real healthy/failure/recovery traces for detector progress, device-originated freshness and command completion, replayed as fixtures |

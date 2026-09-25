@@ -45,8 +45,15 @@ class Source:
             node_id=self.node_id,
             kind=self.kind,
             importance=self.importance,
-            depends_on=(Edge(to=f"entry:{self.owner_id}"),) if self.owner_id else (),
-            labels={"name": self.name, "source": "home_assistant"},
+            depends_on=(Edge(to=f"entry:{self.owner_id}"),)
+            if self.owner_id and self.watched
+            else (),
+            labels={
+                "name": self.name,
+                "source": "owner_declared"
+                if self.kind == "external"
+                else "home_assistant",
+            },
             checks=(
                 Check(
                     check_id="condition" if situation else "availability",

@@ -41,7 +41,9 @@ def inventory(
     )
     rules = parse_rules(rule_data(hass, settings))
     references = set(settings.entities) | {
-        reference for function in settings.functions for reference in function.entities
+        reference
+        for function in settings.functions
+        for reference in function.entity_references
     }
     references.update(node_id[7:] for node_id in known if node_id.startswith("entity:"))
     references.update(value for rule in rules for value in rule.match.get("entity", ()))
@@ -57,6 +59,12 @@ def inventory(
     )
     sources: dict[str, Source] = {}
     entry_ids = set(settings.config_entries)
+    entry_ids.update(
+        node_id[6:]
+        for function in settings.functions
+        for node_id in function.requirements
+        if node_id.startswith("entry:")
+    )
     entry_ids.update(node_id[6:] for node_id in known if node_id.startswith("entry:"))
     entry_ids.update(
         value for rule in rules for value in rule.match.get("integration", ())

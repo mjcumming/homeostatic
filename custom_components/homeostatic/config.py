@@ -2,24 +2,34 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import voluptuous as vol
+from health_tree.engine import Engine
 from health_tree.types import (
+    Edge,
     EngineSettings,
     Importance,
     Loudness,
     Match,
+    Node,
     PolicyConfig,
     Recipient,
     Rule,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 
 from .const import DEFAULTS, DOMAIN
-from .definitions import Function, Situation, definitions
+from .definitions import (
+    ExternalCapability,
+    Function,
+    Situation,
+    definitions,
+    external_capabilities,
+)
 from .rules import DEFAULT_RULES, CatalogRule, parse_rules
 
 
@@ -35,6 +45,7 @@ class Settings:
     situations: tuple[Situation, ...] = ()
     consumer: str | None = None
     rules: tuple[CatalogRule, ...] | None = None
+    external_capabilities: tuple[ExternalCapability, ...] = ()
 
     @classmethod
     def from_data(cls, data: Mapping[str, Any]) -> Settings:
@@ -64,7 +75,7 @@ class Settings:
             not isinstance(consumer, str) or not consumer.startswith("automation.")
         ):
             raise ValueError("consumer must be an automation entity id")
-        return cls(
+        settings = cls(
             entities=tuple(dict.fromkeys(entities)),
             config_entries=tuple(dict.fromkeys(entries)),
             notifications=enabled,
@@ -73,7 +84,25 @@ class Settings:
             situations=situations,
             consumer=consumer,
             rules=parse_rules(data["rules"]) if "rules" in data else None,
+            external_capabilities=external_capabilities(data),
         )
+        validator = Engine(settings.engine_settings())
+        # Graph validation has no observations or history; its time is fixed.
+        validation_time = datetime(2000, 1, 1, tzinfo=UTC)
+        for function in functions:
+            try:
+                validator.register(
+                    Node(
+                        node_id=f"function:{function.id}",
+                        depends_on=tuple(
+                            Edge(to=node_id) for node_id in function.requirements
+                        ),
+                    ),
+                    validation_time,
+                )
+            except ValueError as err:
+                raise ValueError(f"{function.name}: {err}") from err
+        return settings
 
     def engine_settings(self) -> EngineSettings:
         """Translate adapter defaults to required engine durations."""
@@ -146,36 +175,7 @@ def data_from_input(
         "notifications": user_input.get("notifications", False),
         "timings": {key: user_input.get(key, value) for key, value in DEFAULTS.items()},
     }
-    for kind in ("functions", "situations"):
-        rows = user_input.get(kind, [])
-        if not isinstance(rows, list):
-            raise vol.Invalid(f"{kind} must be a list")
-        converted = []
-        for row in rows:
-            if not isinstance(row, dict):
-                raise vol.Invalid(f"Invalid {kind} definition")
-            item = dict(row)
-            field = "entities" if kind == "functions" else "entity"
-            values = item.get(field) if kind == "functions" else [item.get(field)]
-            if not isinstance(values, list) or not all(
-                isinstance(value, str) for value in values
-            ):
-                raise vol.Invalid("Choose entity requirements")
-            references = []
-            for value in values:
-                reference = (
-                    value
-                    if value.startswith(("registry:", "entity_id:"))
-                    else entity_reference(hass, value)
-                )
-                entity_id = resolve_entity(hass, reference)
-                registered = own_entities.async_get(entity_id) if entity_id else None
-                if registered is not None and registered.platform == DOMAIN:
-                    raise vol.Invalid("Homeostatic cannot use its own entities")
-                references.append(reference)
-            item[field] = references if kind == "functions" else references[0]
-            converted.append(item)
-        data[kind] = converted
+    data.update(normalize_definitions(hass, user_input))
     consumer = user_input.get("consumer")
     data["consumer"] = consumer
     if data["notifications"]:
@@ -243,7 +243,9 @@ def rule_data(hass: HomeAssistant, settings: Settings) -> list[dict[str, Any]]:
             for rule in settings.rules
         ]
     references = set(settings.entities) | {
-        reference for function in settings.functions for reference in function.entities
+        reference
+        for function in settings.functions
+        for reference in function.entity_references
     }
     entries = set(settings.config_entries)
     registry = er.async_get(hass)
@@ -270,3 +272,71 @@ def rule_data(hass: HomeAssistant, settings: Settings) -> list[dict[str, Any]]:
             }
         )
     return rules
+
+
+def normalize_definitions(
+    hass: HomeAssistant, data: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Normalize entity inputs while preserving explicit capability ids."""
+    result: dict[str, Any] = {
+        "external_capabilities": data.get("external_capabilities", [])
+    }
+    for kind in ("functions", "situations"):
+        items = data.get(kind, [])
+        if not isinstance(items, list):
+            raise vol.Invalid(f"{kind} must be a list")
+        converted = []
+        for row in items:
+            if not isinstance(row, dict):
+                raise vol.Invalid(f"Invalid {kind} definition")
+            item = dict(row)
+            fields = (
+                ("entities", "requires", "automations", "accept", "reject")
+                if kind == "functions"
+                else ("entity",)
+            )
+            for field in fields:
+                values = [item.get(field)] if field == "entity" else item.get(field, [])
+                if not isinstance(values, list) or not all(
+                    isinstance(value, str) for value in values
+                ):
+                    raise vol.Invalid("Choose capability references")
+                refs = [
+                    normalize_requirement(
+                        hass, value, node=field in {"requires", "accept", "reject"}
+                    )
+                    for value in values
+                ]
+                if field == "automations":
+                    for ref in refs:
+                        entity_id = resolve_entity(hass, ref)
+                        if entity_id is not None and not entity_id.startswith(
+                            "automation."
+                        ):
+                            raise vol.Invalid(
+                                "Choose automation entities for suggestions"
+                            )
+                item[field] = refs[0] if field == "entity" else refs
+            converted.append(item)
+        result[kind] = converted
+    return result
+
+
+def normalize_requirement(hass: HomeAssistant, value: str, *, node: bool) -> str:
+    """Resolve entity inputs and reject self-derived or situation requirements."""
+    if node and value.startswith(("entry:", "function:", "external:", "situation:")):
+        if value.startswith("entry:"):
+            entry = hass.config_entries.async_get_entry(value[6:])
+            if entry is not None and entry.domain == DOMAIN:
+                raise vol.Invalid("Homeostatic cannot require itself")
+        return value
+    reference = value.removeprefix("entity:")
+    if not reference.startswith(("registry:", "entity_id:")):
+        reference = entity_reference(hass, cv.entity_id(reference))
+    if reference.startswith("entity_id:"):
+        cv.entity_id(reference[10:])
+    entity_id = resolve_entity(hass, reference)
+    registered = er.async_get(hass).async_get(entity_id) if entity_id else None
+    if registered is not None and registered.platform == DOMAIN:
+        raise vol.Invalid("Homeostatic cannot use its own entities")
+    return f"entity:{reference}" if node else reference

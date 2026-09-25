@@ -19,6 +19,8 @@ SERVICES = (
     "coverage",
     "rollup",
     "preview_rules",
+    "functions",
+    "preview_functions",
 )
 
 
@@ -38,7 +40,13 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
 
     for service in SERVICES:
         fields: dict[Any, Any] = {}
-        if service == "preview_rules":
+        if service == "preview_functions":
+            fields = {
+                vol.Required("functions"): list,
+                vol.Optional("external_capabilities"): list,
+                vol.Optional("rules"): list,
+            }
+        elif service == "preview_rules":
             fields = {vol.Required("rules"): list}
         elif service in {"explain", "impact"}:
             fields = {vol.Required("node_id"): cv.string}

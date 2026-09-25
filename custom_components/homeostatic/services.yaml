@@ -45,3 +45,23 @@ preview_rules:
       description: A list of attach or exclude catalog rules. Entity names are resolved to stable references for this preview.
       selector:
         object:
+functions:
+  name: Functions
+  description: Explain requirements, missing evidence and scoped automation suggestions for each function.
+preview_functions:
+  name: Preview functions
+  description: Preview unsaved function requirements using current evidence without history, saving, or notification delivery.
+  fields:
+    functions:
+      required: true
+      description: Replacement function definitions with requirements and candidate decisions.
+      selector:
+        object:
+    external_capabilities:
+      description: Replacement external capability declarations. Omit to retain current declarations.
+      selector:
+        object:
+    rules:
+      description: Optional replacement catalog rules for this preview only.
+      selector:
+        object:

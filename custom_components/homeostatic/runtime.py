@@ -50,10 +50,11 @@ from .catalog import (
     entity_state_signature,
     entry_observation,
 )
-from .config import Settings, normalize_rules, resolve_entity, rule_data
+from .config import Settings, normalize_definitions, normalize_rules, rule_data
 from .const import DOMAIN, EVENT_NOTIFICATION, NAME, RECONCILE_INTERVAL, STORE_VERSION
 from .delivery import DeliveryState
 from .enrollment import evaluate, inventory, report, restore_enrollment
+from .function_model import compose, describe, preview
 from .rules import Attributes, parse_rules
 from .serialization import json_object
 
@@ -133,7 +134,10 @@ class Runtime:
         return (
             int(self.consumer_missing)
             + sum(
-                self.sources[node_id].kind != "function"
+                (
+                    self.sources[node_id].kind != "function"
+                    or not self.sources[node_id].requirements
+                )
                 for node_id in coverage.no_checks
             )
             + len(set(coverage.never_observed) | set(coverage.stale))
@@ -299,55 +303,13 @@ class Runtime:
                     }
                 )
         self.candidates = candidates
-        required = {
-            f"entity:{reference}"
-            for function in self.settings.functions
-            for reference in function.entities
-        }
-        selected = {
-            node_id for node_id, source in candidates.items() if source.watched
-        } | required
-        selected.update(
-            f"entry:{candidates[node_id].owner_id}"
-            for node_id in tuple(selected)
-            if candidates[node_id].owner_id
-        )
-        sources = {node_id: candidates[node_id] for node_id in sorted(selected)}
+        sources, self.targets = compose(self.hass, self.settings, candidates)
         self.enrolled = {
-            node_id: source.attributes for node_id, source in sources.items()
+            node_id: source.attributes
+            for node_id, source in sources.items()
+            if source.kind in {"entity", "integration"}
         }
-        targets = [node_id for node_id, source in sources.items() if source.watched]
-        registry = er.async_get(self.hass)
-        for function in self.settings.functions:
-            node_id = f"function:{function.id}"
-            sources[node_id] = Source(
-                node_id=node_id,
-                name=function.name,
-                kind="function",
-                importance=function.importance,
-                requirements=tuple(
-                    f"entity:{reference}" for reference in function.entities
-                ),
-            )
-            targets.append(node_id)
-        for situation in self.settings.situations:
-            entity_id = resolve_entity(self.hass, situation.entity)
-            registered = registry.async_get(entity_id) if entity_id else None
-            if registered is not None and registered.platform == DOMAIN:
-                raise ValueError("Homeostatic cannot use its own entities")
-            node_id = f"situation:{situation.id}"
-            sources[node_id] = Source(
-                node_id=node_id,
-                name=situation.name,
-                kind="situation",
-                entity_id=entity_id,
-                importance=situation.importance,
-                disabled=registered is not None and registered.disabled_by is not None,
-            )
-        self.targets = targets
-        return dict(
-            sorted(sources.items(), key=lambda item: item[1].kind != "integration")
-        )
+        return sources
 
     def _listen_entries(self) -> None:
         selected = {
@@ -626,6 +588,25 @@ class Runtime:
         """Read the public model for response-only HA actions."""
         if not self.available or self.engine is None:
             raise HomeAssistantError("Homeostatic is not ready")
+        if action == "functions":
+            return json_object(
+                {
+                    "functions": describe(
+                        self.hass,
+                        self.settings,
+                        self.sources,
+                        self.candidates,
+                        self.engine,
+                    )
+                }
+            )
+        if action == "preview_functions":
+            proposed = {**(self.entry.options or self.entry.data), **data}
+            proposed.update(normalize_definitions(self.hass, proposed))
+            if "rules" in data:
+                proposed["rules"] = normalize_rules(self.hass, data["rules"])
+            settings = Settings.from_data(proposed)
+            return preview(self.hass, settings, self.enrolled, self.settings.functions)
         if action == "preview_rules":
             candidate_data = normalize_rules(self.hass, data["rules"])
             settings = Settings.from_data(

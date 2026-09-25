@@ -11,6 +11,7 @@ from homeassistant.helpers import selector
 from .config import Settings, data_from_input, rule_data
 from .const import DOMAIN, NAME
 from .enrollment import inventory, report
+from .function_model import preview as preview_functions
 from .rules import DEFAULT_RULES, Attributes, parse_rules
 
 
@@ -24,6 +25,9 @@ def form_schema(hass: HomeAssistant, data: dict[str, Any]) -> vol.Schema:
         vol.Optional("preview", default=False): selector.BooleanSelector(),
         vol.Optional(
             "functions", default=data.get("functions", [])
+        ): selector.ObjectSelector(),
+        vol.Optional(
+            "external_capabilities", default=data.get("external_capabilities", [])
         ): selector.ObjectSelector(),
         vol.Optional(
             "situations", default=data.get("situations", [])
@@ -60,12 +64,14 @@ class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="single_instance_allowed")
         errors: dict[str, str] = {}
         preview = ""
+        error_detail = ""
         form_data: dict[str, Any] = {}
         if user_input is not None:
             try:
                 data = data_from_input(self.hass, user_input)
-            except ValueError, vol.Invalid:
+            except (ValueError, vol.Invalid) as err:
                 errors["base"] = "invalid_config"
+                error_detail = str(err)
             else:
                 if user_input.get("preview"):
                     preview = preview_summary(self.hass, data)
@@ -80,7 +86,7 @@ class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 form_schema(self.hass, form_data), user_input if errors else None
             ),
             errors=errors,
-            description_placeholders={"preview": preview},
+            description_placeholders={"preview": preview, "error_detail": error_detail},
         )
 
     @staticmethod
@@ -101,12 +107,14 @@ class HomeostaticOptionsFlow(config_entries.OptionsFlowWithReload):
         """Validate the replacement settings and retain missing selections."""
         current = dict(self.config_entry.options or self.config_entry.data)
         preview = ""
+        error_detail = ""
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
                 data = data_from_input(self.hass, user_input)
-            except ValueError, vol.Invalid:
+            except (ValueError, vol.Invalid) as err:
                 errors["base"] = "invalid_config"
+                error_detail = str(err)
             else:
                 if user_input.get("preview"):
                     runtime = getattr(self.config_entry, "runtime_data", None)
@@ -122,7 +130,7 @@ class HomeostaticOptionsFlow(config_entries.OptionsFlowWithReload):
                 form_schema(self.hass, current), user_input if errors else None
             ),
             errors=errors,
-            description_placeholders={"preview": preview},
+            description_placeholders={"preview": preview, "error_detail": error_detail},
         )
 
 
@@ -139,4 +147,20 @@ def preview_summary(
     counts = "; ".join(
         f"{rule['id']}: {rule['matches']} matches" for rule in result["rules"]
     )
-    return f"Preview: {result['watched']} watched sources. {counts}"
+    functions = preview_functions(hass, settings, known or {})["functions"]
+    descriptions = []
+    for function in functions:
+        gaps = [
+            item["node_id"]
+            for item in function["requirements"]
+            if not item["present"] or item["monitoring"] in {"excluded", "unwatched"}
+        ]
+        candidates = "; ".join(
+            f"{item['node_id']} ({item['decision']})" for item in function["candidates"]
+        )
+        descriptions.append(
+            f"{function['name']}: {function['readiness']['answer']}. Gaps: {', '.join(gaps) or 'none'}. Candidates: {candidates or 'none'}. Static discovery is incomplete."
+        )
+    return f"Preview: {result['watched']} watched sources. {counts}\n" + "\n".join(
+        descriptions
+    )

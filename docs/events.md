@@ -23,6 +23,8 @@ Homeostatic emits `homeostatic_notification` on the Home Assistant event bus. A 
 
 HA's event envelope supplies publication time. Publication means **delivery requested**, not delivered or read. A problem detail URL will be added when the problem view exists; no placeholder link is sent. Reminder, escalation and digest actions are reserved for the policy increment and are not emitted yet.
 
+Function-to-function requirements and confirmed automation candidates contribute to affected function names and upstream importance through HealthTree. Unreviewed/rejected suggestions contribute no dependency impact. Function previews never emit notification events.
+
 Unknown evidence does not generate an empty replacement. The last policy-authorized message remains readable in `homeostatic.inventory` under `notification_requests`; current evidence is available separately in `explain` and `episodes`.
 
 ## Consumer setup
