@@ -7,6 +7,10 @@
 - Problem cards and details separate current integration activity from the last reported failure, preserving timestamped context through retries and reloads without changing health or alert decisions. Disabled entries remain unknown but have a distinct, neutral presentation.
 - Overview summaries omit raw exceptions; integration identity, recovery progress, next steps and reported-error details remain accessible. Expanded details stay open during live updates.
 
+### Known limitations
+
+- Runtime burst qualification found repeated full inventory scans, saves and dashboard publications after simultaneous availability changes. Whole-house enrollment remains unqualified despite fast initial construction. Added isolated inventory-shape, two-device pilot and opt-in runtime profiling scenarios; measurements and proposed rollout gates are in `docs/testing/runtime-scaling.md`. No live enrollment or integration behavior changed.
+
 ## [0.1.0b3] - 2026-09-25
 
 ### Fixed

@@ -76,4 +76,6 @@ The live pilot remains at 127 integration instances with notifications off.
 This increment does not qualify sustained event bursts, many simultaneous
 independent failures, synchronous reconciliation latency, dashboard payload size
 or browser rendering at whole-house scale. Those are the next isolated checks;
-broader live enrollment waits for them.
+broader live enrollment waits for them. The subsequent
+[runtime burst assessment](runtime-scaling.md) reproduces a large responsiveness
+gap and records the proposed device pilot and remaining qualification gates.
