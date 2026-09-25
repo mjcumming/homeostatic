@@ -4,6 +4,9 @@
 
 ### Added
 
+- Administrator operator actions for episode shelving and bounded equipment maintenance, with scope previews, explicit expiry, reason/actor records and restart persistence.
+- Current-control queries and expiry scheduling, with scenarios for situation isolation, continuing existing alerts, authorization, concurrent observations and storage failures.
+
 - Owner YAML notification policy: recipients/channels, timezone, quiet hours, reminders, escalation, digests and strict validation.
 - Read-only policy explanations and activation previews through native options and response actions.
 - Grouped digest/activation messages with durable membership, replacement and clearing; channel-aware consumer blueprint.

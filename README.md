@@ -321,8 +321,37 @@ docker run --rm --mount "type=bind,source=$PWD,target=/github/workspace,readonly
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow, [docs/spec.md](docs/spec.md) for implemented behavior, [docs/roadmap.md](docs/roadmap.md) for remaining scope, and [CHANGELOG.md](CHANGELOG.md) for changes.
 
+## Operator controls
+
+Use **Developer Tools > Actions** while the monitor is running. `homeostatic.inventory` supplies stable node and episode ids; `homeostatic.operator_controls` lists active controls and their expiry/reason. Mutations require administrator access for user calls; HA automations can use the same actions. All expiries must include a timezone, be in the future, and be within seven days.
+
+Preview a scope before creating maintenance. Replace the example node and expiry with your actual selection:
+
+```yaml
+action: homeostatic.preview_maintenance
+data:
+  node_id: "entity:entity_id:sensor.observed"
+  include_dependents: true
+  until: "2026-09-25T22:00:00Z"
+response_variable: maintenance_preview
+```
+
+The response names the current scope, functions and existing problems. Use the same fields with `homeostatic.start_maintenance` and an optional `reason` to apply it. Dependents follow the graph during the window. Maintenance prevents new equipment problems from opening; readiness, existing alerts and independent situation alerts remain active.
+
+To pause alerts for an already-open problem across every recipient:
+
+```yaml
+action: homeostatic.shelve
+data:
+  episode_id: "<current episode id from inventory>"
+  until: "2026-09-25T22:00:00Z"
+  reason: "Working on this problem"
+```
+
+Shelving leaves the problem and its current message visible. Silent updates and resolution still work. The shelf holds reminders and escalation, including urgent alerts, until expiry; other policy holds still apply. Shelves and maintenance survive restarts. A shelf can be extended. Early cancellation, acknowledgment and dashboard buttons are planned. If an action reports a storage error, inspect active controls after the monitor recovers before retrying.
+
 ## Before distribution
 
-Release and pin the reviewed health-tree version; complete operator controls and product presentation; capture healthy/failure/recovery traces for detector liveness, device-originated freshness and command completion; verify an external watchdog and notification consumers; validate the actual deployment. Synthetic fixtures and high coverage do not satisfy the real-house evidence gates.
+Release and pin the reviewed health-tree version; complete product presentation; capture healthy/failure/recovery traces for detector liveness, device-originated freshness and command completion; verify an external watchdog and notification consumers; validate the actual deployment. Synthetic fixtures and high coverage do not satisfy the real-house evidence gates.
 
 MIT licensed. See [SECURITY.md](SECURITY.md) for reporting a security concern.

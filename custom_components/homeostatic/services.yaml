@@ -77,3 +77,67 @@ preview_policy:
       description: Replacement policy mapping containing timezone, recipients, digests and rules.
       selector:
         object:
+operator_controls:
+  name: Operator controls
+  description: List active shelves and equipment maintenance with their scope, expiry and requested reason.
+shelve:
+  name: Shelve problem
+  description: Hold new alerts for one current problem across all recipients until a time, without changing its health. Requires administrator access.
+  fields:
+    episode_id:
+      required: true
+      description: A current episode id from Inventory. Summary tags are not episode ids.
+      selector:
+        text:
+    until:
+      required: true
+      description: Explicit ISO timestamp with timezone, in the future and at most seven days away.
+      example: "2026-09-25T22:00:00Z"
+      selector:
+        text:
+    reason:
+      description: Optional explanation, at most 500 characters.
+      selector:
+        text:
+start_maintenance:
+  name: Start equipment maintenance
+  description: Prevent new problems in the selected equipment scope until a time. Existing alerts and situation alerts stay active. Requires administrator access.
+  fields:
+    node_id:
+      required: true
+      description: An entity, integration or external capability id from Inventory.
+      selector:
+        text:
+    include_dependents:
+      default: false
+      description: Include equipment and functions that depend on this capability. Scope follows later graph changes.
+      selector:
+        boolean:
+    until:
+      required: true
+      description: Explicit ISO timestamp with timezone, in the future and at most seven days away.
+      example: "2026-09-25T22:00:00Z"
+      selector:
+        text:
+    reason:
+      description: Optional explanation, at most 500 characters.
+      selector:
+        text:
+preview_maintenance:
+  name: Preview equipment maintenance
+  description: Show the current scope and already-open problems without saving or changing monitoring.
+  fields:
+    node_id:
+      required: true
+      selector:
+        text:
+    include_dependents:
+      default: false
+      selector:
+        boolean:
+    until:
+      required: true
+      description: Explicit ISO timestamp with timezone, in the future and at most seven days away.
+      example: "2026-09-25T22:00:00Z"
+      selector:
+        text:

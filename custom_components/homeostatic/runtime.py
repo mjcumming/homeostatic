@@ -7,6 +7,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Any
+from uuid import uuid4
 
 from health_tree.engine import Engine
 from health_tree.policy import Policy
@@ -21,6 +22,7 @@ from health_tree.types import (
     Observation,
     PolicyContext,
     ProbeRequested,
+    QuietWindow,
     View,
 )
 from health_tree.types import (
@@ -53,6 +55,7 @@ from .catalog import (
 )
 from .config import Settings, normalize_definitions, normalize_rules, rule_data
 from .const import DOMAIN, EVENT_NOTIFICATION, NAME, RECONCILE_INTERVAL, STORE_VERSION
+from .controls import OperatorControl, expiry, presentation, restore_controls
 from .delivery import DeliveryState
 from .enrollment import evaluate, inventory, report, restore_enrollment
 from .function_model import compose, describe, preview
@@ -84,6 +87,7 @@ class Runtime:
         self.candidates: dict[str, Source] = {}
         self.enrollment_changes: deque[dict[str, JSONValue]] = deque(maxlen=50)
         self.episodes: dict[str, dict[str, JSONValue]] = {}
+        self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
         self._legacy_notifications: set[str] = set()
         self._activating = False
@@ -160,6 +164,7 @@ class Runtime:
             self.delivery.restore(self.saved["delivery"])
             if type(self.saved.get("notifications_enabled")) is not bool:
                 raise ValueError("Invalid notification activation state")
+        self.controls = restore_controls(self.saved.get("operator_controls", []))
         self.enrolled = restore_enrollment(self.saved.get("enrollment", {}))
         notifications = self.saved.get("notifications")
         if not isinstance(notifications, list) or not all(
@@ -342,17 +347,7 @@ class Runtime:
                     self._drain_pending()
                 events = self._evaluate(now)
                 self._handle(events, now)
-                assert self.policy is not None
-                if self._activating:
-                    self.delivery.deactivate()
-                    self._activating = False
-                    self._deliveries(self.policy.activate(now, PolicyContext()))
-                self._deliveries(self.policy.advance(now, PolicyContext()))
-                if not self.settings.notifications:
-                    self.delivery.deactivate()
-                await self._save()
-                if self.running:
-                    await self._flush_events()
+                await self._complete(now)
             except (
                 OSError,
                 HomeAssistantError,
@@ -363,24 +358,173 @@ class Runtime:
                 if self.saved is not None:
                     self.engine = None
                     self.policy = None
-                if self.error != str(err):
-                    _LOGGER.error("Homeostatic refresh failed: %s", err)
-                self.error = str(err)
-                persistent_notification.async_create(
-                    self.hass,
-                    "Homeostatic cannot provide current health. Check its configuration, storage, and logs.",
-                    NAME,
-                    f"{DOMAIN}_{self.entry.entry_id}_error",
-                )
-            else:
-                self.error = None
-                self.updated_at = now
-                persistent_notification.async_dismiss(
-                    self.hass, f"{DOMAIN}_{self.entry.entry_id}_error"
-                )
-                if self.running:
-                    self._schedule(now)
-            async_dispatcher_send(self.hass, self.signal)
+                self._failed(err)
+            finally:
+                async_dispatcher_send(self.hass, self.signal)
+
+    def _failed(self, err: Exception) -> None:
+        if self.error != str(err):
+            _LOGGER.error("Homeostatic refresh failed: %s", err)
+        self.error = str(err)
+        persistent_notification.async_create(
+            self.hass,
+            "Homeostatic cannot provide current health. Check its configuration, storage, and logs.",
+            NAME,
+            f"{DOMAIN}_{self.entry.entry_id}_error",
+        )
+
+    async def _complete(self, now: datetime) -> None:
+        assert self.policy is not None
+        if self._activating:
+            self.delivery.deactivate()
+            self._activating = False
+            self._deliveries(self.policy.activate(now, PolicyContext()))
+        self._deliveries(self.policy.advance(now, PolicyContext()))
+        self._prune_controls(now)
+        if not self.settings.notifications:
+            self.delivery.deactivate()
+        await self._save()
+        if self.running:
+            await self._flush_events()
+        self.error = None
+        self.updated_at = now
+        persistent_notification.async_dismiss(
+            self.hass, f"{DOMAIN}_{self.entry.entry_id}_error"
+        )
+        if self.running:
+            self._schedule(now)
+
+    def _prune_controls(self, now: datetime) -> None:
+        self.controls = [
+            control
+            for control in self.controls
+            if control.until > now
+            and control.target
+            in (self.episodes if control.action == "shelve" else self.sources)
+        ]
+
+    def _maintenance_scope(self, node_id: str, include_dependents: bool) -> list[str]:
+        assert self.engine is not None
+        if self.sources[node_id].kind not in {"entity", "integration", "external"}:
+            raise ValueError("Maintenance must start at an equipment capability")
+        scope = [node_id]
+        if include_dependents:
+            scope.extend(item.node_id for item in self.engine.impact(node_id).nodes)
+        if any(self.sources[item].kind == "situation" for item in scope):
+            raise ValueError("Equipment maintenance cannot cover a situation")
+        return scope
+
+    def _preview_maintenance(
+        self, data: dict[str, Any], now: datetime
+    ) -> dict[str, JSONValue]:
+        until = expiry(data["until"], now)
+        scope = self._maintenance_scope(
+            data["node_id"], data.get("include_dependents", False)
+        )
+        return {
+            "node_ids": list(scope),
+            "functions": [
+                node_id for node_id in scope if self.sources[node_id].kind == "function"
+            ],
+            "existing_episode_ids": [
+                episode_id
+                for episode_id, episode in self.episodes.items()
+                if episode["anchor"] in scope
+            ],
+            "until": until.isoformat(),
+            "existing_alerts_continue": True,
+        }
+
+    def _apply_control(
+        self, action: str, data: dict[str, Any], user_id: str | None, now: datetime
+    ) -> dict[str, JSONValue]:
+        assert self.engine is not None
+        assert self.policy is not None
+        until = expiry(data["until"], now)
+        if action == "shelve":
+            target = data["episode_id"]
+            if target not in self.episodes:
+                raise ValueError("Shelving requires a current episode id")
+            if any(
+                control.action == "shelve"
+                and control.target == target
+                and control.until > until
+                for control in self.controls
+            ):
+                raise ValueError("An existing shelf can only be extended")
+            response: dict[str, JSONValue] = {}
+            self._deliveries(self.policy.shelve(target, until, now))
+            self.controls = [
+                control
+                for control in self.controls
+                if not (control.action == "shelve" and control.target == target)
+            ]
+        else:
+            target = data["node_id"]
+            response = self._preview_maintenance(data, now)
+            self._handle(
+                self.engine.quiet(
+                    QuietWindow(
+                        scope="node_and_dependents"
+                        if data.get("include_dependents", False)
+                        else "node",
+                        node_id=target,
+                        until=until,
+                    ),
+                    now,
+                ),
+                now,
+            )
+        control = OperatorControl(
+            control_id=uuid4().hex,
+            action="shelve" if action == "shelve" else "maintenance",
+            target=target,
+            started_at=now,
+            until=until,
+            user_id=user_id,
+            reason=data.get("reason", ""),
+            include_dependents=data.get("include_dependents", False),
+        )
+        self.controls.append(control)
+        return {**response, "control": json_object(control)}
+
+    async def async_control(
+        self, action: str, data: dict[str, Any], user_id: str | None
+    ) -> dict[str, JSONValue]:
+        """Serialize an authorized operator action and confirm durable storage."""
+        async with self._lock:
+            if not self.available:
+                raise HomeAssistantError("Homeostatic is not ready")
+            now = dt_util.utcnow()
+            invalid: ValueError | KeyError | None = None
+            response: dict[str, JSONValue] = {}
+            try:
+                self._drain_pending()
+                self._handle(self._evaluate(now), now)
+                self._prune_controls(now)
+                try:
+                    response = self._apply_control(action, data, user_id, now)
+                except (ValueError, KeyError) as err:
+                    invalid = err
+                # Reconciliation can resolve the requested episode. Its events
+                # still need a durable save even when the action is rejected.
+                await self._complete(now)
+            except (
+                OSError,
+                HomeAssistantError,
+                ValueError,
+                KeyError,
+                TypeError,
+            ) as err:
+                self._failed(err)
+                raise HomeAssistantError(
+                    "Could not confirm operator control; inspect controls after recovery"
+                ) from err
+            finally:
+                async_dispatcher_send(self.hass, self.signal)
+            if invalid is not None:
+                raise invalid
+            return response
 
     def _evaluate(self, now: datetime) -> list[HealthEvent]:
         sources = self._discover()
@@ -556,6 +700,9 @@ class Runtime:
         assert self.policy is not None
         deadlines = [self.engine.next_deadline(), self.policy.next_deadline()]
         deadlines.extend(
+            control.until for control in self.controls if control.until > now
+        )
+        deadlines.extend(
             since + self.settings.duration("retry_hold")
             for since in self.retry_since.values()
             if since + self.settings.duration("retry_hold") > now
@@ -576,6 +723,7 @@ class Runtime:
                 node_id: {key: list(values) for key, values in metadata.items()}
                 for node_id, metadata in self.enrolled.items()
             },
+            "operator_controls": presentation(self.controls),
             "engine": self.engine.snapshot(),
             "policy": self.policy.snapshot(),
             "policy_settings": self._policy_settings(),
@@ -623,6 +771,10 @@ class Runtime:
         """Read the public model for response-only HA actions."""
         if not self.available or self.engine is None:
             raise HomeAssistantError("Homeostatic is not ready")
+        if action == "preview_maintenance":
+            return self._preview_maintenance(data, dt_util.utcnow())
+        if action == "operator_controls":
+            return {"controls": [json_object(control) for control in self.controls]}
         if action == "preview_policy":
             return self.preview_policy(data["policy"])
         if action == "policy":
@@ -675,6 +827,9 @@ class Runtime:
                 "enrollment_changes": list(self.enrollment_changes),
                 "targets": list(self.targets),
                 "episodes": list(self.episodes.values()),
+                "operator_controls": [
+                    json_object(control) for control in self.controls
+                ],
                 "physical_freshness_supported": False,
                 "notification_consumer_missing": self.consumer_missing,
                 "situation_availability_verified": False,

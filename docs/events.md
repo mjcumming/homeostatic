@@ -47,3 +47,7 @@ Enabling notifications after record-only monitoring uses HealthTree activation. 
 Summaries and digests retain membership. Resolutions silently refresh the group's tag with the remaining problems; the last resolution clears it. An individual reminder/escalation moves that episode out of the group and uses its own tag. Group ids are not episode ids: use the `episodes` list to find their members. Consumers should ignore unfamiliar extra fields and treat `tag` as opaque. Owner episode tags retain their original spelling for compatibility; other recipients have distinct tags.
 
 Turning notifications off withdraws requested messages without claiming recovery. Editing the policy or batch delay while enabled withdraws old routes and activates the replacement policy. Publication remains a request, and event acknowledgements remain local outbox bookkeeping. Human acknowledgment is not implemented by this increment.
+
+## Operator controls
+
+Shelving holds future alerts for the selected episode across recipients, including reminders and escalation. It preserves existing messages and permits library-authorized silent updates and resolution. It does not acknowledge receipt. Maintenance prevents new episodes in its equipment scope but leaves already-open episodes and situation alerts active. Controls are saved before resulting events are published. Previously authorized durable outbox entries keep their delivery ids and replay behavior; an operator action cannot recall a request that may already have been published.
