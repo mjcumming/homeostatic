@@ -1,9 +1,10 @@
 import {affectedFunctions, areaGroups, dashboardStore, escapeHtml as esc,
   inventoryRows, monitoringLabel, sortedEpisodes, sourceMap} from "./model.mjs";
 import {integrationProblem} from "./problem.mjs";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs";
 import {styles} from "./styles.mjs";
 
-const VIEWS = ["overview", "house", "coverage", "functions", "problems"];
+const VIEWS = ["overview", "house", "coverage", "functions", "problems", "history"];
 const status = (value) => {
   const safe = ["ready", "blocked", "unknown", "degraded", "pass", "warn", "fail"].includes(value) ? value : "unknown";
   return `<span class="tag ${safe}">${safe[0].toUpperCase() + safe.slice(1)}</span>`;
@@ -23,10 +24,11 @@ class HomeostaticCard extends HTMLElement {
     this.current = {status: "loading", data: null, error: null};
     this.detail = null;
     this.detailSequence = 0;
-    this.shadowRoot.innerHTML = `<style>${styles}</style><div class="shell"><header class="header"><div class="brand">${icon("home-heart")}Homeostatic</div><nav class="nav" aria-label="Homeostatic pages"><button type="button" data-page="overview">Overview</button><button type="button" data-page="house">Browse the house</button><button type="button" data-page="coverage">Coverage</button></nav><button type="button" class="button" data-action="back" hidden>Back</button></header><main aria-live="polite"></main></div><dialog aria-labelledby="detail-title"><header class="dialog-head"><div><p class="small" id="detail-label"></p><h2 id="detail-title"></h2></div><button type="button" class="button" data-action="close" aria-label="Close detail">Close</button></header><div class="dialog-body"></div></dialog>`;
+    this.shadowRoot.innerHTML = `<style>${styles}</style><div class="shell"><header class="header"><div class="brand">${icon("home-heart")}Homeostatic</div><nav class="nav" aria-label="Homeostatic pages"><button type="button" data-page="overview">Overview</button><button type="button" data-page="house">Browse the house</button><button type="button" data-page="coverage">Coverage</button><button type="button" data-page="history">Recently resolved</button></nav><button type="button" class="button" data-action="back" hidden>Back</button></header><main aria-live="polite"></main></div><dialog aria-labelledby="detail-title"><header class="dialog-head"><div><p class="small" id="detail-label"></p><h2 id="detail-title"></h2></div><button type="button" class="button" data-action="close" aria-label="Close detail">Close</button></header><div class="dialog-body"></div></dialog>`;
     this.main = this.shadowRoot.querySelector("main");
     this.dialog = this.shadowRoot.querySelector("dialog");
     this.shadowRoot.addEventListener("click", (event) => this.clicked(event));
+    this.tools = new DashboardTools(this);
     this.dialog.addEventListener("close", () => {this.detail = null; this.detailSequence++;});
   }
 
@@ -35,7 +37,7 @@ class HomeostaticCard extends HTMLElement {
 
   setConfig(config) {
     if (config.view !== undefined && !VIEWS.includes(config.view)) {
-      throw new Error("Homeostatic view must be overview, house, coverage, functions, or problems.");
+      throw new Error("Homeostatic view must be overview, house, coverage, functions, problems, or history.");
     }
     this.config = {...config, view: config.view ?? "overview"};
     this.page = this.config.view;
@@ -59,6 +61,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   release() {
+    this.tools.disconnect();
     this.dialog.close();
     this.detail = null;
     this.removeListener?.();
@@ -78,6 +81,7 @@ class HomeostaticCard extends HTMLElement {
     this.store = dashboardStore(this._hass.connection);
     this.removeListener = this.store.listen((value) => {
       this.current = value;
+      this.tools.update(value);
       this.render();
       if (this.pendingEpisode && value.status === "current") {
         const episodeId = this.pendingEpisode;
@@ -88,11 +92,14 @@ class HomeostaticCard extends HTMLElement {
   }
 
   render() {
+    const focused = this.shadowRoot.activeElement;
+    const historyFocus = focused?.hasAttribute("data-history-search") ? "[data-history-search]" : focused?.hasAttribute("data-history-filter") ? "[data-history-filter]" : null;
+    const selection = historyFocus === "[data-history-search]" ? [focused.selectionStart, focused.selectionEnd] : null;
     const minimal = ["functions", "problems"].includes(this.config.view);
     this.shadowRoot.querySelector(".nav").hidden = minimal || this.config.navigation === false;
     const back = this.shadowRoot.querySelector('[data-action="back"]');
     back.hidden = this.config.navigation !== false || this.page === this.config.view;
-    back.textContent = `← Back to ${{overview:"Overview",house:"House",coverage:"Coverage",functions:"Functions",problems:"Problems"}[this.config.view]}`;
+    back.textContent = `← Back to ${{overview:"Overview",house:"House",coverage:"Coverage",functions:"Functions",problems:"Problems",history:"Recently resolved"}[this.config.view]}`;
     this.shadowRoot.querySelectorAll("[data-page]").forEach((button) => {
       if (button.closest(".nav")) {
         if (button.dataset.page === this.page) button.setAttribute("aria-current", "page");
@@ -111,11 +118,17 @@ class HomeostaticCard extends HTMLElement {
       return;
     }
     const data = this.current.data;
-    if (this.page === "functions") this.main.innerHTML = this.functionsPanel(data);
+    if (this.page === "history") this.main.innerHTML = this.tools.historyPanel(data);
+    else if (this.page === "functions") this.main.innerHTML = this.functionsPanel(data);
     else if (this.page === "problems") this.main.innerHTML = this.problems(data);
     else if (this.page === "coverage") this.main.innerHTML = this.coverage(data);
     else if (this.page === "house") this.main.innerHTML = this.house(data);
     else this.main.innerHTML = this.overview(data);
+    if (historyFocus) {
+      const input = this.main.querySelector(historyFocus);
+      input?.focus();
+      if (selection) input?.setSelectionRange(...selection);
+    }
   }
 
   problems(data) {
@@ -156,12 +169,12 @@ class HomeostaticCard extends HTMLElement {
 
   overview(data) {
     const groups = areaGroups(data).slice(0, 6);
-    return `<div class="intro"><div><h1>Your home, at a glance</h1><p class="sub">What needs attention, and what your house can do.</p></div><span class="small">Updated ${esc(date(data.updated_at))}</span></div>${this.problems(data)}<div class="grid"><div class="stack">${this.functionsPanel(data)}${this.changes(data)}</div><div class="stack">${this.coveragePanel(data)}<section class="panel"><div class="panel-head"><h2>Browse the house</h2></div>${groups.map((area) => `<button type="button" class="row" data-area="${esc(area.id)}"><span class="row-main">${esc(area.name)}<small>${esc(area.floor)}</small></span><span class="small">${area.sources.length} sources</span></button>`).join("")}<div class="body"><button type="button" class="link" data-page="house">All locations →</button></div></section></div></div>`;
+    return `<div class="intro"><div><h1>Your home, at a glance</h1><p class="sub">What needs attention, and what your house can do.</p></div><span class="small">Updated ${esc(date(data.updated_at))}</span></div>${this.problems(data)}<div class="grid"><div class="stack">${this.functionsPanel(data)}${this.tools.summary(data)}${this.changes(data)}</div><div class="stack">${this.coveragePanel(data)}${controlsPanel(data)}<section class="panel"><div class="panel-head"><h2>Browse the house</h2></div>${groups.map((area) => `<button type="button" class="row" data-area="${esc(area.id)}"><span class="row-main">${esc(area.name)}<small>${esc(area.floor)}</small></span><span class="small">${area.sources.length} sources</span></button>`).join("")}<div class="body"><button type="button" class="link" data-page="house">All locations →</button></div></section></div></div>`;
   }
 
   changes(data) {
     const names = new Map(inventoryRows(data).map((item) => [item.node_id, item.name]));
-    return `<section class="panel"><div class="panel-head"><h2>Recent enrollment changes</h2></div><div class="body"><p class="small">Last 50 changes from this runtime. Resolved-problem history is not included.</p>${data.inventory.enrollment_changes.length ? [...data.inventory.enrollment_changes].reverse().slice(0, 8).map((change) => `<details><summary>${esc(names.get(change.node_id) ?? change.node_id)}</summary><pre>${json(change)}</pre></details>`).join("") : '<p class="sub">No enrollment changes recorded in this runtime.</p>'}</div></section>`;
+    return `<section class="panel"><div class="panel-head"><h2>Recent enrollment changes</h2></div><div class="body"><p class="small">Last 50 changes from this runtime. Resolved problems appear in Recently resolved.</p>${data.inventory.enrollment_changes.length ? [...data.inventory.enrollment_changes].reverse().slice(0, 8).map((change) => `<details><summary>${esc(names.get(change.node_id) ?? change.node_id)}</summary><pre>${json(change)}</pre></details>`).join("") : '<p class="sub">No enrollment changes recorded in this runtime.</p>'}</div></section>`;
   }
 
   sourceTable(data, rows) {
@@ -252,6 +265,7 @@ class HomeostaticCard extends HTMLElement {
         ${currentFunctions.length ? `<section class="detail"><h3>Currently affected functions</h3><ul>${currentFunctions.map((item) => `<li>${esc(item.name)} · ${esc(item.readiness.answer)}</li>`).join("")}</ul></section>` : ""}
         <section class="detail"><h3>What you can do</h3><p>${esc(problem?.nextStep ?? "Review this capability and any reported causes in Home Assistant.")}</p><div class="actions">${nativeLink || "<span class='small'>No native source page is available for this declaration.</span>"}</div></section>
         ${problem && !data.functions.length ? '<p class="sub">No home functions are defined yet. This report describes the integration connection; it does not establish which household activities are affected.</p>' : ""}
+        ${this.tools.detailButtons(source, episode, data)}
         ${source.kind === "function" ? `<section class="detail"><h3>Declared requirements</h3><ul>${source.requirements.map((id) => `<li><button class="link" type="button" data-node="${esc(id)}">${esc(nodes.get(id)?.name ?? id)}</button></li>`).join("")}</ul></section>` : ""}
         ${episode ? `<details ${disclosure("notifications")}><summary>Notifications and active controls</summary><p>${data.policy.notifications_enabled ? requests.length ? "Notification content has been requested. Receipt is not verified." : "No current notification request is recorded. Policy may hold or record this problem." : "Notification events are off."}</p>${requests.map((request) => `<div class="note"><strong>${esc(request.title)}</strong><p>${esc(request.message)}</p><p class="small">${esc(request.recipient)} · ${list(request.channels)} · ${esc(request.loudness)}</p></div>`).join("")}<pre>${json({policy:explanation,controls:data.inventory.operator_controls.filter((control) => control.target === episode.episode_id || control.target === nodeId)})}</pre></details>` : ""}
         <details ${disclosure("technical")}><summary>Technical evidence and potential impact</summary>${result.readiness ? `<p>Readiness: ${esc(result.readiness.answer)}</p>` : ""}<p class="sub">Availability alone does not identify a physical fault or verify command completion. Potential dependents are not a claim that every dependent is currently failing.</p><pre>${json(result)}</pre></details>`;
@@ -284,6 +298,7 @@ class HomeostaticStrategy {
     return {title:"Homeostatic",views:[
       {title:"Overview",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card",view:"overview",navigation:false}]},
       {title:"House",path:"house",type:"panel",cards:[{type:"custom:homeostatic-card",view:"house",navigation:false}]},
+      {title:"Recently resolved",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card",view:"history",navigation:false}]},
       {title:"Coverage",path:"coverage",type:"panel",cards:[{type:"custom:homeostatic-card",view:"coverage",navigation:false}]},
     ]};
   }

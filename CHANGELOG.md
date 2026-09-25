@@ -11,6 +11,11 @@
 
 - Runtime burst qualification found repeated full inventory scans, saves and dashboard publications after simultaneous availability changes. Whole-house enrollment remains unqualified despite fast initial construction. Added isolated inventory-shape, two-device pilot and opt-in runtime profiling scenarios; measurements and proposed rollout gates are in `docs/testing/runtime-scaling.md`. No live enrollment or integration behavior changed.
 
+### Added
+
+- Recently resolved dashboard history with search, outcome filters, bounded pages, stored evidence and related-problem links. Recovery, removal from monitoring and absorption remain distinct.
+- Administrator dashboard forms for shelving alerts and previewing scoped equipment maintenance, with explicit expiry, active-control summaries, preserved drafts and guarded submissions.
+
 ## [0.1.0b3] - 2026-09-25
 
 ### Fixed

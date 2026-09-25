@@ -1,4 +1,5 @@
 import {integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
+import {historyPage, controlPayload, controlAllowed, callAction, controlsPanel, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {DashboardStore, affectedFunctions, areaGroups, dashboardStore, escapeHtml,
@@ -197,4 +198,65 @@ test("disabled conditions and recovery stay distinct from failure and held unkno
   assert.equal(running.headline,"Integration running");
   assert.equal(running.reported,"");
   assert.equal(running.historical,false);
+});
+
+test("history keeps terminal outcomes distinct and pages retained records", () => {
+  const history={episodes:Array.from({length:45},(_,i)=>({episode:{episode_id:`old-${i}`,anchor:`source-${i}`,reasons:[{message:i===42?"Lost power":"Unavailable"}]},source:{name:`Room ${i}`},resolution:i%2?"removed":"cleared"}))};
+  const first=historyPage(history);
+  assert.equal(first.rows.length,20);
+  assert.equal(first.total,45);
+  assert.equal(first.pages,3);
+  assert.equal(historyPage(history,"","",99).rows.length,5);
+  assert.equal(historyPage(history,"LOST POWER").rows[0].episode.episode_id,"old-42");
+  assert.equal(historyPage(history,"","removed").total,22);
+  assert.equal(historyPage(history,"nothing","",2).page,0);
+  assert.equal(historyPage(null).total,0);
+  assert.match(RESOLUTIONS.removed[1],/Recovery was not established/);
+  assert.match(RESOLUTIONS.absorbed[1],/Recovery was not established/);
+});
+
+test("control request requires explicit bounded expiry and preserves target and scope", () => {
+  const now=Date.parse("2026-09-25T12:00:00Z");
+  const shelf={kind:"shelve",target:"episode-1",untilLocal:"2026-09-25T13:00:00Z",reason:"Replacing sensor",includeDependents:true};
+  assert.deepEqual(controlPayload(shelf,now),{episode_id:"episode-1",until:"2026-09-25T13:00:00.000Z",reason:"Replacing sensor"});
+  assert.deepEqual(controlPayload({...shelf,kind:"maintenance",target:"sensor.a"},now),{node_id:"sensor.a",until:"2026-09-25T13:00:00.000Z",reason:"Replacing sensor",include_dependents:true});
+  for(const untilLocal of ["","not-a-date","2026-09-25T12:00:00Z","2026-10-02T12:00:01Z"]){
+    assert.throws(()=>controlPayload({...shelf,untilLocal},now),/end time/);
+  }
+  assert.doesNotThrow(()=>controlPayload({...shelf,untilLocal:"2026-10-02T12:00:00Z"},now));
+  assert.throws(()=>controlPayload({...shelf,reason:"a".repeat(501)},now),/500/);
+});
+
+test("controls require current admin access and an eligible live target", () => {
+  const data=example();data.inventory.episodes=[{episode_id:"active"}];
+  const current={status:"current",data};
+  const shelf={kind:"shelve",target:"active"};
+  assert.equal(controlAllowed(current,true,shelf),true);
+  assert.equal(controlAllowed(current,false,shelf),false);
+  assert.equal(controlAllowed({...current,status:"disconnected"},true,shelf),false);
+  assert.equal(controlAllowed(current,true,{...shelf,target:"resolved"}),false);
+  assert.equal(controlAllowed(current,true,{kind:"maintenance",target:"sensor.a"}),true);
+  assert.equal(controlAllowed(current,true,{kind:"maintenance",target:"function.f"}),false);
+  data.inventory.nodes.push(source("situation.a",{kind:"situation"}));
+  assert.equal(controlAllowed(current,true,{kind:"maintenance",target:"situation.a"}),false);
+});
+
+test("native actions request responses and never retry ambiguous failures", async () => {
+  const calls=[];
+  const hass={async callWS(message){calls.push(message);return{response:{control:{target:"one"}}};}};
+  assert.deepEqual(await callAction(hass,"shelve",{episode_id:"one"}),{control:{target:"one"}});
+  assert.deepEqual(calls,[{type:"call_service",domain:"homeostatic",service:"shelve",service_data:{episode_id:"one"},return_response:true}]);
+  let attempts=0;
+  await assert.rejects(callAction({async callWS(){attempts++;throw new Error("Disconnected");}},"shelve",{}),/Disconnected/);
+  assert.equal(attempts,1);
+  await assert.rejects(callAction({async callWS(){return{};}},"shelve",{}),/Inspect active controls/);
+});
+
+test("saved control names and reasons render as text", () => {
+  const data=example();data.inventory.episodes=[];
+  data.inventory.operator_controls=[{action:"maintenance",target:"sensor.a",until:"2026-09-25T13:00:00Z",reason:'<img src=x onerror="fail()">',include_dependents:true}];
+  const html=controlsPanel(data);
+  assert.ok(!html.includes("<img"));
+  assert.match(html,/&lt;img/);
+  assert.match(html,/Existing problems and alerts remain active/);
 });

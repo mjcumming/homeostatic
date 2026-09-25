@@ -983,3 +983,16 @@ Proposed owner workflow: browse rooms and integrations, choose a recognizable de
 Each device row should say what is monitored, what evidence is missing and why it is included or excluded. Device detail separates operational capabilities, connectivity evidence and maintenance. Offer bulk inclusion by device/integration/area, preview the resulting capability checks, persist exclusions and show whether new discoveries inherit the choice. Do not attach every entity on a selected device by default, or globally discard diagnostics: both can produce misleading coverage. These are proposals, not implemented enrollment profiles or new catalog rules.
 
 The first bounded pilot proposal uses one availability capability on each of two already-offline devices. Other capabilities are added when a declared function needs them. Keep the existing integration checks and notifications off. The isolated two-device lifecycle and full registry-shape selection tests pass, but refresh scheduling and full inventory publication need correction and requalification before live expansion. Device views must preserve capability-level health and must not turn location or device grouping into dependency edges.
+
+
+## 21. Resolved history and dashboard controls
+
+Implemented 2026-09-25 in the isolated dashboard increment. The spec remains the behavior contract.
+
+- Overview includes eight recently ended episodes and active controls. The history view searches retained source names, identities and findings, filters outcomes, and shows twenty records at a time. Stored evidence is never presented as current readiness. Removal and absorption do not imply recovery.
+- Open problems offer shelving. Equipment capabilities offer maintenance; situations and functions cannot be maintenance roots. The owner supplies an explicit end date/time and optional reason. Maintenance previews capabilities, affected functions and existing episodes before applying.
+- Form entries survive live updates, which invalidate maintenance previews. Disconnection and disappearance of the target disable submission. Pending actions cannot be double-submitted; an uncertain result calls for inspecting controls instead of an automatic retry.
+- Backend scope, expiry, persistence and permission semantics remain unchanged. Cancellation and acknowledgment are still future work.
+- Executable browser scenarios: `tests/frontend/history-controls.html`. Native WebSocket authorization and service response scenarios: `tests/test_dashboard_actions.py`.
+
+Large-inventory transfer/rendering remains separate unfinished work. The concurrent device-monitoring task owns runtime performance qualification; the concurrent location task owns the native floor/area hierarchy. This increment does not change enrollment or either task's code.

@@ -4,7 +4,7 @@ Health monitoring and situation alerts for Home Assistant, powered by the separa
 
 Homeostatic answers **what is wrong, what depends on it, and what needs attention**. HealthTree supplies the dependency graph, episodes, readiness, and attention policy. This integration supplies Home Assistant observations, configuration, timers, persistence, entities, and notification requests. Consumers deliver those requests to people.
 
-**Status: 0.1.0b3 pilot candidate.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.3.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). The first dashboard is read-only; operator actions and bounded resolution history are available through native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Graph construction and enrollment preview have passed isolated 10,000-source checks, but whole-house responsiveness remains under qualification. Keep the catalog rule narrow on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
+**Status: 0.1.0b3 pilot candidate.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.3.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). The administrator dashboard includes bounded resolved history, shelving and previewed equipment maintenance, using the existing native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Graph construction and enrollment preview have passed isolated 10,000-source checks, but whole-house responsiveness remains under qualification. Keep the catalog rule narrow on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
 
 ## What works now
 
@@ -21,7 +21,7 @@ Homeostatic answers **what is wrong, what depends on it, and what needs attentio
 
 A passing availability check shows that HA currently reports an available control path. It does not verify physical-device freshness, detector progress, command completion, or phone receipt. Those require their own evidence producers and real traces.
 
-Richer evidence checks, dashboard operator controls, specific Repairs links, history presentation, optional TopoMation enrichment, and the external watchdog are tracked in the [build roadmap](docs/roadmap.md). The structured YAML forms are development interfaces.
+Richer evidence checks, specific Repairs links, optional TopoMation enrichment, and the external watchdog are tracked in the [build roadmap](docs/roadmap.md). The structured YAML forms are development interfaces.
 
 ## Install the pilot
 
@@ -42,11 +42,11 @@ type: custom:homeostatic-card
 view: overview
 ```
 
-Supported views are `overview`, `house`, `coverage`, `functions`, and `problems`. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
+Supported views are `overview`, `house`, `coverage`, `history`, `functions`, and `problems`. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
 
-This first dashboard is read-only and administrator-only because it includes installation-wide configuration, inventory and routing. Readiness entities retain their ordinary HA access controls. Problem details show current evidence, affected functions, potential impact, notification requests and active-control information. Action buttons hand off to native HA source pages; shelving and maintenance creation still use the existing administrator actions. Availability does not prove physical freshness or command completion.
+The dashboard is administrator-only because it includes installation-wide configuration, inventory and routing. Readiness entities retain their ordinary HA access controls. Problem details show current evidence, affected functions, potential impact, notification requests and active-control information. Problem details offer **Shelve alerts**; equipment details offer **Plan maintenance**. Each requires an end time within seven days. Maintenance previews affected capabilities, functions and existing problems before applying. Existing alerts remain active during maintenance; shelving holds new alerts, including urgent ones, for every recipient. Early cancellation and acknowledgment are not available. Active controls show their expiry and reason. Both forms use the existing administrator actions and keep unfinished entries through live updates. Availability does not prove physical freshness or command completion.
 
-Recent changes currently show the last 50 enrollment changes from the runtime, not a durable recovery journal. TopoMation is not required or read by this increment. Notification event/blueprint links and automatic Repairs remedies remain follow-up work.
+**Recently resolved** shows up to 100 ended episodes within 30 days, with search, outcome filtering and twenty rows per page. Details distinguish confirmed recovery, removal from monitoring and absorption into another problem; retained findings are historical evidence. Collection start and retention limits are visible. Recent enrollment changes remain the last 50 changes from the runtime. TopoMation is not required or read by this increment. Notification event/blueprint links and automatic Repairs remedies remain follow-up work.
 
 ### Choose what to watch
 
