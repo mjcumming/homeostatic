@@ -1,3 +1,4 @@
+import {integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {DashboardStore, affectedFunctions, areaGroups, dashboardStore, escapeHtml,
@@ -123,4 +124,45 @@ test("unavailable runtime, incompatible payload, and retry failures remain expli
   assert.equal(store.state.status,"error");
   assert.equal(store.state.error,"Access denied");
   stop();
+});
+
+
+test("integration explanations distinguish a reported cause, reauth, and missing detail",()=>{
+  const entry=source("entry:bathroom",{kind:"integration",name:"Master Bathroom",entry_id:"bathroom",attributes:{domain:["nuheat"]}});
+  const describe=(reason,message)=>integrationProblem(entry,[{node_id:entry.node_id,reason,message}],()=>"NuHeat");
+  const setup=describe("setup_error","Master Bathroom: Unable to sign in to provider");
+  assert.equal(setup.reported,"Unable to sign in to provider");
+  assert.equal(setup.headline,"Integration couldn't start");
+  assert.match(setup.summary,/NuHeat/);
+  assert.equal(setup.integrationUrl,"/config/integrations/integration/nuheat#config_entry=bathroom");
+  assert.equal(setup.logsUrl,"/config/logs?filter=nuheat");
+  assert.equal(setup.missingDetail,false);
+  const auth=describe("auth_required","Master Bathroom: Session expired");
+  assert.equal(auth.headline,"Sign-in required");
+  assert.match(auth.nextStep,/complete its sign-in prompt/);
+  assert.equal(auth.reported,"Session expired");
+  const generic=describe("setup_error","Master Bathroom: setup error");
+  assert.equal(generic.reported,"");
+  assert.equal(generic.missingDetail,true);
+  assert.equal(generic.logsPrimary,true);
+  assert.doesNotMatch(generic.summary,/password|sign.in/);
+  assert.match(describe("setup_retry","Connection timed out").summary,/retry automatically/);
+  const disabled=describe("disabled","Master Bathroom: disabled");
+  assert.match(disabled.nextStep,/If this is intentional/);
+  assert.equal(disabled.reported,"");
+  assert.equal(disabled.logsUrl,null);
+});
+
+test("native destinations encode untrusted identifiers and old findings have honest fallbacks",()=>{
+  const entry=source("entry:a",{kind:"integration",entry_id:'a&x="bad"',attributes:{domain:['test/?"bad']}});
+  const result=integrationProblem(entry,[{reason:"setup_error"}]);
+  assert.equal(result.integrationUrl,"/config/integrations/integration/test%2F%3F%22bad#config_entry=a%26x%3D%22bad%22");
+  assert.equal(result.logsUrl,"/config/logs?filter=test%2F%3F%22bad");
+  assert.equal(result.missingDetail,true);
+  assert.equal(integrationProblem({...entry,attributes:{}},[{reason:"setup_error"}]).integrationUrl,"/config/integrations");
+  assert.equal(integrationProblem(source("entity:a"),[{reason:"unavailable"}]),null);
+  assert.equal(integrationProblem(entry,[]),null);
+  assert.equal(integrationProblem(entry,[{reason:"dependents_failing"}]),null);
+  assert.equal(integrationProblem(entry,[{reason:"__proto__"}]),null);
+  assert.equal(integrationProblem(entry,[{node_id:"entry:other",reason:"setup_error"}]),null);
 });

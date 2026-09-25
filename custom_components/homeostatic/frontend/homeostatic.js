@@ -1,5 +1,6 @@
 import {affectedFunctions, areaGroups, dashboardStore, escapeHtml as esc,
   inventoryRows, monitoringLabel, sortedEpisodes, sourceMap} from "./model.mjs";
+import {integrationProblem} from "./problem.mjs";
 import {styles} from "./styles.mjs";
 
 const VIEWS = ["overview", "house", "coverage", "functions", "problems"];
@@ -133,8 +134,10 @@ class HomeostaticCard extends HTMLElement {
       const affected = affectedFunctions(data, episode);
       const title = situation ? source.name : affected.length === 1 ? `${affected[0].name}: ${affected[0].readiness.answer}`
         : affected.length ? `${affected.length} functions need attention` : source?.name ?? episode.anchor;
+      const problem = integrationProblem(source, episode.reasons, (key) => this._hass.localize?.(key));
       const reasons = episode.reasons.map((r) => r.message || r.reason.replaceAll("_", " "));
-      return `<section class="issue ${situation ? "situation" : ""}"><p class="small">${situation ? "Situation" : "Open problem"} · ${esc(episode.importance)} importance · Since ${esc(date(episode.opened_at))}</p><h2>${esc(title)}</h2><p>${esc(source?.name ?? episode.anchor)} · ${esc(reasons.join("; ") || "Evidence is unknown")}</p><div class="actions"><button type="button" class="button primary" data-episode="${esc(episode.episode_id)}">View problem</button></div></section>`;
+      const summary = problem ? `${problem.headline}. ${problem.reported || problem.summary}` : reasons.join("; ") || "Evidence is unknown";
+      return `<section class="issue ${situation ? "situation" : ""}"><p class="small">${situation ? "Situation" : "Open problem"} · ${esc(episode.importance)} importance${problem ? ` · ${esc(problem.integration)}` : ""} · Since ${esc(date(episode.opened_at))}</p><h2>${esc(title)}</h2><p>${esc(summary)}</p><div class="actions"><button type="button" class="button primary" data-episode="${esc(episode.episode_id)}">View problem</button></div></section>`;
     }).join("");
   }
 
@@ -232,18 +235,23 @@ class HomeostaticCard extends HTMLElement {
       this.shadowRoot.querySelector("#detail-label").textContent = source.kind === "situation" ? "Situation" : episode ? "Open problem" : "Capability";
       const currentFunctions = episode ? affectedFunctions(data, episode) : [];
       const findings = result.explanation.findings;
-      const nativeLink = source.entity_id
+      const problem = integrationProblem(source, findings, (key) => this._hass.localize?.(key));
+      const dependencies = result.explanation.nodes.filter((node) => node.node_id !== nodeId);
+      const unwatched = result.readiness?.nodes.filter((node) => !node.watched) ?? [];
+      const integrationLink = problem ? `<a class="button ${problem.logsPrimary ? "" : "primary"}" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : "";
+      const logsLink = problem?.logsUrl ? `<a class="button ${problem.logsPrimary ? "primary" : ""}" href="${esc(problem.logsUrl)}">View integration logs</a>` : "";
+      const nativeLink = problem ? (problem.logsPrimary ? logsLink + integrationLink : integrationLink + logsLink) : source.entity_id
         ? `<button class="button" type="button" data-entity="${esc(source.entity_id)}">Open entity in HA</button>`
         : source.entry_id || source.owner_id ? '<a class="button" href="/config/integrations">Open integrations in HA</a>' : "";
       const requests = episode ? data.inventory.notification_requests.filter((item) => item.episode_id === episode.episode_id) : [];
       const explanation = episode ? data.policy.episodes.find((item) => item.episode_id === episode.episode_id) : null;
-      body.innerHTML = `<section class="detail">${result.readiness ? status(result.readiness.answer) : ""}<p class="sub">${episode ? `Open since ${esc(date(episode.opened_at))}` : "Current evaluated evidence"}</p>${findings.length ? findings.map((finding) => `<p>${esc(finding.message || finding.reason.replaceAll("_", " "))}</p>`).join("") : "<p>No current findings on this capability.</p>"}</section>
-        <section class="detail"><h3>Why this answer</h3>${result.explanation.nodes.length ? `<ul>${result.explanation.nodes.map((node) => `<li>${esc(nodes.get(node.node_id)?.name ?? node.node_id)} · ${esc(node.own)} · ${list(node.reasons)}</li>`).join("")}</ul>` : "<p>No non-passing watched dependencies are reported.</p>"}${result.readiness?.nodes.filter((node) => !node.watched).map((node) => `<p>${esc(nodes.get(node.node_id)?.name ?? node.node_id)} · Unwatched requirement</p>`).join("") ?? ""}</section>
+      body.innerHTML = `<section class="detail">${problem ? `<p class="small">${esc(problem.integration)} · Integration</p><h3>${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>${problem.reported ? `<div class="note"><strong>Home Assistant reports</strong><p>${esc(problem.reported)}</p></div>` : ""}${problem.missingDetail ? "<p class='sub'>Home Assistant did not provide a specific cause. The integration logs may have more detail.</p>" : ""}` : `${result.readiness ? status(result.readiness.answer) : ""}${findings.length ? findings.map((finding) => `<p>${esc(finding.message || finding.reason.replaceAll("_", " "))}</p>`).join("") : "<p>No current findings on this capability.</p>"}`}<p class="sub">${episode ? `Open since ${esc(date(episode.opened_at))}` : "Current evaluated evidence"}</p></section>
+        ${dependencies.length || unwatched.length ? `<section class="detail"><h3>What is preventing this from working</h3>${dependencies.length ? `<ul>${dependencies.map((node) => `<li>${esc(nodes.get(node.node_id)?.name ?? node.node_id)} · ${esc(node.own)} · ${list(node.reasons)}</li>`).join("")}</ul>` : ""}${unwatched.map((node) => `<p>${esc(nodes.get(node.node_id)?.name ?? node.node_id)} · Unwatched requirement</p>`).join("")}</section>` : ""}
         ${currentFunctions.length ? `<section class="detail"><h3>Currently affected functions</h3><ul>${currentFunctions.map((item) => `<li>${esc(item.name)} · ${esc(item.readiness.answer)}</li>`).join("")}</ul></section>` : ""}
-        <section class="detail"><h3>Next step</h3><p>Review the source and its evidence in Home Assistant.</p><div class="actions">${nativeLink || "<span class='small'>No native source page is available for this declaration.</span>"}</div><p class="sub">Availability alone does not identify a physical fault or verify command completion.</p></section>
+        <section class="detail"><h3>Next step</h3><p>${esc(problem?.nextStep ?? "Review this capability and any reported causes in Home Assistant.")}</p><div class="actions">${nativeLink || "<span class='small'>No native source page is available for this declaration.</span>"}</div></section>
         ${source.kind === "function" ? `<section class="detail"><h3>Declared requirements</h3><ul>${source.requirements.map((id) => `<li><button class="link" type="button" data-node="${esc(id)}">${esc(nodes.get(id)?.name ?? id)}</button></li>`).join("")}</ul></section>` : ""}
-        ${episode ? `<section class="detail"><h3>Notification state</h3><p>${data.policy.notifications_enabled ? requests.length ? "Notification content has been requested. Receipt is not verified." : "No current notification request is recorded. Policy may hold or record this problem." : "Notification events are off."}</p>${requests.map((request) => `<div class="note"><strong>${esc(request.title)}</strong><p>${esc(request.message)}</p><p class="small">${esc(request.recipient)} · ${list(request.channels)} · ${esc(request.loudness)}</p></div>`).join("")}<details><summary>Policy explanation and active controls</summary><pre>${json({policy:explanation,controls:data.inventory.operator_controls.filter((control) => control.target === episode.episode_id || control.target === nodeId)})}</pre></details></section>` : ""}
-        <details><summary>Advanced evidence and potential impact</summary><p class="sub">Potential dependents are not a claim that every dependent is currently failing.</p><pre>${json(result)}</pre></details>`;
+        ${episode ? `<details><summary>Notifications and active controls</summary><p>${data.policy.notifications_enabled ? requests.length ? "Notification content has been requested. Receipt is not verified." : "No current notification request is recorded. Policy may hold or record this problem." : "Notification events are off."}</p>${requests.map((request) => `<div class="note"><strong>${esc(request.title)}</strong><p>${esc(request.message)}</p><p class="small">${esc(request.recipient)} · ${list(request.channels)} · ${esc(request.loudness)}</p></div>`).join("")}<pre>${json({policy:explanation,controls:data.inventory.operator_controls.filter((control) => control.target === episode.episode_id || control.target === nodeId)})}</pre></details>` : ""}
+        <details><summary>Technical evidence and potential impact</summary>${result.readiness ? `<p>Readiness: ${esc(result.readiness.answer)}</p>` : ""}<p class="sub">Availability alone does not identify a physical fault or verify command completion. Potential dependents are not a claim that every dependent is currently failing.</p><pre>${json(result)}</pre></details>`;
       body.querySelector("[data-entity]")?.addEventListener("click", (event) => {
         this.dialog.close();
         this.dispatchEvent(new CustomEvent("hass-more-info", {bubbles:true,composed:true,detail:{entityId:event.currentTarget.dataset.entity}}));

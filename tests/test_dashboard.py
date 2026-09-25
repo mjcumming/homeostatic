@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 from homeassistant.components import frontend
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import entity_registry as er
@@ -201,4 +202,52 @@ async def test_dashboard_requires_administrator(
     await client.send_json({"id": 1, **command})
     assert (await client.receive_json())["error"]["code"] == "unauthorized"
     assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
+
+
+async def test_setup_error_detail_survives_episode_and_recovers(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """An entry's real reported failure reaches the read model and clears on recovery."""
+    source = MockConfigEntry(
+        domain="test",
+        title="Bathroom controller",
+        state=ConfigEntryState.LOADED,
+        data={"password": "must-not-be-exposed"},
+    )
+    source.add_to_hass(hass)
+    config_data.update(
+        entities=[], config_entries=[source.entry_id], notifications=False
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    source._async_set_state(
+        hass, ConfigEntryState.SETUP_ERROR, "Unable to sign in to provider"
+    )
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+    command = {"type": "homeostatic/node", "node_id": f"entry:{source.entry_id}"}
+    await client.send_json({"id": 1, **command})
+    detail = (await client.receive_json())["result"]
+    assert detail["source"]["attributes"]["domain"] == ["test"]
+    assert detail["explanation"]["findings"][0]["reason"] == "setup_error"
+    assert (
+        detail["explanation"]["findings"][0]["message"]
+        == "Bathroom controller: Unable to sign in to provider"
+    )
+    assert (
+        next(iter(runtime.episodes.values()))["reasons"][0]["message"]
+        == "Bathroom controller: Unable to sign in to provider"
+    )
+    assert "must-not-be-exposed" not in str(detail)
+    source._async_set_state(hass, ConfigEntryState.LOADED, None)
+    await hass.async_block_till_done()
+    await client.send_json({"id": 2, **command})
+    recovered = (await client.receive_json())["result"]
+    assert recovered["explanation"]["findings"] == []
+    assert recovered["readiness"]["answer"] == "ready"
+    assert runtime.episodes == {}
+    assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()

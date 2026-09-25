@@ -79,7 +79,12 @@ async def exercise(config: Path, port: int) -> None:
         assert not runtime.settings.notifications
         assert runtime.query("readiness", {})["answer"] == "ready"
         async with ClientSession() as client:
-            for asset in ("homeostatic.js?v=1", "model.mjs", "styles.mjs"):
+            for asset in (
+                "homeostatic.js?v=2",
+                "model.mjs",
+                "problem.mjs",
+                "styles.mjs",
+            ):
                 async with client.get(
                     f"http://127.0.0.1:{port}/homeostatic_static/{asset}"
                 ) as response:

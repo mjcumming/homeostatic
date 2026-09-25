@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.1.0b3] - 2026-09-25
+
+### Fixed
+
+- Integration problem cards and details now explain setup, retry, authentication and disabled states, preserve HA's reported error, and link to the relevant integration entry or filtered logs. Empty dependency text and unrelated notification/verification detail no longer obscure the next step.
+
 ## [0.1.0b2] - 2026-09-25
 
 ### Changed

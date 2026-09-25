@@ -75,3 +75,91 @@ def test_missing_entry() -> None:
     result = entry_observation(SOURCE, None, NOW, None, Settings.from_data({}), False)
     assert result.status is Status.UNKNOWN
     assert result.reason == "source_missing"
+
+
+@pytest.mark.parametrize(
+    "state,reauth,disabled,reported,expected",
+    [
+        pytest.param(
+            ConfigEntryState.SETUP_ERROR,
+            False,
+            None,
+            "Unable to sign in to provider",
+            "Unable to sign in to provider",
+            id="reported-sign-in-error",
+        ),
+        pytest.param(
+            ConfigEntryState.SETUP_RETRY,
+            False,
+            None,
+            "Connection timed out",
+            "Connection timed out",
+            id="retry-detail",
+        ),
+        pytest.param(
+            ConfigEntryState.MIGRATION_ERROR,
+            False,
+            None,
+            "Unsupported configuration version",
+            "Unsupported configuration version",
+            id="migration-detail",
+        ),
+        pytest.param(
+            ConfigEntryState.FAILED_UNLOAD,
+            False,
+            None,
+            "Could not stop listener",
+            "Could not stop listener",
+            id="unload-detail",
+        ),
+        pytest.param(
+            ConfigEntryState.LOADED,
+            True,
+            None,
+            "Session expired",
+            "Session expired",
+            id="pending-reauth",
+        ),
+        pytest.param(
+            ConfigEntryState.SETUP_ERROR,
+            False,
+            None,
+            None,
+            "setup error",
+            id="no-reported-cause",
+        ),
+        pytest.param(
+            ConfigEntryState.LOADED,
+            False,
+            None,
+            "Old error",
+            "loaded",
+            id="recovery-drops-error",
+        ),
+        pytest.param(
+            ConfigEntryState.SETUP_ERROR,
+            True,
+            ConfigEntryDisabler.USER,
+            "Old error",
+            "disabled",
+            id="disabled-is-not-sign-in",
+        ),
+    ],
+)
+def test_reported_entry_error(
+    state: ConfigEntryState,
+    reauth: bool,
+    disabled: ConfigEntryDisabler | None,
+    reported: str | None,
+    expected: str,
+) -> None:
+    """Use HA's displayed error without reading credentials or inventing a cause."""
+    entry = MockConfigEntry(
+        state=state,
+        reason=reported,
+        disabled_by=disabled,
+        data={"password": "must-not-be-exposed"},
+    )
+    result = entry_observation(SOURCE, entry, NOW, None, Settings.from_data({}), reauth)
+    assert result.message == f"Controller: {expected}"
+    assert "must-not-be-exposed" not in str(result)

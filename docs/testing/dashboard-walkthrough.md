@@ -70,6 +70,16 @@ The required check command passed after the navigation fix: 283 Python integrati
 
 The executable browser regression is in `tests/frontend/preview.html`. Serve the repository on loopback, open that fixture, leave Administrator enabled and a live scenario selected, and press **Run navigation regression**. It exercises the actual production custom element with hidden page tabs, opens coverage, asserts a return control exists, returns to Overview, and checks that the return control disappears there. The observed result was **PASS**. This browser fixture is a manual executable check; it is not part of the Node-only CI suite.
 
+## Integration explanation follow-up (2026-09-25)
+
+The problem presentation was checked separately against the production custom element in `tests/frontend/preview.html`, using synthetic setup failures, a reported provider sign-in error, a pending reauthentication request, retry and disabled states. This check does not claim a live-house upgrade or successful provider authentication.
+
+**Run problem regression** passed for a missing-cause explanation, filtered log destination, the specific integration-entry destination, sign-in evidence, HTML-like names treated as text, collapsed notification/technical details and removal of a recovered problem from an open dialog. The setup-error dialog was also inspected at a 390 by 844 viewport: text and both actions fit without horizontal overflow. The actual HA WebSocket regression confirms that a reported setup error reaches both the public explanation and episode, then disappears from current findings on recovery. Entry credentials are not included.
+
+Required checks passed with 316 Python tests, 10 Node tests, strict types, formatting, lint and both coverage floors (98.79% combined). The browser fixture remains a manual executable check. The integration's manifest and translations did not change.
+
+Native integration highlighting uses `#config_entry=...`; log links use `?filter=...`. These follow the [HA integration page](https://github.com/home-assistant/frontend/blob/dev/src/panels/config/integrations/ha-config-integration-page.ts). The adapter reads HA's public `ConfigEntry.reason`, retaining the engine's independent structured reason code. It does not mine logs or infer that an unspecified setup failure means rejected credentials.
+
 ## Remaining boundary
 
 The first dashboard is read-only and administrator-only. This walkthrough did not validate phone delivery, physical freshness, command completion, an external watchdog, packaged installation, or optional TopoMation integration. Persisted resolved-history backend work is being integrated separately for the pilot; the dashboard tested here still shows current-runtime enrollment changes. Library release/pinning, combined-build validation and pilot installation instructions belong to the pilot assembly milestone.
