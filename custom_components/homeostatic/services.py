@@ -12,6 +12,8 @@ from .const import DOMAIN
 from .runtime import Runtime
 
 SERVICES = (
+    "policy",
+    "preview_policy",
     "inventory",
     "explain",
     "readiness",
@@ -40,7 +42,9 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
 
     for service in SERVICES:
         fields: dict[Any, Any] = {}
-        if service == "preview_functions":
+        if service == "preview_policy":
+            fields = {vol.Required("policy"): dict}
+        elif service == "preview_functions":
             fields = {
                 vol.Required("functions"): list,
                 vol.Optional("external_capabilities"): list,

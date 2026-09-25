@@ -19,6 +19,7 @@ def form_schema(hass: HomeAssistant, data: dict[str, Any]) -> vol.Schema:
     """Offer existing source identities and editable adapter defaults."""
     settings = Settings.from_data(data)
     fields: dict[Any, Any] = {
+        vol.Optional("policy", default=settings.policy): selector.ObjectSelector(),
         vol.Optional(
             "rules", default=rule_data(hass, settings) if data else DEFAULT_RULES
         ): selector.ObjectSelector(),
@@ -121,6 +122,12 @@ class HomeostaticOptionsFlow(config_entries.OptionsFlowWithReload):
                     preview = preview_summary(
                         self.hass, data, runtime.enrolled if runtime else {}
                     )
+                    if runtime is not None and runtime.available:
+                        decisions = runtime.preview_policy(data["policy"])["episodes"]
+                        preview += "\n" + "\n".join(
+                            f"{item['episode_id']}: {item['loudness']}, recipients {item['recipients']}, pending {item['pending']}"
+                            for item in decisions
+                        )
                     current = data
                 else:
                     return self.async_create_entry(title="", data=data)
@@ -161,6 +168,13 @@ def preview_summary(
         descriptions.append(
             f"{function['name']}: {function['readiness']['answer']}. Gaps: {', '.join(gaps) or 'none'}. Candidates: {candidates or 'none'}. Static discovery is incomplete."
         )
+    routes = sum(
+        len(recipient.channels)
+        for recipient in settings.policy_config().recipients.values()
+    )
+    descriptions.append(
+        f"Policy: {len(settings.policy_config().rules)} rules, {routes} recipient/channel routes. Use preview_policy to inspect current episodes."
+    )
     return f"Preview: {result['watched']} watched sources. {counts}\n" + "\n".join(
         descriptions
     )

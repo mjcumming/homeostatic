@@ -44,6 +44,7 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from .attention import explanations
 from .catalog import (
     Source,
     entity_observation,
@@ -342,12 +343,11 @@ class Runtime:
                 events = self._evaluate(now)
                 self._handle(events, now)
                 assert self.policy is not None
-                self._deliveries(self.policy.advance(now, PolicyContext()))
                 if self._activating:
-                    self.delivery.activate(
-                        [self._content(episode_id) for episode_id in self.episodes]
-                    )
+                    self.delivery.deactivate()
                     self._activating = False
+                    self._deliveries(self.policy.activate(now, PolicyContext()))
+                self._deliveries(self.policy.advance(now, PolicyContext()))
                 if not self.settings.notifications:
                     self.delivery.deactivate()
                 await self._save()
@@ -405,8 +405,16 @@ class Runtime:
                 if self.saved["schema_version"] == 1
                 else set()
             )
-            self._activating = self.settings.notifications and not self.saved.get(
-                "notifications_enabled", False
+            self._activating = self.settings.notifications and (
+                not self.saved.get("notifications_enabled", False)
+                or self.saved.get(
+                    "policy_settings",
+                    {
+                        "policy": Settings.from_data({}).policy,
+                        "batch": self.settings.timings["batch"],
+                    },
+                )
+                != self._policy_settings()
             )
             self.retry_since = {
                 entry_id: datetime.fromisoformat(value)
@@ -525,7 +533,10 @@ class Runtime:
             return
         pending = list(self.delivery.outbox)
         for payload in pending:
-            self.hass.bus.async_fire(EVENT_NOTIFICATION, dict(payload))
+            self.hass.bus.async_fire(
+                EVENT_NOTIFICATION,
+                {key: value for key, value in payload.items() if key != "_alerting"},
+            )
         self.delivery.outbox.clear()
         try:
             await self._save()
@@ -567,6 +578,7 @@ class Runtime:
             },
             "engine": self.engine.snapshot(),
             "policy": self.policy.snapshot(),
+            "policy_settings": self._policy_settings(),
             "episodes": self.episodes.copy(),
             "notifications": sorted(self.desired_notifications),
             "notifications_enabled": self.settings.notifications,
@@ -584,10 +596,48 @@ class Runtime:
         if await self.store.async_load() != snapshot:
             raise HomeAssistantError("Homeostatic snapshot could not be saved")
 
+    def _policy_settings(self) -> dict[str, Any]:
+        return {"policy": self.settings.policy, "batch": self.settings.timings["batch"]}
+
+    def preview_policy(self, data: dict[str, Any]) -> dict[str, JSONValue]:
+        """Simulate activation in an isolated policy using its opaque public snapshot."""
+        assert self.policy is not None
+        settings = Settings.from_data(
+            {**(self.entry.options or self.entry.data), "policy": data}
+        )
+        candidate = Policy(settings.policy_config())
+        now = dt_util.utcnow()
+        candidate.restore(self.policy.snapshot(), now)
+        deliveries = candidate.activate(now, PolicyContext())
+        deliveries.extend(candidate.advance(now, PolicyContext()))
+        return json_object(
+            {
+                "at": now,
+                "episodes": explanations(candidate, list(self.episodes)),
+                "deliveries": deliveries,
+                "next_deadline": candidate.next_deadline(),
+            }
+        )
+
     def query(self, action: str, data: dict[str, Any]) -> dict[str, JSONValue]:
         """Read the public model for response-only HA actions."""
         if not self.available or self.engine is None:
             raise HomeAssistantError("Homeostatic is not ready")
+        if action == "preview_policy":
+            return self.preview_policy(data["policy"])
+        if action == "policy":
+            assert self.policy is not None
+            return json_object(
+                {
+                    "episodes": explanations(self.policy, list(self.episodes)),
+                    "next_deadline": self.policy.next_deadline(),
+                    "routes": {
+                        name: list(recipient.channels)
+                        for name, recipient in self.settings.policy_config().recipients.items()
+                    },
+                    "notifications_enabled": self.settings.notifications,
+                }
+            )
         if action == "functions":
             return json_object(
                 {

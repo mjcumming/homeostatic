@@ -1,8 +1,8 @@
 """Durable notification requests, independent of transport and engine state."""
 
-from typing import Any
+from typing import Any, cast
 
-from health_tree.types import Delivery, JSONValue, Notification
+from health_tree.types import Delivery, JSONValue, Loudness, Notification
 
 
 class DeliveryState:
@@ -82,30 +82,65 @@ class DeliveryState:
         )
 
     def record(self, delivery: Delivery, content: dict[str, JSONValue]) -> None:
-        """Change requested content only in response to a policy delivery."""
+        """Render each authorized delivery, retaining summary membership."""
         key = f"{delivery.recipient}:{delivery.episode_id}"
         previous = self.messages.get(key)
+        old_group = str(previous["group"]) if previous and "group" in previous else None
         if isinstance(delivery, Notification):
-            payload = {
+            action = delivery.cause
+            group = None
+            if delivery.cause == "activate":
+                action = "summary"
+                group = f"activation_{delivery.recipient}"
+            elif delivery.cause == "digest":
+                group = f"digest_{delivery.digest}_{delivery.recipient}"
+            elif delivery.silent and old_group:
+                group = old_group
+            tag = (
+                content["tag"]
+                if delivery.recipient == "owner"
+                else f"{content['tag']}_{delivery.recipient}"
+            )
+            payload: dict[str, JSONValue] = {
                 **content,
+                "tag": tag,
                 "recipient": delivery.recipient,
+                "channels": list(delivery.channels),
                 "loudness": delivery.loudness.value,
                 "silent": delivery.silent,
-                "action": "update" if previous else "open",
+                "action": action,
+                "digest": delivery.digest,
             }
+            if group is not None:
+                payload["group"] = group
+                payload["tag"] = f"homeostatic_{self.entry_id}_{group}"
             self.messages[key] = payload
-            summarized = key in self.summarized
             self.summarized.discard(key)
-            if (
-                summarized
-                and previous is not None
-                and previous["message"] == payload["message"]
-                and previous["loudness"] == payload["loudness"]
-            ):
-                return
-            if previous == payload:
-                return
-            self.enqueue(payload)
+            if old_group and old_group != group:
+                self._group(old_group, "update", True, previous)
+            elif group and previous is not None:
+                self.outbox = [
+                    item for item in self.outbox if item["tag"] != previous["tag"]
+                ]
+                self.enqueue(
+                    {
+                        **previous,
+                        "action": "resolve",
+                        "silent": True,
+                        "resolution": "replaced",
+                        "message": "Moved to summary.",
+                    }
+                )
+            if group:
+                self._group(
+                    group,
+                    action,
+                    delivery.silent,
+                    previous,
+                    alert_episode=delivery.episode_id,
+                )
+            elif not (delivery.silent and previous == payload):
+                self.enqueue(payload)
             return
         self.messages.pop(key, None)
         self.summarized.discard(key)
@@ -117,59 +152,98 @@ class DeliveryState:
                 and item["recipient"] == delivery.recipient
             )
         ]
-        # An unacknowledged opening may already have reached a consumer.
-        # Clearing its tag is safe even when the opening was never published.
-        if previous is not None:
+        if old_group:
+            self._group(old_group, "update", True, previous, delivery.resolution)
+        elif previous is not None:
             self.enqueue(
                 {
                     **previous,
                     "action": "resolve",
                     "silent": True,
                     "resolution": delivery.resolution,
-                    "title": f"{previous['title']} — {delivery.resolution}",
                     "message": f"Problem {delivery.resolution}.",
                 }
             )
 
-    def activate(self, contents: list[dict[str, JSONValue]]) -> None:
-        """Publish one activation snapshot, suppressing queued individual openings."""
-        for content in contents:
-            key = f"owner:{content['episode_id']}"
-            self.messages[key] = {
-                **content,
-                "recipient": "owner",
-                "action": "update",
-                "silent": True,
-            }
-            self.summarized.add(key)
+    def _group(
+        self,
+        group: str,
+        action: str,
+        silent: bool,
+        previous: dict[str, JSONValue] | None,
+        resolution: str = "replaced",
+        *,
+        alert_episode: str | None = None,
+    ) -> None:
+        """Replace one summary when its authorized membership changes."""
+        members = [
+            item for item in self.messages.values() if item.get("group") == group
+        ]
+        tag = f"homeostatic_{self.entry_id}_{group}"
+        pending = [item for item in self.outbox if item["tag"] == tag]
+        alerting = {
+            str(episode_id)
+            for item in pending
+            for episode_id in cast(list[JSONValue], item.get("_alerting", []))
+        }
+        if not silent and alert_episode is not None:
+            alerting.add(alert_episode)
+        # Superseded unsent summaries cannot resurrect a removed member on replay.
+        self.outbox = [item for item in self.outbox if item["tag"] != tag]
+        if not members:
+            assert previous is not None
+            self.enqueue(
+                {
+                    **previous,
+                    "episode_id": group,
+                    "episodes": [],
+                    "action": "resolve",
+                    "silent": True,
+                    "resolution": resolution,
+                    "message": "Summary cleared.",
+                }
+            )
+            return
+        first = members[0]
+        noisy = [item for item in members if item["episode_id"] in alerting]
+        if silent and noisy:
+            action = str(pending[-1]["action"])
         self.enqueue(
             {
-                "schema_version": 1,
-                "entry_id": self.entry_id,
-                "episode_id": "activation",
-                "tag": f"homeostatic_{self.entry_id}_activation",
-                "action": "summary",
-                "recipient": "owner",
-                "loudness": "notify",
-                "silent": False,
-                "title": "Homeostatic notifications activated",
-                "message": f"At activation: {len(contents)} open problems."
-                + "".join(
-                    f"\n{content['title']}: {content['message']}"
-                    for content in contents
+                **first,
+                "episode_id": group,
+                "episodes": [item["episode_id"] for item in members],
+                "action": action,
+                "silent": not noisy,
+                "_alerting": [item["episode_id"] for item in noisy],
+                "loudness": max(
+                    Loudness(str(item["loudness"])) for item in noisy or members
+                ).value,
+                "title": f"Homeostatic: {len(members)} open problems",
+                "message": "\n".join(
+                    f"{item['title']}: {item['message']}" for item in members
                 ),
-                "episodes": [content["episode_id"] for content in contents],
-                "functions": [],
+                "functions": cast(
+                    list[JSONValue],
+                    sorted(
+                        {
+                            str(name)
+                            for item in members
+                            for name in cast(list[JSONValue], item["functions"])
+                        }
+                    ),
+                ),
                 "cause": None,
             }
         )
 
     def deactivate(self) -> None:
-        """Withdraw old messages without claiming that their problems recovered."""
+        """Withdraw requests without claiming that their problems recovered."""
         self.outbox = [
             payload for payload in self.outbox if payload["action"] == "resolve"
         ]
-        for payload in self.messages.values():
+        by_tag = {str(payload["tag"]): payload for payload in self.messages.values()}
+        for payload in by_tag.values():
             self.enqueue(
                 {
                     **payload,

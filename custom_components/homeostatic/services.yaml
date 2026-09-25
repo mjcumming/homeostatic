@@ -65,3 +65,15 @@ preview_functions:
       description: Optional replacement catalog rules for this preview only.
       selector:
         object:
+policy:
+  name: Notification policy
+  description: Explain the last evaluated attention decision and pending delivery times for each current episode.
+preview_policy:
+  name: Preview notification policy
+  description: Simulate activation of an unsaved policy against current episodes without saving or delivering requests.
+  fields:
+    policy:
+      required: true
+      description: Replacement policy mapping containing timezone, recipients, digests and rules.
+      selector:
+        object:

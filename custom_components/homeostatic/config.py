@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -10,18 +11,14 @@ from health_tree.engine import Engine
 from health_tree.types import (
     Edge,
     EngineSettings,
-    Importance,
-    Loudness,
-    Match,
     Node,
     PolicyConfig,
-    Recipient,
-    Rule,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 
+from .attention import build_policy, policy_data
 from .const import DEFAULTS, DOMAIN
 from .definitions import (
     ExternalCapability,
@@ -37,6 +34,7 @@ from .rules import DEFAULT_RULES, CatalogRule, parse_rules
 class Settings:
     """Adapter settings after a config or options flow."""
 
+    policy: dict[str, Any] = dataclass_field(default_factory=policy_data)
     entities: tuple[str, ...]
     config_entries: tuple[str, ...]
     notifications: bool
@@ -76,6 +74,7 @@ class Settings:
         ):
             raise ValueError("consumer must be an automation entity id")
         settings = cls(
+            policy=policy_data(data.get("policy")),
             entities=tuple(dict.fromkeys(entities)),
             config_entries=tuple(dict.fromkeys(entries)),
             notifications=enabled,
@@ -115,21 +114,8 @@ class Settings:
         )
 
     def policy_config(self) -> PolicyConfig:
-        """Use one local recipient for the first in-app transport."""
-        return PolicyConfig(
-            batch=self.duration("batch"),
-            timezone=UTC,
-            recipients={"owner": Recipient(channels=("event",))},
-            digests={},
-            rules=(
-                Rule(
-                    match=Match(importance=frozenset({Importance.CRITICAL})),
-                    loudness=Loudness.URGENT,
-                    to=("owner",),
-                ),
-                Rule(match=Match(), loudness=Loudness.NOTIFY, to=("owner",)),
-            ),
-        )
+        """Translate owner settings into the library's attention contract."""
+        return build_policy(self.policy, self.duration("batch"))
 
     def duration(self, key: str) -> timedelta:
         """Return a configured duration in seconds."""
@@ -175,6 +161,7 @@ def data_from_input(
         "notifications": user_input.get("notifications", False),
         "timings": {key: user_input.get(key, value) for key, value in DEFAULTS.items()},
     }
+    data["policy"] = policy_data(user_input.get("policy"))
     data.update(normalize_definitions(hass, user_input))
     consumer = user_input.get("consumer")
     data["consumer"] = consumer

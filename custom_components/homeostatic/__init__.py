@@ -2,6 +2,7 @@
 
 from typing import Any
 
+import voluptuous as vol
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -23,7 +24,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
     try:
         runtime = Runtime(hass, entry, Settings.from_data(entry.options or entry.data))
         await runtime.async_load()
-    except (ValueError, TypeError, KeyError) as err:
+    except (ValueError, TypeError, KeyError, vol.Invalid) as err:
         raise ConfigEntryError(
             f"Invalid Homeostatic configuration or snapshot: {err}"
         ) from err
@@ -58,7 +59,7 @@ async def async_remove_entry(
                     EVENT_NOTIFICATION,
                     {
                         **message,
-                        "delivery_id": f"{entry.entry_id}:removed:{message['episode_id']}",
+                        "delivery_id": f"{entry.entry_id}:removed:{message['recipient']}:{message['episode_id']}",
                         "action": "resolve",
                         "resolution": "removed",
                         "silent": True,

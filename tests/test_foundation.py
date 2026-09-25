@@ -279,10 +279,10 @@ async def test_notification_activation_is_one_summary(
     assert len(events[0].data["episodes"]) == 2
     hass.states.async_set("sensor.observed", "42")
     await hass.async_block_till_done()
-    assert [event.data["action"] for event in events] == ["summary", "resolve"]
+    assert [event.data["action"] for event in events] == ["summary", "update"]
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
-    assert [event.data["action"] for event in events] == ["summary", "resolve"]
+    assert [event.data["action"] for event in events] == ["summary", "update"]
     assert await hass.config_entries.async_unload(entry.entry_id)
     cancel()
 

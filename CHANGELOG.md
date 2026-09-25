@@ -4,6 +4,10 @@
 
 ### Added
 
+- Owner YAML notification policy: recipients/channels, timezone, quiet hours, reminders, escalation, digests and strict validation.
+- Read-only policy explanations and activation previews through native options and response actions.
+- Grouped digest/activation messages with durable membership, replacement and clearing; channel-aware consumer blueprint.
+
 - Function requirements for integration instances, other functions and declared external capabilities, with pre-save cycle validation.
 - Per-function automation suggestions with stable accepted/rejected decisions, including static entity and device/area/floor/label targets.
 - Current-function explanations and isolated function previews showing dependency changes, evidence gaps, rule provenance and upstream importance.
@@ -21,6 +25,8 @@
 
 ### Changed
 
+- Activation uses the public library API, preserves episode history, starts escalation afresh and respects delivery holds. Policy edits withdraw old routes before activation.
+
 - Empty functions are explicit unwatched drafts; missing function/external declarations remain unknown requirements.
 - Native setup/options preview now includes function requirements and candidate decisions, with readable graph validation errors.
 
@@ -32,6 +38,8 @@
 - CI uses the reviewed HealthTree baseline including accepted situation ADRs.
 
 ### Fixed
+
+- Repeated reminder requests are preserved even when their text is unchanged; summary resolutions update the remaining group.
 
 - Excluded registered entities remain unwatched terminal requirements instead of appearing ready through a healthy owning integration.
 

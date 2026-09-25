@@ -4,7 +4,7 @@ Health monitoring and situation alerts for Home Assistant, powered by the separa
 
 Homeostatic answers **what is wrong, what depends on it, and what needs attention**. HealthTree supplies the dependency graph, episodes, readiness, and attention policy. This integration supplies Home Assistant observations, configuration, timers, persistence, entities, and notification requests. Consumers deliver those requests to people.
 
-**Status: development build with passive rule enrollment, not a distribution release.** Tested against Home Assistant 2026.9.3 on Python 3.14. The unreleased health-tree dependency must be installed from the sibling checkout. Normal HACS installation and real-house observation proofs remain release gates.
+**Status: development build with passive rule enrollment, not a distribution release.** Tested against Home Assistant 2026.9.3 on Python 3.14. The policy features require the unreleased HealthTree prerequisite described below, installed from a local checkout. Normal HACS installation and real-house observation proofs remain release gates.
 
 ## What works now
 
@@ -12,6 +12,7 @@ Homeostatic answers **what is wrong, what depends on it, and what needs attentio
 - Integration setup, retries and authentication evidence; entity availability; dependency correlation into episodes.
 - Named functions with entity, integration, function and external capability requirements; editable importance; per-function automation suggestions and confirmed/rejected decisions; each exporting readiness as `ready`, `unknown`, `degraded`, or `blocked`.
 - Named situation alerts bound to existing HA entities: `on` is active, `off` is clear, missing/unknown/unavailable is unknown. A situation remains independent of equipment readiness.
+- Owner YAML notification policy with recipients, channels, quiet hours, reminders, escalation, grouped digests, explanations and safe previews.
 - Overall readiness, open-problem and evidence-gap sensors, plus `inventory`, `explain`, `readiness`, `impact`, `coverage`, and `rollup` response actions.
 - Notifications off by default, one activation summary, versioned `homeostatic_notification` events, and a [Companion app consumer blueprint](blueprints/automation/homeostatic/companion_notification.yaml).
 - Ordered observation capture during storage writes, retry continuity, restart persistence, durable delivery outbox, and unload cleanup.
@@ -184,12 +185,80 @@ The entity owns the condition, schedule, and delay. Homeostatic owns the episode
 ### Activate notifications
 
 1. Install the [consumer blueprint](blueprints/automation/homeostatic/companion_notification.yaml) and create an enabled automation using your actual Companion `notify.mobile_app_...` action.
-2. Select that automation in **Notification consumer automation**.
+2. Set its recipient and channel to match the policy. Create a consumer for each route you intend to deliver. Select that automation in **Notification consumer automation**.
 3. Enable **Activate notification events**.
 
-Existing open problems produce one activation-time summary, then live changes. The selected consumer is checked for being present and enabled; arbitrary consumer logic and phone receipt are not verified. A missing/disabled consumer appears as an evidence gap.
+Existing open problems are summarized per recipient when policy permits delivery, then followed by live changes. Quiet hours and batch delays can defer the summary; digest-only problems wait for their digest. Record-only problems and an empty activation send nothing. The selected consumer is checked for being present and enabled; arbitrary consumer logic and phone receipt are not verified. A missing/disabled consumer appears as an evidence gap.
 
-The integration emits events and retains the last requested content. A consumer owns tags, replacements, clearing, sound, and transport-specific behavior. Unknown evidence does not blank the previous failure message. Dismissing a phone message does not resolve its episode. The [event contract](docs/events.md) describes payloads and at-least-once replay after interrupted storage acknowledgement. Critical importance requests urgent delivery in the initial fixed policy; the phone's actual behavior needs testing.
+The integration emits events and retains the last requested content. A consumer owns tags, replacements, clearing, sound, and transport-specific behavior. Unknown evidence does not blank the previous failure message. Dismissing a phone message does not resolve its episode. The [event contract](docs/events.md) describes payloads and at-least-once replay after interrupted storage acknowledgement. Critical importance requests urgent delivery in the default policy; the phone's actual behavior needs testing.
+
+### Configure notification policy
+
+Edit **Notification policy (YAML mapping)** in setup/options. The default is `owner`
+on the `event` channel, with critical problems urgent and other problems notified
+after the house's notification delay. This example uses phone consumers:
+
+```yaml
+timezone: America/Chicago
+recipients:
+  owner:
+    channels: [phone]
+    quiet_hours: {start: "22:00", end: "07:00"}
+  backup:
+    channels: [phone]
+digests:
+  morning: {at: "08:00", to: owner}
+rules:
+  - match: {importance: critical}
+    loudness: urgent
+    to: [owner, backup]
+    remind_every: 15m
+  - match: {category: situation}
+    loudness: notify
+    to: owner
+    remind_every: 1h
+    escalate_after: 2h
+  - match: {status: unknown}
+    loudness: digest
+    digest: morning
+    remind_every: 1d
+  - match: {}
+    loudness: notify
+    to: owner
+    remind_every: 4h
+    escalate_after: 1d
+```
+
+For each reason, the first matching rule wins; HealthTree chooses the loudest
+result across reasons. Supported matches are `status`, `importance`, `reason`,
+`category`, `labels`, `age`, and `due_within`. Omitted fields match anything;
+values within a field are alternatives. Labels must all match. Durations accept
+integer seconds or strings such as `1d2h30m`; reminders must be positive. Clock
+times must be quoted `HH:MM`. Set `timezone` explicitly for the house.
+
+`record` retains a problem without sending it. `digest` requires a named digest;
+`notify` and `urgent` require recipients. Urgent requests pass quiet hours. Notify
+reminders wait through that recipient's quiet hours. Escalation raises one level
+when a destination is available; it does not repeatedly climb the ladder.
+Recipients and channels are opaque ids, not notification service names. Configure
+a blueprint instance for `owner`/`phone` and another for `backup`/`phone` in the
+example. The selected consumer check cannot verify every route or actual receipt.
+
+Call `homeostatic.policy` to inspect current winning rule indexes (zero based),
+recipients, pending times, and the next deadline. Call `homeostatic.preview_policy`
+with the proposed mapping under `policy` to simulate activation against current
+open episodes. Preview returns proposed requests and decisions without saving,
+sending, or changing live timers. The options Preview also displays those decisions.
+
+Activation preserves problem history and starts escalation afresh. Each recipient's
+reminders begin with their first request. Ordinary restart preserves these clocks.
+Editing policy or notification delay while enabled clears old requests and starts
+attention under the replacement policy. Summaries and digests update silently as
+members resolve; the last resolution clears the group. An individual reminder or
+escalation replaces that episode's membership with its own message.
+
+Presence-dependent recipients, acknowledgment and operator shelving remain future
+integration work. Policies cannot execute corrective actions.
 
 ### Inspect the model
 
@@ -215,7 +284,24 @@ uv run python script/check.py
 
 `make check` invokes the same command. It checks Ruff lint/formatting, strict mypy, the real Home Assistant integration tests, and separate 95% statement and branch coverage floors. The commit hook and CI use that same entry point. The consumer blueprint is exercised by HA's real automation engine with a mocked phone service; tests never send messages to a live installation.
 
-CI checks out health-tree at `807af7cb12c9177cd33cdb6772c2a872d844c989`, including the accepted situation decisions and fixtures. The local environment uses the sibling checkout. Library behavior changes belong in its own RFP/ADR and tests.
+CI checks out health-tree at `a525938c2d866956a4cefab8261da39d96347de1`, including public attention activation/explanations and recipient-specific reminder holds. The local environment uses the sibling checkout, which must include that commit.
+Library behavior changes belong in its own RFP/ADR and tests. Publish the library
+commit before running remote CI against this integration commit.
+
+For an isolated library prerequisite worktree, run the same checks with an explicit
+override, for example:
+
+```bash
+uv run --with-editable ../health-tree-policy python script/check.py
+```
+
+The current prerequisite is on `codex/notification-policy` in that separate worktree,
+so independent work in the primary library checkout can continue. To run the commit hook
+against that same worktree in the prepared WSL environment, install it explicitly
+with `uv pip install --python "$UV_PROJECT_ENVIRONMENT/bin/python" -e ../health-tree-policy`
+and use `UV_NO_SYNC=1 git commit`; otherwise uv restores the sibling declared in the
+lockfile. After the prerequisite is merged into the sibling checkout, ordinary
+`uv sync --locked` and the default check command apply again.
 
 On this workstation, the prepared environment is outside the mounted Windows filesystem:
 
@@ -237,6 +323,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow, [docs/spec.md](docs/spec.md
 
 ## Before distribution
 
-Release and pin the reviewed health-tree version; complete the rule/policy/operator workflows; capture healthy/failure/recovery traces for detector liveness, device-originated freshness and command completion; verify an external watchdog and notification consumers; validate the actual deployment. Synthetic fixtures and high coverage do not satisfy the real-house evidence gates.
+Release and pin the reviewed health-tree version; complete operator controls and product presentation; capture healthy/failure/recovery traces for detector liveness, device-originated freshness and command completion; verify an external watchdog and notification consumers; validate the actual deployment. Synthetic fixtures and high coverage do not satisfy the real-house evidence gates.
 
 MIT licensed. See [SECURITY.md](SECURITY.md) for reporting a security concern.

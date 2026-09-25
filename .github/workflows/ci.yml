@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: mjcumming/health-tree
-          ref: 807af7cb12c9177cd33cdb6772c2a872d844c989
+          ref: a525938c2d866956a4cefab8261da39d96347de1
           path: health-tree
           persist-credentials: false
       - name: Set up uv and Python

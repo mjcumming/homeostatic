@@ -23,6 +23,9 @@ from custom_components.homeostatic.const import EVENT_NOTIFICATION
         pytest.param(
             "resolve", "notify", True, "clear_notification", None, id="resolution"
         ),
+        pytest.param("remind", "notify", False, "Door open", 0, id="reminder"),
+        pytest.param("escalate", "urgent", False, "Door open", 1, id="escalation"),
+        pytest.param("digest", "digest", False, "Door open", 0, id="digest"),
         pytest.param("summary", "notify", False, "Door open", 0, id="summary"),
     ],
 )
@@ -72,6 +75,7 @@ async def test_companion_consumer(
             "tag": "homeostatic_test_episode",
             "action": action,
             "recipient": "owner",
+            "channels": ["event"],
             "loudness": loudness,
             "silent": silent,
             "title": "Garage",
@@ -86,3 +90,41 @@ async def test_companion_consumer(
         calls[0].data["data"].get("push", {}).get("sound", {}).get("critical")
         == critical
     )
+
+
+async def test_consumer_ignores_other_channels(hass: HomeAssistant) -> None:
+    """A configured channel routes only its own requests through the real blueprint."""
+    path = (
+        Path(__file__).parents[1]
+        / "blueprints/automation/homeostatic/companion_notification.yaml"
+    )
+    data = await hass.async_add_executor_job(yaml_util.load_yaml, str(path))
+    blueprint = Blueprint(data, expected_domain="automation", schema=BLUEPRINT_SCHEMA)
+    inputs = BlueprintInputs(
+        blueprint,
+        {
+            "use_blueprint": {
+                "path": "homeostatic/companion_notification.yaml",
+                "input": {
+                    "recipient": "owner",
+                    "channel": "phone",
+                    "notify_service": "notify.mobile_app_test",
+                },
+            }
+        },
+    )
+    inputs.validate()
+    automation = {
+        **inputs.async_substitute(),
+        "id": "channel_test",
+        "alias": "Channel test",
+    }
+    calls = async_mock_service(hass, "notify", "mobile_app_test")
+    assert await async_setup_component(hass, "automation", {"automation": [automation]})
+    await hass.async_block_till_done()
+    hass.bus.async_fire(
+        EVENT_NOTIFICATION,
+        {"schema_version": 1, "recipient": "owner", "channels": ["speaker"]},
+    )
+    await hass.async_block_till_done()
+    assert not calls

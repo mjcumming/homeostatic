@@ -15,6 +15,12 @@ blueprint:
       default: owner
       selector:
         text:
+    channel:
+      name: Channel id
+      description: Match one opaque channel from the recipient's policy configuration.
+      default: event
+      selector:
+        text:
     notify_service:
       name: Companion app notification action
       description: For example notify.mobile_app_your_phone.
@@ -24,13 +30,16 @@ mode: queued
 max: 100
 variables:
   notify_service: !input notify_service
+  channel: !input channel
 triggers:
   - trigger: event
     event_type: homeostatic_notification
     event_data:
       schema_version: 1
       recipient: !input recipient
-conditions: []
+conditions:
+  - condition: template
+    value_template: "{{ channel in trigger.event.data.get('channels', ['event']) }}"
 actions:
   - choose:
       - conditions: "{{ trigger.event.data.action == 'resolve' }}"

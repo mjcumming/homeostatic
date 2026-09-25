@@ -9,8 +9,8 @@ Updated 2026-09-25. This file tracks delivery; [spec.md](spec.md) controls imple
 | Consumer delivery foundation | Complete | Notifications off initially; activation summary; versioned events and durable outbox; consumer blueprint and tests |
 | Rule catalog and enrollment | Complete for availability | All stable match fields: domain, device class, integration, device, entity, area, floor, label; additive attach, exclude wins; passive enrollment of future sources; match preview and provenance |
 | Function configuration | Complete for declared capabilities and static suggestions | Entity/integration/function/external requirements; cycle validation; per-function accept/reject decisions; watched/excluded/missing previews; external evidence producers remain a release gate |
-| Owner YAML policy | Next | Validated rules/recipients; quiet hours, reminders, escalation and digests; explain decisions; activation clocks start at enablement |
-| Operator controls | Planned | Shelving, expiring scoped maintenance; no global equipment quiet window; situation edge lint |
+| Owner YAML policy | Complete for static recipients | Validated rules and routes; recipient quiet hours and reminders; escalation and grouped digests; read-only explanations/activation preview; activation resets escalation without rewriting episode history |
+| Operator controls | Next | Shelving, expiring scoped maintenance; no global equipment quiet window; situation edge lint |
 | Product presentation | Planned | Review story notification texts first; then problems/functions/maintenance/coverage, remedies, native Repair links, recently resolved history |
 | Evidence producers | Release gate | Real healthy/failure/recovery traces for detector progress, device-originated freshness and command completion, replayed as fixtures |
 | Watchdog | Release gate | External observer and alert route verified independently of HA |
