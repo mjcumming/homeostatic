@@ -1078,11 +1078,11 @@ wheels = [
 
 [[package]]
 name = "health-tree"
-version = "0.2.0"
+version = "0.3.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4d/fc/1f5feefe98dccecddcb7201d58f067c2406e8aeaa5bc1881ae19a15a26c7/health_tree-0.2.0.tar.gz", hash = "sha256:7aba7c04690976e5caadd873bed821282c6fce29741d086789ee7269e8496249", size = 208400, upload-time = "2026-09-25T19:26:21.581Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/69/2306484caa60e3b9e0b5d10ca2467a67f57ec4d88ac6bba81ed64d33d853/health_tree-0.3.0.tar.gz", hash = "sha256:9f460bc8f4a0ac9c98d7a9b268e226dc8a5fec879bc32096c990f746883fcd76", size = 212749, upload-time = "2026-09-25T20:56:51.582Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b1/6e/8672ce85c22fff10b4d488e103491b23d95574d6101073640da437555b70/health_tree-0.2.0-py3-none-any.whl", hash = "sha256:c007d7bb67d7ebbe89526e1197c700edfe283bde3389fa60097663e85d03c320", size = 31511, upload-time = "2026-09-25T19:26:20.405Z" },
+    { url = "https://files.pythonhosted.org/packages/36/ef/46e53ea9433a5cda03c4bc184eccba1c07ec09873d1db918a88ebee89ab5/health_tree-0.3.0-py3-none-any.whl", hash = "sha256:8af0aaf2147182817e6ecd35856145f9905cb9215cba3d60778f357520f67260", size = 32105, upload-time = "2026-09-25T20:56:49.799Z" },
 ]
 
 [[package]]
@@ -1167,7 +1167,7 @@ wheels = [
 
 [[package]]
 name = "homeostatic"
-version = "0.1.0b1"
+version = "0.1.0b2"
 source = { virtual = "." }
 dependencies = [
     { name = "health-tree" },
@@ -1185,7 +1185,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "health-tree", specifier = "==0.2.0" }]
+requires-dist = [{ name = "health-tree", specifier = "==0.3.0" }]
 
 [package.metadata.requires-dev]
 dev = [

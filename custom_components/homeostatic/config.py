@@ -85,22 +85,23 @@ class Settings:
             rules=parse_rules(data["rules"]) if "rules" in data else None,
             external_capabilities=external_capabilities(data),
         )
-        validator = Engine(settings.engine_settings())
-        # Graph validation has no observations or history; its time is fixed.
-        validation_time = datetime(2000, 1, 1, tzinfo=UTC)
+        nodes = []
         for function in functions:
             try:
-                validator.register(
-                    Node(
-                        node_id=f"function:{function.id}",
-                        depends_on=tuple(
-                            Edge(to=node_id) for node_id in function.requirements
-                        ),
+                node = Node(
+                    node_id=f"function:{function.id}",
+                    depends_on=tuple(
+                        Edge(to=node_id) for node_id in function.requirements
                     ),
-                    validation_time,
                 )
             except ValueError as err:
                 raise ValueError(f"{function.name}: {err}") from err
+            nodes.append(node)
+        if nodes:
+            # Graph validation has no observations or history; its time is fixed.
+            Engine(settings.engine_settings()).register_many(
+                nodes, datetime(2000, 1, 1, tzinfo=UTC)
+            )
         return settings
 
     def engine_settings(self) -> EngineSettings:

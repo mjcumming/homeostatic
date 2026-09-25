@@ -137,7 +137,7 @@ def main() -> None:
                 asyncio.run, exercise(config, port), loop_factory=create_event_loop
             ).result()
         installed = importlib.metadata.distribution("health-tree")
-        assert installed.version == "0.2.0", installed.version
+        assert installed.version == "0.3.0", installed.version
         assert installed.read_text("direct_url.json") is None
         identity["health_tree"] = installed.version
         identity["health_tree_location"] = str(installed.locate_file("health_tree"))

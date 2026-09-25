@@ -2,9 +2,19 @@
 
 ## [Unreleased]
 
+## [0.1.0b2] - 2026-09-25
+
+### Changed
+
+- Pin published HealthTree 0.3.0, including atomic graph registration and the correction for spurious stale episodes after grouped problems dissolve.
+
+### Fixed
+
+- Enrollment-only previews skip health graph construction. Function previews and runtime graph changes use atomic HealthTree registration, preserving monitored healthy sources and explicit evidence gaps. Synthetic large-catalog validation is documented separately from the live pilot.
+
 ### Known limitations
 
-- Whole-house enrollment can make HA unresponsive on large installations. Documented the first live finding and the integration-only scope used to start the passive pilot; README, pilot instructions and roadmap now carry this limitation.
+- Whole-house responsiveness remains under qualification. This increment fixes initial graph construction and enrollment-only preview; sustained event bursts, many independent failures and dashboard inventory transfer/rendering still need isolated qualification. The live pilot remains integration-only.
 
 ## [0.1.0b1] - 2026-09-25
 

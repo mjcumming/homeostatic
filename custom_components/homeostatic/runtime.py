@@ -540,9 +540,13 @@ class Runtime:
             self.policy = Policy(self.settings.policy_config())
         assert self.engine is not None
         assert self.policy is not None
-        for node_id, source in sources.items():
-            if first or source != self.sources.get(node_id):
-                events.extend(self.engine.register(source.node(self.settings), now))
+        changed = [
+            source.node(self.settings)
+            for node_id, source in sources.items()
+            if first or source != self.sources.get(node_id)
+        ]
+        if changed:
+            events.extend(self.engine.register_many(changed, now))
         for node_id in self.sources.keys() - sources.keys():
             events.extend(self.engine.remove(node_id, now))
         self.sources = sources

@@ -28,6 +28,8 @@ A whole-catalog setup preview exposed a scaling failure on an installation with 
 
 Setup then completed with a rule matching integration instances only: 127 watched sources, normal timing defaults, no declared functions and notification events off. All three sensors loaded with a null runtime error, and the sidebar dashboard displayed current overview and coverage data. Coverage explicitly distinguished unwatched entities from watched integrations. After startup grace, three actual HA integration setup problems appeared in the overview and problem-count sensor; no device failure was induced and notification events remained off. This begins passive observation; it does not complete the 24-48 hour trial, physical failure/recovery checks, phone delivery testing or a scale qualification.
 
+The subsequent [scaling increment](scaling.md) has isolated 10,000-source coverage. It is a separate development candidate; these results do not describe changes installed in the house.
+
 ## Reproduce
 
 ```bash
@@ -36,7 +38,7 @@ uv run python script/check.py
 uv run python script/build_pilot.py
 uv venv --python 3.14 /tmp/homeostatic-pilot-venv
 uv pip install --python /tmp/homeostatic-pilot-venv/bin/python homeassistant==2026.9.3
-/tmp/homeostatic-pilot-venv/bin/python script/smoke_pilot.py dist/homeostatic-0.1.0b1-pilot.zip
+/tmp/homeostatic-pilot-venv/bin/python script/smoke_pilot.py dist/homeostatic-0.1.0b2-pilot.zip
 ```
 
 Use a fresh environment for each smoke run. The check intentionally refuses an already-installed HealthTree so an editable checkout cannot mask a missing dependency. Home Assistant binds only to loopback and the temporary configuration is removed after shutdown.

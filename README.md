@@ -4,7 +4,7 @@ Health monitoring and situation alerts for Home Assistant, powered by the separa
 
 Homeostatic answers **what is wrong, what depends on it, and what needs attention**. HealthTree supplies the dependency graph, episodes, readiness, and attention policy. This integration supplies Home Assistant observations, configuration, timers, persistence, entities, and notification requests. Consumers deliver those requests to people.
 
-**Status: 0.1.0b1 pilot candidate.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.2.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). The first dashboard is read-only; operator actions and bounded resolution history are available through native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Whole-house enrollment has a known scaling problem: narrow the catalog rule before preview or setup on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
+**Status: 0.1.0b2 pilot candidate.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.3.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). The first dashboard is read-only; operator actions and bounded resolution history are available through native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Graph construction and enrollment preview have passed isolated 10,000-source checks, but whole-house responsiveness remains under qualification. Keep the catalog rule narrow on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
 
 ## What works now
 
@@ -283,6 +283,20 @@ Shelving is available through the administrator action described below. Policies
 
 In **Developer tools â†’ Actions**, call `homeostatic.inventory` for node ids, rule explanations, recent enrollment changes, episodes, and notification requests. Pass a node id to `homeostatic.explain` or `homeostatic.impact`. `homeostatic.readiness` and `homeostatic.rollup` default to selected capabilities/functions and accept `node_ids`. These actions are read-only. Situation ids are `situation:<id>`, function ids are `function:<id>`, and external capability ids are `external:<id>`.
 
+## Scaling validation
+
+This candidate skips health graph construction for enrollment previews with
+no functions, and uses HealthTree's atomic registration for setup, function
+validation, function preview and graph changes. Healthy monitored sources remain
+in the graph; explicit missing or unwatched requirements remain coverage gaps.
+Unrelated inventory stays outside monitoring.
+
+The candidate has passed isolated 10,000-source scenarios and pins published
+HealthTree 0.3.0 in its manifest and lockfile. The installed 0.1.0b1 pilot remains
+on HealthTree 0.2.0 until a separate upgrade. See
+[scaling validation](docs/testing/scaling.md) for measurements and remaining
+responsiveness work.
+
 ## Development and checks
 
 Use Python 3.14.2 or newer within the 3.14 series and Node.js 22 or newer, on Linux or WSL:
@@ -299,7 +313,7 @@ uv run python script/check.py
 
 `make check` invokes the same command. It checks Ruff lint/formatting, strict mypy, the real Home Assistant integration tests, and separate 95% statement and branch coverage floors. The commit hook and CI use that same entry point. The consumer blueprint is exercised by HA's real automation engine with a mocked phone service; tests never send messages to a live installation.
 
-The lockfile and integration manifest pin `health-tree==0.2.0` from PyPI. CI installs that published package. Library behavior changes belong in the separate library RFP/ADR and tests; release a new library version before updating this pin.
+The lockfile and integration manifest pin `health-tree==0.3.0` from PyPI. CI installs that published package. Library behavior changes belong in the separate library RFP/ADR and tests; release a new library version before updating this pin.
 
 Build a reproducible installation archive from a clean committed checkout with `uv run python script/build_pilot.py`. The ZIP includes frontend assets, the optional consumer blueprint, installation instructions and exact build identity.
 
