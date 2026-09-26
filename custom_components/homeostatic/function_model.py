@@ -234,14 +234,35 @@ def preview(
     previous: tuple[Function, ...] = (),
 ) -> dict[str, Any]:
     """Evaluate current evidence in an isolated model, without history or delivery."""
+    before = {
+        (f"function:{function.id}", target)
+        for function in previous
+        for target in function.requirements
+    }
+    after = {
+        (f"function:{function.id}", target)
+        for function in settings.functions
+        for target in function.requirements
+    }
+    result: dict[str, Any] = {
+        "preview_kind": "current_evidence_without_history",
+        "functions": [],
+        "edges_added": [
+            {"from": source, "to": target} for source, target in sorted(after - before)
+        ],
+        "edges_removed": [
+            {"from": source, "to": target} for source, target in sorted(before - after)
+        ],
+    }
+    if not settings.functions:
+        return result
     candidates = evaluate(
         inventory(hass, settings, known), parse_rules(rule_data(hass, settings))
     )
     sources, _ = compose(hass, settings, candidates)
     engine = Engine(settings.engine_settings())
     now = dt_util.utcnow()
-    for source in sources.values():
-        engine.register(source.node(settings), now)
+    engine.register_many([source.node(settings) for source in sources.values()], now)
     observations = []
     for source in sources.values():
         if not source.watched:
@@ -262,23 +283,5 @@ def preview(
             )
     if observations:
         engine.ingest_many(observations, now)
-    before = {
-        (f"function:{function.id}", target)
-        for function in previous
-        for target in function.requirements
-    }
-    after = {
-        (f"function:{function.id}", target)
-        for function in settings.functions
-        for target in function.requirements
-    }
-    return {
-        "preview_kind": "current_evidence_without_history",
-        "functions": describe(hass, settings, sources, candidates, engine),
-        "edges_added": [
-            {"from": source, "to": target} for source, target in sorted(after - before)
-        ],
-        "edges_removed": [
-            {"from": source, "to": target} for source, target in sorted(before - after)
-        ],
-    }
+    result["functions"] = describe(hass, settings, sources, candidates, engine)
+    return result

@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feat/initial-integration", "codex/pilot"]
   pull_request:
   workflow_dispatch:
 
@@ -24,25 +24,37 @@ jobs:
         with:
           path: homeostatic
           persist-credentials: false
-      - name: Check out reviewed library baseline
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: mjcumming/health-tree
-          ref: a525938c2d866956a4cefab8261da39d96347de1
-          path: health-tree
-          persist-credentials: false
       - name: Set up uv and Python
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           python-version: "3.14"
           enable-cache: true
           working-directory: homeostatic
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
       - name: Install locked environment
         working-directory: homeostatic
         run: uv sync --locked
       - name: Required checks
         working-directory: homeostatic
         run: uv run python script/check.py
+      - name: Build pilot archive
+        working-directory: homeostatic
+        run: uv run python script/build_pilot.py
+      - name: Verify clean package installation
+        working-directory: homeostatic
+        run: |
+          uv venv --python 3.14 "$RUNNER_TEMP/pilot-venv"
+          uv pip install --python "$RUNNER_TEMP/pilot-venv/bin/python" homeassistant==2026.9.3
+          "$RUNNER_TEMP/pilot-venv/bin/python" script/smoke_pilot.py dist/homeostatic-*-pilot.zip
+      - name: Upload pilot archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: homeostatic-pilot
+          path: homeostatic/dist/
+          if-no-files-found: error
   hassfest:
     name: Home Assistant metadata
     runs-on: ubuntu-latest

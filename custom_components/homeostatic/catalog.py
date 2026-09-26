@@ -147,12 +147,26 @@ def entry_observation(
             ConfigEntryState.FAILED_UNLOAD,
         }:
             status = Status.FAIL
+    detail = reason.replace("_", " ")
+    if (
+        entry is not None
+        and entry.reason
+        and reason
+        in {
+            "auth_required",
+            "setup_error",
+            "setup_retry",
+            "migration_error",
+            "failed_unload",
+        }
+    ):
+        detail = entry.reason
     return Observation(
         node_id=source.node_id,
         check_id="availability",
         status=status,
         reason=reason,
         observed_at=now,
-        message=f"{source.name}: {reason.replace('_', ' ')}",
+        message=f"{source.name}: {detail}",
         evidence={"config_entry_id": source.entry_id, "reauth_pending": reauth},
     )

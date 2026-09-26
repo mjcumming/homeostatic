@@ -141,3 +141,6 @@ preview_maintenance:
       example: "2026-09-25T22:00:00Z"
       selector:
         text:
+resolved_history:
+  name: Recently resolved problems
+  description: Return up to 100 terminal episodes from the last 30 days, distinguishing recovery, removal and absorption. Resolution times reflect when Homeostatic observed them.

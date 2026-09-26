@@ -2,7 +2,7 @@
 
 Read the relevant part of [docs/spec.md](docs/spec.md) before changing behavior. Update it before implementing a new rule. The health-tree library owns dependency, episode, readiness, and attention semantics; Homeostatic owns observations, discovery, configuration, storage, delivery requests, and HA presentation. Consumer automations own actual delivery. Read [docs/roadmap.md](docs/roadmap.md) before expanding a development interface into a product feature.
 
-Use Python 3.14 on Linux or WSL and run `uv sync --locked`. Follow Home Assistant's integration conventions, annotate code, and use native lifecycle helpers. Keep observations honest about their source. Never turn a cached HA value into proof of physical-device communication.
+Use Python 3.14 and Node.js 22 or newer on Linux or WSL and run `uv sync --locked`. Follow Home Assistant's integration conventions, annotate code, and use native lifecycle helpers. Keep observations honest about their source. Never turn a cached HA value into proof of physical-device communication.
 
 Tests run against real HA helpers and the real health-tree engine. Observation scenarios live in `tests/fixtures/scenarios.yaml`; lifecycle and error-path scenarios live in the corresponding test modules. Pass or freeze time, never sleep. Each behavior change needs a scenario that shows its practical consequence.
 

@@ -18,6 +18,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
+    async_capture_events,
     async_fire_time_changed,
 )
 
@@ -154,8 +155,7 @@ async def test_function_readiness_and_named_delivery(
         }
     ]
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     hass.states.async_set(registered.entity_id, "42")
     runtime = await start_monitor(hass, entry)
     assert runtime.readiness == "ready"
@@ -175,7 +175,6 @@ async def test_function_readiness_and_named_delivery(
     await hass.async_block_till_done()
     assert list(runtime.episodes) == [old_id]
     assert await hass.config_entries.async_unload(entry.entry_id)
-    cancel()
 
 
 @pytest.mark.parametrize(
@@ -237,8 +236,7 @@ async def test_situation_unknown_restart_and_clear(
         ],
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     hass.states.async_set("binary_sensor.door_rule", "on")
     runtime = await start_monitor(hass, entry)
     episode_id = next(iter(runtime.episodes))
@@ -254,7 +252,6 @@ async def test_situation_unknown_restart_and_clear(
     assert [event.data["action"] for event in events] == ["open", "resolve"]
     assert events[-1].data["episode_id"] == episode_id
     assert await hass.config_entries.async_unload(entry.entry_id)
-    cancel()
 
 
 async def test_notification_activation_is_one_summary(
@@ -266,8 +263,7 @@ async def test_notification_activation_is_one_summary(
     hass.states.async_set("sensor.observed", "unavailable")
     hass.states.async_set("sensor.other", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     runtime = await start_monitor(hass, entry)
     assert len(runtime.episodes) == 2
     assert not events
@@ -284,7 +280,6 @@ async def test_notification_activation_is_one_summary(
     await hass.async_block_till_done()
     assert [event.data["action"] for event in events] == ["summary", "update"]
     assert await hass.config_entries.async_unload(entry.entry_id)
-    cancel()
 
 
 async def test_disabled_consumer_is_a_visible_gap(
@@ -425,8 +420,7 @@ async def test_pending_openings_are_summarized_once(
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     await start_monitor(hass, entry)
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     hass.config_entries.async_update_entry(
         entry, options={**config_data, "notifications": True}
     )
@@ -437,7 +431,6 @@ async def test_pending_openings_are_summarized_once(
     await hass.async_block_till_done()
     assert [event.data["action"] for event in events] == ["summary"]
     assert await hass.config_entries.async_unload(entry.entry_id)
-    cancel()
 
 
 @pytest.mark.parametrize(
@@ -459,8 +452,7 @@ async def test_outbox_replays_same_id_after_ack_failure(
     """Publication without a durable acknowledgement can retry or clear safely."""
     hass.states.async_set("sensor.observed", "42")
     runtime = await start_monitor(hass, config_entry)
-    events: list[Event[Any]] = []
-    cancel = hass.bus.async_listen(EVENT_NOTIFICATION, events.append)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
     original_save = runtime._save
 
     async def fail_acknowledgement() -> None:
@@ -487,7 +479,6 @@ async def test_outbox_replays_same_id_after_ack_failure(
     assert (events[0].data["delivery_id"] == events[1].data["delivery_id"]) is same_id
     assert not runtime.delivery.outbox
     assert await hass.config_entries.async_unload(config_entry.entry_id)
-    cancel()
 
 
 async def test_original_store_migrates_without_new_episode(

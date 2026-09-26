@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Homeostatic history and control scenarios</title>
+<style>
+:root{--primary-text-color:#182a34;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--secondary-text-color:#546875;--divider-color:#dce4e9;--primary-color:#007eab;--text-primary-color:#fff}body{margin:0;font:14px Arial,sans-serif}header{padding:14px}homeostatic-card{max-width:1100px;margin:auto}button{font:inherit;padding:9px}#result{white-space:pre-wrap}
+</style>
+<header><strong>Synthetic data only</strong> <button id="run">Run history and control scenarios</button><p id="result" role="status">Ready</p></header>
+<homeostatic-card></homeostatic-card>
+<script type="module">
+import "../../custom_components/homeostatic/frontend/homeostatic.js";
+const card=document.querySelector("homeostatic-card");
+const result=document.querySelector("#result");
+let publish;
+const listeners=new Map();
+const source={node_id:"sensor.a",name:"Living room motion",kind:"entity",watched:true,requirements:[],attributes:{area:["living"]},attached_by:["watch"],excluded_by:[],entity_id:"binary_sensor.motion"};
+const fn={...source,node_id:"function.lighting",name:"Motion lighting",kind:"function",requirements:["sensor.a"],readiness:{answer:"blocked",nodes:[]}};
+const episode={episode_id:"open-1",anchor:"sensor.a",opened_at:"2026-09-25T10:00:00Z",importance:"normal",impact:[fn.node_id],reasons:[{reason:"unavailable",message:"Living room motion is unavailable"}]};
+const history={started_at:"2026-09-24T10:00:00Z",retention:{max_episodes:100,max_age_days:30},episodes:Array.from({length:45},(_,i)=>({episode:{...episode,episode_id:`ended-${i}`},source:{node_id:source.node_id,name:i===4?'<img src=x onerror="fail()"> Old name':`Previous sensor ${i}`},resolved_at:"2026-09-25T11:00:00Z",resolution:["cleared","removed","absorbed"][i%3],absorbed_into:i%3===2?"open-1":null}))};
+let data;
+function reset(){
+  data={schema_version:1,available:true,updated_at:"2026-09-25T12:00:00Z",readiness:{answer:"blocked"},evidence_gaps:0,functions:[fn],areas:[{id:"living",name:"Living room",floor_id:"main"}],floors:[{id:"main",name:"Main floor"}],
+    inventory:{nodes:[source,fn],episodes:[episode],catalog:{watched:1,candidates:[]},operator_controls:[],resolved_history:structuredClone(history),enrollment_changes:[],notification_requests:[]},
+    coverage:{no_checks:[],never_observed:[],stale:[],notification_consumer_missing:false},policy:{notifications_enabled:false,routes:{},episodes:[]}};
+}
+reset();
+let fail=false,hold=null;
+const calls=[];
+const connection={addEventListener(name,handler){listeners.set(name,handler);},removeEventListener(name){listeners.delete(name);},async subscribeMessage(fn){publish=fn;queueMicrotask(()=>fn(data));return()=>{};}};
+const hass={connection,user:{id:"admin",is_admin:true},async callWS(message){
+  calls.push(message);
+  if(message.type==="homeostatic/node")return{source:data.inventory.nodes.find(n=>n.node_id===message.node_id),readiness:{answer:"blocked",nodes:[]},explanation:{findings:episode.reasons,nodes:[]},impact:{nodes:[]}};
+  if(fail)throw new Error("Storage could not be confirmed");
+  const request=message.service_data;
+  const scope={node_ids:request.include_dependents?[source.node_id,fn.node_id]:[source.node_id],functions:request.include_dependents?[fn.node_id]:[],existing_episode_ids:["open-1"],until:request.until,existing_alerts_continue:true};
+  if(message.service==="preview_maintenance")return{response:scope};
+  if(hold)await hold.promise;
+  const control={control_id:"saved",action:message.service==="shelve"?"shelve":"maintenance",target:request.episode_id??request.node_id,until:request.until,reason:request.reason,include_dependents:request.include_dependents??false};
+  data.inventory.operator_controls.push(control);
+  return{response:{...scope,control}};
+}};
+card.setConfig({view:"overview"});card.hass=hass;
+const root=card.shadowRoot;
+const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
+const expect=(value,message)=>{if(!value)throw new Error(message);};
+const field=(name,value)=>{const input=card.tools.body.querySelector(`[name="${name}"]`);if(input.type==="checkbox")input.checked=value;else input.value=value;input.dispatchEvent(new Event("input",{bubbles:true}));};
+const end=()=>{const d=new Date(Date.now()+3600000);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);};
+const submit=()=>card.tools.body.querySelector('[type="submit"]');
+async function open(kind="maintenance"){
+  card.tools.close();await flush();
+  card.openDetail({episodeId:"open-1"});await flush();
+  root.querySelector(kind==="maintenance"?"[data-maintenance]":"[data-shelf]").click();await flush();
+}
+document.querySelector("#run").addEventListener("click",async()=>{
+  const passed=[];
+  try{
+    fail=false;hold=null;card.tools.close();card.tools.query="";card.tools.resolution="";card.tools.page=0;reset();publish(data);card.setConfig({view:"overview",navigation:false});await flush();
+    root.querySelector('main [data-page="history"]').click();
+    expect(root.querySelectorAll('main [data-history]').length===20,"History must render at most 20 rows");
+    root.querySelector('[data-tool="next"]').click();root.querySelector('[data-tool="next"]').click();
+    expect(root.querySelectorAll('main [data-history]').length===5,"Last history page must contain remaining rows");
+    let search=root.querySelector('[data-history-search]');search.focus();search.value="Previous sensor 2";search.dispatchEvent(new Event("input",{bubbles:true}));
+    expect(root.activeElement===root.querySelector('[data-history-search]'),"Typing must retain focus");
+    expect(root.querySelectorAll('main [data-history]').length===11,"Search must reset the page and filter records");
+    publish(data);expect(root.querySelector('[data-history-search]').value==="Previous sensor 2","Live update must preserve search");
+    card.tools.showHistory("ended-1");expect(card.tools.body.textContent.includes("Recovery was not established"),"Removal cannot claim recovery");
+    card.tools.showHistory("ended-4");expect(!card.tools.dialog.querySelector("img"),"History source names must remain text");
+    card.tools.showHistory("ended-2");expect(!!card.tools.body.querySelector("[data-open-episode]"),"Absorption must link to retained open episode");
+    card.tools.body.querySelector('[data-open-episode]').click();await flush();expect(card.dialog.open,"Related problem must open");
+    card.dialog.close();await flush();
+    passed.push("History pagination, search, focus, outcomes, safe text and related problem navigation");
+
+    await open();expect(submit().disabled,"Maintenance cannot start without expiry and preview");
+    field("untilLocal",end());field("reason","Replacing battery");field("includeDependents",true);
+    await card.tools.preview();expect(!submit().disabled,"Successful preview should enable maintenance");
+    expect(card.tools.body.textContent.includes("Motion lighting"),"Preview must show affected functions");
+    publish(data);expect(submit().disabled,"Live update must invalidate a preview");
+    expect(card.tools.body.querySelector('[name="reason"]').value==="Replacing battery","Live update must preserve the draft");
+    await card.tools.preview();field("includeDependents",false);expect(submit().disabled,"Scope edit must invalidate preview");
+    await card.tools.preview();
+    let release;hold={promise:new Promise(resolve=>{release=resolve;})};
+    const before=calls.filter(c=>c.service==="start_maintenance").length;
+    const first=card.tools.execute();await card.tools.execute();
+    expect(calls.filter(c=>c.service==="start_maintenance").length===before+1,"Duplicate clicks must send only one mutation");
+    release();await first;hold=null;
+    expect(card.tools.body.textContent.includes("Saved by Home Assistant"),"Durable result must be visible");
+    expect(card.tools.body.textContent.includes("Replacing battery"),"Saved reason must be visible");
+    passed.push("Maintenance expiry, scope preview, draft preservation, preview invalidation, duplicate prevention and saved result");
+
+    await open("shelve");expect(card.tools.body.textContent.includes("including urgent alerts"),"Shelving must explain urgent scope");
+    field("untilLocal",end());fail=true;const attemptCount=calls.length;await card.tools.execute();
+    expect(calls.length===attemptCount+1,"Failure must not auto-retry");
+    expect(card.tools.body.textContent.includes("may already have been saved"),"Ambiguous failure must require inspection");
+    fail=false;listeners.get("disconnected")();expect(submit().disabled,"Disconnected form must be disabled");
+    publish(data);expect(!submit().disabled,"Fresh data can restore valid shelf target");
+    data.inventory.episodes=[];publish(data);expect(submit().disabled,"Resolved shelf target must be disabled");
+    reset();publish(data);await card.tools.execute();
+    expect(card.tools.body.textContent.includes("Saved by Home Assistant"),"Shelf should show saved result");
+    passed.push("Shelving explanation, ambiguous failure, no retry, disconnect, target resolution and saved result");
+
+    card.tools.close();await flush();
+    const buttons=card.tools.detailButtons({...source,kind:"situation"},episode,data);
+    expect(!buttons.includes("data-maintenance")&&buttons.includes("data-shelf"),"Situation can be shelved but cannot root maintenance");
+    card.hass={...hass,user:{id:"viewer",is_admin:false}};await flush();
+    card.tools.openControl("maintenance",source.node_id);expect(!card.tools.dialog.open,"Viewer cannot open controls");
+    card.hass=hass;await flush();
+    card.tools.showHistory("ended-0");data.inventory.resolved_history.episodes=[];publish(data);
+    expect(card.tools.body.textContent.includes("no longer in retained history"),"Expired history selection must be explicit");
+    card.tools.close();await flush();reset();publish(data);card.setConfig({view:"overview"});
+    expect(!card.tools.dialog.open,"Closed history must not reopen on live publication");
+    passed.push("Situation boundary, non-admin access and history expiry");
+    result.textContent="PASS\n"+passed.join("\n");
+  }catch(error){result.textContent="FAIL: "+error.stack+"\n"+passed.join("\n");}
+});
+</script>
+</html>

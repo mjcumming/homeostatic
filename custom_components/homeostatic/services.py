@@ -16,6 +16,7 @@ MUTATIONS = ("shelve", "start_maintenance")
 SERVICES = (
     *MUTATIONS,
     "operator_controls",
+    "resolved_history",
     "preview_maintenance",
     "policy",
     "preview_policy",

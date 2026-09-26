@@ -20,6 +20,14 @@ def main() -> None:
         if result.returncode:
             raise SystemExit(result.returncode)
 
+    for command in (
+        ("node", "--check", "custom_components/homeostatic/frontend/homeostatic.js"),
+        ("node", "--test", "tests/frontend/model.test.mjs"),
+    ):
+        result = subprocess.run(command, cwd=root, check=False)
+        if result.returncode:
+            raise SystemExit(result.returncode)
+
 
 if __name__ == "__main__":
     main()
