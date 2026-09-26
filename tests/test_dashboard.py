@@ -1,6 +1,8 @@
 """Dashboard scenarios through real Home Assistant WebSocket connections."""
 
+from copy import deepcopy
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
@@ -206,6 +208,20 @@ async def test_location_names_and_situation_detail(
     [
         pytest.param({"type": "homeostatic/subscribe"}, id="subscription"),
         pytest.param({"type": "homeostatic/node", "node_id": NODE}, id="node"),
+        pytest.param({"type": "homeostatic/configuration"}, id="configuration"),
+        pytest.param(
+            {"type": "homeostatic/preview_configuration", "revision": "x", "rules": []},
+            id="preview-configuration",
+        ),
+        pytest.param(
+            {
+                "type": "homeostatic/save_configuration",
+                "revision": "x",
+                "preview_token": "x",
+                "rules": [],
+            },
+            id="save-configuration",
+        ),
     ],
 )
 async def test_dashboard_requires_administrator(
@@ -330,5 +346,169 @@ async def test_entity_brief_uses_current_queries_through_unknown_and_recovery(
     resolved = (await client.receive_json())["event"]
     assert resolved["inventory"]["entity_status"] == {}
     assert runtime.episodes == {}
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.close()
+
+
+async def test_monitoring_page_previews_and_saves_existing_options(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Preview changes no state; save keeps unrelated options and reloads rules."""
+    hass.states.async_set("sensor.observed", "42")
+    runtime = await start_monitor(hass, config_entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    assert current["rules"][0]["id"] == "selected_entities"
+    before = deepcopy(runtime.snapshot())
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "homeostatic/preview_configuration",
+            "revision": current["revision"],
+            "rules": [],
+        }
+    )
+    preview = (await client.receive_json())["result"]
+    assert preview["watched"] == 0
+    assert preview["removed_count"] >= 1
+    assert runtime.snapshot() == before
+    assert not config_entry.options
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "homeostatic/save_configuration",
+            "revision": current["revision"],
+            "preview_token": "wrong",
+            "rules": [],
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "preview_required"
+    assert not config_entry.options
+    await client.send_json(
+        {
+            "id": 4,
+            "type": "homeostatic/save_configuration",
+            "revision": current["revision"],
+            "preview_token": preview["preview_token"],
+            "rules": [],
+        }
+    )
+    assert (await client.receive_json())["result"] == {"saved": True}
+    assert config_entry.options["rules"] == []
+    assert config_entry.options["timings"] == config_entry.data["timings"]
+    assert config_entry.runtime_data.available
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
+
+
+async def test_monitoring_page_rejects_stale_and_invalid_rules(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """An options edit elsewhere and malformed matches cannot be overwritten."""
+    await start_monitor(hass, config_entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "homeostatic/preview_configuration",
+            "revision": current["revision"],
+            "rules": [{"id": "bad", "action": "attach", "match": {"nonsense": "x"}}],
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "invalid_rules"
+    hass.config_entries.async_update_entry(
+        config_entry, options={**config_entry.data, "rules": []}
+    )
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "homeostatic/preview_configuration",
+            "revision": current["revision"],
+            "rules": [],
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "stale_configuration"
+    assert config_entry.options["rules"] == []
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
+
+
+async def test_monitoring_page_restores_options_if_reload_fails(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """A failed apply retains the last valid saved configuration."""
+    await start_monitor(hass, config_entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "homeostatic/preview_configuration",
+            "revision": current["revision"],
+            "rules": [],
+        }
+    )
+    preview = (await client.receive_json())["result"]
+    with patch.object(
+        hass.config_entries,
+        "async_reload",
+        new=AsyncMock(side_effect=[False, True]),
+    ) as reload:
+        await client.send_json(
+            {
+                "id": 3,
+                "type": "homeostatic/save_configuration",
+                "revision": current["revision"],
+                "preview_token": preview["preview_token"],
+                "rules": [],
+            }
+        )
+        assert (await client.receive_json())["error"]["code"] == "reload_failed"
+    assert reload.await_count == 2
+    assert not config_entry.options
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
+
+
+async def test_monitoring_preview_keeps_excluded_function_requirement_unknown(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Removing a check cannot make a required function appear ready."""
+    config_data["functions"] = [
+        {
+            "id": "lighting",
+            "name": "Lighting",
+            "requires": ["entity:entity_id:sensor.observed"],
+        }
+    ]
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    hass.states.async_set("sensor.observed", "42")
+    await start_monitor(hass, entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "homeostatic/preview_configuration",
+            "revision": current["revision"],
+            "rules": [],
+        }
+    )
+    function = (await client.receive_json())["result"]["functions"][0]
+    assert function["readiness"]["answer"] == "unknown"
+    assert function["requirements"][0]["monitoring"] == "unwatched"
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()

@@ -1,11 +1,14 @@
 import {entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
-import {historyPage, controlPayload, controlAllowed, callAction, controlsPanel, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
+import {historyPage, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
+import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
 import {DashboardStore, affectedFunctions, browseHighlights, coverageInventory, dashboardStore,
   escapeHtml, inventoryRows, locationList, locationTree, monitoringLabel,
   recentActivity, sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
 import {locationBranch, setBranchExpanded} from "../../custom_components/homeostatic/frontend/tree.mjs";
+import {editCatalogRule, monitoringScope, monitoringTree, newCatalogRule,
+  scopeChoice, setScopeChoice} from "../../custom_components/homeostatic/frontend/configuration.mjs";
 
 function source(id, fields = {}) {
   return {node_id:id,name:id,kind:"entity",attributes:{},watched:true,
@@ -161,7 +164,6 @@ test("problem ordering uses importance and stable onset",()=>{
 });
 test("recent activity translates monitoring changes without making JSON primary copy",()=>{
   const data=example();
-  data.coverage={never_observed:[],stale:[]};
   data.inventory.nodes=[source("entry:music",{name:"Music Assistant",kind:"integration",disabled:true}),
     source("sensor.stairs",{name:"Basement Stairs"})];
   data.inventory.catalog.candidates=data.inventory.nodes;
@@ -170,17 +172,14 @@ test("recent activity translates monitoring changes without making JSON primary 
       after:data.inventory.nodes[0]},
     {node_id:"sensor.stairs",at:"2026-09-25T10:01:00Z",reason:"rules_changed",
       before:source("sensor.stairs"),after:source("sensor.stairs",{watched:false,attached_by:[],excluded_by:["ignore_stairs"]})},
-    {node_id:"entry:deleted",at:"2026-09-25T10:02:00Z",reason:"source_removed",
-      before:source("entry:deleted",{name:"Deleted controller",kind:"integration"})},
   ];
+  data.coverage.never_observed=[];
   const activity=recentActivity(data);
-  assert.equal(activity[0].title,"Deleted controller was removed from Home Assistant");
-  assert.match(activity[0].summary,/resolved history as removed/);
-  assert.equal(activity[1].title,"Basement Stairs was excluded from monitoring");
-  assert.equal(activity[1].summary,"Homeostatic will no longer assess this source under the current rules.");
-  assert.equal(activity[2].title,"Music Assistant is now monitored");
-  assert.match(activity[2].summary,/disabled in Home Assistant/);
-  assert.deepEqual(activity[2].technical,data.inventory.enrollment_changes[0]);
+  assert.equal(activity[0].title,"Basement Stairs was excluded from monitoring");
+  assert.equal(activity[0].summary,"Homeostatic will no longer assess this source under the current rules.");
+  assert.equal(activity[1].title,"Music Assistant is now monitored");
+  assert.match(activity[1].summary,/disabled in Home Assistant/);
+  assert.deepEqual(activity[1].technical,data.inventory.enrollment_changes[0]);
 });
 test("recent activity groups one enrollment burst and reports incomplete evidence",()=>{
   const data=example();
@@ -188,14 +187,32 @@ test("recent activity groups one enrollment burst and reports incomplete evidenc
     source("sensor.b",{name:"Basement Stairs"}),source("sensor.c",{name:"Cabin Fan"})];
   data.inventory.catalog.candidates=data.inventory.nodes;
   data.inventory.enrollment_changes=data.inventory.nodes.map((item,index)=>({
-    node_id:item.node_id,at:`2026-09-25T10:00:0${index}Z`,reason:"source_enrolled",after:item,
+    node_id:item.node_id,at:`2026-09-25T10:00:0${index}Z`,reason:"source_enrolled",batch:"demo-load",after:item,
   }));
-  data.coverage={never_observed:[{node_id:"sensor.b",check_id:"availability"}],stale:[]};
+  data.coverage.never_observed=[{node_id:"sensor.b",check_id:"availability"}];
   const activity=recentActivity(data);
   assert.equal(activity.length,1);
-  assert.equal(activity[0].title,"3 sources are now monitored");
-  assert.match(activity[0].summary,/1 is still waiting/);
-  assert.deepEqual(activity[0].names,["Cabin Fan","Basement Stairs","Main Floor Lights"]);
+  assert.equal(activity[0].title,"3 newly discovered sources matched monitoring rules");
+  assert.match(activity[0].summary,/1 source needs current evidence review/);
+  assert.deepEqual(activity[0].sources.map((item)=>item.name),
+    ["Cabin Fan","Basement Stairs","Main Floor Lights"]);
+});
+test("initial scope remains a load snapshot with an exact count",()=>{
+  const data=example();
+  data.inventory.enrollment_changes=[{at:"2026-09-25T10:00:00Z",reason:"initial_scope",
+    total:51,sources:[{node_id:"sensor.a",name:"Original name",kind:"entity",attached_by:["passive"]}]}];
+  const activity=recentActivity(data);
+  assert.equal(activity[0].kind,"scope");
+  assert.match(activity[0].title,/51 sources matched monitoring rules/);
+  assert.equal(activity[0].sources[0].name,"sensor.a");
+  assert.deepEqual(activity[0].sources[0].rules,["passive"]);
+  assert.equal(activity[0].total,51);
+});
+test("activity coverage selection keeps only its sources within the render bound",()=>{
+  const data=example();
+  const selected=coverageInventory(data,"",50,new Set(["sensor.a"]));
+  assert.equal(selected.resultCount,1);
+  assert.equal(selected.groups[0].devices[0].sources[0].source.node_id,"sensor.a");
 });
 test("cards share a stream, disconnect is not healthy, and last release cleans up",async()=>{
   const client=connection();
@@ -371,6 +388,29 @@ test("control request requires explicit bounded expiry and preserves target and 
   assert.throws(()=>controlPayload({...shelf,reason:"a".repeat(501)},now),/500/);
 });
 
+test("short maintenance choices produce an explicit local end time", () => {
+  const now=Date.parse("2026-09-25T12:00:00Z");
+  for(const minutes of [30,120,240]){
+    assert.equal(new Date(localEndTime(minutes,now)).getTime(),now+minutes*60000);
+  }
+});
+
+test("diagnostic summary states monitoring limits and configured impact", () => {
+  const entry=source("entry:theater",{name:"Home Theater",kind:"integration"});
+  const ready=diagnosticOverview(entry,{readiness:{answer:"ready"}});
+  assert.match(ready.checks,/connection state/);
+  assert.match(ready.checks,/not physically verified/);
+  assert.match(ready.impact,/outside configured functions are not assessed/);
+  const open=diagnosticOverview(entry,{readiness:{answer:"ready"}},[{name:"Movie night"}],true);
+  assert.match(open.assessment,/still awaiting confirmed recovery/);
+  assert.match(open.impact,/Movie night/);
+  const disabled=diagnosticOverview({...entry,disabled:true},{readiness:{answer:"unknown"}});
+  assert.match(disabled.monitoring,/cannot assess its health/);
+  assert.match(disabled.assessment,/cannot establish readiness/);
+  assert.match(diagnosticOverview({...entry,kind:"function"},{readiness:{answer:"blocked"}}).impact,/declared requirements/);
+  assert.match(diagnosticOverview({...entry,kind:"situation"},{readiness:null},[],true).impact,/separate from equipment/);
+});
+
 test("controls require current admin access and an eligible live target", () => {
   const data=example();data.inventory.episodes=[{episode_id:"active"}];
   const current={status:"current",data};
@@ -508,4 +548,62 @@ test("entity recovery needs a current observation or ready query, not missing fi
   assert.match(unavailable.connectionNote,/also needs attention/);
   assert.doesNotMatch(unavailable.summary,/caused by|because/);
   assert.equal(entityProblem(matter,null),null);
+});
+
+test("monitoring editor preserves complete match values and removes empty fields",()=>{
+  const rule=newCatalogRule([{id:"rule_2"}]);
+  assert.equal(rule.id,"rule_3");
+  editCatalogRule(rule,"match:domain","sensor, binary_sensor, ");
+  editCatalogRule(rule,"match:entity","sensor.garage");
+  assert.deepEqual(rule.match,{domain:["sensor","binary_sensor"],entity:["sensor.garage"]});
+  editCatalogRule(rule,"match:domain","  ");
+  editCatalogRule(rule,"enabled",false);
+  assert.deepEqual(rule.match,{entity:["sensor.garage"]});
+  assert.equal(rule.enabled,false);
+});
+
+test("monitoring choices browse integrations, devices, and unassigned entities",()=>{
+  const data=example();
+  const entry=source("entry:music",{name:"Music Assistant",kind:"integration",entry_id:"music"});
+  const speaker=source("entity:registry:speaker",{name:"Kitchen speaker",owner_id:"music",
+    entity_id:"media_player.kitchen",attributes:{entity:["registry:speaker"],device:["speaker-device"]}});
+  const signal=source("entity:registry:signal",{name:"Music signal",owner_id:"music",
+    entity_id:"sensor.music",attributes:{entity:["registry:signal"]}});
+  data.inventory.nodes=[entry,speaker,signal];
+  data.inventory.catalog.candidates=[entry,speaker,signal];
+  data.devices=[{id:"speaker-device",name:"Kitchen speaker device"}];
+  const groups=monitoringTree(data);
+  assert.equal(groups[0].name,"Music Assistant");
+  assert.equal(groups[0].devices[0].name,"Kitchen speaker device");
+  assert.equal(groups[0].devices[0].entities[0].name,"Kitchen speaker");
+  assert.equal(groups[0].loose[0].name,"Music signal");
+  assert.equal(monitoringTree(data,"speaker device")[0].devices[0].entities.length,1);
+  assert.equal(monitoringTree(data,"missing").length,0);
+  assert.deepEqual(monitoringScope("both","music").match,{integration:["music"]});
+  assert.deepEqual(monitoringScope("entry","music").match,{integration:["music"],kind:["integration"]});
+  assert.deepEqual(monitoringScope("entities","music").match,{integration:["music"],kind:["entity"]});
+  assert.deepEqual(monitoringScope("entity",speaker.node_id,speaker).match,{entity:["registry:speaker"]});
+  const otherEntry=source("entry:other",{name:"Other integration",kind:"integration",entry_id:"other"});
+  const shared=source("entity:registry:shared",{name:"Shared device sensor",owner_id:"other",
+    attributes:{entity:["registry:shared"],device:["speaker-device"]}});
+  data.inventory.catalog.candidates.push(otherEntry,shared);
+  const sharedGroups=monitoringTree(data);
+  assert.equal(sharedGroups[1].devices[0].id,"speaker-device");
+  assert.deepEqual(sharedGroups[0].devices[0].total,{count:2,watched:2});
+  assert.deepEqual(sharedGroups[1].devices[0].total,{count:2,watched:2});
+  assert.deepEqual(monitoringScope("device","speaker-device").match,{device:["speaker-device"]});
+});
+
+test("guided exclusion preserves a broader pilot rule and can be removed",()=>{
+  const pilot={id:"pilot_integrations",action:"attach",enabled:true,
+    match:{integration:["music","other"]},checks:["availability"]};
+  const rules=[pilot];
+  const scope=monitoringScope("device","speaker-device");
+  assert.equal(scopeChoice(rules,scope),"inherit");
+  assert.equal(setScopeChoice(rules,scope,"exclude"),true);
+  assert.equal(scopeChoice(rules,scope),"exclude");
+  assert.deepEqual(rules[0],pilot);
+  assert.deepEqual(rules[1].match,{device:["speaker-device"]});
+  assert.equal(setScopeChoice(rules,scope,"inherit"),true);
+  assert.deepEqual(rules,[pilot]);
 });

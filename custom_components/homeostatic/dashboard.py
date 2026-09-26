@@ -1,8 +1,11 @@
 """Authenticated dashboard presentation using public health-tree queries."""
 
+import asyncio
+import hashlib
+import json
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import voluptuous as vol
 from health_tree.types import JSONValue
@@ -14,6 +17,7 @@ from homeassistant.components.websocket_api.decorators import (
     websocket_command,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import floor_registry as fr
@@ -23,6 +27,7 @@ from homeassistant.helpers.dispatcher import (
 )
 from homeassistant.util.hass_dict import HassKey
 
+from .config import Settings, normalize_rules, rule_data
 from .const import DOMAIN, NAME
 from .runtime import Runtime
 from .serialization import json_object
@@ -30,8 +35,20 @@ from .serialization import json_object
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=11"
-PANEL_ELEMENT = "homeostatic-panel-v11"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=13"
+PANEL_ELEMENT = "homeostatic-panel-v13"
+
+
+def _digest(value: dict[str, Any]) -> str:
+    """Identify one exact saved configuration or proposed rule list."""
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode()).hexdigest()
+
+
+def _configuration(runtime: Runtime) -> tuple[dict[str, Any], str]:
+    """Read the effective options and their concurrency revision."""
+    current = dict(runtime.entry.options or runtime.entry.data)
+    return current, _digest(current)
 
 
 def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
@@ -100,6 +117,7 @@ class Dashboard:
         self._catalog: dict[str, JSONValue] | None = None
         self._locations: dict[str, JSONValue] = {}
         self._cancel: Callable[[], None] | None = None
+        self.save_lock = asyncio.Lock()
 
     @callback
     def attach(self, runtime: Runtime | None) -> None:
@@ -233,6 +251,153 @@ def websocket_node(
     )
 
 
+@websocket_command({vol.Required("type"): "homeostatic/configuration"})
+@require_admin
+@callback
+def websocket_configuration(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Provide the current catalog rules without a second configuration store."""
+    runtime = hass.data[DATA_DASHBOARD].runtime
+    if runtime is None:
+        connection.send_error(msg["id"], "not_ready", "Homeostatic is not loaded")
+        return
+    current, revision = _configuration(runtime)
+    connection.send_result(
+        msg["id"],
+        {"revision": revision, "rules": rule_data(hass, Settings.from_data(current))},
+    )
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/preview_configuration",
+        vol.Required("revision"): str,
+        vol.Required("rules"): list,
+    }
+)
+@require_admin
+@callback
+def websocket_preview_configuration(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Evaluate unsaved monitoring rules against current discovered sources."""
+    runtime = hass.data[DATA_DASHBOARD].runtime
+    if runtime is None or not runtime.available:
+        connection.send_error(msg["id"], "not_ready", "Monitoring is unavailable")
+        return
+    current, revision = _configuration(runtime)
+    if msg["revision"] != revision:
+        connection.send_error(
+            msg["id"], "stale_configuration", "Settings changed; reload this page"
+        )
+        return
+    try:
+        rules = normalize_rules(hass, msg["rules"])
+        Settings.from_data({**current, "rules": rules})
+        result = cast(dict[str, Any], runtime.query("preview_rules", {"rules": rules}))
+        functions = cast(
+            dict[str, Any], runtime.query("preview_functions", {"rules": rules})
+        )["functions"]
+    except (ValueError, TypeError, KeyError, vol.Invalid) as err:
+        connection.send_error(msg["id"], "invalid_rules", str(err))
+        return
+    inventory = cast(dict[str, Any], runtime.query("inventory", {}))
+    before = {item["node_id"]: item for item in inventory["catalog"]["candidates"]}
+    added = []
+    removed = []
+    for item in result["candidates"]:
+        previous = before.get(item["node_id"])
+        if item["watched"] and not (previous and previous["watched"]):
+            added.append({"node_id": item["node_id"], "name": item["name"]})
+        elif not item["watched"] and previous and previous["watched"]:
+            removed.append({"node_id": item["node_id"], "name": item["name"]})
+    connection.send_result(
+        msg["id"],
+        {
+            "preview_token": _digest({"revision": revision, "rules": rules}),
+            "watched": result["watched"],
+            "matches": result["rules"],
+            "added_count": len(added),
+            "removed_count": len(removed),
+            "added": added[:50],
+            "removed": removed[:50],
+            "functions": functions,
+            "current_evidence_only": True,
+        },
+    )
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/save_configuration",
+        vol.Required("revision"): str,
+        vol.Required("preview_token"): str,
+        vol.Required("rules"): list,
+    }
+)
+@require_admin
+@callback
+def websocket_save_configuration(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Start an administrator-only configuration update."""
+    hass.async_create_task(_async_save_configuration(hass, connection, msg))
+
+
+async def _async_save_configuration(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Replace only rules after validating an exact preview and saved revision."""
+    dashboard = hass.data[DATA_DASHBOARD]
+    async with dashboard.save_lock:
+        runtime = dashboard.runtime
+        if runtime is None or not runtime.available:
+            connection.send_error(msg["id"], "not_ready", "Monitoring is unavailable")
+            return
+        current, revision = _configuration(runtime)
+        if msg["revision"] != revision:
+            connection.send_error(
+                msg["id"], "stale_configuration", "Settings changed; reload this page"
+            )
+            return
+        try:
+            rules = normalize_rules(hass, msg["rules"])
+            Settings.from_data({**current, "rules": rules})
+        except (ValueError, TypeError, KeyError, vol.Invalid) as err:
+            connection.send_error(msg["id"], "invalid_rules", str(err))
+            return
+        if msg["preview_token"] != _digest({"revision": revision, "rules": rules}):
+            connection.send_error(
+                msg["id"], "preview_required", "Preview these exact rules before saving"
+            )
+            return
+        entry = runtime.entry
+        previous_options = dict(entry.options)
+        hass.config_entries.async_update_entry(
+            entry, options={**current, "rules": rules}
+        )
+        try:
+            loaded = await hass.config_entries.async_reload(entry.entry_id)
+        except HomeAssistantError:
+            loaded = False
+        if not loaded:
+            hass.config_entries.async_update_entry(entry, options=previous_options)
+            try:
+                recovered = await hass.config_entries.async_reload(entry.entry_id)
+            except HomeAssistantError:
+                recovered = False
+            connection.send_error(
+                msg["id"],
+                "reload_failed",
+                "Could not apply rules; previous options restored"
+                if recovered
+                else "Could not apply rules; previous options restored, but monitoring is unavailable",
+            )
+            return
+        connection.send_result(msg["id"], {"saved": True})
+
+
 async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> None:
     """Register local assets, cards, dashboard strategy and a sidebar overview."""
     if DATA_DASHBOARD not in hass.data:
@@ -246,6 +411,9 @@ async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> Non
         hass.data[DATA_DASHBOARD] = Dashboard(hass)
         websocket_api.async_register_command(hass, websocket_subscribe)
         websocket_api.async_register_command(hass, websocket_node)
+        websocket_api.async_register_command(hass, websocket_configuration)
+        websocket_api.async_register_command(hass, websocket_preview_configuration)
+        websocket_api.async_register_command(hass, websocket_save_configuration)
     hass.data[DATA_DASHBOARD].attach(runtime)
     frontend.add_extra_js_url(hass, MODULE_URL)
     frontend.async_register_built_in_panel(

@@ -73,9 +73,14 @@ document.querySelector("#run").addEventListener("click",async()=>{
     passed.push("History pagination, search, focus, outcomes, safe text and related problem navigation");
 
     await open();expect(submit().disabled,"Maintenance cannot start without expiry and preview");
+    expect(card.tools.body.textContent.includes("Existing problems and alerts continue"),"Maintenance must describe what remains active");
+    card.tools.body.querySelector('[data-duration="30"]').click();
+    expect(!!card.tools.body.querySelector('[name="untilLocal"]').value,"Short choice must populate an explicit expiry");
+    expect(submit().disabled,"Short choice still requires scope review");
     field("untilLocal",end());field("reason","Replacing battery");field("includeDependents",true);
     await card.tools.preview();expect(!submit().disabled,"Successful preview should enable maintenance");
-    expect(card.tools.body.textContent.includes("Motion lighting"),"Preview must show affected functions");
+    expect(card.tools.body.textContent.includes("Configured home functions in scope: Motion lighting"),"Preview must name affected functions");
+    expect(card.tools.body.textContent.includes("1 existing problem remains active"),"Preview must distinguish existing problems");
     publish(data);expect(submit().disabled,"Live update must invalidate a preview");
     expect(card.tools.body.querySelector('[name="reason"]').value==="Replacing battery","Live update must preserve the draft");
     await card.tools.preview();field("includeDependents",false);expect(submit().disabled,"Scope edit must invalidate preview");
@@ -102,7 +107,7 @@ document.querySelector("#run").addEventListener("click",async()=>{
     card.openDetail({episodeId:"open-1"});await flush();
     expect(!root.querySelector('[data-disclosure="manage"]').open,"Management starts collapsed on a new detail");
     expect(root.querySelector('.dialog-body').innerText.includes("Alerts paused until"),"Active shelf expiry stays visible outside management");
-    expect(!root.querySelector('.dialog-body').innerText.includes("Plan maintenance"),"Inactive action controls stay inside management");
+    expect(!root.querySelector('.dialog-body').innerText.includes("Working on this equipment"),"Inactive action controls stay inside management");
     card.dialog.close();await flush();
     passed.push("Shelving explanation, ambiguous failure, no retry, disconnect, target resolution, saved result and visible expiry");
 

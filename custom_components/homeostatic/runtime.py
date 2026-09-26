@@ -97,6 +97,7 @@ class Runtime:
         self.enrolled: dict[str, Attributes] = {}
         self.candidates: dict[str, Source] = {}
         self.enrollment_changes: deque[dict[str, JSONValue]] = deque(maxlen=50)
+        self._discovered = False
         self.episodes: dict[str, dict[str, JSONValue]] = {}
         self.history = ResolvedHistory()
         self.integration_evidence = IntegrationEvidence()
@@ -338,8 +339,38 @@ class Runtime:
     def _discover(self) -> dict[str, Source]:
         rules = parse_rules(rule_data(self.hass, self.settings))
         candidates = evaluate(inventory(self.hass, self.settings, self.enrolled), rules)
+        at = dt_util.utcnow().isoformat()
+        batch = uuid4().hex
+        if not self._discovered:
+            watched = sorted(
+                (source for source in candidates.values() if source.watched),
+                key=lambda source: (source.name, source.node_id),
+            )
+            self.enrollment_changes.append(
+                {
+                    "at": at,
+                    "reason": "initial_scope",
+                    "total": len(watched),
+                    "sources": [
+                        {
+                            "node_id": source.node_id,
+                            "name": source.name,
+                            "kind": source.kind,
+                            "entry_id": source.entry_id,
+                            "owner_id": source.owner_id,
+                            "device_id": next(
+                                iter(source.attributes.get("device", ())), None
+                            ),
+                            "attached_by": list(source.attached_by),
+                        }
+                        for source in watched[:50]
+                    ],
+                }
+            )
         for node_id, source in candidates.items():
             previous = self.candidates.get(node_id)
+            if not self._discovered:
+                continue
             if previous is not None and (
                 previous.watched,
                 previous.attached_by,
@@ -348,7 +379,8 @@ class Runtime:
                 self.enrollment_changes.append(
                     {
                         "node_id": node_id,
-                        "at": dt_util.utcnow().isoformat(),
+                        "at": at,
+                        "batch": batch,
                         "reason": "match_attributes_changed"
                         if previous.attributes != source.attributes
                         else "rules_changed",
@@ -360,7 +392,8 @@ class Runtime:
                 self.enrollment_changes.append(
                     {
                         "node_id": node_id,
-                        "at": dt_util.utcnow().isoformat(),
+                        "at": at,
+                        "batch": batch,
                         "reason": "source_enrolled",
                         "after": json_object(source),
                     }
@@ -371,11 +404,13 @@ class Runtime:
                 self.enrollment_changes.append(
                     {
                         "node_id": node_id,
-                        "at": dt_util.utcnow().isoformat(),
+                        "at": at,
+                        "batch": batch,
                         "reason": "source_removed",
                         "before": json_object(previous),
                     }
                 )
+        self._discovered = True
         self.candidates = candidates
         sources, self.targets = compose(self.hass, self.settings, candidates)
         self.enrolled = {

@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=8";
+import {escapeHtml as esc} from "./model.mjs?v=13";
 
 const date = (value) => value ? new Date(value).toLocaleString() : "Unknown";
 export const RESOLUTIONS = {
@@ -30,6 +30,12 @@ export function controlPayload(draft, now = Date.now()) {
       : {node_id: draft.target, include_dependents: draft.includeDependents})};
 }
 
+export function localEndTime(minutes, now = Date.now()) {
+  const end = new Date(now + minutes * 60000);
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`;
+}
+
 export async function callAction(hass, service, service_data) {
   const result = await hass.callWS({type: "call_service", domain: "homeostatic", service,
     service_data, return_response: true});
@@ -52,7 +58,7 @@ export function controlsPanel(data, targets = null, saved = null) {
   const names = new Map(data.inventory.nodes.map((source) => [source.node_id, source.name]));
   for (const episode of data.inventory.episodes) names.set(episode.episode_id, names.get(episode.anchor) ?? episode.anchor);
   const records = saved ? [saved] : (data.inventory.operator_controls ?? []).filter((item) => !targets || targets.includes(item.target));
-  return `<section class="panel"><div class="panel-head"><h2>${saved ? "Saved control" : "Active controls"}</h2></div><div class="body">${records.length ? records.map((item) => `<div class="note"><strong>${item.action === "shelve" ? "Alerts paused" : "Equipment maintenance"} · ${esc(names.get(item.target) ?? item.target)}</strong><p>Until ${esc(date(item.until))}</p>${item.action === "maintenance" ? `<p>${item.include_dependents ? "Includes graph dependents" : "Selected equipment only"}. Existing problems and alerts remain active.</p>` : "<p>New alerts are held for every recipient, including urgent alerts. The problem remains open.</p>"}${item.reason ? `<p>${esc(item.reason)}</p>` : ""}</div>`).join("") : '<p class="sub">No active shelving or maintenance.</p>'}<p class="small">Controls expire automatically. Early cancellation is not available.</p></div></section>`;
+  return `<section class="panel"><div class="panel-head"><h2>${saved ? "Saved control" : "Active controls"}</h2></div><div class="body">${records.length ? records.map((item) => `<div class="note"><strong>${item.action === "shelve" ? "Alerts paused" : "Working on equipment"} · ${esc(names.get(item.target) ?? item.target)}</strong><p>Until ${esc(date(item.until))}</p>${item.action === "maintenance" ? `<p>${item.include_dependents ? "Also covers dependent equipment and functions" : "Selected equipment only"}. Existing problems and alerts remain active.</p>` : "<p>New alerts are held for every recipient, including urgent alerts. The problem remains open.</p>"}${item.reason ? `<p>${esc(item.reason)}</p>` : ""}</div>`).join("") : '<p class="sub">No active shelving or maintenance.</p>'}<p class="small">Controls expire automatically. Early cancellation is not available.</p></div></section>`;
 }
 
 export class DashboardTools {
@@ -104,7 +110,7 @@ export class DashboardTools {
   }
 
   detailButtons(source, episode, data) {
-    return `<section class="detail"><div class="actions">${episode ? `<button type="button" class="button" data-shelf="${esc(episode.episode_id)}">Pause alerts…</button>` : ""}${["entity", "integration", "external"].includes(source.kind) ? `<button type="button" class="button" data-maintenance="${esc(source.node_id)}">Plan maintenance…</button>` : ""}</div>${(data.inventory.operator_controls ?? []).some((item) => [source.node_id, episode?.episode_id].includes(item.target)) ? controlsPanel(data, [source.node_id, episode?.episode_id]) : ""}</section>`;
+    return `<section class="detail"><div class="actions">${episode ? `<button type="button" class="button" data-shelf="${esc(episode.episode_id)}">Pause alerts…</button>` : ""}${["entity", "integration", "external"].includes(source.kind) ? `<button type="button" class="button" data-maintenance="${esc(source.node_id)}">Working on this equipment…</button>` : ""}</div>${(data.inventory.operator_controls ?? []).some((item) => [source.node_id, episode?.episode_id].includes(item.target)) ? controlsPanel(data, [source.node_id, episode?.episode_id]) : ""}</section>`;
   }
 
   clicked(event) {
@@ -113,6 +119,13 @@ export class DashboardTools {
     if (button.dataset.history) this.showHistory(button.dataset.history);
     else if (button.dataset.shelf) this.openControl("shelve", button.dataset.shelf);
     else if (button.dataset.maintenance) this.openControl("maintenance", button.dataset.maintenance);
+    else if (button.dataset.duration && this.draft?.kind === "maintenance") {
+      this.draft.untilLocal = localEndTime(Number(button.dataset.duration));
+      this.body.querySelector('[name="untilLocal"]').value = this.draft.untilLocal;
+      this.draft.preview = null;
+      this.draft.error = "";
+      this.refreshFormState();
+    }
     else if (button.dataset.tool === "close") this.close();
     else if (button.dataset.tool === "previous" || button.dataset.tool === "next") {
       this.page += button.dataset.tool === "next" ? 1 : -1;
@@ -174,8 +187,17 @@ export class DashboardTools {
     const inventory = this.card.current.data.inventory;
     const nodeId = kind === "shelve" ? inventory.episodes.find((item) => item.episode_id === target).anchor : target;
     const name = inventory.nodes.find((item) => item.node_id === nodeId)?.name ?? nodeId;
-    this.dialog.querySelector("h2").textContent = kind === "shelve" ? "Pause alerts" : "Plan equipment maintenance";
-    this.body.innerHTML = `<p><strong>${esc(name)}</strong></p><p>${kind === "shelve" ? "Hold new alerts for every recipient, including urgent alerts, reminders and escalations. Existing messages stay visible and the problem remains open." : "Prevent new equipment problems during the selected window. Current problems, alerts, observations and function readiness stay active. Situations are unaffected."}</p><p class="small">Choose an end time within seven days. Early cancellation is not available.${kind === "shelve" ? " An existing shelf can only be extended." : ""}</p><form class="tool-form"><label>End date and time (your local time)<input type="datetime-local" name="untilLocal" required></label>${kind === "maintenance" ? '<label class="check-field"><input type="checkbox" name="includeDependents"> Include dependency-graph dependents</label>' : ""}<label>Reason (optional)<textarea name="reason" maxlength="500" rows="3"></textarea></label><div data-control-preview></div><p data-control-feedback role="status"></p><div class="actions">${kind === "maintenance" ? '<button class="button" type="button" data-tool="preview">Preview affected scope</button>' : ""}<button class="button primary" type="submit">${kind === "shelve" ? "Pause alerts" : "Start maintenance"}</button></div></form>`;
+    this.dialog.querySelector("h2").textContent = kind === "shelve" ? "Pause alerts" : "Working on this equipment";
+    const introduction = kind === "shelve"
+      ? "Hold new alerts for every recipient, including urgent alerts, reminders and escalations. Existing messages stay visible and the problem remains open."
+      : "Homeostatic will wait to open new problems for this equipment until the end time. Its observed status and home functions remain visible. Existing problems and alerts continue; situations are unaffected.";
+    const duration = kind === "maintenance"
+      ? '<div class="duration-choices" role="group" aria-label="Choose a maintenance duration"><button type="button" class="button" data-duration="30">30 minutes</button><button type="button" class="button" data-duration="120">2 hours</button><button type="button" class="button" data-duration="240">4 hours</button></div>'
+      : "";
+    const dependents = kind === "maintenance"
+      ? '<label class="check-field"><input type="checkbox" name="includeDependents"> Also cover equipment and functions that depend on this</label>'
+      : "";
+    this.body.innerHTML = `<p><strong>${esc(name)}</strong></p><p>${introduction}</p><p class="small">${kind === "maintenance" ? "Choose a short window or enter an end time. A problem still present at expiry may open then. " : "Choose an end time within seven days. "}Early cancellation is not available.${kind === "shelve" ? " An existing shelf can only be extended." : ""}</p><form class="tool-form">${duration}<label>${kind === "maintenance" ? "Or choose an end date and time" : "End date and time"} (your local time)<input type="datetime-local" name="untilLocal" required></label>${dependents}<details><summary>Add a reason (optional)</summary><label>Reason<textarea name="reason" maxlength="500" rows="3"></textarea></label></details><div data-control-preview></div><p data-control-feedback role="status"></p><div class="actions">${kind === "maintenance" ? '<button class="button" type="button" data-tool="preview">Review what will be covered</button>' : ""}<button class="button primary" type="submit">${kind === "shelve" ? "Pause alerts" : "Start maintenance"}</button></div></form>`;
     this.dialog.showModal();
     this.refreshFormState();
   }
@@ -183,7 +205,10 @@ export class DashboardTools {
   scopeMarkup(scope) {
     const names = new Map(this.card.current.data.inventory.nodes.map((source) => [source.node_id, source.name]));
     const sample = (ids) => ids.slice(0, 20).map((id) => esc(names.get(id) ?? id)).join(", ") + (ids.length > 20 ? `, and ${ids.length - 20} more` : "");
-    return `<div class="note"><h3>Affected scope</h3><p>${scope.node_ids.length} capabilities: ${sample(scope.node_ids)}</p><p>${scope.functions.length} functions: ${sample(scope.functions) || "None"}</p><p>${scope.existing_episode_ids.length} existing problems remain active.</p><p>Until ${esc(date(scope.until))}</p><p class="small">Dependents can change with the graph. Scope is checked again when applied.</p></div>`;
+    const root = scope.node_ids.find((id) => id === this.draft?.target || id === scope.control?.target);
+    const other = scope.node_ids.filter((id) => id !== root && !scope.functions.includes(id));
+    const openCount = scope.existing_episode_ids.length;
+    return `<div class="note"><h3>What will be covered</h3><p>Selected equipment: ${esc(names.get(root) ?? root ?? "Unavailable")}</p>${other.length ? `<p>Other equipment: ${sample(other)}</p>` : ""}<p>Configured home functions in scope: ${sample(scope.functions) || "None"}</p><p>${openCount} existing ${openCount === 1 ? "problem remains" : "problems remain"} active.</p><p>Ends ${esc(date(scope.until))}</p>${this.draft?.includeDependents || scope.control?.include_dependents ? '<p class="small">Dependent scope may change if the configured relationships change. Homeostatic checks it again when you start.</p>' : ""}</div>`;
   }
 
   refreshFormState() {
@@ -197,7 +222,7 @@ export class DashboardTools {
     form.querySelector('[type="submit"]').disabled = draft.busy || !allowed || !!validation || (draft.kind === "maintenance" && !draft.preview);
     const preview = form.querySelector('[data-tool="preview"]');
     if (preview) preview.disabled = draft.busy || !allowed || !!validation;
-    form.querySelector("[data-control-feedback]").textContent = draft.error || (draft.busy ? "Waiting for Home Assistant…" : !allowed ? "This target is no longer available, or monitoring is disconnected. No action can be submitted." : validation || (draft.kind === "maintenance" && !draft.preview ? "Preview the current scope before starting maintenance." : ""));
+    form.querySelector("[data-control-feedback]").textContent = draft.error || (draft.busy ? "Waiting for Home Assistant…" : !allowed ? "This target is no longer available, or monitoring is disconnected. No action can be submitted." : validation || (draft.kind === "maintenance" && !draft.preview ? "Review what will be covered before starting." : ""));
     form.querySelector("[data-control-preview]").innerHTML = draft.preview ? this.scopeMarkup(draft.preview) : "";
   }
 

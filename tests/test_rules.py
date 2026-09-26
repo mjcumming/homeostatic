@@ -213,6 +213,12 @@ async def test_future_sources_and_excluded_function(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     assert runtime.readiness == "unknown"
+    assert len(runtime.enrollment_changes) == 1
+    initial = runtime.enrollment_changes[0]
+    assert initial["reason"] == "initial_scope"
+    assert initial["total"] == sum(
+        source.watched for source in runtime.candidates.values()
+    )
     required = runtime.sources["entity:entity_id:sensor.required"]
     assert not required.watched
     assert required.excluded_by == ("exclude_required",)
@@ -225,6 +231,13 @@ async def test_future_sources_and_excluded_function(
     assert runtime.sources["entity:entity_id:sensor.new_arrival"].attached_by == (
         "passive_availability",
     )
+    arrival = next(
+        change
+        for change in runtime.enrollment_changes
+        if change.get("node_id") == "entity:entity_id:sensor.new_arrival"
+    )
+    assert arrival["reason"] == "source_enrolled"
+    assert isinstance(arrival["batch"], str)
     assert {episode["anchor"] for episode in runtime.episodes.values()} == {
         "entity:entity_id:sensor.new_arrival",
         "situation:alert",

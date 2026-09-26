@@ -123,19 +123,43 @@ function activityCopy(state, name, evidence, change) {
   };
 }
 
-function normalizeActivity(data, change, order, rows, registered) {
-  const source = rows.get(change.node_id);
+function activitySource(data, snapshot, rows) {
+  const source = rows.get(snapshot.node_id);
+  const ownerId = source?.owner_id ?? snapshot.owner_id;
+  const deviceId = source?.attributes?.device?.[0] ?? snapshot.device_id ?? snapshot.attributes?.device?.[0];
+  const owner = data.inventory.catalog.candidates.find((item) =>
+    item.kind === "integration" && item.entry_id === ownerId);
+  const device = (data.devices ?? []).find((item) => item.id === deviceId);
+  const registered = data.inventory.nodes.some((item) => item.node_id === snapshot.node_id);
+  return {
+    nodeId:snapshot.node_id,
+    name:source?.name ?? snapshot.name ?? snapshot.node_id,
+    group:snapshot.kind === "integration" ? source?.name ?? snapshot.name
+      : owner?.name ?? (ownerId ? "Other integration sources" : "Other sources"),
+    device:device?.name ?? (deviceId ? "Device no longer in HA" : null),
+    rules:snapshot.attached_by ?? [],
+    exclusions:snapshot.excluded_by ?? [],
+    evidence:!registered || source?.watched === false ? "not_monitored"
+      : evidenceState(data,snapshot.node_id,source ?? snapshot),
+    registered,
+  };
+}
+
+function normalizeActivity(data, change, order, rows) {
   const snapshot = change.after ?? change.before ?? {};
-  const name = source?.name ?? snapshot.name ?? change.node_id;
+  const detail = activitySource(data,{...snapshot,node_id:change.node_id},rows);
+  const name = detail.name;
   const state = enrollmentState(change);
-  const evidence = evidenceState(data,change.node_id,source ?? snapshot);
+  const evidence = detail.evidence;
   return {
     kind:"source",
     nodeId:change.node_id,
-    registered:registered.has(change.node_id),
+    registered:detail.registered,
     name,
     state,
     evidence,
+    sources:[detail],
+    batch:change.batch,
     at:change.at,
     order,
     ...activityCopy(state,name,evidence,change),
@@ -146,16 +170,27 @@ function normalizeActivity(data, change, order, rows, registered) {
 /** Translate bounded runtime enrollment events into concise owner-facing activity. */
 export function recentActivity(data, limit = 4) {
   const rows = new Map(inventoryRows(data).map((source) => [source.node_id,source]));
-  const registered = sourceMap(data);
-  const changes = (data.inventory.enrollment_changes ?? []).map((change, order) =>
-    normalizeActivity(data,change,order,rows,registered)).sort((left,right) => {
+  const changes = (data.inventory.enrollment_changes ?? []).map((change, order) => {
+    if (change.reason !== "initial_scope") return normalizeActivity(data,change,order,rows);
+    const sources = change.sources.map((source) => activitySource(data,source,rows));
+    const waiting = sources.filter((source) =>
+      source.evidence && source.evidence !== "not_monitored").length;
+    return {
+      kind:"scope",at:change.at,order,total:change.total,sources,
+      title:`When Homeostatic loaded, ${change.total} ${change.total === 1 ? "source" : "sources"} matched monitoring rules`,
+      summary:waiting
+        ? `${waiting} ${waiting === 1 ? "source needs" : "sources need"} current evidence review${sources.length < change.total ? " among those shown" : ""}.`
+        : "This was the monitoring scope found at load, not a new rule change.",
+      technical:change,
+    };
+  }).sort((left,right) => {
       const time = Date.parse(right.at) - Date.parse(left.at);
       return time || right.order - left.order;
     });
   const entries = [];
   for (let index = 0; index < changes.length && entries.length < limit;) {
     const current = changes[index];
-    if (current.state !== "enrolled") {
+    if (current.state !== "enrolled" || !current.batch) {
       entries.push(current);
       index++;
       continue;
@@ -163,20 +198,21 @@ export function recentActivity(data, limit = 4) {
     const cluster = [current];
     let next = index + 1;
     while (next < changes.length && changes[next].state === "enrolled" &&
-        Math.abs(Date.parse(current.at) - Date.parse(changes[next].at)) <= 5000) {
+        changes[next].batch === current.batch) {
       cluster.push(changes[next++]);
     }
     if (cluster.length < 3) entries.push(...cluster.slice(0,limit - entries.length));
     else {
-      const waiting = cluster.filter((item) => item.evidence !== null).length;
+      const waiting = cluster.filter((item) =>
+        item.evidence && item.evidence !== "not_monitored").length;
       entries.push({
         kind:"group",
         at:current.at,
-        title:`${cluster.length} sources are now monitored`,
+        title:`${cluster.length} newly discovered sources matched monitoring rules`,
         summary:waiting
-          ? `Homeostatic added them automatically. ${waiting} ${waiting === 1 ? "is" : "are"} still waiting for usable health evidence.`
-          : "Homeostatic added them automatically using your monitoring rules.",
-        names:cluster.map((item) => item.name),
+          ? `${waiting} ${waiting === 1 ? "source needs" : "sources need"} current evidence review.`
+          : "Homeostatic selected them under the current rules.",
+        sources:cluster.flatMap((item) => item.sources),
         technical:cluster.map((item) => item.technical),
       });
     }
@@ -267,7 +303,7 @@ function byCoverage(left, right) {
 }
 
 /** Build a bounded, gap-first integration and device hierarchy. */
-export function coverageInventory(data, query = "", limit = 50) {
+export function coverageInventory(data, query = "", limit = 50, sourceIds = null) {
   const rows = inventoryRows(data);
   const registered = sourceMap(data);
   const gaps = coverageGapMap(data);
@@ -275,13 +311,14 @@ export function coverageInventory(data, query = "", limit = 50) {
   const integrations = new Map(rows.filter((source) => source.kind === "integration")
     .map((source) => [source.entry_id,source.name]));
   const normalized = query.trim().toLocaleLowerCase();
-  const matches = normalized ? rows.filter((source) => {
+  const scoped = sourceIds ? rows.filter((source) => sourceIds.has(source.node_id)) : rows;
+  const matches = normalized ? scoped.filter((source) => {
     const deviceId = source.attributes.device?.[0];
     const text = [source.name,source.node_id,source.kind,integrations.get(source.owner_id),
       devices.get(deviceId),...source.attached_by,...source.excluded_by]
       .filter(Boolean).join(" ").toLocaleLowerCase();
     return text.includes(normalized);
-  }) : rows.filter((source) => registered.has(source.node_id));
+  }) : scoped.filter((source) => sourceIds || registered.has(source.node_id));
   const selected = normalized ? matches.slice(0,limit) : matches;
   const groups = new Map();
   for (const source of selected) {

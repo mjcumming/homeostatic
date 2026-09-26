@@ -990,7 +990,7 @@ The first bounded pilot proposal uses one availability capability on each of two
 Implemented 2026-09-25 in the isolated dashboard increment. The spec remains the behavior contract.
 
 - Overview includes eight recently ended episodes and active controls. The history view searches retained source names, identities and findings, filters outcomes, and shows twenty records at a time. Stored evidence is never presented as current readiness. Removal and absorption do not imply recovery.
-- Open problems offer shelving. Equipment capabilities offer maintenance; situations and functions cannot be maintenance roots. The owner supplies an explicit end date/time and optional reason. Maintenance previews capabilities, affected functions and existing episodes before applying.
+- Open problems offer shelving. Equipment capabilities offer maintenance; situations and functions cannot be maintenance roots. The owner selects a short duration or supplies an explicit end date/time, with an optional reason. Maintenance previews the selected equipment, any other covered capabilities, configured functions and existing episodes before applying.
 - Form entries survive live updates, which invalidate maintenance previews. Disconnection and disappearance of the target disable submission. Pending actions cannot be double-submitted; an uncertain result calls for inspecting controls instead of an automatic retry.
 - Backend scope, expiry, persistence and permission semantics remain unchanged. Cancellation and acknowledgment are still future work.
 - Executable browser scenarios: `tests/frontend/history-controls.html`. Native WebSocket authorization and service response scenarios: `tests/test_dashboard_actions.py`.
@@ -1048,19 +1048,19 @@ link opens Coverage, and an embedded Coverage card retains its return path.
 
 ## 25. Human-readable runtime activity
 
-Implemented 2026-09-25 and refined 2026-09-26 after owner review of the live
-phone dashboard. Runtime enrollment events no longer expose their serialized
-source record as the main explanation. They are administrative history for
-answering why monitoring scope changed, not household-health status, so they
-live under Coverage rather than on the overview. Coverage says which recognizable
-source became monitored, excluded, unmatched or reevaluated; identifies disabled
-or still-unobserved sources; and offers the relevant source or coverage path. Raw
-ids, provenance and the complete event remain available under **Technical record**.
+Implemented 2026-09-25 and refined 2026-09-26. The overview presents
+**Monitoring activity** as administrative scope history, separate from household
+problems. The first record is the exact scope found at load, with up to 50
+source snapshots; it does not claim that all those sources were newly added.
+Later arrivals are grouped only when they share a reconciliation id. Rule and
+matching-detail changes remain separate events.
 
-Enrollment bursts of at least three sources within five seconds are one compact
-entry, including how many still lack usable evidence. Coverage shows at most four
-entries. This changes presentation only: the existing last-50 in-memory log
-and the separate persisted resolved-episode history retain their current contracts.
+Each entry identifies what changed and when, with an expandable source list
+grouped by HA integration and device. The list shows rule provenance and current
+evidence, and links affected sources to filtered Coverage. Complete payloads
+remain behind **Technical details**. The overview shows at most four entries
+from the last 50 records in the current runtime. This is separate from
+persisted resolved-problem history.
 
 ## 24. Explain device capabilities
 
@@ -1074,3 +1074,15 @@ Native entity details and known device pages are directly reachable. A watched
 owner connection needing attention is explained separately. Current public query
 results drive both the card and dialog, including unknown evidence and recovery
 confirmation; historical episode reasons never stand in for current state.
+
+## 27. Monitoring configuration page — 2026-09-26
+
+The first editable dashboard page addresses the gap between Coverage showing a rule decision and native options presenting the whole integration as one form. It edits the existing attach/exclude catalog, with no second enrollment setting or configuration store. This is a focused first slice of Configuration; functions, situations, policy and house timing continue through native options.
+
+The owner can add, enable, disable, edit and remove a rule. Match inputs cover the accepted stable fields. Empty fields match any value, values within a field are alternatives, and populated fields combine. The page explains that new discoveries inherit matching rules, that exclusions win, and that excluding a required capability leaves its function without evidence. It edits the current availability check only; the page cannot create a physical-health claim or a per-check timing override.
+
+The primary page is a searchable integration, device and entity browser. Each integration offers separate choices for its own state, its entities, and both; device choices cover associated entities; individual entities can be chosen directly. The current effective state is shown separately from pending direct choices because broader rules and exclusions may overlap. A choice edits the one catalog rule model and requires preview before save. Preserve arbitrary existing catalog rules through a collapsed advanced editor rather than reducing them to tree checkboxes or losing match fields.
+
+Preview must show current rule match counts, watched count, sources newly watched or no longer watched, and current-evidence function readiness. It changes no live engine, options, episodes or delivery. Save requires that exact rule preview, rejects options changed elsewhere, validates using the same rule and full-settings contracts as native options, and reloads the integration. The editor shows a reload error and restores previous options if the new configuration does not load. Disconnection or an unavailable runtime disables editing rather than presenting stale status as current.
+
+Acceptance: use an isolated HA installation to edit a broad attach rule and a narrow exclusion, preview the affected source identities and function evidence, save and reload, then verify the selected monitoring changes and unrelated options remain intact. An invalid field, a stale settings revision and a save without preview must leave the saved options unchanged. Browser review must include a narrow viewport, keyboard navigation and an unsafe source name.

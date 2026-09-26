@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.1.0b10] - 2026-09-26
+
+### Added
+
+- Administrator What to monitor page with guided rule choices, advanced editing, current-inventory and function previews, and guarded save to native options.
+
+### Changed
+
+- Monitoring activity distinguishes the scope found at load from later changes, groups arrivals by reconciliation, shows affected sources and current evidence by integration and device, and opens those sources in Coverage.
+- Equipment maintenance now starts from a plain-language device action with short duration choices, a custom end time, and a readable preview of the equipment and functions covered. The preview still gates submission and existing problems remain visible.
+- Problem details now summarize monitoring, check limits, current assessment and configured household impact before the optional raw diagnostic record.
+
 ## [0.1.0b9] - 2026-09-26
 
 ### Changed
