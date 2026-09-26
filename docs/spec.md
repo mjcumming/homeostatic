@@ -142,7 +142,7 @@ Tests use real Home Assistant helpers and the real health-tree engine. They cove
 
 ## Development dependency
 
-The 0.1.0b8 pilot candidate pins the published `health-tree==0.3.0` in both the custom integration manifest and development dependency. HA installs the manifest requirement through its normal dependency mechanism. The reproducible manual-install archive includes the dashboard assets and build identity; it requires no sibling library checkout. Home Assistant 2026.9.3 is the tested baseline. Actual-house evidence and HACS distribution remain separate milestones; see [pilot.md](pilot.md).
+The 0.1.0b9 pilot candidate pins the published `health-tree==0.3.0` in both the custom integration manifest and development dependency. HA installs the manifest requirement through its normal dependency mechanism. The reproducible manual-install archive includes the dashboard assets and build identity; it requires no sibling library checkout. Home Assistant 2026.9.3 is the tested baseline. Actual-house evidence and HACS distribution remain separate milestones; see [pilot.md](pilot.md).
 
 Atomic registration requires HealthTree 0.3.0. Both installation and development now use that published release; an editable library checkout is unnecessary. The live pilot was upgraded to 0.1.0b3 with HealthTree 0.3.0; this candidate keeps that dependency and the existing enrollment scope. See [scaling validation](testing/scaling.md).
 
