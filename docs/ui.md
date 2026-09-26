@@ -1030,6 +1030,20 @@ real storage and WebSocket delivery. Broad 6,000-check monitoring remains
 unqualified; see [the measured limits](testing/runtime-scaling.md). Device-first
 grouping and selective capability profiles remain separate planned UI work.
 
+## 25. Human-readable runtime activity
+
+Implemented 2026-09-25 after owner review of the live phone dashboard. Runtime
+enrollment events no longer expose their serialized source record as the main
+explanation. The overview says which recognizable source became monitored,
+excluded, unmatched or reevaluated; identifies disabled or still-unobserved
+sources; and offers the relevant source or coverage path. Raw ids, provenance and
+the complete event remain available under **Technical details**.
+
+Enrollment bursts of at least three sources within five seconds are one compact
+entry, including how many still lack usable evidence. The overview shows at most
+four entries. This changes presentation only: the existing last-50 in-memory log
+and the separate persisted resolved-episode history retain their current contracts.
+
 ## 24. Explain device capabilities
 
 An entity name alone does not explain the problem. The owner brief now names the

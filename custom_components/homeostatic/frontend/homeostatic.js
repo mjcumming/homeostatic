@@ -1,9 +1,9 @@
 import {affectedFunctions, browseHighlights, dashboardStore, escapeHtml as esc,
   inventoryRows, locationList, locationTree, monitoringLabel, sortedEpisodes,
-  sourceMap, sourcePage} from "./model.mjs?v=7";
-import {entityProblem, integrationProblem} from "./problem.mjs?v=7";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=7";
-import {styles} from "./styles.mjs?v=7";
+  recentActivity, sourceMap, sourcePage} from "./model.mjs?v=8";
+import {entityProblem, integrationProblem} from "./problem.mjs?v=8";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=8";
+import {styles} from "./styles.mjs?v=8";
 
 const VIEWS = ["overview", "house", "coverage", "functions", "problems", "history"];
 const status = (value) => {
@@ -184,8 +184,15 @@ class HomeostaticCard extends HTMLElement {
   }
 
   changes(data) {
-    const names = new Map(inventoryRows(data).map((item) => [item.node_id, item.name]));
-    return `<section class="panel"><div class="panel-head"><h2>Recent enrollment changes</h2></div><div class="body"><p class="small">Last 50 changes from this runtime. Resolved problems appear in Recently resolved.</p>${data.inventory.enrollment_changes.length ? [...data.inventory.enrollment_changes].reverse().slice(0, 8).map((change) => `<details><summary>${esc(names.get(change.node_id) ?? change.node_id)}</summary><pre>${json(change)}</pre></details>`).join("") : '<p class="sub">No enrollment changes recorded in this runtime.</p>'}</div></section>`;
+    const entries = recentActivity(data).map((entry) => {
+      const action = entry.kind === "source" && entry.registered
+        ? `<button type="button" class="link" data-node="${esc(entry.nodeId)}">View source</button>`
+        : '<button type="button" class="link" data-page="coverage">Review monitoring</button>';
+      const names = entry.kind === "group"
+        ? `<p class="activity-names small">${esc(entry.names.slice(0,3).join(", "))}${entry.names.length > 3 ? ` and ${entry.names.length - 3} more` : ""}</p>` : "";
+      return `<article class="activity-item"><div class="activity-copy"><strong>${esc(entry.title)}</strong><p>${esc(entry.summary)}</p>${names}<p class="small">${esc(date(entry.at))}</p></div><div class="activity-actions">${action}<details><summary>Technical details</summary><pre>${json(entry.technical)}</pre></details></div></article>`;
+    }).join("");
+    return `<section class="panel"><div class="panel-head"><h2>Recent activity</h2></div><div class="body"><p class="small">Monitoring changes recorded since Homeostatic started. Resolved problems have their own history.</p></div>${entries || '<div class="body"><p class="sub">No monitoring changes recorded in this runtime.</p></div>'}</section>`;
   }
 
   sourceTable(data, rows) {

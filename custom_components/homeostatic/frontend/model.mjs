@@ -48,6 +48,138 @@ export function monitoringLabel(source) {
   return source.watched ? "Watched" : "Unwatched";
 }
 
+function sameValues(left = [], right = []) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function enrollmentState(change) {
+  const before = change.before ?? {};
+  const after = change.after ?? {};
+  if (change.reason === "source_enrolled" || (!before.watched && after.watched)) return "enrolled";
+  if (before.watched && !after.watched) {
+    return after.excluded_by?.length ? "excluded" : "unenrolled";
+  }
+  if (!sameValues(before.excluded_by, after.excluded_by) ||
+      !sameValues(before.attached_by, after.attached_by)) return "rules";
+  if (change.reason === "match_attributes_changed") return "attributes";
+  return "changed";
+}
+
+function evidenceState(data, nodeId, source) {
+  if (source?.disabled) return "disabled";
+  if ((data.coverage?.never_observed ?? []).some((item) => item.node_id === nodeId)) return "never_observed";
+  if ((data.coverage?.stale ?? []).some((item) => item.node_id === nodeId)) return "stale";
+  return null;
+}
+
+function activityCopy(state, name, evidence, change) {
+  if (state === "enrolled") {
+    if (evidence === "disabled") return {
+      title:`${name} is now monitored`,
+      summary:"It is disabled in Home Assistant, so Homeostatic cannot assess its health.",
+    };
+    if (evidence === "never_observed") return {
+      title:`${name} is now monitored`,
+      summary:"Homeostatic is waiting for its first health reading.",
+    };
+    if (evidence === "stale") return {
+      title:`${name} is now monitored`,
+      summary:"Its latest health evidence is stale and needs review.",
+    };
+    return {
+      title:`${name} is now monitored`,
+      summary:"Homeostatic added it automatically using your monitoring rules.",
+    };
+  }
+  if (state === "excluded") return {
+    title:`${name} was excluded from monitoring`,
+    summary:"Homeostatic will no longer assess this source under the current rules.",
+  };
+  if (state === "unenrolled") return {
+    title:`${name} is no longer monitored`,
+    summary:"It no longer matches an active monitoring rule.",
+  };
+  if (state === "rules") {
+    const after = change.after ?? {};
+    const summary = after.excluded_by?.length
+      ? "It is excluded under the current monitoring rules."
+      : after.watched
+        ? "It remains monitored under the updated rules."
+        : "It is not currently selected for monitoring.";
+    return {title:`${name}'s monitoring rules changed`,summary};
+  }
+  if (state === "attributes") return {
+    title:`${name}'s Home Assistant details changed`,
+    summary:"Homeostatic reevaluated its monitoring rules after its matching details changed.",
+  };
+  return {
+    title:`${name}'s monitoring changed`,
+    summary:"Review the source to see its current monitoring state.",
+  };
+}
+
+function normalizeActivity(data, change, order, rows, registered) {
+  const source = rows.get(change.node_id);
+  const snapshot = change.after ?? change.before ?? {};
+  const name = source?.name ?? snapshot.name ?? change.node_id;
+  const state = enrollmentState(change);
+  const evidence = evidenceState(data,change.node_id,source ?? snapshot);
+  return {
+    kind:"source",
+    nodeId:change.node_id,
+    registered:registered.has(change.node_id),
+    name,
+    state,
+    evidence,
+    at:change.at,
+    order,
+    ...activityCopy(state,name,evidence,change),
+    technical:change,
+  };
+}
+
+/** Translate bounded runtime enrollment events into concise owner-facing activity. */
+export function recentActivity(data, limit = 4) {
+  const rows = new Map(inventoryRows(data).map((source) => [source.node_id,source]));
+  const registered = sourceMap(data);
+  const changes = (data.inventory.enrollment_changes ?? []).map((change, order) =>
+    normalizeActivity(data,change,order,rows,registered)).sort((left,right) => {
+      const time = Date.parse(right.at) - Date.parse(left.at);
+      return time || right.order - left.order;
+    });
+  const entries = [];
+  for (let index = 0; index < changes.length && entries.length < limit;) {
+    const current = changes[index];
+    if (current.state !== "enrolled") {
+      entries.push(current);
+      index++;
+      continue;
+    }
+    const cluster = [current];
+    let next = index + 1;
+    while (next < changes.length && changes[next].state === "enrolled" &&
+        Math.abs(Date.parse(current.at) - Date.parse(changes[next].at)) <= 5000) {
+      cluster.push(changes[next++]);
+    }
+    if (cluster.length < 3) entries.push(...cluster.slice(0,limit - entries.length));
+    else {
+      const waiting = cluster.filter((item) => item.evidence !== null).length;
+      entries.push({
+        kind:"group",
+        at:current.at,
+        title:`${cluster.length} sources are now monitored`,
+        summary:waiting
+          ? `Homeostatic added them automatically. ${waiting} ${waiting === 1 ? "is" : "are"} still waiting for usable health evidence.`
+          : "Homeostatic added them automatically using your monitoring rules.",
+        names:cluster.map((item) => item.name),
+        technical:cluster.map((item) => item.technical),
+      });
+    }
+    index = next;
+  }
+  return entries.slice(0,limit);
+}
+
 const byName = (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
 
 function uniqueSources(sources) {

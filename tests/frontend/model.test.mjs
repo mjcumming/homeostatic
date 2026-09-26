@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {DashboardStore, affectedFunctions, browseHighlights, dashboardStore,
   escapeHtml, inventoryRows, locationList, locationTree, monitoringLabel,
-  sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
+  recentActivity, sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
 
 function source(id, fields = {}) {
   return {node_id:id,name:id,kind:"entity",attributes:{},watched:true,
@@ -85,6 +85,40 @@ test("problem ordering uses importance and stable onset",()=>{
   ];
   assert.deepEqual(sortedEpisodes(data).map(x=>x.episode_id),["old","new","low"]);
   assert.equal(data.inventory.episodes[0].episode_id,"low");
+});
+test("recent activity translates monitoring changes without making JSON primary copy",()=>{
+  const data=example();
+  data.coverage={never_observed:[],stale:[]};
+  data.inventory.nodes=[source("entry:music",{name:"Music Assistant",kind:"integration",disabled:true}),
+    source("sensor.stairs",{name:"Basement Stairs"})];
+  data.inventory.catalog.candidates=data.inventory.nodes;
+  data.inventory.enrollment_changes=[
+    {node_id:"entry:music",at:"2026-09-25T10:00:00Z",reason:"source_enrolled",
+      after:data.inventory.nodes[0]},
+    {node_id:"sensor.stairs",at:"2026-09-25T10:01:00Z",reason:"rules_changed",
+      before:source("sensor.stairs"),after:source("sensor.stairs",{watched:false,attached_by:[],excluded_by:["ignore_stairs"]})},
+  ];
+  const activity=recentActivity(data);
+  assert.equal(activity[0].title,"Basement Stairs was excluded from monitoring");
+  assert.equal(activity[0].summary,"Homeostatic will no longer assess this source under the current rules.");
+  assert.equal(activity[1].title,"Music Assistant is now monitored");
+  assert.match(activity[1].summary,/disabled in Home Assistant/);
+  assert.deepEqual(activity[1].technical,data.inventory.enrollment_changes[0]);
+});
+test("recent activity groups one enrollment burst and reports incomplete evidence",()=>{
+  const data=example();
+  data.inventory.nodes=[source("sensor.a",{name:"Main Floor Lights"}),
+    source("sensor.b",{name:"Basement Stairs"}),source("sensor.c",{name:"Cabin Fan"})];
+  data.inventory.catalog.candidates=data.inventory.nodes;
+  data.inventory.enrollment_changes=data.inventory.nodes.map((item,index)=>({
+    node_id:item.node_id,at:`2026-09-25T10:00:0${index}Z`,reason:"source_enrolled",after:item,
+  }));
+  data.coverage={never_observed:[{node_id:"sensor.b",check_id:"availability"}],stale:[]};
+  const activity=recentActivity(data);
+  assert.equal(activity.length,1);
+  assert.equal(activity[0].title,"3 sources are now monitored");
+  assert.match(activity[0].summary,/1 is still waiting/);
+  assert.deepEqual(activity[0].names,["Cabin Fan","Basement Stairs","Main Floor Lights"]);
 });
 test("cards share a stream, disconnect is not healthy, and last release cleans up",async()=>{
   const client=connection();

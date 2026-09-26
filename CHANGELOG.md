@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Replace raw enrollment-event JSON on the overview with concise recent activity, grouped enrollment bursts, current evidence context and source or coverage navigation. Complete payloads remain available under technical details.
+
 ## [0.1.0b7] - 2026-09-25
 
 ### Changed
