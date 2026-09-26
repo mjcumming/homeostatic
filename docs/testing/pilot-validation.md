@@ -1,6 +1,26 @@
 # Pilot validation
 
-## Unreleased problem-view improvements — local validation
+## 0.1.0b4 combined package validation
+
+On 2026-09-25, build commit `e2eb9b4a9d249d538052540770a8e18bb595c3e7` passed all required checks: 328 Python tests, 17 frontend tests, lint, formatting and strict types. Two opt-in performance scenarios were skipped in the default suite; their measured qualification results are recorded in [runtime scaling](runtime-scaling.md). Combined coverage was 98.83%, with both independent floors above 95%. Official HA 2026.9.3 hassfest reported one valid integration and zero invalid integrations.
+
+The exact ZIP passed a fresh HA-only installation smoke test. HA installed published HealthTree 0.3.0 automatically. Package checksums, native setup, all five frontend modules, failure/recovery, operator controls, notifications remaining off and retained history across reload passed. Optional FFmpeg/TurboJPEG warnings were confined to the isolated test host. [GitHub CI](https://github.com/mjcumming/homeostatic/actions/runs/36205274429) independently repeated the checks, built the archive, passed its clean-install test and published the pilot artifact. Its ZIP hash exactly matched the local package:
+
+`3f8150a61a4224b5605b15e3ca341c8998733bded471d3ed0550dead7b7f127c`
+
+The combined browser fixtures passed problem/retry explanations, embedded navigation, history pagination/search/outcomes, safe text, live focus/draft preservation, expiry/scope validation, duplicate prevention, ambiguous failures without automatic retry, and non-admin/situation boundaries. Native floor/area selection and floor summaries were inspected at desktop and phone widths. Form actions used synthetic data only.
+
+### Live upgrade and verification
+
+The same archive was installed through the owner's Vibe Coding MCP server on HA 2026.9.3 after a native HA configuration/storage backup (recorder database excluded), a separate exact component/storage copy, and a configuration checkpoint. All 29 uploaded component files matched the archive on read-back. HA configuration validation passed. One Core restart loaded 0.1.0b4, confirmed on the native integration page. NuHeat delayed general HA startup; Homeostatic resumed after startup finished without an adapter error.
+
+Live verification at 2026-09-26 00:40 UTC (2026-09-25 local time) confirmed unchanged enrollment of 127 integration instances, notifications disabled, no notification requests and no active operator controls. All five existing episodes retained their ids and original opening times; the retained-history collection start also remained unchanged. The three sensors reported blocked readiness, five open problems and two evidence gaps, each with a null runtime error. These are existing integration conditions, not a claim that the house has recovered.
+
+The dashboard displayed real setup/retry activity separately from retained, timestamped provider errors. A provider connection timeout remained visible while another setup attempt was in progress. Disabled entries used their distinct explanation. Recently resolved loaded the current empty history with collection/retention limits; the native floor/area hierarchy and separate floorless/unassigned groups loaded with explicit unwatched source rows. No household fault was induced and no live shelving or maintenance action was submitted. The MCP checkpoint was ended after verification.
+
+The code and exact installed package are identified by the build commit and checksum above; this later documentation commit records the observed result. Backups and installation receipts remain local because they contain private household configuration. Continue passive observation. Whole-house enrollment remains unqualified after the runtime-burst measurements, and no phone-delivery or physical-device recovery test is implied.
+
+## 0.1.0b4 problem-view development validation
 
 Validated 2026-09-25 against HA 2026.9.3 and published HealthTree 0.3.0. The complete required check suite passed: 323 Python tests, 12 frontend tests, strict types, lint and formatting, with 98.83% combined coverage and both independent floors above 95%. The new integration-evidence module has full statement and branch coverage.
 
@@ -8,7 +28,7 @@ Real HA WebSocket scenarios cover setup error/retry, empty findings during setup
 
 The actual browser component passed the synthetic preview regression for missing cause, reauthentication, retry continuity, disabled presentation, recovery hold, recovery, safe text, native links and expanded disclosures surviving live updates. Desktop and 390 × 844 phone layouts were inspected. Raw exceptions no longer lead the overview; reported errors remain inspectable inside problem details.
 
-These changes are local and unreleased. The live HA baseline below remains 0.1.0b3; no live restart, deployment or notification test was performed for this increment. A pre-existing failure that has already lost its cause cannot be reconstructed; retention starts with newly observed evidence after installation.
+At this intermediate validation point the changes were local, and the live HA baseline remained 0.1.0b3. The combined 0.1.0b4 release validation is recorded above. A pre-existing failure that has already lost its cause cannot be reconstructed; retention starts with newly observed evidence after installation.
 
 ## 0.1.0b3 package and live upgrade
 
