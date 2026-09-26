@@ -340,9 +340,37 @@ function uniqueSources(sources) {
 }
 
 export function locationTree(data) {
-  const rows = inventoryRows(data);
-  const cached = treeCache.get(rows);
-  if (cached && cached.areas === data.areas && cached.floors === data.floors) return cached.tree;
+  const inventory = inventoryRows(data);
+  const cached = treeCache.get(inventory);
+  if (cached && cached.areas === data.areas && cached.floors === data.floors &&
+      cached.devices === data.devices && cached.functions === data.functions) return cached.tree;
+  const rows = inventory.filter((source) => source.kind === "entity");
+  const deviceNames = new Map((data.devices ?? []).map((device) => [device.id, device.name]));
+  const describe = (location) => {
+    const devices = new Map();
+    const signals = [];
+    const ids = new Set(location.sources.map((source) => source.node_id));
+    for (const source of location.sources) {
+      const deviceId = source.attributes.device?.[0];
+      if (!deviceNames.has(deviceId)) {
+        signals.push(source);
+        continue;
+      }
+      if (!devices.has(deviceId)) devices.set(deviceId, {
+        id:deviceId, name:deviceNames.get(deviceId), sources:[],
+      });
+      devices.get(deviceId).sources.push(source);
+    }
+    location.devices = [...devices.values()].sort(byName);
+    location.signals = signals;
+    location.functions = (data.functions ?? []).filter((item) =>
+      item.requirements?.some((id) => ids.has(id)));
+    const count = (value, name) => value ? `${value} ${name}${value === 1 ? "" : "s"}` : null;
+    location.summary = [count(location.devices.length,"device"),
+      count(location.functions.length,"function"),count(signals.length,"area signal")]
+      .filter(Boolean).join(" · ") || "Empty";
+    for (const child of location.children) describe(child);
+  };
   const sourceAreas = new Map((data.areas ?? []).map((area) => [area.id, []]));
   const unassigned = [];
   for (const source of rows) {
@@ -399,7 +427,9 @@ export function locationTree(data) {
     sources: unassigned,
     children: [],
   });
-  treeCache.set(rows, {areas:data.areas, floors:data.floors, tree:roots});
+  for (const root of roots) describe(root);
+  treeCache.set(inventory, {areas:data.areas, floors:data.floors, devices:data.devices,
+    functions:data.functions, tree:roots});
   return roots;
 }
 
@@ -409,7 +439,7 @@ export function locationList(tree) {
 
 export function browseHighlights(data) {
   return locationList(locationTree(data)).filter((location) =>
-    !location.children.length && location.sources.length).slice(0, 6);
+    !location.children.length && (location.devices.length || location.functions.length)).slice(0, 6);
 }
 
 export function sourcePage(rows, query = "", page = 0) {

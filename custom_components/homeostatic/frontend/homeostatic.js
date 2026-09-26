@@ -1,9 +1,10 @@
 import {affectedFunctions, browseHighlights, coverageInventory, dashboardStore, escapeHtml as esc,
   inventoryRows, locationList, locationTree, monitoringLabel, sortedEpisodes,
-  recentActivity, sourceMap, sourcePage} from "./model.mjs?v=10";
-import {entityProblem, integrationProblem} from "./problem.mjs?v=10";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=10";
-import {styles} from "./styles.mjs?v=10";
+  recentActivity, sourceMap, sourcePage} from "./model.mjs?v=11";
+import {entityProblem, integrationProblem} from "./problem.mjs?v=11";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=11";
+import {styles} from "./styles.mjs?v=11";
+import {locationBranch, setBranchExpanded} from "./tree.mjs?v=11";
 
 const VIEWS = ["overview", "house", "coverage", "functions", "problems", "history"];
 const status = (value) => {
@@ -23,6 +24,7 @@ class HomeostaticCard extends HTMLElement {
     this.config = {view: "overview"};
     this.page = "overview";
     this.location = null;
+    this.collapsedLocations = new Set();
     this.sourceQuery = '';
     this.sourcePage = 0;
     this.sourceScope = null;
@@ -215,12 +217,6 @@ class HomeostaticCard extends HTMLElement {
     return `<div class="body"><label>Find a source <input type="search" data-source-search value="${esc(this.sourceQuery)}"></label><p class="small">${result.total} sources · Page ${result.page + 1} of ${result.pages}</p></div><div class="table-wrap"><table><thead><tr><th>Capability</th><th>Monitoring</th><th>Rule provenance</th></tr></thead><tbody>${result.rows.map((source) => `<tr><td>${registered.has(source.node_id) ? `<button type="button" class="link" data-node="${esc(source.node_id)}">${esc(source.name)}</button>` : esc(source.name)}<small>${esc(source.kind)}</small></td><td>${esc(monitoringLabel(source))}</td><td><span class="mono">${list(source.excluded_by.length ? source.excluded_by : source.attached_by)}</span></td></tr>`).join("")}</tbody></table></div><div class="body actions"><button class="button" type="button" data-source-step="-1" ${result.page === 0 ? "disabled" : ""}>Previous sources</button><button class="button" type="button" data-source-step="1" ${result.page + 1 >= result.pages ? "disabled" : ""}>Next sources</button></div>`;
   }
 
-  locationBranch(location, selectedId, depth = 1) {
-    const selected = location.id === selectedId;
-    const count = `${location.sources.length} source${location.sources.length === 1 ? "" : "s"}`;
-    return `<div class="location-branch"><button type="button" class="location ${location.children.length ? "location-parent" : ""}" data-location="${esc(location.id)}" role="treeitem" aria-level="${depth}" aria-selected="${selected}"${location.children.length ? ' aria-expanded="true"' : ""}><span class="location-name">${esc(location.name)}</span><span class="small">${esc(count)}</span></button>${location.children.length ? `<div class="location-children" role="group">${location.children.map((child) => this.locationBranch(child, selectedId, depth + 1)).join("")}</div>` : ""}</div>`;
-  }
-
   coverageExpanded(id, gaps, searching) {
     return searching || (this.coverageDisclosure.has(id)
       ? this.coverageDisclosure.get(id) : gaps > 0);
@@ -280,15 +276,33 @@ class HomeostaticCard extends HTMLElement {
     const selected = locations.find((location) => location.id === this.location) ??
       locations.find((location) => location.kind === "area") ?? locations[0];
     this.location = selected?.id ?? null;
-    const ids = new Set(selected?.sources.map((source) => source.node_id) ?? []);
-    const related = data.functions.filter((item) =>
-      ids.has(item.node_id) || item.requirements.some((id) => ids.has(id)));
-    const contents = selected?.sources.length ? this.sourceTable(data, selected.sources)
-      : '<div class="body"><p class="sub">No enrolled or candidate sources are assigned here.</p></div>';
-    return `<div class="intro"><div><h1>Browse the house</h1><p class="sub">Home Assistant floors and areas</p></div></div>${selected ? `<div class="house"><section class="panel locations" aria-label="Locations"><div class="location-tree" role="tree">${tree.map((location) => this.locationBranch(location, selected.id)).join("")}</div></section><div class="stack"><section class="panel"><div class="panel-head"><div><p class="small">${esc(selected.parent_name)}</p><h2>${esc(selected.name)}</h2></div><span class="small">${esc(selected.kind === "area" ? "Area" : selected.kind === "floor" ? "Floor" : "Location group")}</span></div>${contents}<div class="body"><p class="sub">Location membership never creates a health dependency.</p></div></section>${this.functionsPanel(data, related)}<p class="small">Functions shown here have direct requirements in this location. Open a function to see shared causes outside the location.</p></div></div>` : '<div class="empty">No Home Assistant floors, areas, or unassigned sources have been discovered.</div>'}`;
+    const related = selected?.functions ?? [];
+    const devices = selected?.devices.length
+      ? `<div class="house-section"><h3>Home Assistant devices</h3>${selected.devices.map((device) => `<details class="house-group"><summary>${esc(device.name)} <span class="small">${device.sources.length} source${device.sources.length === 1 ? "" : "s"}</span></summary>${this.sourceTable(data, device.sources)}</details>`).join("")}</div>`
+      : '<div class="house-section"><h3>Home Assistant devices</h3><p class="sub">No devices are associated with this location.</p></div>';
+    const signals = selected?.signals.length
+      ? `<details class="house-group house-signals"><summary>Area signals <span class="small">${selected.signals.length} entit${selected.signals.length === 1 ? "y" : "ies"}</span></summary><p class="sub">These entities have no current Home Assistant device association. They may be derived signals, helpers, or device sources.</p>${this.sourceTable(data, selected.signals)}</details>`
+      : "";
+    return `<div class="intro"><div><h1>Browse the house</h1><p class="sub">Home Assistant floors and areas · Devices, functions, and area signals</p></div></div>${selected ? `<div class="house"><section class="panel locations" aria-label="Locations"><div class="location-tree" role="tree">${tree.map((location) => locationBranch(location, selected.id, this.collapsedLocations)).join("")}</div></section><div class="stack"><section class="panel"><div class="panel-head"><div><p class="small">${esc(selected.parent_name)}</p><h2>${esc(selected.name)}</h2></div><span class="small">${esc(selected.kind === "area" ? "Area" : selected.kind === "floor" ? "Floor" : "Location group")}</span></div>${devices}${signals}<div class="body"><p class="sub">Device association and location are Home Assistant groupings. Neither proves physical hardware or creates a health dependency.</p></div></section>${this.functionsPanel(data, related)}<p class="small">Functions shown here require a source in this location. Open a function to see shared causes outside the location.</p></div></div>` : '<div class="empty">No Home Assistant floors, areas, or unassigned entities have been discovered.</div>'}`;
+  }
+
+  setLocationExpanded(locationId, expanded) {
+    this.collapsedLocations = setBranchExpanded(this.collapsedLocations, locationId, expanded);
+    this.render();
+    [...this.shadowRoot.querySelectorAll("button[data-location]")]
+      .find((button) => button.dataset.location === locationId)?.focus();
   }
 
   clicked(event) {
+    const locationToggle = event.target.closest?.("[data-location-toggle]");
+    if (locationToggle) {
+      const button = locationToggle.closest("button.location-parent");
+      this.setLocationExpanded(
+        locationToggle.dataset.locationToggle,
+        button.getAttribute("aria-expanded") !== "true",
+      );
+      return;
+    }
     const button = event.target.closest("button");
     if (!button) return;
     if (button.dataset.coverageToggle) {
@@ -307,14 +321,18 @@ class HomeostaticCard extends HTMLElement {
   }
 
   keydown(event) {
-    const button = event.target.closest?.("button.coverage-toggle");
+    const button = event.target.closest?.("button.coverage-toggle, button.location-parent");
     if (!button || !["ArrowLeft","ArrowRight"].includes(event.key)) return;
     const expanded = button.getAttribute("aria-expanded") === "true";
     const next = event.key === "ArrowRight";
     if (expanded === next) return;
     event.preventDefault();
-    this.coverageDisclosure.set(button.dataset.coverageToggle,next);
-    this.render();
+    if (button.matches("button.location-parent")) {
+      this.setLocationExpanded(button.dataset.location,next);
+    } else {
+      this.coverageDisclosure.set(button.dataset.coverageToggle,next);
+      this.render();
+    }
   }
 
   openDetail(selection) {
@@ -419,16 +437,16 @@ class HomeostaticStrategy {
   static getCreateSuggestions() { return {title:"Homeostatic",icon:"mdi:home-heart"}; }
   static async generate() {
     return {title:"Homeostatic",views:[
-      {title:"Overview",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card-v10",view:"overview",navigation:false}]},
-      {title:"House",path:"house",type:"panel",cards:[{type:"custom:homeostatic-card-v10",view:"house",navigation:false}]},
-      {title:"Recently resolved",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v10",view:"history",navigation:false}]},
-      {title:"Coverage",path:"coverage",type:"panel",cards:[{type:"custom:homeostatic-card-v10",view:"coverage",navigation:false}]},
+      {title:"Overview",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card-v11",view:"overview",navigation:false}]},
+      {title:"House",path:"house",type:"panel",cards:[{type:"custom:homeostatic-card-v11",view:"house",navigation:false}]},
+      {title:"Recently resolved",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v11",view:"history",navigation:false}]},
+      {title:"Coverage",path:"coverage",type:"panel",cards:[{type:"custom:homeostatic-card-v11",view:"coverage",navigation:false}]},
     ]};
   }
 }
 
-if (!customElements.get("homeostatic-card-v10")) customElements.define("homeostatic-card-v10", HomeostaticCard);
-if (!customElements.get("homeostatic-panel-v10")) customElements.define("homeostatic-panel-v10", HomeostaticPanel);
+if (!customElements.get("homeostatic-card-v11")) customElements.define("homeostatic-card-v11", HomeostaticCard);
+if (!customElements.get("homeostatic-panel-v11")) customElements.define("homeostatic-panel-v11", HomeostaticPanel);
 if (!customElements.get("homeostatic-card")) customElements.define("homeostatic-card", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-panel")) customElements.define("homeostatic-panel", class extends HomeostaticPanel {});
 if (!customElements.get("ll-strategy-dashboard-homeostatic")) customElements.define("ll-strategy-dashboard-homeostatic", class extends HTMLElement {

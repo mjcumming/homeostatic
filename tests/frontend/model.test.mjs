@@ -5,6 +5,7 @@ import {test} from "node:test";
 import {DashboardStore, affectedFunctions, browseHighlights, coverageInventory, dashboardStore,
   escapeHtml, inventoryRows, locationList, locationTree, monitoringLabel,
   recentActivity, sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
+import {locationBranch, setBranchExpanded} from "../../custom_components/homeostatic/frontend/tree.mjs";
 
 function source(id, fields = {}) {
   return {node_id:id,name:id,kind:"entity",attributes:{},watched:true,
@@ -94,16 +95,59 @@ test("native locations form a floor and area tree with distinct fallback groups"
   assert.equal(locations.find(x=>x.id==="area:garage").sources[0].node_id,"sensor.a");
   assert.equal(locations.find(x=>x.id==="area:yard").sources.length,0);
   assert.equal(locations.find(x=>x.id==="floor:upper").children.length,0);
-  assert.equal(locations.find(x=>x.id==="group:unassigned").sources.length,2);
-  assert.deepEqual(browseHighlights(data).map(x=>x.id),[
-    "area:garage","group:unassigned",
-  ]);
+  assert.equal(locations.find(x=>x.id==="group:unassigned").sources.length,1);
+  assert.deepEqual(browseHighlights(data).map(x=>x.id),[]);
   assert.deepEqual(data,before);
   data.inventory.nodes[0].attributes.area=["missing"];
   tree=locationTree(data);
   locations=locationList(tree);
   assert.equal(locations.find(x=>x.id==="area:garage").sources.length,0);
-  assert.equal(locations.find(x=>x.id==="group:unassigned").sources.length,3);
+  assert.equal(locations.find(x=>x.id==="group:unassigned").sources.length,2);
+});
+test("house browsing groups devices, functions, and secondary area signals",()=>{
+  const data=example();
+  const light=source("entity:light",{name:"Basement light",attributes:{area:["basement"],device:["fixture"]}});
+  const occupancy=source("entity:occupancy",{name:"Basement occupancy",watched:false,
+    attached_by:[],attributes:{area:["basement"]}});
+  const lock=source("entity:lock",{name:"Basement lock",watched:false,
+    attached_by:[],attributes:{area:["basement"]}});
+  const integration=source("entry:controller",{kind:"integration",attributes:{}});
+  data.floors=[{id:"lower",name:"Lower floor"}];
+  data.areas=[{id:"basement",name:"Basement",floor_id:"lower"}];
+  data.devices=[{id:"fixture",name:"Light fixture"}];
+  data.inventory.nodes=[light,occupancy,integration];
+  data.inventory.catalog.candidates=[light,occupancy,lock,integration];
+  data.functions=[{node_id:"function:lighting",name:"Basement motion lighting",
+    requirements:["entity:occupancy"],readiness:{answer:"unknown",nodes:[]}}];
+  const before=structuredClone(data);
+  const locations=locationList(locationTree(data));
+  const area=locations.find((location)=>location.id==="area:basement");
+  assert.deepEqual(area.devices.map((device)=>[device.name,device.sources.map((item)=>item.node_id)]),
+    [["Light fixture",["entity:light"]]]);
+  assert.deepEqual(area.signals.map((item)=>item.node_id),["entity:lock","entity:occupancy"]);
+  assert.deepEqual(area.functions.map((item)=>item.name),["Basement motion lighting"]);
+  assert.equal(area.summary,"1 device · 1 function · 2 area signals");
+  assert.deepEqual(browseHighlights(data).map((location)=>location.id),["area:basement"]);
+  assert.equal(locations.find((location)=>location.id==="group:unassigned"),undefined);
+  assert.deepEqual(data,before);
+});
+test("location branches collapse without changing selection",()=>{
+  const floor={id:"floor:main",name:"Main <floor>",summary:"1 device",children:[
+    {id:"area:kitchen",name:"Kitchen",summary:"1 area signal",children:[]},
+  ]};
+  let collapsed=new Set();
+  let html=locationBranch(floor,"area:kitchen",collapsed);
+  assert.match(html,/aria-expanded="true"/);
+  assert.match(html,/data-location-toggle="floor:main"/);
+  assert.match(html,/aria-level="2" aria-selected="true"/);
+  assert.match(html,/Main &lt;floor&gt;/);
+  collapsed=setBranchExpanded(collapsed,"floor:main",false);
+  assert.equal(collapsed.has("floor:main"),true);
+  html=locationBranch(floor,"area:kitchen",collapsed);
+  assert.match(html,/aria-expanded="false"/);
+  assert.match(html,/role="group" hidden/);
+  collapsed=setBranchExpanded(collapsed,"floor:main",true);
+  assert.equal(collapsed.has("floor:main"),false);
 });
 test("problem ordering uses importance and stable onset",()=>{
   const data=example();
@@ -372,7 +416,8 @@ test("compact evidence updates preserve static inventory and reject missing base
   assert.equal(merged.devices,initial.devices);
   assert.deepEqual(merged.inventory.episodes,[{episode_id:"one"}]);
   assert.equal(sourceMap(merged),sourceMap(initial));
-  assert.equal(locationTree(merged),locationTree(initial));
+  assert.notEqual(locationTree(merged),locationTree(initial));
+  assert.deepEqual(locationTree(merged).flatMap((location)=>location.functions),[]);
   assert.equal(mergeDashboard(merged,initial),initial);
   assert.throws(()=>mergeDashboard(null,update),/out of date/);
   assert.throws(()=>mergeDashboard({...initial,catalog_revision:2},update),/out of date/);

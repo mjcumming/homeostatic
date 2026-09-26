@@ -154,6 +154,24 @@ def preview_summary(
     counts = "; ".join(
         f"{rule['id']}: {rule['matches']} matches" for rule in result["rules"]
     )
+    watched = [source for source in result["candidates"] if source["watched"]]
+    integrations = sum(source["kind"] == "integration" for source in watched)
+    device_entities = sum(
+        source["kind"] == "entity" and bool(source["attributes"].get("device"))
+        for source in watched
+    )
+    area_signals = sum(
+        source["kind"] == "entity" and not source["attributes"].get("device")
+        for source in watched
+    )
+    scope = (
+        f"{integrations} integration instance{'s' if integrations != 1 else ''}, "
+        f"{device_entities} device-associated "
+        f"{'entities' if device_entities != 1 else 'entity'}, "
+        f"{area_signals} {'entities' if area_signals != 1 else 'entity'} "
+        "without an HA device. "
+        "Device association does not prove physical hardware."
+    )
     functions = preview_functions(hass, settings, known or {})["functions"]
     descriptions = []
     for function in functions:
@@ -175,6 +193,7 @@ def preview_summary(
     descriptions.append(
         f"Policy: {len(settings.policy_config().rules)} rules, {routes} recipient/channel routes. Use preview_policy to inspect current episodes."
     )
-    return f"Preview: {result['watched']} watched sources. {counts}\n" + "\n".join(
-        descriptions
+    return (
+        f"Preview: {result['watched']} watched sources. {scope} {counts}\n"
+        + "\n".join(descriptions)
     )
