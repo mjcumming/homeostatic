@@ -2,9 +2,15 @@
 
 ## [Unreleased]
 
+## [0.1.0b8] - 2026-09-26
+
 ### Changed
 
 - Replace raw enrollment-event JSON on the overview with concise recent activity, grouped enrollment bursts, current evidence context and source or coverage navigation. Complete payloads remain available under technical details.
+
+### Fixed
+
+- Stop monitoring automatically enrolled config entries when Home Assistant confirms their deletion, including entries deleted before an upgrade. Their active episodes resolve as removed instead of remaining as permanent missing connections. Explicit requirements and missing entity evidence retain their existing unknown semantics.
 
 ## [0.1.0b7] - 2026-09-25
 

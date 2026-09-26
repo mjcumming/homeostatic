@@ -97,13 +97,17 @@ test("recent activity translates monitoring changes without making JSON primary 
       after:data.inventory.nodes[0]},
     {node_id:"sensor.stairs",at:"2026-09-25T10:01:00Z",reason:"rules_changed",
       before:source("sensor.stairs"),after:source("sensor.stairs",{watched:false,attached_by:[],excluded_by:["ignore_stairs"]})},
+    {node_id:"entry:deleted",at:"2026-09-25T10:02:00Z",reason:"source_removed",
+      before:source("entry:deleted",{name:"Deleted controller",kind:"integration"})},
   ];
   const activity=recentActivity(data);
-  assert.equal(activity[0].title,"Basement Stairs was excluded from monitoring");
-  assert.equal(activity[0].summary,"Homeostatic will no longer assess this source under the current rules.");
-  assert.equal(activity[1].title,"Music Assistant is now monitored");
-  assert.match(activity[1].summary,/disabled in Home Assistant/);
-  assert.deepEqual(activity[1].technical,data.inventory.enrollment_changes[0]);
+  assert.equal(activity[0].title,"Deleted controller was removed from Home Assistant");
+  assert.match(activity[0].summary,/resolved history as removed/);
+  assert.equal(activity[1].title,"Basement Stairs was excluded from monitoring");
+  assert.equal(activity[1].summary,"Homeostatic will no longer assess this source under the current rules.");
+  assert.equal(activity[2].title,"Music Assistant is now monitored");
+  assert.match(activity[2].summary,/disabled in Home Assistant/);
+  assert.deepEqual(activity[2].technical,data.inventory.enrollment_changes[0]);
 });
 test("recent activity groups one enrollment burst and reports incomplete evidence",()=>{
   const data=example();

@@ -30,7 +30,12 @@ from health_tree.types import (
     Event as HealthEvent,
 )
 from homeassistant.components import persistent_notification
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.config_entries import (
+    SIGNAL_CONFIG_ENTRY_CHANGED,
+    ConfigEntry,
+    ConfigEntryChange,
+    ConfigEntryState,
+)
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP, EVENT_STATE_CHANGED
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
@@ -39,7 +44,10 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import floor_registry as fr
 from homeassistant.helpers import label_registry as lr
-from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.dispatcher import (
+    async_dispatcher_connect,
+    async_dispatcher_send,
+)
 from homeassistant.helpers.event import (
     async_track_point_in_utc_time,
     async_track_time_interval,
@@ -212,6 +220,9 @@ class Runtime:
                 hass.bus.async_listen(
                     er.EVENT_ENTITY_REGISTRY_UPDATED, self._registry_changed
                 ),
+                async_dispatcher_connect(
+                    hass, SIGNAL_CONFIG_ENTRY_CHANGED, self._config_entry_changed
+                ),
                 async_track_time_interval(
                     hass, self._reconcile_timer, RECONCILE_INTERVAL
                 ),
@@ -288,6 +299,14 @@ class Runtime:
         self._request_refresh()
 
     @callback
+    def _config_entry_changed(
+        self, _change: ConfigEntryChange, entry: ConfigEntry
+    ) -> None:
+        if self.running and entry.domain != DOMAIN:
+            self._inventory_dirty = True
+            self._request_refresh(reconcile=True)
+
+    @callback
     def _request_refresh(self, *, reconcile: bool = False) -> None:
         if self.running:
             self._refresh_requested = True
@@ -344,6 +363,17 @@ class Runtime:
                         "at": dt_util.utcnow().isoformat(),
                         "reason": "source_enrolled",
                         "after": json_object(source),
+                    }
+                )
+        for node_id in self.candidates.keys() - candidates.keys():
+            previous = self.candidates[node_id]
+            if previous.watched:
+                self.enrollment_changes.append(
+                    {
+                        "node_id": node_id,
+                        "at": dt_util.utcnow().isoformat(),
+                        "reason": "source_removed",
+                        "before": json_object(previous),
                     }
                 )
         self.candidates = candidates

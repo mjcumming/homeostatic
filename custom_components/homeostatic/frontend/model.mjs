@@ -55,6 +55,7 @@ function sameValues(left = [], right = []) {
 function enrollmentState(change) {
   const before = change.before ?? {};
   const after = change.after ?? {};
+  if (change.reason === "source_removed") return "removed";
   if (change.reason === "source_enrolled" || (!before.watched && after.watched)) return "enrolled";
   if (before.watched && !after.watched) {
     return after.excluded_by?.length ? "excluded" : "unenrolled";
@@ -98,6 +99,10 @@ function activityCopy(state, name, evidence, change) {
   if (state === "unenrolled") return {
     title:`${name} is no longer monitored`,
     summary:"It no longer matches an active monitoring rule.",
+  };
+  if (state === "removed") return {
+    title:`${name} was removed from Home Assistant`,
+    summary:"Homeostatic ended monitoring for this source. Its final episode remains in resolved history as removed.",
   };
   if (state === "rules") {
     const after = change.after ?? {};

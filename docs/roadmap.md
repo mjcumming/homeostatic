@@ -1,6 +1,6 @@
 # Build roadmap
 
-Updated 2026-09-25. This file tracks delivery; [spec.md](spec.md) controls implemented behavior. The owner decisions in [ui.md](ui.md) sections 16 and 17 remain the target. The library owns health and attention semantics.
+Updated 2026-09-26. This file tracks delivery; [spec.md](spec.md) controls implemented behavior. The owner decisions in [ui.md](ui.md) sections 16 and 17 remain the target. The library owns health and attention semantics.
 
 | Increment | Status | Acceptance |
 | --- | --- | --- |
@@ -17,6 +17,6 @@ Updated 2026-09-25. This file tracks delivery; [spec.md](spec.md) controls imple
 | Evidence producers | Release gate | Real healthy/failure/recovery traces for detector progress, device-originated freshness and command completion, replayed as fixtures |
 | Watchdog | Release gate | External observer and alert route verified independently of HA |
 | Large-installation responsiveness | Narrow synthetic runtime qualified; broad enrollment remains unqualified | [Construction measurements](testing/scaling.md) and [runtime/device assessment](testing/runtime-scaling.md). Queued refreshes retain every transition, reuse inventory and send compact evidence updates. A 60-item outage uses one save/publication and no scan; the real-storage narrow lab settles in 83 ms. Broad 6,000-check monitoring still takes 3.5 s. Initial catalog transfer, broad engine evaluation, sustained load and target-hardware validation remain. Source tables search all candidates and render 50 rows per page. Device grouping and selective profiles remain planned |
-| Distribution | Bounded live pilot underway | Published health-tree 0.3.0 pin in the 0.1.0b7 candidate, reproducible ZIP, isolated package-install smoke and metadata checks; native live setup and dashboard verified with 127 integration instances; extended observation and HACS distribution remain |
+| Distribution | Bounded live pilot underway | Published health-tree 0.3.0 pin in the 0.1.0b8 candidate, reproducible ZIP, isolated package-install smoke and metadata checks; native live setup and dashboard verified with 129 integration instances; extended observation and HACS distribution remain |
 
 The structured YAML rule/function/situation forms are development interfaces. Legacy entity selections migrate to catalog rules; there is one attach/exclude model. The current catalog contains availability checks only. Check-specific parameters and additional evidence producers will arrive with their own contracts and traces. A richer interactive rule editor and configuration-health suggestions for excessive one-entity rules remain presentation work. Do not add a competing per-entity override system or a native condition builder. No phone receipt, physical-device freshness, or production readiness is inferred from passing synthetic tests.

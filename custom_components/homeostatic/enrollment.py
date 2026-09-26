@@ -65,7 +65,6 @@ def inventory(
         for node_id in function.requirements
         if node_id.startswith("entry:")
     )
-    entry_ids.update(node_id[6:] for node_id in known if node_id.startswith("entry:"))
     entry_ids.update(
         value for rule in rules for value in rule.match.get("integration", ())
     )
@@ -128,8 +127,10 @@ def inventory(
         if registered is None and state is None:
             metadata = known.get(node_id, metadata)
             owner_id = next(iter(metadata.get("integration", ())), None)
-        if owner_id:
+        if owner_id and hass.config_entries.async_get_entry(owner_id) is not None:
             entry_ids.add(owner_id)
+        else:
+            owner_id = None
         sources[node_id] = Source(
             node_id=node_id,
             kind="entity",
