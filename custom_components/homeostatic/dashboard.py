@@ -29,7 +29,7 @@ from .serialization import json_object
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=5"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=6"
 
 
 def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
@@ -54,7 +54,7 @@ def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
         **result,
         "available": True,
         "readiness": runtime.query("readiness", {}),
-        "inventory": runtime.query("inventory", {}),
+        "inventory": {**runtime.inventory_static, **runtime.inventory_updates()},
         "coverage": runtime.query("coverage", {}),
         "evidence_gaps": runtime.evidence_gaps,
         "policy": runtime.query("policy", {}),
@@ -88,6 +88,10 @@ class Dashboard:
         self.hass = hass
         self.runtime: Runtime | None = None
         self.value = snapshot(None)
+        self.update = self.value
+        self.catalog_revision = 0
+        self._catalog: dict[str, JSONValue] | None = None
+        self._locations: dict[str, JSONValue] = {}
         self._cancel: Callable[[], None] | None = None
 
     @callback
@@ -107,10 +111,36 @@ class Dashboard:
     def publish(self) -> None:
         """Cache one consistent evaluated view for all active subscriptions."""
         self.value = snapshot(self.runtime)
+        if self.runtime is not None and self.runtime.available:
+            if self._catalog is not self.runtime.inventory_static:
+                self._catalog = self.runtime.inventory_static
+                self.catalog_revision += 1
+                self._locations = {key: self.value[key] for key in ("areas", "floors")}
+            self.value.update(self._locations)
+            dynamic = self.runtime.inventory_updates()
+            self.update = {
+                **{
+                    key: value
+                    for key, value in self.value.items()
+                    if key not in {"inventory", "areas", "floors"}
+                },
+                "schema_version": 2,
+                "catalog_revision": self.catalog_revision,
+                "inventory_changed": False,
+                "inventory": dynamic,
+            }
+        else:
+            self._catalog = None
+            self.update = {**self.value, "schema_version": 2}
         async_dispatcher_send(self.hass, SIGNAL_DASHBOARD)
 
 
-@websocket_command({vol.Required("type"): "homeostatic/subscribe"})
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/subscribe",
+        vol.Optional("compact", default=False): bool,
+    }
+)
 @require_admin
 @callback
 def websocket_subscribe(
@@ -119,10 +149,28 @@ def websocket_subscribe(
     msg: dict[str, Any],
 ) -> None:
     """Send an initial view and updates until the client unsubscribes."""
+    revision: int | None = None
 
     @callback
     def send() -> None:
-        connection.send_event(msg["id"], hass.data[DATA_DASHBOARD].value)
+        nonlocal revision
+        dashboard = hass.data[DATA_DASHBOARD]
+        payload = dashboard.value
+        if msg["compact"]:
+            if not payload["available"]:
+                revision = None
+                payload = dashboard.update
+            elif revision == dashboard.catalog_revision:
+                payload = dashboard.update
+            else:
+                revision = dashboard.catalog_revision
+                payload = {
+                    **payload,
+                    "schema_version": 2,
+                    "catalog_revision": revision,
+                    "inventory_changed": True,
+                }
+        connection.send_event(msg["id"], payload)
 
     connection.subscriptions[msg["id"]] = async_dispatcher_connect(
         hass, SIGNAL_DASHBOARD, send

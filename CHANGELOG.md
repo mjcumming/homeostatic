@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.1.0b6] - 2026-09-25
+
+### Added
+
+- A persistent Home Assistant menu button in the standalone panel, including on phones and while monitoring is unavailable.
+
+### Changed
+
+- Combine redundant runtime refreshes while retaining every captured transition, reuse unchanged inventory and index state-event lookup. Deadline, storage, shutdown and notification ordering retain their existing contracts.
+- Offer compact dashboard updates that resend catalog metadata only when it changes, with an explicit baseline on connection/reload and compatibility for existing full-snapshot clients. House and coverage tables search the full catalog while rendering at most 50 source rows per page.
+
 ## [0.1.0b5] - 2026-09-25
 
 ### Changed

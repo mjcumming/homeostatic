@@ -5,6 +5,63 @@ Assistant 2026.9.3, health-tree 0.3.0 and Homeostatic 0.1.0b3 (`24b45dd`).
 This assessment adds tests and records limitations; it changes no integration
 behavior or live configuration. Broad enrollment is **not qualified**.
 
+## 0.1.0b6 synthetic follow-up
+
+Measured 2026-09-25 after implementing the scheduling, cached catalog, compact
+subscription and bounded table changes. These are isolated synthetic results;
+they contain no household configuration or traffic. The earlier measurements
+below remain as the baseline. Broad enrollment is still **not qualified**.
+
+| Measurement | 60 entity checks | All 6,000 entity checks |
+| --- | ---: | ---: |
+| Initial setup | 0.408 s | 0.803 s |
+| Initial serialized catalog | 3.27 MB | 6.90 MB |
+| 300 ordinary available-value changes | 0.0036 s | 0.0026 s |
+| 60 unavailable transitions | 0.083 s | 3.512 s |
+| Longest callback gap during outage | 0.077 s | 3.507 s |
+| Scans / saves / publications during outage | 0 / 1 / 1 | 0 / 1 / 1 |
+| Compact serialized outage update | 71.1 kB | 71.1 kB |
+| 60 recovery transitions | 0.072 s | 3.426 s |
+| Unchanged reconciliation | 0.070 s | 0.301 s |
+| Reload with a controller problem | 0.217 s | 1.080 s |
+
+The first table still uses the HA test helpers and mocked Store persistence.
+The update-size comparison is deliberately labeled: the baseline sent full
+snapshots; this client requests compact schema 2. Legacy schema-1 clients still
+receive full snapshots. Initial catalogs are still several megabytes.
+
+A separate running HA 2026.9.3 process used actual Store writes/read-back and an
+authenticated WebSocket client on loopback, with 6,000 generated entities, 300
+devices, ten synthetic controllers and 60 monitored capabilities. Setup took
+0.190 s; the initial WebSocket event was 3.10 MB. Outage and recovery took 0.083
+and 0.078 s, with longest callback gaps of 0.065 and 0.062 s. Each performed one
+save, no inventory scan and delivered one compact event (68.1 and 55.8 kB).
+Sixty independent episodes opened and cleared; two later open episode ids
+survived an integration reload. The owned storage file was about 219 kB.
+
+At phone width, the actual HA frontend loaded the full catalog and found its
+last synthetic entity by name. The panel hamburger opened the native sidebar
+and navigated to Settings. The component scenario also exercises keyboard
+activation and navigation while monitoring is disconnected/unavailable.
+
+The narrow scope meets the proposed 100 ms callback and one-second burst lab
+budgets in these individual runs. This supports a bounded two-capability pilot,
+not automatic enrollment of every device entity. Broad enrollment still spends
+seconds applying ordered transitions through the full graph; changing that
+requires separate engine/adapter work without discarding transitions. These
+development-host results do not qualify sustained household traffic or HA
+appliance performance. Initial transfer and catalog invalidation also remain
+full-size operations. Device-first grouping and capability profiles remain
+separate presentation work.
+
+Run `uv run python script/runtime_lab.py` for the actual-storage measurement;
+it creates a temporary loopback-only synthetic HA installation and exits after
+the checks. Use `--serve` to inspect its dashboard on port 8126, then stop it
+with Ctrl+C. It uses a synthetic local owner and loopback trusted-network login;
+never copy this lab configuration to a household instance. The report defaults
+to `build/runtime-profile/real-storage.json`. Multimedia/system-package warnings
+from the development Core environment are outside these availability checks.
+
 ## Registry shape
 
 A read-only assessment of saved registries found 6,651 registered entities and
@@ -87,7 +144,7 @@ to find an entity. The dashboard publishes the full inventory even when very
 few candidates are monitored. Narrow enrollment limits graph work but does
 not eliminate catalog and presentation costs.
 
-The next implementation should proceed in this order:
+The baseline identified these implementation steps (steps 1–3 are addressed by the follow-up above):
 
 1. Schedule bounded refresh work while retaining **every captured transition**
    and its timestamp. Coalescing redundant refresh requests must not discard
@@ -151,7 +208,7 @@ HOMEOSTATIC_RUNTIME_PROFILE=1 HOMEOSTATIC_PROFILE_DIR=build/runtime-profile \
 uv run python script/check.py
 ```
 
-Burst profiling is opt-in because the baseline takes roughly three minutes.
+Burst profiling is opt-in; the baseline took roughly three minutes and the optimized synthetic run took about twelve seconds.
 The ordinary suite always runs the inventory and bounded pilot scenarios.
 The profile writes one JSON result per scope; it asserts behavior rather than
 machine-dependent timing thresholds. Treat its timings as a qualification

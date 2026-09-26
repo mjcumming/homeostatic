@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections import deque
 from collections.abc import Callable
+from copy import deepcopy
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Any
@@ -102,6 +103,13 @@ class Runtime:
         self._stopped = False
         self.error: str | None = None
         self.updated_at: datetime | None = None
+        self._entity_sources: dict[str, list[Source]] = {}
+        self._inventory_dirty = True
+        self.inventory_revision = 0
+        self.inventory_static: dict[str, JSONValue] = {}
+        self._refresh_task: asyncio.Task[None] | None = None
+        self._refresh_requested = False
+        self._reconcile_requested = False
         self._lock = asyncio.Lock()
         self._subscriptions: list[Callable[[], None]] = []
         self._entries: dict[str, tuple[ConfigEntry, Callable[[], None]]] = {}
@@ -203,7 +211,9 @@ class Runtime:
                 hass.bus.async_listen(
                     er.EVENT_ENTITY_REGISTRY_UPDATED, self._registry_changed
                 ),
-                async_track_time_interval(hass, self._timer, RECONCILE_INTERVAL),
+                async_track_time_interval(
+                    hass, self._reconcile_timer, RECONCILE_INTERVAL
+                ),
             )
         )
         self._subscriptions.extend(
@@ -222,11 +232,19 @@ class Runtime:
         if not self.running:
             return
         entity_id = event.data["entity_id"]
-        sources = [
-            source
-            for source in self.sources.values()
-            if source.entity_id == entity_id and source.watched
-        ]
+        registered = er.async_get(self.hass).async_get(entity_id)
+        if registered is not None and registered.platform == DOMAIN:
+            return
+        sources = self._entity_sources.get(entity_id, [])
+        old, new = event.data["old_state"], event.data["new_state"]
+        metadata_changed = (
+            old is None
+            or new is None
+            or old.name != new.name
+            or old.attributes.get("device_class") != new.attributes.get("device_class")
+        )
+        if metadata_changed:
+            self._inventory_dirty = True
         if sources and (
             any(source.kind == "situation" for source in sources)
             or entity_state_signature(event.data["old_state"])
@@ -243,15 +261,7 @@ class Runtime:
                 )
             )
             self._request_refresh()
-        elif (
-            event.data["old_state"] is None
-            or (
-                event.data["new_state"] is not None
-                and event.data["old_state"].attributes.get("device_class")
-                != event.data["new_state"].attributes.get("device_class")
-            )
-            or entity_id == self.settings.consumer
-        ):
+        elif metadata_changed or entity_id == self.settings.consumer:
             self._request_refresh()
 
     @callback
@@ -273,15 +283,34 @@ class Runtime:
 
     @callback
     def _registry_changed(self, event: Event[Any]) -> None:
+        self._inventory_dirty = True
         self._request_refresh()
 
     @callback
-    def _request_refresh(self) -> None:
+    def _request_refresh(self, *, reconcile: bool = False) -> None:
         if self.running:
-            self.hass.async_create_task(self.async_refresh())
+            self._refresh_requested = True
+            self._reconcile_requested |= reconcile
+            if self._refresh_task is None:
+                self._refresh_task = self.hass.async_create_task(
+                    self._queued_refresh(), eager_start=False
+                )
+
+    async def _queued_refresh(self) -> None:
+        try:
+            while self.running and self._refresh_requested:
+                self._refresh_requested = False
+                reconcile = self._reconcile_requested
+                self._reconcile_requested = False
+                await self.async_refresh(reconcile=reconcile)
+        finally:
+            self._refresh_task = None
 
     async def _timer(self, now: datetime) -> None:
-        await self.async_refresh()
+        self._request_refresh()
+
+    async def _reconcile_timer(self, now: datetime) -> None:
+        self._request_refresh(reconcile=True)
 
     async def _stop_event(self, event: Event[Any]) -> None:
         await self.async_stop()
@@ -344,8 +373,8 @@ class Runtime:
                     entry.async_on_state_change(partial(self._entry_changed, entry)),
                 )
 
-    async def async_refresh(self) -> None:
-        """Reconcile a full observation batch, persist, then apply deliveries."""
+    async def async_refresh(self, *, reconcile: bool = True) -> None:
+        """Process captured evidence, optionally reconcile, then persist deliveries."""
         async with self._lock:
             if not self.running:
                 return
@@ -353,7 +382,7 @@ class Runtime:
             try:
                 if self.engine is not None:
                     self._drain_pending()
-                events = self._evaluate(now)
+                events = self._evaluate(now, reconcile=reconcile)
                 self._handle(events, now)
                 await self._complete(now)
             except (
@@ -535,10 +564,12 @@ class Runtime:
                 raise invalid
             return response
 
-    def _evaluate(self, now: datetime) -> list[HealthEvent]:
-        sources = self._discover()
-        events: list[HealthEvent] = []
+    def _evaluate(self, now: datetime, *, reconcile: bool = True) -> list[HealthEvent]:
         first = self.engine is None
+        discover = reconcile or self._inventory_dirty or first
+        previous_candidates = self.candidates
+        sources = self._discover() if discover else self.sources
+        events: list[HealthEvent] = []
         if first:
             self.engine = Engine(self.settings.engine_settings())
             self.policy = Policy(self.settings.policy_config())
@@ -553,6 +584,28 @@ class Runtime:
             events.extend(self.engine.register_many(changed, now))
         for node_id in self.sources.keys() - sources.keys():
             events.extend(self.engine.remove(node_id, now))
+        if discover:
+            if (
+                self._inventory_dirty
+                or first
+                or sources != self.sources
+                or self.candidates != previous_candidates
+            ):
+                self.inventory_revision += 1
+                self.inventory_static = {
+                    "nodes": [json_object(source) for source in sources.values()],
+                    "catalog": report(
+                        self.candidates,
+                        parse_rules(rule_data(self.hass, self.settings)),
+                    ),
+                    "enrollment_changes": list(self.enrollment_changes),
+                    "targets": list(self.targets),
+                }
+            self._inventory_dirty = False
+            self._entity_sources = {}
+            for source in sources.values():
+                if source.entity_id and source.watched:
+                    self._entity_sources.setdefault(source.entity_id, []).append(source)
         self.sources = sources
         self.integration_evidence.retain(
             {
@@ -591,7 +644,7 @@ class Runtime:
         for source in sources.values():
             if not source.watched:
                 continue
-            if source.kind in {"entity", "situation"}:
+            if source.kind in {"entity", "situation"} and discover:
                 state = (
                     self.hass.states.get(source.entity_id) if source.entity_id else None
                 )
@@ -851,31 +904,7 @@ class Runtime:
                 parse_rules(candidate_data),
             )
         if action == "inventory":
-            return {
-                "nodes": [json_object(source) for source in self.sources.values()],
-                "catalog": report(
-                    self.candidates, parse_rules(rule_data(self.hass, self.settings))
-                ),
-                "enrollment_changes": list(self.enrollment_changes),
-                "targets": list(self.targets),
-                "episodes": list(self.episodes.values()),
-                "integration_evidence": {
-                    str(episode["anchor"]): self.integration_evidence.view(
-                        str(episode["anchor"])
-                    )
-                    for episode in self.episodes.values()
-                    if self.sources[str(episode["anchor"])].kind == "integration"
-                },
-                "resolved_history": self.history.view(dt_util.utcnow()),
-                "operator_controls": [
-                    json_object(control) for control in self.controls
-                ],
-                "physical_freshness_supported": False,
-                "notification_consumer_missing": self.consumer_missing,
-                "situation_availability_verified": False,
-                "notification_requests": list(self.delivery.messages.values()),
-                "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            }
+            return {**deepcopy(self.inventory_static), **self.inventory_updates()}
         if action == "coverage":
             return {
                 **json_object(self.engine.coverage()),
@@ -896,6 +925,26 @@ class Runtime:
         if action == "impact":
             return json_object(self.engine.impact(data["node_id"]))
         return json_object(self.engine.explain(data["node_id"]))
+
+    def inventory_updates(self) -> dict[str, JSONValue]:
+        """Read dynamic inventory evidence without rebuilding catalog metadata."""
+        return {
+            "episodes": list(self.episodes.values()),
+            "integration_evidence": {
+                str(episode["anchor"]): self.integration_evidence.view(
+                    str(episode["anchor"])
+                )
+                for episode in self.episodes.values()
+                if self.sources[str(episode["anchor"])].kind == "integration"
+            },
+            "resolved_history": self.history.view(dt_util.utcnow()),
+            "operator_controls": [json_object(control) for control in self.controls],
+            "physical_freshness_supported": False,
+            "notification_consumer_missing": self.consumer_missing,
+            "situation_availability_verified": False,
+            "notification_requests": list(self.delivery.messages.values()),
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
 
     async def async_stop(self) -> None:
         """Cancel future work and save the final state before unloading."""

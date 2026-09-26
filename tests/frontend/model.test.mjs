@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {DashboardStore, affectedFunctions, browseHighlights, dashboardStore,
   escapeHtml, inventoryRows, locationList, locationTree, monitoringLabel,
-  sortedEpisodes} from "../../custom_components/homeostatic/frontend/model.mjs";
+  sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
 
 function source(id, fields = {}) {
   return {node_id:id,name:id,kind:"entity",attributes:{},watched:true,
@@ -292,4 +292,44 @@ test("saved control names and reasons render as text", () => {
   assert.ok(!html.includes("<img"));
   assert.match(html,/&lt;img/);
   assert.match(html,/Existing problems and alerts remain active/);
+});
+
+
+test("compact evidence updates preserve static inventory and reject missing baselines",()=>{
+  const initial={...example(),schema_version:2,catalog_revision:1,inventory_changed:true};
+  const update={schema_version:2,available:true,catalog_revision:1,inventory_changed:false,inventory:{episodes:[{episode_id:"one"}]},functions:[]};
+  const merged=mergeDashboard(initial,update);
+  assert.equal(merged.inventory.catalog,initial.inventory.catalog);
+  assert.equal(merged.inventory.nodes,initial.inventory.nodes);
+  assert.equal(merged.areas,initial.areas);
+  assert.deepEqual(merged.inventory.episodes,[{episode_id:"one"}]);
+  assert.equal(sourceMap(merged),sourceMap(initial));
+  assert.equal(locationTree(merged),locationTree(initial));
+  assert.equal(mergeDashboard(merged,initial),initial);
+  assert.throws(()=>mergeDashboard(null,update),/out of date/);
+  assert.throws(()=>mergeDashboard({...initial,catalog_revision:2},update),/out of date/);
+  assert.throws(()=>mergeDashboard({...initial,available:false},update),/out of date/);
+  assert.throws(()=>mergeDashboard(null,{...initial,inventory:{}}),/Incomplete/);
+  assert.equal(mergeDashboard(initial,{schema_version:2,available:false}).available,false);
+});
+
+test("source search covers all rows while each rendered page stays bounded",()=>{
+  const rows=Array.from({length:6000},(_,i)=>source(`sensor.${i}`,{name:`Device ${i}`}));
+  assert.equal(sourcePage(rows).rows.length,50);
+  assert.equal(sourcePage(rows).pages,120);
+  assert.equal(sourcePage(rows,"",119).rows.at(-1).name,"Device 5999");
+  assert.equal(sourcePage(rows,"Device 5999").rows[0].node_id,"sensor.5999");
+  assert.equal(sourcePage(rows,"Device 5999",119).page,0);
+  assert.equal(sourcePage(rows,"missing").total,0);
+});
+
+test("invalid compact data clears the view and a new full baseline restores it",async()=>{
+  const client=connection();const store=new DashboardStore(client);const stop=store.listen(()=>{});
+  await Promise.resolve();
+  client.callback({schema_version:2,available:true,catalog_revision:2,inventory_changed:false,inventory:{}});
+  assert.equal(store.state.status,"error");
+  assert.equal(store.state.data,null);
+  client.callback({...example(),schema_version:2,catalog_revision:3,inventory_changed:true});
+  assert.equal(store.state.status,"current");
+  stop();
 });

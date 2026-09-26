@@ -5,8 +5,16 @@ export function escapeHtml(value) {
   })[character]);
 }
 
+const sourceMaps = new WeakMap();
+const rowCache = new WeakMap();
+const treeCache = new WeakMap();
+
 export function sourceMap(data) {
-  return new Map((data.inventory?.nodes ?? []).map((source) => [source.node_id, source]));
+  const nodes = data.inventory?.nodes;
+  if (!nodes) return new Map();
+  if (data.schema_version !== 2) return new Map(nodes.map(source => [source.node_id, source]));
+  if (!sourceMaps.has(nodes)) sourceMaps.set(nodes, new Map(nodes.map(source => [source.node_id, source])));
+  return sourceMaps.get(nodes);
 }
 
 export function affectedFunctions(data, episode) {
@@ -23,10 +31,15 @@ export function sortedEpisodes(data) {
 }
 
 export function inventoryRows(data) {
+  const key = data.inventory.catalog;
+  const cached = data.schema_version === 2 ? rowCache.get(key) : null;
+  if (cached?.nodes === data.inventory.nodes) return cached.rows;
   const rows = new Map(data.inventory.catalog.candidates.map((row) => [row.node_id, row]));
   for (const row of data.inventory.nodes) rows.set(row.node_id, row);
-  return [...rows.values()].sort((a, b) =>
+  const sorted = [...rows.values()].sort((a, b) =>
     a.name.localeCompare(b.name) || a.node_id.localeCompare(b.node_id));
+  if (data.schema_version === 2) rowCache.set(key, {nodes:data.inventory.nodes, rows:sorted});
+  return sorted;
 }
 
 export function monitoringLabel(source) {
@@ -43,6 +56,8 @@ function uniqueSources(sources) {
 
 export function locationTree(data) {
   const rows = inventoryRows(data);
+  const cached = treeCache.get(rows);
+  if (cached && cached.areas === data.areas && cached.floors === data.floors) return cached.tree;
   const sourceAreas = new Map((data.areas ?? []).map((area) => [area.id, []]));
   const unassigned = [];
   for (const source of rows) {
@@ -99,6 +114,7 @@ export function locationTree(data) {
     sources: unassigned,
     children: [],
   });
+  treeCache.set(rows, {areas:data.areas, floors:data.floors, tree:roots});
   return roots;
 }
 
@@ -109,6 +125,30 @@ export function locationList(tree) {
 export function browseHighlights(data) {
   return locationList(locationTree(data)).filter((location) =>
     !location.children.length && location.sources.length).slice(0, 6);
+}
+
+export function sourcePage(rows, query = "", page = 0) {
+  const search = query.trim().toLocaleLowerCase();
+  const matches = search ? rows.filter(source =>
+    `${source.name} ${source.node_id} ${source.kind} ${monitoringLabel(source)}`.toLocaleLowerCase().includes(search)) : rows;
+  const pages = Math.max(1, Math.ceil(matches.length / 50));
+  const index = Math.max(0, Math.min(page, pages - 1));
+  return {rows:matches.slice(index * 50, (index + 1) * 50), total:matches.length, page:index, pages};
+}
+
+export function mergeDashboard(previous, data) {
+  if (data.schema_version === 1 || !data.available) return data;
+  if (data.inventory_changed === true) {
+    if (!data.inventory?.nodes || !data.inventory?.catalog || !data.areas || !data.floors || !Number.isInteger(data.catalog_revision)) {
+      throw new Error("Incomplete Homeostatic catalog. Retry the connection.");
+    }
+    return data;
+  }
+  if (data.inventory_changed !== false || !previous?.available ||
+      previous.schema_version !== 2 || previous.catalog_revision !== data.catalog_revision) {
+    throw new Error("Homeostatic catalog is out of date. Retry the connection.");
+  }
+  return {...data, inventory:{...previous.inventory, ...data.inventory}, areas:previous.areas, floors:previous.floors};
 }
 
 const stores = new WeakMap();
@@ -146,12 +186,17 @@ export class DashboardStore {
     this.update({status: "loading", error: null});
     this.connection.subscribeMessage((data) => {
       if (generation !== this.generation) return;
-      if (data.schema_version !== 1) {
+      if (![1,2].includes(data.schema_version)) {
         this.update({status: "error", error: "Unsupported Homeostatic data version. Reload after updating."});
         return;
       }
-      this.update({status: data.available ? "current" : "unavailable", data, error: null});
-    }, {type: "homeostatic/subscribe"}).then((unsubscribe) => {
+      try {
+        data = mergeDashboard(this.state.data, data);
+        this.update({status: data.available ? "current" : "unavailable", data, error: null});
+      } catch (error) {
+        this.update({status:"error",data:null,error:error.message});
+      }
+    }, {type: "homeostatic/subscribe", compact:true}).then((unsubscribe) => {
       if (generation !== this.generation) {
         Promise.resolve(unsubscribe()).catch(() => {});
       } else {

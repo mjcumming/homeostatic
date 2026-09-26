@@ -1,9 +1,9 @@
 import {affectedFunctions, browseHighlights, dashboardStore, escapeHtml as esc,
   inventoryRows, locationList, locationTree, monitoringLabel, sortedEpisodes,
-  sourceMap} from "./model.mjs?v=5";
-import {integrationProblem} from "./problem.mjs?v=5";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=5";
-import {styles} from "./styles.mjs?v=5";
+  sourceMap, sourcePage} from "./model.mjs?v=6";
+import {integrationProblem} from "./problem.mjs?v=6";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=6";
+import {styles} from "./styles.mjs?v=6";
 
 const VIEWS = ["overview", "house", "coverage", "functions", "problems", "history"];
 const status = (value) => {
@@ -23,6 +23,9 @@ class HomeostaticCard extends HTMLElement {
     this.config = {view: "overview"};
     this.page = "overview";
     this.location = null;
+    this.sourceQuery = '';
+    this.sourcePage = 0;
+    this.sourceScope = null;
     this.current = {status: "loading", data: null, error: null};
     this.detail = null;
     this.detailSequence = 0;
@@ -30,6 +33,12 @@ class HomeostaticCard extends HTMLElement {
     this.main = this.shadowRoot.querySelector("main");
     this.dialog = this.shadowRoot.querySelector("dialog");
     this.shadowRoot.addEventListener("click", (event) => this.clicked(event));
+    this.shadowRoot.addEventListener("input", event => {
+      if (!event.target.matches("[data-source-search]")) return;
+      this.sourceQuery = event.target.value;
+      this.sourcePage = 0;
+      this.render();
+    });
     this.tools = new DashboardTools(this);
     this.dialog.addEventListener("close", () => {this.detail = null; this.detailSequence++;});
   }
@@ -95,8 +104,8 @@ class HomeostaticCard extends HTMLElement {
 
   render() {
     const focused = this.shadowRoot.activeElement;
-    const historyFocus = focused?.hasAttribute("data-history-search") ? "[data-history-search]" : focused?.hasAttribute("data-history-filter") ? "[data-history-filter]" : null;
-    const selection = historyFocus === "[data-history-search]" ? [focused.selectionStart, focused.selectionEnd] : null;
+    const historyFocus = focused?.hasAttribute("data-source-search") ? "[data-source-search]" : focused?.hasAttribute("data-history-search") ? "[data-history-search]" : focused?.hasAttribute("data-history-filter") ? "[data-history-filter]" : null;
+    const selection = ["[data-source-search]", "[data-history-search]"].includes(historyFocus) ? [focused.selectionStart, focused.selectionEnd] : null;
     const minimal = ["functions", "problems"].includes(this.config.view);
     this.shadowRoot.querySelector(".nav").hidden = minimal || this.config.navigation === false;
     const back = this.shadowRoot.querySelector('[data-action="back"]');
@@ -180,7 +189,15 @@ class HomeostaticCard extends HTMLElement {
 
   sourceTable(data, rows) {
     const registered = sourceMap(data);
-    return `<div class="table-wrap"><table><thead><tr><th>Capability</th><th>Monitoring</th><th>Rule provenance</th></tr></thead><tbody>${rows.map((source) => `<tr><td>${registered.has(source.node_id) ? `<button type="button" class="link" data-node="${esc(source.node_id)}">${esc(source.name)}</button>` : esc(source.name)}<small>${esc(source.kind)}</small></td><td>${esc(monitoringLabel(source))}</td><td><span class="mono">${list(source.excluded_by.length ? source.excluded_by : source.attached_by)}</span></td></tr>`).join("")}</tbody></table></div>`;
+    const scope = `${this.page}:${this.page === "house" ? this.location : "all"}`;
+    if (scope !== this.sourceScope) {
+      this.sourceScope = scope;
+      this.sourceQuery = "";
+      this.sourcePage = 0;
+    }
+    const result = sourcePage(rows, this.sourceQuery, this.sourcePage);
+    this.sourcePage = result.page;
+    return `<div class="body"><label>Find a source <input type="search" data-source-search value="${esc(this.sourceQuery)}"></label><p class="small">${result.total} sources · Page ${result.page + 1} of ${result.pages}</p></div><div class="table-wrap"><table><thead><tr><th>Capability</th><th>Monitoring</th><th>Rule provenance</th></tr></thead><tbody>${result.rows.map((source) => `<tr><td>${registered.has(source.node_id) ? `<button type="button" class="link" data-node="${esc(source.node_id)}">${esc(source.name)}</button>` : esc(source.name)}<small>${esc(source.kind)}</small></td><td>${esc(monitoringLabel(source))}</td><td><span class="mono">${list(source.excluded_by.length ? source.excluded_by : source.attached_by)}</span></td></tr>`).join("")}</tbody></table></div><div class="body actions"><button class="button" type="button" data-source-step="-1" ${result.page === 0 ? "disabled" : ""}>Previous sources</button><button class="button" type="button" data-source-step="1" ${result.page + 1 >= result.pages ? "disabled" : ""}>Next sources</button></div>`;
   }
 
   locationBranch(location, selectedId, depth = 1) {
@@ -216,7 +233,8 @@ class HomeostaticCard extends HTMLElement {
   clicked(event) {
     const button = event.target.closest("button");
     if (!button) return;
-    if (button.dataset.page) {this.page = button.dataset.page; this.render();}
+    if (button.dataset.sourceStep) {this.sourcePage += Number(button.dataset.sourceStep); this.render();}
+    else if (button.dataset.page) {this.page = button.dataset.page; this.render();}
     else if (button.dataset.location) {this.location = button.dataset.location; this.page = "house"; this.render();}
     else if (button.dataset.node) this.openDetail({nodeId: button.dataset.node});
     else if (button.dataset.episode) this.openDetail({episodeId: button.dataset.episode});
@@ -297,6 +315,18 @@ class HomeostaticCard extends HTMLElement {
 }
 
 class HomeostaticPanel extends HomeostaticCard {
+  constructor() {
+    super();
+    const menu = document.createElement("button");
+    menu.type = "button";
+    menu.className = "ha-menu";
+    menu.setAttribute("aria-label", "Open Home Assistant menu");
+    menu.title = "Open Home Assistant menu";
+    menu.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>';
+    menu.addEventListener("click", () => this.dispatchEvent(new CustomEvent("hass-toggle-menu", {bubbles:true, composed:true})));
+    this.shadowRoot.querySelector(".brand").prepend(menu);
+  }
+
   set route(value) {
     const match = value?.path?.match(/^\/episode\/([^/]+)$/);
     if (match) {

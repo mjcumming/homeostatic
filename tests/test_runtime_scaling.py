@@ -80,7 +80,7 @@ async def measure(
     runtime: Runtime,
     operation: Callable[[], Awaitable[None]],
 ) -> dict[str, float | int]:
-    """Measure callback starvation and full refresh work without sleeping."""
+    """Measure callback starvation and compact evidence updates without sleeping."""
     loop = asyncio.get_running_loop()
     previous = perf_counter()
     gaps: list[float] = []
@@ -96,7 +96,7 @@ async def measure(
 
     @callback
     def dashboard_client() -> None:
-        payload_sizes.append(len(json.dumps(hass.data[DATA_DASHBOARD].value).encode()))
+        payload_sizes.append(len(json.dumps(hass.data[DATA_DASHBOARD].update).encode()))
 
     cancel = async_dispatcher_connect(hass, SIGNAL_DASHBOARD, dashboard_client)
     handle = loop.call_soon(probe)

@@ -6,15 +6,15 @@
   <title>Homeostatic component test</title>
   <style>
     :root{--primary-text-color:#182a34;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--secondary-text-color:#546875;--divider-color:#dce4e9;--primary-color:#007eab;--text-primary-color:#fff}
-    body{margin:0;font:14px Arial,sans-serif}#controls{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #ddd}button,select{padding:8px;font:inherit}homeostatic-card{max-width:1100px;margin:auto}
+    body{margin:0;font:14px Arial,sans-serif}#controls{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #ddd}button,select{padding:8px;font:inherit}homeostatic-card,homeostatic-panel{max-width:1100px;margin:auto}
   </style>
 </head>
 <body>
-  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="problem-check">Run problem regression</button><span id="feedback" role="status"></span></div>
-  <homeostatic-card></homeostatic-card>
+  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="menu-check">Run menu regression</button><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="problem-check">Run problem regression</button><span id="feedback" role="status"></span></div>
+  <homeostatic-panel></homeostatic-panel>
   <script type="module">
     import "../../custom_components/homeostatic/frontend/homeostatic.js";
-    const card=document.querySelector("homeostatic-card");
+    const card=document.querySelector("homeostatic-panel");
     const scenario=document.querySelector("#scenario");
     const unsafe=document.querySelector("#unsafe");
     const admin=document.querySelector("#admin");
@@ -142,6 +142,28 @@
         body.querySelectorAll("details").forEach(item=>item.open=false);
         feedback.textContent="PASS: NuHeat timeout, receiver timeout, sign-in, disabled, recovery, action links, owner/technical separation, live disclosures and safe content";
       } catch(error) {feedback.textContent="FAIL: "+error.message;}
+    });
+    card.addEventListener("hass-toggle-menu",()=>{document.querySelector("#feedback").textContent="Home Assistant menu requested (synthetic preview)";});
+    document.querySelector("#menu-check").addEventListener("click",()=>{
+      const feedback=document.querySelector("#feedback");
+      const expect=(condition,message)=>{if(!condition)throw new Error(message);};
+      const events=[];
+      const listener=event=>events.push(event);
+      document.addEventListener("hass-toggle-menu",listener);
+      try {
+        const menu=card.shadowRoot.querySelector('button[aria-label="Open Home Assistant menu"]');
+        expect(menu && menu.getBoundingClientRect().width>=44 && menu.getBoundingClientRect().height>=44,"Panel menu needs an accessible touch target");
+        for(const value of ["failure","disconnected","unloaded"]){
+          scenario.value=value;change();menu.click();
+          expect(!menu.hidden,"Menu remains available without health data");
+        }
+        expect(events.length===3 && events.every(event=>event.bubbles&&event.composed),"Menu event reaches the native HA shell once per click");
+        const embedded=document.createElement("homeostatic-card");
+        expect(!embedded.shadowRoot.querySelector(".ha-menu"),"Embedded cards use the dashboard's global menu");
+        scenario.value="failure";change();
+        feedback.textContent="PASS: native menu event, 44px target, disconnected/unavailable navigation and embedded card behavior";
+      } catch(error) {feedback.textContent="FAIL: "+error.message;}
+      finally {document.removeEventListener("hass-toggle-menu",listener);}
     });
     card.addEventListener("hass-more-info",event=>{document.querySelector("#feedback").textContent="Entity requested: "+event.detail.entityId;});
   </script>
