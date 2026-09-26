@@ -1007,3 +1007,25 @@ NuHeat timeouts suggest checking the NuHeat app; receiver timeouts suggest check
 Move alert and maintenance actions under **Manage this problem**. Keep active control expiry visible. Put timestamped original errors and filtered logs under **Technical details**, with raw policy/query data one level deeper under **Diagnostic data**. Empty dependency explanations, normal importance, notification implementation notes and broad verification disclaimers do not belong in the main problem brief.
 
 The executable preview covers cloud timeout, receiver timeout, explicit sign-in, disabled and recovering states, plus unknown cause, safe text, real function impact and live disclosure preservation. The history/control fixture verifies existing actions and visible expiry notices. This increment changes presentation only; enrollment, health, recovery timing and notification decisions retain their existing contracts.
+
+
+## 23. Navigation and bounded inventory updates — 2026-09-25
+
+The standalone panel now keeps a hamburger beside its title. It opens Home
+Assistant's native sidebar, including on phones and while monitoring is loading
+or unavailable. Embedded cards keep the enclosing dashboard's global menu.
+The executable menu scenario checks the native event, keyboard-accessible button,
+touch target, unavailable states and embedded-card distinction.
+
+House and coverage tables search the whole received catalog and render at most
+50 sources per page. Page and search survive evidence updates. Compact subscriptions
+replace static metadata on a changed catalog and retain it between normal updates.
+Initial transfer remains a full catalog. A running synthetic HA instance verified
+the phone menu through navigation to Settings, search for the last of 6,000 generated
+entities, 50-row paging and page retention through a recovery update.
+
+Runtime work now combines redundant refreshes while preserving every captured
+transition. The narrow synthetic scope passed the proposed burst budgets with
+real storage and WebSocket delivery. Broad 6,000-check monitoring remains
+unqualified; see [the measured limits](testing/runtime-scaling.md). Device-first
+grouping and selective capability profiles remain separate planned UI work.

@@ -70,3 +70,27 @@ Developers can reproduce the archive from its clean committed revision with `uv 
 The [dashboard walkthrough](testing/dashboard-walkthrough.md) records the isolated real-HA browser journey. Required integration checks and official hassfest validate the combined candidate. A separate clean installation smoke check must verify the packaged component and automatically installed published dependency. Results belong in `docs/testing/pilot-validation.md`.
 
 Physical-device freshness, detector liveness, command-completion evidence, external watchdog coverage, a full transition journal, early control cancellation and optional TopoMation enrichment remain later work. They do not prevent a bounded passive availability pilot.
+
+
+## 0.1.0b6 synthetic package and UI validation
+
+Build `112a57bffaa66210715e8dba6f25fca5a6257fa0` produced
+`homeostatic-0.1.0b6-pilot.zip`, SHA-256
+`c4799e5f2a955c1fd9819c8ce69a6de2d62cee7ff7d310fddd9605e032c49ec7`.
+All results in this section are from isolated synthetic environments.
+
+- Required checks passed: 332 Python tests, 22 frontend tests, 98.92% combined
+  coverage, lint, formatting and strict typing. Two opt-in performance profiles
+  ran separately and passed their functional assertions.
+- Official HA 2026.9.3 hassfest reported one valid integration and none invalid.
+- The exact ZIP passed fresh installation, automatic health-tree 0.3.0 dependency
+  installation, all five versioned frontend resources, failure/recovery and reload.
+- A running synthetic HA lab used actual Store writes and authenticated WebSocket
+  delivery for the 6,000-entity catalog with 60 selected capabilities. Outage and
+  recovery settled in about 80 ms. Broad monitoring remains unqualified; full
+  measurements and reproduction instructions are in the runtime assessment.
+- Actual HA browser checks verified phone sidebar navigation, full-catalog search,
+  bounded 50-row pages and preserved page selection through evidence updates.
+
+This establishes package and bounded synthetic behavior. Sustained household
+traffic, appliance performance and broader enrollment remain separate work.
