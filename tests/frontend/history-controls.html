@@ -50,6 +50,7 @@ const submit=()=>card.tools.body.querySelector('[type="submit"]');
 async function open(kind="maintenance"){
   card.tools.close();await flush();
   card.openDetail({episodeId:"open-1"});await flush();
+  root.querySelector('[data-disclosure="manage"]').open=true;
   root.querySelector(kind==="maintenance"?"[data-maintenance]":"[data-shelf]").click();await flush();
 }
 document.querySelector("#run").addEventListener("click",async()=>{
@@ -97,7 +98,13 @@ document.querySelector("#run").addEventListener("click",async()=>{
     data.inventory.episodes=[];publish(data);expect(submit().disabled,"Resolved shelf target must be disabled");
     reset();publish(data);await card.tools.execute();
     expect(card.tools.body.textContent.includes("Saved by Home Assistant"),"Shelf should show saved result");
-    passed.push("Shelving explanation, ambiguous failure, no retry, disconnect, target resolution and saved result");
+    card.tools.close();await flush();
+    card.openDetail({episodeId:"open-1"});await flush();
+    expect(!root.querySelector('[data-disclosure="manage"]').open,"Management starts collapsed on a new detail");
+    expect(root.querySelector('.dialog-body').innerText.includes("Alerts paused until"),"Active shelf expiry stays visible outside management");
+    expect(!root.querySelector('.dialog-body').innerText.includes("Plan maintenance"),"Inactive action controls stay inside management");
+    card.dialog.close();await flush();
+    passed.push("Shelving explanation, ambiguous failure, no retry, disconnect, target resolution, saved result and visible expiry");
 
     card.tools.close();await flush();
     const buttons=card.tools.detailButtons({...source,kind:"situation"},episode,data);

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.1.0b5] - 2026-09-25
+
+### Changed
+
+- Rebuilt problem cards and details around the reported problem, confirmed household impact, a relevant action and recovery progress. NuHeat and receiver timeouts, explicit sign-in requests, disabled connections and recovery have distinct guidance. Maintenance, alert controls, raw errors and diagnostic policy data move out of the main reading path; active controls remain visible by expiry.
+- Version frontend module URLs together so a refreshed client loads a consistent release.
+
 ## [0.1.0b4] - 2026-09-25
 
 ### Added

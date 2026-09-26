@@ -10,7 +10,7 @@
   </style>
 </head>
 <body>
-  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">Retrying setup</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="problem-check">Run problem regression</button><span id="feedback" role="status"></span></div>
+  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="problem-check">Run problem regression</button><span id="feedback" role="status"></span></div>
   <homeostatic-card></homeostatic-card>
   <script type="module">
     import "../../custom_components/homeostatic/frontend/homeostatic.js";
@@ -31,16 +31,16 @@
     });
     function data(){
       if(scenario.value==="unloaded")return{schema_version:1,available:false,updated_at:"2026-09-25T15:52:00Z",error:null};
-      const integrationExample=["setup","cause","auth","retry","starting","recovering","disabled"].includes(scenario.value);
+      const integrationExample=["setup","cause","auth","retry","receiver","starting","recovering","disabled"].includes(scenario.value);
       const failing=scenario.value==="failure"||integrationExample,unknown=scenario.value==="unknown";
-      const name=unsafe.checked?'<img src=x onerror="alert(1)"> Frigate':integrationExample?"Master Bathroom":"Frigate integration";
-      const entry=baseSource("entry:frigate",name,"integration",{entry_id:"frigate",attributes:{domain:[integrationExample?"nuheat":"frigate"]}});
+      const name=unsafe.checked?'<img src=x onerror="alert(1)"> Frigate':scenario.value==="receiver"?"Home Theater":integrationExample?"Master Bathroom":"Frigate integration";
+      const entry=baseSource("entry:frigate",name,"integration",{entry_id:"frigate",attributes:{domain:[scenario.value==="receiver"?"denonavr":integrationExample?"nuheat":"frigate"]}});
       const sensor=baseSource("entity:person","Basement person sensor","entity",{entity_id:"binary_sensor.person",owner_id:"frigate",attributes:{area:["basement"]}});
       const fn=baseSource("function:lighting","Basement motion lighting","function",{requirements:["entity:person"],watched:false});
       const unwatched=baseSource("entity:excluded","Workshop test sensor","entity",{watched:false,excluded_by:["ignore_workbench"]});
       const answer=["starting","disabled"].includes(scenario.value)?"unknown":scenario.value==="recovering"?"ready":failing?"blocked":unknown?"unknown":"ready";
-      const reason={auth:"auth_required",retry:"setup_retry",starting:"setup_in_progress",recovering:"loaded",disabled:"disabled"}[scenario.value]??"setup_error";
-      const detail={auth:"Session expired",cause:"Unable to sign in to provider",retry:"Connection timed out"}[scenario.value]??reason.replaceAll("_"," ");
+      const reason={auth:"auth_required",retry:"setup_retry",receiver:"setup_retry",starting:"setup_in_progress",recovering:"loaded",healthy:"loaded",disabled:"disabled"}[scenario.value]??"setup_error";
+      const detail={auth:"Session expired",cause:"Unable to sign in to provider",retry:"HTTPSConnectionPool: /api/authenticate/user (Caused by ConnectTimeoutError: Connection timed out)",receiver:"TimeoutException for http://192.0.2.15/status.xml"}[scenario.value]??reason.replaceAll("_"," ");
       const current={reason,message:detail,observed_at:"2026-09-25T15:52:00Z"};
       const last_failure=scenario.value==="starting"?{reason:"setup_retry",message:"Connection timed out",observed_at:"2026-09-25T15:42:00Z"}:null;
       const evidence={current,last_failure};
@@ -50,12 +50,12 @@
       const readiness={answer,nodes:failing?[{node_id:"entry:frigate",own:"fail",watched:true,reasons:["setup_error"]}]:unknown?[{node_id:"entity:person",own:"unknown",watched:true,reasons:["state_unknown"]}]:[]};
       return{schema_version:1,available:true,entry_id:"demo",updated_at:"2026-09-25T15:52:00Z",readiness,
         functions:[{...fn,readiness}],evidence_gaps:unknown?1:0,
-        inventory:{nodes,integration_evidence:integrationExample?{[entry.node_id]:evidence}:{},catalog:{watched:2,candidates:[entry,sensor,unwatched]},episodes:failing?[episode]:[],operator_controls:[],enrollment_changes:[],notification_requests:[]},
+        inventory:{nodes,integration_evidence:integrationExample||scenario.value==="healthy"?{[entry.node_id]:evidence}:{},catalog:{watched:2,candidates:[entry,sensor,unwatched]},episodes:failing?[episode]:[],operator_controls:[],enrollment_changes:[],notification_requests:[]},
         coverage:{no_checks:["function:lighting"],never_observed:unknown?[{node_id:"entity:person",check_id:"availability"}]:[],stale:[],notification_consumer_missing:false},
         policy:{notifications_enabled:false,routes:{owner:["phone"]},episodes:[]},
         areas:[{id:"basement",name:"Basement",floor_id:"lower"}],floors:[{id:"lower",name:"Lower floor"}]};
     }
-    const hass={connection,localize(key){return key==="component.nuheat.title"?"NuHeat":key==="component.frigate.title"?"Frigate":null;},user:{id:"demo",is_admin:true},async callWS({node_id}){
+    const hass={connection,localize(key){return key==="component.nuheat.title"?"NuHeat":key==="component.frigate.title"?"Frigate":key==="component.denonavr.title"?"Denon AVR":null;},user:{id:"demo",is_admin:true},async callWS({node_id}){
       const current=data(),source=current.inventory?.nodes.find(item=>item.node_id===node_id);
       if(!source)throw{message:"This capability is no longer monitored"};
       return{source,integration_evidence:current.inventory.integration_evidence[node_id],readiness:current.readiness,updated_at:current.updated_at,
@@ -68,6 +68,12 @@
       if(scenario.value==="disconnected"){handlers.get("disconnected")?.();return;}
       handlers.get("ready")?.();subscribed?.(data());
     }
+    document.querySelector("#dark").addEventListener("change",event=>{
+      const colors=event.target.checked?{"primary-text-color":"#e1e1e1","primary-background-color":"#111111","card-background-color":"#1c1c1c","divider-color":"#383838","secondary-text-color":"#b5b5b5","secondary-background-color":"#282828","primary-color":"#03a9f4"}:{};
+      for(const name of ["primary-text-color","primary-background-color","card-background-color","divider-color","secondary-text-color","secondary-background-color","primary-color"]){
+        if(colors[name])card.style.setProperty(`--${name}`,colors[name]);else card.style.removeProperty(`--${name}`);
+      }
+    });
     scenario.addEventListener("change",change);
     unsafe.addEventListener("change",change);
     admin.addEventListener("change",()=>{
@@ -93,34 +99,48 @@
       const feedback=document.querySelector("#feedback");
       const expect=(condition,message)=>{if(!condition)throw new Error(message);};
       try {
-        scenario.value="setup";change();
+        scenario.value="retry";change();
         card.openDetail({episodeId:"demo-episode"});await card.loadDetail();
-        let body=card.shadowRoot.querySelector(".dialog-body");
-        expect(body.textContent.includes("did not provide a specific cause"),"Unreported cause must stay explicit");
-        expect(!body.textContent.includes("No non-passing"),"Empty dependency text should be absent");
-        expect(body.querySelector(".actions a.primary").getAttribute("href")==="/config/logs?filter=nuheat","Missing detail should lead to filtered logs");
+        const body=card.shadowRoot.querySelector(".dialog-body");
+        expect(body.innerText.includes("NuHeat connection timed out"),"Cloud timeout should have a plain headline");
+        expect(body.innerText.includes("Try the NuHeat app"),"Cloud timeout needs a useful app check");
+        expect(!body.innerText.includes("HTTPSConnectionPool")&&!card.main.innerText.includes("HTTPSConnectionPool"),"Raw error must not lead either view");
+        expect(!body.innerText.includes("policy")&&!body.innerText.includes("Notification events")&&!body.innerText.includes("No home functions"),"Internal explanations must not lead the problem");
+        expect(body.querySelectorAll(".next-action a.primary").length===1,"One primary next action");
+        expect([...body.querySelectorAll("details")].every(item=>!item.open),"Diagnostics and controls start collapsed");
+        expect(!body.innerText.includes("Pause alerts"),"Alert controls belong under Manage this problem");
+        expect(!body.innerText.includes("What is affected"),"Do not invent household impact");
+        scenario.value="receiver";change();await card.loadDetail();
+        expect(body.innerText.includes("Receiver didn't respond")&&body.innerText.includes("powered on"),"Receiver timeout needs local power/network guidance");
+        expect(!body.innerText.includes("NuHeat app"),"Provider guidance must stay scoped");
         scenario.value="auth";change();await card.loadDetail();
-        body=card.shadowRoot.querySelector(".dialog-body");
-        expect(body.textContent.includes("Sign-in required")&&body.textContent.includes("Session expired"),"Auth cause must be visible");
-        expect(body.querySelector(".actions a.primary").getAttribute("href")==="/config/integrations/integration/nuheat#config_entry=frigate","Auth should lead to its integration entry");
-        expect([...body.querySelectorAll("details")].every(item=>!item.open),"Technical and notification details should start collapsed");
+        expect(body.innerText.includes("Sign-in required"),"HA reauthentication should request sign-in");
+        expect(body.querySelector(".next-action a").textContent==="Sign in again","Sign-in action label should be explicit");
+        expect(body.querySelector(".next-action a").getAttribute("href")==="/config/integrations/integration/nuheat#config_entry=frigate","Sign-in must open the exact HA entry");
         scenario.value="starting";change();await card.loadDetail();
-        expect(body.textContent.includes("Trying setup again")&&body.textContent.includes("Last reported error"),"A retry must retain earlier context");
-        expect(body.textContent.includes("Connection timed out"),"Earlier cause must remain inspectable");
-        expect(!card.main.textContent.includes("Connection timed out"),"Overview should summarize instead of displaying raw errors");
-        const report=body.querySelector('[data-disclosure="reported-error"]');report.open=true;
+        expect(body.innerText.includes("last connection attempt timed out")&&body.innerText.includes("trying again"),"Earlier cause and current retry must remain distinct");
+        body.querySelector('[data-disclosure="technical"]').open=true;
+        body.querySelector('[data-disclosure="manage"]').open=true;
+        expect(body.innerText.includes("Last reported error")&&body.innerText.includes("Connection timed out"),"Earlier error remains inspectable with its timestamp");
         subscribed?.(data());await card.loadDetail();
-        expect(body.querySelector('[data-disclosure="reported-error"]').open,"Live updates must preserve expanded evidence");
+        expect(body.querySelector('[data-disclosure="technical"]').open&&body.querySelector('[data-disclosure="manage"]').open,"Live updates preserve both disclosures");
         scenario.value="recovering";change();await card.loadDetail();
-        expect(body.textContent.includes("remains open until recovery is confirmed"),"Loaded evidence must distinguish the open recovery hold");
+        expect(body.innerText.includes("Checking recovery")&&body.innerText.includes("once recovery is confirmed"),"Recovery hold cannot announce resolved");
+        expect(!body.querySelector(".next-action a.primary"),"Recovery should not demand an unnecessary action");
         scenario.value="disabled";change();await card.loadDetail();
-        expect(body.textContent.includes("Integration disabled")&&card.main.querySelector(".issue.neutral"),"Disabled must stay distinct from failure");
+        expect(body.innerText.includes("Disabled in Home Assistant")&&card.main.querySelector(".issue.neutral"),"Disabled stays counted and visually quiet");
+        expect(body.innerText.includes("If this is intentional"),"Do not infer intentional disablement");
+        scenario.value="setup";change();await card.loadDetail();
+        expect(body.innerText.includes("did not report a cause"),"Missing cause must remain honest");
         unsafe.checked=true;change();await card.loadDetail();
-        expect(!body.querySelector("img"),"HTML-like source names must remain text");
+        expect(!body.querySelector("img")&&!card.main.querySelector("img"),"Source names remain text");
         unsafe.checked=false;scenario.value="healthy";change();await card.loadDetail();
-        expect(body.textContent.includes("no longer open"),"Recovery must refresh the open dialog");
-        scenario.value="setup";change();card.openDetail({episodeId:"demo-episode"});await card.loadDetail();
-        feedback.textContent="PASS: setup, reauth, retry continuity, disabled state, recovery hold, safe content, native links and live disclosures";
+        expect(body.textContent.includes("no longer open"),"A resolved selection refreshes");
+        card.openDetail({nodeId:"entry:frigate"});await card.loadDetail();
+        expect(body.innerText.includes("Connection available")&&!body.innerText.includes("Checking recovery"),"Healthy source detail must not invent an open recovery hold");
+        scenario.value="retry";change();card.openDetail({episodeId:"demo-episode"});await card.loadDetail();
+        body.querySelectorAll("details").forEach(item=>item.open=false);
+        feedback.textContent="PASS: NuHeat timeout, receiver timeout, sign-in, disabled, recovery, action links, owner/technical separation, live disclosures and safe content";
       } catch(error) {feedback.textContent="FAIL: "+error.message;}
     });
     card.addEventListener("hass-more-info",event=>{document.querySelector("#feedback").textContent="Entity requested: "+event.detail.entityId;});

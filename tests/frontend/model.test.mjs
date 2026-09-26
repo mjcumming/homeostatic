@@ -141,76 +141,96 @@ test("unavailable runtime, incompatible payload, and retry failures remain expli
 });
 
 
-test("integration explanations distinguish a reported cause, reauth, and missing detail",()=>{
+test("only explicit HA reauthentication asks for sign-in",()=>{
   const entry=source("entry:bathroom",{kind:"integration",name:"Master Bathroom",entry_id:"bathroom",attributes:{domain:["nuheat"]}});
-  const describe=(reason,message)=>integrationProblem(entry,[{node_id:entry.node_id,reason,message}],()=>"NuHeat");
+  const describe=(reason,message)=>integrationProblem(entry,[{node_id:entry.node_id,reason,message}]);
   const setup=describe("setup_error","Master Bathroom: Unable to sign in to provider");
   assert.equal(setup.reported,"Unable to sign in to provider");
-  assert.equal(setup.headline,"Integration couldn't start");
-  assert.match(setup.summary,/NuHeat/);
+  assert.equal(setup.headline,"Connection couldn't start");
+  assert.equal(setup.integrationLabel,"Review NuHeat connection");
   assert.equal(setup.integrationUrl,"/config/integrations/integration/nuheat#config_entry=bathroom");
   assert.equal(setup.logsUrl,"/config/logs?filter=nuheat");
-  assert.equal(setup.missingDetail,false);
-  const auth=describe("auth_required","Master Bathroom: Session expired");
+  const auth=describe("auth_required","Session expired; TimeoutError while signing in");
   assert.equal(auth.headline,"Sign-in required");
-  assert.match(auth.nextStep,/complete its sign-in prompt/);
-  assert.equal(auth.reported,"Session expired");
-  const generic=describe("setup_error","Master Bathroom: setup error");
-  assert.equal(generic.reported,"");
-  assert.equal(generic.missingDetail,true);
-  assert.equal(generic.logsPrimary,true);
-  assert.doesNotMatch(generic.summary,/password|sign.in/);
-  assert.match(describe("setup_retry","Connection timed out").summary,/retry automatically/);
-  const disabled=describe("disabled","Master Bathroom: disabled");
-  assert.match(disabled.nextStep,/If this is intentional/);
-  assert.equal(disabled.reported,"");
-  assert.equal(disabled.logsUrl,null);
+  assert.equal(auth.integrationLabel,"Sign in again");
+  assert.equal(auth.timedOut,false);
+  assert.match(auth.nextStep,/sign-in prompt/);
+  assert.equal(describe("setup_error","Master Bathroom: setup error").reported,"");
+  assert.match(describe("setup_error","setup error").summary,/did not report a cause/);
 });
 
-test("native destinations encode untrusted identifiers and old findings have honest fallbacks",()=>{
+test("NuHeat timeout offers an app check without guessing invalid credentials or heating failure",()=>{
+  const entry=source("entry:bathroom",{kind:"integration",name:"Master Bathroom",attributes:{domain:["nuheat"]}});
+  const result=integrationProblem(entry,[{reason:"setup_retry",message:"HTTPSConnectionPool: /api/authenticate/user (Caused by ConnectTimeoutError: connection timed out)"}]);
+  assert.equal(result.headline,"NuHeat connection timed out");
+  assert.equal(result.integration,"NuHeat");
+  assert.match(result.nextStep,/Try the NuHeat app/);
+  assert.match(result.summary,/try again automatically/);
+  assert.doesNotMatch(result.summary+result.nextStep,/password|credentials|heating|HTTPS|authenticate/);
+});
+
+test("receiver and unknown integration timeouts do not assume a cloud service",()=>{
+  const entry=source("entry:receiver",{kind:"integration",name:"Home Theater",attributes:{domain:["denonavr"]}});
+  const reason={reason:"setup_retry",message:"TimeoutException for http://192.0.2.15/status.xml"};
+  const result=integrationProblem(entry,[reason]);
+  assert.equal(result.headline,"Receiver didn't respond");
+  assert.match(result.nextStep,/powered on and connected to your network/);
+  assert.equal(result.integrationLabel,"Review receiver connection");
+  const generic=integrationProblem({...entry,attributes:{domain:["custom"]}},[reason]);
+  assert.equal(generic.headline,"Connection timed out");
+  assert.doesNotMatch(generic.nextStep,/NuHeat|receiver|cloud/);
+});
+
+test("native links encode untrusted identifiers and absent or unsupported findings stay readable",()=>{
   const entry=source("entry:a",{kind:"integration",entry_id:'a&x="bad"',attributes:{domain:['test/?"bad']}});
   const result=integrationProblem(entry,[{reason:"setup_error"}]);
   assert.equal(result.integrationUrl,"/config/integrations/integration/test%2F%3F%22bad#config_entry=a%26x%3D%22bad%22");
   assert.equal(result.logsUrl,"/config/logs?filter=test%2F%3F%22bad");
   assert.equal(result.missingDetail,true);
-  assert.equal(integrationProblem({...entry,attributes:{}},[{reason:"setup_error"}]).integrationUrl,"/config/integrations");
+  assert.equal(integrationProblem({...entry,attributes:{}},[]).integrationUrl,"/config/integrations");
   assert.equal(integrationProblem(source("entity:a"),[{reason:"unavailable"}]),null);
-  assert.equal(integrationProblem(entry,[]),null);
-  assert.equal(integrationProblem(entry,[{reason:"dependents_failing"}]),null);
-  assert.equal(integrationProblem(entry,[{reason:"__proto__"}]),null);
-  assert.equal(integrationProblem(entry,[{node_id:"entry:other",reason:"setup_error"}]),null);
+  for(const findings of [[],[{reason:"dependents_failing"}],[{reason:"__proto__"}],[{node_id:"entry:other",reason:"setup_error"}]]){
+    const fallback=integrationProblem(entry,findings);
+    assert.equal(fallback.headline,"Connection status isn't confirmed");
+    assert.equal(fallback.tone,"uncertain");
+  }
 });
 
-
-test("retry presentation keeps earlier evidence separate from current unknown findings",()=>{
+test("a retry keeps the last timeout and its time distinct from current activity",()=>{
   const entry=source("entry:receiver",{kind:"integration",name:"Home Theater",attributes:{domain:["denonavr"]}});
   const failure={reason:"setup_retry",message:"Connection timed out",observed_at:"2026-09-25T15:42:00Z"};
   const current={reason:"setup_in_progress",message:"setup in progress",observed_at:"2026-09-25T15:44:00Z"};
   const evidence={current,last_failure:failure};
-  const result=integrationProblem(entry,[],()=>"Denon AVR",evidence);
-  assert.equal(result.headline,"Trying setup again");
-  assert.equal(result.reported,"Connection timed out");
+  const result=integrationProblem(entry,[],()=>null,evidence);
+  assert.equal(result.headline,"Receiver didn't respond");
   assert.equal(result.reportedAt,failure.observed_at);
   assert.equal(result.historical,true);
-  assert.match(result.summary,/Recovery is not yet confirmed/);
+  assert.match(result.summary,/last connection attempt timed out.*trying again/);
+  assert.equal(result.progress,"Retrying automatically");
   assert.equal(result.currentReason,"setup_in_progress");
-  assert.doesNotMatch(result.summary,/timed out/);
-  assert.equal(integrationProblem(entry,[],()=>null,{current,last_failure:null}).headline,"Integration starting");
+  assert.equal(integrationProblem(entry,[],()=>null,{current,last_failure:null}).headline,"Connection is starting");
   assert.equal(evidence.last_failure,failure);
 });
 
-test("disabled conditions and recovery stay distinct from failure and held unknown findings",()=>{
+test("historical errors cannot override disablement, reauthentication or recovery",()=>{
   const entry=source("entry:music",{kind:"integration",name:"Music Assistant"});
-  const disabled=integrationProblem(entry,[{reason:"stale",message:"Evidence is unknown"}],()=>null,
-    {current:{reason:"disabled"},last_failure:null});
-  assert.equal(disabled.headline,"Integration disabled");
+  const last_failure={reason:"setup_retry",message:"TimeoutException"};
+  const describe=(reason)=>integrationProblem(entry,[{reason:"stale"}],()=>null,{current:{reason},last_failure});
+  const disabled=describe("disabled");
+  assert.equal(disabled.headline,"Disabled in Home Assistant");
   assert.equal(disabled.tone,"neutral");
-  assert.match(disabled.summary,/availability is unknown/);
-  assert.doesNotMatch(disabled.summary,/broken|failed/);
-  const running=integrationProblem(entry,[],()=>null,{current:{reason:"loaded"},last_failure:null});
-  assert.equal(running.headline,"Integration running");
+  assert.match(disabled.nextStep,/If this is intentional/);
+  assert.equal(disabled.timedOut,false);
+  assert.equal(describe("auth_required").integrationLabel,"Sign in again");
+  const running=describe("loaded");
+  assert.equal(running.headline,"Checking recovery");
   assert.equal(running.reported,"");
-  assert.equal(running.historical,false);
+  assert.equal(running.needsAction,false);
+  assert.match(running.summary,/once recovery is confirmed/);
+  const healthy=integrationProblem(entry,[],()=>null,{current:{reason:"loaded"},last_failure},false);
+  assert.equal(healthy.headline,"Connection available");
+  assert.doesNotMatch(healthy.summary,/problem|recovery/);
+  assert.equal(healthy.needsAction,false);
 });
 
 test("history keeps terminal outcomes distinct and pages retained records", () => {

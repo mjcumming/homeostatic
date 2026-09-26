@@ -1,13 +1,13 @@
 # Homeostatic pilot
 
-The 0.1.0b4 pilot combines the live dashboard, availability enrollment, function readiness, notification policy, administrator controls and bounded resolution history. Start with passive observation. This build is for trying real equipment and recording what happens; it is not a completed production release.
+The 0.1.0b5 pilot combines the live dashboard, availability enrollment, function readiness, notification policy, administrator controls and bounded resolution history. Start with passive observation. This build is for trying real equipment and recording what happens; it is not a completed production release.
 
 ## Install
 
 The tested baseline is Home Assistant **2026.9.3** with Python 3.14. HA OS and Container manage Python themselves. Compatibility with other HA versions must be checked before installation. The integration requires access to PyPI on first setup to install its pinned **health-tree 0.3.0** dependency. No library checkout, editable install, Node.js or developer tools are needed on the HA host.
 
 1. Make a Home Assistant backup. If an earlier Homeostatic development build exists, save its component directory and HA backup together so code and stored data can be restored as a pair.
-2. Extract `homeostatic-0.1.0b4-pilot.zip` on your computer. `BUILD_INFO.json` identifies the exact commit and lists checksums for the packaged files. The adjacent `.sha256` file verifies the ZIP itself.
+2. Extract `homeostatic-0.1.0b5-pilot.zip` on your computer. `BUILD_INFO.json` identifies the exact commit and lists checksums for the packaged files. The adjacent `.sha256` file verifies the ZIP itself.
 3. Copy the extracted `custom_components/homeostatic` folder to your Home Assistant configuration directory, resulting in `<HA config>/custom_components/homeostatic/manifest.json`. On HA OS this configuration directory is normally `/config`; with Container it is the host directory mounted at `/config`. Use your existing method of accessing those configuration files. Replace an old component folder in full so obsolete files do not remain. Do not copy the whole repository or ZIP inside the component folder.
 4. Restart Home Assistant. In **Settings > Devices & services > Add integration**, search for **Homeostatic**. An existing entry should load the updated component after restart instead of creating another entry.
 5. Leave **Notification events** off. Narrow the passive availability rule using the first-observation guidance below before previewing or saving on a large installation. Open **Homeostatic** in the sidebar using an administrator account. No manual JavaScript-resource registration is needed.
@@ -53,7 +53,7 @@ Use expendable test equipment or a synthetic helper. Do not interrupt an essenti
 | New matching source | Enrollment and coverage update without editing the dashboard. |
 | Reload and full HA restart | The dashboard shows unavailability/disconnection, then fresh data; function definitions, history and active controls remain. |
 | Short maintenance window | Preview the exact scope first; use **Plan maintenance** in equipment details to create a brief bounded window; check expiry. Existing problems and situation alerts remain active. |
-| Shelve an open test problem | **Shelve alerts** in problem details retains the problem and pauses future alerts until expiry. Use a short window; early cancellation is not implemented. |
+| Shelve an open test problem | **Pause alerts** under **Manage this problem** in problem details retains the problem and pauses future alerts until expiry. Use a short window; early cancellation is not implemented. |
 
 Use the action examples in `README.md`, replacing node ids and timestamps with current values. History keeps the latest 100 observed terminal episodes within 30 days, including removal and absorption as distinct outcomes. It is not a complete activity log, and old history is not reconstructed on upgrade.
 

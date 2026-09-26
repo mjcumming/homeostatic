@@ -996,3 +996,14 @@ Implemented 2026-09-25 in the isolated dashboard increment. The spec remains the
 - Executable browser scenarios: `tests/frontend/history-controls.html`. Native WebSocket authorization and service response scenarios: `tests/test_dashboard_actions.py`.
 
 Large-inventory transfer/rendering remains separate unfinished work. The concurrent device-monitoring task owns runtime performance qualification; the concurrent location task owns the native floor/area hierarchy. This increment does not change enrollment or either task's code.
+
+
+## 22. Actionable problem details — 2026-09-25
+
+The owner approved replacing the diagnostic-first problem presentation with a short practical brief. Lead with a recognizable source, what HA reports, confirmed effects on configured home functions, the relevant next step and current progress. Do not turn a lost connection into a claim that equipment has stopped physically working.
+
+NuHeat timeouts suggest checking the NuHeat app; receiver timeouts suggest checking power and network. Request sign-in only when HA explicitly requires reauthentication. Keep disabled connections neutral and counted without assuming intent. During recovery confirmation, explain that the connection is running again and no action is needed yet.
+
+Move alert and maintenance actions under **Manage this problem**. Keep active control expiry visible. Put timestamped original errors and filtered logs under **Technical details**, with raw policy/query data one level deeper under **Diagnostic data**. Empty dependency explanations, normal importance, notification implementation notes and broad verification disclaimers do not belong in the main problem brief.
+
+The executable preview covers cloud timeout, receiver timeout, explicit sign-in, disabled and recovering states, plus unknown cause, safe text, real function impact and live disclosure preservation. The history/control fixture verifies existing actions and visible expiry notices. This increment changes presentation only; enrollment, health, recovery timing and notification decisions retain their existing contracts.

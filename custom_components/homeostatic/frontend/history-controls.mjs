@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs";
+import {escapeHtml as esc} from "./model.mjs?v=5";
 
 const date = (value) => value ? new Date(value).toLocaleString() : "Unknown";
 export const RESOLUTIONS = {
@@ -52,7 +52,7 @@ export function controlsPanel(data, targets = null, saved = null) {
   const names = new Map(data.inventory.nodes.map((source) => [source.node_id, source.name]));
   for (const episode of data.inventory.episodes) names.set(episode.episode_id, names.get(episode.anchor) ?? episode.anchor);
   const records = saved ? [saved] : (data.inventory.operator_controls ?? []).filter((item) => !targets || targets.includes(item.target));
-  return `<section class="panel"><div class="panel-head"><h2>${saved ? "Saved control" : "Active controls"}</h2></div><div class="body">${records.length ? records.map((item) => `<div class="note"><strong>${item.action === "shelve" ? "Alerts shelved" : "Equipment maintenance"} · ${esc(names.get(item.target) ?? item.target)}</strong><p>Until ${esc(date(item.until))}</p>${item.action === "maintenance" ? `<p>${item.include_dependents ? "Includes graph dependents" : "Selected equipment only"}. Existing problems and alerts remain active.</p>` : "<p>New alerts are held for every recipient, including urgent alerts. The problem remains open.</p>"}${item.reason ? `<p>${esc(item.reason)}</p>` : ""}</div>`).join("") : '<p class="sub">No active shelving or maintenance.</p>'}<p class="small">Controls expire automatically. Early cancellation is not available.</p></div></section>`;
+  return `<section class="panel"><div class="panel-head"><h2>${saved ? "Saved control" : "Active controls"}</h2></div><div class="body">${records.length ? records.map((item) => `<div class="note"><strong>${item.action === "shelve" ? "Alerts paused" : "Equipment maintenance"} · ${esc(names.get(item.target) ?? item.target)}</strong><p>Until ${esc(date(item.until))}</p>${item.action === "maintenance" ? `<p>${item.include_dependents ? "Includes graph dependents" : "Selected equipment only"}. Existing problems and alerts remain active.</p>` : "<p>New alerts are held for every recipient, including urgent alerts. The problem remains open.</p>"}${item.reason ? `<p>${esc(item.reason)}</p>` : ""}</div>`).join("") : '<p class="sub">No active shelving or maintenance.</p>'}<p class="small">Controls expire automatically. Early cancellation is not available.</p></div></section>`;
 }
 
 export class DashboardTools {
@@ -104,7 +104,7 @@ export class DashboardTools {
   }
 
   detailButtons(source, episode, data) {
-    return `<section class="detail"><h3>Manage alerts and maintenance</h3><div class="actions">${episode ? `<button type="button" class="button" data-shelf="${esc(episode.episode_id)}">Shelve alerts…</button>` : ""}${["entity", "integration", "external"].includes(source.kind) ? `<button type="button" class="button" data-maintenance="${esc(source.node_id)}">Plan maintenance…</button>` : ""}</div>${controlsPanel(data, [source.node_id, episode?.episode_id])}</section>`;
+    return `<section class="detail"><div class="actions">${episode ? `<button type="button" class="button" data-shelf="${esc(episode.episode_id)}">Pause alerts…</button>` : ""}${["entity", "integration", "external"].includes(source.kind) ? `<button type="button" class="button" data-maintenance="${esc(source.node_id)}">Plan maintenance…</button>` : ""}</div>${(data.inventory.operator_controls ?? []).some((item) => [source.node_id, episode?.episode_id].includes(item.target)) ? controlsPanel(data, [source.node_id, episode?.episode_id]) : ""}</section>`;
   }
 
   clicked(event) {
@@ -174,8 +174,8 @@ export class DashboardTools {
     const inventory = this.card.current.data.inventory;
     const nodeId = kind === "shelve" ? inventory.episodes.find((item) => item.episode_id === target).anchor : target;
     const name = inventory.nodes.find((item) => item.node_id === nodeId)?.name ?? nodeId;
-    this.dialog.querySelector("h2").textContent = kind === "shelve" ? "Shelve alerts" : "Plan equipment maintenance";
-    this.body.innerHTML = `<p><strong>${esc(name)}</strong></p><p>${kind === "shelve" ? "Hold new alerts for every recipient, including urgent alerts, reminders and escalations. Existing messages stay visible and the problem remains open." : "Prevent new equipment problems during the selected window. Current problems, alerts, observations and function readiness stay active. Situations are unaffected."}</p><p class="small">Choose an end time within seven days. Early cancellation is not available.${kind === "shelve" ? " An existing shelf can only be extended." : ""}</p><form class="tool-form"><label>End date and time (your local time)<input type="datetime-local" name="untilLocal" required></label>${kind === "maintenance" ? '<label class="check-field"><input type="checkbox" name="includeDependents"> Include dependency-graph dependents</label>' : ""}<label>Reason (optional)<textarea name="reason" maxlength="500" rows="3"></textarea></label><div data-control-preview></div><p data-control-feedback role="status"></p><div class="actions">${kind === "maintenance" ? '<button class="button" type="button" data-tool="preview">Preview affected scope</button>' : ""}<button class="button primary" type="submit">${kind === "shelve" ? "Shelve alerts" : "Start maintenance"}</button></div></form>`;
+    this.dialog.querySelector("h2").textContent = kind === "shelve" ? "Pause alerts" : "Plan equipment maintenance";
+    this.body.innerHTML = `<p><strong>${esc(name)}</strong></p><p>${kind === "shelve" ? "Hold new alerts for every recipient, including urgent alerts, reminders and escalations. Existing messages stay visible and the problem remains open." : "Prevent new equipment problems during the selected window. Current problems, alerts, observations and function readiness stay active. Situations are unaffected."}</p><p class="small">Choose an end time within seven days. Early cancellation is not available.${kind === "shelve" ? " An existing shelf can only be extended." : ""}</p><form class="tool-form"><label>End date and time (your local time)<input type="datetime-local" name="untilLocal" required></label>${kind === "maintenance" ? '<label class="check-field"><input type="checkbox" name="includeDependents"> Include dependency-graph dependents</label>' : ""}<label>Reason (optional)<textarea name="reason" maxlength="500" rows="3"></textarea></label><div data-control-preview></div><p data-control-feedback role="status"></p><div class="actions">${kind === "maintenance" ? '<button class="button" type="button" data-tool="preview">Preview affected scope</button>' : ""}<button class="button primary" type="submit">${kind === "shelve" ? "Pause alerts" : "Start maintenance"}</button></div></form>`;
     this.dialog.showModal();
     this.refreshFormState();
   }
