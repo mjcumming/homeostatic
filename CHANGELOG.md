@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.1.0b7] - 2026-09-25
+
+### Changed
+
+- Entity problem cards and details now identify the light or sensor, explain the missing reading or control path, suggest a relevant first check and link to native entity/device details. Current evidence distinguishes unknown, missing, restored, disabled and recovering states; a known connection problem remains separate from the device symptom.
+
 ## [0.1.0b6] - 2026-09-25
 
 ### Added

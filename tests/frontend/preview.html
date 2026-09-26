@@ -10,7 +10,7 @@
   </style>
 </head>
 <body>
-  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="menu-check">Run menu regression</button><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="problem-check">Run problem regression</button><span id="feedback" role="status"></span></div>
+  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="light">Light unavailable</option><option value="occupancy">Occupancy sensor unavailable</option><option value="entity-recovery">Light recovering</option><option value="entity-unknown">Light state unknown</option><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="entity-check">Run entity regression</button><button type="button" id="menu-check">Run menu regression</button><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="problem-check">Run problem regression</button><span id="feedback" role="status"></span></div>
   <homeostatic-panel></homeostatic-panel>
   <script type="module">
     import "../../custom_components/homeostatic/frontend/homeostatic.js";
@@ -29,7 +29,24 @@
       node_id,name,kind,requirements:[],attributes:{},attached_by:["passive_availability"],
       excluded_by:[],watched:true,entity_id:null,entry_id:null,owner_id:null,...extra,
     });
+    function entityData(){
+      const sensor=scenario.value==="occupancy",recovering=scenario.value==="entity-recovery",unknown=scenario.value==="entity-unknown";
+      const source=baseSource("entity:closet",unsafe.checked?'<img src=x onerror="alert(1)">':sensor?"Hallway":"Closet","entity",{
+        entity_id:sensor?"binary_sensor.hallway":"light.closet",owner_id:"matter",
+        attributes:{domain:[sensor?"binary_sensor":"light"],device_class:sensor?["occupancy"]:[],device:["demo-device"],area:["upstairs"]}});
+      const owner=baseSource("entry:matter","Matter","integration",{entry_id:"matter",attributes:{domain:["matter"]}});
+      const findings=recovering?[]:[{node_id:source.node_id,reason:unknown?"state_unknown":"unavailable",status:unknown?"unknown":"fail"}];
+      const readiness={answer:recovering?"ready":unknown?"unknown":"blocked",nodes:[]};
+      const status={current:{reason:recovering?"available":unknown?"state_unknown":"unavailable"},explanation:{findings,nodes:[]},readiness};
+      return {schema_version:1,available:true,entry_id:"demo",updated_at:"2026-09-25T15:52:00Z",readiness,functions:[],evidence_gaps:unknown?1:0,
+        inventory:{nodes:[source,owner],entity_status:{[source.node_id]:status},integration_evidence:{},catalog:{watched:2,candidates:[source,owner]},
+          episodes:[{episode_id:"entity-episode",anchor:source.node_id,status:"fail",importance:"normal",impact:[],reasons:[{node_id:source.node_id,reason:"unavailable"}],opened_at:"2026-09-25T15:42:00Z"}],
+          operator_controls:[],enrollment_changes:[],notification_requests:[]},
+        coverage:{no_checks:[],never_observed:[],stale:[]},policy:{notifications_enabled:false,routes:{},episodes:[]},
+        areas:[{id:"upstairs",name:"Upstairs",floor_id:null}],floors:[]};
+    }
     function data(){
+      if(["light","occupancy","entity-recovery","entity-unknown"].includes(scenario.value))return entityData();
       if(scenario.value==="unloaded")return{schema_version:1,available:false,updated_at:"2026-09-25T15:52:00Z",error:null};
       const integrationExample=["setup","cause","auth","retry","receiver","starting","recovering","disabled"].includes(scenario.value);
       const failing=scenario.value==="failure"||integrationExample,unknown=scenario.value==="unknown";
@@ -55,9 +72,10 @@
         policy:{notifications_enabled:false,routes:{owner:["phone"]},episodes:[]},
         areas:[{id:"basement",name:"Basement",floor_id:"lower"}],floors:[{id:"lower",name:"Lower floor"}]};
     }
-    const hass={connection,localize(key){return key==="component.nuheat.title"?"NuHeat":key==="component.frigate.title"?"Frigate":key==="component.denonavr.title"?"Denon AVR":null;},user:{id:"demo",is_admin:true},async callWS({node_id}){
+    const hass={connection,localize(key){return key==="component.matter.title"?"Matter":key==="component.nuheat.title"?"NuHeat":key==="component.frigate.title"?"Frigate":key==="component.denonavr.title"?"Denon AVR":null;},user:{id:"demo",is_admin:true},async callWS({node_id}){
       const current=data(),source=current.inventory?.nodes.find(item=>item.node_id===node_id);
       if(!source)throw{message:"This capability is no longer monitored"};
+      if(current.inventory.entity_status?.[node_id])return{source,entity_status:current.inventory.entity_status[node_id],...current.inventory.entity_status[node_id],impact:{nodes:[]},updated_at:current.updated_at};
       return{source,integration_evidence:current.inventory.integration_evidence[node_id],readiness:current.readiness,updated_at:current.updated_at,
         explanation:{findings:current.inventory.episodes[0]?.reasons??[],nodes:source.kind==="function"?current.readiness.nodes:[]},
         impact:{nodes:current.inventory.nodes.filter(n=>n.node_id!==node_id).map(n=>({node_id:n.node_id,importance:"normal"}))}};
@@ -142,6 +160,32 @@
         body.querySelectorAll("details").forEach(item=>item.open=false);
         feedback.textContent="PASS: NuHeat timeout, receiver timeout, sign-in, disabled, recovery, action links, owner/technical separation, live disclosures and safe content";
       } catch(error) {feedback.textContent="FAIL: "+error.message;}
+    });
+    document.querySelector("#entity-check").addEventListener("click",async()=>{
+      const feedback=document.querySelector("#feedback");
+      const expect=(ok,message)=>{if(!ok)throw new Error(message);};
+      try {
+        scenario.value="light";change();card.openDetail({episodeId:"entity-episode"});await card.loadDetail();
+        const body=card.shadowRoot.querySelector(".dialog-body");
+        expect(body.innerText.includes("Light · Upstairs · via Matter"),"Identify capability, area and provider");
+        expect(body.innerText.includes("wall switch, if it has one"),"Light has a relevant first check");
+        expect(card.main.innerText.includes("Light unavailable"),"Card and detail agree");
+        expect(body.querySelector('a[href="/config/devices/device/demo-device"]'),"Device page is directly reachable");
+        body.querySelector("[data-entity]").click();
+        expect(feedback.textContent==="Entity requested: light.closet","Entity action opens native details");
+        await new Promise(resolve=>card.dialog.addEventListener("close",resolve,{once:true}));
+        card.openDetail({episodeId:"entity-episode"});await card.loadDetail();
+        scenario.value="entity-recovery";change();await card.loadDetail();
+        expect(body.innerText.includes("Checking recovery")&&card.main.innerText.includes("Checking recovery"),"Historical failure cannot override current recovery");
+        scenario.value="entity-unknown";change();await card.loadDetail();
+        expect(body.innerText.includes("Waiting for a known state")&&!body.innerText.includes("Checking recovery"),"Unknown evidence is not recovery");
+        scenario.value="occupancy";change();await card.loadDetail();
+        expect(body.innerText.includes("Occupancy sensor")&&body.innerText.includes("sensor's power or battery"),"Detection sensor has its own guidance");
+        unsafe.checked=true;change();await card.loadDetail();
+        expect(!body.querySelector("img")&&!card.main.querySelector("img"),"Entity names are escaped");
+        unsafe.checked=false;scenario.value="light";change();await card.loadDetail();
+        feedback.textContent="PASS: device identity, light/sensor guidance, current recovery and unknown evidence, native links and safe content";
+      } catch(error){feedback.textContent="FAIL: "+error.message;}
     });
     card.addEventListener("hass-toggle-menu",()=>{document.querySelector("#feedback").textContent="Home Assistant menu requested (synthetic preview)";});
     document.querySelector("#menu-check").addEventListener("click",()=>{

@@ -29,7 +29,7 @@ from .serialization import json_object
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=6"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=7"
 
 
 def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
@@ -209,6 +209,7 @@ def websocket_node(
         {
             "source": json_object(source),
             "integration_evidence": runtime.integration_evidence.view(node_id),
+            "entity_status": runtime.entity_status(node_id),
             "explanation": runtime.query("explain", {"node_id": node_id}),
             "impact": runtime.query("impact", {"node_id": node_id}),
             "readiness": (

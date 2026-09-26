@@ -1,9 +1,9 @@
 import {affectedFunctions, browseHighlights, dashboardStore, escapeHtml as esc,
   inventoryRows, locationList, locationTree, monitoringLabel, sortedEpisodes,
-  sourceMap, sourcePage} from "./model.mjs?v=6";
-import {integrationProblem} from "./problem.mjs?v=6";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=6";
-import {styles} from "./styles.mjs?v=6";
+  sourceMap, sourcePage} from "./model.mjs?v=7";
+import {entityProblem, integrationProblem} from "./problem.mjs?v=7";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=7";
+import {styles} from "./styles.mjs?v=7";
 
 const VIEWS = ["overview", "house", "coverage", "functions", "problems", "history"];
 const status = (value) => {
@@ -157,10 +157,11 @@ class HomeostaticCard extends HTMLElement {
       const situation = source?.kind === "situation";
       const affected = affectedFunctions(data, episode);
       const title = source?.name ?? "Monitored connection";
-      const problem = integrationProblem(source, episode.reasons, (key) => this._hass.localize?.(key), data.inventory.integration_evidence?.[episode.anchor]);
+      const problem = integrationProblem(source, episode.reasons, (key) => this._hass.localize?.(key), data.inventory.integration_evidence?.[episode.anchor]) ??
+        entityProblem(source, data.inventory.entity_status?.[episode.anchor], nodes.get(`entry:${source?.owner_id}`), data.areas, (key) => this._hass.localize?.(key));
       const summary = problem?.summary ?? (situation ? "This reported condition remains open. Check its current state." : "Home Assistant reports a problem. Open the details to check what is affected.");
       const impact = affected.map((item) => `${item.name}: ${ownerStatus(item.readiness.answer).toLowerCase()}`).join("; ");
-      return `<section class="issue ${problem?.tone ?? (situation ? "situation" : "failure")}"><p class="small">${esc(problem?.integration ?? (situation ? "Situation" : "Home Assistant"))}${["high","critical"].includes(episode.importance) ? ` · ${esc(episode.importance === "critical" ? "Critical" : "Important")}` : ""}</p><h2>${esc(title)}</h2>${problem ? `<h3 class="issue-condition">${esc(problem.headline)}</h3>` : ""}<p>${esc(summary)}</p>${impact ? `<p class="impact-line">${esc(impact)}</p>` : ""}<p class="small problem-progress">Since ${esc(date(episode.opened_at))}${problem ? ` · ${esc(problem.progress)}` : ""}</p><div class="actions">${problem?.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : ""}<button type="button" class="${problem?.needsAction ? "link" : "button"}" data-episode="${esc(episode.episode_id)}">View details</button></div></section>`;
+      return `<section class="issue ${problem?.tone ?? (situation ? "situation" : "failure")}"><p class="small">${esc(problem?.context ?? problem?.integration ?? (situation ? "Situation" : "Home Assistant"))}${["high","critical"].includes(episode.importance) ? ` · ${esc(episode.importance === "critical" ? "Critical" : "Important")}` : ""}</p><h2>${esc(title)}</h2>${problem ? `<h3 class="issue-condition">${esc(problem.headline)}</h3>` : ""}<p>${esc(summary)}</p>${impact ? `<p class="impact-line">${esc(impact)}</p>` : ""}<p class="small problem-progress">Since ${esc(date(episode.opened_at))}${problem ? ` · ${esc(problem.progress)}` : ""}</p><div class="actions">${problem?.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : ""}<button type="button" class="${problem?.needsAction ? "link" : "button"}" data-episode="${esc(episode.episode_id)}">${source?.kind === "entity" ? "What to check" : "View details"}</button></div></section>`;
     }).join("");
   }
 
@@ -278,11 +279,12 @@ class HomeostaticCard extends HTMLElement {
       this.shadowRoot.querySelector("#detail-label").textContent = source.kind === "situation" ? "Situation" : episode ? "Open problem" : "Capability";
       const currentFunctions = episode ? affectedFunctions(data, episode) : [];
       const findings = result.explanation.findings;
-      const problem = integrationProblem(source, findings, (key) => this._hass.localize?.(key), result.integration_evidence, Boolean(episode));
+      const problem = integrationProblem(source, findings, (key) => this._hass.localize?.(key), result.integration_evidence, Boolean(episode)) ??
+        entityProblem(source, result.entity_status, nodes.get(`entry:${source.owner_id}`), data.areas, (key) => this._hass.localize?.(key), Boolean(episode));
       const dependencies = result.explanation.nodes.filter((node) => node.node_id !== nodeId);
       const unwatched = result.readiness?.nodes.filter((node) => !node.watched) ?? [];
-      const nativeLink = problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : "") : source.entity_id
-        ? `<button class="button primary" type="button" data-entity="${esc(source.entity_id)}">View in Home Assistant</button>`
+      const nativeLink = source.kind === "integration" && problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : "") : source.entity_id
+        ? `<button class="button primary" type="button" data-entity="${esc(source.entity_id)}">${esc(problem?.entityLabel ?? "View in Home Assistant")}</button>`
         : source.entry_id || source.owner_id ? '<a class="button primary" href="/config/integrations">Review connection</a>' : "";
       const explanation = episode ? data.policy.episodes.find((item) => item.episode_id === episode.episode_id) : null;
       const controls = (data.inventory.operator_controls ?? []).filter((control) => [episode?.episode_id, nodeId].includes(control.target));
@@ -290,9 +292,10 @@ class HomeostaticCard extends HTMLElement {
       const disclosure = (key) => `data-disclosure="${key}"${expanded.has(key) ? " open" : ""}`;
       const genericSummary = source.kind === "situation" ? (episode ? "This reported condition remains open. Check its current state." : "No open problem is reported for this condition.")
         : result.readiness ? `${ownerStatus(result.readiness.answer)} in Home Assistant.` : "Current status has not been confirmed.";
-      body.innerHTML = `<section class="detail problem-brief">${problem ? `<p class="small">${esc(problem.integration)}</p><h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}</section>
+      body.innerHTML = `<section class="detail problem-brief">${problem ? `<p class="small">${esc(problem.context ?? problem.integration)}</p><h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}</section>
         ${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}
-        <section class="detail next-action"><h3>What you can do</h3><p>${esc(problem?.nextStep ?? (nativeLink ? "Check the current state in Home Assistant." : "Check the listed requirements to find what needs attention."))}</p>${nativeLink ? `<div class="actions">${nativeLink}</div>` : ""}</section>
+        ${problem?.connectionNote ? `<section class="detail"><p>${esc(problem.connectionNote)}</p><button class="link" data-node="${esc(problem.connectionNode)}">${esc(problem.connectionLabel)}</button></section>` : ""}
+        <section class="detail next-action"><h3>What you can do</h3><p>${esc(problem?.nextStep ?? (nativeLink ? "Check the current state in Home Assistant." : "Check the listed requirements to find what needs attention."))}</p>${nativeLink || problem?.deviceUrl ? `<div class="actions">${nativeLink}${problem?.deviceUrl ? `<a class="button" href="${esc(problem.deviceUrl)}">Open device page</a>` : ""}</div>` : ""}</section>
         <p class="small problem-progress">${episode ? `Since ${esc(date(episode.opened_at))}` : "Current status"}${problem ? ` · ${esc(problem.progress)}` : ""}</p>
         ${controls.map((control) => `<p class="control-notice">${control.action === "shelve" ? "Alerts paused" : "Maintenance"} until ${esc(date(control.until))}.</p>`).join("")}
         <details ${disclosure("manage")}><summary>${episode ? "Manage this problem" : "Manage this device"}</summary>${this.tools.detailButtons(source, episode, data)}</details>

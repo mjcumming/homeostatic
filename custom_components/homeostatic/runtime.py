@@ -59,7 +59,7 @@ from .const import DOMAIN, EVENT_NOTIFICATION, NAME, RECONCILE_INTERVAL, STORE_V
 from .controls import OperatorControl, expiry, presentation, restore_controls
 from .delivery import DeliveryState
 from .enrollment import evaluate, inventory, report, restore_enrollment
-from .evidence import IntegrationEvidence
+from .evidence import IntegrationEvidence, ReportedCondition
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
 from .rules import Attributes, parse_rules
@@ -92,6 +92,7 @@ class Runtime:
         self.episodes: dict[str, dict[str, JSONValue]] = {}
         self.history = ResolvedHistory()
         self.integration_evidence = IntegrationEvidence()
+        self.entity_evidence: dict[str, ReportedCondition] = {}
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
         self._legacy_notifications: set[str] = set()
@@ -607,6 +608,11 @@ class Runtime:
                 if source.entity_id and source.watched:
                     self._entity_sources.setdefault(source.entity_id, []).append(source)
         self.sources = sources
+        self.entity_evidence = {
+            key: value
+            for key, value in self.entity_evidence.items()
+            if key in sources and sources[key].watched
+        }
         self.integration_evidence.retain(
             {
                 source.node_id
@@ -663,6 +669,12 @@ class Runtime:
             source = self.sources[observation.node_id]
             if source.kind == "integration":
                 self.integration_evidence.observe(observation, source.name)
+            elif source.kind == "entity":
+                self.entity_evidence[source.node_id] = ReportedCondition(
+                    reason=observation.reason,
+                    message=observation.message or "",
+                    observed_at=observation.observed_at,
+                )
 
     def _observe_entry(self, source: Source, now: datetime) -> Observation:
         assert source.entry_id is not None
@@ -926,6 +938,17 @@ class Runtime:
             return json_object(self.engine.impact(data["node_id"]))
         return json_object(self.engine.explain(data["node_id"]))
 
+    def entity_status(self, node_id: str) -> dict[str, JSONValue] | None:
+        """Present captured HA state alongside current public library answers."""
+        current = self.entity_evidence.get(node_id)
+        if current is None:
+            return None
+        return {
+            "current": json_object(current),
+            "explanation": self.query("explain", {"node_id": node_id}),
+            "readiness": self.query("readiness", {"node_ids": [node_id]}),
+        }
+
     def inventory_updates(self) -> dict[str, JSONValue]:
         """Read dynamic inventory evidence without rebuilding catalog metadata."""
         return {
@@ -936,6 +959,11 @@ class Runtime:
                 )
                 for episode in self.episodes.values()
                 if self.sources[str(episode["anchor"])].kind == "integration"
+            },
+            "entity_status": {
+                str(episode["anchor"]): self.entity_status(str(episode["anchor"]))
+                for episode in self.episodes.values()
+                if self.sources[str(episode["anchor"])].kind == "entity"
             },
             "resolved_history": self.history.view(dt_util.utcnow()),
             "operator_controls": [json_object(control) for control in self.controls],

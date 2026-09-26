@@ -3,6 +3,7 @@
 from typing import Any
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components import frontend
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import CoreState, HomeAssistant
@@ -10,7 +11,10 @@ from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import floor_registry as fr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.homeostatic.const import DOMAIN
@@ -42,6 +46,7 @@ async def test_dashboard_observation_scenarios(
     assert data["schema_version"] == 1
     assert data["readiness"]["answer"] == scenario["readiness"]
     assert len(data["inventory"]["episodes"]) == scenario["episodes"]
+    assert runtime.engine is not None
     assert runtime.engine is not None
     before = runtime.engine.snapshot()
     await client.send_json({"id": 2, "type": "homeostatic/node", "node_id": NODE})
@@ -248,6 +253,64 @@ async def test_setup_error_detail_survives_episode_and_recovers(
     recovered = (await client.receive_json())["result"]
     assert recovered["explanation"]["findings"] == []
     assert recovered["readiness"]["answer"] == "ready"
+    assert runtime.episodes == {}
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.close()
+
+
+async def test_entity_brief_uses_current_queries_through_unknown_and_recovery(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Compact cards and node details agree while one problem changes condition."""
+    config_data["timings"]["clear_hold"] = 120
+    config_data["notifications"] = False
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    hass.states.async_set("sensor.observed", "unavailable")
+    runtime = await start_monitor(hass, entry)
+    episode_id = next(iter(runtime.episodes))
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/subscribe", "compact": True})
+    assert (await client.receive_json())["success"]
+    initial = (await client.receive_json())["event"]
+    assert (
+        initial["inventory"]["entity_status"][NODE]["explanation"]["findings"][0][
+            "reason"
+        ]
+        == "unavailable"
+    )
+    hass.states.async_set("sensor.observed", "unknown")
+    await hass.async_block_till_done()
+    unknown = (await client.receive_json())["event"]
+    assert unknown["inventory_changed"] is False
+    assert (
+        unknown["inventory"]["entity_status"][NODE]["current"]["reason"]
+        == "state_unknown"
+    )
+    assert (
+        unknown["inventory"]["entity_status"][NODE]["readiness"]["answer"] == "unknown"
+    )
+    hass.states.async_set("sensor.observed", "42")
+    await hass.async_block_till_done()
+    recovering = (await client.receive_json())["event"]
+    assert list(runtime.episodes) == [episode_id]
+    context = recovering["inventory"]["entity_status"][NODE]
+    assert context["explanation"]["findings"] == []
+    assert context["current"]["reason"] == "available"
+    assert context["readiness"]["answer"] == "unknown"
+    assert runtime.engine is not None
+    before = runtime.engine.snapshot()
+    await client.send_json({"id": 2, "type": "homeostatic/node", "node_id": NODE})
+    detail = (await client.receive_json())["result"]
+    assert detail["entity_status"] == context
+    assert runtime.engine.snapshot() == before
+    freezer.tick(121)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    resolved = (await client.receive_json())["event"]
+    assert resolved["inventory"]["entity_status"] == {}
     assert runtime.episodes == {}
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()

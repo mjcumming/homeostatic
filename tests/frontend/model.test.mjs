@@ -1,4 +1,4 @@
-import {integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
+import {entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import {historyPage, controlPayload, controlAllowed, callAction, controlsPanel, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
@@ -332,4 +332,67 @@ test("invalid compact data clears the view and a new full baseline restores it",
   client.callback({...example(),schema_version:2,catalog_revision:3,inventory_changed:true});
   assert.equal(store.state.status,"current");
   stop();
+});
+
+
+const light = source("entity:light", {name:"Closet",entity_id:"light.closet",owner_id:"matter",
+  attributes:{domain:["light"],area:["upstairs"],device:["device/one"]}});
+const matter = source("entry:matter", {kind:"integration",attributes:{domain:["matter"]}});
+const entityStatus = (reason, answer = "blocked", nodes = []) => ({
+  current:reason ? {reason} : null,
+  explanation:{findings:reason ? [{node_id:light.node_id,reason}] : [],nodes},readiness:{answer},
+});
+
+test("light brief names capability, area and provider without diagnosing the physical fault",()=>{
+  const result=entityProblem(light,entityStatus("unavailable"),matter,[{id:"upstairs",name:"Upstairs"}],()=>"Matter");
+  assert.equal(result.context,"Light · Upstairs · via Matter");
+  assert.equal(result.headline,"Light unavailable");
+  assert.match(result.summary,/can't tell whether this light is on or off/);
+  assert.match(result.nextStep,/wall switch, if it has one/);
+  assert.doesNotMatch(result.summary,/broken|lost power|dead battery/);
+  assert.equal(result.deviceUrl,"/config/devices/device/device%2Fone");
+  assert.equal(result.entityLabel,"Open light details");
+  assert.equal(result.connectionNote,null);
+});
+
+test("occupancy, motion and generic sensor guidance follows actual metadata",()=>{
+  for(const deviceClass of ["occupancy","motion","temperature"]){
+    const sensor={...light,entity_id:"binary_sensor.hall",attributes:{domain:["binary_sensor"],device_class:[deviceClass]}};
+    const result=entityProblem(sensor,entityStatus("unavailable"));
+    assert.equal(result.summary.includes("detection reading"),deviceClass!=="temperature");
+    assert.equal(result.nextStep.includes("someone enters"),deviceClass!=="temperature");
+    assert.equal(result.nextStep.includes("wall switch"),false);
+  }
+  const virtual={...light,entity_id:"sensor.virtual",attributes:{}};
+  assert.doesNotMatch(entityProblem(virtual,entityStatus("unavailable")).nextStep,/battery|wall switch/);
+});
+
+for(const [reason,headline] of [
+  ["state_unknown","Waiting for a known state"],["source_missing","No current state found"],
+  ["restored_state","Waiting for a fresh reading"],["stale","Reading is out of date"],
+  ["disabled","Disabled in Home Assistant"],["__proto__","Current condition isn't confirmed"],
+]){
+  test(`entity ${reason} stays distinct from physical failure and recovery`,()=>{
+    const result=entityProblem(light,entityStatus(reason,"unknown"));
+    assert.equal(result.headline,headline);
+    assert.doesNotMatch(result.summary,/is broken|receiving a state.*again/);
+  });
+}
+
+test("entity recovery needs a current observation or ready query, not missing findings",()=>{
+  assert.equal(entityProblem(light,entityStatus(null,"ready")).headline,"Checking recovery");
+  assert.equal(entityProblem(light,entityStatus(null,"ready"),null,[],()=>null,false).headline,"Light available");
+  assert.equal(entityProblem(light,{...entityStatus(null,"blocked"),current:{reason:"available"}}).headline,"Checking recovery");
+  assert.equal(entityProblem(light,null).currentReason,"unknown");
+  assert.equal(entityProblem({...light,watched:false},entityStatus(null,"ready")).currentReason,"unknown");
+  assert.equal(entityProblem({...light,disabled:true},entityStatus(null,"ready")).currentReason,"disabled");
+  const dependencies=[{node_id:matter.node_id,own:"fail"}];
+  const blocked=entityProblem(light,entityStatus(null,"blocked",dependencies),matter);
+  assert.equal(blocked.headline,"Connection needs attention");
+  assert.equal(blocked.connectionNode,matter.node_id);
+  const unavailable=entityProblem(light,entityStatus("unavailable","blocked",dependencies),matter);
+  assert.equal(unavailable.headline,"Light unavailable");
+  assert.match(unavailable.connectionNote,/also needs attention/);
+  assert.doesNotMatch(unavailable.summary,/caused by|because/);
+  assert.equal(entityProblem(matter,null),null);
 });

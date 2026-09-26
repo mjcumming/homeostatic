@@ -1029,3 +1029,16 @@ transition. The narrow synthetic scope passed the proposed burst budgets with
 real storage and WebSocket delivery. Broad 6,000-check monitoring remains
 unqualified; see [the measured limits](testing/runtime-scaling.md). Device-first
 grouping and selective capability profiles remain separate planned UI work.
+
+## 24. Explain device capabilities
+
+An entity name alone does not explain the problem. The owner brief now names the
+capability (for example, Light or Occupancy sensor), its known area and provider,
+then describes what HA cannot report or control. Light guidance starts with power
+and a wall switch if present. Detection-sensor guidance starts with power/battery
+and checking for a new reading. These are checks, not diagnoses of a failed device.
+
+Native entity details and known device pages are directly reachable. A watched
+owner connection needing attention is explained separately. Current public query
+results drive both the card and dialog, including unknown evidence and recovery
+confirmation; historical episode reasons never stand in for current state.
