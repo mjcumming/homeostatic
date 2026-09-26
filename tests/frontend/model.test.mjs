@@ -2,8 +2,9 @@ import {integrationProblem} from "../../custom_components/homeostatic/frontend/p
 import {historyPage, controlPayload, controlAllowed, callAction, controlsPanel, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {DashboardStore, affectedFunctions, areaGroups, dashboardStore, escapeHtml,
-  inventoryRows, monitoringLabel, sortedEpisodes} from "../../custom_components/homeostatic/frontend/model.mjs";
+import {DashboardStore, affectedFunctions, browseHighlights, dashboardStore,
+  escapeHtml, inventoryRows, locationList, locationTree, monitoringLabel,
+  sortedEpisodes} from "../../custom_components/homeostatic/frontend/model.mjs";
 
 function source(id, fields = {}) {
   return {node_id:id,name:id,kind:"entity",attributes:{},watched:true,
@@ -51,17 +52,29 @@ test("inventory retains excluded candidates and uses current registered metadata
   assert.equal(monitoringLabel(source("x",{watched:false})),"Unwatched");
   assert.equal(monitoringLabel(source("x")),"Watched");
 });
-test("area moves regroup by identity without losing unassigned sources",()=>{
+test("native locations form a floor and area tree with distinct fallback groups",()=>{
   const data=example();
+  data.floors.push({id:"upper",name:"Upper floor"});
+  data.areas.push({id:"yard",name:"Back yard",floor_id:null});
   const before=structuredClone(data);
-  let groups=areaGroups(data);
-  assert.equal(groups.find(x=>x.id==="garage").sources[0].node_id,"sensor.a");
-  assert.equal(groups.find(x=>x.id==="").sources.length,2);
+  let tree=locationTree(data);
+  let locations=locationList(tree);
+  assert.deepEqual(tree.map(x=>x.name),[
+    "Main floor","Upper floor","Areas without a floor","Unassigned",
+  ]);
+  assert.equal(locations.find(x=>x.id==="area:garage").sources[0].node_id,"sensor.a");
+  assert.equal(locations.find(x=>x.id==="area:yard").sources.length,0);
+  assert.equal(locations.find(x=>x.id==="floor:upper").children.length,0);
+  assert.equal(locations.find(x=>x.id==="group:unassigned").sources.length,2);
+  assert.deepEqual(browseHighlights(data).map(x=>x.id),[
+    "area:garage","group:unassigned",
+  ]);
   assert.deepEqual(data,before);
   data.inventory.nodes[0].attributes.area=["missing"];
-  groups=areaGroups(data);
-  assert.equal(groups.length,1);
-  assert.equal(groups[0].sources.length,3);
+  tree=locationTree(data);
+  locations=locationList(tree);
+  assert.equal(locations.find(x=>x.id==="area:garage").sources.length,0);
+  assert.equal(locations.find(x=>x.id==="group:unassigned").sources.length,3);
 });
 test("problem ordering uses importance and stable onset",()=>{
   const data=example();

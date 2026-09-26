@@ -35,21 +35,80 @@ export function monitoringLabel(source) {
   return source.watched ? "Watched" : "Unwatched";
 }
 
-export function areaGroups(data) {
-  const floors = new Map(data.floors.map((floor) => [floor.id, floor.name]));
+const byName = (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+
+function uniqueSources(sources) {
+  return [...new Map(sources.map((source) => [source.node_id, source])).values()];
+}
+
+export function locationTree(data) {
   const rows = inventoryRows(data);
-  const areas = data.areas.map((area) => ({
-    ...area,
-    floor: floors.get(area.floor_id) ?? "Areas",
-    sources: rows.filter((source) => source.attributes.area?.includes(area.id)),
-  })).filter((area) => area.sources.length);
-  const ids = new Set(data.areas.map((area) => area.id));
-  const unassigned = rows.filter((source) =>
-    !source.attributes.area?.some((id) => ids.has(id)));
-  if (unassigned.length) areas.push({
-    id: "", name: "Unassigned / shared", floor: "Other", sources: unassigned,
+  const sourceAreas = new Map((data.areas ?? []).map((area) => [area.id, []]));
+  const unassigned = [];
+  for (const source of rows) {
+    let assigned = false;
+    for (const areaId of source.attributes.area ?? []) {
+      const sources = sourceAreas.get(areaId);
+      if (!sources) continue;
+      sources.push(source);
+      assigned = true;
+    }
+    if (!assigned) unassigned.push(source);
+  }
+
+  const floorNames = new Map((data.floors ?? []).map((floor) => [floor.id, floor.name]));
+  const floorIds = new Set(floorNames.keys());
+  const areas = (data.areas ?? []).map((area) => ({
+    id: `area:${area.id}`,
+    registry_id: area.id,
+    name: area.name,
+    kind: "area",
+    sources: sourceAreas.get(area.id) ?? [],
+    children: [],
+    floor_id: area.floor_id,
+    parent_name: floorNames.get(area.floor_id) ?? "Areas without a floor",
+  })).sort(byName);
+  const roots = (data.floors ?? []).map((floor) => {
+    const children = areas.filter((area) => area.floor_id === floor.id);
+    return {
+      id: `floor:${floor.id}`,
+      registry_id: floor.id,
+      name: floor.name,
+      kind: "floor",
+      parent_name: "Floor",
+      sources: uniqueSources(children.flatMap((area) => area.sources)),
+      children,
+    };
+  }).sort(byName);
+  const floorless = areas.filter((area) => !area.floor_id || !floorIds.has(area.floor_id));
+  if (floorless.length) roots.push({
+    id: "group:floorless",
+    registry_id: null,
+    name: "Areas without a floor",
+    kind: "group",
+    parent_name: "Home Assistant areas",
+    sources: uniqueSources(floorless.flatMap((area) => area.sources)),
+    children: floorless,
   });
-  return areas.sort((a, b) => a.floor.localeCompare(b.floor) || a.name.localeCompare(b.name));
+  if (unassigned.length) roots.push({
+    id: "group:unassigned",
+    registry_id: null,
+    name: "Unassigned",
+    kind: "unassigned",
+    parent_name: "Sources without an area",
+    sources: unassigned,
+    children: [],
+  });
+  return roots;
+}
+
+export function locationList(tree) {
+  return tree.flatMap((location) => [location, ...locationList(location.children)]);
+}
+
+export function browseHighlights(data) {
+  return locationList(locationTree(data)).filter((location) =>
+    !location.children.length && location.sources.length).slice(0, 6);
 }
 
 const stores = new WeakMap();

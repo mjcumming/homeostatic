@@ -1,5 +1,6 @@
-import {affectedFunctions, areaGroups, dashboardStore, escapeHtml as esc,
-  inventoryRows, monitoringLabel, sortedEpisodes, sourceMap} from "./model.mjs";
+import {affectedFunctions, browseHighlights, dashboardStore, escapeHtml as esc,
+  inventoryRows, locationList, locationTree, monitoringLabel, sortedEpisodes,
+  sourceMap} from "./model.mjs";
 import {integrationProblem} from "./problem.mjs";
 import {DashboardTools, controlsPanel} from "./history-controls.mjs";
 import {styles} from "./styles.mjs";
@@ -20,7 +21,7 @@ class HomeostaticCard extends HTMLElement {
     this.attachShadow({mode: "open"});
     this.config = {view: "overview"};
     this.page = "overview";
-    this.area = null;
+    this.location = null;
     this.current = {status: "loading", data: null, error: null};
     this.detail = null;
     this.detailSequence = 0;
@@ -168,8 +169,8 @@ class HomeostaticCard extends HTMLElement {
   }
 
   overview(data) {
-    const groups = areaGroups(data).slice(0, 6);
-    return `<div class="intro"><div><h1>Your home, at a glance</h1><p class="sub">What needs attention, and what your house can do.</p></div><span class="small">Updated ${esc(date(data.updated_at))}</span></div>${this.problems(data)}<div class="grid"><div class="stack">${this.functionsPanel(data)}${this.tools.summary(data)}${this.changes(data)}</div><div class="stack">${this.coveragePanel(data)}${controlsPanel(data)}<section class="panel"><div class="panel-head"><h2>Browse the house</h2></div>${groups.map((area) => `<button type="button" class="row" data-area="${esc(area.id)}"><span class="row-main">${esc(area.name)}<small>${esc(area.floor)}</small></span><span class="small">${area.sources.length} sources</span></button>`).join("")}<div class="body"><button type="button" class="link" data-page="house">All locations →</button></div></section></div></div>`;
+    const locations = browseHighlights(data);
+    return `<div class="intro"><div><h1>Your home, at a glance</h1><p class="sub">What needs attention, and what your house can do.</p></div><span class="small">Updated ${esc(date(data.updated_at))}</span></div>${this.problems(data)}<div class="grid"><div class="stack">${this.functionsPanel(data)}${this.tools.summary(data)}${this.changes(data)}</div><div class="stack">${this.coveragePanel(data)}${controlsPanel(data)}<section class="panel"><div class="panel-head"><h2>Browse the house</h2></div>${locations.map((location) => `<button type="button" class="row" data-location="${esc(location.id)}"><span class="row-main">${esc(location.name)}<small>${esc(location.parent_name)}</small></span><span class="small">${location.sources.length} sources</span></button>`).join("")}<div class="body"><button type="button" class="link" data-page="house">All locations →</button></div></section></div></div>`;
   }
 
   changes(data) {
@@ -180,6 +181,12 @@ class HomeostaticCard extends HTMLElement {
   sourceTable(data, rows) {
     const registered = sourceMap(data);
     return `<div class="table-wrap"><table><thead><tr><th>Capability</th><th>Monitoring</th><th>Rule provenance</th></tr></thead><tbody>${rows.map((source) => `<tr><td>${registered.has(source.node_id) ? `<button type="button" class="link" data-node="${esc(source.node_id)}">${esc(source.name)}</button>` : esc(source.name)}<small>${esc(source.kind)}</small></td><td>${esc(monitoringLabel(source))}</td><td><span class="mono">${list(source.excluded_by.length ? source.excluded_by : source.attached_by)}</span></td></tr>`).join("")}</tbody></table></div>`;
+  }
+
+  locationBranch(location, selectedId, depth = 1) {
+    const selected = location.id === selectedId;
+    const count = `${location.sources.length} source${location.sources.length === 1 ? "" : "s"}`;
+    return `<div class="location-branch"><button type="button" class="location ${location.children.length ? "location-parent" : ""}" data-location="${esc(location.id)}" role="treeitem" aria-level="${depth}" aria-selected="${selected}"${location.children.length ? ' aria-expanded="true"' : ""}><span class="location-name">${esc(location.name)}</span><span class="small">${esc(count)}</span></button>${location.children.length ? `<div class="location-children" role="group">${location.children.map((child) => this.locationBranch(child, selectedId, depth + 1)).join("")}</div>` : ""}</div>`;
   }
 
   coverage(data) {
@@ -193,19 +200,24 @@ class HomeostaticCard extends HTMLElement {
   }
 
   house(data) {
-    const groups = areaGroups(data);
-    const selected = groups.find((area) => area.id === this.area) ?? groups[0];
+    const tree = locationTree(data);
+    const locations = locationList(tree);
+    const selected = locations.find((location) => location.id === this.location) ??
+      locations.find((location) => location.kind === "area") ?? locations[0];
+    this.location = selected?.id ?? null;
     const ids = new Set(selected?.sources.map((source) => source.node_id) ?? []);
     const related = data.functions.filter((item) =>
       ids.has(item.node_id) || item.requirements.some((id) => ids.has(id)));
-    return `<div class="intro"><div><h1>Browse the house</h1><p class="sub">Home Assistant areas and floors</p></div></div>${selected ? `<div class="house"><section class="panel locations" aria-label="Locations">${groups.map((area) => `<button type="button" class="location" data-area="${esc(area.id)}" aria-pressed="${area.id === selected.id}"><span class="small">${esc(area.floor)}</span><br>${esc(area.name)}</button>`).join("")}</section><div class="stack"><section class="panel"><div class="panel-head"><h2>${esc(selected.name)}</h2></div>${this.sourceTable(data, selected.sources)}<div class="body"><p class="sub">Location membership never creates a health dependency.</p></div></section>${this.functionsPanel(data, related)}<p class="small">Functions shown here have direct requirements in this location. Open a function to see shared causes outside the area.</p></div></div>` : '<div class="empty">No enrolled or candidate sources have been discovered.</div>'}`;
+    const contents = selected?.sources.length ? this.sourceTable(data, selected.sources)
+      : '<div class="body"><p class="sub">No enrolled or candidate sources are assigned here.</p></div>';
+    return `<div class="intro"><div><h1>Browse the house</h1><p class="sub">Home Assistant floors and areas</p></div></div>${selected ? `<div class="house"><section class="panel locations" aria-label="Locations"><div class="location-tree" role="tree">${tree.map((location) => this.locationBranch(location, selected.id)).join("")}</div></section><div class="stack"><section class="panel"><div class="panel-head"><div><p class="small">${esc(selected.parent_name)}</p><h2>${esc(selected.name)}</h2></div><span class="small">${esc(selected.kind === "area" ? "Area" : selected.kind === "floor" ? "Floor" : "Location group")}</span></div>${contents}<div class="body"><p class="sub">Location membership never creates a health dependency.</p></div></section>${this.functionsPanel(data, related)}<p class="small">Functions shown here have direct requirements in this location. Open a function to see shared causes outside the location.</p></div></div>` : '<div class="empty">No Home Assistant floors, areas, or unassigned sources have been discovered.</div>'}`;
   }
 
   clicked(event) {
     const button = event.target.closest("button");
     if (!button) return;
     if (button.dataset.page) {this.page = button.dataset.page; this.render();}
-    else if ("area" in button.dataset) {this.area = button.dataset.area; this.page = "house"; this.render();}
+    else if (button.dataset.location) {this.location = button.dataset.location; this.page = "house"; this.render();}
     else if (button.dataset.node) this.openDetail({nodeId: button.dataset.node});
     else if (button.dataset.episode) this.openDetail({episodeId: button.dataset.episode});
     else if (button.dataset.action === "back") {this.page = this.config.view; this.render();}

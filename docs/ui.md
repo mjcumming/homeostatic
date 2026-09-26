@@ -770,7 +770,7 @@ Provide an automatically populated Homeostatic dashboard and reusable cards for 
 
 - **Needs attention:** show root problems with their affected functions, and active situations in language appropriate to the situation. Shared causes group their symptoms; a door left open is not described as failed equipment.
 - **Home functions:** show owner-defined functions with ready, degraded, blocked, or unknown readiness. Their definition and required capabilities remain explicit.
-- **Browse the house:** start with HA areas and floors, and allow browsing by integration. A location detail brings together its functions, problems, situations, and coverage. Cross-location causes and consequences remain reachable.
+- **Browse the house:** start with the native HA floor-to-area hierarchy, including distinct groups for areas without a floor and sources without an area, and allow browsing by integration. A location detail brings together its functions, problems, situations, and coverage. Cross-location causes and consequences remain reachable.
 - **Coverage:** distinguish unavailable evidence and unsupported checks from passing observations. No open problems does not establish complete monitoring. Availability alone does not prove physical freshness or successful command completion.
 - **Recent changes:** explain arrivals, enrollment changes, exclusions, missing evidence, and recoveries. The current enrollment log contains only the last 50 changes in the current runtime; recently resolved problem history is still planned.
 
