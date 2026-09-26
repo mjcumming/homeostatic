@@ -1028,20 +1028,38 @@ Runtime work now combines redundant refreshes while preserving every captured
 transition. The narrow synthetic scope passed the proposed burst budgets with
 real storage and WebSocket delivery. Broad 6,000-check monitoring remains
 unqualified; see [the measured limits](testing/runtime-scaling.md). Device-first
-grouping and selective capability profiles remain separate planned UI work.
+enrollment and selective capability profiles remain separate planned UI work.
+
+## 26. Gap-first coverage hierarchy — 2026-09-26
+
+Coverage answers four owner questions before showing inventory: what is watched,
+what evidence is missing, why it is missing and what to review next. The current
+model is grouped by integration, Home Assistant device and capability. Groups
+with gaps open automatically; healthy groups remain collapsed. Device registry
+membership is a Home Assistant grouping, not a claim that the record represents
+physical hardware. Area references are secondary location detail only.
+
+The complete discovered inventory remains searchable, including exclusions and
+unselected candidates, but the browser renders at most 50 search matches. Those
+secondary populations are counts until the owner searches. Rule provenance is
+available under technical details. Coverage does not repeat its own navigation
+link or expose unrelated notification routes and control payloads. The overview
+link opens Coverage, and an embedded Coverage card retains its return path.
 
 ## 25. Human-readable runtime activity
 
-Implemented 2026-09-25 after owner review of the live phone dashboard. Runtime
-enrollment events no longer expose their serialized source record as the main
-explanation. The overview says which recognizable source became monitored,
-excluded, unmatched or reevaluated; identifies disabled or still-unobserved
-sources; and offers the relevant source or coverage path. Raw ids, provenance and
-the complete event remain available under **Technical details**.
+Implemented 2026-09-25 and refined 2026-09-26 after owner review of the live
+phone dashboard. Runtime enrollment events no longer expose their serialized
+source record as the main explanation. They are administrative history for
+answering why monitoring scope changed, not household-health status, so they
+live under Coverage rather than on the overview. Coverage says which recognizable
+source became monitored, excluded, unmatched or reevaluated; identifies disabled
+or still-unobserved sources; and offers the relevant source or coverage path. Raw
+ids, provenance and the complete event remain available under **Technical record**.
 
 Enrollment bursts of at least three sources within five seconds are one compact
-entry, including how many still lack usable evidence. The overview shows at most
-four entries. This changes presentation only: the existing last-50 in-memory log
+entry, including how many still lack usable evidence. Coverage shows at most four
+entries. This changes presentation only: the existing last-50 in-memory log
 and the separate persisted resolved-episode history retain their current contracts.
 
 ## 24. Explain device capabilities

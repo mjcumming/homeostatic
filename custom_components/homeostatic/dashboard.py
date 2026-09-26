@@ -15,6 +15,7 @@ from homeassistant.components.websocket_api.decorators import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import floor_registry as fr
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
@@ -29,7 +30,8 @@ from .serialization import json_object
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=8"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=10"
+PANEL_ELEMENT = "homeostatic-panel-v10"
 
 
 def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
@@ -49,6 +51,7 @@ def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
         return result
     assert runtime.engine is not None
     areas = ar.async_get(runtime.hass)
+    devices = dr.async_get(runtime.hass)
     floors = fr.async_get(runtime.hass)
     return {
         **result,
@@ -72,6 +75,10 @@ def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
         "areas": [
             {"id": area.id, "name": area.name, "floor_id": area.floor_id}
             for area in areas.areas.values()
+        ],
+        "devices": [
+            {"id": device.id, "name": device.name_by_user or device.name or device.id}
+            for device in devices.devices
         ],
         "floors": [
             {"id": floor.floor_id, "name": floor.name}
@@ -115,14 +122,16 @@ class Dashboard:
             if self._catalog is not self.runtime.inventory_static:
                 self._catalog = self.runtime.inventory_static
                 self.catalog_revision += 1
-                self._locations = {key: self.value[key] for key in ("areas", "floors")}
+                self._locations = {
+                    key: self.value[key] for key in ("areas", "devices", "floors")
+                }
             self.value.update(self._locations)
             dynamic = self.runtime.inventory_updates()
             self.update = {
                 **{
                     key: value
                     for key, value in self.value.items()
-                    if key not in {"inventory", "areas", "floors"}
+                    if key not in {"inventory", "areas", "devices", "floors"}
                 },
                 "schema_version": 2,
                 "catalog_revision": self.catalog_revision,
@@ -249,7 +258,7 @@ async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> Non
         update=True,
         config={
             "_panel_custom": {
-                "name": "homeostatic-panel",
+                "name": PANEL_ELEMENT,
                 "embed_iframe": False,
                 "trust_external": False,
                 "module_url": MODULE_URL,

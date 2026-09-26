@@ -1,9 +1,9 @@
-import {affectedFunctions, browseHighlights, dashboardStore, escapeHtml as esc,
+import {affectedFunctions, browseHighlights, coverageInventory, dashboardStore, escapeHtml as esc,
   inventoryRows, locationList, locationTree, monitoringLabel, sortedEpisodes,
-  recentActivity, sourceMap, sourcePage} from "./model.mjs?v=8";
-import {entityProblem, integrationProblem} from "./problem.mjs?v=8";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=8";
-import {styles} from "./styles.mjs?v=8";
+  recentActivity, sourceMap, sourcePage} from "./model.mjs?v=10";
+import {entityProblem, integrationProblem} from "./problem.mjs?v=10";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=10";
+import {styles} from "./styles.mjs?v=10";
 
 const VIEWS = ["overview", "house", "coverage", "functions", "problems", "history"];
 const status = (value) => {
@@ -26,6 +26,8 @@ class HomeostaticCard extends HTMLElement {
     this.sourceQuery = '';
     this.sourcePage = 0;
     this.sourceScope = null;
+    this.coverageQuery = "";
+    this.coverageDisclosure = new Map();
     this.current = {status: "loading", data: null, error: null};
     this.detail = null;
     this.detailSequence = 0;
@@ -33,11 +35,16 @@ class HomeostaticCard extends HTMLElement {
     this.main = this.shadowRoot.querySelector("main");
     this.dialog = this.shadowRoot.querySelector("dialog");
     this.shadowRoot.addEventListener("click", (event) => this.clicked(event));
+    this.shadowRoot.addEventListener("keydown", (event) => this.keydown(event));
     this.shadowRoot.addEventListener("input", event => {
-      if (!event.target.matches("[data-source-search]")) return;
-      this.sourceQuery = event.target.value;
-      this.sourcePage = 0;
-      this.render();
+      if (event.target.matches("[data-source-search]")) {
+        this.sourceQuery = event.target.value;
+        this.sourcePage = 0;
+        this.render();
+      } else if (event.target.matches("[data-coverage-search]")) {
+        this.coverageQuery = event.target.value;
+        this.render();
+      }
     });
     this.tools = new DashboardTools(this);
     this.dialog.addEventListener("close", () => {this.detail = null; this.detailSequence++;});
@@ -104,8 +111,8 @@ class HomeostaticCard extends HTMLElement {
 
   render() {
     const focused = this.shadowRoot.activeElement;
-    const historyFocus = focused?.hasAttribute("data-source-search") ? "[data-source-search]" : focused?.hasAttribute("data-history-search") ? "[data-history-search]" : focused?.hasAttribute("data-history-filter") ? "[data-history-filter]" : null;
-    const selection = ["[data-source-search]", "[data-history-search]"].includes(historyFocus) ? [focused.selectionStart, focused.selectionEnd] : null;
+    const historyFocus = focused?.hasAttribute("data-source-search") ? "[data-source-search]" : focused?.hasAttribute("data-coverage-search") ? "[data-coverage-search]" : focused?.hasAttribute("data-history-search") ? "[data-history-search]" : focused?.hasAttribute("data-history-filter") ? "[data-history-filter]" : null;
+    const selection = ["[data-source-search]", "[data-coverage-search]", "[data-history-search]"].includes(historyFocus) ? [focused.selectionStart, focused.selectionEnd] : null;
     const minimal = ["functions", "problems"].includes(this.config.view);
     this.shadowRoot.querySelector(".nav").hidden = minimal || this.config.navigation === false;
     const back = this.shadowRoot.querySelector('[data-action="back"]');
@@ -180,7 +187,7 @@ class HomeostaticCard extends HTMLElement {
 
   overview(data) {
     const locations = browseHighlights(data);
-    return `<div class="intro"><div><h1>Your home, at a glance</h1><p class="sub">What needs attention, and what your house can do.</p></div><span class="small">Updated ${esc(date(data.updated_at))}</span></div>${this.problems(data)}<div class="grid"><div class="stack">${this.functionsPanel(data)}${this.tools.summary(data)}${this.changes(data)}</div><div class="stack">${this.coveragePanel(data)}${controlsPanel(data)}<section class="panel"><div class="panel-head"><h2>Browse the house</h2></div>${locations.map((location) => `<button type="button" class="row" data-location="${esc(location.id)}"><span class="row-main">${esc(location.name)}<small>${esc(location.parent_name)}</small></span><span class="small">${location.sources.length} sources</span></button>`).join("")}<div class="body"><button type="button" class="link" data-page="house">All locations →</button></div></section></div></div>`;
+    return `<div class="intro"><div><h1>Your home, at a glance</h1><p class="sub">What needs attention, and what your house can do.</p></div><span class="small">Updated ${esc(date(data.updated_at))}</span></div>${this.problems(data)}<div class="grid"><div class="stack">${this.functionsPanel(data)}${this.tools.summary(data)}</div><div class="stack">${this.coveragePanel(data)}${controlsPanel(data)}<section class="panel"><div class="panel-head"><h2>Browse the house</h2></div>${locations.map((location) => `<button type="button" class="row" data-location="${esc(location.id)}"><span class="row-main">${esc(location.name)}<small>${esc(location.parent_name)}</small></span><span class="small">${location.sources.length} sources</span></button>`).join("")}<div class="body"><button type="button" class="link" data-page="house">All locations →</button></div></section></div></div>`;
   }
 
   changes(data) {
@@ -190,9 +197,9 @@ class HomeostaticCard extends HTMLElement {
         : '<button type="button" class="link" data-page="coverage">Review monitoring</button>';
       const names = entry.kind === "group"
         ? `<p class="activity-names small">${esc(entry.names.slice(0,3).join(", "))}${entry.names.length > 3 ? ` and ${entry.names.length - 3} more` : ""}</p>` : "";
-      return `<article class="activity-item"><div class="activity-copy"><strong>${esc(entry.title)}</strong><p>${esc(entry.summary)}</p>${names}<p class="small">${esc(date(entry.at))}</p></div><div class="activity-actions">${action}<details><summary>Technical details</summary><pre>${json(entry.technical)}</pre></details></div></article>`;
+      return `<article class="activity-item"><div class="activity-copy"><strong>${esc(entry.title)}</strong><p>${esc(entry.summary)}</p>${names}<p class="small">${esc(date(entry.at))}</p></div><div class="activity-actions">${action}<details><summary>Technical record</summary><pre>${json(entry.technical)}</pre></details></div></article>`;
     }).join("");
-    return `<section class="panel"><div class="panel-head"><h2>Recent activity</h2></div><div class="body"><p class="small">Monitoring changes recorded since Homeostatic started. Resolved problems have their own history.</p></div>${entries || '<div class="body"><p class="sub">No monitoring changes recorded in this runtime.</p></div>'}</section>`;
+    return `<section class="panel"><div class="panel-head"><h2>Why monitoring changed</h2></div><div class="body"><p class="small">Use this history when a source appears or disappears from monitoring. These are setup and rule changes, not household problems.</p></div>${entries || '<div class="body"><p class="sub">No monitoring changes recorded in this session.</p></div>'}</section>`;
   }
 
   sourceTable(data, rows) {
@@ -214,14 +221,57 @@ class HomeostaticCard extends HTMLElement {
     return `<div class="location-branch"><button type="button" class="location ${location.children.length ? "location-parent" : ""}" data-location="${esc(location.id)}" role="treeitem" aria-level="${depth}" aria-selected="${selected}"${location.children.length ? ' aria-expanded="true"' : ""}><span class="location-name">${esc(location.name)}</span><span class="small">${esc(count)}</span></button>${location.children.length ? `<div class="location-children" role="group">${location.children.map((child) => this.locationBranch(child, selectedId, depth + 1)).join("")}</div>` : ""}</div>`;
   }
 
+  coverageExpanded(id, gaps, searching) {
+    return searching || (this.coverageDisclosure.has(id)
+      ? this.coverageDisclosure.get(id) : gaps > 0);
+  }
+
+  coverageSource(item) {
+    const source = item.source;
+    const rules = source.excluded_by.length ? source.excluded_by : source.attached_by;
+    const affected = item.affectedFunctions.length
+      ? `<span class="coverage-impact">Readiness impact: ${esc(item.affectedFunctions.map((fn) => `${fn.name} (${fn.readiness})`).join(", "))}</span>` : "";
+    const guidance = item.guidance
+      ? `<span class="coverage-guidance">Next: ${esc(item.guidance)}</span>` : "";
+    const evidence = item.reasons.length
+      ? `${item.reasons.map((reason) => `<span class="coverage-gap">${esc(reason)}</span>`).join("")}${affected}${guidance}`
+      : `<span class="small">${esc(item.registered ? "No coverage gap reported" : monitoringLabel(source))}</span>`;
+    const name = item.registered
+      ? `<button type="button" class="link coverage-name" data-node="${esc(source.node_id)}">${esc(source.name)}</button>`
+      : `<span class="coverage-name">${esc(source.name)}</span>`;
+    const areas = source.attributes.area?.length
+      ? `<span class="small">Area reference: ${esc(source.attributes.area.join(", "))}</span>` : "";
+    return `<div class="coverage-source${item.reasons.length ? " has-gap" : ""}"><div>${name}<span class="small">${esc(source.kind)}</span>${areas}</div><div class="coverage-evidence">${evidence}</div>${rules.length ? `<details class="rule-details"><summary>Technical rule details</summary><span class="mono">${list(rules)}</span></details>` : ""}</div>`;
+  }
+
+  coverageDevice(device, groupId, searching) {
+    const id = `${groupId}/${device.id}`;
+    const expanded = this.coverageExpanded(id,device.gaps,searching);
+    const summary = `${device.count} ${device.count === 1 ? "capability" : "capabilities"}${device.gaps ? ` · ${device.gaps} ${device.gaps === 1 ? "gap" : "gaps"}` : ""}`;
+    return `<div class="coverage-device"><button type="button" class="coverage-toggle device-toggle" data-coverage-toggle="${esc(id)}" aria-expanded="${expanded}"><span class="disclosure" aria-hidden="true"></span><span>${esc(device.name)}</span><span class="small">${esc(summary)}</span></button><div class="coverage-sources"${expanded ? "" : " hidden"}>${device.sources.map((item) => this.coverageSource(item)).join("")}</div></div>`;
+  }
+
+  coverageGroup(group, searching) {
+    const expanded = this.coverageExpanded(group.id,group.gaps,searching);
+    const summary = `${group.count} ${group.count === 1 ? "capability" : "capabilities"}${group.gaps ? ` · ${group.gaps} ${group.gaps === 1 ? "gap" : "gaps"}` : ""}`;
+    return `<section class="coverage-group"><button type="button" class="coverage-toggle integration-toggle" data-coverage-toggle="${esc(group.id)}" aria-expanded="${expanded}"><span class="disclosure" aria-hidden="true"></span><span>${esc(group.name)}</span><span class="small">${esc(summary)}</span></button><div class="coverage-devices"${expanded ? "" : " hidden"}>${group.devices.map((device) => this.coverageDevice(device,group.id,searching)).join("")}</div></section>`;
+  }
+
   coverage(data) {
-    const names = new Map(inventoryRows(data).map((row) => [row.node_id, row.name]));
-    const gapRows = [
-      ...data.coverage.no_checks.map((id) => [id, "No own checks"]),
-      ...data.coverage.never_observed.map((item) => [item.node_id, `Never observed: ${item.check_id}`]),
-      ...data.coverage.stale.map((item) => [item.node_id, `Stale: ${item.check_id}`]),
-    ];
-    return `<div class="intro"><div><h1>What is monitored</h1><p class="sub">Enrollment and evidence are separate questions.</p></div></div><div class="grid"><div class="stack"><section class="panel"><div class="panel-head"><h2>Inventory and rules</h2></div>${this.sourceTable(data, inventoryRows(data))}</section><section class="panel"><div class="panel-head"><h2>Evidence details</h2></div><div class="body"><p class="small">Composite functions may have no own checks; their requirements determine readiness. Categories can overlap.</p>${gapRows.length ? gapRows.map(([id, reason]) => `<p class="sub">${esc(names.get(id) ?? id)} · ${esc(reason)}</p>`).join("") : '<p class="sub">No missing or stale check evidence in the registered model.</p>'}</div></section></div><div class="stack">${this.coveragePanel(data)}<section class="panel"><div class="panel-head"><h2>Notifications</h2></div><div class="body"><p>${data.policy.notifications_enabled ? "Notification events enabled" : "Notification events off"}</p><p class="sub">Requests do not establish phone receipt.</p><details><summary>Routes and current controls</summary><pre>${json({routes:data.policy.routes,controls:data.inventory.operator_controls})}</pre></details></div></section></div></div>`;
+    const view = coverageInventory(data,this.coverageQuery);
+    const searching = Boolean(view.query);
+    const gapItems = view.groups.flatMap((group) => group.devices.flatMap((device) =>
+      device.sources.filter((item) => item.reasons.length)));
+    const attention = !searching && gapItems.length
+      ? `<section class="panel"><div class="panel-head"><h2>Needs attention</h2><span class="tag unknown">${view.summary.gaps} ${view.summary.gaps === 1 ? "gap" : "gaps"}</span></div><div class="coverage-attention">${gapItems.map((item) => this.coverageSource(item)).join("")}</div></section>`
+      : !searching ? '<section class="empty coverage-clear"><h2>No coverage gaps reported</h2><p class="sub">Every capability in the current model has observed, non-stale check evidence.</p></section>' : "";
+    const bounded = searching && view.resultCount > view.shownCount
+      ? ` · showing first ${view.shownCount}` : "";
+    const heading = searching ? `Search results · ${view.resultCount}${bounded}` : "Current monitoring by integration";
+    const groups = view.groups.length
+      ? view.groups.map((group) => this.coverageGroup(group,searching)).join("")
+      : `<div class="body"><p class="sub">${searching ? "No source matches this search." : "No capabilities are currently registered."}</p></div>`;
+    return `<div class="intro"><div><h1>Monitoring coverage</h1><p class="sub">What Homeostatic watches, where evidence is missing, why, and what to review next.</p></div></div><section class="coverage-summary" aria-label="Coverage summary"><div><strong>${view.summary.watched}</strong><span>Watched</span></div><div class="${view.summary.gaps ? "has-gap" : ""}"><strong>${view.summary.gaps}</strong><span>Evidence gaps</span></div><div><strong>${view.summary.excluded}</strong><span>Excluded</span></div><div><strong>${view.summary.unselected}</strong><span>Other discovered</span></div></section><label class="coverage-search"><span>Find an integration, device, source, or rule</span><input type="search" data-coverage-search value="${esc(this.coverageQuery)}" placeholder="Search all discovered sources"></label>${attention}<section class="panel"><div class="panel-head"><h2>${esc(heading)}</h2>${searching ? '<button type="button" class="link" data-action="clear-coverage-search">Clear search</button>' : ""}</div><div class="coverage-groups">${groups}</div></section>${!searching ? `<section class="panel"><div class="panel-head"><h2>Outside the current model</h2></div><div class="body"><details><summary>${view.summary.excluded} excluded by rules</summary><p class="sub">These sources remain discoverable so an exclusion can be explained. Search above to inspect one.</p></details><details><summary>${view.summary.unselected} other discovered sources</summary><p class="sub">These Home Assistant sources are not selected for monitoring and are not coverage gaps by themselves. Search above to inspect one.</p></details></div></section>${this.changes(data)}` : ""}`;
   }
 
   house(data) {
@@ -241,7 +291,11 @@ class HomeostaticCard extends HTMLElement {
   clicked(event) {
     const button = event.target.closest("button");
     if (!button) return;
-    if (button.dataset.sourceStep) {this.sourcePage += Number(button.dataset.sourceStep); this.render();}
+    if (button.dataset.coverageToggle) {
+      this.coverageDisclosure.set(button.dataset.coverageToggle,button.getAttribute("aria-expanded") !== "true");
+      this.render();
+    }
+    else if (button.dataset.sourceStep) {this.sourcePage += Number(button.dataset.sourceStep); this.render();}
     else if (button.dataset.page) {this.page = button.dataset.page; this.render();}
     else if (button.dataset.location) {this.location = button.dataset.location; this.page = "house"; this.render();}
     else if (button.dataset.node) this.openDetail({nodeId: button.dataset.node});
@@ -249,6 +303,18 @@ class HomeostaticCard extends HTMLElement {
     else if (button.dataset.action === "back") {this.page = this.config.view; this.render();}
     else if (button.dataset.action === "close") this.dialog.close();
     else if (button.dataset.action === "retry") this.store?.retry();
+    else if (button.dataset.action === "clear-coverage-search") {this.coverageQuery = ""; this.render();}
+  }
+
+  keydown(event) {
+    const button = event.target.closest?.("button.coverage-toggle");
+    if (!button || !["ArrowLeft","ArrowRight"].includes(event.key)) return;
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    const next = event.key === "ArrowRight";
+    if (expanded === next) return;
+    event.preventDefault();
+    this.coverageDisclosure.set(button.dataset.coverageToggle,next);
+    this.render();
   }
 
   openDetail(selection) {
@@ -353,16 +419,18 @@ class HomeostaticStrategy {
   static getCreateSuggestions() { return {title:"Homeostatic",icon:"mdi:home-heart"}; }
   static async generate() {
     return {title:"Homeostatic",views:[
-      {title:"Overview",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card",view:"overview",navigation:false}]},
-      {title:"House",path:"house",type:"panel",cards:[{type:"custom:homeostatic-card",view:"house",navigation:false}]},
-      {title:"Recently resolved",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card",view:"history",navigation:false}]},
-      {title:"Coverage",path:"coverage",type:"panel",cards:[{type:"custom:homeostatic-card",view:"coverage",navigation:false}]},
+      {title:"Overview",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card-v10",view:"overview",navigation:false}]},
+      {title:"House",path:"house",type:"panel",cards:[{type:"custom:homeostatic-card-v10",view:"house",navigation:false}]},
+      {title:"Recently resolved",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v10",view:"history",navigation:false}]},
+      {title:"Coverage",path:"coverage",type:"panel",cards:[{type:"custom:homeostatic-card-v10",view:"coverage",navigation:false}]},
     ]};
   }
 }
 
-if (!customElements.get("homeostatic-card")) customElements.define("homeostatic-card", HomeostaticCard);
-if (!customElements.get("homeostatic-panel")) customElements.define("homeostatic-panel", HomeostaticPanel);
+if (!customElements.get("homeostatic-card-v10")) customElements.define("homeostatic-card-v10", HomeostaticCard);
+if (!customElements.get("homeostatic-panel-v10")) customElements.define("homeostatic-panel-v10", HomeostaticPanel);
+if (!customElements.get("homeostatic-card")) customElements.define("homeostatic-card", class extends HomeostaticCard {});
+if (!customElements.get("homeostatic-panel")) customElements.define("homeostatic-panel", class extends HomeostaticPanel {});
 if (!customElements.get("ll-strategy-dashboard-homeostatic")) customElements.define("ll-strategy-dashboard-homeostatic", class extends HTMLElement {
   static getCreateSuggestions() { return HomeostaticStrategy.getCreateSuggestions(); }
   static generate() { return HomeostaticStrategy.generate(); }

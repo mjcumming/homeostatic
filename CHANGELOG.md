@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.1.0b9] - 2026-09-26
+
+### Fixed
+
+- Replace the unbounded Coverage inventory table with a gap-first integration, Home Assistant device and capability hierarchy. Groups with missing evidence open automatically and provide specific guidance and function impact; the full discovered catalog remains searchable with a 50-result render bound. Remove the Coverage self-link and unrelated notification/control JSON.
+- Version dashboard custom elements as well as module files so an already-open Home Assistant app replaces the obsolete enrollment JSON view after an upgrade. Monitoring changes move from the household overview to Coverage, where owner-readable explanations keep what changed, why and when primary and the complete payload remains in a secondary technical record.
+
 ## [0.1.0b8] - 2026-09-26
 
 ### Changed

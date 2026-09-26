@@ -8,6 +8,7 @@ from homeassistant.components import frontend
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import floor_registry as fr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -21,6 +22,7 @@ from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.dashboard import (
     DATA_DASHBOARD,
     MODULE_URL,
+    PANEL_ELEMENT,
     snapshot,
 )
 from tests.test_lifecycle import SCENARIOS, start_monitor
@@ -86,6 +88,10 @@ async def test_stream_tracks_enrollment_failure_unload_and_reload(
     assert initial["functions"][0]["readiness"]["answer"] == "ready"
     assert frontend.DATA_PANELS in hass.data
     assert hass.data[frontend.DATA_PANELS][DOMAIN].require_admin
+    assert (
+        hass.data[frontend.DATA_PANELS][DOMAIN].config["_panel_custom"]["name"]
+        == PANEL_ELEMENT
+    )
     assert MODULE_URL in hass.data[frontend.DATA_EXTRA_MODULE_URL].urls
     hass.states.async_set("sensor.added", "unknown")
     await hass.async_block_till_done()
@@ -148,8 +154,19 @@ async def test_location_names_and_situation_detail(
     floor = fr.async_get(hass).async_create("Main floor")
     area = ar.async_get(hass).async_create("Garage")
     ar.async_get(hass).async_update(area.id, floor_id=floor.floor_id)
+    source_entry = MockConfigEntry(domain="test")
+    source_entry.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=source_entry.entry_id,
+        identifiers={("test", "garage-device")},
+        name="Garage monitor",
+    )
     sensor = er.async_get(hass).async_get_or_create(
-        "sensor", "test", "garage", suggested_object_id="garage"
+        "sensor",
+        "test",
+        "garage",
+        suggested_object_id="garage",
+        device_id=device.id,
     )
     er.async_get(hass).async_update_entity(sensor.entity_id, area_id=area.id)
     hass.states.async_set(sensor.entity_id, "42")
@@ -170,6 +187,7 @@ async def test_location_names_and_situation_detail(
     assert data["areas"] == [
         {"id": area.id, "name": "Garage", "floor_id": floor.floor_id}
     ]
+    assert {"id": device.id, "name": "Garage monitor"} in data["devices"]
     assert data["floors"] == [{"id": floor.floor_id, "name": "Main floor"}]
     client = await hass_ws_client(hass)
     await client.send_json(

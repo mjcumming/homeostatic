@@ -185,6 +185,154 @@ export function recentActivity(data, limit = 4) {
   return entries.slice(0,limit);
 }
 
+function coverageGapMap(data) {
+  const sources = sourceMap(data);
+  const gaps = new Map();
+  const add = (nodeId, kind, reason) => {
+    const current = gaps.get(nodeId) ?? {kinds:[],reasons:[]};
+    current.kinds.push(kind);
+    current.reasons.push(reason);
+    gaps.set(nodeId,current);
+  };
+  for (const source of sources.values()) {
+    if (source.disabled) {
+      add(source.node_id,"disabled","Disabled in Home Assistant; health cannot be assessed");
+    }
+  }
+  for (const nodeId of data.coverage?.no_checks ?? []) {
+    const source = sources.get(nodeId);
+    if (source?.kind !== "function" || !source.requirements.length) {
+      add(nodeId,"no_checks","No check provides evidence");
+    }
+  }
+  for (const item of data.coverage?.never_observed ?? []) {
+    if (!sources.get(item.node_id)?.disabled) {
+      add(item.node_id,"never_observed",`Awaiting first observation: ${item.check_id}`);
+    }
+  }
+  for (const item of data.coverage?.stale ?? []) {
+    if (!sources.get(item.node_id)?.disabled) {
+      add(item.node_id,"stale",`Evidence is stale: ${item.check_id}`);
+    }
+  }
+  return gaps;
+}
+
+function coverageGuidance(source, kinds) {
+  if (kinds.includes("disabled")) {
+    return "Review it in Home Assistant; enable it if it should be monitored, or explicitly exclude it if it should not.";
+  }
+  if (kinds.includes("no_checks")) {
+    return "Review this capability's monitoring rules and available checks.";
+  }
+  if (kinds.includes("stale")) {
+    return "Check the source and its integration in Home Assistant; current health cannot be assessed until evidence resumes.";
+  }
+  if (kinds.includes("never_observed")) {
+    return "Check the source in Home Assistant and wait for its first usable health reading.";
+  }
+  return null;
+}
+
+function coverageAffectedFunctions(data, nodeId) {
+  return data.functions.filter((item) => item.readiness.answer !== "ready" &&
+    (item.readiness.nodes ?? []).some((node) => node.node_id === nodeId)).map((item) => ({
+      node_id:item.node_id,
+      name:item.name ?? item.node_id,
+      readiness:item.readiness.answer,
+    }));
+}
+
+function coverageGroupKey(source) {
+  if (source.kind === "integration") return `integration:${source.entry_id ?? source.node_id}`;
+  if (source.owner_id) return `integration:${source.owner_id}`;
+  if (["function","situation"].includes(source.kind)) return "definitions";
+  if (source.kind === "external") return "external";
+  return "other";
+}
+
+function coverageDevice(source, groupId, devices) {
+  if (source.kind === "integration") return {id:`${groupId}:health`,name:"Integration health"};
+  const deviceId = source.attributes.device?.[0];
+  if (deviceId) return {id:`device:${deviceId}`,name:devices.get(deviceId) ?? "Home Assistant device"};
+  if (["function","situation"].includes(source.kind)) {
+    return {id:`${groupId}:${source.kind}`,name:source.kind === "function" ? "Functions" : "Situations"};
+  }
+  if (source.kind === "external") return {id:`${groupId}:capabilities`,name:"External capabilities"};
+  return {id:`${groupId}:unassigned`,name:"Sources without a Home Assistant device"};
+}
+
+function byCoverage(left, right) {
+  return right.gaps - left.gaps || left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
+}
+
+/** Build a bounded, gap-first integration and device hierarchy. */
+export function coverageInventory(data, query = "", limit = 50) {
+  const rows = inventoryRows(data);
+  const registered = sourceMap(data);
+  const gaps = coverageGapMap(data);
+  const devices = new Map((data.devices ?? []).map((device) => [device.id,device.name]));
+  const integrations = new Map(rows.filter((source) => source.kind === "integration")
+    .map((source) => [source.entry_id,source.name]));
+  const normalized = query.trim().toLocaleLowerCase();
+  const matches = normalized ? rows.filter((source) => {
+    const deviceId = source.attributes.device?.[0];
+    const text = [source.name,source.node_id,source.kind,integrations.get(source.owner_id),
+      devices.get(deviceId),...source.attached_by,...source.excluded_by]
+      .filter(Boolean).join(" ").toLocaleLowerCase();
+    return text.includes(normalized);
+  }) : rows.filter((source) => registered.has(source.node_id));
+  const selected = normalized ? matches.slice(0,limit) : matches;
+  const groups = new Map();
+  for (const source of selected) {
+    const groupId = coverageGroupKey(source);
+    const name = groupId.startsWith("integration:")
+      ? integrations.get(source.entry_id ?? source.owner_id) ?? source.name
+      : groupId === "definitions" ? "Homeostatic definitions"
+      : groupId === "external" ? "External capabilities"
+      : "Other monitored sources";
+    if (!groups.has(groupId)) groups.set(groupId,{id:groupId,name,devices:new Map()});
+    const group = groups.get(groupId);
+    const device = coverageDevice(source,groupId,devices);
+    if (!group.devices.has(device.id)) group.devices.set(device.id,{...device,sources:[]});
+    const gap = gaps.get(source.node_id) ?? {kinds:[],reasons:[]};
+    group.devices.get(device.id).sources.push({
+      source,
+      reasons:gap.reasons,
+      guidance:coverageGuidance(source,gap.kinds),
+      affectedFunctions:coverageAffectedFunctions(data,source.node_id),
+      registered:registered.has(source.node_id),
+    });
+  }
+  const finished = [...groups.values()].map((group) => {
+    const groupedDevices = [...group.devices.values()].map((device) => ({
+      ...device,
+      count:device.sources.length,
+      gaps:device.sources.filter((item) => item.reasons.length).length,
+    })).sort(byCoverage);
+    return {
+      id:group.id,
+      name:group.name,
+      devices:groupedDevices,
+      count:groupedDevices.reduce((total,device) => total + device.count,0),
+      gaps:groupedDevices.reduce((total,device) => total + device.gaps,0),
+    };
+  }).sort(byCoverage);
+  const candidates = data.inventory.catalog.candidates;
+  return {
+    groups:finished,
+    query:query.trim(),
+    resultCount:matches.length,
+    shownCount:selected.length,
+    summary:{
+      watched:data.inventory.catalog.watched,
+      gaps:data.evidence_gaps,
+      excluded:candidates.filter((source) => source.excluded_by.length).length,
+      unselected:candidates.filter((source) => !source.watched && !source.excluded_by.length).length,
+    },
+  };
+}
+
 const byName = (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
 
 function uniqueSources(sources) {
@@ -276,7 +424,7 @@ export function sourcePage(rows, query = "", page = 0) {
 export function mergeDashboard(previous, data) {
   if (data.schema_version === 1 || !data.available) return data;
   if (data.inventory_changed === true) {
-    if (!data.inventory?.nodes || !data.inventory?.catalog || !data.areas || !data.floors || !Number.isInteger(data.catalog_revision)) {
+    if (!data.inventory?.nodes || !data.inventory?.catalog || !data.areas || !data.floors || !data.devices || !Number.isInteger(data.catalog_revision)) {
       throw new Error("Incomplete Homeostatic catalog. Retry the connection.");
     }
     return data;
@@ -285,7 +433,7 @@ export function mergeDashboard(previous, data) {
       previous.schema_version !== 2 || previous.catalog_revision !== data.catalog_revision) {
     throw new Error("Homeostatic catalog is out of date. Retry the connection.");
   }
-  return {...data, inventory:{...previous.inventory, ...data.inventory}, areas:previous.areas, floors:previous.floors};
+  return {...data, inventory:{...previous.inventory, ...data.inventory}, areas:previous.areas, floors:previous.floors, devices:previous.devices};
 }
 
 const stores = new WeakMap();

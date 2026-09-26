@@ -2,7 +2,7 @@ import {entityProblem, integrationProblem} from "../../custom_components/homeost
 import {historyPage, controlPayload, controlAllowed, callAction, controlsPanel, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {DashboardStore, affectedFunctions, browseHighlights, dashboardStore,
+import {DashboardStore, affectedFunctions, browseHighlights, coverageInventory, dashboardStore,
   escapeHtml, inventoryRows, locationList, locationTree, monitoringLabel,
   recentActivity, sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
 
@@ -16,7 +16,7 @@ function example() {
     inventory:{nodes:[source("sensor.a",{attributes:{area:["garage"]}}),source("function.f",{kind:"function"})],
       catalog:{candidates:[source("sensor.a"),source("sensor.excluded",{watched:false,excluded_by:["ignore"]})]},
       episodes:[]},
-    functions:[
+    coverage:{no_checks:[],never_observed:[],stale:[]},evidence_gaps:0,devices:[],functions:[
       {node_id:"function.f",readiness:{answer:"blocked"}},
       {node_id:"function.ok",readiness:{answer:"ready"}},
     ],areas:[{id:"garage",name:"Garage",floor_id:"main"}],floors:[{id:"main",name:"Main floor"}],
@@ -51,6 +51,35 @@ test("inventory retains excluded candidates and uses current registered metadata
   assert.equal(monitoringLabel(source("x",{kind:"function",requirements:["sensor.a"],watched:false})),"Composite function");
   assert.equal(monitoringLabel(source("x",{watched:false})),"Unwatched");
   assert.equal(monitoringLabel(source("x")),"Watched");
+});
+test("coverage leads with gaps, groups devices, and bounds full-catalog search",()=>{
+  const data=example();
+  const integration=source("entry:owner",{name:"Garage controller",kind:"integration",entry_id:"owner"});
+  const capability=source("sensor.a",{name:"Garage temperature",owner_id:"owner",
+    attributes:{device:["device-1"],area:["garage"]}});
+  data.inventory.nodes=[integration,capability,source("function.f",{kind:"function",requirements:["sensor.a"]})];
+  const others=Array.from({length:75},(_,index)=>source(`sensor.other_${index}`,{
+    name:`Office source ${index}`,watched:false,attached_by:[],owner_id:"owner",
+  }));
+  data.inventory.catalog={watched:3,candidates:[integration,capability,...others]};
+  data.devices=[{id:"device-1",name:"Garage network device"}];
+  data.coverage.never_observed=[{node_id:"sensor.a",check_id:"availability"}];
+  data.evidence_gaps=1;
+  data.functions=[{node_id:"function.f",name:"Garage climate",readiness:{answer:"unknown",nodes:[{node_id:"sensor.a"}]}}];
+  const view=coverageInventory(data);
+  assert.equal(view.summary.watched,3);
+  assert.equal(view.groups[0].name,"Garage controller");
+  assert.equal(view.groups[0].devices[0].name,"Garage network device");
+  assert.deepEqual(view.groups[0].devices[0].sources[0].reasons,["Awaiting first observation: availability"]);
+  assert.match(view.groups[0].devices[0].sources[0].guidance,/first usable health reading/);
+  assert.deepEqual(view.groups[0].devices[0].sources[0].affectedFunctions,[
+    {node_id:"function.f",name:"Garage climate",readiness:"unknown"},
+  ]);
+  const results=coverageInventory(data,"office");
+  assert.equal(results.resultCount,75);
+  assert.equal(results.shownCount,50);
+  assert.equal(results.groups.flatMap(group=>group.devices.flatMap(device=>device.sources)).length,50);
+  assert.equal(results.groups[0].devices[0].sources[0].registered,false);
 });
 test("native locations form a floor and area tree with distinct fallback groups",()=>{
   const data=example();
@@ -340,6 +369,7 @@ test("compact evidence updates preserve static inventory and reject missing base
   assert.equal(merged.inventory.catalog,initial.inventory.catalog);
   assert.equal(merged.inventory.nodes,initial.inventory.nodes);
   assert.equal(merged.areas,initial.areas);
+  assert.equal(merged.devices,initial.devices);
   assert.deepEqual(merged.inventory.episodes,[{episode_id:"one"}]);
   assert.equal(sourceMap(merged),sourceMap(initial));
   assert.equal(locationTree(merged),locationTree(initial));

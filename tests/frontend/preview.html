@@ -104,7 +104,7 @@
         card.setConfig({view:"overview",navigation:false});
         expect(card.shadowRoot.querySelector(".nav").hidden,"Embedded page tabs should be hidden");
         card.shadowRoot.querySelector('main [data-page="coverage"]').click();
-        expect(card.shadowRoot.querySelector("h1").textContent==="What is monitored","Coverage drill-down should open");
+        expect(card.shadowRoot.querySelector("h1").textContent==="Monitoring coverage","Coverage drill-down should open");
         const back=card.shadowRoot.querySelector('[data-action="back"]');
         expect(!back.hidden && back.textContent.includes("Overview"),"A return to Overview must be available");
         back.click();
