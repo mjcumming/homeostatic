@@ -144,3 +144,22 @@ preview_maintenance:
 resolved_history:
   name: Recently resolved problems
   description: Return up to 100 terminal episodes from the last 30 days, distinguishing recovery, removal and absorption. Resolution times reflect when Homeostatic observed them.
+
+acknowledge:
+  name: Acknowledge problem
+  description: Record awareness of one current problem for all recipients without resolving it. Stops attention only for rules requiring acknowledgment. Requires administrator access and a compatible HealthTree library.
+  fields:
+    episode_id:
+      required: true
+      description: Current episode id from Inventory.
+      selector:
+        text:
+cancel_control:
+  name: End a temporary control
+  description: End one shelf or equipment maintenance request early. Other controls and quiet hours remain effective. Requires administrator access and a compatible HealthTree library.
+  fields:
+    control_id:
+      required: true
+      description: Current control id from Operator controls.
+      selector:
+        text:

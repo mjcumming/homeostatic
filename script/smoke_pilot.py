@@ -7,6 +7,7 @@ import json
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
@@ -15,6 +16,7 @@ from aiohttp import ClientSession
 from homeassistant import bootstrap
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.runner import RuntimeConfig, create_event_loop
+from homeassistant.util import dt as dt_util
 
 
 def unpack(archive_path: Path, config: Path) -> dict[str, str]:
@@ -80,11 +82,14 @@ async def exercise(config: Path, port: int) -> None:
         assert runtime.query("readiness", {})["answer"] == "ready"
         async with ClientSession() as client:
             for asset in (
-                "homeostatic.js?v=4",
-                "model.mjs",
-                "problem.mjs",
-                "history-controls.mjs",
-                "styles.mjs",
+                "homeostatic.js?v=22",
+                "model.mjs?v=22",
+                "problem.mjs?v=22",
+                "history-controls.mjs?v=22",
+                "styles.mjs?v=22",
+                "configuration.mjs?v=22",
+                "evidence.mjs?v=22",
+                "tree.mjs?v=22",
             ):
                 async with client.get(
                     f"http://127.0.0.1:{port}/homeostatic_static/{asset}"
@@ -95,6 +100,42 @@ async def exercise(config: Path, port: int) -> None:
         await hass.async_block_till_done()
         assert runtime.query("readiness", {})["answer"] == "blocked"
         assert len(runtime.query("inventory", {})["episodes"]) == 1
+        assert runtime.query("inventory", {})["attention_controls_supported"]
+        episode = runtime.query("inventory", {})["episodes"][0]["episode_id"]
+        acknowledgment = await hass.services.async_call(
+            "homeostatic",
+            "acknowledge",
+            {"episode_id": episode},
+            blocking=True,
+            return_response=True,
+        )
+        assert acknowledgment["acknowledgment"]["episode_id"] == episode
+        shelf = await hass.services.async_call(
+            "homeostatic",
+            "shelve",
+            {
+                "episode_id": episode,
+                "until": (dt_util.utcnow() + timedelta(minutes=5)).isoformat(),
+            },
+            blocking=True,
+            return_response=True,
+        )
+        await hass.services.async_call(
+            "homeostatic",
+            "cancel_control",
+            {"control_id": shelf["control"]["control_id"]},
+            blocking=True,
+            return_response=True,
+        )
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        runtime = entry.runtime_data
+        assert (
+            runtime.query("policy", {})["episodes"][0]["acknowledgment"]
+            == acknowledgment["acknowledgment"]
+        )
+        assert not runtime.query("operator_controls", {})["controls"]
+        assert runtime.query("readiness", {})["answer"] == "blocked"
         hass.states.async_set("sensor.pilot_source", "42")
         await hass.async_block_till_done()
         history = runtime.query("resolved_history", {})
@@ -143,7 +184,7 @@ def main() -> None:
                 asyncio.run, exercise(config, port), loop_factory=create_event_loop
             ).result()
         installed = importlib.metadata.distribution("health-tree")
-        assert installed.version == "0.3.0", installed.version
+        assert installed.version == "0.4.0", installed.version
         assert installed.read_text("direct_url.json") is None
         identity["health_tree"] = installed.version
         identity["health_tree_location"] = str(installed.locate_file("health_tree"))

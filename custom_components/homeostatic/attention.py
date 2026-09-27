@@ -2,6 +2,7 @@
 
 import re
 from copy import deepcopy
+from dataclasses import replace
 from datetime import time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -96,6 +97,7 @@ _SCHEMA = vol.Schema(
                     vol.Optional("digest"): _TEXT,
                     vol.Optional("remind_every"): duration,
                     vol.Optional("escalate_after"): duration,
+                    vol.Optional("require_acknowledgment"): bool,
                 }
             ],
             vol.Length(min=1),
@@ -143,7 +145,7 @@ def build_policy(value: Any, batch: timedelta) -> PolicyConfig:
 
 def _rule(row: dict[str, Any]) -> Rule:
     match = row["match"]
-    return Rule(
+    rule = Rule(
         match=Match(
             status=frozenset(Status(value) for value in match["status"])
             if "status" in match
@@ -162,6 +164,24 @@ def _rule(row: dict[str, Any]) -> Rule:
         digest=row.get("digest"),
         remind_every=row.get("remind_every"),
         escalate_after=row.get("escalate_after"),
+    )
+    if row.get("require_acknowledgment", False):
+        if not hasattr(rule, "require_acknowledgment"):
+            raise vol.Invalid("Acknowledgment requires HealthTree 0.4.0 or newer")
+        return replace(rule, require_acknowledgment=True)
+    return rule
+
+
+def supports_attention_controls() -> bool:
+    """Expose controls only when the installed library supplies their APIs."""
+    from health_tree.engine import Engine
+
+    return all(
+        (
+            hasattr(Policy, "acknowledge"),
+            hasattr(Policy, "unshelve"),
+            hasattr(Engine, "cancel_quiet"),
+        )
     )
 
 

@@ -190,6 +190,87 @@ async def test_entry_removed_from_scope_unsubscribes(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+async def test_deleted_auto_enrolled_entry_is_removed(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """Deleting an auto-enrolled HA entry ends monitoring as removed."""
+    source = MockConfigEntry(
+        domain="test", state=ConfigEntryState.SETUP_ERROR, title="Deleted controller"
+    )
+    source.add_to_hass(hass)
+    config_data.update(
+        entities=[],
+        notifications=False,
+        rules=[
+            {
+                "id": "integrations",
+                "action": "attach",
+                "match": {"kind": "integration"},
+                "checks": ["availability"],
+            }
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    node_id = f"entry:{source.entry_id}"
+    episode_id = next(iter(runtime.episodes))
+
+    await hass.config_entries.async_remove(source.entry_id)
+    await hass.async_block_till_done()
+
+    assert node_id not in runtime.sources
+    assert node_id not in runtime.candidates
+    assert not runtime.episodes
+    history = runtime.history.view(dt_util.utcnow())["episodes"]
+    assert history[0]["episode"]["episode_id"] == episode_id
+    assert history[0]["resolution"] == "removed"
+    change = runtime.enrollment_changes[-1]
+    assert change["node_id"] == node_id
+    assert change["reason"] == "source_removed"
+    assert change["before"]["name"] == "Deleted controller"
+    assert source.entry_id not in runtime._entries
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_deleted_auto_enrolled_entry_is_removed_after_restart(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """Restored state drops an auto-enrolled entry deleted while stopped."""
+    source = MockConfigEntry(
+        domain="test", state=ConfigEntryState.SETUP_ERROR, title="Deleted controller"
+    )
+    source.add_to_hass(hass)
+    config_data.update(
+        entities=[],
+        notifications=False,
+        rules=[
+            {
+                "id": "integrations",
+                "action": "attach",
+                "match": {"kind": "integration"},
+                "checks": ["availability"],
+            }
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    node_id = f"entry:{source.entry_id}"
+    episode_id = next(iter(runtime.episodes))
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.config_entries.async_remove(source.entry_id)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    restored = entry.runtime_data
+
+    assert node_id not in restored.sources
+    assert not restored.episodes
+    history = restored.history.view(dt_util.utcnow())["episodes"]
+    assert history[0]["episode"]["episode_id"] == episode_id
+    assert history[0]["resolution"] == "removed"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 @pytest.mark.parametrize(
     "data",
     [{"entities": []}, {"notifications": False}],

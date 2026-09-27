@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
-from .catalog import Source, entity_observation, entry_observation
+from .catalog import Source, device_observation, entity_observation, entry_observation
 from .config import Settings, entity_reference, resolve_entity, rule_data
 from .const import DOMAIN
 from .definitions import Function
@@ -270,6 +270,17 @@ def preview(
         if source.kind in {"entity", "situation"}:
             state = hass.states.get(source.entity_id) if source.entity_id else None
             observations.append(entity_observation(source, state, now))
+        elif source.kind == "device":
+            observations.append(
+                device_observation(
+                    source,
+                    tuple(
+                        hass.states.get(entity_id)
+                        for entity_id in source.availability_entities
+                    ),
+                    now,
+                )
+            )
         elif source.kind == "integration":
             assert source.entry_id is not None
             entry = hass.config_entries.async_get_entry(source.entry_id)

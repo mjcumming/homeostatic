@@ -20,11 +20,17 @@ FIELDS = frozenset(
 )
 DEFAULT_RULES: list[dict[str, Any]] = [
     {
-        "id": "passive_availability",
+        "id": "integration_availability",
         "action": "attach",
-        "match": {},
+        "match": {"kind": "integration"},
         "checks": ["availability"],
-    }
+    },
+    {
+        "id": "device_availability",
+        "action": "attach",
+        "match": {"kind": "device"},
+        "checks": ["availability"],
+    },
 ]
 type Attributes = dict[str, tuple[str, ...]]
 
@@ -57,6 +63,8 @@ class CatalogRule:
 
     def matches(self, metadata: Attributes) -> bool:
         """Match every field, accepting any of its configured values."""
+        if "device" in metadata.get("kind", ()) and "kind" not in self.match:
+            return False
         return self.enabled and all(
             set(values).intersection(metadata.get(key, ()))
             for key, values in self.match.items()

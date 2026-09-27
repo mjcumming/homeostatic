@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections import deque
 from collections.abc import Callable
+from copy import deepcopy
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Any
@@ -29,7 +30,12 @@ from health_tree.types import (
     Event as HealthEvent,
 )
 from homeassistant.components import persistent_notification
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.config_entries import (
+    SIGNAL_CONFIG_ENTRY_CHANGED,
+    ConfigEntry,
+    ConfigEntryChange,
+    ConfigEntryState,
+)
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP, EVENT_STATE_CHANGED
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
@@ -38,7 +44,10 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import floor_registry as fr
 from homeassistant.helpers import label_registry as lr
-from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.dispatcher import (
+    async_dispatcher_connect,
+    async_dispatcher_send,
+)
 from homeassistant.helpers.event import (
     async_track_point_in_utc_time,
     async_track_time_interval,
@@ -46,9 +55,10 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .attention import explanations
+from .attention import explanations, supports_attention_controls
 from .catalog import (
     Source,
+    device_observation,
     entity_observation,
     entity_state_signature,
     entry_observation,
@@ -57,8 +67,14 @@ from .config import Settings, normalize_definitions, normalize_rules, rule_data
 from .const import DOMAIN, EVENT_NOTIFICATION, NAME, RECONCILE_INTERVAL, STORE_VERSION
 from .controls import OperatorControl, expiry, presentation, restore_controls
 from .delivery import DeliveryState
-from .enrollment import evaluate, inventory, report, restore_enrollment
-from .evidence import IntegrationEvidence
+from .enrollment import (
+    evaluate,
+    inventory,
+    report,
+    restore_device_exclusions,
+    restore_enrollment,
+)
+from .evidence import IntegrationEvidence, ReportedCondition
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
 from .rules import Attributes, parse_rules
@@ -88,9 +104,11 @@ class Runtime:
         self.enrolled: dict[str, Attributes] = {}
         self.candidates: dict[str, Source] = {}
         self.enrollment_changes: deque[dict[str, JSONValue]] = deque(maxlen=50)
+        self._discovered = False
         self.episodes: dict[str, dict[str, JSONValue]] = {}
         self.history = ResolvedHistory()
         self.integration_evidence = IntegrationEvidence()
+        self.entity_evidence: dict[str, ReportedCondition] = {}
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
         self._legacy_notifications: set[str] = set()
@@ -102,6 +120,16 @@ class Runtime:
         self._stopped = False
         self.error: str | None = None
         self.updated_at: datetime | None = None
+        self._entity_sources: dict[str, list[Source]] = {}
+        self._device_members: dict[str, tuple[str, ...]] = {}
+        self.device_exclusions: dict[str, tuple[str, ...]] = {}
+        self._device_signatures: dict[str, tuple[str, str]] = {}
+        self._inventory_dirty = True
+        self.inventory_revision = 0
+        self.inventory_static: dict[str, JSONValue] = {}
+        self._refresh_task: asyncio.Task[None] | None = None
+        self._refresh_requested = False
+        self._reconcile_requested = False
         self._lock = asyncio.Lock()
         self._subscriptions: list[Callable[[], None]] = []
         self._entries: dict[str, tuple[ConfigEntry, Callable[[], None]]] = {}
@@ -173,6 +201,9 @@ class Runtime:
         self.integration_evidence.restore(self.saved.get("integration_evidence", {}))
         self.controls = restore_controls(self.saved.get("operator_controls", []))
         self.enrolled = restore_enrollment(self.saved.get("enrollment", {}))
+        self.device_exclusions = restore_device_exclusions(
+            self.saved.get("device_exclusions", {})
+        )
         notifications = self.saved.get("notifications")
         if not isinstance(notifications, list) or not all(
             isinstance(item, str) for item in notifications
@@ -203,7 +234,12 @@ class Runtime:
                 hass.bus.async_listen(
                     er.EVENT_ENTITY_REGISTRY_UPDATED, self._registry_changed
                 ),
-                async_track_time_interval(hass, self._timer, RECONCILE_INTERVAL),
+                async_dispatcher_connect(
+                    hass, SIGNAL_CONFIG_ENTRY_CHANGED, self._config_entry_changed
+                ),
+                async_track_time_interval(
+                    hass, self._reconcile_timer, RECONCILE_INTERVAL
+                ),
             )
         )
         self._subscriptions.extend(
@@ -222,36 +258,44 @@ class Runtime:
         if not self.running:
             return
         entity_id = event.data["entity_id"]
-        sources = [
-            source
-            for source in self.sources.values()
-            if source.entity_id == entity_id and source.watched
-        ]
+        registered = er.async_get(self.hass).async_get(entity_id)
+        if registered is not None and registered.platform == DOMAIN:
+            return
+        sources = self._entity_sources.get(entity_id, [])
+        old, new = event.data["old_state"], event.data["new_state"]
+        metadata_changed = (
+            old is None
+            or new is None
+            or old.name != new.name
+            or old.attributes.get("device_class") != new.attributes.get("device_class")
+        )
+        if metadata_changed:
+            self._inventory_dirty = True
         if sources and (
             any(source.kind == "situation" for source in sources)
             or entity_state_signature(event.data["old_state"])
             != entity_state_signature(event.data["new_state"])
         ):
             now = dt_util.utcnow()
-            self._pending.append(
-                (
-                    now,
-                    [
-                        entity_observation(source, event.data["new_state"], now)
-                        for source in sources
-                    ],
+            observations = []
+            for source in sources:
+                observation = (
+                    self._observe_device(source, now)
+                    if source.kind == "device"
+                    else entity_observation(source, event.data["new_state"], now)
                 )
-            )
-            self._request_refresh()
-        elif (
-            event.data["old_state"] is None
-            or (
-                event.data["new_state"] is not None
-                and event.data["old_state"].attributes.get("device_class")
-                != event.data["new_state"].attributes.get("device_class")
-            )
-            or entity_id == self.settings.consumer
-        ):
+                if source.kind == "device":
+                    signature = (observation.status.value, observation.reason)
+                    if self._device_signatures.get(source.node_id) == signature:
+                        continue
+                    self._device_signatures[source.node_id] = signature
+                observations.append(observation)
+            if observations:
+                self._pending.append((now, observations))
+                self._request_refresh()
+            elif metadata_changed:
+                self._request_refresh()
+        elif metadata_changed or entity_id == self.settings.consumer:
             self._request_refresh()
 
     @callback
@@ -262,26 +306,61 @@ class Runtime:
             self._pending.append((now, [self._observe_entry(source, now)]))
             self._request_refresh()
 
-    def _drain_pending(self) -> None:
+    async def _drain_pending(self) -> None:
         assert self.engine is not None
         assert self.policy is not None
+        processed = 0
         while self._pending:
             now, observations = self._pending.popleft()
             self._record_observations(observations)
             self._handle(self.engine.ingest_many(observations, now), now)
             self._deliveries(self.policy.advance(now, PolicyContext()))
+            processed += 1
+            if processed % 8 == 0 and self._pending:
+                await self._yield_observations()
+
+    async def _yield_observations(self) -> None:
+        """Let HA service other callbacks without releasing ordered state ownership."""
+        await asyncio.sleep(0)
 
     @callback
     def _registry_changed(self, event: Event[Any]) -> None:
+        self._inventory_dirty = True
         self._request_refresh()
 
     @callback
-    def _request_refresh(self) -> None:
+    def _config_entry_changed(
+        self, _change: ConfigEntryChange, entry: ConfigEntry
+    ) -> None:
+        if self.running and entry.domain != DOMAIN:
+            self._inventory_dirty = True
+            self._request_refresh(reconcile=True)
+
+    @callback
+    def _request_refresh(self, *, reconcile: bool = False) -> None:
         if self.running:
-            self.hass.async_create_task(self.async_refresh())
+            self._refresh_requested = True
+            self._reconcile_requested |= reconcile
+            if self._refresh_task is None:
+                self._refresh_task = self.hass.async_create_task(
+                    self._queued_refresh(), eager_start=False
+                )
+
+    async def _queued_refresh(self) -> None:
+        try:
+            while self.running and self._refresh_requested:
+                self._refresh_requested = False
+                reconcile = self._reconcile_requested
+                self._reconcile_requested = False
+                await self.async_refresh(reconcile=reconcile)
+        finally:
+            self._refresh_task = None
 
     async def _timer(self, now: datetime) -> None:
-        await self.async_refresh()
+        self._request_refresh()
+
+    async def _reconcile_timer(self, now: datetime) -> None:
+        self._request_refresh(reconcile=True)
 
     async def _stop_event(self, event: Event[Any]) -> None:
         await self.async_stop()
@@ -289,8 +368,38 @@ class Runtime:
     def _discover(self) -> dict[str, Source]:
         rules = parse_rules(rule_data(self.hass, self.settings))
         candidates = evaluate(inventory(self.hass, self.settings, self.enrolled), rules)
+        at = dt_util.utcnow().isoformat()
+        batch = uuid4().hex
+        if not self._discovered:
+            watched = sorted(
+                (source for source in candidates.values() if source.watched),
+                key=lambda source: (source.name, source.node_id),
+            )
+            self.enrollment_changes.append(
+                {
+                    "at": at,
+                    "reason": "initial_scope",
+                    "total": len(watched),
+                    "sources": [
+                        {
+                            "node_id": source.node_id,
+                            "name": source.name,
+                            "kind": source.kind,
+                            "entry_id": source.entry_id,
+                            "owner_id": source.owner_id,
+                            "device_id": next(
+                                iter(source.attributes.get("device", ())), None
+                            ),
+                            "attached_by": list(source.attached_by),
+                        }
+                        for source in watched[:50]
+                    ],
+                }
+            )
         for node_id, source in candidates.items():
             previous = self.candidates.get(node_id)
+            if not self._discovered:
+                continue
             if previous is not None and (
                 previous.watched,
                 previous.attached_by,
@@ -299,7 +408,8 @@ class Runtime:
                 self.enrollment_changes.append(
                     {
                         "node_id": node_id,
-                        "at": dt_util.utcnow().isoformat(),
+                        "at": at,
+                        "batch": batch,
                         "reason": "match_attributes_changed"
                         if previous.attributes != source.attributes
                         else "rules_changed",
@@ -311,17 +421,31 @@ class Runtime:
                 self.enrollment_changes.append(
                     {
                         "node_id": node_id,
-                        "at": dt_util.utcnow().isoformat(),
+                        "at": at,
+                        "batch": batch,
                         "reason": "source_enrolled",
                         "after": json_object(source),
                     }
                 )
+        for node_id in self.candidates.keys() - candidates.keys():
+            previous = self.candidates[node_id]
+            if previous.watched:
+                self.enrollment_changes.append(
+                    {
+                        "node_id": node_id,
+                        "at": at,
+                        "batch": batch,
+                        "reason": "source_removed",
+                        "before": json_object(previous),
+                    }
+                )
+        self._discovered = True
         self.candidates = candidates
         sources, self.targets = compose(self.hass, self.settings, candidates)
         self.enrolled = {
             node_id: source.attributes
             for node_id, source in sources.items()
-            if source.kind in {"entity", "integration"}
+            if source.kind in {"entity", "integration", "device"}
         }
         return sources
 
@@ -344,16 +468,17 @@ class Runtime:
                     entry.async_on_state_change(partial(self._entry_changed, entry)),
                 )
 
-    async def async_refresh(self) -> None:
-        """Reconcile a full observation batch, persist, then apply deliveries."""
+    async def async_refresh(self, *, reconcile: bool = True) -> None:
+        """Process captured evidence, optionally reconcile, then persist deliveries."""
         async with self._lock:
             if not self.running:
                 return
             now = dt_util.utcnow()
             try:
                 if self.engine is not None:
-                    self._drain_pending()
-                events = self._evaluate(now)
+                    await self._drain_pending()
+                    now = dt_util.utcnow()
+                events = self._evaluate(now, reconcile=reconcile)
                 self._handle(events, now)
                 await self._complete(now)
             except (
@@ -449,6 +574,18 @@ class Runtime:
     ) -> dict[str, JSONValue]:
         assert self.engine is not None
         assert self.policy is not None
+        if action in {"acknowledge", "cancel_control"}:
+            if not supports_attention_controls():
+                raise ValueError("This action requires HealthTree 0.4.0 or newer")
+            if action == "acknowledge":
+                target = data["episode_id"]
+                if target not in self.episodes:
+                    raise ValueError("Acknowledgment requires a current episode id")
+                self._deliveries(self.policy.acknowledge(target, now, actor_id=user_id))
+                return {
+                    "acknowledgment": json_object(self.policy.acknowledgment(target))
+                }
+            return self._cancel_control(data["control_id"], now)
         until = expiry(data["until"], now)
         if action == "shelve":
             target = data["episode_id"]
@@ -497,6 +634,33 @@ class Runtime:
         self.controls.append(control)
         return {**response, "control": json_object(control)}
 
+    def _cancel_control(self, control_id: str, now: datetime) -> dict[str, JSONValue]:
+        assert self.engine is not None
+        assert self.policy is not None
+        control = next(
+            (item for item in self.controls if item.control_id == control_id), None
+        )
+        if control is None:
+            raise ValueError("This control has already ended or no longer exists")
+        if control.action == "shelve":
+            self._deliveries(self.policy.unshelve(control.target, now, PolicyContext()))
+        else:
+            self._handle(
+                self.engine.cancel_quiet(
+                    QuietWindow(
+                        scope="node_and_dependents"
+                        if control.include_dependents
+                        else "node",
+                        node_id=control.target,
+                        until=control.until,
+                    ),
+                    now,
+                ),
+                now,
+            )
+        self.controls.remove(control)
+        return {"cancelled_control_id": control_id}
+
     async def async_control(
         self, action: str, data: dict[str, Any], user_id: str | None
     ) -> dict[str, JSONValue]:
@@ -508,7 +672,8 @@ class Runtime:
             invalid: ValueError | KeyError | None = None
             response: dict[str, JSONValue] = {}
             try:
-                self._drain_pending()
+                await self._drain_pending()
+                now = dt_util.utcnow()
                 self._handle(self._evaluate(now), now)
                 self._prune_controls(now)
                 try:
@@ -535,10 +700,12 @@ class Runtime:
                 raise invalid
             return response
 
-    def _evaluate(self, now: datetime) -> list[HealthEvent]:
-        sources = self._discover()
-        events: list[HealthEvent] = []
+    def _evaluate(self, now: datetime, *, reconcile: bool = True) -> list[HealthEvent]:
         first = self.engine is None
+        discover = reconcile or self._inventory_dirty or first
+        previous_candidates = self.candidates
+        sources = self._discover() if discover else self.sources
+        events: list[HealthEvent] = []
         if first:
             self.engine = Engine(self.settings.engine_settings())
             self.policy = Policy(self.settings.policy_config())
@@ -553,7 +720,47 @@ class Runtime:
             events.extend(self.engine.register_many(changed, now))
         for node_id in self.sources.keys() - sources.keys():
             events.extend(self.engine.remove(node_id, now))
+        if discover:
+            if (
+                self._inventory_dirty
+                or first
+                or sources != self.sources
+                or self.candidates != previous_candidates
+            ):
+                self.inventory_revision += 1
+                self.inventory_static = {
+                    "nodes": [json_object(source) for source in sources.values()],
+                    "catalog": report(
+                        self.candidates,
+                        parse_rules(rule_data(self.hass, self.settings)),
+                    ),
+                    "enrollment_changes": list(self.enrollment_changes),
+                    "targets": list(self.targets),
+                }
+            self._inventory_dirty = False
+            self._device_members = {
+                source.node_id[7:]: source.availability_entities
+                for source in sources.values()
+                if source.kind == "device"
+            }
+            self._device_signatures = {
+                node_id: signature
+                for node_id, signature in self._device_signatures.items()
+                if node_id in sources and sources[node_id].watched
+            }
+            self._entity_sources = {}
+            for source in sources.values():
+                if source.entity_id and source.watched:
+                    self._entity_sources.setdefault(source.entity_id, []).append(source)
+                elif source.kind == "device" and source.watched:
+                    for entity_id in self._device_members.get(source.node_id[7:], ()):
+                        self._entity_sources.setdefault(entity_id, []).append(source)
         self.sources = sources
+        self.entity_evidence = {
+            key: value
+            for key, value in self.entity_evidence.items()
+            if key in sources and sources[key].watched
+        }
         self.integration_evidence.retain(
             {
                 source.node_id
@@ -587,15 +794,39 @@ class Runtime:
             self.policy.restore(self.saved["policy"], now)
             events = self.engine.restore(self.saved["engine"], now)
             self.saved = None
+        for node_id, source in sources.items():
+            if source.kind != "device":
+                continue
+            previous = self.device_exclusions.get(node_id)
+            scope_changed = (
+                previous != source.ignored_availability
+                if previous is not None
+                else bool(source.ignored_availability)
+            )
+            if scope_changed and any(
+                episode["anchor"] == node_id for episode in self.episodes.values()
+            ):
+                # A different monitoring expectation cannot prove recovery.
+                events.extend(self.engine.remove(node_id, now))
+                events.extend(
+                    self.engine.register_many([source.node(self.settings)], now)
+                )
+        self.device_exclusions = {
+            node_id: source.ignored_availability
+            for node_id, source in sources.items()
+            if source.kind == "device"
+        }
         observations = []
         for source in sources.values():
             if not source.watched:
                 continue
-            if source.kind in {"entity", "situation"}:
+            if source.kind in {"entity", "situation"} and discover:
                 state = (
                     self.hass.states.get(source.entity_id) if source.entity_id else None
                 )
                 observations.append(entity_observation(source, state, now))
+            elif source.kind == "device" and discover:
+                observations.append(self._observe_device(source, now))
             elif source.kind == "integration":
                 observations.append(self._observe_entry(source, now))
         if observations:
@@ -610,6 +841,17 @@ class Runtime:
             source = self.sources[observation.node_id]
             if source.kind == "integration":
                 self.integration_evidence.observe(observation, source.name)
+            elif source.kind in {"entity", "device"}:
+                self.entity_evidence[source.node_id] = ReportedCondition(
+                    reason=observation.reason,
+                    message=observation.message or "",
+                    observed_at=observation.observed_at,
+                )
+                if source.kind == "device":
+                    self._device_signatures[source.node_id] = (
+                        observation.status.value,
+                        observation.reason,
+                    )
 
     def _observe_entry(self, source: Source, now: datetime) -> Observation:
         assert source.entry_id is not None
@@ -631,6 +873,11 @@ class Runtime:
             self.settings,
             reauth,
         )
+
+    def _observe_device(self, source: Source, now: datetime) -> Observation:
+        members = self._device_members.get(source.node_id[7:], ())
+        states = tuple(self.hass.states.get(entity_id) for entity_id in members)
+        return device_observation(source, states, now)
 
     def _handle(self, events: list[HealthEvent], now: datetime) -> None:
         assert self.policy is not None
@@ -747,6 +994,9 @@ class Runtime:
         assert self.policy is not None
         return {
             "schema_version": 2,
+            "device_exclusions": {
+                key: list(members) for key, members in self.device_exclusions.items()
+            },
             "enrollment": {
                 node_id: {key: list(values) for key, values in metadata.items()}
                 for node_id, metadata in self.enrolled.items()
@@ -851,31 +1101,7 @@ class Runtime:
                 parse_rules(candidate_data),
             )
         if action == "inventory":
-            return {
-                "nodes": [json_object(source) for source in self.sources.values()],
-                "catalog": report(
-                    self.candidates, parse_rules(rule_data(self.hass, self.settings))
-                ),
-                "enrollment_changes": list(self.enrollment_changes),
-                "targets": list(self.targets),
-                "episodes": list(self.episodes.values()),
-                "integration_evidence": {
-                    str(episode["anchor"]): self.integration_evidence.view(
-                        str(episode["anchor"])
-                    )
-                    for episode in self.episodes.values()
-                    if self.sources[str(episode["anchor"])].kind == "integration"
-                },
-                "resolved_history": self.history.view(dt_util.utcnow()),
-                "operator_controls": [
-                    json_object(control) for control in self.controls
-                ],
-                "physical_freshness_supported": False,
-                "notification_consumer_missing": self.consumer_missing,
-                "situation_availability_verified": False,
-                "notification_requests": list(self.delivery.messages.values()),
-                "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            }
+            return {**deepcopy(self.inventory_static), **self.inventory_updates()}
         if action == "coverage":
             return {
                 **json_object(self.engine.coverage()),
@@ -897,6 +1123,69 @@ class Runtime:
             return json_object(self.engine.impact(data["node_id"]))
         return json_object(self.engine.explain(data["node_id"]))
 
+    def device_evidence(self, node_id: str) -> dict[str, JSONValue] | None:
+        """List current expected entity states for an on-demand detail view."""
+        source = self.sources[node_id]
+        if source.kind != "device":
+            return None
+        candidates = {
+            item.entity_id: item for item in self.candidates.values() if item.entity_id
+        }
+        members: list[dict[str, JSONValue]] = []
+        for entity_id in source.availability_entities:
+            member = candidates[entity_id]
+            state = self.hass.states.get(entity_id)
+            members.append(
+                {
+                    "node_id": member.node_id,
+                    "entity_id": entity_id,
+                    "name": member.name,
+                    "state": state.state if state is not None else "missing",
+                    "restored": bool(state and state.attributes.get("restored")),
+                }
+            )
+        members.sort(
+            key=lambda item: (item["state"] != "unavailable", str(item["name"]))
+        )
+        return json_object({"members": members[:50], "total": len(members)})
+
+    def entity_status(self, node_id: str) -> dict[str, JSONValue] | None:
+        """Present captured HA state alongside current public library answers."""
+        current = self.entity_evidence.get(node_id)
+        if current is None:
+            return None
+        return {
+            "current": json_object(current),
+            "explanation": self.query("explain", {"node_id": node_id}),
+            "readiness": self.query("readiness", {"node_ids": [node_id]}),
+        }
+
+    def inventory_updates(self) -> dict[str, JSONValue]:
+        """Read dynamic inventory evidence without rebuilding catalog metadata."""
+        return {
+            "episodes": list(self.episodes.values()),
+            "integration_evidence": {
+                str(episode["anchor"]): self.integration_evidence.view(
+                    str(episode["anchor"])
+                )
+                for episode in self.episodes.values()
+                if self.sources[str(episode["anchor"])].kind == "integration"
+            },
+            "entity_status": {
+                str(episode["anchor"]): self.entity_status(str(episode["anchor"]))
+                for episode in self.episodes.values()
+                if self.sources[str(episode["anchor"])].kind in {"entity", "device"}
+            },
+            "resolved_history": self.history.view(dt_util.utcnow()),
+            "operator_controls": [json_object(control) for control in self.controls],
+            "attention_controls_supported": supports_attention_controls(),
+            "physical_freshness_supported": False,
+            "notification_consumer_missing": self.consumer_missing,
+            "situation_availability_verified": False,
+            "notification_requests": list(self.delivery.messages.values()),
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
     async def async_stop(self) -> None:
         """Cancel future work and save the final state before unloading."""
         self.running = False
@@ -917,7 +1206,7 @@ class Runtime:
                 and self.saved is None
             ):
                 try:
-                    self._drain_pending()
+                    await self._drain_pending()
                     await self._save()
                 except (
                     OSError,

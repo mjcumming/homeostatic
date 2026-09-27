@@ -2,6 +2,101 @@
 
 ## [Unreleased]
 
+## [0.1.0b12] - 2026-09-27
+
+### Added
+
+- Administrator acknowledgment and early cancellation of shelves and maintenance, with dashboard controls and durable library-owned attention state. Pins HealthTree 0.4.0, which supplies the shared acknowledgment and cancellation APIs.
+
+### Changed
+
+- Introduce the project through household functions, useful problem explanations, attention controls and visible evidence limits in the README.
+
+- Yield between bounded groups of ordered observations so outage processing can share the Home Assistant loop while retaining every captured transition.
+
+
+## [0.1.0b11] - 2026-09-26
+
+### Fixed
+
+- Explain availability as a selected monitoring expectation, with current member names and states, rather than a diagnosis of physical failure. Use the same rules for every integration.
+- Add persistent Ignore availability through the existing preview-and-save editor. Entity exclusions also apply to device summaries, survive renames and reload, and retire changed summary episodes as removed rather than recovered.
+- Document Home Assistant integration, device and entity distinctions and the difference between recovery, temporary shelving and persistent exclusions.
+- Omit Change device type of a switch helper entries from monitoring inventory while retaining their converted entities. Document why Group sources remain and why their HA state cannot establish the health of each member.
+- Browse the house gives location names and counts separate lines in a wider, resizable rail; leads with linked problems, function context, and monitoring evidence; and keeps discovered entities collapsed in readable rows without rule columns. Versioned frontend assets allow the updated layout to replace cached files after installation.
+
+### Added
+
+- Device rules now select only enabled HA device records; hidden but enabled entities count as evidence, while disabled devices and entities do not. Coverage counts disabled device records separately.
+- Offer one Home Assistant availability summary per device, based on its enabled operational entities, with individual entity checks remaining opt-in. New installations select device summaries and integration state; saved broad rules do not silently select device summaries.
+- Show device summary choices, limited availability evidence and complete-unavailability problems in the dashboard.
+- Show all HA device-registry records in monitoring coverage, including a searchable list of records that lack an eligible availability signal.
+- Bound the Home problem list and summarize ordinary unknown-evidence episodes so large device inventories cannot bury confirmed outages.
+- Bound the Monitoring evidence-review preview and show device-specific availability guidance and a Home Assistant device link.
+
+### Changed
+
+- Simplify problem details to a directly visible Pause alerts action for that problem only. Keep equipment maintenance on source details, and group diagnostic copying and optional raw data under Technical details.
+- Reorganized the dashboard into Home, Explore, Monitoring, History, and Settings with distinct purposes. Monitoring now leads with selected HA checks and evidence to review, History holds resolved problems and the current-run monitoring log, and Settings groups monitoring choices with links to native function, situation, and alert options. Source rows name what HA checks and what those checks cannot establish.
+
+## [0.1.0b10] - 2026-09-26
+
+### Added
+
+- Administrator What to monitor page with guided rule choices, advanced editing, current-inventory and function previews, and guarded save to native options.
+
+### Changed
+
+- Monitoring activity distinguishes the scope found at load from later changes, groups arrivals by reconciliation, shows affected sources and current evidence by integration and device, and opens those sources in Coverage.
+- Equipment maintenance now starts from a plain-language device action with short duration choices, a custom end time, and a readable preview of the equipment and functions covered. The preview still gates submission and existing problems remain visible.
+- Problem details now summarize monitoring, check limits, current assessment and configured household impact before the optional raw diagnostic record.
+
+## [0.1.0b9] - 2026-09-26
+
+### Changed
+
+- Group Browse the house by current Home Assistant devices, place entities without a device in a secondary Area signals section, and show configured functions through their direct requirements. Floor and area branches can be collapsed without changing monitoring or dependency meaning.
+- Summarize watched integration instances, device-associated entities and entities without an HA device in native setup/options preview, while stating that registry association does not prove physical hardware.
+
+### Fixed
+
+- Replace the unbounded Coverage inventory table with a gap-first integration, Home Assistant device and capability hierarchy. Groups with missing evidence open automatically and provide specific guidance and function impact; the full discovered catalog remains searchable with a 50-result render bound. Remove the Coverage self-link and unrelated notification/control JSON.
+- Version dashboard custom elements as well as module files so an already-open Home Assistant app replaces the obsolete enrollment JSON view after an upgrade. Monitoring changes move from the household overview to Coverage, where owner-readable explanations keep what changed, why and when primary and the complete payload remains in a secondary technical record.
+
+## [0.1.0b8] - 2026-09-26
+
+### Changed
+
+- Replace raw enrollment-event JSON on the overview with concise recent activity, grouped enrollment bursts, current evidence context and source or coverage navigation. Complete payloads remain available under technical details.
+
+### Fixed
+
+- Stop monitoring automatically enrolled config entries when Home Assistant confirms their deletion, including entries deleted before an upgrade. Their active episodes resolve as removed instead of remaining as permanent missing connections. Explicit requirements and missing entity evidence retain their existing unknown semantics.
+
+## [0.1.0b7] - 2026-09-25
+
+### Changed
+
+- Entity problem cards and details now identify the light or sensor, explain the missing reading or control path, suggest a relevant first check and link to native entity/device details. Current evidence distinguishes unknown, missing, restored, disabled and recovering states; a known connection problem remains separate from the device symptom.
+
+## [0.1.0b6] - 2026-09-25
+
+### Added
+
+- A persistent Home Assistant menu button in the standalone panel, including on phones and while monitoring is unavailable.
+
+### Changed
+
+- Combine redundant runtime refreshes while retaining every captured transition, reuse unchanged inventory and index state-event lookup. Deadline, storage, shutdown and notification ordering retain their existing contracts.
+- Offer compact dashboard updates that resend catalog metadata only when it changes, with an explicit baseline on connection/reload and compatibility for existing full-snapshot clients. House and coverage tables search the full catalog while rendering at most 50 source rows per page.
+
+## [0.1.0b5] - 2026-09-25
+
+### Changed
+
+- Rebuilt problem cards and details around the reported problem, confirmed household impact, a relevant action and recovery progress. NuHeat and receiver timeouts, explicit sign-in requests, disabled connections and recovery have distinct guidance. Maintenance, alert controls, raw errors and diagnostic policy data move out of the main reading path; active controls remain visible by expiry.
+- Version frontend module URLs together so a refreshed client loads a consistent release.
+
 ## [0.1.0b4] - 2026-09-25
 
 ### Added

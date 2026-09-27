@@ -29,7 +29,11 @@ from custom_components.homeostatic.config import (
     rule_data,
 )
 from custom_components.homeostatic.const import DOMAIN
-from custom_components.homeostatic.enrollment import inventory, restore_enrollment
+from custom_components.homeostatic.enrollment import (
+    evaluate,
+    inventory,
+    restore_enrollment,
+)
 from custom_components.homeostatic.rules import DEFAULT_RULES, decide, parse_rules
 from tests.test_lifecycle import start_monitor
 
@@ -186,6 +190,35 @@ async def test_stable_registry_match_fields(hass: HomeAssistant) -> None:
     ]["entity"] == [f"registry:{entity.id}"]
 
 
+async def test_switch_conversion_is_not_a_separate_monitoring_source(
+    hass: HomeAssistant,
+) -> None:
+    """A converted switch remains a capability; its helper entry does not."""
+    conversion = MockConfigEntry(domain="switch_as_x", title="Change device type")
+    conversion.add_to_hass(hass)
+    group = MockConfigEntry(domain="group", title="Group: Basement Lights")
+    group.add_to_hass(hass)
+    registry = er.async_get(hass)
+    converted = registry.async_get_or_create(
+        "light", "switch_as_x", "basement_bathroom", config_entry=conversion
+    )
+    grouped = registry.async_get_or_create(
+        "light", "group", "basement_lights", config_entry=group
+    )
+    rules = [*DEFAULT_RULES, rule("entities", kind="entity")]
+    settings = Settings.from_data({"rules": rules})
+    sources = evaluate(inventory(hass, settings, {}), parse_rules(rules))
+
+    assert f"entry:{conversion.entry_id}" not in sources
+    assert sources[f"entry:{group.entry_id}"].watched
+    converted_source = sources[f"entity:registry:{converted.id}"]
+    assert converted_source.watched
+    assert converted_source.owner_id is None
+    assert "integration" not in converted_source.attributes
+    assert converted_source.node(settings).depends_on == ()
+    assert sources[f"entity:registry:{grouped.id}"].owner_id == group.entry_id
+
+
 async def test_future_sources_and_excluded_function(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
@@ -195,6 +228,7 @@ async def test_future_sources_and_excluded_function(
         notifications=False,
         rules=[
             *DEFAULT_RULES,
+            rule("entity_availability", kind="entity"),
             rule("exclude_required", "exclude", entity="entity_id:sensor.required"),
         ],
         functions=[
@@ -213,6 +247,12 @@ async def test_future_sources_and_excluded_function(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     assert runtime.readiness == "unknown"
+    assert len(runtime.enrollment_changes) == 1
+    initial = runtime.enrollment_changes[0]
+    assert initial["reason"] == "initial_scope"
+    assert initial["total"] == sum(
+        source.watched for source in runtime.candidates.values()
+    )
     required = runtime.sources["entity:entity_id:sensor.required"]
     assert not required.watched
     assert required.excluded_by == ("exclude_required",)
@@ -223,8 +263,15 @@ async def test_future_sources_and_excluded_function(
     hass.states.async_set("binary_sensor.alert", "on")
     await hass.async_block_till_done()
     assert runtime.sources["entity:entity_id:sensor.new_arrival"].attached_by == (
-        "passive_availability",
+        "entity_availability",
     )
+    arrival = next(
+        change
+        for change in runtime.enrollment_changes
+        if change.get("node_id") == "entity:entity_id:sensor.new_arrival"
+    )
+    assert arrival["reason"] == "source_enrolled"
+    assert isinstance(arrival["batch"], str)
     assert {episode["anchor"] for episode in runtime.episodes.values()} == {
         "entity:entity_id:sensor.new_arrival",
         "situation:alert",
@@ -251,7 +298,11 @@ async def test_area_move_changes_checks_with_provenance(
     config_data.update(
         entities=[],
         notifications=False,
-        rules=[*DEFAULT_RULES, rule("garage_exclusion", "exclude", area=area.id)],
+        rules=[
+            *DEFAULT_RULES,
+            rule("entity_availability", kind="entity"),
+            rule("garage_exclusion", "exclude", area=area.id),
+        ],
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
@@ -391,7 +442,7 @@ async def test_future_entry_reconciles(
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert runtime.sources[f"entry:{owner.entry_id}"].attached_by == (
-        "passive_availability",
+        "integration_availability",
     )
     owner._async_set_state(hass, ConfigEntryState.SETUP_ERROR, "failure")
     await hass.async_block_till_done()
@@ -403,7 +454,10 @@ async def test_empty_rules_and_legacy_conversion(hass: HomeAssistant) -> None:
     """Empty catalogs intentionally watch nothing; legacy empty selections stay empty."""
     assert data_from_input(hass, {"rules": []})["rules"] == []
     assert rule_data(hass, Settings.from_data({"entities": []})) == []
-    assert data_from_input(hass, {})["rules"][0]["id"] == "passive_availability"
+    assert [row["id"] for row in data_from_input(hass, {})["rules"]] == [
+        "integration_availability",
+        "device_availability",
+    ]
 
 
 @pytest.mark.parametrize("state", [None, "unavailable", "unknown"])
@@ -447,7 +501,11 @@ async def test_device_and_integration_exclusions(
     config_data.update(
         entities=[],
         notifications=False,
-        rules=[*DEFAULT_RULES, rule("device", "exclude", device=device.id)],
+        rules=[
+            *DEFAULT_RULES,
+            rule("entity_availability", kind="entity"),
+            rule("device", "exclude", device=device.id),
+        ],
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
@@ -458,6 +516,7 @@ async def test_device_and_integration_exclusions(
             **config_data,
             "rules": [
                 *DEFAULT_RULES,
+                rule("entity_availability", kind="entity"),
                 rule("integration", "exclude", integration=owner.entry_id),
             ],
         }
@@ -501,7 +560,11 @@ async def test_disabled_device_is_unknown(
         "sensor", "test", "disabled", config_entry=owner, device_id=device.id
     )
     hass.states.async_set(entity.entity_id, "available")
-    config_data.update(entities=[], notifications=False, rules=DEFAULT_RULES)
+    config_data.update(
+        entities=[],
+        notifications=False,
+        rules=[*DEFAULT_RULES, rule("entity_availability", kind="entity")],
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     dr.async_get(hass).async_update_device(

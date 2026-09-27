@@ -990,9 +990,103 @@ The first bounded pilot proposal uses one availability capability on each of two
 Implemented 2026-09-25 in the isolated dashboard increment. The spec remains the behavior contract.
 
 - Overview includes eight recently ended episodes and active controls. The history view searches retained source names, identities and findings, filters outcomes, and shows twenty records at a time. Stored evidence is never presented as current readiness. Removal and absorption do not imply recovery.
-- Open problems offer shelving. Equipment capabilities offer maintenance; situations and functions cannot be maintenance roots. The owner supplies an explicit end date/time and optional reason. Maintenance previews capabilities, affected functions and existing episodes before applying.
+- Open problems offer shelving. Equipment capabilities offer maintenance; situations and functions cannot be maintenance roots. The owner selects a short duration or supplies an explicit end date/time, with an optional reason. Maintenance previews the selected equipment, any other covered capabilities, configured functions and existing episodes before applying.
 - Form entries survive live updates, which invalidate maintenance previews. Disconnection and disappearance of the target disable submission. Pending actions cannot be double-submitted; an uncertain result calls for inspecting controls instead of an automatic retry.
 - Backend scope, expiry, persistence and permission semantics remain unchanged. Cancellation and acknowledgment are still future work.
 - Executable browser scenarios: `tests/frontend/history-controls.html`. Native WebSocket authorization and service response scenarios: `tests/test_dashboard_actions.py`.
 
 Large-inventory transfer/rendering remains separate unfinished work. The concurrent device-monitoring task owns runtime performance qualification; the concurrent location task owns the native floor/area hierarchy. This increment does not change enrollment or either task's code.
+
+
+## 22. Actionable problem details — 2026-09-25
+
+The owner approved replacing the diagnostic-first problem presentation with a short practical brief. Lead with a recognizable source, what HA reports, confirmed effects on configured home functions, the relevant next step and current progress. Do not turn a lost connection into a claim that equipment has stopped physically working.
+
+NuHeat timeouts suggest checking the NuHeat app; receiver timeouts suggest checking power and network. Request sign-in only when HA explicitly requires reauthentication. Keep disabled connections neutral and counted without assuming intent. During recovery confirmation, explain that the connection is running again and no action is needed yet.
+
+Show **Pause alerts** directly in problem details, scoped only to the selected problem. Keep equipment maintenance on source details and active control expiry visible. Put timestamped original errors, filtered logs and **Copy diagnostic data** under one collapsed **Technical details** section, with **View raw data** available inside it. Empty dependency explanations, normal importance, notification implementation notes and broad verification disclaimers do not belong in the main problem brief.
+
+The executable preview covers cloud timeout, receiver timeout, explicit sign-in, disabled and recovering states, plus unknown cause, safe text, real function impact and live disclosure preservation. The history/control fixture verifies existing actions and visible expiry notices. This increment changes presentation only; enrollment, health, recovery timing and notification decisions retain their existing contracts.
+
+
+## 23. Navigation and bounded inventory updates — 2026-09-25
+
+The standalone panel now keeps a hamburger beside its title. It opens Home
+Assistant's native sidebar, including on phones and while monitoring is loading
+or unavailable. Embedded cards keep the enclosing dashboard's global menu.
+The executable menu scenario checks the native event, keyboard-accessible button,
+touch target, unavailable states and embedded-card distinction.
+
+House and coverage tables search the whole received catalog and render at most
+50 sources per page. Page and search survive evidence updates. Compact subscriptions
+replace static metadata on a changed catalog and retain it between normal updates.
+Initial transfer remains a full catalog. A running synthetic HA instance verified
+the phone menu through navigation to Settings, search for the last of 6,000 generated
+entities, 50-row paging and page retention through a recovery update.
+
+Runtime work now combines redundant refreshes while preserving every captured
+transition. The narrow synthetic scope passed the proposed burst budgets with
+real storage and WebSocket delivery. Broad 6,000-check monitoring remains
+unqualified; see [the measured limits](testing/runtime-scaling.md). Device-first
+enrollment and selective capability profiles remain separate planned UI work.
+
+## 26. Gap-first coverage hierarchy — 2026-09-26
+
+Coverage answers four owner questions before showing inventory: what is watched,
+what evidence is missing, why it is missing and what to review next. The current
+model is grouped by integration, Home Assistant device and capability. Groups
+with gaps open automatically; healthy groups remain collapsed. Device registry
+membership is a Home Assistant grouping, not a claim that the record represents
+physical hardware. Area references are secondary location detail only.
+
+The complete discovered inventory remains searchable, including exclusions and
+unselected candidates, but the browser renders at most 50 search matches. Those
+secondary populations are counts until the owner searches. Rule provenance is
+available under technical details. Coverage does not repeat its own navigation
+link or expose unrelated notification routes and control payloads. The overview
+link opens Coverage, and an embedded Coverage card retains its return path.
+
+## 25. Human-readable runtime activity
+
+Implemented 2026-09-25 and refined 2026-09-26. The overview presents
+**Monitoring activity** as administrative scope history, separate from household
+problems. The first record is the exact scope found at load, with up to 50
+source snapshots; it does not claim that all those sources were newly added.
+Later arrivals are grouped only when they share a reconciliation id. Rule and
+matching-detail changes remain separate events.
+
+Each entry identifies what changed and when, with an expandable source list
+grouped by HA integration and device. The list shows rule provenance and current
+evidence, and links affected sources to filtered Coverage. Complete payloads
+remain behind **Technical details**. The overview shows at most four entries
+from the last 50 records in the current runtime. This is separate from
+persisted resolved-problem history.
+
+## 24. Explain device capabilities
+
+An entity name alone does not explain the problem. The owner brief now names the
+capability (for example, Light or Occupancy sensor), its known area and provider,
+then describes what HA cannot report or control. Light guidance starts with power
+and a wall switch if present. Detection-sensor guidance starts with power/battery
+and checking for a new reading. These are checks, not diagnoses of a failed device.
+
+Native entity details and known device pages are directly reachable. A watched
+owner connection needing attention is explained separately. Current public query
+results drive both the card and dialog, including unknown evidence and recovery
+confirmation; historical episode reasons never stand in for current state.
+
+## 27. Monitoring configuration page — 2026-09-26
+
+The first editable dashboard page addresses the gap between Coverage showing a rule decision and native options presenting the whole integration as one form. It edits the existing attach/exclude catalog, with no second enrollment setting or configuration store. This is a focused first slice of Configuration; functions, situations, policy and house timing continue through native options.
+
+[ADR 0012](adr/0012-monitoring-expectations-and-persistent-exclusions.md) records the general monitoring-expectation decision. The Outdoor Speakers example does not justify a manufacturer exception or assuming all partial unavailability is harmless. A selected availability check is an expectation. Report what HA says and show the selected entity names and current states, without diagnosing physical failure or inventing an actionability judgment. Explain broad defaults and future matches when editing monitoring.
+
+Device details show at most 50 current members, unavailable first, and link to full monitoring choices. **Ignore availability** stages a persistent entity exclusion in the existing editor, with preview before save. Apply the exclusion to direct checks and device summaries. An empty set is unmonitored, not healthy. End an old aggregate episode as removed when its excluded members change; do not call that recovery. Stable registry identity preserves the choice through renames and reload. Acknowledgment and temporary shelving retain their separate meanings and cannot serve as persistent ignore choices.
+
+The owner can add, enable, disable, edit and remove a rule. Match inputs cover the accepted stable fields. Empty fields match any value, values within a field are alternatives, and populated fields combine. The page explains that new discoveries inherit matching rules, that exclusions win, and that excluding a required capability leaves its function without evidence. It edits the current availability check only; the page cannot create a physical-health claim or a per-check timing override.
+
+The primary page is a searchable integration, device and entity browser. Each integration offers separate choices for its own state, its entities, and both; device choices cover associated entities; individual entities can be chosen directly. The current effective state is shown separately from pending direct choices because broader rules and exclusions may overlap. A choice edits the one catalog rule model and requires preview before save. Preserve arbitrary existing catalog rules through a collapsed advanced editor rather than reducing them to tree checkboxes or losing match fields.
+
+Preview must show current rule match counts, watched count, sources newly watched or no longer watched, and current-evidence function readiness. It changes no live engine, options, episodes or delivery. Save requires that exact rule preview, rejects options changed elsewhere, validates using the same rule and full-settings contracts as native options, and reloads the integration. The editor shows a reload error and restores previous options if the new configuration does not load. Disconnection or an unavailable runtime disables editing rather than presenting stale status as current.
+
+Acceptance: use an isolated HA installation to edit a broad attach rule and a narrow exclusion, preview the affected source identities and function evidence, save and reload, then verify the selected monitoring changes and unrelated options remain intact. An invalid field, a stale settings revision and a save without preview must leave the saved options unchanged. Browser review must include a narrow viewport, keyboard navigation and an unsafe source name.

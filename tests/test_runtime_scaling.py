@@ -80,7 +80,7 @@ async def measure(
     runtime: Runtime,
     operation: Callable[[], Awaitable[None]],
 ) -> dict[str, float | int]:
-    """Measure callback starvation and full refresh work without sleeping."""
+    """Measure callback starvation and compact evidence updates without sleeping."""
     loop = asyncio.get_running_loop()
     previous = perf_counter()
     gaps: list[float] = []
@@ -96,7 +96,7 @@ async def measure(
 
     @callback
     def dashboard_client() -> None:
-        payload_sizes.append(len(json.dumps(hass.data[DATA_DASHBOARD].value).encode()))
+        payload_sizes.append(len(json.dumps(hass.data[DATA_DASHBOARD].update).encode()))
 
     cancel = async_dispatcher_connect(hass, SIGNAL_DASHBOARD, dashboard_client)
     handle = loop.call_soon(probe)
@@ -214,3 +214,67 @@ async def test_registered_inventory_runtime_load(
     record_property("runtime_profile", json.dumps(results))
     output = Path(os.environ.get("HOMEOSTATIC_PROFILE_DIR", str(tmp_path)))
     await hass.async_add_executor_job(save_profile, output, scope, results)
+
+
+@pytest.mark.skipif(
+    os.environ.get("HOMEOSTATIC_RUNTIME_PROFILE") != "1",
+    reason="Opt-in burst profiling; see docs/testing/runtime-scaling.md",
+)
+async def test_one_capability_per_device_runtime_load(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    record_property: Callable[[str, object], None],
+    tmp_path: Path,
+) -> None:
+    """Measure a device-sized scope with independent outages."""
+    shape = populate(hass)
+    registry = er.async_get(hass)
+    representatives = []
+    for entity_id in shape.entities[::20]:
+        registered = registry.async_get(entity_id)
+        assert registered is not None
+        representatives.append(f"registry:{registered.id}")
+    config_data.update(
+        entities=[],
+        config_entries=[],
+        rules=[
+            {"id": "controllers", "action": "attach", "match": {"kind": "integration"}},
+            {
+                "id": "representatives",
+                "action": "attach",
+                "match": {"entity": representatives},
+            },
+        ],
+        notifications=False,
+    )
+    config_data["timings"]["coalesce_count"] = 10000
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    started = perf_counter()
+    runtime = await start_monitor(hass, entry)
+    results: dict[str, Any] = {
+        "scope": "one_capability_per_device",
+        "setup_seconds": perf_counter() - started,
+        "watched_sources": len(runtime.sources),
+        "initial_payload_bytes": len(
+            json.dumps(hass.data[DATA_DASHBOARD].value).encode()
+        ),
+    }
+    outage_entities = shape.entities[::20][:60]
+    results["outage_60_devices"] = await measure(
+        hass,
+        runtime,
+        lambda: changes(hass, outage_entities, "unavailable"),
+    )
+    assert len(runtime.episodes) == 60
+    results["recovery_60_devices"] = await measure(
+        hass,
+        runtime,
+        lambda: changes(hass, outage_entities, "1"),
+    )
+    assert not runtime.episodes
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    record_property("runtime_profile", json.dumps(results))
+    output = Path(os.environ.get("HOMEOSTATIC_PROFILE_DIR", str(tmp_path)))
+    await hass.async_add_executor_job(
+        save_profile, output, "one_capability_per_device", results
+    )

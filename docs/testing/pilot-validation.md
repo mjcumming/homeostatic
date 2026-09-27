@@ -1,5 +1,19 @@
 # Pilot validation
 
+## 0.1.0b5 synthetic package and UI validation
+
+On 2026-09-25, build commit `7c83ad14246b00ae652afe71a6175323004f84ad` passed the required checks: 328 Python tests, 19 frontend tests, lint, formatting, strict types and 98.83% combined coverage with both independent floors above 95%. Two opt-in performance scenarios remain separate from the default suite. Official HA 2026.9.3 hassfest validated one integration with zero invalid integrations.
+
+The exact ZIP passed a fresh HA-only installation smoke test. HA installed published HealthTree 0.3.0 automatically. Package checksums, native setup, all five versioned frontend module URLs, failure/recovery, controls and retained history across reload passed. Optional FFmpeg/TurboJPEG warnings were confined to the isolated test host. [GitHub CI](https://github.com/mjcumming/homeostatic/actions/runs/36209541480) independently passed its required checks, metadata validation and clean-install test and published the pilot archive.
+
+Archive SHA-256: `4a406821a68cc71476a0cffc56130ea21fd40fee44c314febc53ed1aab5aa8c3`.
+
+The actual browser component passed synthetic scenarios for NuHeat timeout, receiver timeout, explicit sign-in, disabled connections, recovery confirmation, healthy source details, missing causes, escaped source names, native entry links and open disclosures surviving updates. Original errors and policy data stay out of the initial brief. A timeout in an authentication request does not become a credential diagnosis. Real configured function impact remains separate from potential impact.
+
+The 390 × 844 phone view was inspected in dark mode. The main brief and expanded long error text fit without horizontal overflow. Existing embedded navigation and history/control regressions passed, including a visible shelf expiry outside collapsed management, preserved drafts, maintenance preview invalidation, duplicate prevention and ambiguous failure without automatic retry. All control mutations used synthetic data.
+
+All results in this section come from synthetic fixtures and isolated test environments; this section contains no live installation validation. This increment changes presentation and release cache invalidation.
+
 ## 0.1.0b4 combined package validation
 
 On 2026-09-25, build commit `e2eb9b4a9d249d538052540770a8e18bb595c3e7` passed all required checks: 328 Python tests, 17 frontend tests, lint, formatting and strict types. Two opt-in performance scenarios were skipped in the default suite; their measured qualification results are recorded in [runtime scaling](runtime-scaling.md). Combined coverage was 98.83%, with both independent floors above 95%. Official HA 2026.9.3 hassfest reported one valid integration and zero invalid integrations.

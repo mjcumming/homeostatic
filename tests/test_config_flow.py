@@ -8,6 +8,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -16,6 +17,7 @@ from custom_components.homeostatic.config import (
     data_from_input,
     resolve_entity,
 )
+from custom_components.homeostatic.config_flow import preview_summary
 from custom_components.homeostatic.const import DOMAIN
 
 
@@ -50,6 +52,41 @@ async def test_user_flow(hass: HomeAssistant) -> None:
     assert result["data"]["rules"][0]["match"]["entity"] == [
         f"registry:{registry_entry.id}"
     ]
+
+
+def test_preview_describes_ha_groupings(hass: HomeAssistant) -> None:
+    """Preview distinguishes integrations, device entities and area signals."""
+    source = MockConfigEntry(domain="test", title="Controller")
+    source.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=source.entry_id,
+        identifiers={("test", "controller")},
+        name="Controller",
+    )
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "sensor", "test", "device_signal", config_entry=source, device_id=device.id
+    )
+    registry.async_get_or_create("sensor", "test", "area_signal", config_entry=source)
+
+    preview = preview_summary(
+        hass,
+        {
+            "rules": [
+                {
+                    "id": "passive_availability",
+                    "action": "attach",
+                    "match": {},
+                    "checks": ["availability"],
+                }
+            ]
+        },
+    )
+
+    assert "1 integration instance" in preview
+    assert "1 device-associated entity" in preview
+    assert "entities without an HA device" in preview
+    assert "Device association does not prove physical hardware." in preview
 
 
 async def test_singleton(hass: HomeAssistant, config_entry: MockConfigEntry) -> None:

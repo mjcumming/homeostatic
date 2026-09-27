@@ -6,15 +6,15 @@
   <title>Homeostatic component test</title>
   <style>
     :root{--primary-text-color:#182a34;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--secondary-text-color:#546875;--divider-color:#dce4e9;--primary-color:#007eab;--text-primary-color:#fff}
-    body{margin:0;font:14px Arial,sans-serif}#controls{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #ddd}button,select{padding:8px;font:inherit}homeostatic-card{max-width:1100px;margin:auto}
+    body{margin:0;font:14px Arial,sans-serif}#controls{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #ddd}button,select{padding:8px;font:inherit}homeostatic-card,homeostatic-panel{max-width:1100px;margin:auto}
   </style>
 </head>
 <body>
-  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">Retrying setup</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="problem-check">Run problem regression</button><span id="feedback" role="status"></span></div>
-  <homeostatic-card></homeostatic-card>
+  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="light">Light unavailable</option><option value="occupancy">Occupancy sensor unavailable</option><option value="entity-recovery">Light recovering</option><option value="entity-unknown">Light state unknown</option><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="entity-check">Run entity regression</button><button type="button" id="menu-check">Run menu regression</button><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="page-check">Run page map regression</button><button type="button" id="house-check">Run house layout regression</button><button type="button" id="problem-check">Run problem regression</button><span id="feedback" role="status"></span></div>
+  <homeostatic-panel></homeostatic-panel>
   <script type="module">
     import "../../custom_components/homeostatic/frontend/homeostatic.js";
-    const card=document.querySelector("homeostatic-card");
+    const card=document.querySelector("homeostatic-panel");
     const scenario=document.querySelector("#scenario");
     const unsafe=document.querySelector("#unsafe");
     const admin=document.querySelector("#admin");
@@ -29,18 +29,35 @@
       node_id,name,kind,requirements:[],attributes:{},attached_by:["passive_availability"],
       excluded_by:[],watched:true,entity_id:null,entry_id:null,owner_id:null,...extra,
     });
+    function entityData(){
+      const sensor=scenario.value==="occupancy",recovering=scenario.value==="entity-recovery",unknown=scenario.value==="entity-unknown";
+      const source=baseSource("entity:closet",unsafe.checked?'<img src=x onerror="alert(1)">':sensor?"Hallway":"Closet","entity",{
+        entity_id:sensor?"binary_sensor.hallway":"light.closet",owner_id:"matter",
+        attributes:{domain:[sensor?"binary_sensor":"light"],device_class:sensor?["occupancy"]:[],device:["demo-device"],area:["upstairs"]}});
+      const owner=baseSource("entry:matter","Matter","integration",{entry_id:"matter",attributes:{domain:["matter"]}});
+      const findings=recovering?[]:[{node_id:source.node_id,reason:unknown?"state_unknown":"unavailable",status:unknown?"unknown":"fail"}];
+      const readiness={answer:recovering?"ready":unknown?"unknown":"blocked",nodes:[]};
+      const status={current:{reason:recovering?"available":unknown?"state_unknown":"unavailable"},explanation:{findings,nodes:[]},readiness};
+      return {schema_version:1,available:true,entry_id:"demo",updated_at:"2026-09-25T15:52:00Z",readiness,functions:[],evidence_gaps:unknown?1:0,
+        inventory:{nodes:[source,owner],entity_status:{[source.node_id]:status},integration_evidence:{},catalog:{watched:2,candidates:[source,owner]},
+          episodes:[{episode_id:"entity-episode",anchor:source.node_id,status:"fail",importance:"normal",impact:[],reasons:[{node_id:source.node_id,reason:"unavailable"}],opened_at:"2026-09-25T15:42:00Z"}],
+          operator_controls:[],enrollment_changes:[],notification_requests:[]},
+        coverage:{no_checks:[],never_observed:[],stale:[]},policy:{notifications_enabled:false,routes:{},episodes:[]},
+        areas:[{id:"upstairs",name:"Upstairs",floor_id:null}],floors:[]};
+    }
     function data(){
+      if(["light","occupancy","entity-recovery","entity-unknown"].includes(scenario.value))return entityData();
       if(scenario.value==="unloaded")return{schema_version:1,available:false,updated_at:"2026-09-25T15:52:00Z",error:null};
-      const integrationExample=["setup","cause","auth","retry","starting","recovering","disabled"].includes(scenario.value);
+      const integrationExample=["setup","cause","auth","retry","receiver","starting","recovering","disabled"].includes(scenario.value);
       const failing=scenario.value==="failure"||integrationExample,unknown=scenario.value==="unknown";
-      const name=unsafe.checked?'<img src=x onerror="alert(1)"> Frigate':integrationExample?"Master Bathroom":"Frigate integration";
-      const entry=baseSource("entry:frigate",name,"integration",{entry_id:"frigate",attributes:{domain:[integrationExample?"nuheat":"frigate"]}});
+      const name=unsafe.checked?'<img src=x onerror="alert(1)"> Frigate':scenario.value==="disabled"?"mike@4831.com":scenario.value==="receiver"?"Home Theater":integrationExample?"Master Bathroom":"Frigate integration";
+      const entry=baseSource("entry:frigate",name,"integration",{entry_id:"frigate",disabled:scenario.value==="disabled",attributes:{domain:[scenario.value==="receiver"?"denonavr":integrationExample?"nuheat":"frigate"]}});
       const sensor=baseSource("entity:person","Basement person sensor","entity",{entity_id:"binary_sensor.person",owner_id:"frigate",attributes:{area:["basement"]}});
       const fn=baseSource("function:lighting","Basement motion lighting","function",{requirements:["entity:person"],watched:false});
       const unwatched=baseSource("entity:excluded","Workshop test sensor","entity",{watched:false,excluded_by:["ignore_workbench"]});
       const answer=["starting","disabled"].includes(scenario.value)?"unknown":scenario.value==="recovering"?"ready":failing?"blocked":unknown?"unknown":"ready";
-      const reason={auth:"auth_required",retry:"setup_retry",starting:"setup_in_progress",recovering:"loaded",disabled:"disabled"}[scenario.value]??"setup_error";
-      const detail={auth:"Session expired",cause:"Unable to sign in to provider",retry:"Connection timed out"}[scenario.value]??reason.replaceAll("_"," ");
+      const reason={auth:"auth_required",retry:"setup_retry",receiver:"setup_retry",starting:"setup_in_progress",recovering:"loaded",healthy:"loaded",disabled:"disabled"}[scenario.value]??"setup_error";
+      const detail={auth:"Session expired",cause:"Unable to sign in to provider",retry:"HTTPSConnectionPool: /api/authenticate/user (Caused by ConnectTimeoutError: Connection timed out)",receiver:"TimeoutException for http://192.0.2.15/status.xml"}[scenario.value]??reason.replaceAll("_"," ");
       const current={reason,message:detail,observed_at:"2026-09-25T15:52:00Z"};
       const last_failure=scenario.value==="starting"?{reason:"setup_retry",message:"Connection timed out",observed_at:"2026-09-25T15:42:00Z"}:null;
       const evidence={current,last_failure};
@@ -50,14 +67,16 @@
       const readiness={answer,nodes:failing?[{node_id:"entry:frigate",own:"fail",watched:true,reasons:["setup_error"]}]:unknown?[{node_id:"entity:person",own:"unknown",watched:true,reasons:["state_unknown"]}]:[]};
       return{schema_version:1,available:true,entry_id:"demo",updated_at:"2026-09-25T15:52:00Z",readiness,
         functions:[{...fn,readiness}],evidence_gaps:unknown?1:0,
-        inventory:{nodes,integration_evidence:integrationExample?{[entry.node_id]:evidence}:{},catalog:{watched:2,candidates:[entry,sensor,unwatched]},episodes:failing?[episode]:[],operator_controls:[],enrollment_changes:[],notification_requests:[]},
+        inventory:{nodes,integration_evidence:integrationExample||scenario.value==="healthy"?{[entry.node_id]:evidence}:{},catalog:{watched:2,candidates:[entry,sensor,unwatched]},episodes:failing?[episode]:[],operator_controls:[],enrollment_changes:[],notification_requests:[]},
         coverage:{no_checks:["function:lighting"],never_observed:unknown?[{node_id:"entity:person",check_id:"availability"}]:[],stale:[],notification_consumer_missing:false},
         policy:{notifications_enabled:false,routes:{owner:["phone"]},episodes:[]},
         areas:[{id:"basement",name:"Basement",floor_id:"lower"}],floors:[{id:"lower",name:"Lower floor"}]};
     }
-    const hass={connection,localize(key){return key==="component.nuheat.title"?"NuHeat":key==="component.frigate.title"?"Frigate":null;},user:{id:"demo",is_admin:true},async callWS({node_id}){
+    const hass={connection,localize(key){return key==="component.matter.title"?"Matter":key==="component.nuheat.title"?"NuHeat":key==="component.frigate.title"?"Frigate":key==="component.denonavr.title"?"Denon AVR":null;},user:{id:"demo",is_admin:true},async callWS({node_id,type}){
+      if(type==="homeostatic/configuration")return{revision:1,rules:[]};
       const current=data(),source=current.inventory?.nodes.find(item=>item.node_id===node_id);
       if(!source)throw{message:"This capability is no longer monitored"};
+      if(current.inventory.entity_status?.[node_id])return{source,entity_status:current.inventory.entity_status[node_id],...current.inventory.entity_status[node_id],impact:{nodes:[]},updated_at:current.updated_at};
       return{source,integration_evidence:current.inventory.integration_evidence[node_id],readiness:current.readiness,updated_at:current.updated_at,
         explanation:{findings:current.inventory.episodes[0]?.reasons??[],nodes:source.kind==="function"?current.readiness.nodes:[]},
         impact:{nodes:current.inventory.nodes.filter(n=>n.node_id!==node_id).map(n=>({node_id:n.node_id,importance:"normal"}))}};
@@ -68,6 +87,12 @@
       if(scenario.value==="disconnected"){handlers.get("disconnected")?.();return;}
       handlers.get("ready")?.();subscribed?.(data());
     }
+    document.querySelector("#dark").addEventListener("change",event=>{
+      const colors=event.target.checked?{"primary-text-color":"#e1e1e1","primary-background-color":"#111111","card-background-color":"#1c1c1c","divider-color":"#383838","secondary-text-color":"#b5b5b5","secondary-background-color":"#282828","primary-color":"#03a9f4"}:{};
+      for(const name of ["primary-text-color","primary-background-color","card-background-color","divider-color","secondary-text-color","secondary-background-color","primary-color"]){
+        if(colors[name])card.style.setProperty(`--${name}`,colors[name]);else card.style.removeProperty(`--${name}`);
+      }
+    });
     scenario.addEventListener("change",change);
     unsafe.addEventListener("change",change);
     admin.addEventListener("change",()=>{
@@ -80,48 +105,193 @@
         card.setConfig({view:"overview",navigation:false});
         expect(card.shadowRoot.querySelector(".nav").hidden,"Embedded page tabs should be hidden");
         card.shadowRoot.querySelector('main [data-page="coverage"]').click();
-        expect(card.shadowRoot.querySelector("h1").textContent==="What is monitored","Coverage drill-down should open");
+        expect(card.shadowRoot.querySelector("h1").textContent==="Monitoring","Monitoring drill-down should open");
         const back=card.shadowRoot.querySelector('[data-action="back"]');
-        expect(!back.hidden && back.textContent.includes("Overview"),"A return to Overview must be available");
+        expect(!back.hidden && back.textContent.includes("Home"),"A return to Home must be available");
         back.click();
-        expect(card.shadowRoot.querySelector("h1").textContent==="Your home, at a glance","Return should restore Overview");
+        expect(card.shadowRoot.querySelector("h1").textContent==="Home","Return should restore Home");
         expect(back.hidden,"The return button should disappear at the configured view");
-        feedback.textContent="PASS: embedded coverage drill-down returns to Overview";
+        feedback.textContent="PASS: embedded Monitoring drill-down returns to Home";
+      } catch(error) {feedback.textContent="FAIL: "+error.message;}
+    });
+    document.querySelector("#page-check").addEventListener("click",async()=>{
+      const feedback=document.querySelector("#feedback");
+      const expect=(condition,message)=>{if(!condition)throw new Error(message);};
+      try {
+        scenario.value="disabled";change();card.setConfig({view:"overview"});
+        const root=card.shadowRoot;
+        const labels=[...root.querySelectorAll(".nav button")].map(button=>button.textContent);
+        expect(labels.join("|")==="Home|Explore|Monitoring|History|Settings","Five destinations should have clear jobs");
+        expect(root.querySelector("h1").textContent==="Home" && !root.querySelector(".activity-item"),"Home should focus on current problems");
+        root.querySelector('.nav [data-page="coverage"]').click();
+        expect(root.querySelector("h1").textContent==="Monitoring","Monitoring should have its own page");
+        expect(root.querySelector(".monitoring-lead").textContent.includes("selected for HA checks"),"Monitoring should state what is checked");
+        expect(root.querySelector(".coverage-attention .is-disabled") && root.querySelector(".monitoring-discovery").textContent.includes("not selected"),"Disabled evidence and unselected scope must stay distinct");
+        expect(root.querySelector(".coverage-attention").textContent.includes("NuHeat · mike@4831.com"),"Account-named connections should show their integration first");
+        expect(root.querySelector('.coverage-attention a[href="/config/integrations/integration/nuheat#config_entry=frigate"]'),"Disabled integration should open its exact HA connection");
+        root.querySelector('.nav [data-page="history"]').click();
+        expect(root.querySelector("h1").textContent==="History" && root.querySelector(".history-monitoring"),"History should separate resolved problems and monitoring changes");
+        root.querySelector('.nav [data-page="configuration"]').click();
+        expect(root.querySelector("h1").textContent==="Settings" && root.querySelectorAll(".settings-nav button").length===4,"Settings should group choices and policy");
+        root.querySelector('[data-settings-section="alerts"]').click();
+        expect(root.querySelector("main").textContent.includes("Notification requests are off"),"Alert state should be explicit");
+        scenario.value="healthy";change();card.setConfig({view:"overview"});
+        feedback.textContent="PASS: five-page map and disabled, unselected, history, and alert distinctions";
+      } catch(error) {feedback.textContent="FAIL: "+error.message;}
+    });
+    document.querySelector("#house-check").addEventListener("click",()=>{
+      const feedback=document.querySelector("#feedback");
+      const expect=(condition,message)=>{if(!condition)throw new Error(message);};
+      try {
+        scenario.value="healthy";change();
+        card.setConfig({view:"house"});
+        const root=card.shadowRoot;
+        const house=root.querySelector(".house");
+        const rail=root.querySelector(".locations");
+        const name=root.querySelector(".location-name");
+        const count=root.querySelector(".location-count");
+        const handle=root.querySelector(".rail-resizer");
+        expect(house && rail && name && count && handle,"House should show locations, counts, and a resize handle");
+        expect(count.getBoundingClientRect().top>=name.getBoundingClientRect().bottom,"Counts should appear below names");
+        expect(rail.getBoundingClientRect().width>=300,"Location rail should be wide enough to read");
+        handle.dispatchEvent(new KeyboardEvent("keydown",{key:"Home",bubbles:true,composed:true}));
+        const narrow=Number(handle.getAttribute("aria-valuenow"));
+        handle.dispatchEvent(new KeyboardEvent("keydown",{key:"ArrowRight",bubbles:true,composed:true}));
+        expect(Number(handle.getAttribute("aria-valuenow"))>narrow,"Location rail should resize by keyboard");
+        expect(localStorage.getItem("homeostatic-house-rail-width")===handle.getAttribute("aria-valuenow"),"Rail width should be remembered");
+        expect(house.querySelector(".stack .panel").getBoundingClientRect().height<500,"Short location details should not stretch down the page");
+        expect(house.querySelector(".house-summary")?.textContent.includes("monitored source"),"Location should lead with monitoring context");
+        const inventory=house.querySelector(".house-inventory");
+        expect(inventory && !inventory.open,"Discovered entities should start collapsed");
+        inventory.open=true;
+        expect(inventory.querySelector(".house-source") && !inventory.textContent.includes("Rule provenance"),"Expanded inventory should use readable source rows without rule columns");
+        const sourceLink=inventory.querySelector("[data-coverage-source]");
+        sourceLink.click();
+        expect(root.querySelector("h1").textContent==="Monitoring" && root.querySelector(".panel-head h2").textContent.includes("Selected sources"),"Source should open scoped Monitoring");
+        root.querySelector('[data-action="clear-coverage-search"]').click();
+        expect(root.querySelector(".panel-head h2").textContent.includes("Watched sources"),"Show all monitoring should remove source selection");
+        scenario.value="failure";change();card.setConfig({view:"house"});
+        expect(card.shadowRoot.querySelector(".house-findings")?.textContent.includes("Open problems"),"Linked problem should appear before inventory");
+        scenario.value="unknown";change();
+        expect(card.shadowRoot.querySelector(".house-findings")?.textContent.includes("Awaiting first observation"),"Monitored evidence gap should appear before inventory");
+        scenario.value="healthy";change();
+        feedback.textContent="PASS: house layout, location findings, collapsed inventory, and coverage navigation";
       } catch(error) {feedback.textContent="FAIL: "+error.message;}
     });
     document.querySelector("#problem-check").addEventListener("click",async()=>{
       const feedback=document.querySelector("#feedback");
       const expect=(condition,message)=>{if(!condition)throw new Error(message);};
       try {
-        scenario.value="setup";change();
+        card.setConfig({view:"overview"});
+        scenario.value="retry";change();
         card.openDetail({episodeId:"demo-episode"});await card.loadDetail();
-        let body=card.shadowRoot.querySelector(".dialog-body");
-        expect(body.textContent.includes("did not provide a specific cause"),"Unreported cause must stay explicit");
-        expect(!body.textContent.includes("No non-passing"),"Empty dependency text should be absent");
-        expect(body.querySelector(".actions a.primary").getAttribute("href")==="/config/logs?filter=nuheat","Missing detail should lead to filtered logs");
+        const body=card.shadowRoot.querySelector(".dialog-body");
+        expect(body.innerText.includes("NuHeat connection timed out"),"Cloud timeout should have a plain headline");
+        expect(body.innerText.includes("Try the NuHeat app"),"Cloud timeout needs a useful app check");
+        expect(!body.innerText.includes("HTTPSConnectionPool")&&!card.main.innerText.includes("HTTPSConnectionPool"),"Raw error must not lead either view");
+        expect(!body.innerText.includes("policy")&&!body.innerText.includes("Notification events")&&!body.innerText.includes("No home functions"),"Internal explanations must not lead the problem");
+        expect(body.querySelectorAll(".next-action a.primary").length===1,"One primary next action");
+        expect([...body.querySelectorAll("details")].every(item=>!item.open),"Diagnostics start collapsed");
+        expect(body.innerText.includes("Pause alerts")&&!body.querySelector('[data-shelf]').closest("details"),"Pause alerts is directly available");
+        expect(!body.querySelector('[data-maintenance]')&&!body.querySelector('[data-disclosure="manage"]'),"Problem controls stay scoped to this problem without a management disclosure");
+        expect(!body.innerText.includes("Copy diagnostic data")&&!body.innerText.includes("View raw data"),"Diagnostic actions stay inside Technical details");
+        expect(!body.innerText.includes("What is affected"),"Do not invent household impact");
+        scenario.value="receiver";change();await card.loadDetail();
+        expect(body.innerText.includes("Receiver didn't respond")&&body.innerText.includes("powered on"),"Receiver timeout needs local power/network guidance");
+        expect(!body.innerText.includes("NuHeat app"),"Provider guidance must stay scoped");
         scenario.value="auth";change();await card.loadDetail();
-        body=card.shadowRoot.querySelector(".dialog-body");
-        expect(body.textContent.includes("Sign-in required")&&body.textContent.includes("Session expired"),"Auth cause must be visible");
-        expect(body.querySelector(".actions a.primary").getAttribute("href")==="/config/integrations/integration/nuheat#config_entry=frigate","Auth should lead to its integration entry");
-        expect([...body.querySelectorAll("details")].every(item=>!item.open),"Technical and notification details should start collapsed");
+        expect(body.innerText.includes("Sign-in required"),"HA reauthentication should request sign-in");
+        expect(body.querySelector(".next-action a").textContent==="Sign in again","Sign-in action label should be explicit");
+        expect(body.querySelector(".next-action a").getAttribute("href")==="/config/integrations/integration/nuheat#config_entry=frigate","Sign-in must open the exact HA entry");
         scenario.value="starting";change();await card.loadDetail();
-        expect(body.textContent.includes("Trying setup again")&&body.textContent.includes("Last reported error"),"A retry must retain earlier context");
-        expect(body.textContent.includes("Connection timed out"),"Earlier cause must remain inspectable");
-        expect(!card.main.textContent.includes("Connection timed out"),"Overview should summarize instead of displaying raw errors");
-        const report=body.querySelector('[data-disclosure="reported-error"]');report.open=true;
+        expect(body.innerText.includes("last connection attempt timed out")&&body.innerText.includes("trying again"),"Earlier cause and current retry must remain distinct");
+        body.querySelector('[data-disclosure="technical"]').open=true;
+        body.querySelector('[data-disclosure="diagnostics"]').open=true;
+        expect(body.innerText.includes("Last reported error")&&body.innerText.includes("Connection timed out"),"Earlier error remains inspectable with its timestamp");
         subscribed?.(data());await card.loadDetail();
-        expect(body.querySelector('[data-disclosure="reported-error"]').open,"Live updates must preserve expanded evidence");
+        expect(body.querySelector('[data-disclosure="technical"]').open&&body.querySelector('[data-disclosure="diagnostics"]').open,"Live updates preserve technical and raw data disclosures");
+        const clipboardDescriptor=Object.getOwnPropertyDescriptor(navigator,"clipboard");
+        let copied;
+        try {
+          Object.defineProperty(navigator,"clipboard",{configurable:true,value:{async writeText(value){copied=value;}}});
+          body.querySelector('[data-copy-diagnostics]').click();await Promise.resolve();
+          expect(JSON.parse(copied).evidence.source.node_id==="entry:frigate","Copy exports the selected source diagnostics");
+          expect(body.querySelector('[data-copy-feedback]').textContent==="Diagnostic data copied.","Successful copy has feedback");
+          Object.defineProperty(navigator,"clipboard",{configurable:true,value:{async writeText(){throw new Error("Denied");}}});
+          body.querySelector('[data-copy-diagnostics]').click();await Promise.resolve();
+          expect(body.querySelector('[data-copy-feedback]').textContent.includes("copy the text manually"),"Clipboard failure offers a raw-text fallback");
+          expect(!body.querySelector('[data-copy-diagnostics]').disabled,"Copy can be retried after failure");
+        } finally {
+          delete navigator.clipboard;
+          if(clipboardDescriptor)Object.defineProperty(navigator,"clipboard",clipboardDescriptor);
+        }
         scenario.value="recovering";change();await card.loadDetail();
-        expect(body.textContent.includes("remains open until recovery is confirmed"),"Loaded evidence must distinguish the open recovery hold");
+        expect(body.innerText.includes("Checking recovery")&&body.innerText.includes("once recovery is confirmed"),"Recovery hold cannot announce resolved");
+        expect(!body.querySelector(".next-action a.primary"),"Recovery should not demand an unnecessary action");
         scenario.value="disabled";change();await card.loadDetail();
-        expect(body.textContent.includes("Integration disabled")&&card.main.querySelector(".issue.neutral"),"Disabled must stay distinct from failure");
+        expect(body.innerText.includes("Disabled in Home Assistant")&&card.main.querySelector(".issue.neutral"),"Disabled stays counted and visually quiet");
+        expect(body.innerText.includes("If this is intentional"),"Do not infer intentional disablement");
+        scenario.value="setup";change();await card.loadDetail();
+        expect(body.innerText.includes("did not report a cause"),"Missing cause must remain honest");
         unsafe.checked=true;change();await card.loadDetail();
-        expect(!body.querySelector("img"),"HTML-like source names must remain text");
+        expect(!body.querySelector("img")&&!card.main.querySelector("img"),"Source names remain text");
         unsafe.checked=false;scenario.value="healthy";change();await card.loadDetail();
-        expect(body.textContent.includes("no longer open"),"Recovery must refresh the open dialog");
-        scenario.value="setup";change();card.openDetail({episodeId:"demo-episode"});await card.loadDetail();
-        feedback.textContent="PASS: setup, reauth, retry continuity, disabled state, recovery hold, safe content, native links and live disclosures";
+        expect(body.textContent.includes("no longer open"),"A resolved selection refreshes");
+        card.openDetail({nodeId:"entry:frigate"});await card.loadDetail();
+        expect(body.innerText.includes("Connection available")&&!body.innerText.includes("Checking recovery"),"Healthy source detail must not invent an open recovery hold");
+        scenario.value="retry";change();card.openDetail({episodeId:"demo-episode"});await card.loadDetail();
+        body.querySelectorAll("details").forEach(item=>item.open=false);
+        feedback.textContent="PASS: NuHeat timeout, receiver timeout, sign-in, disabled, recovery, action links, owner/technical separation, live disclosures and safe content";
       } catch(error) {feedback.textContent="FAIL: "+error.message;}
+    });
+    document.querySelector("#entity-check").addEventListener("click",async()=>{
+      const feedback=document.querySelector("#feedback");
+      const expect=(ok,message)=>{if(!ok)throw new Error(message);};
+      try {
+        card.setConfig({view:"overview"});
+        scenario.value="light";change();card.openDetail({episodeId:"entity-episode"});await card.loadDetail();
+        const body=card.shadowRoot.querySelector(".dialog-body");
+        expect(body.innerText.includes("Light · Upstairs · via Matter"),"Identify capability, area and provider");
+        expect(body.innerText.includes("wall switch, if it has one"),"Light has a relevant first check");
+        expect(card.main.innerText.includes("Light unavailable"),"Card and detail agree");
+        expect(body.querySelector('a[href="/config/devices/device/demo-device"]'),"Device page is directly reachable");
+        body.querySelector("[data-entity]").click();
+        expect(feedback.textContent==="Entity requested: light.closet","Entity action opens native details");
+        await new Promise(resolve=>card.dialog.addEventListener("close",resolve,{once:true}));
+        card.openDetail({episodeId:"entity-episode"});await card.loadDetail();
+        scenario.value="entity-recovery";change();await card.loadDetail();
+        expect(body.innerText.includes("Checking recovery")&&card.main.innerText.includes("Checking recovery"),"Historical failure cannot override current recovery");
+        scenario.value="entity-unknown";change();await card.loadDetail();
+        expect(body.innerText.includes("Waiting for a known state")&&!body.innerText.includes("Checking recovery"),"Unknown evidence is not recovery");
+        scenario.value="occupancy";change();await card.loadDetail();
+        expect(body.innerText.includes("Occupancy sensor")&&body.innerText.includes("sensor's power or battery"),"Detection sensor has its own guidance");
+        unsafe.checked=true;change();await card.loadDetail();
+        expect(!body.querySelector("img")&&!card.main.querySelector("img"),"Entity names are escaped");
+        unsafe.checked=false;scenario.value="light";change();await card.loadDetail();
+        feedback.textContent="PASS: device identity, light/sensor guidance, current recovery and unknown evidence, native links and safe content";
+      } catch(error){feedback.textContent="FAIL: "+error.message;}
+    });
+    card.addEventListener("hass-toggle-menu",()=>{document.querySelector("#feedback").textContent="Home Assistant menu requested (synthetic preview)";});
+    document.querySelector("#menu-check").addEventListener("click",()=>{
+      const feedback=document.querySelector("#feedback");
+      const expect=(condition,message)=>{if(!condition)throw new Error(message);};
+      const events=[];
+      const listener=event=>events.push(event);
+      document.addEventListener("hass-toggle-menu",listener);
+      try {
+        const menu=card.shadowRoot.querySelector('button[aria-label="Open Home Assistant menu"]');
+        expect(menu && menu.getBoundingClientRect().width>=44 && menu.getBoundingClientRect().height>=44,"Panel menu needs an accessible touch target");
+        for(const value of ["failure","disconnected","unloaded"]){
+          scenario.value=value;change();menu.click();
+          expect(!menu.hidden,"Menu remains available without health data");
+        }
+        expect(events.length===3 && events.every(event=>event.bubbles&&event.composed),"Menu event reaches the native HA shell once per click");
+        const embedded=document.createElement("homeostatic-card");
+        expect(!embedded.shadowRoot.querySelector(".ha-menu"),"Embedded cards use the dashboard's global menu");
+        scenario.value="failure";change();
+        feedback.textContent="PASS: native menu event, 44px target, disconnected/unavailable navigation and embedded card behavior";
+      } catch(error) {feedback.textContent="FAIL: "+error.message;}
+      finally {document.removeEventListener("hass-toggle-menu",listener);}
     });
     card.addEventListener("hass-more-info",event=>{document.querySelector("#feedback").textContent="Entity requested: "+event.detail.entityId;});
   </script>
