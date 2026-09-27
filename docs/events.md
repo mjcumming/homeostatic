@@ -45,9 +45,9 @@ Acknowledgment publishes `started` once, on the first acknowledgment of an episo
 
 ### Delivery and attribution
 
-Facts publish after the state they describe is saved, before any notification request from the same change. They are published at most once: reloads and restarts do not replay them, and a failed save publishes nothing. An automation that needs current truth after a restart should use the readiness sensors or the `inventory`, `explain` and `resolved_history` actions.
+Facts publish after the state they describe is saved, before any notification request from the same change. They are published at most once: reloads and restarts do not replay them, and a failed save publishes nothing. The startup hold delays notification requests only; facts found while Home Assistant starts publish immediately. An automation that needs current truth after a restart should use the readiness sensors or the `inventory`, `explain` and `resolved_history` actions.
 
-Each event carries a Home Assistant context for the logbook and automation traces. An episode fact's parent is the state change that caused it, when exactly one did; reconciliation and integration-entry changes have no parent. A control fact reuses the context of the action call, so HA attributes the acting user; an expiry has none. Context chaining is best effort and not part of the payload contract; `episode_id` is the join key. Parenting notification requests to their episode fact will follow the delivery changes in proposed ADR 0013.
+Each event carries a Home Assistant context for the logbook and automation traces. An episode fact's parent is the state change that caused it, when exactly one did; reconciliation and integration-entry changes have no parent. A control fact reuses the context of the action call, so HA attributes the acting user; an expiry has none. Context chaining is best effort and not part of the payload contract; `episode_id` is the join key. Parenting notification requests to their episode fact will follow the delivery changes in proposed ADR 0015.
 
 ### Entities
 

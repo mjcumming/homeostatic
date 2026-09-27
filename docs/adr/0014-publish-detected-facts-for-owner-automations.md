@@ -6,7 +6,7 @@
 
 **Deciders:** Michael Cumming
 
-**Related:** ADR 0006 (notification requests through consumers), proposed ADR 0013 (built-in delivery to people), ADR 0005 and ADR 0012 (what availability evidence means).
+**Related:** ADR 0006 (notification requests through consumers), proposed ADR 0015 (built-in delivery to people), ADR 0005 and ADR 0012 (what availability evidence means).
 
 ## Context
 
@@ -21,7 +21,7 @@ Owners will always want responses that Homeostatic's UI does not offer. Building
 
 ## Decision
 
-Homeostatic publishes what it detects as a stable, versioned stream of facts that owner automations may consume however they like. What an owner does with it, including ignoring Homeostatic's attention policy, is the owner's choice. Notification delivery (ADR 0006, and ADR 0013 if accepted) is one opinionated consumer of these facts, not the definition of what is observable.
+Homeostatic publishes what it detects as a stable, versioned stream of facts that owner automations may consume however they like. What an owner does with it, including ignoring Homeostatic's attention policy, is the owner's choice. Notification delivery (ADR 0006, and ADR 0015 if accepted) is one opinionated consumer of these facts, not the definition of what is observable.
 
 ### Events
 

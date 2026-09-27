@@ -26,6 +26,7 @@ from custom_components.homeostatic.const import (
 from custom_components.homeostatic.facts import Fact
 from tests.test_controls import NODE, action, end
 from tests.test_lifecycle import start_monitor
+from tests.test_startup_quiet import fresh_start, slow_integration
 
 FUNCTION = "function:lighting"
 
@@ -320,3 +321,20 @@ def test_function_changes(
         functions_after=frozenset(after),
     )
     assert fact.function_changes() == expected
+
+
+async def test_startup_hold_delays_requests_not_facts(
+    hass: HomeAssistant, lighting: dict[str, Any]
+) -> None:
+    """Owners see problems found during startup while notifications are held."""
+    lighting["notifications"] = True
+    slow_integration(hass, lighting)
+    hass.states.async_set("sensor.observed", "unavailable")
+    facts = async_capture_events(hass, EVENT_EPISODE)
+    requests = async_capture_events(hass, EVENT_NOTIFICATION)
+    entry = MockConfigEntry(domain=DOMAIN, data=lighting)
+    runtime = await fresh_start(hass, entry)
+    assert runtime.startup_quiet
+    assert [fact.data["change"] for fact in facts] == ["opened"]
+    assert not requests
+    assert await hass.config_entries.async_unload(entry.entry_id)
