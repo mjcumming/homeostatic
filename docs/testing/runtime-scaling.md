@@ -62,6 +62,38 @@ never copy this lab configuration to a household instance. The report defaults
 to `build/runtime-profile/real-storage.json`. Multimedia/system-package warnings
 from the development Core environment are outside these availability checks.
 
+## 2026-09-26 device-sized scope experiment
+
+The current 0.1.0b10 pilot was tested with 6,000 generated entity candidates,
+300 generated devices and ten loaded integration entries. Exactly one stable
+entity reference per device was attached for this measurement, giving 310
+watched checks. This selects the first generated entity solely to measure
+scale; it is **not** a validated rule for choosing real device evidence.
+
+| Measurement | HA test helpers | Running HA with real Store and WebSocket |
+| --- | ---: | ---: |
+| Initial setup | 1.90 s | 0.25 s |
+| Initial serialized dashboard/event | 3.42 MB | 3.24 MB |
+| 60 independent device-representative outages | 0.25 s | 0.33 s |
+| Longest event-loop gap during outage | 0.22 s | 0.30 s |
+| 60 recoveries | 0.24 s | 0.21 s |
+| Scans / saves / publications during outage | 0 / 1 / 1 | 0 / 1 / 1 |
+| Compact outage update | 117 kB | 113 kB |
+
+The running-HA lab retained two subsequent episode ids through a reload; its
+owned storage file was 618 kB. The HA test-helper environment mocks persistence,
+while the running-HA result includes actual Store and loopback WebSocket work.
+This shows that a device-sized **check count** avoids the 6,000-check burst cost
+in this synthetic workload. It does not show that one arbitrary entity reliably
+reports each physical device's connectivity. The 0.30-second maximum event-loop
+gap also exceeds the earlier proposed 100 ms per-slice lab budget. Neither run
+replays household traffic or measures the installed HA appliance.
+
+Reproduce with `HOMEOSTATIC_RUNTIME_PROFILE=1 uv run pytest
+tests/test_runtime_scaling.py::test_one_capability_per_device_runtime_load -q`
+and `uv run python script/runtime_lab.py --device-representatives`. The latter
+writes `build/runtime-profile/device-representatives.json`.
+
 ## Registry shape
 
 A read-only assessment of saved registries found 6,651 registered entities and
@@ -146,7 +178,7 @@ not eliminate catalog and presentation costs.
 
 The baseline identified these implementation steps (steps 1–3 are addressed by the follow-up above):
 
-1. Schedule bounded refresh work while retaining **every captured transition**
+1. Schedule bounded refresh work while retaining **every captured condition change**
    and its timestamp. Coalescing redundant refresh requests must not discard
    observations, delivery ordering, deadlines or observations arriving during
    persistence/shutdown. Index entity-to-source lookup.
@@ -156,7 +188,7 @@ The baseline identified these implementation steps (steps 1–3 are addressed by
 3. Separate small problem/function updates from the large catalog. Page or
    request inventory details as needed, and bound frontend row rendering.
    Rendering fewer rows alone does not reduce backend payload work.
-4. Implement device-first navigation and selective capability profiles using
+4. Present device summaries and optional separate entity checks through
    adapter-owned views. Grouping never introduces a causal dependency.
 
 These are proposed adapter changes. Update the spec and add executable
@@ -165,13 +197,12 @@ accepted ADR needs to change merely to present devices above capabilities.
 
 ## Qualification and live pilot
 
-The first pilot should select one availability capability on each of two known
-offline devices, retain the existing integration checks and keep notifications
-off. Extra settings, firmware, battery thresholds and optional capabilities
-remain separately reviewable. Entity availability reports HA's control-path
+The first pilot should select one device availability summary on each of two
+known offline devices, retain the existing integration checks and keep
+notifications off. Individual entities remain available for separate checks
+when a function needs one. Entity availability reports HA's control-path
 evidence; it does not establish physical freshness or diagnose why a device
-is disconnected. A second independent capability is added when a function
-needs it, not just because an entity exists.
+is disconnected.
 
 Before expanding the live scope, repeat the burst tests after the runtime
 changes. Proposed lab targets are under 100 ms for a synchronous work slice and
@@ -189,6 +220,18 @@ budgets, not an adopted spec or a target-hardware guarantee. Validate separately
   inventory, and storage measurements on deployment-like hardware.
 - A representative recorded event-rate distribution before calling the test a
   sustained household-load qualification; registry structure supplies no rate.
+
+The device-summary prototype was measured with 6,000 registered entities on
+300 HA devices and 10 controller entries, with 300 device summaries selected.
+Powering down 60 complete synthetic devices produced 60 episodes from 1,200
+entity transitions. Without filtering repeated device conditions, it took
+3.1 seconds and blocked the loop for 2.93 seconds. Filtering same-condition
+observations reduced this to 0.46 seconds overall, with a 0.30-second longest
+loop gap, one save, zero catalog scans and a 109 KB update. Recovery took
+0.34 seconds. The first WebSocket transfer was 3.3 MB. This meets the proposed
+burst-settle budget but misses the proposed synchronous-slice budget. The lab
+uses synthetic devices and WSL storage, so target-hardware and sustained-load
+behavior remain unqualified.
 
 Then preview the exact two-device rule, verify its two additional matches,
 and apply only that bounded pilot with explicit deployment authorization.

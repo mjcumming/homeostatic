@@ -49,8 +49,7 @@ const end=()=>{const d=new Date(Date.now()+3600000);d.setMinutes(d.getMinutes()-
 const submit=()=>card.tools.body.querySelector('[type="submit"]');
 async function open(kind="maintenance"){
   card.tools.close();await flush();
-  card.openDetail({episodeId:"open-1"});await flush();
-  root.querySelector('[data-disclosure="manage"]').open=true;
+  card.openDetail(kind==="maintenance"?{nodeId:source.node_id}:{episodeId:"open-1"});await flush();
   root.querySelector(kind==="maintenance"?"[data-maintenance]":"[data-shelf]").click();await flush();
 }
 document.querySelector("#run").addEventListener("click",async()=>{
@@ -95,6 +94,8 @@ document.querySelector("#run").addEventListener("click",async()=>{
     passed.push("Maintenance expiry, scope preview, draft preservation, preview invalidation, duplicate prevention and saved result");
 
     await open("shelve");expect(card.tools.body.textContent.includes("including urgent alerts"),"Shelving must explain urgent scope");
+    expect(card.tools.body.textContent.includes("this problem only")&&card.tools.body.textContent.includes("Other problems on this equipment are unaffected"),"Pause explicitly applies only to the selected problem");
+    expect(!card.tools.body.querySelector('[name="includeDependents"]'),"Pause has no equipment-wide scope option");
     field("untilLocal",end());fail=true;const attemptCount=calls.length;await card.tools.execute();
     expect(calls.length===attemptCount+1,"Failure must not auto-retry");
     expect(card.tools.body.textContent.includes("may already have been saved"),"Ambiguous failure must require inspection");
@@ -102,12 +103,13 @@ document.querySelector("#run").addEventListener("click",async()=>{
     publish(data);expect(!submit().disabled,"Fresh data can restore valid shelf target");
     data.inventory.episodes=[];publish(data);expect(submit().disabled,"Resolved shelf target must be disabled");
     reset();publish(data);await card.tools.execute();
+    expect(calls.at(-1).service_data.episode_id==="open-1"&&!Object.hasOwn(calls.at(-1).service_data,"node_id"),"Pause submits only the selected episode target");
     expect(card.tools.body.textContent.includes("Saved by Home Assistant"),"Shelf should show saved result");
     card.tools.close();await flush();
     card.openDetail({episodeId:"open-1"});await flush();
-    expect(!root.querySelector('[data-disclosure="manage"]').open,"Management starts collapsed on a new detail");
-    expect(root.querySelector('.dialog-body').innerText.includes("Alerts paused until"),"Active shelf expiry stays visible outside management");
-    expect(!root.querySelector('.dialog-body').innerText.includes("Working on this equipment"),"Inactive action controls stay inside management");
+    expect(!root.querySelector('[data-shelf]').closest("details"),"Pause is directly available on a new detail");
+    expect(root.querySelector('.dialog-body').innerText.includes("Alerts paused until"),"Active shelf expiry stays visible");
+    expect(!root.querySelector('.dialog-body [data-maintenance]'),"Equipment maintenance stays on source details");
     card.dialog.close();await flush();
     passed.push("Shelving explanation, ambiguous failure, no retry, disconnect, target resolution, saved result and visible expiry");
 

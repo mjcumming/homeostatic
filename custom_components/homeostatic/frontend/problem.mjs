@@ -68,6 +68,36 @@ export function integrationProblem(source, findings, localize = () => null, evid
 }
 
 
+export function deviceProblem(source, status, openProblem = true) {
+  if (source?.kind !== "device") return null;
+  const reason = source.disabled ? "disabled" : status?.current?.reason ?? "source_missing";
+  const definitions = {
+    all_unavailable:["All monitored entities unavailable",
+      "Home Assistant reports every entity selected for this availability check as unavailable. Monitoring expects them to be available; this does not establish whether the physical device has failed.",
+      "Review the listed entities. Check their connection if this is unexpected, or ignore availability checks that are not needed.","failure","Expected availability missing"],
+    some_unavailable:["Some monitored entities unavailable",
+      "Home Assistant reports at least one selected entity as unavailable. This can reflect a normal operating mode or a failure; Homeostatic cannot determine which from this state alone.",
+      "Review the listed entities. If an entity is normally unavailable and is not required, ignore its availability check.","uncertain","Expected availability missing"],
+    incomplete_evidence:["Device availability isn't confirmed",
+      "At least one selected entity has an unknown, missing, or restored state. That is a gap in the expected availability evidence, not proof of a device fault.",
+      "Review the device's entities in Home Assistant and wait for current readings.","uncertain","Waiting for evidence"],
+    source_missing:["No device availability evidence",
+      "Home Assistant has no eligible current entities for this device summary.",
+      "Review the device page and its enabled entities. If the device was removed, update what Homeostatic watches.","uncertain","No current evidence"],
+    disabled:["Device disabled in Home Assistant",
+      "Home Assistant is not using this device, so Homeostatic cannot assess its availability.",
+      "Review the device in Home Assistant if this was not intentional.","neutral","Disabled"],
+    available:[openProblem ? "Checking device recovery" : "Device entities available",
+      openProblem ? "Its eligible entities have usable states again. Homeostatic is waiting to confirm recovery." : "Home Assistant reports usable states for the eligible entities associated with this device.",
+      "No action is needed right now.","recovering",openProblem ? "Confirming recovery" : "Available"],
+  };
+  const [headline,summary,nextStep,tone,progress] = definitions[reason] ?? definitions.source_missing;
+  const device = source.attributes?.device?.[0];
+  return {context:"Monitored entity availability",headline,summary,nextStep,tone,progress,
+    deviceUrl:device ? `/config/devices/device/${encodeURIComponent(device)}` : null,
+    needsAction:false,currentReason:reason};
+}
+
 export function entityProblem(source, status, owner = null, areas = [], localize = () => null, openProblem = true) {
   if (source?.kind !== "entity") return null;
   const domain = source.attributes?.domain?.[0] ?? source.entity_id?.split(".")[0];

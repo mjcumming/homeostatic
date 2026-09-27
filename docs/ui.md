@@ -1004,7 +1004,7 @@ The owner approved replacing the diagnostic-first problem presentation with a sh
 
 NuHeat timeouts suggest checking the NuHeat app; receiver timeouts suggest checking power and network. Request sign-in only when HA explicitly requires reauthentication. Keep disabled connections neutral and counted without assuming intent. During recovery confirmation, explain that the connection is running again and no action is needed yet.
 
-Move alert and maintenance actions under **Manage this problem**. Keep active control expiry visible. Put timestamped original errors and filtered logs under **Technical details**, with raw policy/query data one level deeper under **Diagnostic data**. Empty dependency explanations, normal importance, notification implementation notes and broad verification disclaimers do not belong in the main problem brief.
+Show **Pause alerts** directly in problem details, scoped only to the selected problem. Keep equipment maintenance on source details and active control expiry visible. Put timestamped original errors, filtered logs and **Copy diagnostic data** under one collapsed **Technical details** section, with **View raw data** available inside it. Empty dependency explanations, normal importance, notification implementation notes and broad verification disclaimers do not belong in the main problem brief.
 
 The executable preview covers cloud timeout, receiver timeout, explicit sign-in, disabled and recovering states, plus unknown cause, safe text, real function impact and live disclosure preservation. The history/control fixture verifies existing actions and visible expiry notices. This increment changes presentation only; enrollment, health, recovery timing and notification decisions retain their existing contracts.
 
@@ -1078,6 +1078,10 @@ confirmation; historical episode reasons never stand in for current state.
 ## 27. Monitoring configuration page — 2026-09-26
 
 The first editable dashboard page addresses the gap between Coverage showing a rule decision and native options presenting the whole integration as one form. It edits the existing attach/exclude catalog, with no second enrollment setting or configuration store. This is a focused first slice of Configuration; functions, situations, policy and house timing continue through native options.
+
+[ADR 0012](adr/0012-monitoring-expectations-and-persistent-exclusions.md) records the general monitoring-expectation decision. The Outdoor Speakers example does not justify a manufacturer exception or assuming all partial unavailability is harmless. A selected availability check is an expectation. Report what HA says and show the selected entity names and current states, without diagnosing physical failure or inventing an actionability judgment. Explain broad defaults and future matches when editing monitoring.
+
+Device details show at most 50 current members, unavailable first, and link to full monitoring choices. **Ignore availability** stages a persistent entity exclusion in the existing editor, with preview before save. Apply the exclusion to direct checks and device summaries. An empty set is unmonitored, not healthy. End an old aggregate episode as removed when its excluded members change; do not call that recovery. Stable registry identity preserves the choice through renames and reload. Acknowledgment and temporary shelving retain their separate meanings and cannot serve as persistent ignore choices.
 
 The owner can add, enable, disable, edit and remove a rule. Match inputs cover the accepted stable fields. Empty fields match any value, values within a field are alternatives, and populated fields combine. The page explains that new discoveries inherit matching rules, that exclusions win, and that excluding a required capability leaves its function without evidence. It edits the current availability check only; the page cannot create a physical-health claim or a per-check timing override.
 

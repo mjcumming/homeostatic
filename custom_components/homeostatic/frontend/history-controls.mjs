@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=13";
+import {escapeHtml as esc} from "./model.mjs?v=21";
 
 const date = (value) => value ? new Date(value).toLocaleString() : "Unknown";
 export const RESOLUTIONS = {
@@ -106,11 +106,14 @@ export class DashboardTools {
     const history = data.inventory.resolved_history;
     const result = historyPage(history, this.query, this.resolution, this.page);
     this.page = result.page;
-    return `<div class="intro"><div><h1>Recently resolved</h1><p class="sub">Recovery, monitoring changes, and problems joined together.</p></div></div><section class="panel"><div class="body"><p class="small">${this.historyNote(history)}</p><div class="tool-fields"><label>Search history<input type="search" data-history-search value="${esc(this.query)}"></label><label>Outcome<select data-history-filter><option value="">All outcomes</option>${Object.entries(RESOLUTIONS).map(([value, [label]]) => `<option value="${value}"${value === this.resolution ? " selected" : ""}>${label}</option>`).join("")}</select></label></div></div>${historyRows(result.rows)}${!result.total ? '<div class="body"><p>No matching ended episodes in the retained history.</p></div>' : ""}<div class="body actions"><button type="button" class="button" data-tool="previous"${result.page === 0 ? " disabled" : ""}>Previous</button><span role="status">Page ${result.page + 1} of ${result.pages} · ${result.total} episodes</span><button type="button" class="button" data-tool="next"${result.page + 1 === result.pages ? " disabled" : ""}>Next</button></div></section>`;
+    return `<section class="panel"><div class="panel-head"><h2>Resolved problems</h2></div><div class="body"><p class="small">${this.historyNote(history)}</p><div class="tool-fields"><label>Search resolved problems<input type="search" data-history-search value="${esc(this.query)}"></label><label>Outcome<select data-history-filter><option value="">All outcomes</option>${Object.entries(RESOLUTIONS).map(([value, [label]]) => `<option value="${value}"${value === this.resolution ? " selected" : ""}>${label}</option>`).join("")}</select></label></div></div>${historyRows(result.rows)}${!result.total ? '<div class="body"><p>No matching ended problems in the retained history.</p></div>' : ""}<div class="body actions"><button type="button" class="button" data-tool="previous"${result.page === 0 ? " disabled" : ""}>Previous</button><span role="status">Page ${result.page + 1} of ${result.pages} · ${result.total} episodes</span><button type="button" class="button" data-tool="next"${result.page + 1 === result.pages ? " disabled" : ""}>Next</button></div></section>`;
   }
 
   detailButtons(source, episode, data) {
-    return `<section class="detail"><div class="actions">${episode ? `<button type="button" class="button" data-shelf="${esc(episode.episode_id)}">Pause alerts…</button>` : ""}${["entity", "integration", "external"].includes(source.kind) ? `<button type="button" class="button" data-maintenance="${esc(source.node_id)}">Working on this equipment…</button>` : ""}</div>${(data.inventory.operator_controls ?? []).some((item) => [source.node_id, episode?.episode_id].includes(item.target)) ? controlsPanel(data, [source.node_id, episode?.episode_id]) : ""}</section>`;
+    const action = episode ? `<button type="button" class="button" data-shelf="${esc(episode.episode_id)}">Pause alerts…</button>`
+      : ["entity", "integration", "external"].includes(source.kind) ? `<button type="button" class="button" data-maintenance="${esc(source.node_id)}">Working on this equipment…</button>` : "";
+    const active = (data.inventory.operator_controls ?? []).some((item) => [source.node_id, episode?.episode_id].includes(item.target));
+    return action || active ? `<section class="detail">${action ? `<div class="actions">${action}</div>` : ""}${active ? controlsPanel(data, [source.node_id, episode?.episode_id]) : ""}</section>` : "";
   }
 
   clicked(event) {
@@ -189,7 +192,7 @@ export class DashboardTools {
     const name = inventory.nodes.find((item) => item.node_id === nodeId)?.name ?? nodeId;
     this.dialog.querySelector("h2").textContent = kind === "shelve" ? "Pause alerts" : "Working on this equipment";
     const introduction = kind === "shelve"
-      ? "Hold new alerts for every recipient, including urgent alerts, reminders and escalations. Existing messages stay visible and the problem remains open."
+      ? "Pause new alerts for this problem only, for every recipient, including urgent alerts, reminders and escalations. Other problems on this equipment are unaffected. Existing messages stay visible and the problem remains open."
       : "Homeostatic will wait to open new problems for this equipment until the end time. Its observed status and home functions remain visible. Existing problems and alerts continue; situations are unaffected.";
     const duration = kind === "maintenance"
       ? '<div class="duration-choices" role="group" aria-label="Choose a maintenance duration"><button type="button" class="button" data-duration="30">30 minutes</button><button type="button" class="button" data-duration="120">2 hours</button><button type="button" class="button" data-duration="240">4 hours</button></div>'
@@ -197,7 +200,7 @@ export class DashboardTools {
     const dependents = kind === "maintenance"
       ? '<label class="check-field"><input type="checkbox" name="includeDependents"> Also cover equipment and functions that depend on this</label>'
       : "";
-    this.body.innerHTML = `<p><strong>${esc(name)}</strong></p><p>${introduction}</p><p class="small">${kind === "maintenance" ? "Choose a short window or enter an end time. A problem still present at expiry may open then. " : "Choose an end time within seven days. "}Early cancellation is not available.${kind === "shelve" ? " An existing shelf can only be extended." : ""}</p><form class="tool-form">${duration}<label>${kind === "maintenance" ? "Or choose an end date and time" : "End date and time"} (your local time)<input type="datetime-local" name="untilLocal" required></label>${dependents}<details><summary>Add a reason (optional)</summary><label>Reason<textarea name="reason" maxlength="500" rows="3"></textarea></label></details><div data-control-preview></div><p data-control-feedback role="status"></p><div class="actions">${kind === "maintenance" ? '<button class="button" type="button" data-tool="preview">Review what will be covered</button>' : ""}<button class="button primary" type="submit">${kind === "shelve" ? "Pause alerts" : "Start maintenance"}</button></div></form>`;
+    this.body.innerHTML = `<p><strong>${esc(name)}</strong></p><p>${introduction}</p><p class="small">${kind === "maintenance" ? "Choose a short window or enter an end time. A problem still present at expiry may open then. " : "Choose an end time within seven days. "}Early cancellation is not available.${kind === "shelve" ? " An existing pause can only be extended." : ""}</p><form class="tool-form">${duration}<label>${kind === "maintenance" ? "Or choose an end date and time" : "End date and time"} (your local time)<input type="datetime-local" name="untilLocal" required></label>${dependents}<details><summary>Add a reason (optional)</summary><label>Reason<textarea name="reason" maxlength="500" rows="3"></textarea></label></details><div data-control-preview></div><p data-control-feedback role="status"></p><div class="actions">${kind === "maintenance" ? '<button class="button" type="button" data-tool="preview">Review what will be covered</button>' : ""}<button class="button primary" type="submit">${kind === "shelve" ? "Pause alerts" : "Start maintenance"}</button></div></form>`;
     this.dialog.showModal();
     this.refreshFormState();
   }

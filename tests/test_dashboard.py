@@ -189,7 +189,9 @@ async def test_location_names_and_situation_detail(
     assert data["areas"] == [
         {"id": area.id, "name": "Garage", "floor_id": floor.floor_id}
     ]
-    assert {"id": device.id, "name": "Garage monitor"} in data["devices"]
+    assert {"id": device.id, "name": "Garage monitor", "disabled": False} in data[
+        "devices"
+    ]
     assert data["floors"] == [{"id": floor.floor_id, "name": "Main floor"}]
     client = await hass_ws_client(hass)
     await client.send_json(

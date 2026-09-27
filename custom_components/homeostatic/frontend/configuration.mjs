@@ -1,4 +1,4 @@
-import {inventoryRows} from "./model.mjs?v=13";
+import {inventoryRows} from "./model.mjs?v=21";
 
 export const MATCH_FIELDS = ["kind", "domain", "device_class", "integration", "device", "entity", "area", "floor", "label"];
 
@@ -34,7 +34,7 @@ export function monitoringTree(data, query = "") {
       entry:null,devices:new Map(),loose:[],entities:[]});
     return groups.get(key);
   };
-  const rows = inventoryRows(data).filter((source) => ["integration", "entity"].includes(source.kind));
+  const rows = inventoryRows(data).filter((source) => ["integration", "entity", "device"].includes(source.kind));
   const deviceTotals = new Map();
   for (const source of rows.filter((item) => item.kind === "integration")) {
     const group = groupFor(source.entry_id ?? source.node_id.slice(6));
@@ -53,22 +53,29 @@ export function monitoringTree(data, query = "") {
     total.count++;
     if (source.watched) total.watched++;
     deviceTotals.set(deviceId,total);
-    if (!group.devices.has(deviceId)) group.devices.set(deviceId,{id:deviceId,name:names.get(deviceId) ?? "Unnamed device",entities:[]});
+    if (!group.devices.has(deviceId)) group.devices.set(deviceId,{id:deviceId,name:names.get(deviceId) ?? "Unnamed device",entities:[],summary:null});
     group.devices.get(deviceId).entities.push(source);
+  }
+  for (const source of rows.filter((item) => item.kind === "device")) {
+    const deviceId = source.attributes?.device?.[0];
+    if (!deviceId) continue;
+    const group = groupFor(source.attributes?.integration?.[0]);
+    if (!group.devices.has(deviceId)) group.devices.set(deviceId,{id:deviceId,name:names.get(deviceId) ?? source.name,entities:[],summary:null});
+    group.devices.get(deviceId).summary = source;
   }
   const normalized = query.trim().toLocaleLowerCase();
   const matches = (source) => [source.name,source.entity_id].filter(Boolean).join(" ").toLocaleLowerCase().includes(normalized);
   return [...groups.values()].map((group) => {
     const full = !normalized || group.name.toLocaleLowerCase().includes(normalized);
-    const devices = [...group.devices.values()].map((device) => ({...device,total:deviceTotals.get(device.id),
+    const devices = [...group.devices.values()].map((device) => ({...device,total:deviceTotals.get(device.id) ?? {count:0,watched:0},
       entities:full || device.name.toLocaleLowerCase().includes(normalized)
         ? device.entities : device.entities.filter(matches)}))
-      .filter((device) => device.entities.length).sort(byName);
+      .filter((device) => device.entities.length || (device.summary && (full || matches(device.summary)))).sort(byName);
     const loose = full ? group.loose : group.loose.filter(matches);
     return {...group,devices,loose,
-      count:group.entities.length + (group.entry ? 1 : 0),
-      watched:group.entities.filter((source) => source.watched).length + (group.entry?.watched ? 1 : 0),
-      visible:devices.reduce((total, device) => total + device.entities.length,0) + loose.length + (group.entry && (full || matches(group.entry)) ? 1 : 0)};
+      count:group.entities.length + (group.entry ? 1 : 0) + [...group.devices.values()].filter((device) => device.summary).length,
+      watched:group.entities.filter((source) => source.watched).length + (group.entry?.watched ? 1 : 0) + [...group.devices.values()].filter((device) => device.summary?.watched).length,
+      visible:devices.reduce((total, device) => total + device.entities.length + (device.summary ? 1 : 0),0) + loose.length + (group.entry && (full || matches(group.entry)) ? 1 : 0)};
   }).filter((group) => !normalized || group.visible).sort((left,right) =>
     (!left.id) - (!right.id) || byName(left,right));
 }
@@ -79,6 +86,7 @@ export function monitoringScope(kind, id, source = null) {
   if (kind === "entry") return {kind,id,match:{integration:[id],kind:["integration"]}};
   if (kind === "entities") return {kind,id,match:{integration:[id],kind:["entity"]}};
   if (kind === "device") return {kind,id,match:{device:[id]}};
+  if (kind === "device_availability") return {kind,id,match:{kind:["device"],device:[id]}};
   const reference = source?.attributes?.entity?.[0] ??
     (source?.node_id?.startsWith("entity:") ? source.node_id.slice(7) : null);
   return reference ? {kind:"entity",id,match:{entity:[reference]}} : null;

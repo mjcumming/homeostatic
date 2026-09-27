@@ -29,6 +29,8 @@ class Source:
     attributes: Attributes = field(default_factory=dict)
     attached_by: tuple[str, ...] = ()
     excluded_by: tuple[str, ...] = ()
+    availability_entities: tuple[str, ...] = ()
+    ignored_availability: tuple[str, ...] = ()
 
     def node(self, settings: Settings) -> Node:
         """Declare a check for the observed HA control-path capability."""
@@ -99,6 +101,44 @@ def entity_observation(
         evidence={
             "entity_id": source.entity_id,
             "state": state.state if state is not None else None,
+            "physical_freshness_verified": False,
+        },
+    )
+
+
+def device_observation(
+    source: Source, states: tuple[State | None, ...], now: datetime
+) -> Observation:
+    """Summarize HA availability across one device's eligible entities."""
+    signatures = tuple(entity_state_signature(state)[0] for state in states)
+    available = signatures.count(Status.PASS)
+    unavailable = signatures.count(Status.FAIL)
+    unknown = len(signatures) - available - unavailable
+    if source.disabled:
+        status, reason = Status.UNKNOWN, "disabled"
+    elif not signatures:
+        status, reason = Status.UNKNOWN, "source_missing"
+    elif unavailable == len(signatures):
+        status, reason = Status.FAIL, "all_unavailable"
+    elif unavailable:
+        status, reason = Status.WARN, "some_unavailable"
+    elif unknown:
+        status, reason = Status.UNKNOWN, "incomplete_evidence"
+    else:
+        status, reason = Status.PASS, "available"
+    return Observation(
+        node_id=source.node_id,
+        check_id="availability",
+        status=status,
+        reason=reason,
+        observed_at=now,
+        message=f"{source.name}: {reason.replace('_', ' ')}",
+        evidence={
+            "device_id": next(iter(source.attributes.get("device", ())), None),
+            "entity_count": len(signatures),
+            "available": available,
+            "unavailable": unavailable,
+            "unknown": unknown,
             "physical_freshness_verified": False,
         },
     )

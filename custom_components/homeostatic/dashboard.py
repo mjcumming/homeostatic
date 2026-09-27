@@ -35,8 +35,8 @@ from .serialization import json_object
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=13"
-PANEL_ELEMENT = "homeostatic-panel-v13"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=21"
+PANEL_ELEMENT = "homeostatic-panel-v21"
 
 
 def _digest(value: dict[str, Any]) -> str:
@@ -94,7 +94,11 @@ def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
             for area in areas.areas.values()
         ],
         "devices": [
-            {"id": device.id, "name": device.name_by_user or device.name or device.id}
+            {
+                "id": device.id,
+                "name": device.name_by_user or device.name or device.id,
+                "disabled": device.disabled_by is not None,
+            }
             for device in devices.devices
         ],
         "floors": [
@@ -237,6 +241,7 @@ def websocket_node(
             "source": json_object(source),
             "integration_evidence": runtime.integration_evidence.view(node_id),
             "entity_status": runtime.entity_status(node_id),
+            "device_evidence": runtime.device_evidence(node_id),
             "explanation": runtime.query("explain", {"node_id": node_id}),
             "impact": runtime.query("impact", {"node_id": node_id}),
             "readiness": (

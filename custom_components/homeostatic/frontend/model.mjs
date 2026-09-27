@@ -282,6 +282,7 @@ function coverageAffectedFunctions(data, nodeId) {
 function coverageGroupKey(source) {
   if (source.kind === "integration") return `integration:${source.entry_id ?? source.node_id}`;
   if (source.owner_id) return `integration:${source.owner_id}`;
+  if (source.kind === "device" && source.attributes.integration?.[0]) return `integration:${source.attributes.integration[0]}`;
   if (["function","situation"].includes(source.kind)) return "definitions";
   if (source.kind === "external") return "external";
   return "other";
@@ -300,6 +301,46 @@ function coverageDevice(source, groupId, devices) {
 
 function byCoverage(left, right) {
   return right.gaps - left.gaps || left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
+}
+
+/** Keep confirmed and important problems visible on Home at large source counts. */
+export function homeEpisodeGroups(data, limit = 30) {
+  const waiting = [];
+  const actionable = [];
+  for (const episode of sortedEpisodes(data)) {
+    const uncertain = episode.reasons.length > 0 &&
+      episode.reasons.every((reason) => reason.status === "unknown");
+    if (uncertain && !["critical","high"].includes(episode.importance)) waiting.push(episode);
+    else actionable.push(episode);
+  }
+  return {visible:actionable.slice(0,limit),hidden:Math.max(0,actionable.length - limit),
+    waiting:waiting.length};
+}
+
+/** Count registry devices without treating missing entity evidence as a failure. */
+export function deviceRegistryCoverage(data, query = "", limit = 50) {
+  const devices = data.devices ?? [];
+  const enabled = devices.filter((device) => !device.disabled);
+  const summaries = new Set((data.inventory?.catalog?.candidates ?? [])
+    .filter((source) => source.kind === "device")
+    .map((source) => source.attributes.device?.[0]).filter(Boolean));
+  const watched = new Set((data.inventory?.catalog?.candidates ?? [])
+    .filter((source) => source.kind === "device" && source.watched)
+    .map((source) => source.attributes.device?.[0]).filter(Boolean));
+  const withoutEvidence = enabled.filter((device) => !summaries.has(device.id))
+    .sort((left,right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
+  const normalized = query.trim().toLocaleLowerCase();
+  const matches = normalized ? withoutEvidence.filter((device) =>
+    `${device.name} ${device.id}`.toLocaleLowerCase().includes(normalized)) : withoutEvidence;
+  return {
+    total:enabled.length,
+    disabled:devices.length - enabled.length,
+    available:enabled.filter((device) => summaries.has(device.id)).length,
+    watched:enabled.filter((device) => watched.has(device.id)).length,
+    withoutEvidence:withoutEvidence.length,
+    matches:matches.slice(0,limit),
+    resultCount:matches.length,
+  };
 }
 
 /** Build a bounded, gap-first integration and device hierarchy. */
@@ -324,7 +365,7 @@ export function coverageInventory(data, query = "", limit = 50, sourceIds = null
   for (const source of selected) {
     const groupId = coverageGroupKey(source);
     const name = groupId.startsWith("integration:")
-      ? integrations.get(source.entry_id ?? source.owner_id) ?? source.name
+      ? integrations.get(source.entry_id ?? source.owner_id ?? source.attributes.integration?.[0]) ?? source.name
       : groupId === "definitions" ? "Homeostatic definitions"
       : groupId === "external" ? "External capabilities"
       : "Other monitored sources";
@@ -335,6 +376,7 @@ export function coverageInventory(data, query = "", limit = 50, sourceIds = null
     const gap = gaps.get(source.node_id) ?? {kinds:[],reasons:[]};
     group.devices.get(device.id).sources.push({
       source,
+      kinds:gap.kinds,
       reasons:gap.reasons,
       guidance:coverageGuidance(source,gap.kinds),
       affectedFunctions:coverageAffectedFunctions(data,source.node_id),
@@ -381,7 +423,7 @@ export function locationTree(data) {
   const cached = treeCache.get(inventory);
   if (cached && cached.areas === data.areas && cached.floors === data.floors &&
       cached.devices === data.devices && cached.functions === data.functions) return cached.tree;
-  const rows = inventory.filter((source) => source.kind === "entity");
+  const rows = inventory.filter((source) => ["entity","device"].includes(source.kind));
   const deviceNames = new Map((data.devices ?? []).map((device) => [device.id, device.name]));
   const describe = (location) => {
     const devices = new Map();
@@ -404,7 +446,7 @@ export function locationTree(data) {
       item.requirements?.some((id) => ids.has(id)));
     const count = (value, name) => value ? `${value} ${name}${value === 1 ? "" : "s"}` : null;
     location.summary = [count(location.devices.length,"device"),
-      count(location.functions.length,"function"),count(signals.length,"area signal")]
+      count(location.functions.length,"function"),signals.length ? `${signals.length} ${signals.length === 1 ? "entity" : "entities"} without a device` : null]
       .filter(Boolean).join(" · ") || "Empty";
     for (const child of location.children) describe(child);
   };
@@ -472,6 +514,22 @@ export function locationTree(data) {
 
 export function locationList(tree) {
   return tree.flatMap((location) => [location, ...locationList(location.children)]);
+}
+
+/** Identify location findings from declared functions and current monitoring evidence. */
+export function locationAssessment(data, location) {
+  const sourceIds = new Set(location.sources.map((source) => source.node_id));
+  const gaps = coverageGapMap(data);
+  return {
+    episodes:sortedEpisodes(data).filter((episode) => sourceIds.has(episode.anchor) ||
+      location.functions.some((item) => item.readiness.nodes?.some((node) => node.node_id === episode.anchor))),
+    evidenceGaps:location.sources.filter((source) => source.watched && gaps.get(source.node_id)?.reasons.length),
+    requiredUnselected:location.sources.filter((source) => !source.watched &&
+      location.functions.some((item) => item.requirements?.includes(source.node_id))),
+    watched:location.sources.filter((source) => source.watched).length,
+    excluded:location.sources.filter((source) => source.excluded_by.length).length,
+    unselected:location.sources.filter((source) => !source.watched && !source.excluded_by.length).length,
+  };
 }
 
 export function browseHighlights(data) {

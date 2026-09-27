@@ -1,10 +1,10 @@
-import {entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
+import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import {historyPage, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {DashboardStore, affectedFunctions, browseHighlights, coverageInventory, dashboardStore,
-  escapeHtml, inventoryRows, locationList, locationTree, monitoringLabel,
+import {DashboardStore, affectedFunctions, browseHighlights, coverageInventory, dashboardStore, deviceRegistryCoverage, homeEpisodeGroups,
+  escapeHtml, inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel,
   recentActivity, sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
 import {locationBranch, setBranchExpanded} from "../../custom_components/homeostatic/frontend/tree.mjs";
 import {editCatalogRule, monitoringScope, monitoringTree, newCatalogRule,
@@ -85,6 +85,34 @@ test("coverage leads with gaps, groups devices, and bounds full-catalog search",
   assert.equal(results.groups.flatMap(group=>group.devices.flatMap(device=>device.sources)).length,50);
   assert.equal(results.groups[0].devices[0].sources[0].registered,false);
 });
+test("Home bounds ordinary unknown evidence while retaining failures and important unknowns",()=>{
+  const data=example();
+  data.inventory.episodes=[
+    {episode_id:"unknown",importance:"normal",opened_at:"2026-09-26T00:00:00Z",reasons:[{status:"unknown"}]},
+    {episode_id:"failed",importance:"normal",opened_at:"2026-09-26T00:00:01Z",reasons:[{status:"fail"}]},
+    {episode_id:"important",importance:"high",opened_at:"2026-09-26T00:00:02Z",reasons:[{status:"unknown"}]},
+    {episode_id:"warn",importance:"normal",opened_at:"2026-09-26T00:00:03Z",reasons:[{status:"warn"}]},
+  ];
+  assert.deepEqual(homeEpisodeGroups(data,1),{visible:[data.inventory.episodes[2]],hidden:2,waiting:1});
+});
+
+test("registry device gaps stay visible without inventing a health check",()=>{
+  const data=example();
+  data.devices=[{id:"observable",name:"Observable"},{id:"client",name:"Eero client"},
+    {id:"controller",name:"Controller"},{id:"disabled",name:"Disabled device",disabled:true}];
+  data.inventory.catalog.candidates=[source("device:observable",{kind:"device",attributes:{device:["observable"]}}),
+    source("device:controller",{kind:"device",watched:false,attributes:{device:["controller"]}})];
+  const coverage=deviceRegistryCoverage(data);
+  assert.equal(coverage.total,3);
+  assert.equal(coverage.disabled,1);
+  assert.equal(coverage.available,2);
+  assert.equal(coverage.watched,1);
+  assert.equal(coverage.withoutEvidence,1);
+  assert.deepEqual(coverage.matches,[{id:"client",name:"Eero client"}]);
+  assert.equal(deviceRegistryCoverage(data,"eero").resultCount,1);
+  assert.equal(deviceRegistryCoverage(data,"missing").resultCount,0);
+});
+
 test("native locations form a floor and area tree with distinct fallback groups",()=>{
   const data=example();
   data.floors.push({id:"upper",name:"Upper floor"});
@@ -107,7 +135,7 @@ test("native locations form a floor and area tree with distinct fallback groups"
   assert.equal(locations.find(x=>x.id==="area:garage").sources.length,0);
   assert.equal(locations.find(x=>x.id==="group:unassigned").sources.length,2);
 });
-test("house browsing groups devices, functions, and secondary area signals",()=>{
+test("house browsing groups devices, functions, and entities without a device",()=>{
   const data=example();
   const light=source("entity:light",{name:"Basement light",attributes:{area:["basement"],device:["fixture"]}});
   const occupancy=source("entity:occupancy",{name:"Basement occupancy",watched:false,
@@ -129,10 +157,17 @@ test("house browsing groups devices, functions, and secondary area signals",()=>
     [["Light fixture",["entity:light"]]]);
   assert.deepEqual(area.signals.map((item)=>item.node_id),["entity:lock","entity:occupancy"]);
   assert.deepEqual(area.functions.map((item)=>item.name),["Basement motion lighting"]);
-  assert.equal(area.summary,"1 device · 1 function · 2 area signals");
+  assert.equal(area.summary,"1 device · 1 function · 2 entities without a device");
   assert.deepEqual(browseHighlights(data).map((location)=>location.id),["area:basement"]);
   assert.equal(locations.find((location)=>location.id==="group:unassigned"),undefined);
   assert.deepEqual(data,before);
+  data.coverage.never_observed=[{node_id:"entity:light",check_id:"availability"}];
+  data.inventory.episodes=[{episode_id:"light-open",anchor:"entity:light",importance:"normal",
+    impact:[],opened_at:"2026-09-26T12:00:00Z"}];
+  const assessment=locationAssessment(data,area);
+  assert.deepEqual(assessment.evidenceGaps,[light]);
+  assert.deepEqual(assessment.requiredUnselected,[occupancy]);
+  assert.deepEqual(assessment.episodes,data.inventory.episodes);
 });
 test("location branches collapse without changing selection",()=>{
   const floor={id:"floor:main",name:"Main <floor>",summary:"1 device",children:[
@@ -144,6 +179,7 @@ test("location branches collapse without changing selection",()=>{
   assert.match(html,/data-location-toggle="floor:main"/);
   assert.match(html,/aria-level="2" aria-selected="true"/);
   assert.match(html,/Main &lt;floor&gt;/);
+  assert.match(html,/class="location-copy"><span class="location-name">Main &lt;floor&gt;<\/span><span class="location-count">1 device<\/span>/);
   collapsed=setBranchExpanded(collapsed,"floor:main",false);
   assert.equal(collapsed.has("floor:main"),true);
   html=locationBranch(floor,"area:kitchen",collapsed);
@@ -569,13 +605,16 @@ test("monitoring choices browse integrations, devices, and unassigned entities",
     entity_id:"media_player.kitchen",attributes:{entity:["registry:speaker"],device:["speaker-device"]}});
   const signal=source("entity:registry:signal",{name:"Music signal",owner_id:"music",
     entity_id:"sensor.music",attributes:{entity:["registry:signal"]}});
-  data.inventory.nodes=[entry,speaker,signal];
-  data.inventory.catalog.candidates=[entry,speaker,signal];
+  const summary=source("device:speaker-device",{name:"Kitchen speaker device",kind:"device",
+    attributes:{kind:["device"],device:["speaker-device"],integration:["music"]}});
+  data.inventory.nodes=[entry,speaker,signal,summary];
+  data.inventory.catalog.candidates=[entry,speaker,signal,summary];
   data.devices=[{id:"speaker-device",name:"Kitchen speaker device"}];
   const groups=monitoringTree(data);
   assert.equal(groups[0].name,"Music Assistant");
   assert.equal(groups[0].devices[0].name,"Kitchen speaker device");
   assert.equal(groups[0].devices[0].entities[0].name,"Kitchen speaker");
+  assert.equal(groups[0].devices[0].summary.node_id,"device:speaker-device");
   assert.equal(groups[0].loose[0].name,"Music signal");
   assert.equal(monitoringTree(data,"speaker device")[0].devices[0].entities.length,1);
   assert.equal(monitoringTree(data,"missing").length,0);
@@ -592,6 +631,37 @@ test("monitoring choices browse integrations, devices, and unassigned entities",
   assert.deepEqual(sharedGroups[0].devices[0].total,{count:2,watched:2});
   assert.deepEqual(sharedGroups[1].devices[0].total,{count:2,watched:2});
   assert.deepEqual(monitoringScope("device","speaker-device").match,{device:["speaker-device"]});
+  assert.deepEqual(monitoringScope("device_availability","speaker-device").match,
+    {kind:["device"],device:["speaker-device"]});
+});
+
+test("device summary names HA availability without claiming physical failure",()=>{
+  const device=source("device:abc",{kind:"device",attributes:{device:["abc"]}});
+  const outage=deviceProblem(device,{current:{reason:"all_unavailable"}});
+  assert.match(outage.headline,/All monitored entities unavailable/);
+  assert.match(outage.summary,/does not establish whether the physical device/);
+  assert.equal(outage.deviceUrl,"/config/devices/device/abc");
+  const partial=deviceProblem(device,{current:{reason:"some_unavailable"}},true);
+  assert.equal(partial.tone,"uncertain");
+  assert.match(partial.nextStep,/ignore/i);
+  assert.match(partial.summary,/cannot determine/);
+  assert.match(partial.headline,/Some monitored entities unavailable/);
+  assert.match(deviceProblem(device,{current:{reason:"available"}},true).headline,/recovery/);
+  const ready=diagnosticOverview(device,{readiness:{answer:"ready"}});
+  assert.match(ready.assessment,/individual capabilities are not all verified/);
+  assert.match(diagnosticOverview(device,{readiness:{answer:"ready"}},[],true).assessment,/awaiting confirmed recovery/);
+});
+
+test("device availability appears with its HA device in house and coverage",()=>{
+  const data=example();
+  const entry=source("entry:owner",{kind:"integration",entry_id:"owner",name:"Controller"});
+  const summary=source("device:bridge",{kind:"device",name:"Bridge",attributes:{
+    device:["bridge"],integration:["owner"],area:["garage"]}});
+  data.inventory.nodes=[entry,summary];
+  data.inventory.catalog.candidates=[entry,summary];
+  data.devices=[{id:"bridge",name:"Bridge"}];
+  assert.equal(locationTree(data)[0].children[0].devices[0].sources[0].node_id,"device:bridge");
+  assert.equal(coverageInventory(data).groups[0].devices[0].sources[0].source.node_id,"device:bridge");
 });
 
 test("guided exclusion preserves a broader pilot rule and can be removed",()=>{
@@ -606,4 +676,36 @@ test("guided exclusion preserves a broader pilot rule and can be removed",()=>{
   assert.deepEqual(rules[1].match,{device:["speaker-device"]});
   assert.equal(setScopeChoice(rules,scope,"inherit"),true);
   assert.deepEqual(rules,[pilot]);
+});
+
+test("ignore availability stages a stable exclusion without saving or discarding the draft",async(t)=>{
+  const elements=new Map();
+  globalThis.HTMLElement=class {};
+  globalThis.customElements={get:(key)=>elements.get(key),define:(key,value)=>elements.set(key,value)};
+  globalThis.window={};
+  t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
+  await import("../../custom_components/homeostatic/frontend/homeostatic.js");
+  const card=Object.create(elements.get("homeostatic-card-v21").prototype);
+  const entity=source("entity:registry:optional",{entity_id:"media_player.group",name:"Optional group",attributes:{entity:["registry:optional"]}});
+  const data=example();
+  data.inventory.catalog.candidates.push(entity);
+  const saved=[{id:"devices",action:"attach",match:{kind:["device"]}}];
+  const calls=[];
+  Object.assign(card,{current:{status:"current",data},configuration:null,configBusy:false,configExpanded:new Set(),
+    dialog:{close(){}},render(){},_hass:{async callWS(command){calls.push(command.type);return {rules:saved,revision:"one"};}}});
+  await card.ignoreAvailability(entity.node_id);
+  assert.deepEqual(calls,["homeostatic/configuration"]);
+  assert.equal(card.page,"configuration");
+  assert.equal(card.configPreview,null);
+  assert.equal(saved.length,1);
+  assert.deepEqual(card.configDraft[1].match,{entity:["registry:optional"]});
+  assert.equal(card.configDraft[1].action,"exclude");
+  card.configDraft.push({id:"unfinished",action:"attach",match:{area:["garage"]}});
+  await card.ignoreAvailability(entity.node_id);
+  assert.equal(card.configDraft.length,3);
+  assert.equal(card.configDraft[2].id,"unfinished");
+  assert.deepEqual(calls,["homeostatic/configuration"]);
+  card.current={status:"disconnected",data:null};
+  await card.ignoreAvailability(entity.node_id);
+  assert.deepEqual(calls,["homeostatic/configuration"]);
 });

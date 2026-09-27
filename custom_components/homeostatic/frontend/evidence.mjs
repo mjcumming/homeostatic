@@ -7,13 +7,16 @@ export function diagnosticOverview(source, result, affectedFunctions = [], episo
       : source.watched ? "Selected for monitoring." : "No direct check is selected for this capability.";
   const checks = {
     integration: "Home Assistant connection state; connected equipment is not physically verified.",
+    device: "Availability of the entities selected by monitoring rules, after exclusions. Selecting them declares that they are expected to be available; it does not establish physical device health.",
     entity: "Home Assistant entity availability; a usable state does not verify the device's physical operation.",
     function: "Configured requirements and their current evidence; no separate physical check of the function.",
     external: "No direct Home Assistant observation for this external capability.",
     situation: "The owner-defined condition supplied by its bound Home Assistant signal.",
   }[source.kind] ?? "Only the configured checks shown in the diagnostic record.";
   const answer = result.readiness?.answer;
-  const assessment = episodeOpen && answer === "ready"
+  const assessment = source.kind === "device" && answer === "ready"
+    ? episodeOpen ? "HA availability evidence has returned; the open problem is awaiting confirmed recovery." : "HA availability evidence is present; individual capabilities are not all verified."
+    : episodeOpen && answer === "ready"
     ? "Configured checks currently look ready, but the open problem is still awaiting confirmed recovery."
     : answer === "ready" ? "Configured checks currently indicate ready."
       : answer === "degraded" ? "Configured checks currently indicate degraded readiness."

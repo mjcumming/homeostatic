@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+## [0.1.0b11] - 2026-09-26
+
+### Fixed
+
+- Explain availability as a selected monitoring expectation, with current member names and states, rather than a diagnosis of physical failure. Use the same rules for every integration.
+- Add persistent Ignore availability through the existing preview-and-save editor. Entity exclusions also apply to device summaries, survive renames and reload, and retire changed summary episodes as removed rather than recovered.
+- Document Home Assistant integration, device and entity distinctions and the difference between recovery, temporary shelving and persistent exclusions.
+- Omit Change device type of a switch helper entries from monitoring inventory while retaining their converted entities. Document why Group sources remain and why their HA state cannot establish the health of each member.
+- Browse the house gives location names and counts separate lines in a wider, resizable rail; leads with linked problems, function context, and monitoring evidence; and keeps discovered entities collapsed in readable rows without rule columns. Versioned frontend assets allow the updated layout to replace cached files after installation.
+
+### Added
+
+- Device rules now select only enabled HA device records; hidden but enabled entities count as evidence, while disabled devices and entities do not. Coverage counts disabled device records separately.
+- Offer one Home Assistant availability summary per device, based on its enabled operational entities, with individual entity checks remaining opt-in. New installations select device summaries and integration state; saved broad rules do not silently select device summaries.
+- Show device summary choices, limited availability evidence and complete-unavailability problems in the dashboard.
+- Show all HA device-registry records in monitoring coverage, including a searchable list of records that lack an eligible availability signal.
+- Bound the Home problem list and summarize ordinary unknown-evidence episodes so large device inventories cannot bury confirmed outages.
+- Bound the Monitoring evidence-review preview and show device-specific availability guidance and a Home Assistant device link.
+
+### Changed
+
+- Simplify problem details to a directly visible Pause alerts action for that problem only. Keep equipment maintenance on source details, and group diagnostic copying and optional raw data under Technical details.
+- Reorganized the dashboard into Home, Explore, Monitoring, History, and Settings with distinct purposes. Monitoring now leads with selected HA checks and evidence to review, History holds resolved problems and the current-run monitoring log, and Settings groups monitoring choices with links to native function, situation, and alert options. Source rows name what HA checks and what those checks cannot establish.
+
 ## [0.1.0b10] - 2026-09-26
 
 ### Added

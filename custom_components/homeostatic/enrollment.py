@@ -3,7 +3,7 @@
 from dataclasses import replace
 from typing import Any
 
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -23,11 +23,35 @@ def restore_enrollment(value: Any) -> dict[str, Attributes]:
     result = {}
     for node_id, metadata in value.items():
         if not isinstance(node_id, str) or not node_id.startswith(
-            ("entry:", "entity:registry:", "entity:entity_id:")
+            ("entry:", "entity:registry:", "entity:entity_id:", "device:")
         ):
             raise ValueError("Invalid enrolled identity")
         result[node_id] = attributes(metadata)
     return result
+
+
+def device_members(hass: HomeAssistant) -> dict[str, tuple[str, ...]]:
+    """Select candidate evidence without assuming it must always be available."""
+    ordinary: dict[str, list[str]] = {}
+    diagnostic: dict[str, list[str]] = {}
+    devices = dr.async_get(hass)
+    for entry in er.async_get(hass).entities.values():
+        if (
+            entry.device_id is None
+            or entry.platform == DOMAIN
+            or entry.disabled_by is not None
+            or (device := devices.async_get(entry.device_id)) is None
+            or device.disabled_by is not None
+        ):
+            continue
+        if entry.entity_category is None:
+            ordinary.setdefault(entry.device_id, []).append(entry.entity_id)
+        elif entry.entity_category is EntityCategory.DIAGNOSTIC:
+            diagnostic.setdefault(entry.device_id, []).append(entry.entity_id)
+    return {
+        device_id: tuple(sorted(ordinary.get(device_id) or diagnostic[device_id]))
+        for device_id in ordinary.keys() | diagnostic.keys()
+    }
 
 
 def inventory(
@@ -127,9 +151,18 @@ def inventory(
         if registered is None and state is None:
             metadata = known.get(node_id, metadata)
             owner_id = next(iter(metadata.get("integration", ())), None)
-        if owner_id and hass.config_entries.async_get_entry(owner_id) is not None:
+        owner_entry = (
+            hass.config_entries.async_get_entry(owner_id) if owner_id else None
+        )
+        if (
+            owner_id is not None
+            and owner_entry is not None
+            and owner_entry.domain != "switch_as_x"
+        ):
             entry_ids.add(owner_id)
         else:
+            if owner_entry is not None and owner_entry.domain == "switch_as_x":
+                metadata.pop("integration", None)
             owner_id = None
         sources[node_id] = Source(
             node_id=node_id,
@@ -143,8 +176,55 @@ def inventory(
             ),
             attributes=metadata,
         )
+    members = device_members(hass)
+    device_ids = members.keys() | {
+        node_id[7:] for node_id in known if node_id.startswith("device:")
+    }
+    for device_id in sorted(device_ids):
+        device = devices.async_get(device_id)
+        node_id = f"device:{device_id}"
+        area = (
+            areas.async_get_area(device.area_id) if device and device.area_id else None
+        )
+        owner_ids = {
+            registered.config_entry_id
+            for entity_id in members.get(device_id, ())
+            if (registered := registry.async_get(entity_id)) is not None
+            and registered.config_entry_id is not None
+        }
+        if not owner_ids and device is not None:
+            # Loss of selected evidence must not silently unmatch an owner rule.
+            owner_ids = set(device.config_entries)
+        device_raw: Attributes = {
+            "kind": ("device",),
+            "device": (device_id,),
+            "integration": tuple(sorted(owner_ids)),
+            "area": (device.area_id,) if device and device.area_id else (),
+            "floor": (area.floor_id,) if area and area.floor_id else (),
+            "label": tuple(
+                sorted(
+                    (device.labels if device else set())
+                    | (area.labels if area else set())
+                )
+            ),
+        }
+        metadata = {key: value for key, value in device_raw.items() if value}
+        if device is None:
+            metadata = known.get(node_id, metadata)
+        sources[node_id] = Source(
+            node_id=node_id,
+            kind="device",
+            availability_entities=members.get(device_id, ()),
+            name=(device.name_by_user or device.name or device_id)
+            if device
+            else device_id,
+            disabled=device is not None and device.disabled_by is not None,
+            attributes=metadata,
+        )
     for entry_id in sorted(entry_ids):
         entry = hass.config_entries.async_get_entry(entry_id)
+        if entry is not None and entry.domain == "switch_as_x":
+            continue
         if entry is not None and entry.domain == DOMAIN:
             if entry_id in settings.config_entries:
                 raise ValueError("Homeostatic cannot monitor itself")
@@ -174,11 +254,58 @@ def evaluate(
         decision = decide(rules, source.attributes)
         result[node_id] = replace(
             source,
-            watched=decision.watched,
+            watched=decision.watched
+            and not (source.kind == "device" and source.disabled),
             attached_by=decision.attached_by,
             excluded_by=decision.excluded_by,
         )
+    ignored = {
+        source.entity_id: source
+        for source in result.values()
+        if source.kind == "entity" and source.excluded_by and source.entity_id
+    }
+    for node_id, source in tuple(result.items()):
+        if source.kind != "device":
+            continue
+        excluded = [
+            ignored[entity_id]
+            for entity_id in source.availability_entities
+            if entity_id in ignored
+        ]
+        selected = tuple(
+            entity_id
+            for entity_id in source.availability_entities
+            if entity_id not in ignored
+        )
+        empty_by_choice = bool(excluded) and not selected
+        result[node_id] = replace(
+            source,
+            availability_entities=selected,
+            ignored_availability=tuple(sorted(member.node_id for member in excluded)),
+            watched=source.watched and not empty_by_choice,
+            excluded_by=tuple(
+                sorted(
+                    set(source.excluded_by)
+                    | {rule_id for member in excluded for rule_id in member.excluded_by}
+                )
+            )
+            if empty_by_choice
+            else source.excluded_by,
+        )
     return result
+
+
+def restore_device_exclusions(value: Any) -> dict[str, tuple[str, ...]]:
+    """Validate adapter-owned scope history without interpreting engine state."""
+    if not isinstance(value, dict) or any(
+        not isinstance(key, str)
+        or not key.startswith("device:")
+        or not isinstance(members, list)
+        or any(not isinstance(member, str) for member in members)
+        for key, members in value.items()
+    ):
+        raise ValueError("Invalid stored device exclusions")
+    return {key: tuple(members) for key, members in value.items()}
 
 
 def report(

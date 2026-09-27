@@ -58,6 +58,7 @@ from homeassistant.util import dt as dt_util
 from .attention import explanations
 from .catalog import (
     Source,
+    device_observation,
     entity_observation,
     entity_state_signature,
     entry_observation,
@@ -66,7 +67,13 @@ from .config import Settings, normalize_definitions, normalize_rules, rule_data
 from .const import DOMAIN, EVENT_NOTIFICATION, NAME, RECONCILE_INTERVAL, STORE_VERSION
 from .controls import OperatorControl, expiry, presentation, restore_controls
 from .delivery import DeliveryState
-from .enrollment import evaluate, inventory, report, restore_enrollment
+from .enrollment import (
+    evaluate,
+    inventory,
+    report,
+    restore_device_exclusions,
+    restore_enrollment,
+)
 from .evidence import IntegrationEvidence, ReportedCondition
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
@@ -114,6 +121,9 @@ class Runtime:
         self.error: str | None = None
         self.updated_at: datetime | None = None
         self._entity_sources: dict[str, list[Source]] = {}
+        self._device_members: dict[str, tuple[str, ...]] = {}
+        self.device_exclusions: dict[str, tuple[str, ...]] = {}
+        self._device_signatures: dict[str, tuple[str, str]] = {}
         self._inventory_dirty = True
         self.inventory_revision = 0
         self.inventory_static: dict[str, JSONValue] = {}
@@ -191,6 +201,9 @@ class Runtime:
         self.integration_evidence.restore(self.saved.get("integration_evidence", {}))
         self.controls = restore_controls(self.saved.get("operator_controls", []))
         self.enrolled = restore_enrollment(self.saved.get("enrollment", {}))
+        self.device_exclusions = restore_device_exclusions(
+            self.saved.get("device_exclusions", {})
+        )
         notifications = self.saved.get("notifications")
         if not isinstance(notifications, list) or not all(
             isinstance(item, str) for item in notifications
@@ -264,16 +277,24 @@ class Runtime:
             != entity_state_signature(event.data["new_state"])
         ):
             now = dt_util.utcnow()
-            self._pending.append(
-                (
-                    now,
-                    [
-                        entity_observation(source, event.data["new_state"], now)
-                        for source in sources
-                    ],
+            observations = []
+            for source in sources:
+                observation = (
+                    self._observe_device(source, now)
+                    if source.kind == "device"
+                    else entity_observation(source, event.data["new_state"], now)
                 )
-            )
-            self._request_refresh()
+                if source.kind == "device":
+                    signature = (observation.status.value, observation.reason)
+                    if self._device_signatures.get(source.node_id) == signature:
+                        continue
+                    self._device_signatures[source.node_id] = signature
+                observations.append(observation)
+            if observations:
+                self._pending.append((now, observations))
+                self._request_refresh()
+            elif metadata_changed:
+                self._request_refresh()
         elif metadata_changed or entity_id == self.settings.consumer:
             self._request_refresh()
 
@@ -416,7 +437,7 @@ class Runtime:
         self.enrolled = {
             node_id: source.attributes
             for node_id, source in sources.items()
-            if source.kind in {"entity", "integration"}
+            if source.kind in {"entity", "integration", "device"}
         }
         return sources
 
@@ -668,10 +689,23 @@ class Runtime:
                     "targets": list(self.targets),
                 }
             self._inventory_dirty = False
+            self._device_members = {
+                source.node_id[7:]: source.availability_entities
+                for source in sources.values()
+                if source.kind == "device"
+            }
+            self._device_signatures = {
+                node_id: signature
+                for node_id, signature in self._device_signatures.items()
+                if node_id in sources and sources[node_id].watched
+            }
             self._entity_sources = {}
             for source in sources.values():
                 if source.entity_id and source.watched:
                     self._entity_sources.setdefault(source.entity_id, []).append(source)
+                elif source.kind == "device" and source.watched:
+                    for entity_id in self._device_members.get(source.node_id[7:], ()):
+                        self._entity_sources.setdefault(entity_id, []).append(source)
         self.sources = sources
         self.entity_evidence = {
             key: value
@@ -711,6 +745,28 @@ class Runtime:
             self.policy.restore(self.saved["policy"], now)
             events = self.engine.restore(self.saved["engine"], now)
             self.saved = None
+        for node_id, source in sources.items():
+            if source.kind != "device":
+                continue
+            previous = self.device_exclusions.get(node_id)
+            scope_changed = (
+                previous != source.ignored_availability
+                if previous is not None
+                else bool(source.ignored_availability)
+            )
+            if scope_changed and any(
+                episode["anchor"] == node_id for episode in self.episodes.values()
+            ):
+                # A different monitoring expectation cannot prove recovery.
+                events.extend(self.engine.remove(node_id, now))
+                events.extend(
+                    self.engine.register_many([source.node(self.settings)], now)
+                )
+        self.device_exclusions = {
+            node_id: source.ignored_availability
+            for node_id, source in sources.items()
+            if source.kind == "device"
+        }
         observations = []
         for source in sources.values():
             if not source.watched:
@@ -720,6 +776,8 @@ class Runtime:
                     self.hass.states.get(source.entity_id) if source.entity_id else None
                 )
                 observations.append(entity_observation(source, state, now))
+            elif source.kind == "device" and discover:
+                observations.append(self._observe_device(source, now))
             elif source.kind == "integration":
                 observations.append(self._observe_entry(source, now))
         if observations:
@@ -734,12 +792,17 @@ class Runtime:
             source = self.sources[observation.node_id]
             if source.kind == "integration":
                 self.integration_evidence.observe(observation, source.name)
-            elif source.kind == "entity":
+            elif source.kind in {"entity", "device"}:
                 self.entity_evidence[source.node_id] = ReportedCondition(
                     reason=observation.reason,
                     message=observation.message or "",
                     observed_at=observation.observed_at,
                 )
+                if source.kind == "device":
+                    self._device_signatures[source.node_id] = (
+                        observation.status.value,
+                        observation.reason,
+                    )
 
     def _observe_entry(self, source: Source, now: datetime) -> Observation:
         assert source.entry_id is not None
@@ -761,6 +824,11 @@ class Runtime:
             self.settings,
             reauth,
         )
+
+    def _observe_device(self, source: Source, now: datetime) -> Observation:
+        members = self._device_members.get(source.node_id[7:], ())
+        states = tuple(self.hass.states.get(entity_id) for entity_id in members)
+        return device_observation(source, states, now)
 
     def _handle(self, events: list[HealthEvent], now: datetime) -> None:
         assert self.policy is not None
@@ -877,6 +945,9 @@ class Runtime:
         assert self.policy is not None
         return {
             "schema_version": 2,
+            "device_exclusions": {
+                key: list(members) for key, members in self.device_exclusions.items()
+            },
             "enrollment": {
                 node_id: {key: list(values) for key, values in metadata.items()}
                 for node_id, metadata in self.enrolled.items()
@@ -1003,6 +1074,32 @@ class Runtime:
             return json_object(self.engine.impact(data["node_id"]))
         return json_object(self.engine.explain(data["node_id"]))
 
+    def device_evidence(self, node_id: str) -> dict[str, JSONValue] | None:
+        """List current expected entity states for an on-demand detail view."""
+        source = self.sources[node_id]
+        if source.kind != "device":
+            return None
+        candidates = {
+            item.entity_id: item for item in self.candidates.values() if item.entity_id
+        }
+        members: list[dict[str, JSONValue]] = []
+        for entity_id in source.availability_entities:
+            member = candidates[entity_id]
+            state = self.hass.states.get(entity_id)
+            members.append(
+                {
+                    "node_id": member.node_id,
+                    "entity_id": entity_id,
+                    "name": member.name,
+                    "state": state.state if state is not None else "missing",
+                    "restored": bool(state and state.attributes.get("restored")),
+                }
+            )
+        members.sort(
+            key=lambda item: (item["state"] != "unavailable", str(item["name"]))
+        )
+        return json_object({"members": members[:50], "total": len(members)})
+
     def entity_status(self, node_id: str) -> dict[str, JSONValue] | None:
         """Present captured HA state alongside current public library answers."""
         current = self.entity_evidence.get(node_id)
@@ -1028,7 +1125,7 @@ class Runtime:
             "entity_status": {
                 str(episode["anchor"]): self.entity_status(str(episode["anchor"]))
                 for episode in self.episodes.values()
-                if self.sources[str(episode["anchor"])].kind == "entity"
+                if self.sources[str(episode["anchor"])].kind in {"entity", "device"}
             },
             "resolved_history": self.history.view(dt_util.utcnow()),
             "operator_controls": [json_object(control) for control in self.controls],

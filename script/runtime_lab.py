@@ -17,6 +17,7 @@ from homeassistant import bootstrap
 from homeassistant.auth.const import GROUP_ID_ADMIN
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.runner import RuntimeConfig, create_event_loop
 
 PORT = 8126
@@ -102,7 +103,9 @@ def prepare() -> None:
     )
 
 
-async def run(serve: bool) -> None:
+async def run(
+    serve: bool, device_representatives: bool, device_summaries: bool
+) -> None:
     """Measure real disk and transport work, then optionally keep the lab open."""
     hass = await bootstrap.async_setup_hass(
         RuntimeConfig(config_dir=str(CONFIG), log_no_color=True)
@@ -125,6 +128,18 @@ async def run(serve: bool) -> None:
             owned_devices, owned_entities = hass.data["homeostatic_lab"][owner.entry_id]
             devices.extend(owned_devices)
             entities.extend(owned_entities)
+        selected_entities = (
+            entities[::20]
+            if device_representatives
+            else (entities[:1200] if device_summaries else entities[:60])
+        )
+        selected_references = []
+        if device_representatives:
+            registry = er.async_get(hass)
+            for entity_id in selected_entities:
+                registered = registry.async_get(entity_id)
+                assert registered is not None
+                selected_references.append(f"registry:{registered.id}")
         flow = await hass.config_entries.flow.async_init(
             "homeostatic", context={"source": "user"}
         )
@@ -142,7 +157,11 @@ async def run(serve: bool) -> None:
                     {
                         "id": "lab_selected",
                         "action": "attach",
-                        "match": {"device": devices[:3]},
+                        "match": {"entity": selected_references}
+                        if device_representatives
+                        else {"kind": "device", "device": devices}
+                        if device_summaries
+                        else {"device": devices[:3]},
                     },
                 ],
                 "startup_grace": 0,
@@ -157,10 +176,23 @@ async def run(serve: bool) -> None:
         entry = result["result"]
         assert entry.state is ConfigEntryState.LOADED, entry.state
         runtime = entry.runtime_data
-        assert len(runtime.sources) == 70
+        if device_summaries:
+            assert (
+                sum(
+                    source.kind == "device" and source.name.startswith("Lab device")
+                    for source in runtime.sources.values()
+                )
+                == 300
+            )
+        else:
+            assert len(runtime.sources) == (310 if device_representatives else 70)
         results = {
             "ha": "2026.9.3",
-            "scope": "60 synthetic entities and 10 controllers",
+            "scope": "300 device representatives and 10 controllers"
+            if device_representatives
+            else "300 device summaries and 10 controllers"
+            if device_summaries
+            else "60 synthetic entities and 10 controllers",
             "setup_seconds": perf_counter() - started,
             "registered_entities": 6000,
         }
@@ -206,7 +238,7 @@ async def run(serve: bool) -> None:
                             runtime, "_discover", wraps=runtime._discover
                         ) as scans,
                     ):
-                        for entity_id in entities[:60]:
+                        for entity_id in selected_entities:
                             attributes = hass.states.get(entity_id).attributes
                             hass.states.async_set(entity_id, state, attributes)
                         await hass.async_block_till_done()
@@ -234,10 +266,19 @@ async def run(serve: bool) -> None:
             assert runtime.readiness == "blocked"
             await measure("recovery_60", "1")
             assert runtime.readiness == "ready"
-        await hass.async_add_executor_job(
-            REPORT.write_text, json.dumps(results, indent=2)
+        report = (
+            REPO / "build/runtime-profile/device-representatives.json"
+            if device_representatives
+            else REPO / "build/runtime-profile/device-summaries.json"
+            if device_summaries
+            else REPORT
         )
-        for entity_id in entities[:2]:
+        await hass.async_add_executor_job(
+            report.write_text, json.dumps(results, indent=2)
+        )
+        for entity_id in (
+            selected_entities[:40] if device_summaries else selected_entities[:2]
+        ):
             hass.states.async_set(
                 entity_id, "unavailable", hass.states.get(entity_id).attributes
             )
@@ -252,14 +293,14 @@ async def run(serve: bool) -> None:
             await hass.async_add_executor_job(Path(runtime.store.path).stat)
         ).st_size
         await hass.async_add_executor_job(
-            REPORT.write_text, json.dumps(results, indent=2)
+            report.write_text, json.dumps(results, indent=2)
         )
 
         @callback
         def change(call) -> None:
             """Change only generated lab states for interactive inspection."""
             state = "unavailable" if call.service == "outage" else "1"
-            for entity_id in entities[:60]:
+            for entity_id in selected_entities:
                 hass.states.async_set(
                     entity_id, state, hass.states.get(entity_id).attributes
                 )
@@ -281,16 +322,33 @@ if __name__ == "__main__":
         action="store_true",
         help="Keep the synthetic dashboard available after measuring",
     )
+    parser.add_argument(
+        "--device-representatives",
+        action="store_true",
+        help="Measure one selected entity for each of 300 synthetic devices",
+    )
+    parser.add_argument(
+        "--device-summaries",
+        action="store_true",
+        help="Measure one availability summary for each of 300 synthetic devices",
+    )
     args = parser.parse_args()
+    if args.device_representatives and args.device_summaries:
+        parser.error("Choose one device scope")
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix="homeostatic-runtime-lab-") as directory:
         CONFIG = Path(directory)
         prepare()
         if args.serve:
             with suppress(KeyboardInterrupt):
-                asyncio.run(run(True), loop_factory=create_event_loop)
+                asyncio.run(
+                    run(True, args.device_representatives, args.device_summaries),
+                    loop_factory=create_event_loop,
+                )
         else:
             with ThreadPoolExecutor(max_workers=1) as runner:
                 runner.submit(
-                    asyncio.run, run(False), loop_factory=create_event_loop
+                    asyncio.run,
+                    run(False, args.device_representatives, args.device_summaries),
+                    loop_factory=create_event_loop,
                 ).result()

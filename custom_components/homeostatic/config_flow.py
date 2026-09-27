@@ -156,6 +156,7 @@ def preview_summary(
     )
     watched = [source for source in result["candidates"] if source["watched"]]
     integrations = sum(source["kind"] == "integration" for source in watched)
+    devices = sum(source["kind"] == "device" for source in watched)
     device_entities = sum(
         source["kind"] == "entity" and bool(source["attributes"].get("device"))
         for source in watched
@@ -166,6 +167,7 @@ def preview_summary(
     )
     scope = (
         f"{integrations} integration instance{'s' if integrations != 1 else ''}, "
+        f"{devices} HA device availability check{'s' if devices != 1 else ''}, "
         f"{device_entities} device-associated "
         f"{'entities' if device_entities != 1 else 'entity'}, "
         f"{area_signals} {'entities' if area_signals != 1 else 'entity'} "

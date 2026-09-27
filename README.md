@@ -4,14 +4,14 @@ Health monitoring and situation alerts for Home Assistant, powered by the separa
 
 Homeostatic answers **what is wrong, what depends on it, and what needs attention**. HealthTree supplies the dependency graph, episodes, readiness, and attention policy. This integration supplies Home Assistant observations, configuration, timers, persistence, entities, and notification requests. Consumers deliver those requests to people.
 
-**Status: 0.1.0b10 pilot.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.3.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). Problem details identify the light or sensor, explain the missing reading or control path and suggest a relevant first check. The administrator dashboard includes bounded resolved history, shelving and previewed equipment maintenance, using the existing native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Graph construction and enrollment preview have passed isolated 10,000-source checks, but whole-house responsiveness remains under qualification. Keep the catalog rule narrow on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
+**Status: 0.1.0b11 pilot.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.3.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). Problem details identify the light or sensor, explain the missing reading or control path and suggest a relevant first check. The administrator dashboard includes bounded resolved history, shelving and previewed equipment maintenance, using the existing native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Graph construction and enrollment preview have passed isolated 10,000-source checks, but whole-house responsiveness remains under qualification. Keep the catalog rule narrow on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
 
 ## What works now
 
 - Automatically populated Homeostatic sidebar dashboard, reusable cards and a dashboard strategy, with live problems, functions, HA location browsing, coverage, rule provenance and current problem details. The first aggregate surface requires an administrator.
 
 - Native setup/options with editable attach/exclude catalog rules, match previews, passive enrollment of future sources, and explanations of every attachment/exclusion. Registered sources keep their identity across renames.
-- Integration setup, retries and authentication evidence; entity availability; dependency correlation into episodes.
+- Integration setup, retries and authentication evidence; one HA availability summary per device with optional individual entity checks; dependency correlation into episodes.
 - Named functions with entity, integration, function and external capability requirements; editable importance; per-function automation suggestions and confirmed/rejected decisions; each exporting readiness as `ready`, `unknown`, `degraded`, or `blocked`.
 - Named situation alerts bound to existing HA entities: `on` is active, `off` is clear, missing/unknown/unavailable is unknown. A situation remains independent of equipment readiness.
 - Owner YAML notification policy with recipients, channels, quiet hours, reminders, escalation, grouped digests, explanations and safe previews.
@@ -27,11 +27,13 @@ Richer evidence checks, specific Repairs links, optional TopoMation enrichment, 
 
 Follow the [pilot installation guide](docs/pilot.md): back up Home Assistant, copy the packaged `custom_components/homeostatic` folder into your HA configuration directory, and restart. HA installs the pinned published HealthTree dependency automatically. Add **Homeostatic** through **Settings > Devices & services > Add integration**, or let the existing entry reload after an upgrade. No sibling library checkout is needed.
 
-Review the supplied passive availability rule. Matching entities and integration instances enroll automatically, including future sources. Notifications remain off until activated. Missing entity evidence and explicitly required sources remain unknown across restarts. When Home Assistant confirms that an automatically enrolled config entry was deleted, Homeostatic removes it from scope and resolves its episode as removed. Startup grace and recovery confirmation default to two minutes; ordinary notification batching defaults to thirty seconds. See the [specification](docs/spec.md) for every timing and its meaning.
+Review the supplied availability rules. New installations select integration state and one availability summary per enabled Home Assistant device; hidden but enabled entities can supply evidence, while disabled devices and entities do not. Individual entity checks are opt-in. Existing saved rules retain their scope until edited. Notifications remain off until activated. Missing entity evidence and explicitly required sources remain unknown across restarts. When Home Assistant confirms that an automatically enrolled config entry was deleted, Homeostatic removes it from scope and resolves its episode as removed. Startup grace and recovery confirmation default to two minutes; ordinary notification batching defaults to thirty seconds. See the [specification](docs/spec.md) for every timing and its meaning.
 
 ### Open the dashboard
 
-After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu and navigate to other pages, including on phones. It updates from the integration's inventory and public health queries as sources enroll, move, fail or recover. Overview, house browsing, coverage, and problem/function details use one shared live subscription. Normal evidence updates reuse the received catalog; house and coverage tables search all sources and show 50 per page. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
+After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu, including on phones. **Home** shows current problems and functions; **Explore** investigates floors, areas and devices; **Monitoring** shows selected HA checks and evidence needing review; **History** separates ended problems from changes recorded in this run; **Settings** holds monitoring choices and links to native HA options for functions, situations and alerts. The pages and problem/function details use one shared live subscription. Explore and Monitoring search all discovered sources while keeping rendered lists bounded. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
+
+The monitoring catalog omits **Change device type of a switch** helper entries because they wrap an existing switch; the converted entity can still be monitored. **Group** entries stay because a group can be an automation control target. A healthy Group entry or group entity does not establish that every member works. Monitor important members directly; the Group row's source count is not a device count.
 
 Problem details identify the integration and instance, show Home Assistant's reported setup reason when available, and link to that entry or its filtered logs. Sign-in instructions appear for a pending HA reauthentication request. A setup error without a reported cause is labeled as such; it does not guess that a password is wrong. During retries, the last reported failure remains available with its timestamp while the current setup activity is shown separately. Disabled entries have a distinct explanation and remain unknown. Dependency causes appear only when present, with technical and notification details available below.
 
@@ -42,24 +44,42 @@ type: custom:homeostatic-card
 view: overview
 ```
 
-Supported views are `overview`, `house`, `coverage`, `history`, `functions`, and `problems`. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
+Supported views are `overview` (Home), `house` (Explore), `coverage` (Monitoring), `history`, `configuration` (Settings), `functions`, and `problems`. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
 
-The dashboard is administrator-only because it includes installation-wide configuration, inventory and routing. Readiness entities retain their ordinary HA access controls. Problem cards and details explain the reported condition, confirmed effects on configured functions, a relevant next step and recovery progress. NuHeat and receiver timeouts, sign-in requests, disabled connections and recovery have distinct guidance. **Manage this problem** contains **Pause alerts** and equipment **Plan maintenance**; active controls keep a visible expiry notice. **Technical details** holds timestamped original errors, filtered logs and diagnostic data. Each requires an end time within seven days. Maintenance previews affected capabilities, functions and existing problems before applying. Existing alerts remain active during maintenance; shelving holds new alerts, including urgent ones, for every recipient. Early cancellation and acknowledgment are not available. Active controls show their expiry and reason. Both forms use the existing administrator actions and keep unfinished entries through live updates. Availability does not prove physical freshness or command completion.
+The dashboard is administrator-only because it includes installation-wide configuration, inventory and routing. Readiness entities retain their ordinary HA access controls. Problem cards and details explain the reported condition, confirmed effects on configured functions, a relevant next step and recovery progress. NuHeat and receiver timeouts, sign-in requests, disabled connections and recovery have distinct guidance. **Pause alerts** is directly visible in problem details and applies only to that problem; other problems on the equipment are unaffected. Equipment **Working on this equipment** is available from source details. Active controls keep a visible expiry notice. **Technical details** holds timestamped original errors, filtered logs, **Copy diagnostic data** and optional **View raw data**. Pausing alerts and maintenance each require an end time within seven days. Maintenance previews affected capabilities, functions and existing problems before applying. Existing alerts remain active during maintenance; shelving holds new alerts, including urgent ones, for every recipient. Early cancellation and acknowledgment are not available. Active controls show their expiry and reason. Both forms use the existing administrator actions and keep unfinished entries through live updates. Availability does not prove physical freshness or command completion.
 
-**Recently resolved** shows up to 100 ended episodes within 30 days, with search, outcome filtering and twenty rows per page. Details distinguish confirmed recovery, removal from monitoring and absorption into another problem; retained findings are historical evidence. Collection start and retention limits are visible. Recent enrollment changes remain the last 50 changes from the runtime. TopoMation is not required or read by this increment. Notification event/blueprint links and automatic Repairs remedies remain follow-up work.
+**History** shows up to 100 ended episodes within 30 days, with search, outcome filtering and twenty rows per page. Details distinguish confirmed recovery, removal from monitoring and absorption into another problem; retained findings are historical evidence. Collection start and retention limits are visible. A separate section contains up to 50 monitoring changes from the current run, not a durable household-health timeline. TopoMation is not required or read by this increment. Notification event/blueprint links and automatic Repairs remedies remain follow-up work.
 
 ### Choose what to watch
 
-The **Catalog rules (YAML list)** field starts with:
+Use **Settings → Monitoring choices** for guided watch or exclude choices. Preview the exact selection before saving. The native options editor and advanced Settings disclosure retain the complete catalog rules for more complex matches.
+
+On a new installation, **Catalog rules (YAML list)** starts with:
 
 ```yaml
-- id: passive_availability
+- id: integration_availability
   action: attach
-  match: {}
+  match: {kind: integration}
+  checks: [availability]
+- id: device_availability
+  action: attach
+  match: {kind: device}
   checks: [availability]
 ```
 
-This watches HA availability for every eligible entity and integration instance, excluding Homeostatic itself. It performs no device polling or active probes. Edit or disable this rule with `enabled: false`, or replace it with narrower attach rules. An empty list intentionally watches no equipment. All matching attachments contribute; **every matching exclusion wins**, regardless of rule order. Check timings are house settings below the rules field.
+Each device rule creates one availability check over enabled ordinary entities, or diagnostics if no ordinary entities exist. Hidden entities are still included; disabled and configuration entities are not. Entity exclusions also remove those entities from device summaries. All selected members available passes; some unavailable produces a warning; all unavailable fails. Unknown or missing evidence without an unavailable member stays unknown. Excluding every member leaves no check and is not evidence of health. There are no manufacturer-specific exceptions.
+
+### What an availability problem means
+
+Home Assistant does not provide one error status that rolls down from system to integration to device. An **integration** connects software or equipment to HA. A **device** groups related **entities**, each representing a capability or value. Integration setup state, entity availability, explicit problem sensors, and Repairs issues are different signals; a loaded integration does not guarantee that all its entities work.
+
+`off` or `idle` normally means an entity is available but inactive. `unknown` means its value is not known. `unavailable` means HA currently cannot supply that entity's functionality or data. It can accompany communication failure, but an integration can also use it for an optional capability that is absent in the current operating mode. That state alone does not tell Homeostatic whether anything needs repair. Hiding an entity changes its presentation, not its availability or monitoring.
+
+Homeostatic checks an **expectation**: selecting an entity says it should be available; selecting a device summary applies that expectation to the selected members. Broad defaults are a starting point to review, and future matching sources inherit them. Problems describe the reported availability and show the contributing entity names and current states. They do not claim the hardware is broken. See HA's [entities and devices](https://www.home-assistant.io/getting-started/concepts-terminology/) and [availability guidance](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/entity-unavailable/) for the underlying model.
+
+If an unavailable capability is normal or unimportant in your home, choose **Ignore availability** in its details, review the monitoring preview, and **Save**. This records a persistent exclusion for that entity, including its contribution to device summaries. Its HA state stays unchanged. Registry identity keeps the choice through renames and restarts; remove the exclusion in **What to monitor** to watch it again. Removing evidence ends the old problem as removed from monitoring, not recovered. Acknowledging a problem means you have seen it; shelving temporarily postpones attention. Neither means the source recovered or should be permanently ignored.
+
+A saved broad rule without `kind: device` does not implicitly enroll device summaries. Edit or disable a rule with `enabled: false`; an empty list intentionally watches no equipment. All matching attachments contribute; **every matching exclusion wins**, regardless of rule order. Check timings are house settings below the rules field.
 
 For example, keep the broad rule and add:
 
@@ -83,12 +103,12 @@ These are additional rows in the same list. `availability` is the only supported
 | `domain` | Entity domain (`sensor`, `light`, etc.), or integration domain for an integration node |
 | `device_class` | Effective HA device class, such as `temperature` |
 | `integration` | Config-entry id; matches that instance and its entities |
-| `device` | Device registry id; matches its entities |
+| `device` | Device registry id; matches its entities, and a device summary when `kind: device` is explicit |
 | `entity` | Current entity id on input, saved as `registry:<id>` when registered |
 | `area` | Effective area id: entity override, otherwise device area |
 | `floor` | Floor id of that effective area |
 | `label` | Label id on the entity, device, or effective area |
-| `kind` | `entity` or `integration`, when a rule should affect only one kind |
+| `kind` | `entity`, `device`, or `integration`; device summaries require an explicit device kind match |
 
 A field accepts a string or a list of alternatives. Different fields must all match. Names never drive matching. Get exact ids and matching attributes from `homeostatic.inventory`; entity display names can change without changing rule identity. State-only entities use the weaker `entity_id:` reference and need edits after a rename.
 
@@ -283,7 +303,7 @@ Shelving is available through the administrator action described below. Policies
 
 ### Inspect the model
 
-In **Developer tools â†’ Actions**, call `homeostatic.inventory` for node ids, rule explanations, recent enrollment changes, episodes, and notification requests. Pass a node id to `homeostatic.explain` or `homeostatic.impact`. `homeostatic.readiness` and `homeostatic.rollup` default to selected capabilities/functions and accept `node_ids`. These actions are read-only. Situation ids are `situation:<id>`, function ids are `function:<id>`, and external capability ids are `external:<id>`.
+In **Developer tools → Actions**, call `homeostatic.inventory` for node ids, rule explanations, recent enrollment changes, episodes, and notification requests. Pass a node id to `homeostatic.explain` or `homeostatic.impact`. `homeostatic.readiness` and `homeostatic.rollup` default to selected capabilities/functions and accept `node_ids`. These actions are read-only. Situation ids are `situation:<id>`, function ids are `function:<id>`, and external capability ids are `external:<id>`.
 
 ## Scaling validation
 
@@ -339,7 +359,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow, [docs/spec.md](docs/spec.md
 
 ## Recently resolved problems
 
-`homeostatic.resolved_history` returns the latest 100 terminal episodes observed within 30 days, newest first. The same response is available under `homeostatic.inventory` â†’ `resolved_history`. It includes collection start time and retention limits. History survives a restart and includes problems that cleared before a notification was requested.
+`homeostatic.resolved_history` returns the latest 100 terminal episodes observed within 30 days, newest first. The same response is available under `homeostatic.inventory` → `resolved_history`. It includes collection start time and retention limits. History survives a restart and includes problems that cleared before a notification was requested.
 
 Each row retains the original episode id, opening time, findings and display labels under `episode`, plus `resolved_at`, `resolution`, `absorbed_into` and a source display snapshot when available. `cleared` means the library observed recovery; `removed` means monitoring ended; `absorbed` links to a larger problem. Resolution time is when Homeostatic learned of the event, including after downtime. Old findings describe the past episode, not current device health. Upgrading starts collection from that point; earlier resolutions are not reconstructed. This is bounded problem history, not a full activity or delivery journal.
 

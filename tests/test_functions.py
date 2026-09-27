@@ -119,7 +119,14 @@ async def test_full_function_graph(
     data = data_from_input(
         hass,
         {
-            "rules": DEFAULT_RULES,
+            "rules": [
+                *DEFAULT_RULES,
+                {
+                    "id": "entity_availability",
+                    "action": "attach",
+                    "match": {"kind": "entity"},
+                },
+            ],
             "functions": [
                 function("room", requires=["function:lighting"], importance="critical"),
                 function(requires=[source.entity_id, f"entry:{owner.entry_id}"]),
