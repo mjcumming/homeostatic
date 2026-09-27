@@ -40,7 +40,7 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
         try:
             if call.service in MUTATIONS:
                 return await runtime.async_control(
-                    call.service, dict(call.data), call.context.user_id
+                    call.service, dict(call.data), call.context.user_id, call.context
                 )
             return runtime.query(call.service, dict(call.data))
         except (ValueError, vol.Invalid) as err:

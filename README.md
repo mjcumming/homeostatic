@@ -26,7 +26,7 @@ Administrators can acknowledge a problem to record awareness, pause its alerts, 
 
 Situation alerts use that same attention system for conditions you define in Home Assistant, such as **Garage open at night**. The condition can deserve attention even when all the equipment works. If its source becomes unavailable, the open situation stays unresolved until there is evidence that it cleared.
 
-The included [Companion app blueprint](blueprints/automation/homeostatic/companion_notification.yaml) connects notification requests to your phone. Home Assistant automations own delivery, so you can build other consumers around the same [event contract](docs/events.md).
+The included [Companion app blueprint](blueprints/automation/homeostatic/companion_notification.yaml) connects notification requests to your phone. Home Assistant automations own delivery, so you can build other consumers around the same [event contract](docs/events.md). To act on problems yourself, with or without notifications, use the `homeostatic_episode` and `homeostatic_control` events or each function's problem event entity; the [status light](blueprints/automation/homeostatic/function_status_light.yaml) and [logbook](blueprints/automation/homeostatic/problem_logbook.yaml) blueprints are examples.
 
 ## Know what is being watched
 

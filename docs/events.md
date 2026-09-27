@@ -1,8 +1,65 @@
-# Notification event contract
+# Event contract
+
+Homeostatic publishes two kinds of events: detected facts for owner automations, and notification requests for consumers.
+
+## Detected facts for owner automations
+
+[ADR 0014](adr/0014-publish-detected-facts-for-owner-automations.md) publishes what Homeostatic detects so owners can write their own rules. These events are facts, not attention decisions: they fire whether notifications are on or off, and regardless of recipients, quiet hours, digests, shelving or acknowledgment. What an automation does with them, including ignoring Homeostatic's policy, is the owner's choice.
+
+### `homeostatic_episode`, version 1
+
+| Field | Meaning |
+| --- | --- |
+| `schema_version` | `1` |
+| `entry_id` | Installation identity |
+| `change` | `opened`, `updated` or `resolved` |
+| `episode_id` | HealthTree episode identity; the same id as in notification requests and resolution history |
+| `form` | The library's `root` or `group` |
+| `anchor`, `anchor_name`, `anchor_kind` | Node id, current display name and source kind (`entity`, `device`, `integration`, `situation`, `external` or `function`) |
+| `entity_ids` | The anchor's HA entity, or a device summary's selected member entities |
+| `device_id`, `area_id`, `floor_id` | HA registry ids when HA supplies them, otherwise null |
+| `status`, `importance` | Library status and importance |
+| `reasons` | Findings with `node_id`, `check_id`, `status`, `reason` and `message` |
+| `function_ids`, `functions` | Ids and names of currently affected functions; for a resolution, the functions it affected |
+| `opened_at` | When the episode opened |
+| `shelved`, `maintenance`, `acknowledged` | Operator state when the fact was recorded. Flags never suppress a fact |
+| `resolution`, `absorbed_into` | Present on `resolved`: `cleared`, `removed` or `absorbed`, and the absorbing episode id |
+
+`updated` fires only when status, importance, the conditions behind the reasons, or affected functions change. Repeated observations and display-name changes publish nothing. Only `cleared` is a recovery decision; `removed` means evidence was withdrawn.
+
+### `homeostatic_control`, version 1
+
+| Field | Meaning |
+| --- | --- |
+| `schema_version`, `entry_id` | As above |
+| `change` | `started` or `ended` |
+| `kind` | `shelve`, `maintenance` or `acknowledge` |
+| `control_id` | Operator control id; null for acknowledgment |
+| `episode_id` | Shelved or acknowledged episode, otherwise null |
+| `node_id`, `include_dependents` | Maintenance scope, otherwise null and false |
+| `until` | Control expiry, or null for acknowledgment |
+| `reason` | The owner's reason text |
+| `ended_reason` | On `ended`: `cancelled`, `expired`, `replaced` (a shelf was extended) or `target_removed` |
+
+Acknowledgment publishes `started` once, on the first acknowledgment of an episode, and lasts until the episode resolves.
+
+### Delivery and attribution
+
+Facts publish after the state they describe is saved, before any notification request from the same change. They are published at most once: reloads and restarts do not replay them, and a failed save publishes nothing. An automation that needs current truth after a restart should use the readiness sensors or the `inventory`, `explain` and `resolved_history` actions.
+
+Each event carries a Home Assistant context for the logbook and automation traces. An episode fact's parent is the state change that caused it, when exactly one did; reconciliation and integration-entry changes have no parent. A control fact reuses the context of the action call, so HA attributes the acting user; an expiry has none. Context chaining is best effort and not part of the payload contract; `episode_id` is the join key. Parenting notification requests to their episode fact will follow the delivery changes in proposed ADR 0013.
+
+### Entities
+
+The overall and per-function readiness sensors are enum sensors with the options `ready`, `degraded`, `blocked` and `unknown`. Each function also has an event entity with event types `problem_opened`, `problem_changed` and `problem_resolved`, carrying `episode_id`, `anchor`, `anchor_name`, `status`, `importance` and `resolution`. Each event describes one episode entering, changing within or leaving the function's impact; use the readiness sensor to know when the function is ready again. Situations and individual sources have no entities of their own: situations already rest on an HA entity, and the bus event carries per-source identity.
+
+The [function status light](../blueprints/automation/homeostatic/function_status_light.yaml) and [problem logbook](../blueprints/automation/homeostatic/problem_logbook.yaml) blueprints are examples. Consumers should ignore unfamiliar fields; fields are only added within a schema version.
+
+## Notification requests
 
 Homeostatic emits `homeostatic_notification` on the Home Assistant event bus. A consumer automation decides how to deliver it. The integration does not call a phone, TTS, notify service, or an episode persistent notification. Its own storage/configuration errors still use a native persistent notification.
 
-## Payload version 1
+### Payload version 1
 
 | Field | Meaning |
 | --- | --- |

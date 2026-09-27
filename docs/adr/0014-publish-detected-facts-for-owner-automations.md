@@ -30,24 +30,24 @@ Two event types, so a trigger can select one family without template filtering:
 | Event type | `change` values | Fires when |
 | --- | --- | --- |
 | `homeostatic_episode` | `opened`, `updated`, `resolved` | HealthTree emits the corresponding episode event, for anchored episodes and situations alike |
-| `homeostatic_control` | `started`, `ended` | Shelving, maintenance or acknowledgment is saved, cancelled or expires |
+| `homeostatic_control` | `started`, `ended` | Shelving or maintenance starts, is replaced, is cancelled, expires or loses its target; an episode is first acknowledged |
 
 Every payload carries `schema_version`, `entry_id` and `change`. An episode payload also carries:
 
-- `episode_id`, `form` (anchor or situation), `anchor` (node id) and `anchor_name`
+- `episode_id`, `form` (the library's `root` or `group`), `anchor` (node id), `anchor_name` and `anchor_kind` (for example `entity`, `device`, `integration` or `situation`)
 - `entity_ids`, `device_id`, `area_id` and `floor_id` for the anchor, when HA supplies them, so that rules can act without querying Homeostatic
-- `status`, `importance`, `reasons` (kind and reason strings as the library reports them), `functions` (currently affected function names), `opened_at`
+- `status`, `importance`, `reasons` (node, check, status, reason and message as the library reports them), `function_ids` and `functions` (ids and names of currently affected functions), `opened_at`
 - `shelved`, `maintenance` and `acknowledged` flags as they stood at publication
 - on resolution, `resolution` (`cleared`, `removed` or `absorbed`) and `absorbed_into`
 
-A control payload carries the control id, kind, scope and the affected `episode_id` where there is one.
+A control payload carries `kind` (`shelve`, `maintenance` or `acknowledge`), `control_id`, `episode_id` or `node_id`, `include_dependents`, `until` and the owner's `reason`. An ended control adds `ended_reason`: `cancelled`, `expired`, `replaced` or `target_removed`. Acknowledgment has no control id and no end; it lasts until the episode resolves.
 
 Homeostatic's own monitoring health (evidence gaps, runtime or storage errors, a missing notification consumer) is not published as events. It remains on the diagnostic sensors and their attributes, where a state trigger covers any owner who wants to react to it.
 
 ### Semantics
 
 - **Independent of attention.** Fact events fire whether notifications are on or off and regardless of recipients, quiet hours, digests, shelving or acknowledgment. Those states are reported as flags; they do not suppress events.
-- **Meaningful change only.** `updated` fires when status, importance, reasons or affected functions change. Repeated identical observations publish nothing, consistent with ADR 0010.
+- **Meaningful change only.** `updated` fires when status, importance, the conditions behind the reasons, or affected functions change. Repeated identical observations and display-name changes publish nothing, consistent with ADR 0010.
 - **Order and durability.** Events publish after the state they describe is saved, and before any notification request derived from the same change.
 - **At most once, no replay.** Reloads and restarts do not replay history. Current state after a restart is read from entities and the existing `inventory`, `explain` and `resolved_history` actions. Unlike notification requests, fact events have no outbox.
 - **One join key.** `episode_id` and anchor identity are identical across fact events, notification requests and resolution history. Notification requests do not reference a fact event: reminders, escalations and digests have none, one fact can yield several requests or none, and outbox replay would leave the reference stale.
@@ -68,9 +68,9 @@ Context chaining is best effort, for attribution in HA's own tools. It is not pa
 
 Entities give owners conditions and restart-safe state that events cannot. They are provided at function level and above, never per source node or per situation, so entity count grows with declared functions, not with devices.
 
-- Function readiness sensors declare `device_class: enum` with their options, so the automation editor offers the states. These sensors already exist.
-- One `event` entity per function with event types `problem_opened`, `problem_changed` and `recovered`, mirroring episode facts that affect the function.
-- The existing overall readiness sensor and diagnostic counts are unchanged.
+- The overall and per-function readiness sensors declare `device_class: enum` with the options `ready`, `degraded`, `blocked` and `unknown`, so the automation editor offers the states. These sensors already exist.
+- One `event` entity per function with event types `problem_opened`, `problem_changed` and `problem_resolved`. Each describes one episode entering, changing within or leaving the function's impact, so a function with two problems resolves one at a time; its readiness sensor answers whether it is ready again.
+- The diagnostic counts are unchanged.
 
 Situations are published only as episode events. Each situation already rests on an HA entity that owners can trigger on directly; an extra Homeostatic entity would mostly duplicate it.
 

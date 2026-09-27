@@ -37,7 +37,7 @@ from homeassistant.config_entries import (
     ConfigEntryState,
 )
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP, EVENT_STATE_CHANGED
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import Context, Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -64,7 +64,15 @@ from .catalog import (
     entry_observation,
 )
 from .config import Settings, normalize_definitions, normalize_rules, rule_data
-from .const import DOMAIN, EVENT_NOTIFICATION, NAME, RECONCILE_INTERVAL, STORE_VERSION
+from .const import (
+    DOMAIN,
+    EVENT_CONTROL,
+    EVENT_EPISODE,
+    EVENT_NOTIFICATION,
+    NAME,
+    RECONCILE_INTERVAL,
+    STORE_VERSION,
+)
 from .controls import OperatorControl, expiry, presentation, restore_controls
 from .delivery import DeliveryState
 from .enrollment import (
@@ -75,6 +83,14 @@ from .enrollment import (
     restore_enrollment,
 )
 from .evidence import IntegrationEvidence, ReportedCondition
+from .facts import (
+    FACT_SCHEMA_VERSION,
+    Fact,
+    anchor_identity,
+    child_context,
+    reasons,
+    signature,
+)
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
 from .rules import Attributes, parse_rules
@@ -97,6 +113,8 @@ class Runtime:
             hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}", atomic_writes=True
         )
         self.signal = f"{DOMAIN}_{entry.entry_id}_updated"
+        self.fact_signal = f"{DOMAIN}_{entry.entry_id}_fact"
+        self._facts: list[Fact] = []
         self.engine: Engine | None = None
         self.policy: Policy | None = None
         self.sources: dict[str, Source] = {}
@@ -115,7 +133,9 @@ class Runtime:
         self._activating = False
         self.fresh_start = False
         self._quiet_since: datetime | None = None
-        self._pending: deque[tuple[datetime, list[Observation]]] = deque()
+        self._pending: deque[tuple[datetime, list[Observation], Context | None]] = (
+            deque()
+        )
         self.retry_since: dict[str, datetime] = {}
         self.saved: dict[str, Any] | None = None
         self.running = False
@@ -295,7 +315,7 @@ class Runtime:
                     self._device_signatures[source.node_id] = signature
                 observations.append(observation)
             if observations:
-                self._pending.append((now, observations))
+                self._pending.append((now, observations, event.context))
                 self._request_refresh()
             elif metadata_changed:
                 self._request_refresh()
@@ -307,7 +327,7 @@ class Runtime:
         if self.running:
             source = self.sources[f"entry:{entry.entry_id}"]
             now = dt_util.utcnow()
-            self._pending.append((now, [self._observe_entry(source, now)]))
+            self._pending.append((now, [self._observe_entry(source, now)], None))
             self._request_refresh()
 
     async def _drain_pending(self) -> None:
@@ -315,9 +335,9 @@ class Runtime:
         assert self.policy is not None
         processed = 0
         while self._pending:
-            now, observations = self._pending.popleft()
+            now, observations, cause = self._pending.popleft()
             self._record_observations(observations)
-            self._handle(self.engine.ingest_many(observations, now), now)
+            self._handle(self.engine.ingest_many(observations, now), now, cause)
             self._deliveries(self.policy.advance(now, PolicyContext()))
             processed += 1
             if processed % 8 == 0 and self._pending:
@@ -500,6 +520,8 @@ class Runtime:
                 async_dispatcher_send(self.hass, self.signal)
 
     def _failed(self, err: Exception) -> None:
+        # Facts describe saved state; an unsaved change is never published.
+        self._facts.clear()
         if self.error != str(err):
             _LOGGER.error("Homeostatic refresh failed: %s", err)
         self.error = str(err)
@@ -523,6 +545,9 @@ class Runtime:
             self.delivery.deactivate()
         self._end_quiet(now)
         await self._save()
+        if self.running:
+            # The startup hold applies to attention, not to detected facts.
+            self._publish_facts()
         if self.running and self._quiet_since is None:
             await self._flush_events()
         self.error = None
@@ -574,13 +599,17 @@ class Runtime:
         )
 
     def _prune_controls(self, now: datetime) -> None:
-        self.controls = [
-            control
-            for control in self.controls
-            if control.until > now
-            and control.target
-            in (self.episodes if control.action == "shelve" else self.sources)
-        ]
+        kept = []
+        for control in self.controls:
+            if control.until <= now:
+                self._control_fact("ended", control, ended_reason="expired")
+            elif control.target not in (
+                self.episodes if control.action == "shelve" else self.sources
+            ):
+                self._control_fact("ended", control, ended_reason="target_removed")
+            else:
+                kept.append(control)
+        self.controls = kept
 
     def _maintenance_scope(self, node_id: str, include_dependents: bool) -> list[str]:
         assert self.engine is not None
@@ -615,7 +644,12 @@ class Runtime:
         }
 
     def _apply_control(
-        self, action: str, data: dict[str, Any], user_id: str | None, now: datetime
+        self,
+        action: str,
+        data: dict[str, Any],
+        user_id: str | None,
+        now: datetime,
+        context: Context | None = None,
     ) -> dict[str, JSONValue]:
         assert self.engine is not None
         assert self.policy is not None
@@ -626,11 +660,24 @@ class Runtime:
                 target = data["episode_id"]
                 if target not in self.episodes:
                     raise ValueError("Acknowledgment requires a current episode id")
+                first = self.policy.acknowledgment(target) is None
                 self._deliveries(self.policy.acknowledge(target, now, actor_id=user_id))
+                if first:
+                    self._facts.append(
+                        Fact(
+                            event_type=EVENT_CONTROL,
+                            data=self._control_data(
+                                "started",
+                                kind="acknowledge",
+                                episode_id=target,
+                            ),
+                            context=context or Context(),
+                        )
+                    )
                 return {
                     "acknowledgment": json_object(self.policy.acknowledgment(target))
                 }
-            return self._cancel_control(data["control_id"], now)
+            return self._cancel_control(data["control_id"], now, context)
         until = expiry(data["until"], now)
         if action == "shelve":
             target = data["episode_id"]
@@ -645,6 +692,11 @@ class Runtime:
                 raise ValueError("An existing shelf can only be extended")
             response: dict[str, JSONValue] = {}
             self._deliveries(self.policy.shelve(target, until, now))
+            for control in self.controls:
+                if control.action == "shelve" and control.target == target:
+                    self._control_fact(
+                        "ended", control, ended_reason="replaced", context=context
+                    )
             self.controls = [
                 control
                 for control in self.controls
@@ -665,6 +717,7 @@ class Runtime:
                     now,
                 ),
                 now,
+                context,
             )
         control = OperatorControl(
             control_id=uuid4().hex,
@@ -677,9 +730,12 @@ class Runtime:
             include_dependents=data.get("include_dependents", False),
         )
         self.controls.append(control)
+        self._control_fact("started", control, context=context)
         return {**response, "control": json_object(control)}
 
-    def _cancel_control(self, control_id: str, now: datetime) -> dict[str, JSONValue]:
+    def _cancel_control(
+        self, control_id: str, now: datetime, context: Context | None = None
+    ) -> dict[str, JSONValue]:
         assert self.engine is not None
         assert self.policy is not None
         control = next(
@@ -702,12 +758,18 @@ class Runtime:
                     now,
                 ),
                 now,
+                context,
             )
         self.controls.remove(control)
+        self._control_fact("ended", control, ended_reason="cancelled", context=context)
         return {"cancelled_control_id": control_id}
 
     async def async_control(
-        self, action: str, data: dict[str, Any], user_id: str | None
+        self,
+        action: str,
+        data: dict[str, Any],
+        user_id: str | None,
+        context: Context | None = None,
     ) -> dict[str, JSONValue]:
         """Serialize an authorized operator action and confirm durable storage."""
         async with self._lock:
@@ -722,7 +784,7 @@ class Runtime:
                 self._handle(self._evaluate(now), now)
                 self._prune_controls(now)
                 try:
-                    response = self._apply_control(action, data, user_id, now)
+                    response = self._apply_control(action, data, user_id, now, context)
                 except (ValueError, KeyError) as err:
                     invalid = err
                 # Reconciliation can resolve the requested episode. Its events
@@ -924,9 +986,13 @@ class Runtime:
         states = tuple(self.hass.states.get(entity_id) for entity_id in members)
         return device_observation(source, states, now)
 
-    def _handle(self, events: list[HealthEvent], now: datetime) -> None:
+    def _handle(
+        self, events: list[HealthEvent], now: datetime, cause: Context | None = None
+    ) -> None:
         assert self.policy is not None
         for event in events:
+            if isinstance(event, EpisodeOpened | EpisodeUpdated | EpisodeResolved):
+                self._episode_fact(event, cause)
             if isinstance(event, EpisodeOpened | EpisodeUpdated):
                 self.episodes[event.episode.episode_id] = json_object(event.episode)
             elif isinstance(event, EpisodeResolved):
@@ -937,6 +1003,165 @@ class Runtime:
                 # cached entity update cannot establish physical freshness.
                 continue
             self._deliveries(self.policy.handle(event, now, PolicyContext()))
+
+    def _functions(self, episode: dict[str, JSONValue] | None) -> frozenset[str]:
+        if episode is None:
+            return frozenset()
+        impact = episode["impact"]
+        assert isinstance(impact, list)
+        return frozenset(
+            node_id
+            for node_id in impact
+            if isinstance(node_id, str)
+            and node_id in self.sources
+            and self.sources[node_id].kind == "function"
+        )
+
+    def _maintained(self) -> set[str]:
+        assert self.engine is not None
+        scope: set[str] = set()
+        for control in self.controls:
+            if control.action != "maintenance":
+                continue
+            scope.add(control.target)
+            if control.include_dependents and control.target in self.sources:
+                scope.update(
+                    item.node_id for item in self.engine.impact(control.target).nodes
+                )
+        return scope
+
+    def _acknowledged(self, episode_id: str) -> bool:
+        assert self.policy is not None
+        if not supports_attention_controls():
+            return False
+        try:
+            return self.policy.acknowledgment(episode_id) is not None
+        except KeyError:
+            return False
+
+    def _episode_fact(
+        self,
+        event: EpisodeOpened | EpisodeUpdated | EpisodeResolved,
+        cause: Context | None,
+    ) -> None:
+        episode_id = event.episode.episode_id
+        previous = self.episodes.get(episode_id)
+        current = json_object(event.episode)
+        before = self._functions(previous)
+        after = (
+            frozenset()
+            if isinstance(event, EpisodeResolved)
+            else self._functions(current)
+        )
+        if isinstance(event, EpisodeOpened):
+            change = "opened"
+        elif isinstance(event, EpisodeResolved):
+            change = "resolved"
+        elif previous is not None and signature(previous, before) == signature(
+            current, after
+        ):
+            return
+        else:
+            change = "updated"
+        anchor = event.episode.anchor
+        data: dict[str, JSONValue] = {
+            "schema_version": FACT_SCHEMA_VERSION,
+            "entry_id": self.entry.entry_id,
+            "change": change,
+            "episode_id": episode_id,
+            "form": event.episode.form,
+            **anchor_identity(anchor, self.sources.get(anchor)),
+            "status": current["status"],
+            "importance": current["importance"],
+            "reasons": reasons(current),
+            "function_ids": [node_id for node_id in sorted(after or before)],
+            "functions": [
+                self.sources[node_id].name for node_id in sorted(after or before)
+            ],
+            "opened_at": current["opened_at"],
+            "shelved": any(
+                control.action == "shelve" and control.target == episode_id
+                for control in self.controls
+            ),
+            "maintenance": anchor in self._maintained(),
+            "acknowledged": self._acknowledged(episode_id),
+        }
+        if isinstance(event, EpisodeResolved):
+            data["resolution"] = event.resolution
+            data["absorbed_into"] = event.absorbed_into
+        self._facts.append(
+            Fact(
+                event_type=EVENT_EPISODE,
+                data=data,
+                context=child_context(cause),
+                functions_before=before,
+                functions_after=after,
+            )
+        )
+
+    def _control_data(
+        self,
+        change: str,
+        *,
+        kind: str,
+        episode_id: str | None = None,
+        control: OperatorControl | None = None,
+        ended_reason: str | None = None,
+    ) -> dict[str, JSONValue]:
+        data: dict[str, JSONValue] = {
+            "schema_version": FACT_SCHEMA_VERSION,
+            "entry_id": self.entry.entry_id,
+            "change": change,
+            "kind": kind,
+            "control_id": None,
+            "episode_id": episode_id,
+            "node_id": None,
+            "include_dependents": False,
+            "until": None,
+            "reason": "",
+        }
+        if control is not None:
+            data |= {
+                "control_id": control.control_id,
+                "episode_id": control.target if control.action == "shelve" else None,
+                "node_id": control.target if control.action == "maintenance" else None,
+                "include_dependents": control.include_dependents,
+                "until": control.until.isoformat(),
+                "reason": control.reason,
+            }
+        if change == "ended":
+            data["ended_reason"] = ended_reason
+        return data
+
+    def _control_fact(
+        self,
+        change: str,
+        control: OperatorControl,
+        *,
+        ended_reason: str | None = None,
+        context: Context | None = None,
+    ) -> None:
+        self._facts.append(
+            Fact(
+                event_type=EVENT_CONTROL,
+                data=self._control_data(
+                    change,
+                    kind=control.action,
+                    control=control,
+                    ended_reason=ended_reason,
+                ),
+                # An action reuses its call's context so HA attributes the
+                # user; an expiry has no cause but time.
+                context=context or Context(),
+            )
+        )
+
+    def _publish_facts(self) -> None:
+        facts, self._facts = self._facts, []
+        for fact in facts:
+            self.hass.bus.async_fire(fact.event_type, fact.data, context=fact.context)
+            if fact.event_type == EVENT_EPISODE:
+                async_dispatcher_send(self.hass, self.fact_signal, fact)
 
     def _deliveries(self, deliveries: list[Delivery]) -> None:
         if not self.settings.notifications or self._activating:
@@ -1261,6 +1486,7 @@ class Runtime:
                 try:
                     await self._drain_pending()
                     await self._save()
+                    self._publish_facts()
                 except (
                     OSError,
                     HomeAssistantError,

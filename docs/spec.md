@@ -191,6 +191,10 @@ Use atomic Store writes and read-back verification because Store can log a write
 
 Unload and shutdown cancel all callbacks, drain captured observations, and attempt a final save. A failed final save leaves the last durable snapshot and creates a visible Homeostatic storage error; cleanup still completes so there is no stopped runtime registered as a failed unload. A platform refusal to unload keeps monitoring running. Work already saving cannot create a new timer after shutdown starts.
 
+## Detected facts
+
+Homeostatic publishes `homeostatic_episode` and `homeostatic_control` events for every opened, meaningfully updated and resolved episode and every operator control start and end, independent of notification settings ([ADR 0014](adr/0014-publish-detected-facts-for-owner-automations.md)). Facts publish after the durable save and before notification requests from the same change, at most once, without replay on reload. Readiness sensors are enum sensors, and each function has an event entity for problems that affect it. [events.md](events.md#detected-facts-for-owner-automations) is the payload contract.
+
 ## Recently resolved problems
 
 The read-only `resolved_history` action and additive `inventory.resolved_history` field return `{started_at, retention, episodes}`. `retention` contains `max_episodes: 100` and `max_age_days: 30`. Entries are newest resolution first. The adapter keeps only the latest 100 terminal episodes whose resolution was observed less than 30 days ago; expiry is applied to queries immediately and to persistence at reconciliation. This is bounded terminal history, not a full transition, configuration, operator-action or delivery journal.

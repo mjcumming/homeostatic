@@ -20,6 +20,9 @@ from .services import async_register_services, async_remove_services
 type HomeostaticConfigEntry = ConfigEntry[Runtime]
 
 
+PLATFORMS = [Platform.EVENT, Platform.SENSOR]
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) -> bool:
     """Load presentation now and start monitoring after Home Assistant starts."""
     try:
@@ -36,7 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
     entry.async_on_unload(lambda: async_remove_dashboard(hass))
     async_register_services(hass, runtime)
     entry.async_on_unload(lambda: async_remove_services(hass))
-    await hass.config_entries.async_forward_entry_setups(entry, [Platform.SENSOR])
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(async_at_started(hass, runtime.async_start))
     return True
 
@@ -45,7 +48,7 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: HomeostaticConfigEntry
 ) -> bool:
     """Stop subscriptions and timers when platforms unload successfully."""
-    if not await hass.config_entries.async_unload_platforms(entry, [Platform.SENSOR]):
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
     await entry.runtime_data.async_stop()
     return True

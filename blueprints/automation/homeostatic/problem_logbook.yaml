@@ -1,0 +1,41 @@
+blueprint:
+  name: Homeostatic problem logbook
+  description: >-
+    Write a logbook entry for every problem Homeostatic opens, changes or
+    resolves, whether or not notifications are enabled. An example of using
+    the homeostatic_episode event; see docs/events.md for every field.
+  domain: automation
+  homeassistant:
+    min_version: 2026.9.0
+  input:
+    changes:
+      name: Changes to record
+      default: [opened, updated, resolved]
+      selector:
+        select:
+          multiple: true
+          options:
+            - opened
+            - updated
+            - resolved
+mode: queued
+max: 100
+variables:
+  changes: !input changes
+triggers:
+  - trigger: event
+    event_type: homeostatic_episode
+    event_data:
+      schema_version: 1
+conditions:
+  - condition: template
+    value_template: "{{ trigger.event.data.change in changes }}"
+actions:
+  - action: logbook.log
+    data:
+      name: Homeostatic
+      message: >-
+        {{ trigger.event.data.anchor_name }}: problem {{ trigger.event.data.change }}
+        ({{ trigger.event.data.resolution
+            if trigger.event.data.change == 'resolved'
+            else trigger.event.data.status }})

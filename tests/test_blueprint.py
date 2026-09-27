@@ -11,7 +11,7 @@ from homeassistant.setup import async_setup_component
 from homeassistant.util import yaml as yaml_util
 from pytest_homeassistant_custom_component.common import async_mock_service
 
-from custom_components.homeostatic.const import EVENT_NOTIFICATION
+from custom_components.homeostatic.const import EVENT_EPISODE, EVENT_NOTIFICATION
 
 
 @pytest.mark.parametrize(
@@ -128,3 +128,66 @@ async def test_consumer_ignores_other_channels(hass: HomeAssistant) -> None:
     )
     await hass.async_block_till_done()
     assert not calls
+
+
+async def load_example(
+    hass: HomeAssistant, name: str, values: dict[str, Any]
+) -> dict[str, Any]:
+    """Substitute a shipped example blueprint as an owner would configure it."""
+    path = Path(__file__).parents[1] / f"blueprints/automation/homeostatic/{name}"
+    data = await hass.async_add_executor_job(yaml_util.load_yaml, str(path))
+    blueprint = Blueprint(data, expected_domain="automation", schema=BLUEPRINT_SCHEMA)
+    inputs = BlueprintInputs(
+        blueprint,
+        {"use_blueprint": {"path": f"homeostatic/{name}", "input": values}},
+    )
+    inputs.validate()
+    return {**inputs.async_substitute(), "id": name, "alias": name}
+
+
+async def test_status_light_follows_readiness(hass: HomeAssistant) -> None:
+    """The light example acts on function readiness, not notifications."""
+    automation = await load_example(
+        hass,
+        "function_status_light.yaml",
+        {"function": "sensor.homeostatic_lighting", "light": "light.hall"},
+    )
+    on = async_mock_service(hass, "light", "turn_on")
+    off = async_mock_service(hass, "light", "turn_off")
+    assert await async_setup_component(hass, "automation", {"automation": [automation]})
+    await hass.async_block_till_done()
+    for state in ("blocked", "unavailable", "ready"):
+        hass.states.async_set("sensor.homeostatic_lighting", state)
+        await hass.async_block_till_done()
+    assert [call.data["rgb_color"] for call in on] == [[255, 80, 0]]
+    assert [call.data["entity_id"] for call in off] == [["light.hall"]]
+
+
+async def test_logbook_records_selected_changes(hass: HomeAssistant) -> None:
+    """The logbook example reads the episode fact contract."""
+    automation = await load_example(
+        hass, "problem_logbook.yaml", {"changes": ["opened", "resolved"]}
+    )
+    calls = async_mock_service(hass, "logbook", "log")
+    assert await async_setup_component(hass, "automation", {"automation": [automation]})
+    await hass.async_block_till_done()
+    for change, extra in (
+        ("opened", {}),
+        ("updated", {}),
+        ("resolved", {"resolution": "cleared"}),
+    ):
+        hass.bus.async_fire(
+            EVENT_EPISODE,
+            {
+                "schema_version": 1,
+                "change": change,
+                "anchor_name": "Hall sensor",
+                "status": "fail",
+                **extra,
+            },
+        )
+        await hass.async_block_till_done()
+    assert [call.data["message"] for call in calls] == [
+        "Hall sensor: problem opened (fail)",
+        "Hall sensor: problem resolved (cleared)",
+    ]

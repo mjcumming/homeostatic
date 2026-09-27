@@ -2,7 +2,11 @@
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+)
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -13,9 +17,15 @@ from . import HomeostaticConfigEntry
 from .const import DOMAIN, NAME
 from .runtime import Runtime
 
+READINESS = ["ready", "degraded", "blocked", "unknown"]
+
 DESCRIPTIONS = (
     SensorEntityDescription(
-        key="readiness", translation_key="readiness", icon="mdi:home-heart"
+        key="readiness",
+        translation_key="readiness",
+        icon="mdi:home-heart",
+        device_class=SensorDeviceClass.ENUM,
+        options=READINESS,
     ),
     SensorEntityDescription(
         key="episodes",
@@ -49,6 +59,8 @@ async def async_setup_entry(
                         key=f"function_{function.id}",
                         name=function.name,
                         icon="mdi:check-network-outline",
+                        device_class=SensorDeviceClass.ENUM,
+                        options=READINESS,
                     ),
                     function_node=f"function:{function.id}",
                 )

@@ -6,6 +6,8 @@ DOMAIN = "homeostatic"
 NAME = "Homeostatic"
 STORE_VERSION = 1
 EVENT_NOTIFICATION = "homeostatic_notification"
+EVENT_EPISODE = "homeostatic_episode"
+EVENT_CONTROL = "homeostatic_control"
 RECONCILE_INTERVAL = timedelta(seconds=60)
 DEFAULTS: dict[str, int] = {
     "settle": 120,
