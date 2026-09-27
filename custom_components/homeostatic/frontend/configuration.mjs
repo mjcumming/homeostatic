@@ -1,4 +1,4 @@
-import {inventoryRows} from "./model.mjs?v=22";
+import {inventoryRows} from "./model.mjs?v=23";
 
 export const MATCH_FIELDS = ["kind", "domain", "device_class", "integration", "device", "entity", "area", "floor", "label"];
 
@@ -28,13 +28,14 @@ const byName = (left, right) => left.name.localeCompare(right.name) || left.id.l
 export function monitoringTree(data, query = "") {
   const names = new Map((data.devices ?? []).map((device) => [device.id, device.name]));
   const groups = new Map();
+  const rows = inventoryRows(data).filter((source) => ["integration", "entity", "device"].includes(source.kind));
+  const entries = new Set(rows.filter((source) => source.kind === "integration").map((source) => source.entry_id ?? source.node_id.slice(6)));
   const groupFor = (id) => {
-    const key = id ?? "";
-    if (!groups.has(key)) groups.set(key,{id:key,name:id ? "Unavailable integration entry" : "Entities without an integration",
+    const key = entries.has(id) ? id : "";
+    if (!groups.has(key)) groups.set(key,{id:key,name:"Other sources",
       entry:null,devices:new Map(),loose:[],entities:[]});
     return groups.get(key);
   };
-  const rows = inventoryRows(data).filter((source) => ["integration", "entity", "device"].includes(source.kind));
   const deviceTotals = new Map();
   for (const source of rows.filter((item) => item.kind === "integration")) {
     const group = groupFor(source.entry_id ?? source.node_id.slice(6));
@@ -57,11 +58,13 @@ export function monitoringTree(data, query = "") {
     group.devices.get(deviceId).entities.push(source);
   }
   for (const source of rows.filter((item) => item.kind === "device")) {
-    const deviceId = source.attributes?.device?.[0];
-    if (!deviceId) continue;
-    const group = groupFor(source.attributes?.integration?.[0]);
-    if (!group.devices.has(deviceId)) group.devices.set(deviceId,{id:deviceId,name:names.get(deviceId) ?? source.name,entities:[],summary:null});
-    group.devices.get(deviceId).summary = source;
+    const deviceId = source.attributes?.device?.[0] ?? source.node_id.slice(7);
+    const owners = [...groups.values()].filter((group) => group.devices.has(deviceId));
+    if (!owners.length) owners.push(groupFor(source.attributes?.integration?.find((id) => entries.has(id))));
+    for (const group of owners) {
+      if (!group.devices.has(deviceId)) group.devices.set(deviceId,{id:deviceId,name:names.get(deviceId) ?? source.name,entities:[],summary:null});
+      group.devices.get(deviceId).summary = source;
+    }
   }
   const normalized = query.trim().toLocaleLowerCase();
   const matches = (source) => [source.name,source.entity_id].filter(Boolean).join(" ").toLocaleLowerCase().includes(normalized);

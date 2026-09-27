@@ -9,6 +9,7 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components import frontend
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -212,6 +213,25 @@ async def test_location_names_and_situation_detail(
         pytest.param({"type": "homeostatic/node", "node_id": NODE}, id="node"),
         pytest.param({"type": "homeostatic/configuration"}, id="configuration"),
         pytest.param(
+            {
+                "type": "homeostatic/preview_alerts",
+                "revision": "x",
+                "notifications": False,
+                "consumer": None,
+            },
+            id="preview-alerts",
+        ),
+        pytest.param(
+            {
+                "type": "homeostatic/save_alerts",
+                "revision": "x",
+                "preview_token": "x",
+                "notifications": False,
+                "consumer": None,
+            },
+            id="save-alerts",
+        ),
+        pytest.param(
             {"type": "homeostatic/preview_configuration", "revision": "x", "rules": []},
             id="preview-configuration",
         ),
@@ -403,6 +423,247 @@ async def test_monitoring_page_previews_and_saves_existing_options(
     assert config_entry.options["timings"] == config_entry.data["timings"]
     assert config_entry.runtime_data.available
     assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
+
+
+async def test_alert_settings_preview_and_save_preserve_other_options(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Enabling alert requests needs an exact preview and a live consumer."""
+    hass.states.async_set("sensor.observed", "42")
+    hass.states.async_set("automation.homeostatic_alerts", "on")
+    config_data["notifications"] = False
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    assert current["alerts"]["notifications"] is False
+    assert any(
+        item["entity_id"] == "automation.homeostatic_alerts"
+        for item in current["consumers"]
+    )
+    before = deepcopy(runtime.snapshot())
+    change = {
+        "revision": current["revision"],
+        "notifications": True,
+        "consumer": "automation.homeostatic_alerts",
+    }
+    await client.send_json({"id": 2, "type": "homeostatic/preview_alerts", **change})
+    response = await client.receive_json()
+    assert "result" in response, response
+    preview = response["result"]
+    assert preview["open_problems"] == 0
+    assert preview["requests_now"] == 0
+    assert runtime.snapshot() == before
+    assert not entry.options
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "homeostatic/save_alerts",
+            "preview_token": "wrong",
+            **change,
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "preview_required"
+    assert not entry.options
+    await client.send_json(
+        {
+            "id": 4,
+            "type": "homeostatic/save_alerts",
+            "preview_token": preview["preview_token"],
+            **change,
+        }
+    )
+    assert (await client.receive_json())["result"] == {"saved": True}
+    assert entry.options["notifications"] is True
+    assert entry.options["consumer"] == "automation.homeostatic_alerts"
+    assert entry.options["timings"] == config_data["timings"]
+    assert entry.options.get("policy") == config_data.get("policy")
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.close()
+
+
+async def test_alert_settings_reject_disabled_consumer_and_stale_revision(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """An inactive consumer and options edits elsewhere cannot enable alerts."""
+    hass.states.async_set("automation.homeostatic_alerts", "off")
+    config_data["notifications"] = False
+    config_entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    await start_monitor(hass, config_entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    change = {
+        "revision": current["revision"],
+        "notifications": True,
+        "consumer": "automation.homeostatic_alerts",
+    }
+    await client.send_json({"id": 2, "type": "homeostatic/preview_alerts", **change})
+    assert (await client.receive_json())["error"]["code"] == "invalid_alerts"
+    hass.states.async_set("automation.homeostatic_alerts", "on")
+    await client.send_json({"id": 3, "type": "homeostatic/preview_alerts", **change})
+    preview = (await client.receive_json())["result"]
+    hass.states.async_set("automation.homeostatic_alerts", "off")
+    await client.send_json(
+        {
+            "id": 4,
+            "type": "homeostatic/save_alerts",
+            "preview_token": preview["preview_token"],
+            **change,
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "invalid_alerts"
+    await client.send_json(
+        {
+            "id": 5,
+            "type": "homeostatic/preview_alerts",
+            **{**change, "consumer": None},
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "invalid_alerts"
+    hass.config_entries.async_update_entry(
+        config_entry, options={**config_entry.data, "consumer": None}
+    )
+    await client.send_json({"id": 6, "type": "homeostatic/preview_alerts", **change})
+    assert (await client.receive_json())["error"]["code"] == "stale_configuration"
+    await client.send_json(
+        {
+            "id": 7,
+            "type": "homeostatic/save_alerts",
+            "preview_token": preview["preview_token"],
+            **change,
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "stale_configuration"
+    assert config_entry.options["notifications"] is False
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
+
+
+@pytest.mark.parametrize(
+    "first_reload",
+    [
+        pytest.param(False, id="reload-rejected"),
+        pytest.param(HomeAssistantError("reload failed"), id="reload-raised"),
+    ],
+)
+async def test_alert_settings_restore_options_if_reload_fails(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+    first_reload: bool | HomeAssistantError,
+) -> None:
+    """A failed alert edit keeps the previous notification configuration."""
+    config_data["notifications"] = False
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    await start_monitor(hass, entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    change = {
+        "revision": current["revision"],
+        "notifications": False,
+        "consumer": None,
+    }
+    await client.send_json({"id": 2, "type": "homeostatic/preview_alerts", **change})
+    preview = (await client.receive_json())["result"]
+    with patch.object(
+        hass.config_entries,
+        "async_reload",
+        new=AsyncMock(side_effect=[first_reload, True]),
+    ) as reload:
+        await client.send_json(
+            {
+                "id": 3,
+                "type": "homeostatic/save_alerts",
+                "preview_token": preview["preview_token"],
+                **change,
+            }
+        )
+        assert (await client.receive_json())["error"]["code"] == "reload_failed"
+    assert reload.await_count == 2
+    assert not entry.options
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.close()
+
+
+async def test_alert_settings_disable_requests_without_a_consumer(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Disabling requests remains possible when the old consumer is missing."""
+    hass.states.async_set("sensor.observed", "42")
+    await start_monitor(hass, config_entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    running = {
+        "revision": current["revision"],
+        "notifications": True,
+        "consumer": "automation.homeostatic_test_consumer",
+    }
+    await client.send_json({"id": 2, "type": "homeostatic/preview_alerts", **running})
+    unchanged = (await client.receive_json())["result"]
+    assert unchanged["activating"] is False
+    assert unchanged["requests_now"] == 0
+    hass.states.async_remove("automation.homeostatic_test_consumer")
+    stopped = {**running, "notifications": False, "consumer": None}
+    await client.send_json({"id": 3, "type": "homeostatic/preview_alerts", **stopped})
+    preview = (await client.receive_json())["result"]
+    assert preview["activating"] is False
+    assert preview["requests_now"] == 0
+    await client.send_json(
+        {
+            "id": 4,
+            "type": "homeostatic/save_alerts",
+            "preview_token": preview["preview_token"],
+            **stopped,
+        }
+    )
+    assert (await client.receive_json())["result"] == {"saved": True}
+    assert config_entry.options["notifications"] is False
+    assert config_entry.options["consumer"] is None
+    await client.send_json({"id": 5, "type": "homeostatic/configuration"})
+    updated = (await client.receive_json())["result"]
+    assert updated["alerts"]["consumer_state"] is None
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
+
+
+async def test_alert_settings_commands_report_unavailable_runtime(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Settings edits cannot use a dashboard whose runtime was unloaded."""
+    await start_monitor(hass, config_entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    change = {
+        "revision": current["revision"],
+        "notifications": False,
+        "consumer": None,
+    }
+    await client.send_json({"id": 2, "type": "homeostatic/preview_alerts", **change})
+    assert (await client.receive_json())["error"]["code"] == "not_ready"
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "homeostatic/save_alerts",
+            "preview_token": "stale",
+            **change,
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "not_ready"
     await client.close()
 
 

@@ -163,6 +163,109 @@ async def test_device_summary_tracks_partial_total_unknown_and_recovery(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+async def test_auto_device_summary_ends_when_last_member_is_deleted(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """A remaining HA device record does not keep a broad summary in scope."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "retired")}
+    )
+    registry = er.async_get(hass)
+    member = registry.async_get_or_create(
+        "sensor", "test", "retired", config_entry=owner, device_id=device.id
+    )
+    hass.states.async_set(member.entity_id, "unavailable")
+    config_data.update(
+        entities=[],
+        config_entries=[],
+        notifications=False,
+        rules=[{"id": "devices", "action": "attach", "match": {"kind": "device"}}],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    node_id = f"device:{device.id}"
+    episode_id = next(iter(runtime.episodes))
+
+    hass.states.async_remove(member.entity_id)
+    registry.async_remove(member.entity_id)
+    await hass.async_block_till_done()
+    assert dr.async_get(hass).async_get(device.id) is not None
+    assert node_id not in runtime.sources
+    assert node_id not in runtime.candidates
+    assert not runtime.episodes
+    assert (
+        runtime.history.view(datetime.now(UTC))["episodes"][0]["resolution"]
+        == "removed"
+    )
+    assert runtime.enrollment_changes[-1]["reason"] == "source_removed"
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    restored = entry.runtime_data
+    assert node_id not in restored.sources
+    assert (
+        restored.history.view(datetime.now(UTC))["episodes"][0]["episode"]["episode_id"]
+        == episode_id
+    )
+
+    replacement = registry.async_get_or_create(
+        "sensor", "test", "replacement", config_entry=owner, device_id=device.id
+    )
+    hass.states.async_set(replacement.entity_id, "18")
+    await hass.async_block_till_done()
+    assert node_id in restored.sources
+    assert restored.sources[node_id].availability_entities == (replacement.entity_id,)
+    assert not restored.episodes
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_exact_device_selection_remains_unknown_without_members(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """An exact device choice remains an unmet expectation after entity deletion."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "selected")}
+    )
+    registry = er.async_get(hass)
+    member = registry.async_get_or_create(
+        "sensor", "test", "selected", config_entry=owner, device_id=device.id
+    )
+    hass.states.async_set(member.entity_id, "17")
+    config_data.update(
+        entities=[],
+        config_entries=[],
+        notifications=False,
+        rules=[
+            {
+                "id": "selected_device",
+                "action": "attach",
+                "match": {"kind": "device", "device": device.id},
+            }
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    node_id = f"device:{device.id}"
+
+    hass.states.async_remove(member.entity_id)
+    registry.async_remove(member.entity_id)
+    await hass.async_block_till_done()
+    assert runtime.sources[node_id].availability_entities == ()
+    assert runtime.sources[node_id].watched
+    assert runtime.readiness == "unknown"
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    restored = entry.runtime_data
+    assert restored.sources[node_id].watched
+    assert restored.readiness == "unknown"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 @pytest.mark.parametrize("platform", ["wiim", "test"])
 async def test_persistent_ignore_changes_expectation_without_claiming_recovery(
     hass: HomeAssistant, config_data: dict[str, Any], platform: str

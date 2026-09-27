@@ -10,7 +10,7 @@ An ended episode answers what happened to a problem. Enrollment and rule changes
 
 ## Proposed decision
 
-Store a bounded history only when HealthTree emits `EpisodeResolved`: at most 100 terminal episodes observed within 30 days. Preserve the resolution as `cleared`, `removed`, or `absorbed`; only `cleared` represents observed recovery. Keep the last 50 monitoring changes in the current runtime separately, including a scope snapshot at load. Show each list's collection and retention limits. Do not infer historical device state from current inventory or reconstruct events before collection began.
+Store a bounded history only when HealthTree emits `EpisodeResolved`: at most 100 terminal episodes observed within 30 days. Preserve the resolution as `cleared`, `removed`, or `absorbed`; only `cleared` represents observed recovery. Keep the last 50 monitoring changes in the current runtime separately for diagnostics, including a scope snapshot at load. Show the resolved-history collection and retention limits on History. Do not infer historical device state from current inventory or reconstruct events before collection began.
 
 ## Options considered
 
@@ -20,4 +20,4 @@ Store a bounded history only when HealthTree emits `EpisodeResolved`: at most 10
 
 ## Consequences
 
-The owner can inspect recent resolutions without treating removal or absorption as repair. Monitoring activity remains useful for explaining this run but is not a permanent audit trail. A longer history or export requires a new retention and persistence decision.
+The owner can inspect recent resolutions without treating removal or absorption as repair. The runtime enrollment log remains available for diagnostics but does not appear in History or serve as a permanent audit trail. A longer history or export requires a new retention and persistence decision.

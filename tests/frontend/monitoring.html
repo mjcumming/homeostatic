@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Monitoring choices preview</title>
+<style>:root{--primary-text-color:#182a34;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--secondary-text-color:#546875;--divider-color:#dce4e9;--primary-color:#007eab;--text-primary-color:#fff}body{margin:0;font:14px Arial,sans-serif}#controls{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #ddd}button{font:inherit;padding:8px}homeostatic-card{display:block;max-width:1400px;margin:auto}#feedback{white-space:pre-wrap}</style></head>
+<body><div id="controls"><strong>Synthetic inventory · no live changes</strong><button id="run">Run monitoring scenarios</button><button id="update">Simulate live update</button><label><input type="checkbox" id="narrow">Narrow layout</label><label><input type="checkbox" id="dark">Dark theme</label><span id="feedback" role="status"></span></div><homeostatic-card></homeostatic-card>
+<script type="module">
+import "../../custom_components/homeostatic/frontend/homeostatic.js";
+import {monitoringExample} from "./monitoring-fixture.mjs";
+const card=document.querySelector("homeostatic-card");
+const data=monitoringExample();
+const saved=[{id:"entries",action:"attach",enabled:true,match:{kind:["integration"]},checks:["availability"]},{id:"devices",action:"attach",enabled:true,match:{kind:["device"]},checks:["availability"]}];
+let revision=1,previewRules=null,previewCalls=0,saveCalls=0;
+const errors=[];
+window.addEventListener("error",(event)=>{errors.push(event.message);document.querySelector("#feedback").textContent="ERROR: "+event.message;});
+card._hass={user:{is_admin:true},localize:()=>null,async callWS(command){
+  if(command.type==="homeostatic/configuration")return{rules:structuredClone(saved),revision:String(revision)};
+  if(command.type==="homeostatic/preview_configuration"){
+    previewCalls++;previewRules=JSON.stringify(command.rules);
+    return{preview_token:"synthetic-preview",watched:51,added:[],added_count:0,removed:[],removed_count:0,matches:[],functions:[]};
+  }
+  if(command.type==="homeostatic/save_configuration"){
+    if(command.preview_token!=="synthetic-preview"||previewRules!==JSON.stringify(command.rules)||command.revision!==String(revision))throw Error("Exact preview required");
+    saveCalls++;revision++;saved.splice(0,saved.length,...structuredClone(command.rules));return{};
+  }
+  throw Error("Unexpected command: "+command.type);
+}};
+card.current={status:"current",data};card.page="configuration";card.configuration={rules:structuredClone(saved),revision:String(revision)};card.configDraft=structuredClone(saved);card.render();
+document.querySelector("#update").onclick=()=>{data.updated_at="2026-09-27T12:01:00Z";card.render();};
+document.querySelector("#narrow").onchange=(event)=>{card.style.width=event.target.checked?"390px":"";};
+document.querySelector("#dark").onchange=(event)=>{document.documentElement.style.cssText=event.target.checked?"--primary-text-color:#e8ecef;--primary-background-color:#10181e;--card-background-color:#19242b;--secondary-background-color:#283740;--secondary-text-color:#b0bfc9;--divider-color:#3e4c56;--primary-color:#4abde5;--text-primary-color:#102530":"";};
+document.querySelector("#run").onclick=async()=>{
+  const feedback=document.querySelector("#feedback");
+  const root=card.shadowRoot;
+  const expect=(condition,message)=>{if(!condition)throw Error(message);};
+  const find=(selector,attribute,value)=>[...root.querySelectorAll(selector)].find((element)=>element.getAttribute(attribute)===value);
+  const clickName=(name)=>{const button=[...root.querySelectorAll(".config-detail [data-config-select]")].find((element)=>element.querySelector("span")?.textContent===name);expect(button,"Missing "+name);button.click();};
+  const search=(value)=>{const input=root.querySelector("[data-config-search]");input.value=value;input.dispatchEvent(new Event("input",{bubbles:true,composed:true}));};
+  try{
+    card.configQuery="";card.configSelection=null;card.configExpanded.clear();card.render();
+    expect(root.querySelectorAll(".config-tree > .config-branch").length===20,"Root list exceeds its page bound");
+    const selected=card.configSelection;
+    root.querySelector("[data-config-toggle]").click();
+    expect(card.configSelection===selected,"Expanding a branch changed selection");
+    clickName("Devices");
+    expect(root.querySelectorAll(".config-child-list > .config-pick").length===20,"Device list exceeds its bound");
+    clickName("Back Porch");
+    expect(root.querySelectorAll(".config-member").length===20,"Member list exceeds its bound");
+    expect(root.querySelector(".config-detail").textContent.includes("104 entities selected for the summary · 1 ignored · 0 separate checks"),"Summary membership is unclear");
+    root.querySelector("[data-config-disclosure] summary").click();
+    const deviceKey=card.configSelection;
+    const select=root.querySelector('select[aria-label="Separate checks for all entities on this device monitoring choice"]');
+    select.value="attach";select.dispatchEvent(new Event("change",{bubbles:true,composed:true}));
+    expect(root.querySelector("[data-config-disclosure]").open,"Editing collapsed bulk changes");
+    expect(card.configDraft.some((rule)=>rule.match.device?.[0]==="camera-1"),"Device choice did not stage");
+    expect(saveCalls===0&&previewCalls===0,"Editing made a server mutation");
+    const rail=root.querySelector(".config-rail");rail.scrollTop=90;const scroll=rail.scrollTop;
+    card.render();
+    expect(root.querySelector(".config-rail").scrollTop===scroll,"Live update reset tree scroll");
+    expect(card.configSelection===deviceKey&&root.querySelector("[data-config-disclosure]").open,"Live update lost selection or disclosure");
+    for(let page=0;page<5;page++)root.querySelector('.config-detail button[aria-label="Next page in selected group"]').click();
+    expect(root.querySelectorAll(".config-member").length===5,"Last member page is wrong");
+    search("sensor.unassigned_124");
+    expect(root.querySelector(".config-path").textContent.includes("Other sources / Entities without a device / Sensors"),"Search lost the catchall path");
+    expect(root.querySelector("#config-detail-title").textContent==="Unassigned sensor 124","Search did not reach the last orphan");
+    expect(card.configDraft.some((rule)=>rule.match.device?.[0]==="camera-1"),"Navigation discarded a draft");
+    await card.previewConfiguration();
+    expect(root.querySelector('[data-action="save-configuration"]').disabled===false,"Preview did not enable Save");
+    const entityChoice=root.querySelector("[data-scope-index]");entityChoice.value="exclude";entityChoice.dispatchEvent(new Event("change",{bubbles:true,composed:true}));
+    expect(card.configPreview===null&&root.querySelector('[data-action="save-configuration"]').disabled,"Changing a choice did not invalidate preview");
+    await card.previewConfiguration();await card.saveConfiguration();
+    expect(saveCalls===1,"Exact reviewed save was not sent once");
+    expect(errors.length===0,errors.join("; "));
+    search("");card.configSelection=deviceKey;card.configDisclosures.set(deviceKey,false);card.configExpanded.add(JSON.stringify(["frigate"]));card.configExpanded.add(JSON.stringify(["frigate","devices"]));card.render();
+    feedback.textContent="PASS: bounded root/device/entity lists; independent expansion; summary membership; catchall search; live updates; retained drafts; exact preview/save.";
+  }catch(error){feedback.textContent="FAIL: "+error.message;}
+};
+</script></body></html>
