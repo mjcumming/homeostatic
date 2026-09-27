@@ -9,6 +9,7 @@
 
 ### Changed
 
+- Add a quick local check (`script/check.py --quick`, `make quick`) for lint, format, and frontend checks. The commit hook uses it. CI still runs the full suite.
 - Readiness sensors are enum sensors, so the automation editor offers their states.
 - Hold notification requests while Home Assistant starts. The hold lasts at least the startup grace and ends when every watched integration has finished loading, or after the new `startup_quiet_max` option (default 10 minutes). Setup retry and setup errors count as finished. Alerting requests made during the hold, including reminders that fell due while HA was down, reach each recipient as one startup summary. A restart with nothing new sends nothing, and reloading the integration while HA is running does not hold requests.
 

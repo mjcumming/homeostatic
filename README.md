@@ -74,7 +74,7 @@ Richer evidence checks, specific Repairs links, optional TopoMation enrichment, 
 
 ## Install the pilot
 
-Follow the [pilot installation guide](docs/pilot.md): back up Home Assistant, copy the packaged `custom_components/homeostatic` folder into your HA configuration directory, and restart. HA installs the pinned published HealthTree dependency automatically. Add **Homeostatic** through **Settings > Devices & services > Add integration**, or let the existing entry reload after an upgrade. No sibling library checkout is needed.
+Follow the [pilot installation guide](docs/pilot.md): confirm a usable HA backup, keep the prior component for rollback, copy the packaged `custom_components/homeostatic` folder into your HA configuration directory, and restart. HA installs the pinned published HealthTree dependency automatically. Add **Homeostatic** through **Settings > Devices & services > Add integration**, or let the existing entry reload after an upgrade. No sibling library checkout is needed. The [quick local test cycle](docs/development-workflows.md) copies a working component without publishing a release.
 
 Review the supplied availability rules. New installations select integration state and one availability summary per enabled Home Assistant device; hidden but enabled entities can supply evidence, while disabled devices and entities do not. Individual entity checks are opt-in. Existing saved rules retain their scope until edited. Notifications remain off until activated. Missing entity evidence and explicitly required sources remain unknown across restarts. When Home Assistant confirms that an automatically enrolled config entry was deleted, Homeostatic removes it from scope and resolves its episode as removed. Startup grace and recovery confirmation default to two minutes; ordinary notification batching defaults to thirty seconds. See the [specification](docs/spec.md) for every timing and its meaning.
 
@@ -380,10 +380,10 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
 ```bash
 uv sync --locked
 uv run prek install
-uv run python script/check.py
+uv run python script/check.py --quick
 ```
 
-`make check` invokes the same command. It checks Ruff lint/formatting, strict mypy, the real Home Assistant integration tests, and separate 95% statement and branch coverage floors. The commit hook and CI use that same entry point. The consumer blueprint is exercised by HA's real automation engine with a mocked phone service; tests never send messages to a live installation.
+`make quick` and the commit hook run lint, format, and frontend checks. Run focused Python tests for changed behavior before copying a local test build. CI runs `make check`: strict mypy, the complete Home Assistant integration tests, separate 95% statement and branch coverage floors, and the frontend checks. Its release job also builds and smoke-tests the archive. The [two workflows](docs/development-workflows.md) describe when to copy a local test build and when to publish a release. The consumer blueprint is exercised by HA's real automation engine with a mocked phone service; tests never send messages to a live installation.
 
 The lockfile and integration manifest pin `health-tree==0.4.0` from PyPI. CI installs that published package. Library behavior changes belong in the separate library RFP/ADR and tests; release a new library version before updating this pin.
 
@@ -396,7 +396,7 @@ cd /mnt/c/GitHub/homeostatic
 export UV_PROJECT_ENVIRONMENT="$HOME/.cache/homeostatic/venv"
 export PATH="$HOME/.cache/homeostatic/tools:$PATH"
 uv sync --locked
-uv run python script/check.py
+uv run python script/check.py --quick
 ```
 
 Run commits from WSL after installing the WSL hook. Home Assistant metadata is validated separately by the pinned official hassfest action in CI. With Docker available, run locally from the repository:

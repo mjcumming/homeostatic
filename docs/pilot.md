@@ -2,11 +2,13 @@
 
 The 0.1.0b13 pilot combines the live dashboard, availability enrollment, function readiness, notification policy, administrator controls and bounded resolution history. Start with passive observation. This build is for trying real equipment and recording what happens; it is not a completed production release.
 
+For an owner-authorized local UI trial before publication, use the [quick local test cycle](development-workflows.md). The installation steps below apply to a released archive.
+
 ## Install
 
 The tested baseline is Home Assistant **2026.9.3** with Python 3.14. HA OS and Container manage Python themselves. Compatibility with other HA versions must be checked before installation. The integration requires access to PyPI on first setup to install its pinned **health-tree 0.4.0** dependency. No library checkout, editable install, Node.js or developer tools are needed on the HA host.
 
-1. Make a Home Assistant backup. If an earlier Homeostatic development build exists, save its component directory and HA backup together so code and stored data can be restored as a pair.
+1. Confirm a recent usable Home Assistant automatic backup and save the installed Homeostatic component folder for rollback. Make a fresh full HA backup if this upgrade changes stored data, the options schema or the pinned dependency, or if no suitable backup exists. Ordinary code-only upgrades do not need another full backup.
 2. Extract `homeostatic-0.1.0b13-pilot.zip` on your computer. `BUILD_INFO.json` identifies the exact commit and lists checksums for the packaged files. The adjacent `.sha256` file verifies the ZIP itself.
 3. Copy the extracted `custom_components/homeostatic` folder to your Home Assistant configuration directory, resulting in `<HA config>/custom_components/homeostatic/manifest.json`. On HA OS this configuration directory is normally `/config`; with Container it is the host directory mounted at `/config`. Use your existing method of accessing those configuration files. Replace an old component folder in full so obsolete files do not remain. Do not copy the whole repository or ZIP inside the component folder.
 4. Restart Home Assistant. In **Settings > Devices & services > Add integration**, search for **Homeostatic**. An existing entry should load the updated component after restart instead of creating another entry.
@@ -61,7 +63,7 @@ Only after passive behavior is understood, configure the included Companion blue
 
 ## Rollback
 
-Disable the Homeostatic entry to stop monitoring and its dashboard. Disable the optional consumer automation as well if you created it. To remove the pilot, remove the integration entry through HA, remove only its component folder and optional blueprint, then restart. To return to a prior development build with its prior state, restore the paired HA backup and component version. Do not hand-edit opaque runtime storage or downgrade code against newer stored data.
+Disable the Homeostatic entry to stop monitoring and its dashboard. Disable the optional consumer automation as well if you created it. To remove the pilot, remove the integration entry through HA, remove only its component folder and optional blueprint, then restart. For an ordinary code-only trial with unchanged stored contracts, restore the prior component folder and restart. If stored data changed, restore the paired HA backup and matching component version. Do not hand-edit opaque runtime storage or downgrade code against newer stored data.
 
 ## Build and validation
 
