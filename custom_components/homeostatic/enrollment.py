@@ -57,7 +57,7 @@ def device_members(hass: HomeAssistant) -> dict[str, tuple[str, ...]]:
 def inventory(
     hass: HomeAssistant, settings: Settings, known: dict[str, Attributes]
 ) -> dict[str, Source]:
-    """Read current registries, retaining missing requirements and enrolled ids."""
+    """Read current registries, retaining explicit requirements and state-only ids."""
     registry, devices, areas = (
         er.async_get(hass),
         dr.async_get(hass),
@@ -69,7 +69,9 @@ def inventory(
         for function in settings.functions
         for reference in function.entity_references
     }
-    references.update(node_id[7:] for node_id in known if node_id.startswith("entity:"))
+    references.update(
+        node_id[7:] for node_id in known if node_id.startswith("entity:entity_id:")
+    )
     references.update(value for rule in rules for value in rule.match.get("entity", ()))
     references.update(
         f"registry:{entry.id}"
@@ -177,9 +179,15 @@ def inventory(
             attributes=metadata,
         )
     members = device_members(hass)
-    device_ids = members.keys() | {
-        node_id[7:] for node_id in known if node_id.startswith("device:")
-    }
+    device_ids = set(members)
+    device_ids.update(
+        device_id
+        for rule in rules
+        if rule.enabled
+        and rule.action == "attach"
+        and "device" in rule.match.get("kind", ())
+        for device_id in rule.match.get("device", ())
+    )
     for device_id in sorted(device_ids):
         device = devices.async_get(device_id)
         node_id = f"device:{device_id}"

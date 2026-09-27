@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Remove automatically selected registry entities and device summaries from monitoring when HA removes their backing evidence; end active episodes as removed while keeping explicit selections visible as unknown.
+
+- Make Explore's empty locations concise, keep its discovered inventory secondary, and return from Monitoring or Settings to the selected location. Function setup now points to the Homeostatic integration entry instead of the general integrations list.
+- Keep open dashboard sections, search focus, and reading position through live monitoring updates and reconnection.
+- Contain scrolling at the top and bottom of dashboard pop-up panels so the page behind them stays put.
+
+### Changed
+
+- Shorten open-problem details to one condition, current retry or recovery state, next action, and open-since time. Show confirmed function effects only when present, group attention controls, and keep error reports and raw data under Technical details.
+- Split the Home screen into a global Overview with issue and monitoring counts and three recent items, plus an Issues page for the full open list.
+- Rebuild Monitoring choices as a compact source tree and focused settings panel, with an Other sources catchall, entity-type grouping, and bounded navigation and detail lists. Explain integration status, device-summary membership, individual checks, and matching-rule choices separately; keep bulk changes collapsed and review/save controls within reach.
+- Remove the runtime Monitoring changes panel from History so the page focuses on ended problems; keep current scope and evidence review in Monitoring.
+
 ## [0.1.0b12] - 2026-09-27
 
 ### Added

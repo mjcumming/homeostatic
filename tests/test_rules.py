@@ -327,14 +327,14 @@ async def test_area_move_changes_checks_with_provenance(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_missing_enrollment_survives_reload(
+async def test_deleted_auto_entity_is_removed_after_reload(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """Removing registry evidence preserves identity, rule matches and unknown state."""
+    """A broad rule releases a deleted registry source without claiming recovery."""
     entity = er.async_get(hass).async_get_or_create(
         "sensor", "test", "observed", original_device_class="temperature"
     )
-    hass.states.async_set(entity.entity_id, "12")
+    hass.states.async_set(entity.entity_id, "unavailable")
     config_data.update(
         entities=[],
         notifications=False,
@@ -343,18 +343,29 @@ async def test_missing_enrollment_survives_reload(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     node_id = f"entity:registry:{entity.id}"
-    assert runtime.readiness == "ready"
+    assert node_id in runtime.sources
+    episode_id = next(iter(runtime.episodes))
+
     hass.states.async_remove(entity.entity_id)
     er.async_get(hass).async_remove(entity.entity_id)
     await hass.async_block_till_done()
-    assert runtime.readiness == "unknown"
-    assert runtime.sources[node_id].entity_id is None
+    assert node_id not in runtime.sources
+    assert node_id not in runtime.candidates
+    assert not runtime.episodes
+    history = runtime.history.view(dt_util.utcnow())["episodes"]
+    assert history[0]["episode"]["episode_id"] == episode_id
+    assert history[0]["resolution"] == "removed"
+    assert runtime.enrollment_changes[-1]["reason"] == "source_removed"
+
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     restored = entry.runtime_data
     assert restored.available
-    assert restored.readiness == "unknown"
-    assert restored.sources[node_id].attached_by == ("temperature",)
+    assert node_id not in restored.sources
+    assert (
+        restored.history.view(dt_util.utcnow())["episodes"][0]["resolution"]
+        == "removed"
+    )
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

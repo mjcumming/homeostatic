@@ -30,6 +30,11 @@ export function sortedEpisodes(data) {
     a.opened_at.localeCompare(b.opened_at) || a.episode_id.localeCompare(b.episode_id));
 }
 
+export function recentEpisodes(data, limit = 3) {
+  return [...data.inventory.episodes].sort((a, b) =>
+    b.opened_at.localeCompare(a.opened_at) || a.episode_id.localeCompare(b.episode_id)).slice(0, limit);
+}
+
 export function inventoryRows(data) {
   const key = data.inventory.catalog;
   const cached = data.schema_version === 2 ? rowCache.get(key) : null;
@@ -301,20 +306,6 @@ function coverageDevice(source, groupId, devices) {
 
 function byCoverage(left, right) {
   return right.gaps - left.gaps || left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
-}
-
-/** Keep confirmed and important problems visible on Home at large source counts. */
-export function homeEpisodeGroups(data, limit = 30) {
-  const waiting = [];
-  const actionable = [];
-  for (const episode of sortedEpisodes(data)) {
-    const uncertain = episode.reasons.length > 0 &&
-      episode.reasons.every((reason) => reason.status === "unknown");
-    if (uncertain && !["critical","high"].includes(episode.importance)) waiting.push(episode);
-    else actionable.push(episode);
-  }
-  return {visible:actionable.slice(0,limit),hidden:Math.max(0,actionable.length - limit),
-    waiting:waiting.length};
 }
 
 /** Count registry devices without treating missing entity evidence as a failure. */

@@ -1,9 +1,11 @@
+import {configurationBrowser, monitoringNavigation, monitoringIndex, monitoringPage, revealMonitoringPath} from "../../custom_components/homeostatic/frontend/monitoring-browser.mjs";
+import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import {historyPage, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {DashboardStore, affectedFunctions, browseHighlights, coverageInventory, dashboardStore, deviceRegistryCoverage, homeEpisodeGroups,
+import {DashboardStore, affectedFunctions, browseHighlights, coverageInventory, dashboardStore, deviceRegistryCoverage, recentEpisodes,
   escapeHtml, inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel,
   recentActivity, sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
 import {locationBranch, setBranchExpanded} from "../../custom_components/homeostatic/frontend/tree.mjs";
@@ -85,15 +87,18 @@ test("coverage leads with gaps, groups devices, and bounds full-catalog search",
   assert.equal(results.groups.flatMap(group=>group.devices.flatMap(device=>device.sources)).length,50);
   assert.equal(results.groups[0].devices[0].sources[0].registered,false);
 });
-test("Home bounds ordinary unknown evidence while retaining failures and important unknowns",()=>{
+test("Overview shows the three newest open issues while Issues retains all",()=>{
   const data=example();
   data.inventory.episodes=[
-    {episode_id:"unknown",importance:"normal",opened_at:"2026-09-26T00:00:00Z",reasons:[{status:"unknown"}]},
-    {episode_id:"failed",importance:"normal",opened_at:"2026-09-26T00:00:01Z",reasons:[{status:"fail"}]},
-    {episode_id:"important",importance:"high",opened_at:"2026-09-26T00:00:02Z",reasons:[{status:"unknown"}]},
-    {episode_id:"warn",importance:"normal",opened_at:"2026-09-26T00:00:03Z",reasons:[{status:"warn"}]},
+    {episode_id:"first",importance:"critical",opened_at:"2026-09-26T00:00:00Z"},
+    {episode_id:"second",importance:"low",opened_at:"2026-09-26T00:00:01Z"},
+    {episode_id:"third",importance:"high",opened_at:"2026-09-26T00:00:02Z"},
+    {episode_id:"fourth",importance:"normal",opened_at:"2026-09-26T00:00:03Z"},
   ];
-  assert.deepEqual(homeEpisodeGroups(data,1),{visible:[data.inventory.episodes[2]],hidden:2,waiting:1});
+  assert.deepEqual(recentEpisodes(data).map((item)=>item.episode_id),["fourth","third","second"]);
+  assert.deepEqual(sortedEpisodes(data).map((item)=>item.episode_id),["first","third","fourth","second"]);
+  data.inventory.episodes=[];
+  assert.deepEqual(recentEpisodes(data),[]);
 });
 
 test("registry device gaps stay visible without inventing a health check",()=>{
@@ -337,7 +342,7 @@ test("receiver and unknown integration timeouts do not assume a cloud service",(
   const entry=source("entry:receiver",{kind:"integration",name:"Home Theater",attributes:{domain:["denonavr"]}});
   const reason={reason:"setup_retry",message:"TimeoutException for http://192.0.2.15/status.xml"};
   const result=integrationProblem(entry,[reason]);
-  assert.equal(result.headline,"Receiver didn't respond");
+  assert.equal(result.headline,"Receiver connection timed out");
   assert.match(result.nextStep,/powered on and connected to your network/);
   assert.equal(result.integrationLabel,"Review receiver connection");
   const generic=integrationProblem({...entry,attributes:{domain:["custom"]}},[reason]);
@@ -366,10 +371,10 @@ test("a retry keeps the last timeout and its time distinct from current activity
   const current={reason:"setup_in_progress",message:"setup in progress",observed_at:"2026-09-25T15:44:00Z"};
   const evidence={current,last_failure:failure};
   const result=integrationProblem(entry,[],()=>null,evidence);
-  assert.equal(result.headline,"Receiver didn't respond");
+  assert.equal(result.headline,"Receiver connection timed out");
   assert.equal(result.reportedAt,failure.observed_at);
   assert.equal(result.historical,true);
-  assert.match(result.summary,/last connection attempt timed out.*trying again/);
+  assert.match(result.summary,/trying again/);
   assert.equal(result.progress,"Retrying automatically");
   assert.equal(result.currentReason,"setup_in_progress");
   assert.equal(integrationProblem(entry,[],()=>null,{current,last_failure:null}).headline,"Connection is starting");
@@ -721,4 +726,93 @@ test("attention actions require compatible current administrator targets",()=>{
   assert.equal(attentionActionAllowed(current,true,"cancel_control","gone"),false);
   current.data.inventory.attention_controls_supported=false;
   assert.equal(attentionActionAllowed(current,true,"acknowledge","e1"),false);
+});
+
+
+test("monitoring tree reaches missing owners through one catchall and preserves device summaries",()=>{
+  const data=monitoringExample();
+  const index=monitoringIndex(monitoringNavigation(data));
+  const catchall=[...index.values()].find((node)=>node.name==="Other sources");
+  assert.deepEqual(catchall.children.map((node)=>node.name),["Devices","Entities without a device"]);
+  assert.equal([...index.values()].filter((node)=>node.type==="entity").length,data.inventory.nodes.filter((node)=>node.kind==="entity").length);
+  assert.equal([...index.values()].filter((node)=>node.name==="Other sources").length,1);
+  const orphan=[...index.values()].find((node)=>node.source?.entity_id==="sensor.unassigned_124");
+  assert.deepEqual(orphan.parents.map((node)=>node.name),["Other sources","Entities without a device","Sensors"]);
+  const summary=[...index.values()].find((node)=>node.type==="device" && node.device.id==="standalone");
+  assert.equal(summary.device.summary.node_id,"device:standalone");
+});
+
+test("monitoring search preserves full ancestors and leaves group choices unfiltered",()=>{
+  const data=monitoringExample();
+  const tree=monitoringNavigation(data,"sensor.camera_1_104");
+  const nodes=[...monitoringIndex(tree).values()];
+  const target=nodes.find((node)=>node.type==="entity");
+  assert.deepEqual(target.parents.map((node)=>node.name),["Frigate","Devices","Back Porch","Sensors"]);
+  assert.equal(nodes.filter((node)=>node.type==="entity").length,1);
+  assert.equal(nodes.find((node)=>node.type==="device").device.entities.length,105);
+  assert.deepEqual(monitoringScope("device","camera-1").match,{device:["camera-1"]});
+  assert.deepEqual(monitoringNavigation(data,"no matching source"),[]);
+});
+
+for (const [label,select] of [
+  ["integrations",(tree)=>tree],
+  ["devices",(tree)=>tree[0].children[0].children],
+  ["device entities",(tree)=>tree[0].children[0].children[1].children[0].children],
+  ["catchall entities",(tree)=>tree.at(-1).children[1].children[0].children],
+]) test(`monitoring pagination bounds ${label} and reaches every item`,()=>{
+  const items=select(monitoringNavigation(monitoringExample()));
+  assert.ok(items.length>20);
+  const pages=Array.from({length:Math.ceil(items.length/20)},(_,page)=>monitoringPage(items,page));
+  assert.ok(pages.every((page)=>page.items.length<=20));
+  assert.deepEqual(pages.flatMap((page)=>page.items),items);
+  assert.equal(monitoringPage(items,999).current,pages.length-1);
+  assert.equal(monitoringPage([],999).current,0);
+});
+
+test("monitoring device editor distinguishes included members, ignored entities and separate checks",()=>{
+  const data=monitoringExample();
+  const node=[...monitoringIndex(monitoringNavigation(data)).values()].find((node)=>node.type==="device"&&node.device.id==="camera-1");
+  const card={current:{data},configQuery:"",configExpanded:new Set(),configPages:new Map(),configSelection:node.key,
+    displaySourceName:(source)=>source.name,configurationChoice:(label,scope,current)=>`${label}: ${current}`};
+  const html=configurationBrowser(card);
+  assert.match(html,/104 entities selected for the summary · 1 ignored · 0 separate checks/);
+  assert.match(html,/Included in device summary/);
+  assert.match(html,/Availability ignored/);
+  assert.equal((html.match(/class="config-member"/g)||[]).length,20);
+  assert.doesNotMatch(html,/0 of 105 watched|No specific choice/);
+  card.configPages.set(`members:${node.key}`,5);
+  assert.equal((configurationBrowser(card).match(/class="config-member"/g)||[]).length,5);
+});
+
+test("shared devices expose the same summary through every owning integration",()=>{
+  const data=monitoringExample();
+  data.inventory.nodes.push(baseSource("entity:registry:shared","Shared sensor","entity",{owner_id:"other-0",entity_id:"sensor.shared",attributes:{device:["camera-0"],entity:["registry:shared"]}}));
+  const devices=[...monitoringIndex(monitoringNavigation(data)).values()].filter((node)=>node.type==="device"&&node.device.id==="camera-0");
+  assert.equal(devices.length,2);
+  assert.ok(devices.every((node)=>node.device.summary.node_id==="device:camera-0"));
+  assert.notEqual(devices[0].key,devices[1].key);
+});
+
+test("monitoring renders untrusted names as text and tolerates arbitrary entity domains",()=>{
+  const data=monitoringExample();
+  data.inventory.nodes.push(baseSource("entity:registry:unsafe",'<img src=x onerror="bad()">',"entity",{attributes:{domain:["__proto__"],entity:["registry:unsafe"]}}));
+  const target=[...monitoringIndex(monitoringNavigation(data)).values()].find((node)=>node.source?.node_id==="entity:registry:unsafe");
+  const card={current:{data},configQuery:"",configExpanded:new Set(),configPages:new Map(),configSelection:target.key,
+    displaySourceName:(source)=>source.name,configurationChoice:()=>""};
+  const html=configurationBrowser(card);
+  assert.match(html,/&lt;img/);
+  assert.doesNotMatch(html,/<img/);
+});
+
+
+test("selecting a later catchall entity reveals its paginated ancestors",()=>{
+  const tree=monitoringNavigation(monitoringExample());
+  const index=monitoringIndex(tree);
+  const target=[...index.values()].find((node)=>node.source?.entity_id==="sensor.unassigned_124");
+  const expanded=new Set(),pages=new Map();
+  revealMonitoringPath(tree,target.key,expanded,pages);
+  assert.equal(pages.get("nav:root"),1);
+  assert.equal(pages.get(`nav:${target.parents.at(-1).key}`),6);
+  assert.ok(target.parents.every((node)=>expanded.has(node.key)));
+  assert.equal(expanded.has(target.key),false);
 });

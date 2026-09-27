@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=22";
+import {escapeHtml as esc} from "./model.mjs?v=23";
 
 const date = (value) => value ? new Date(value).toLocaleString() : "Unknown";
 export const RESOLUTIONS = {
@@ -122,11 +122,12 @@ export class DashboardTools {
       : ["entity", "integration", "external"].includes(source.kind) ? `<button type="button" class="button" data-maintenance="${esc(source.node_id)}">Working on this equipment…</button>` : "";
     const decision = data.policy?.episodes?.find((item) => item.episode_id === episode?.episode_id);
     const acknowledgment = decision?.acknowledgment;
-    const awareness = episode && data.inventory.attention_controls_supported
-      ? acknowledgment ? `<p class="note">Acknowledged ${esc(date(acknowledgment.at))}. The problem remains open until recovery is reported.</p>`
-        : `<button type="button" class="button" data-acknowledge="${esc(episode.episode_id)}">Acknowledge…</button>` : "";
+    const awarenessNote = episode && data.inventory.attention_controls_supported && acknowledgment
+      ? `<p class="note">Acknowledged ${esc(date(acknowledgment.at))}. The problem remains open until recovery is reported.</p>` : "";
+    const awarenessAction = episode && data.inventory.attention_controls_supported && !acknowledgment
+      ? `<button type="button" class="button" data-acknowledge="${esc(episode.episode_id)}">Acknowledge…</button>` : "";
     const active = (data.inventory.operator_controls ?? []).some((item) => [source.node_id, episode?.episode_id].includes(item.target));
-    return action || awareness || active ? `<section class="detail">${awareness}${action ? `<div class="actions">${action}</div>` : ""}${active ? controlsPanel(data, [source.node_id, episode?.episode_id]) : ""}</section>` : "";
+    return action || awarenessNote || awarenessAction || active ? `<section class="detail problem-controls">${awarenessNote}${action || awarenessAction ? `<div class="actions">${awarenessAction}${action}</div>` : ""}${active ? controlsPanel(data, [source.node_id, episode?.episode_id]) : ""}</section>` : "";
   }
 
   clicked(event) {

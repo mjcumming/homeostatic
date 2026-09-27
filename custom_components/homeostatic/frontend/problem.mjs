@@ -51,8 +51,8 @@ export function integrationProblem(source, findings, localize = () => null, evid
   const timedOut = ["setup_error", "setup_retry", "setup_in_progress"].includes(current.reason) &&
     ["setup_error", "setup_retry"].includes(report?.reason) && timeout.test(reported);
   if (timedOut) {
-    headline = domain === "nuheat" ? "NuHeat connection timed out" : domain === "denonavr" ? "Receiver didn't respond" : "Connection timed out";
-    summary = `Home Assistant's last connection attempt timed out.${activity ? ` ${activity}` : ""}`;
+    headline = domain === "nuheat" ? "NuHeat connection timed out" : domain === "denonavr" ? "Receiver connection timed out" : "Connection timed out";
+    summary = activity || "Home Assistant could not start this connection.";
     nextStep = domain === "nuheat" ? "Try the NuHeat app. If it connects successfully but this problem continues, review the connection in Home Assistant."
       : domain === "denonavr" ? "Check that the receiver is powered on and connected to your network. If it responds normally, review its Home Assistant connection."
       : "Check whether you can use the device or service directly. If you can, review its Home Assistant connection.";

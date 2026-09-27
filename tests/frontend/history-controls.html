@@ -136,6 +136,7 @@ document.querySelector("#run").addEventListener("click",async()=>{
     passed.push("Situation boundary, non-admin access and history expiry");
     reset();publish(data);await flush();
     card.openDetail({episodeId:"open-1"});await flush();
+    expect(root.querySelector('[data-acknowledge]').closest('.problem-controls .actions')===root.querySelector('[data-shelf]').closest('.problem-controls .actions'),"Attention controls share one secondary action row");
     root.querySelector('[data-acknowledge]').click();await flush();
     expect(card.tools.body.textContent.includes("problem remains open"),"Acknowledgment explains unchanged health");
     const beforeAck=calls.length;
