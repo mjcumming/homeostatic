@@ -1,5 +1,5 @@
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
-import {historyPage, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
+import {historyPage, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
@@ -708,4 +708,17 @@ test("ignore availability stages a stable exclusion without saving or discarding
   card.current={status:"disconnected",data:null};
   await card.ignoreAvailability(entity.node_id);
   assert.deepEqual(calls,["homeostatic/configuration"]);
+});
+
+
+test("attention actions require compatible current administrator targets",()=>{
+  const current={status:"current",data:{inventory:{attention_controls_supported:true,episodes:[{episode_id:"e1"}],operator_controls:[{control_id:"c1"}]}}};
+  assert.equal(attentionActionAllowed(current,true,"acknowledge","e1"),true);
+  assert.equal(attentionActionAllowed(current,true,"cancel_control","c1"),true);
+  assert.equal(attentionActionAllowed(current,false,"acknowledge","e1"),false);
+  assert.equal(attentionActionAllowed({...current,status:"disconnected"},true,"acknowledge","e1"),false);
+  assert.equal(attentionActionAllowed(current,true,"acknowledge","gone"),false);
+  assert.equal(attentionActionAllowed(current,true,"cancel_control","gone"),false);
+  current.data.inventory.attention_controls_supported=false;
+  assert.equal(attentionActionAllowed(current,true,"acknowledge","e1"),false);
 });

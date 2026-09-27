@@ -1,8 +1,20 @@
 # Homeostatic integration specification
 
-Date: 2026-09-26. Development baseline: Home Assistant 2026.9.3 and Python 3.14.
+Date: 2026-09-27. Development baseline: Home Assistant 2026.9.3 and Python 3.14.
 
 This is the integration implementation contract. [Homeostatic ADRs](adr/README.md) explain adapter decisions. The library design of record remains `health-tree/docs/rfp.md`; its accepted ADRs govern engine and policy behavior. The owner decisions in [ui.md](ui.md), section 16, set the product direction. This implementation includes the function/situation/delivery foundation and passive rule catalog below; the remaining release work is tracked in [roadmap.md](roadmap.md). HealthTree owns all attention decisions, including activation and reminder holds.
+
+## Acknowledgment and early cancellation
+
+Administrator actions `acknowledge(episode_id)` and `cancel_control(control_id)` use public HealthTree APIs under the runtime lock and save before confirming success. Acknowledgment uses the authenticated HA context user id; callers cannot supply an actor. The library owns the first time/actor, cross-recipient effect and restart persistence. An explicit rule option `require_acknowledgment: true` stops acknowledgment-dependent attention only. Recovery, dismissal, shelving and awareness remain distinct. Canceling a control ends only that request; overlapping maintenance and quiet hours remain effective. Missing, expired, removed or replaced control ids are rejected. A storage failure leaves monitoring unavailable and returns an ambiguous result that must be inspected before retrying.
+
+The dashboard exposes these controls only when `inventory.attention_controls_supported` is true, displays acknowledgment from the read-only policy explanation, and disables actions when disconnected or for non-administrators. No notification consumer response is treated as acknowledgment implicitly. The shipped notification blueprint does not yet provide a phone acknowledgment button; administrators can acknowledge through the dashboard or native action.
+
+This increment pins HealthTree 0.4.0 for the acknowledgment and cancellation APIs. The adapter checks API support before exposing the controls and reports a clear dependency error if an incompatible installation requests them.
+
+## Ordered observation work slices
+
+Queued observations retain their timestamps, ordering and atomic batch boundaries. The adapter yields to the HA loop after at most eight captured batches while retaining its runtime lock. New arrivals join the queue and are drained before current-state reconciliation, controls, persistence and publication. The current time is read after draining, preventing time from moving backward when new evidence arrives during a yield. No transition is dropped or collapsed by this scheduling change. This bounds the number of evaluations in a slice, not their duration; graph evaluation, reconciliation, serialization and catalog transfer still require measurement.
 
 ## Scope and setup
 
@@ -225,9 +237,9 @@ Tests use real Home Assistant helpers and the real health-tree engine. They cove
 
 ## Development dependency
 
-The 0.1.0b11 pilot candidate pins the published `health-tree==0.3.0` in both the custom integration manifest and development dependency. HA installs the manifest requirement through its normal dependency mechanism. The reproducible manual-install archive includes the dashboard assets and build identity; it requires no sibling library checkout. Home Assistant 2026.9.3 is the tested baseline. Actual-house evidence and HACS distribution remain separate milestones; see [pilot.md](pilot.md).
+The 0.1.0b12 pilot candidate pins the published `health-tree==0.4.0` in both the custom integration manifest and development dependency. HA installs the manifest requirement through its normal dependency mechanism. The reproducible manual-install archive includes the dashboard assets and build identity; it requires no sibling library checkout. Home Assistant 2026.9.3 is the tested baseline. Actual-house evidence and HACS distribution remain separate milestones; see [pilot.md](pilot.md).
 
-Atomic registration requires HealthTree 0.3.0. Both installation and development now use that published release; an editable library checkout is unnecessary. The live pilot was upgraded to 0.1.0b3 with HealthTree 0.3.0; this candidate keeps that dependency and the existing enrollment scope. See [scaling validation](testing/scaling.md).
+Atomic registration requires HealthTree 0.3.0 or newer; acknowledgment and cancellation require 0.4.0. Installation and development use the published 0.4.0 release. Existing enrollment settings are preserved. See [scaling validation](testing/scaling.md).
 
 ## HA registry references
 

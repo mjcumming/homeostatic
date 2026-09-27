@@ -55,7 +55,7 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .attention import explanations
+from .attention import explanations, supports_attention_controls
 from .catalog import (
     Source,
     device_observation,
@@ -306,14 +306,22 @@ class Runtime:
             self._pending.append((now, [self._observe_entry(source, now)]))
             self._request_refresh()
 
-    def _drain_pending(self) -> None:
+    async def _drain_pending(self) -> None:
         assert self.engine is not None
         assert self.policy is not None
+        processed = 0
         while self._pending:
             now, observations = self._pending.popleft()
             self._record_observations(observations)
             self._handle(self.engine.ingest_many(observations, now), now)
             self._deliveries(self.policy.advance(now, PolicyContext()))
+            processed += 1
+            if processed % 8 == 0 and self._pending:
+                await self._yield_observations()
+
+    async def _yield_observations(self) -> None:
+        """Let HA service other callbacks without releasing ordered state ownership."""
+        await asyncio.sleep(0)
 
     @callback
     def _registry_changed(self, event: Event[Any]) -> None:
@@ -468,7 +476,8 @@ class Runtime:
             now = dt_util.utcnow()
             try:
                 if self.engine is not None:
-                    self._drain_pending()
+                    await self._drain_pending()
+                    now = dt_util.utcnow()
                 events = self._evaluate(now, reconcile=reconcile)
                 self._handle(events, now)
                 await self._complete(now)
@@ -565,6 +574,18 @@ class Runtime:
     ) -> dict[str, JSONValue]:
         assert self.engine is not None
         assert self.policy is not None
+        if action in {"acknowledge", "cancel_control"}:
+            if not supports_attention_controls():
+                raise ValueError("This action requires HealthTree 0.4.0 or newer")
+            if action == "acknowledge":
+                target = data["episode_id"]
+                if target not in self.episodes:
+                    raise ValueError("Acknowledgment requires a current episode id")
+                self._deliveries(self.policy.acknowledge(target, now, actor_id=user_id))
+                return {
+                    "acknowledgment": json_object(self.policy.acknowledgment(target))
+                }
+            return self._cancel_control(data["control_id"], now)
         until = expiry(data["until"], now)
         if action == "shelve":
             target = data["episode_id"]
@@ -613,6 +634,33 @@ class Runtime:
         self.controls.append(control)
         return {**response, "control": json_object(control)}
 
+    def _cancel_control(self, control_id: str, now: datetime) -> dict[str, JSONValue]:
+        assert self.engine is not None
+        assert self.policy is not None
+        control = next(
+            (item for item in self.controls if item.control_id == control_id), None
+        )
+        if control is None:
+            raise ValueError("This control has already ended or no longer exists")
+        if control.action == "shelve":
+            self._deliveries(self.policy.unshelve(control.target, now, PolicyContext()))
+        else:
+            self._handle(
+                self.engine.cancel_quiet(
+                    QuietWindow(
+                        scope="node_and_dependents"
+                        if control.include_dependents
+                        else "node",
+                        node_id=control.target,
+                        until=control.until,
+                    ),
+                    now,
+                ),
+                now,
+            )
+        self.controls.remove(control)
+        return {"cancelled_control_id": control_id}
+
     async def async_control(
         self, action: str, data: dict[str, Any], user_id: str | None
     ) -> dict[str, JSONValue]:
@@ -624,7 +672,8 @@ class Runtime:
             invalid: ValueError | KeyError | None = None
             response: dict[str, JSONValue] = {}
             try:
-                self._drain_pending()
+                await self._drain_pending()
+                now = dt_util.utcnow()
                 self._handle(self._evaluate(now), now)
                 self._prune_controls(now)
                 try:
@@ -1129,6 +1178,7 @@ class Runtime:
             },
             "resolved_history": self.history.view(dt_util.utcnow()),
             "operator_controls": [json_object(control) for control in self.controls],
+            "attention_controls_supported": supports_attention_controls(),
             "physical_freshness_supported": False,
             "notification_consumer_missing": self.consumer_missing,
             "situation_availability_verified": False,
@@ -1156,7 +1206,7 @@ class Runtime:
                 and self.saved is None
             ):
                 try:
-                    self._drain_pending()
+                    await self._drain_pending()
                     await self._save()
                 except (
                     OSError,

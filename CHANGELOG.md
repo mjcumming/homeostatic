@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.1.0b12] - 2026-09-27
+
+### Added
+
+- Administrator acknowledgment and early cancellation of shelves and maintenance, with dashboard controls and durable library-owned attention state. Pins HealthTree 0.4.0, which supplies the shared acknowledgment and cancellation APIs.
+
+### Changed
+
+- Introduce the project through household functions, useful problem explanations, attention controls and visible evidence limits in the README.
+
+- Yield between bounded groups of ordered observations so outage processing can share the Home Assistant loop while retaining every captured transition.
+
+
 ## [0.1.0b11] - 2026-09-26
 
 ### Fixed

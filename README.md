@@ -1,10 +1,59 @@
 # Homeostatic
 
-Health monitoring and situation alerts for Home Assistant, powered by the separate [health-tree](https://github.com/mjcumming/health-tree) library.
+**Understand what your home needs. Give it the right attention.**
 
-Homeostatic answers **what is wrong, what depends on it, and what needs attention**. HealthTree supplies the dependency graph, episodes, readiness, and attention policy. This integration supplies Home Assistant observations, configuration, timers, persistence, entities, and notification requests. Consumers deliver those requests to people.
+Home Assistant lets us build homes that do remarkable things. As those homes grow, so does the work of understanding them. A light that stops following motion might be a light problem, a missing sensor, or an integration that needs attention. The useful questions are simple: **What is wrong? What does it affect? What should I do next?**
 
-**Status: 0.1.0b11 pilot.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.3.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). Problem details identify the light or sensor, explain the missing reading or control path and suggest a relevant first check. The administrator dashboard includes bounded resolved history, shelving and previewed equipment maintenance, using the existing native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Graph construction and enrollment preview have passed isolated 10,000-source checks, but whole-house responsiveness remains under qualification. Keep the catalog rule narrow on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
+Homeostatic brings those questions together inside Home Assistant. It connects reported problems to the functions you care about, follows them through recovery, and helps you choose when they deserve an interruption. The aim is a home that is easier to understand, maintain, and rely on.
+
+Built on the separate [Health Tree](https://github.com/mjcumming/health-tree) library. An early pilot; see [project status](#project-status) before installing.
+
+## See what a problem means for your home
+
+Give the things your home does a name: **Garage access**, **Motion lighting**, **Arriving home**. Define the capabilities each function requires, and Homeostatic can explain whether those requirements are ready, unknown, degraded, or blocked. It can suggest requirements from selected automations for you to review and confirm.
+
+When a known dependency fails, Homeostatic connects the affected sources to that shared problem. It keeps their individual evidence visible while reducing repeated alerts for symptoms of the same failure. The importance you assign to a function also carries upstream to the capabilities it depends on.
+
+For example, if a monitored lighting integration fails and its lights become unavailable, the dependency graph can associate those symptoms with the integration problem. A **Motion lighting** function that requires those lights can show why it is blocked. That gives you somewhere useful to start investigating. The explanation follows reported evidence and known dependencies; it does not guess which physical component broke.
+
+## Attention that fits the household
+
+Some things need attention now. Others can wait until morning. Homeostatic gives ongoing problems an identity, so changing evidence, reminders, and recovery belong to the same episode.
+
+You choose recipients, quiet hours, digests, reminders, and escalation. You can preview a notification policy before saving it, and inspect why a problem is being routed a particular way. Notifications start switched off. When you activate them, existing problems are summarized as the policy permits.
+
+Administrators can acknowledge a problem to record awareness, pause its alerts, and end a temporary pause or maintenance window early. Acknowledgment stops repeated attention only for rules that opt in; the problem remains open until observed recovery.
+
+Situation alerts use that same attention system for conditions you define in Home Assistant, such as **Garage open at night**. The condition can deserve attention even when all the equipment works. If its source becomes unavailable, the open situation stays unresolved until there is evidence that it cleared.
+
+The included [Companion app blueprint](blueprints/automation/homeostatic/companion_notification.yaml) connects notification requests to your phone. Home Assistant automations own delivery, so you can build other consumers around the same [event contract](docs/events.md).
+
+## Know what is being watched
+
+Confidence depends on knowing the limits of your monitoring. Homeostatic makes those limits visible alongside current problems.
+
+| Question | Where to look |
+| --- | --- |
+| What needs my attention? | Home and problem details, with evidence, affected functions, and next steps |
+| What is happening in this part of the house? | Explore using your existing Home Assistant floors, areas, and devices |
+| What can we actually assess? | Monitoring, with watched sources, missing evidence, exclusions, and discovered inventory |
+| What should we monitor? | Settings, with guided Watch/Exclude choices and a preview before saving |
+
+The dashboard populates from your installation and updates as sources change. Reusable cards can bring the same views into an existing dashboard. Monitoring rules can include future matching sources, and registered sources retain their identity across renames.
+
+**Available is evidence, not a guarantee.** Today's equipment checks observe Home Assistant integration state and entity availability. They cannot establish that a physical sensor is still reporting, a detector is making progress, or a garage door completed a command. Missing evidence stays visible as uncertainty. Richer checks need their own evidence before they can support stronger conclusions.
+
+## Built to fit Home Assistant
+
+Homeostatic uses native integration setup and options, entity identities, floors and areas, storage, and automation consumers. It runs locally, and its current availability monitoring is passive: it observes Home Assistant without polling your devices. The dashboard requires administrator access; readiness sensors are also available as ordinary HA entities.
+
+Behind the interface, Health Tree handles dependencies, episodes, readiness, and attention decisions. Homeostatic supplies the Home Assistant observations and presentation. Problem state and attention timers survive ordinary restarts, and notification requests are persisted for retry. A request still needs a working consumer and transport to reach someone.
+
+The behavior is backed by executable scenarios, integration tests, and separate 95% statement and branch coverage requirements. Those checks help keep the model dependable as it grows; real installations still need validation.
+
+## Project status
+
+**Status: 0.1.0b12 pilot.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.4.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). Problem details identify the light or sensor, explain the missing reading or control path and suggest a relevant first check. The administrator dashboard includes bounded resolved history, shelving and previewed equipment maintenance, using the existing native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Graph construction and enrollment preview have passed isolated 10,000-source checks, but whole-house responsiveness remains under qualification. Keep the catalog rule narrow on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
 
 ## What works now
 
@@ -46,7 +95,7 @@ view: overview
 
 Supported views are `overview` (Home), `house` (Explore), `coverage` (Monitoring), `history`, `configuration` (Settings), `functions`, and `problems`. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
 
-The dashboard is administrator-only because it includes installation-wide configuration, inventory and routing. Readiness entities retain their ordinary HA access controls. Problem cards and details explain the reported condition, confirmed effects on configured functions, a relevant next step and recovery progress. NuHeat and receiver timeouts, sign-in requests, disabled connections and recovery have distinct guidance. **Pause alerts** is directly visible in problem details and applies only to that problem; other problems on the equipment are unaffected. Equipment **Working on this equipment** is available from source details. Active controls keep a visible expiry notice. **Technical details** holds timestamped original errors, filtered logs, **Copy diagnostic data** and optional **View raw data**. Pausing alerts and maintenance each require an end time within seven days. Maintenance previews affected capabilities, functions and existing problems before applying. Existing alerts remain active during maintenance; shelving holds new alerts, including urgent ones, for every recipient. Early cancellation and acknowledgment are not available. Active controls show their expiry and reason. Both forms use the existing administrator actions and keep unfinished entries through live updates. Availability does not prove physical freshness or command completion.
+The dashboard is administrator-only because it includes installation-wide configuration, inventory and routing. Readiness entities retain their ordinary HA access controls. Problem cards and details explain the reported condition, confirmed effects on configured functions, a relevant next step and recovery progress. NuHeat and receiver timeouts, sign-in requests, disabled connections and recovery have distinct guidance. **Pause alerts** is directly visible in problem details and applies only to that problem; other problems on the equipment are unaffected. Equipment **Working on this equipment** is available from source details. Active controls keep a visible expiry notice. **Technical details** holds timestamped original errors, filtered logs, **Copy diagnostic data** and optional **View raw data**. Pausing alerts and maintenance each require an end time within seven days. Maintenance previews affected capabilities, functions and existing problems before applying. Existing alerts remain active during maintenance; shelving holds new alerts, including urgent ones, for every recipient. Administrators can use **Acknowledge** to record awareness and **End now** to cancel a temporary control. Active controls show their expiry and reason. Both forms use the existing administrator actions and keep unfinished entries through live updates. Availability does not prove physical freshness or command completion.
 
 **History** shows up to 100 ended episodes within 30 days, with search, outcome filtering and twenty rows per page. Details distinguish confirmed recovery, removal from monitoring and absorption into another problem; retained findings are historical evidence. Collection start and retention limits are visible. A separate section contains up to 50 monitoring changes from the current run, not a durable household-health timeline. TopoMation is not required or read by this increment. Notification event/blueprint links and automatic Repairs remedies remain follow-up work.
 
@@ -298,7 +347,7 @@ attention under the replacement policy. Summaries and digests update silently as
 members resolve; the last resolution clears the group. An individual reminder or
 escalation replaces that episode's membership with its own message.
 
-Presence-dependent recipients and acknowledgment remain future integration work.
+Presence-dependent recipients and phone acknowledgment wiring remain future integration work. Administrator acknowledgment is available through the dashboard and native HA actions.
 Shelving is available through the administrator action described below. Policies cannot execute corrective actions.
 
 ### Inspect the model
@@ -313,11 +362,12 @@ validation, function preview and graph changes. Healthy monitored sources remain
 in the graph; explicit missing or unwatched requirements remain coverage gaps.
 Unrelated inventory stays outside monitoring.
 
-The candidate has passed isolated 10,000-source scenarios and pins published
-HealthTree 0.3.0 in its manifest and lockfile. The installed 0.1.0b1 pilot remains
-on HealthTree 0.2.0 until a separate upgrade. See
-[scaling validation](docs/testing/scaling.md) for measurements and remaining
-responsiveness work.
+Graph construction has passed isolated 10,000-source scenarios. The 0.1.0b12
+pilot pins HealthTree 0.4.0. In ten synthetic device-summary outage cycles,
+settlement took 0.358-0.502 seconds; one event-loop gap reached 186 ms, above
+the proposed 100 ms target. All 6,000 individual entity checks still miss the
+burst budgets. These results do not qualify broad enrollment or HA appliance
+performance. See [runtime qualification](docs/testing/runtime-scaling.md).
 
 ## Development and checks
 
@@ -335,7 +385,7 @@ uv run python script/check.py
 
 `make check` invokes the same command. It checks Ruff lint/formatting, strict mypy, the real Home Assistant integration tests, and separate 95% statement and branch coverage floors. The commit hook and CI use that same entry point. The consumer blueprint is exercised by HA's real automation engine with a mocked phone service; tests never send messages to a live installation.
 
-The lockfile and integration manifest pin `health-tree==0.3.0` from PyPI. CI installs that published package. Library behavior changes belong in the separate library RFP/ADR and tests; release a new library version before updating this pin.
+The lockfile and integration manifest pin `health-tree==0.4.0` from PyPI. CI installs that published package. Library behavior changes belong in the separate library RFP/ADR and tests; release a new library version before updating this pin.
 
 Build a reproducible installation archive from a clean committed checkout with `uv run python script/build_pilot.py`. The ZIP includes frontend assets, the optional consumer blueprint, installation instructions and exact build identity.
 
@@ -390,10 +440,25 @@ data:
   reason: "Working on this problem"
 ```
 
-Shelving leaves the problem and its current message visible. Silent updates and resolution still work. The shelf holds reminders and escalation, including urgent alerts, until expiry; other policy holds still apply. Shelves and maintenance survive restarts. A shelf can be extended. Early cancellation, acknowledgment and dashboard buttons are planned. If an action reports a storage error, inspect active controls after the monitor recovers before retrying.
+Shelving leaves the problem and its current message visible. Silent updates and resolution still work. The shelf holds reminders and escalation, including urgent alerts, until expiry; other policy holds still apply. Shelves and maintenance survive restarts. A shelf can be extended. Shelving and maintenance dashboard forms are available. Administrator acknowledgment and early cancellation use the same durable native actions. If an action reports a storage error, inspect active controls after the monitor recovers before retrying.
 
 ## Beyond the pilot
 
 Complete product presentation; capture healthy/failure/recovery traces for detector liveness, device-originated freshness and command completion; verify an external watchdog and notification consumers; validate the actual deployment. Synthetic fixtures and high coverage do not satisfy the real-house evidence gates.
 
 MIT licensed. See [SECURITY.md](SECURITY.md) for reporting a security concern.
+
+### Awareness and ending controls early
+
+Administrators can use
+**Acknowledge** on a problem and **End now** on an active temporary control.
+Acknowledgment records awareness; the problem remains until observed recovery.
+Add `require_acknowledgment: true` to a notification policy rule when its repeated
+alerts should stop once acknowledged. Other rules keep their configured behavior.
+Native actions are `homeostatic.acknowledge` (`episode_id`) and
+`homeostatic.cancel_control` (`control_id`). Their replies confirm durable state.
+
+HealthTree 0.4.0 provides these APIs and HA installs it automatically. Acknowledgment
+records the first actor and time across recipients and survives restarts. Phone
+action wiring remains separate consumer work; receipt and dismissal do not count
+as acknowledgment.

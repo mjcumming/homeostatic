@@ -94,6 +94,52 @@ tests/test_runtime_scaling.py::test_one_capability_per_device_runtime_load -q`
 and `uv run python script/runtime_lab.py --device-representatives`. The latter
 writes `build/runtime-profile/device-representatives.json`.
 
+## 2026-09-26 ordered processing slices
+
+The unpublished `codex/attention-controls` branch, based on 0.1.0b11, yields to
+HA after every eight queued observation batches while retaining the runtime
+lock. Each batch keeps its captured timestamp and order. A regression scenario
+injects another observation during a yield, retains ten intervening recoveries,
+and verifies the final open episode survives reload. No live settings changed.
+
+The running-HA lab used the accompanying local HealthTree candidate, Python
+3.14.7 and HA 2026.9.3 on WSL. It selected 300 device summaries among 6,000
+registered entities and ten controllers, with real Store writes and a loopback
+WebSocket client. Ten consecutive cycles each generated 1,200 entity transitions
+for 60 complete device outages and then recovered all 60 devices.
+
+| Measurement | Ten-cycle result |
+| --- | ---: |
+| Outage settlement, min / mean / max | 0.358 / 0.379 / 0.502 s |
+| Recovery settlement, min / mean / max | 0.339 / 0.347 / 0.357 s |
+| Longest outage event-loop gap | 0.186 s |
+| Longest recovery event-loop gap | 0.043 s |
+| Saves / inventory scans per burst | 1 / 0 |
+| Episodes after each outage / recovery | 60 / 0 |
+| Initial WebSocket event | 3.91 MB |
+| Final owned storage | 670 kB |
+
+Nine outage cycles had maximum gaps of 43–48 ms; cycle seven reached 186 ms.
+The cause of that outlier has not been isolated. This improves on the earlier
+roughly 300 ms device-summary gap, but does **not** consistently meet the proposed
+100 ms slice budget. Subsequent outage updates reached 200 kB as bounded history
+filled. Episode ids remained stable through the final reload.
+
+The separate HA-helper profile with all 6,000 individual entity checks still
+took 3.77 s for 60 failures and 3.52 s for recovery, with maximum loop gaps of
+0.79 s; unchanged reconciliation took 0.30 s and initial serialization was
+7.86 MB. It uses mocked storage and measures serialized bytes, not network
+transfer. Processing slices improve scheduling but do not eliminate full-graph
+evaluation cost or large initial catalogs. Broad entity enrollment remains
+unqualified. Ten synthetic cycles are not a sustained household traffic replay.
+
+Reproduce the actual-storage run against the local library candidate with
+`PYTHONPATH=/mnt/c/GitHub/health-tree-batch/src python script/runtime_lab.py
+--device-summaries --cycles 10`. The script writes
+`build/runtime-profile/device-summaries.json`; the profile tests use
+`HOMEOSTATIC_RUNTIME_PROFILE=1 HOMEOSTATIC_PROFILE_DIR=build/runtime-profile`.
+The candidate is not a published dependency or a deployment instruction.
+
 ## Registry shape
 
 A read-only assessment of saved registries found 6,651 registered entities and

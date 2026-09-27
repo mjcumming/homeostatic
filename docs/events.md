@@ -46,13 +46,13 @@ Enabling notifications after record-only monitoring uses HealthTree activation. 
 
 Summaries and digests retain membership. Resolutions silently refresh the group's tag with the remaining problems; the last resolution clears it. An individual reminder/escalation moves that episode out of the group and uses its own tag. Group ids are not episode ids: use the `episodes` list to find their members. Consumers should ignore unfamiliar extra fields and treat `tag` as opaque. Owner episode tags retain their original spelling for compatibility; other recipients have distinct tags.
 
-Turning notifications off withdraws requested messages without claiming recovery. Editing the policy or batch delay while enabled withdraws old routes and activates the replacement policy. Publication remains a request, and event acknowledgements remain local outbox bookkeeping. Human acknowledgment is not implemented by this increment.
+Turning notifications off withdraws requested messages without claiming recovery. Editing the policy or batch delay while enabled withdraws old routes and activates the replacement policy. Publication remains a request, and event acknowledgements remain local outbox bookkeeping. Human acknowledgment uses the separate explicit-awareness actions below; outbox bookkeeping never supplies it.
 
 ## Operator controls
 
 Shelving holds future alerts for the selected episode across recipients, including reminders and escalation. It preserves existing messages and permits library-authorized silent updates and resolution. It does not acknowledge receipt. Maintenance prevents new episodes in its equipment scope but leaves already-open episodes and situation alerts active. Controls are saved before resulting events are published. Previously authorized durable outbox entries keep their delivery ids and replay behavior; an operator action cannot recall a request that may already have been published.
 
-Dashboard forms use HA's native `call_service` WebSocket command with `return_response: true` for `preview_maintenance`, `shelve` and `start_maintenance`. They do not define a second mutation endpoint or event contract. The returned saved control confirms the adapter's durable action result, not notification receipt; uncertain failures require inspecting active controls before retrying.
+Dashboard forms use HA's native `call_service` WebSocket command with `return_response: true` for `preview_maintenance`, `shelve`, `start_maintenance`, and, with the compatible library, `acknowledge` and `cancel_control`. They do not define a second mutation endpoint or event contract. The returned saved control confirms the adapter's durable action result, not notification receipt; uncertain failures require inspecting active controls before retrying.
 
 ## Resolution history
 
@@ -63,3 +63,12 @@ The `resolved_history` action and inventory field retain library resolution even
 The dashboard uses authenticated administrator-only WebSocket commands, separate from notification events. `homeostatic/subscribe` acknowledges the subscription, sends a presentation and then pushes updates; compact subscriptions use schema version 2 to send catalog metadata once and smaller evidence updates. Standard `unsubscribe_events` removes the subscription. `homeostatic/node` accepts `node_id` for current evidence and potential impact. These commands never trigger notification deliveries or operator actions. Startup, errors and unload return explicit unavailability. The authoritative payload and lifecycle contract is in [spec.md](spec.md#live-dashboard).
 
 A watched device summary uses one `device:<registry id>` anchor and availability check. `some_unavailable` is a warning against the selected availability expectation; `all_unavailable` fails that expectation. Neither proves a physical fault. The same rules apply to every integration. Persistent entity exclusions remove direct checks and summary membership. A changed exclusion set retires the previous aggregate episode as `removed`, then evaluates the remaining members; removing evidence never supplies a recovery observation. Ordinary recovery retains the library clear hold. Repeated state changes leaving status and reason unchanged do not create redundant observations; changes in condition retain their order and timestamp. Disabling a device removes its watched check and resolves its episode as removed. Hidden but enabled entities remain eligible.
+
+## Explicit awareness
+
+Notification publication, receipt and dismissal do not acknowledge an episode.
+Administrators use `homeostatic.acknowledge` with the current `episode_id`;
+the adapter derives the actor from the authenticated action context. An
+acknowledgment may produce a silent update, never a recovery notice. Rules opt
+in with `require_acknowledgment: true`. The dashboard displays the library's
+first acknowledgment time. Phone action wiring remains a consumer increment.

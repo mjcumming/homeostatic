@@ -1,4 +1,4 @@
-import {inventoryRows} from "./model.mjs?v=21";
+import {inventoryRows} from "./model.mjs?v=22";
 
 export const MATCH_FIELDS = ["kind", "domain", "device_class", "integration", "device", "entity", "area", "floor", "label"];
 

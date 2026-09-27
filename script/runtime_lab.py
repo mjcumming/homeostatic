@@ -104,7 +104,7 @@ def prepare() -> None:
 
 
 async def run(
-    serve: bool, device_representatives: bool, device_summaries: bool
+    serve: bool, device_representatives: bool, device_summaries: bool, cycles: int = 1
 ) -> None:
     """Measure real disk and transport work, then optionally keep the lab open."""
     hass = await bootstrap.async_setup_hass(
@@ -266,6 +266,12 @@ async def run(
             assert runtime.readiness == "blocked"
             await measure("recovery_60", "1")
             assert runtime.readiness == "ready"
+            for cycle in range(1, cycles):
+                await measure(f"outage_cycle_{cycle + 1}", "unavailable")
+                assert runtime.readiness == "blocked"
+                await measure(f"recovery_cycle_{cycle + 1}", str(cycle + 1))
+                assert runtime.readiness == "ready"
+            results["cycles"] = cycles
         report = (
             REPO / "build/runtime-profile/device-representatives.json"
             if device_representatives
@@ -332,7 +338,15 @@ if __name__ == "__main__":
         action="store_true",
         help="Measure one availability summary for each of 300 synthetic devices",
     )
+    parser.add_argument(
+        "--cycles",
+        type=int,
+        default=1,
+        help="Repeat synthetic outage/recovery bursts (1 to 100)",
+    )
     args = parser.parse_args()
+    if not 1 <= args.cycles <= 100:
+        parser.error("Cycles must be between 1 and 100")
     if args.device_representatives and args.device_summaries:
         parser.error("Choose one device scope")
     REPORT.parent.mkdir(parents=True, exist_ok=True)
@@ -342,13 +356,23 @@ if __name__ == "__main__":
         if args.serve:
             with suppress(KeyboardInterrupt):
                 asyncio.run(
-                    run(True, args.device_representatives, args.device_summaries),
+                    run(
+                        True,
+                        args.device_representatives,
+                        args.device_summaries,
+                        args.cycles,
+                    ),
                     loop_factory=create_event_loop,
                 )
         else:
             with ThreadPoolExecutor(max_workers=1) as runner:
                 runner.submit(
                     asyncio.run,
-                    run(False, args.device_representatives, args.device_summaries),
+                    run(
+                        False,
+                        args.device_representatives,
+                        args.device_summaries,
+                        args.cycles,
+                    ),
                     loop_factory=create_event_loop,
                 ).result()

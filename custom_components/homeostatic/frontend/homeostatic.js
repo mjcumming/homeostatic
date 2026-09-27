@@ -1,13 +1,13 @@
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   homeEpisodeGroups, inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, sortedEpisodes,
-  recentActivity, sourceMap} from "./model.mjs?v=21";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=21";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=21";
-import {diagnosticOverview} from "./evidence.mjs?v=21";
+  recentActivity, sourceMap} from "./model.mjs?v=22";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=22";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=22";
+import {diagnosticOverview} from "./evidence.mjs?v=22";
 import {editCatalogRule, MATCH_FIELDS, MATCH_LABELS, monitoringScope, monitoringTree,
-  newCatalogRule, scopeChoice, setScopeChoice} from "./configuration.mjs?v=21";
-import {styles} from "./styles.mjs?v=21";
-import {locationBranch, setBranchExpanded} from "./tree.mjs?v=21";
+  newCatalogRule, scopeChoice, setScopeChoice} from "./configuration.mjs?v=22";
+import {styles} from "./styles.mjs?v=22";
+import {locationBranch, setBranchExpanded} from "./tree.mjs?v=22";
 
 const VIEWS = ["overview", "house", "coverage", "functions", "problems", "history", "configuration"];
 const status = (value) => {
