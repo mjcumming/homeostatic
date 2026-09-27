@@ -72,8 +72,11 @@
         policy:{notifications_enabled:false,routes:{owner:["phone"]},episodes:[]},
         areas:[{id:"basement",name:"Basement",floor_id:"lower"}],floors:[{id:"lower",name:"Lower floor"}]};
     }
-    const hass={connection,localize(key){return key==="component.matter.title"?"Matter":key==="component.nuheat.title"?"NuHeat":key==="component.frigate.title"?"Frigate":key==="component.denonavr.title"?"Denon AVR":null;},user:{id:"demo",is_admin:true},async callWS({node_id,type}){
-      if(type==="homeostatic/configuration")return{revision:1,rules:[]};
+    let savedAlerts={notifications:false,consumer:null};
+    const hass={connection,localize(key){return key==="component.matter.title"?"Matter":key==="component.nuheat.title"?"NuHeat":key==="component.frigate.title"?"Frigate":key==="component.denonavr.title"?"Denon AVR":null;},user:{id:"demo",is_admin:true},async callWS({node_id,type,notifications,consumer}){
+      if(type==="homeostatic/configuration")return{revision:1,rules:[],alerts:{...savedAlerts,consumer_state:savedAlerts.consumer?"on":null,policy:{timezone:"America/Chicago",recipients:{owner:{channels:["event"]}},digests:{},rules:[{loudness:"notify"}]}},consumers:[{entity_id:"automation.homeostatic_alerts",name:"Homeostatic alerts",state:"on"}]};
+      if(type==="homeostatic/preview_alerts")return{preview_token:"demo-preview",notifications,consumer,activating:notifications&&!savedAlerts.notifications,open_problems:data().inventory.episodes.length,requests_now:notifications?1:0,next_deadline:null};
+      if(type==="homeostatic/save_alerts"){savedAlerts={notifications,consumer};return{saved:true};}
       const current=data(),source=current.inventory?.nodes.find(item=>item.node_id===node_id);
       if(!source)throw{message:"This capability is no longer monitored"};
       if(current.inventory.entity_status?.[node_id])return{source,entity_status:current.inventory.entity_status[node_id],...current.inventory.entity_status[node_id],impact:{nodes:[]},updated_at:current.updated_at};
@@ -211,11 +214,21 @@
         root.querySelector('.nav [data-page="history"]').click();
         expect(root.querySelector("h1").textContent==="History" && root.querySelector("h2").textContent==="Resolved problems" && !root.querySelector(".history-monitoring"),"History should show resolved problems without runtime monitoring changes");
         root.querySelector('.nav [data-page="configuration"]').click();
-        expect(root.querySelector("h1").textContent==="Settings" && root.querySelectorAll(".settings-nav button").length===4,"Settings should group choices and policy");
-        root.querySelector('[data-settings-section="functions"]').click();
-        expect(root.querySelector('main a[href="/config/integrations/integration/homeostatic#config_entry=demo"]'),"Function setup should identify the Homeostatic entry");
+        expect(root.querySelector("h1").textContent==="Settings" && root.querySelectorAll(".settings-nav button").length===2,"Settings should show working controls");
         root.querySelector('[data-settings-section="alerts"]').click();
-        expect(root.querySelector("main").textContent.includes("Notification requests are off"),"Alert state should be explicit");
+        await new Promise(resolve=>setTimeout(resolve,0));
+        expect(root.querySelector("main").textContent.includes("Requests are currently off"),"Saved alert state should be explicit");
+        expect(root.querySelector('a[href="/config/integrations/integration/homeostatic#config_entry=demo"]'),"Native options should open Homeostatic directly");
+        const toggle=root.querySelector('[data-alert-field="notifications"]');
+        toggle.checked=true;toggle.dispatchEvent(new Event("change",{bubbles:true}));
+        const consumer=root.querySelector('[data-alert-field="consumer"]');
+        consumer.value="automation.homeostatic_alerts";consumer.dispatchEvent(new Event("change",{bubbles:true}));
+        root.querySelector('[data-action="preview-alerts"]').click();
+        await new Promise(resolve=>setTimeout(resolve,0));
+        expect(root.querySelector(".config-preview") && !root.querySelector('[data-action="save-alerts"]').disabled,"Preview should permit saving exact changes");
+        root.querySelector('[data-action="save-alerts"]').click();
+        await new Promise(resolve=>setTimeout(resolve,0));
+        expect(root.querySelector("main").textContent.includes("Requests are currently on"),"Saved settings should refresh");
         scenario.value="healthy";change();card.setConfig({view:"overview"});
         const empty=data();empty.inventory.episodes=[];empty.functions=[];
         card.current={status:"current",data:empty,error:null};card.render();

@@ -262,16 +262,188 @@ def websocket_node(
 def websocket_configuration(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Provide the current catalog rules without a second configuration store."""
+    """Provide the current saved settings without a second configuration store."""
     runtime = hass.data[DATA_DASHBOARD].runtime
     if runtime is None:
         connection.send_error(msg["id"], "not_ready", "Homeostatic is not loaded")
         return
     current, revision = _configuration(runtime)
+    settings = Settings.from_data(current)
+    consumer = hass.states.get(settings.consumer) if settings.consumer else None
     connection.send_result(
         msg["id"],
-        {"revision": revision, "rules": rule_data(hass, Settings.from_data(current))},
+        {
+            "revision": revision,
+            "rules": rule_data(hass, settings),
+            "alerts": {
+                "notifications": settings.notifications,
+                "consumer": settings.consumer,
+                "consumer_state": consumer.state if consumer else None,
+                "policy": settings.policy,
+            },
+            "consumers": [
+                {
+                    "entity_id": state.entity_id,
+                    "name": state.name,
+                    "state": state.state,
+                }
+                for state in hass.states.async_all("automation")
+            ],
+        },
     )
+
+
+def _alert_candidate(
+    hass: HomeAssistant, current: dict[str, Any], msg: dict[str, Any]
+) -> dict[str, Any]:
+    """Validate an alert edit against the saved option and consumer contracts."""
+    candidate = {
+        **current,
+        "notifications": msg["notifications"],
+        "consumer": msg["consumer"],
+    }
+    Settings.from_data(candidate)
+    if msg["notifications"]:
+        state = hass.states.get(msg["consumer"]) if msg["consumer"] else None
+        if state is None or state.state != "on":
+            raise ValueError("Enable the selected consumer automation first")
+    return candidate
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/preview_alerts",
+        vol.Required("revision"): str,
+        vol.Required("notifications"): bool,
+        vol.Required("consumer"): vol.Any(None, str),
+    }
+)
+@require_admin
+@callback
+def websocket_preview_alerts(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Preview an alert edit without changing options or requesting delivery."""
+    runtime = hass.data[DATA_DASHBOARD].runtime
+    if runtime is None or not runtime.available:
+        connection.send_error(msg["id"], "not_ready", "Homeostatic is unavailable")
+        return
+    current, revision = _configuration(runtime)
+    if msg["revision"] != revision:
+        connection.send_error(
+            msg["id"], "stale_configuration", "Settings changed; reload this page"
+        )
+        return
+    try:
+        candidate = _alert_candidate(hass, current, msg)
+        activating = (
+            candidate["notifications"] and not Settings.from_data(current).notifications
+        )
+        policy = (
+            runtime.preview_policy(Settings.from_data(candidate).policy)
+            if activating
+            else None
+        )
+    except (ValueError, TypeError, KeyError, vol.Invalid) as err:
+        connection.send_error(msg["id"], "invalid_alerts", str(err))
+        return
+    connection.send_result(
+        msg["id"],
+        {
+            "preview_token": _digest(
+                {
+                    "revision": revision,
+                    "notifications": candidate["notifications"],
+                    "consumer": candidate["consumer"],
+                }
+            ),
+            "notifications": candidate["notifications"],
+            "consumer": candidate["consumer"],
+            "activating": activating,
+            "open_problems": len(runtime.episodes),
+            "requests_now": len(cast(list[JSONValue], policy["deliveries"]))
+            if policy
+            else 0,
+            "next_deadline": policy["next_deadline"] if policy else None,
+        },
+    )
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/save_alerts",
+        vol.Required("revision"): str,
+        vol.Required("preview_token"): str,
+        vol.Required("notifications"): bool,
+        vol.Required("consumer"): vol.Any(None, str),
+    }
+)
+@require_admin
+@callback
+def websocket_save_alerts(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Start an administrator-only alert-settings update."""
+    hass.async_create_task(_async_save_alerts(hass, connection, msg))
+
+
+async def _async_save_alerts(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Save only notification activation and consumer after an exact preview."""
+    dashboard = hass.data[DATA_DASHBOARD]
+    async with dashboard.save_lock:
+        runtime = dashboard.runtime
+        if runtime is None or not runtime.available:
+            connection.send_error(msg["id"], "not_ready", "Homeostatic is unavailable")
+            return
+        current, revision = _configuration(runtime)
+        if msg["revision"] != revision:
+            connection.send_error(
+                msg["id"], "stale_configuration", "Settings changed; reload this page"
+            )
+            return
+        try:
+            candidate = _alert_candidate(hass, current, msg)
+        except (ValueError, TypeError, KeyError, vol.Invalid) as err:
+            connection.send_error(msg["id"], "invalid_alerts", str(err))
+            return
+        token = _digest(
+            {
+                "revision": revision,
+                "notifications": candidate["notifications"],
+                "consumer": candidate["consumer"],
+            }
+        )
+        if msg["preview_token"] != token:
+            connection.send_error(
+                msg["id"],
+                "preview_required",
+                "Preview these exact alert settings before saving",
+            )
+            return
+        entry = runtime.entry
+        previous_options = dict(entry.options)
+        hass.config_entries.async_update_entry(entry, options=candidate)
+        try:
+            loaded = await hass.config_entries.async_reload(entry.entry_id)
+        except HomeAssistantError:
+            loaded = False
+        if not loaded:
+            hass.config_entries.async_update_entry(entry, options=previous_options)
+            try:
+                recovered = await hass.config_entries.async_reload(entry.entry_id)
+            except HomeAssistantError:
+                recovered = False
+            connection.send_error(
+                msg["id"],
+                "reload_failed",
+                "Could not apply alerts; previous options restored"
+                if recovered
+                else "Could not apply alerts; previous options restored, but monitoring is unavailable",
+            )
+            return
+        connection.send_result(msg["id"], {"saved": True})
 
 
 @websocket_command(
@@ -417,6 +589,8 @@ async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> Non
         websocket_api.async_register_command(hass, websocket_subscribe)
         websocket_api.async_register_command(hass, websocket_node)
         websocket_api.async_register_command(hass, websocket_configuration)
+        websocket_api.async_register_command(hass, websocket_preview_alerts)
+        websocket_api.async_register_command(hass, websocket_save_alerts)
         websocket_api.async_register_command(hass, websocket_preview_configuration)
         websocket_api.async_register_command(hass, websocket_save_configuration)
     hass.data[DATA_DASHBOARD].attach(runtime)

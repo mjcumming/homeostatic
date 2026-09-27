@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.0b13] - 2026-09-27
+
 ### Fixed
 
 - Remove automatically selected registry entities and device summaries from monitoring when HA removes their backing evidence; end active episodes as removed while keeping explicit selections visible as unknown.
@@ -16,6 +18,7 @@
 - Split the Home screen into a global Overview with issue and monitoring counts and three recent items, plus an Issues page for the full open list.
 - Rebuild Monitoring choices as a compact source tree and focused settings panel, with an Other sources catchall, entity-type grouping, and bounded navigation and detail lists. Explain integration status, device-summary membership, individual checks, and matching-rule choices separately; keep bulk changes collapsed and review/save controls within reach.
 - Remove the runtime Monitoring changes panel from History so the page focuses on ended problems; keep current scope and evidence review in Monitoring.
+- Make Alerts & delivery an administrator editor for notification requests and the consumer automation, with a no-delivery preview and exact preview-before-save checks. Show the saved routing summary and open Homeostatic's own HA entry for detailed options; remove settings tabs that only repeated generic navigation.
 
 ## [0.1.0b12] - 2026-09-27
 

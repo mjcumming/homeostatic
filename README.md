@@ -53,7 +53,7 @@ The behavior is backed by executable scenarios, integration tests, and separate 
 
 ## Project status
 
-**Status: 0.1.0b12 pilot.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.4.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). Problem details identify the light or sensor, explain the missing reading or control path and suggest a relevant first check. The administrator dashboard includes bounded resolved history, shelving and previewed equipment maintenance, using the existing native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Graph construction and enrollment preview have passed isolated 10,000-source checks, but whole-house responsiveness remains under qualification. Keep the catalog rule narrow on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
+**Status: 0.1.0b13 pilot.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.4.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). Problem details identify the light or sensor, explain the missing reading or control path and suggest a relevant first check. The administrator dashboard includes bounded resolved history, shelving and previewed equipment maintenance, using the existing native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Graph construction and enrollment preview have passed isolated 10,000-source checks, but whole-house responsiveness remains under qualification. Keep the catalog rule narrow on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
 
 ## What works now
 
@@ -80,7 +80,7 @@ Review the supplied availability rules. New installations select integration sta
 
 ### Open the dashboard
 
-After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu, including on phones. **Home** shows current problems and functions; **Explore** investigates floors, areas and devices; **Monitoring** shows selected HA checks and evidence needing review; **History** separates ended problems from changes recorded in this run; **Settings** holds monitoring choices and links to native HA options for functions, situations and alerts. The pages and problem/function details use one shared live subscription. Explore and Monitoring search all discovered sources while keeping rendered lists bounded. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
+After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu, including on phones. **Overview** shows current issue and monitoring counts with three recent issues; **Issues** lists every open problem; **Explore** investigates floors, areas and devices; **Monitoring** shows selected HA checks and evidence needing review; **History** shows ended problems; **Settings** offers monitoring choices and alert-request controls with previews before saving. Alerts & delivery can turn requests on or off and select the consumer automation; it summarizes saved routing policy and links directly to Homeostatic's HA integration entry for detailed policy, functions, situations and timing. Turning requests on can alert about already-open problems. The pages and problem/function details use one shared live subscription. Explore and Monitoring search all discovered sources while keeping rendered lists bounded. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
 
 The monitoring catalog omits **Change device type of a switch** helper entries because they wrap an existing switch; the converted entity can still be monitored. **Group** entries stay because a group can be an automation control target. A healthy Group entry or group entity does not establish that every member works. Monitor important members directly; the Group row's source count is not a device count.
 
@@ -362,7 +362,7 @@ validation, function preview and graph changes. Healthy monitored sources remain
 in the graph; explicit missing or unwatched requirements remain coverage gaps.
 Unrelated inventory stays outside monitoring.
 
-Graph construction has passed isolated 10,000-source scenarios. The 0.1.0b12
+Graph construction has passed isolated 10,000-source scenarios. The 0.1.0b13
 pilot pins HealthTree 0.4.0. In ten synthetic device-summary outage cycles,
 settlement took 0.358-0.502 seconds; one event-loop gap reached 186 ms, above
 the proposed 100 ms target. All 6,000 individual entity checks still miss the
