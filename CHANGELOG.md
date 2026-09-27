@@ -4,6 +4,8 @@
 
 ### Added
 
+- Optional HA template blueprint for mapping a diagnostic entity's explicit fault and clear states to a problem binary sensor for situation binding; other or restored states remain unavailable.
+- User how-to for translating a documented device diagnostic state into a local HA binary sensor and Homeostatic situation alert, including ISY communication errors and unknown-source handling.
 - Publish detected facts for owner automations ([ADR 0014](docs/adr/0014-publish-detected-facts-for-owner-automations.md)): `homeostatic_episode` events for opened, updated and resolved problems and `homeostatic_control` events for shelving, maintenance and acknowledgment, independent of notification settings, with HA context for logbook attribution. Each function gains an event entity for its problems.
 - Example blueprints: a function status light and a problem logbook.
 

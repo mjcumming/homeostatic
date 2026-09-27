@@ -1,0 +1,37 @@
+blueprint:
+  name: Diagnostic state as problem
+  description: >-
+    Turn a documented current fault and clear value into a problem binary sensor.
+    Other values and restored source states are unavailable. Use the resulting
+    entity as a Homeostatic situation source. Do not use this for error counters
+    or events without a verified clear value.
+  domain: template
+  homeassistant:
+    min_version: 2026.9.0
+  input:
+    source_entity:
+      name: Diagnostic entity
+      description: Entity that reports both the current fault and clear states.
+      selector:
+        entity:
+    fault_value:
+      name: Fault value
+      description: Exact raw state that means the fault is active, such as 1.
+      selector:
+        text:
+    clear_value:
+      name: Clear value
+      description: Exact raw state that proves the fault cleared, such as 0.
+      selector:
+        text:
+variables:
+  source_entity: !input source_entity
+  fault_value: !input fault_value
+  clear_value: !input clear_value
+binary_sensor:
+  device_class: problem
+  availability: >
+    {{ fault_value != clear_value
+       and states(source_entity) in [fault_value, clear_value]
+       and not state_attr(source_entity, 'restored') }}
+  state: "{{ states(source_entity) == fault_value }}"
