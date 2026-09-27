@@ -113,6 +113,8 @@ class Runtime:
         self.delivery = DeliveryState(entry.entry_id)
         self._legacy_notifications: set[str] = set()
         self._activating = False
+        self.fresh_start = False
+        self._quiet_since: datetime | None = None
         self._pending: deque[tuple[datetime, list[Observation]]] = deque()
         self.retry_since: dict[str, datetime] = {}
         self.saved: dict[str, Any] | None = None
@@ -251,6 +253,8 @@ class Runtime:
                 lr.EVENT_LABEL_REGISTRY_UPDATED,
             )
         )
+        if self.fresh_start:
+            self._quiet_since = dt_util.utcnow()
         await self.async_refresh()
 
     @callback
@@ -517,8 +521,9 @@ class Runtime:
         self.history.advance(now)
         if not self.settings.notifications:
             self.delivery.deactivate()
+        self._end_quiet(now)
         await self._save()
-        if self.running:
+        if self.running and self._quiet_since is None:
             await self._flush_events()
         self.error = None
         self.updated_at = now
@@ -527,6 +532,46 @@ class Runtime:
         )
         if self.running:
             self._schedule(now)
+
+    @property
+    def startup_quiet(self) -> bool:
+        """Whether requests are held while Home Assistant finishes starting."""
+        return self._quiet_since is not None
+
+    def _end_quiet(self, now: datetime) -> None:
+        """End the startup hold once watched integrations have finished loading.
+
+        Setup retry and errors count as finished, so a failing integration
+        cannot hold every other notification. The cap ends the hold regardless.
+        """
+        if self._quiet_since is None:
+            return
+        elapsed = now - self._quiet_since
+        if elapsed < self.settings.duration("startup_grace"):
+            return
+        if elapsed < self.settings.duration("startup_quiet_max") and any(
+            self._loading(entry_id) for entry_id in self._watched_entries()
+        ):
+            return
+        _LOGGER.debug("Homeostatic startup hold ended after %s", elapsed)
+        self._quiet_since = None
+
+    def _watched_entries(self) -> set[str]:
+        return {
+            str(entry_id)
+            for source in self.sources.values()
+            if source.watched
+            for entry_id in source.attributes.get("integration", ())
+        }
+
+    def _loading(self, entry_id: str) -> bool:
+        entry = self.hass.config_entries.async_get_entry(entry_id)
+        return (
+            entry is not None
+            and entry.disabled_by is None
+            and entry.state
+            in (ConfigEntryState.NOT_LOADED, ConfigEntryState.SETUP_IN_PROGRESS)
+        )
 
     def _prune_controls(self, now: datetime) -> None:
         self.controls = [
@@ -902,7 +947,9 @@ class Runtime:
                 if isinstance(delivery, Notification)
                 else {}
             )
-            self.delivery.record(delivery, content)
+            self.delivery.record(
+                delivery, content, startup=self._quiet_since is not None
+            )
 
     def _content(self, episode_id: str) -> dict[str, JSONValue]:
         assert self.engine is not None
@@ -977,6 +1024,12 @@ class Runtime:
         deadlines.extend(
             control.until for control in self.controls if control.until > now
         )
+        if self._quiet_since is not None:
+            deadlines.extend(
+                self._quiet_since + self.settings.duration(key)
+                for key in ("startup_grace", "startup_quiet_max")
+                if self._quiet_since + self.settings.duration(key) > now
+            )
         deadlines.extend(
             since + self.settings.duration("retry_hold")
             for since in self.retry_since.values()

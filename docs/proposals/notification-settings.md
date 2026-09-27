@@ -127,6 +127,8 @@ Enabling notifications requires at least one enabled built-in route or a selecte
 
 ## Restarts
 
+**Implemented on `feat/people-delivery`:** the quiet period, the startup summary and the no-burst reminder (scenarios 13–16). Crash-replay handling arrives with the built-in sender.
+
 A restart should be invisible unless something is actually wrong once HA is back up.
 
 - **Startup quiet period.** Nothing is sent while Home Assistant starts. The quiet period ends when every watched integration has finished loading, or after 10 minutes, whichever comes first. "Finished" means the entry is no longer `NOT_LOADED` or `SETUP_IN_PROGRESS`. An entry in setup retry counts as finished, so it cannot hold the period open. The existing startup grace (120 s) becomes the minimum. The 10-minute cap is an advanced option, not on the settings page.
@@ -198,7 +200,7 @@ HA stops at 02:00 and is back at 02:03. Z-Wave JS takes 4 minutes to load. The g
 | --- | --- | --- | --- |
 | 02:03–02:07 quiet period (waiting for Z-Wave JS) | Nothing | Nothing | Nothing |
 | 02:07 quiet period ends | Held: Michael's quiet hours run to 07:00, and this is not urgent | Nothing (no home alert in it) | Nothing |
-| 07:00 | One summary: **1 problem still needs attention** · "Freezer monitoring stopped (since 9:10 AM)." The overdue reminder is folded in. | — | — |
+| 07:00 | One reminder: **Freezer monitoring stopped** · "Unavailable since 9:10 AM." The library held it through quiet hours. | — | — |
 
 Z-Wave devices that were unavailable during loading never open a problem. The restart itself never wakes anyone, because only urgent problems bypass quiet hours. If nothing is wrong after a restart, nothing is sent.
 
@@ -253,6 +255,7 @@ Sarah is not an administrator. Her Got it is accepted because she received this 
 ## Open questions
 
 - Can the startup summary reuse HealthTree activation summaries without resetting escalation clocks, or does the library need a "summarize pending" call? Check before implementation.
+- Several non-urgent problems held by quiet hours are released as separate messages at the end of quiet hours (existing behaviour, not restart-specific). Should the end of quiet hours also produce one summary per recipient?
 - Should household members be told when a home **function** they rely on stops working (for example "Heating is not working")? Proposed: not in this increment; functions are faults and go to administrators.
 
 Settled 2026-09-27: no morning digest in this increment; evidence gaps are dashboard-only apart from the critical exception above; announcements default Off.

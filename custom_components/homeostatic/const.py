@@ -11,6 +11,7 @@ DEFAULTS: dict[str, int] = {
     "settle": 120,
     "rejoin_grace": 60,
     "startup_grace": 120,
+    "startup_quiet_max": 600,
     "coalesce_count": 3,
     "coalesce_window": 60,
     "batch": 30,

@@ -81,8 +81,18 @@ class DeliveryState:
             {**payload, "delivery_id": f"{self.entry_id}:{self.sequence}"}
         )
 
-    def record(self, delivery: Delivery, content: dict[str, JSONValue]) -> None:
-        """Render each authorized delivery, retaining summary membership."""
+    def record(
+        self,
+        delivery: Delivery,
+        content: dict[str, JSONValue],
+        *,
+        startup: bool = False,
+    ) -> None:
+        """Render each authorized delivery, retaining summary membership.
+
+        While Home Assistant starts, alerting requests join one startup summary
+        per recipient. Silent replacements keep their existing presentation.
+        """
         key = f"{delivery.recipient}:{delivery.episode_id}"
         previous = self.messages.get(key)
         old_group = str(previous["group"]) if previous and "group" in previous else None
@@ -92,6 +102,9 @@ class DeliveryState:
             if delivery.cause == "activate":
                 action = "summary"
                 group = f"activation_{delivery.recipient}"
+            elif startup and not delivery.silent:
+                action = "summary"
+                group = f"startup_{delivery.recipient}"
             elif delivery.cause == "digest":
                 group = f"digest_{delivery.digest}_{delivery.recipient}"
             elif delivery.silent and old_group:

@@ -24,6 +24,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
     """Load presentation now and start monitoring after Home Assistant starts."""
     try:
         runtime = Runtime(hass, entry, Settings.from_data(entry.options or entry.data))
+        # A reload while HA is running needs no startup hold.
+        runtime.fresh_start = not hass.is_running
         await runtime.async_load()
     except (ValueError, TypeError, KeyError, vol.Invalid) as err:
         raise ConfigEntryError(
