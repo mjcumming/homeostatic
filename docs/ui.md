@@ -670,6 +670,8 @@ Consequences:
 - A missing consumer is silent failure. Setup must verify that at least one automation handles the event, and coverage reports "no consumer for `urgent`" as a gap.
 - The watchdog's alert path cannot be an HA automation, because HA may be the thing that died (section 11).
 
+Revision proposed 2026-09-27: [ADR 0015](adr/0015-deliver-notifications-to-people.md) keeps this event boundary and adds a built-in sender, person recipients, simple levels and a route test. See [the proposed settings section](proposals/notification-settings.md).
+
 ### Decision 7: activation sends one summary
 
 When notifications are activated with problems already open, send one summary of what is open, then deliver live. Never replay individual openings. Reminder and escalation clocks start at activation. This needs an integration scenario.

@@ -1,6 +1,6 @@
 # ADR 0006: Request notifications through consumer automations
 
-**Status:** Accepted
+**Status:** Accepted. [ADR 0015](0015-deliver-notifications-to-people.md) (proposed) would partially supersede it.
 **Date:** 2026-09-26
 **Decider:** Michael Cumming
 
