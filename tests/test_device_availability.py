@@ -337,6 +337,39 @@ async def test_exact_device_selection_stays_saved_without_members(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+async def test_exact_empty_device_choice_starts_without_availability_check(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """A saved choice without members is visible from the first evaluation."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "empty_selected")}
+    )
+    config_data.update(
+        entities=[],
+        config_entries=[],
+        notifications=False,
+        rules=[
+            {
+                "id": "empty_device",
+                "action": "attach",
+                "match": {"kind": "device", "device": device.id},
+            }
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    node_id = f"device:{device.id}"
+    assert node_id in runtime.candidates
+    assert not runtime.candidates[node_id].availability_entities
+    assert not runtime.candidates[node_id].watched
+    assert node_id not in runtime.sources
+    assert not runtime.episodes
+    assert runtime.readiness == "unknown"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 @pytest.mark.parametrize("platform", ["wiim", "test"])
 async def test_persistent_ignore_changes_expectation_without_claiming_recovery(
     hass: HomeAssistant, config_data: dict[str, Any], platform: str
