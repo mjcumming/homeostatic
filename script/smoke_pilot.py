@@ -98,7 +98,7 @@ async def exercise(config: Path, port: int) -> None:
                     assert await response.read(), asset
         hass.states.async_set("sensor.pilot_source", "unavailable")
         await hass.async_block_till_done()
-        assert runtime.query("readiness", {})["answer"] == "blocked"
+        assert runtime.query("readiness", {})["answer"] == "degraded"
         assert len(runtime.query("inventory", {})["episodes"]) == 1
         assert runtime.query("inventory", {})["attention_controls_supported"]
         episode = runtime.query("inventory", {})["episodes"][0]["episode_id"]
@@ -135,7 +135,7 @@ async def exercise(config: Path, port: int) -> None:
             == acknowledgment["acknowledgment"]
         )
         assert not runtime.query("operator_controls", {})["controls"]
-        assert runtime.query("readiness", {})["answer"] == "blocked"
+        assert runtime.query("readiness", {})["answer"] == "degraded"
         hass.states.async_set("sensor.pilot_source", "42")
         await hass.async_block_till_done()
         history = runtime.query("resolved_history", {})

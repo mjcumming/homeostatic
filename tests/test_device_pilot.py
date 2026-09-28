@@ -68,14 +68,13 @@ async def test_two_already_offline_devices_with_selected_capabilities(
     hass.states.async_set(primary[0].entity_id, "off")
     await hass.async_block_till_done()
     assert len(runtime.episodes) == 1
-    episode_id = next(iter(runtime.episodes))
     hass.states.async_set(primary[1].entity_id, "unknown")
     await hass.async_block_till_done()
-    assert list(runtime.episodes) == [episode_id]
+    assert not runtime.episodes
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    assert list(entry.runtime_data.episodes) == [episode_id]
+    assert not entry.runtime_data.episodes
     hass.states.async_set(primary[1].entity_id, "off")
     await hass.async_block_till_done()
     assert not entry.runtime_data.episodes

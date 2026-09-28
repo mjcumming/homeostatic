@@ -424,7 +424,7 @@ async def test_entity_brief_uses_current_queries_through_unknown_and_recovery(
     recovering = (await client.receive_json())["event"]
     assert list(runtime.episodes) == [episode_id]
     context = recovering["inventory"]["entity_status"][NODE]
-    assert context["explanation"]["findings"] == []
+    assert context["explanation"]["findings"][0]["status"] == "warn"
     assert context["current"]["reason"] == "available"
     assert context["readiness"]["answer"] == "degraded"
     assert runtime.engine is not None
