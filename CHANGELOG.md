@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.1.0b17] - 2026-09-28
+
+### Changed
+
+- Make the integration name prominent in device problem details, with affected entities immediately below it and working entities kept in the collapsed selection. Space the monitoring and Sources links apart, wrapping them on narrow screens.
+
 ## [0.1.0b16] - 2026-09-28
 
 ### Added

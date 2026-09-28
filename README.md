@@ -145,7 +145,7 @@ A **Homeostatic** dashboard strategy is available in HA's new-dashboard dialog.
 
 ## Project status
 
-**Beta (0.1.0b15).** Running in a real-house pilot. The dashboard, availability monitoring, functions, situations, notification policy, and operator controls work and are backed by executable scenarios and integration tests with 95% statement and branch coverage floors. Known limits:
+**Beta (0.1.0b17).** Running in a real-house pilot. The dashboard, availability monitoring, functions, situations, notification policy, and operator controls work and are backed by executable scenarios and integration tests with 95% statement and branch coverage floors. Known limits:
 
 - Whole-house monitoring of every entity on very large installs (6,000+ entities) doesn't yet meet responsiveness targets. Start with integrations and selected devices. See [runtime scaling](docs/testing/runtime-scaling.md).
 - Freshness, detector liveness, and command-completion checks aren't built yet.
