@@ -32,9 +32,72 @@ export function integrationFamilies(data, localize = () => null) {
   }).sort(byName);
 }
 
-/** Organize one inventory by integration family or native Home Assistant location. */
-export function sourcesTree(data,grouping = "integration",localize) {
+/** Build a presentation tree from Topomation's read-only location response. */
+export function topomationTree(data,topomation) {
+  const locations=topomation?.locations;
+  if(!Array.isArray(locations)||!locations.length)return null;
+  const byId=new Map();
+  for(const location of locations) {
+    if(!location||typeof location.id!=="string"||!location.id||byId.has(location.id))return null;
+    byId.set(location.id,{key:`location:topomation:${location.id}`,name:String(location.name||location.id),type:"location",children:[],location});
+  }
+  const roots=[];
+  for(const node of byId.values()) {
+    const parent=node.location.parent_id;
+    const seen=new Set([node.location.id]);
+    let ancestor=parent;
+    while(ancestor&&byId.has(ancestor)) {
+      if(seen.has(ancestor))return null;
+      seen.add(ancestor);
+      ancestor=byId.get(ancestor).location.parent_id;
+    }
+    if(parent&&byId.has(parent))byId.get(parent).children.push(node);
+    else roots.push(node);
+  }
+  const ordered=(a,b)=>(Number(a.location.order)||0)-(Number(b.location.order)||0)||a.name.localeCompare(b.name);
+  const areaLocations=new Map(),entityLocations=new Map();
+  for(const node of byId.values()) {
+    if(node.location.ha_area_id&&!areaLocations.has(node.location.ha_area_id))areaLocations.set(node.location.ha_area_id,node);
+    for(const id of Array.isArray(node.location.entity_ids)?node.location.entity_ids:[])if(typeof id==="string"&&!entityLocations.has(id))entityLocations.set(id,node);
+  }
+  const assigned=new Map(),unassigned=[];
+  for(const source of inventoryRows(data).filter(item=>["entity","device"].includes(item.kind))) {
+    const location=entityLocations.get(source.entity_id)||
+      (source.attributes?.area||[]).map(id=>areaLocations.get(id)).find(Boolean);
+    if(location) {
+      if(!assigned.has(location.key))assigned.set(location.key,[]);
+      assigned.get(location.key).push(source);
+    } else unassigned.push(source);
+  }
+  const attach=node=>{
+    node.children.sort(ordered).forEach(attach);
+    const devices=new Map();
+    for(const source of assigned.get(node.key)||[]) {
+      const deviceId=source.attributes?.device?.[0];
+      if(deviceId) {
+        if(!devices.has(deviceId))devices.set(deviceId,{key:`device:${deviceId}`,name:data.devices?.find(item=>item.id===deviceId)?.name||deviceId,type:"device",children:[]});
+        const device=devices.get(deviceId);
+        if(source.kind==="device") {device.key=`source:${source.node_id}`;device.source=source;}
+        else device.children.push(sourceNode(source));
+      } else node.children.push(sourceNode(source));
+    }
+    node.children.push(...devices.values());
+  };
+  roots.sort(ordered).forEach(attach);
+  if(unassigned.length)roots.push({key:"location:topomation:unassigned",name:"Unassigned",type:"location",children:unassigned.map(sourceNode).sort(byName)});
+  return roots;
+}
+
+/** Organize one inventory by integration family or location. */
+export function sourcesTree(data,grouping = "integration",localize = () => null,topomation = null) {
+  localize ||= () => null;
   if(grouping === "integration") return integrationFamilies(data,localize);
+  const topology=topomationTree(data,topomation);
+  if(topology) {
+    const entries=inventoryRows(data).filter(source=>source.kind==="integration").map(sourceNode).sort(byName);
+    if(entries.length)topology.push({key:"location:other-sources",name:"Integration connections",type:"location",children:entries});
+    return topology;
+  }
   const convert = location => ({key:`location:${location.id}`,name:location.name,type:"location",location,
     children:[...location.children.map(convert),...location.devices.map(device=>{
       const summary=device.sources.find(source=>source.kind==="device");
@@ -159,7 +222,7 @@ function sourceHistory(card,node) {
 /** Render the accepted tree-and-detail workspace without nested page navigation. */
 export function sourcesBrowser(card) {
   const data=card.current.data;
-  const full=sourcesTree(data,card.sourcesGrouping,key=>card._hass?.localize?.(key));
+  const full=sourcesTree(data,card.sourcesGrouping,key=>card._hass?.localize?.(key),card.topomation);
   const paths=sourcePaths(full),episodes=sortedEpisodes(data);
   const issues=new Map(episodes.map(item=>[item.anchor,item]));
   const included=new Set(inventoryRows(data).filter(row=>row.kind==="device"&&row.watched).flatMap(row=>row.availability_entities||[]));

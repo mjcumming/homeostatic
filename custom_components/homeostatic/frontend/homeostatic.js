@@ -10,7 +10,7 @@ import {styles} from "./styles\.mjs?v=31";
 import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=30";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=30";
-import {sourcesBrowser, sourcesTree, sourcePaths} from "./sources-workspace\.mjs?v=30";
+import {sourcesBrowser, sourcesTree, sourcePaths} from "./sources-workspace\.mjs?v=33";
 
 import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=32";
 
@@ -73,6 +73,8 @@ class HomeostaticCard extends HTMLElement {
     this.configExpanded = new Set();
     this.configSelection = null;
     this.sourcesGrouping = savedSourcesGrouping();
+    this.topomation = null;
+    this.topomationSequence = 0;
     this.sourcesSelection = null;
     this.sourcesExpanded = new Set();
     this.sourcesQuery = "";
@@ -143,6 +145,7 @@ class HomeostaticCard extends HTMLElement {
       if (this.editAlert(event)) return;
       if (event.target.matches?.("[data-sources-group]")) {
         this.sourcesGrouping = event.target.value;
+        if (this.sourcesGrouping === "location") this.loadTopomation();
         try { window.sessionStorage.setItem(SOURCES_GROUPING_KEY,this.sourcesGrouping); } catch { /* Embedded storage may be unavailable. */ }
         this.revealSourcesSelection();
         this.render();
@@ -198,6 +201,8 @@ class HomeostaticCard extends HTMLElement {
   }
 
   release() {
+    this.topomationSequence++;
+    this.topomation = null;
     this.tools.disconnect();
     this.sourceObserver?.disconnect();
     this.sourceSequence++;
@@ -219,6 +224,7 @@ class HomeostaticCard extends HTMLElement {
       return;
     }
     this.store = dashboardStore(this._hass.connection);
+    this.loadTopomation();
     this.removeListener = this.store.listen((value) => {
       this.current = value;
       this.tools.update(value);
@@ -230,6 +236,28 @@ class HomeostaticCard extends HTMLElement {
         this.openDetail({episodeId});
       } else if (this.detail) this.loadDetail();
     });
+  }
+
+  async loadTopomation() {
+    const sequence=++this.topomationSequence;
+    try {
+      const result=await this._hass.callWS({type:"topomation/locations/list"});
+      if(sequence!==this.topomationSequence||!this.isConnected)return;
+      this.topomation=Array.isArray(result?.locations)&&result.locations.length?result:null;
+    } catch {
+      if(sequence!==this.topomationSequence||!this.isConnected)return;
+      this.topomation=null;
+    }
+    if(this.current.status==="current"&&this.sourcesSelection?.startsWith("location:")) {
+      const paths=sourcePaths(sourcesTree(this.current.data,"location",null,this.topomation));
+      if(!paths.has(this.sourcesSelection)) {
+        const areaId=this.sourcesSelection.startsWith("location:area:")?this.sourcesSelection.slice(14):null;
+        const matching=areaId&&this.topomation?.locations?.find(item=>item.ha_area_id===areaId);
+        this.sourcesSelection=matching?`location:topomation:${matching.id}`:paths.keys().next().value??null;
+      }
+    }
+    this.revealSourcesSelection();
+    this.render();
   }
 
   viewIdentity() {
@@ -398,7 +426,7 @@ class HomeostaticCard extends HTMLElement {
     if (this.current.status !== "current") return;
     this.sourcesExpanded ??= new Set();
     this.sourcesGrouping ??= "integration";
-    const paths = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping));
+    const paths = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping,null,this.topomation));
     const selected = paths.get(this.sourcesSelection);
     if (selected) for (const parent of selected.parents) this.sourcesExpanded.add(parent.key);
   }
@@ -407,7 +435,7 @@ class HomeostaticCard extends HTMLElement {
     if (this.current.status !== "current") return;
     const needle = this.sourcesQuery.trim().toLocaleLowerCase();
     if (!needle) return;
-    const paths = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping,key=>this._hass?.localize?.(key)));
+    const paths = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping,key=>this._hass?.localize?.(key),this.topomation));
     for (const {node,parents} of paths.values()) {
       if ([node.name,node.source?.entity_id].filter(Boolean).join(" ").toLocaleLowerCase().includes(needle)) {
         for (const parent of parents) this.sourcesExpanded.add(parent.key);
@@ -605,7 +633,7 @@ class HomeostaticCard extends HTMLElement {
 
   async loadSource(force = false) {
     if (this.page !== "sources" || this.sourcesView !== "source" || this.current.status !== "current") return;
-    const selected = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping)).get(this.sourcesSelection)?.node;
+    const selected = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping,null,this.topomation)).get(this.sourcesSelection)?.node;
     const nodeId = selected?.source?.node_id;
     if (!nodeId) return;
     const stamp = this.current.data.updated_at;

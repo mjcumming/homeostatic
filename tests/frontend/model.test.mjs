@@ -908,6 +908,27 @@ test("Sources keeps device and entity identities across integration and location
   assert.equal(location.get("source:entity:registry:camera-1-1").parents[0].name,"First floor");
 });
 
+test("Sources uses Topomation nesting and keeps unplaced sources reachable",()=>{
+  const data=monitoringExample();
+  const entity=data.inventory.nodes.find(row=>row.node_id==="entity:registry:camera-1-1");
+  entity.attributes.area=["porch"];
+  const topomation={locations:[
+    {id:"home",name:"Home",parent_id:null,order:0,ha_area_id:null,entity_ids:[]},
+    {id:"porch",name:"Front porch",parent_id:"home",order:0,ha_area_id:"porch",entity_ids:[]},
+  ]};
+  const paths=sourcePaths(sourcesTree(data,"location",null,topomation));
+  assert.deepEqual(paths.get("source:entity:registry:camera-1-1").parents.slice(0,2).map(item=>item.name),["Home","Front porch"]);
+  assert.ok(paths.has("source:entity:registry:orphan-124"));
+  assert.ok(paths.has("source:entry:frigate"));
+  topomation.locations.push({id:"utility",name:"Utility",parent_id:"home",order:1,ha_area_id:null,entity_ids:[entity.entity_id]});
+  const moved=sourcePaths(sourcesTree(data,"location",null,topomation));
+  assert.equal(moved.get("source:entity:registry:camera-1-1").parents[1].name,"Utility");
+  assert.equal(sourcesTree(data,"location",null,{locations:[]})[0]?.type,"location");
+  assert.equal(sourcesTree(data,"location",null,{locations:[
+    {id:"a",parent_id:"b"},{id:"b",parent_id:"a"},
+  ]})[0]?.type,"location");
+});
+
 test("Sources review filtering retains grouped ancestors and does not auto-expand them",()=>{
   const data=monitoringExample();
   data.coverage.never_observed=[{node_id:"entity:registry:camera-1-1",check_id:"availability"}];

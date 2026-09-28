@@ -25,6 +25,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0020](0020-integration-monitoring-master-control.md) | Stop monitoring an integration as one scope | Accepted |
 | [0021](0021-defer-automation-notification-routing-ui.md) | Defer automation notification routing in Settings | Accepted |
 | [0022](0022-top-level-notifications-page.md) | Give Notifications its own dashboard page | Accepted |
+| [0023](0023-optional-topomation-location-tree.md) | Use Topomation as an optional location tree | Accepted |
 | [0018](0018-source-panel-views.md) | Use source-specific views beside one tree | Accepted; supersedes ADR 0017 detail-panel layout |
 
 Records 0003–0008 document choices from the owner worksheet and pilot specification. Their dates are the dates recorded here, not claimed dates of the original decisions. Accepted records settled owner direction, not production readiness. An accepted decision is superseded by a new record, not silently rewritten. A proposed decision records the current pilot approach and its unresolved tradeoffs; it does not claim owner approval.
