@@ -295,15 +295,14 @@ async def test_exact_device_selection_stays_saved_without_members(
     hass.states.async_remove(member.entity_id)
     registry.async_remove(member.entity_id)
     await hass.async_block_till_done()
-    assert runtime.sources[node_id].availability_entities == ()
-    assert not runtime.sources[node_id].watched
+    assert node_id not in runtime.sources
     assert not runtime.episodes
     assert runtime.readiness == "unknown"
 
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     restored = entry.runtime_data
-    assert not restored.sources[node_id].watched
+    assert node_id not in restored.sources
     assert not restored.episodes
     assert restored.readiness == "unknown"
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -644,7 +643,7 @@ async def test_losing_last_reporting_entity_retires_device_issue(
     assert runtime.sources[node_id].watched
     assert not runtime.episodes
     history = await action(hass, "resolved_history", {})
-    assert history["episodes"][0]["resolution"] == "removed"
+    assert history["episodes"][0]["resolution"] == "cleared"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -692,7 +691,7 @@ async def test_restore_retires_issue_when_only_identify_button_remains(
     assert restored.sources[f"device:{device.id}"].watched
     assert not restored.episodes
     history = await action(hass, "resolved_history", {})
-    assert history["episodes"][0]["resolution"] == "removed"
+    assert history["episodes"][0]["resolution"] == "cleared"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

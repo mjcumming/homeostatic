@@ -6,12 +6,12 @@
 - id: unavailable
   state: unavailable
   attributes: {}
-  readiness: blocked
+  readiness: degraded
   episodes: 1
 - id: unknown
   state: unknown
   attributes: {}
-  readiness: unknown
+  readiness: ready
   episodes: 0
 - id: restored-unavailable
   state: unavailable

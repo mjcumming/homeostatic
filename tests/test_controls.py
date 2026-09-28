@@ -91,7 +91,7 @@ async def test_shelf_holds_all_recipients_across_reload(
         hass_admin_user.id,
     )
     assert result["control"]["user_id"] == hass_admin_user.id
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     assert len(runtime.delivery.messages) == 2
     freezer.tick(timedelta(seconds=11))
     async_fire_time_changed(hass, dt_util.utcnow())
@@ -161,7 +161,7 @@ async def test_equipment_scope_preserves_situation_and_readiness(
     hass.states.async_set(registered.entity_id, "unavailable")
     await hass.async_block_till_done()
     assert len(runtime.episodes) == expected_count
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data
@@ -395,7 +395,7 @@ async def test_observations_during_control_save_are_not_lost(
         release.set()
         await task
         await hass.async_block_till_done()
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     assert len(runtime.episodes) == 1
     assert not runtime.controls
     assert await hass.config_entries.async_unload(config_entry.entry_id)

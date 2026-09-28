@@ -122,7 +122,7 @@ async def test_large_graph_setup_reconcile_and_failure(
         hass.states.async_set("light.scale_0", "unavailable")
         await hass.async_block_till_done()
         record_property("failure_processing_seconds", perf_counter() - started)
-        assert runtime.readiness == "blocked"
+        assert runtime.readiness == "degraded"
         assert len(runtime.episodes) == 1
         assert (
             next(iter(runtime.episodes.values()))["anchor"]

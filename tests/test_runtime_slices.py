@@ -53,7 +53,7 @@ async def test_burst_yields_and_retains_later_evidence(
     assert 0 < progressed[0] < 10
     assert len(runtime.history.snapshot()["episodes"]) == 10
     assert len(runtime.episodes) == 1
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     assert runtime.available
     assert not runtime.delivery.outbox
     episode = next(iter(runtime.episodes))

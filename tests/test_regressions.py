@@ -85,7 +85,7 @@ async def test_notification_options_reload(
         runtime.notification_id(episode_id)
         not in hass.data[persistent_notification.DOMAIN]
     )
-    assert restored.readiness == "blocked"
+    assert restored.readiness == "degraded"
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 

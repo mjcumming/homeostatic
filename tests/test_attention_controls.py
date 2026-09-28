@@ -60,7 +60,7 @@ async def test_acknowledgment_is_shared_durable_and_not_recovery(
     )
     assert result["acknowledgment"]["actor_id"] == hass_admin_user.id
     assert await action(hass, "acknowledge", {"episode_id": episode}) == result
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     assert runtime.query("inventory", {})["attention_controls_supported"]
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
@@ -106,7 +106,7 @@ async def test_cancel_one_overlapping_maintenance_after_reload(
         hass, "cancel_control", {"control_id": second["control"]["control_id"]}
     )
     assert len(entry.runtime_data.episodes) == 1
-    assert entry.runtime_data.readiness == "blocked"
+    assert entry.runtime_data.readiness == "degraded"
     assert (await action(hass, "operator_controls", {}))["controls"] == []
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -139,7 +139,7 @@ async def test_cancel_shelf_resumes_due_reminder(
     )
     assert result["cancelled_control_id"] == shelf["control"]["control_id"]
     assert len(events) == 1
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

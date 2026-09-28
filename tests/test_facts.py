@@ -81,7 +81,7 @@ async def test_episode_facts_without_notifications(
         "device_id": None,
         "area_id": None,
         "floor_id": None,
-        "status": "fail",
+        "status": "warn",
         "importance": "normal",
         "reasons": None,
         "function_ids": [FUNCTION],
@@ -131,10 +131,10 @@ async def test_repeats_and_reload_publish_nothing(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_condition_change_is_an_update(
+async def test_unknown_value_resolves_availability_warning(
     hass: HomeAssistant, lighting: dict[str, Any]
 ) -> None:
-    """Losing evidence changes an open problem's condition without resolving it."""
+    """An unknown value does not keep an availability warning open."""
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=lighting)
     await start_monitor(hass, entry)
@@ -142,11 +142,11 @@ async def test_condition_change_is_an_update(
     hass.states.async_set("sensor.observed", "unknown")
     await hass.async_block_till_done()
     assert [(fact.data["change"], fact.data["status"]) for fact in facts] == [
-        ("updated", "unknown")
+        ("resolved", "warn")
     ]
     state = hass.states.get(event_entity(hass))
     assert state is not None
-    assert state.attributes["event_type"] == "problem_changed"
+    assert state.attributes["event_type"] == "problem_resolved"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

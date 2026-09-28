@@ -38,7 +38,7 @@ async def test_burst_work_and_rearming(
             hass.states.async_set(entity, "unavailable")
         await hass.async_block_till_done()
         assert len(runtime.episodes) == 60
-        assert runtime.readiness == "blocked"
+        assert runtime.readiness == "degraded"
         assert save.call_count == 1
         assert discover.call_count == 0
         for entity in entities:
@@ -67,7 +67,7 @@ async def test_coalescing_preserves_rapid_refailure(
         await hass.async_block_till_done()
     assert save.call_count == 1
     assert len(runtime.episodes) == 1
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     ended = runtime.query("resolved_history", {})["episodes"]
     assert len(ended) == 1
     assert ended[0]["resolution"] == "cleared"
@@ -127,7 +127,7 @@ async def test_compact_subscription_baselines_deltas_and_reload(
     assert "catalog" not in update["inventory"]
     assert "nodes" not in update["inventory"]
     assert "areas" not in update
-    assert update["readiness"]["answer"] == "blocked"
+    assert update["readiness"]["answer"] == "degraded"
     hass.states.async_set(
         "sensor.observed", "unavailable", {"friendly_name": "Renamed"}
     )

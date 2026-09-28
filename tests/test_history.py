@@ -23,7 +23,7 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.homeostatic.catalog import Source
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.history import MAX_AGE, MAX_EPISODES, ResolvedHistory
-from tests.test_controls import NODE, action, end
+from tests.test_controls import NODE, action
 from tests.test_lifecycle import start_monitor
 
 T0 = datetime(2026, 9, 25, tzinfo=UTC)
@@ -166,25 +166,25 @@ async def test_absorption_links_to_still_open_episode(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_unknown_and_operator_controls_do_not_create_recovery(
+async def test_unknown_value_closes_availability_warning(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
 ) -> None:
-    """Unknown evidence, shelving, maintenance and disabled notifications leave history empty."""
+    """Unknown value resolves an availability warning without a physical-failure claim."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
     episode_id = next(iter(runtime.episodes))
     hass.states.async_set("sensor.observed", "unknown")
     await hass.async_block_till_done()
-    await action(hass, "shelve", {"episode_id": episode_id, "until": end()})
-    await action(hass, "start_maintenance", {"node_id": NODE, "until": end()})
     hass.config_entries.async_update_entry(
         config_entry, options={**config_entry.data, "notifications": False}
     )
     assert await hass.config_entries.async_reload(config_entry.entry_id)
     await hass.async_block_till_done()
-    assert (await action(hass, "resolved_history", {}))["episodes"] == []
-    assert list(config_entry.runtime_data.episodes) == [episode_id]
+    history = (await action(hass, "resolved_history", {}))["episodes"]
+    assert history[0]["episode"]["episode_id"] == episode_id
+    assert history[0]["resolution"] == "cleared"
+    assert not config_entry.runtime_data.episodes
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 

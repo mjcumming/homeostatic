@@ -51,7 +51,7 @@ async def test_dashboard_native_actions_and_resolved_history(
     applied = (await client.receive_json())["result"]["response"]
     assert applied["node_ids"] == preview["node_ids"]
     assert applied["control"]["reason"] == "Battery replacement"
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     await client.send_json(
         {
             "id": 3,

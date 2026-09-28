@@ -58,7 +58,7 @@ async def test_failure_notification_recovery(
     hass.states.async_set("sensor.observed", "unavailable")
     await hass.async_block_till_done()
     episode_id = next(iter(runtime.episodes))
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     assert (
         runtime.notification_id(episode_id) in hass.data[persistent_notification.DOMAIN]
     )

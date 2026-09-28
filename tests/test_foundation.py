@@ -103,21 +103,21 @@ async def test_source_transition_survives_storage_wait(
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
-async def test_unknown_preserves_requested_failure_content(
+async def test_unknown_value_clears_availability_warning(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
-    """Unknown evidence must not erase a message without a policy delivery."""
+    """An unknown value clears an availability warning without inventing a failure."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
     before = deepcopy(runtime.delivery.messages)
     hass.states.async_set("sensor.observed", "unknown")
     await hass.async_block_till_done()
-    assert runtime.delivery.messages == before
-    assert len(runtime.episodes) == 1
-    assert runtime.readiness == "unknown"
+    assert runtime.delivery.messages != before
+    assert not runtime.episodes
+    assert runtime.readiness == "ready"
     assert await hass.config_entries.async_reload(config_entry.entry_id)
     await hass.async_block_till_done()
-    assert config_entry.runtime_data.delivery.messages == before
+    assert config_entry.runtime_data.delivery.messages == runtime.delivery.messages
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
@@ -163,8 +163,8 @@ async def test_function_readiness_and_named_delivery(
     assert hass.states.get("sensor.homeostatic_garage_access").state == "ready"
     hass.states.async_set(registered.entity_id, "unavailable")
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.homeostatic_garage_access").state == "blocked"
-    assert events[-1].data["title"] == "Garage access: blocked"
+    assert hass.states.get("sensor.homeostatic_garage_access").state == "degraded"
+    assert events[-1].data["title"] == "Garage access: degraded"
     assert events[-1].data["loudness"] == "urgent"
     assert events[-1].data["functions"] == ["Garage access"]
     old_id = next(iter(runtime.episodes))

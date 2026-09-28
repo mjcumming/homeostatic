@@ -64,7 +64,7 @@ async def test_two_already_offline_devices_with_selected_capabilities(
     runtime = await start_monitor(hass, entry)
     assert sum(source.watched for source in runtime.sources.values()) == 3
     assert len(runtime.episodes) == 2
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     hass.states.async_set(primary[0].entity_id, "off")
     await hass.async_block_till_done()
     assert len(runtime.episodes) == 1
