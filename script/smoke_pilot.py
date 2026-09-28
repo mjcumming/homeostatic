@@ -32,7 +32,14 @@ def unpack(archive_path: Path, config: Path) -> dict[str, str]:
                 assert target.is_relative_to(config.resolve()), name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(data)
-    return {"version": info["version"], "commit": info["commit"]}
+    requirement = next(
+        value for value in info["requirements"] if value.startswith("health-tree==")
+    )
+    return {
+        "version": info["version"],
+        "commit": info["commit"],
+        "health_tree_requirement": requirement,
+    }
 
 
 async def exercise(config: Path, port: int) -> None:
@@ -184,7 +191,9 @@ def main() -> None:
                 asyncio.run, exercise(config, port), loop_factory=create_event_loop
             ).result()
         installed = importlib.metadata.distribution("health-tree")
-        assert installed.version == "0.4.0", installed.version
+        assert (
+            f"health-tree=={installed.version}" == identity["health_tree_requirement"]
+        ), installed.version
         assert installed.read_text("direct_url.json") is None
         identity["health_tree"] = installed.version
         identity["health_tree_location"] = str(installed.locate_file("health_tree"))
