@@ -93,8 +93,9 @@ from .facts import (
 )
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
+from .notification_routes import async_send
 from .rules import Attributes, parse_rules
-from .serialization import json_object
+from .serialization import json_object, to_json
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -129,6 +130,7 @@ class Runtime:
         self.entity_evidence: dict[str, ReportedCondition] = {}
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
+        self.delivery_failures: deque[dict[str, str]] = deque(maxlen=50)
         self._legacy_notifications: set[str] = set()
         self._activating = False
         self.fresh_start = False
@@ -165,6 +167,12 @@ class Runtime:
     @property
     def consumer_missing(self) -> bool:
         """An enabled notification route needs an enabled consumer automation."""
+        if any(
+            channel.startswith(("phone:", "notify:"))
+            for recipient in self.settings.policy_config().recipients.values()
+            for channel in recipient.channels
+        ):
+            return False
         state = (
             self.hass.states.get(self.settings.consumer)
             if self.settings.consumer
@@ -1235,6 +1243,59 @@ class Runtime:
             self.delivery.outbox[:0] = pending
             raise
 
+    async def async_send_notification(self, payload: dict[str, Any]) -> None:
+        """Attempt selected built-in routes once per durable delivery id."""
+        if not self.settings.notifications:
+            return
+        delivery_id = payload.get("delivery_id")
+        channels = payload.get("channels")
+        if (
+            not isinstance(delivery_id, str)
+            or not delivery_id.startswith(f"{self.entry.entry_id}:")
+            or not isinstance(channels, list)
+        ):
+            return
+        recipient_id = payload.get("recipient")
+        if not isinstance(recipient_id, str):
+            return
+        recipient = self.settings.policy_config().recipients.get(recipient_id)
+        if recipient is None:
+            return
+        permitted = set(recipient.channels)
+        for channel in channels:
+            if not isinstance(channel, str) or channel not in permitted:
+                continue
+            if not channel.startswith(("phone:", "notify:")):
+                continue
+            attempt = f"{delivery_id}:{channel}"
+            async with self._lock:
+                if attempt in self.delivery.attempted:
+                    continue
+                self.delivery.attempted.add(attempt)
+                try:
+                    await self._save()
+                except OSError, HomeAssistantError, ValueError, TypeError:
+                    self.delivery.attempted.remove(attempt)
+                    raise
+            try:
+                await async_send(
+                    self.hass,
+                    channel,
+                    title=str(payload.get("title", "Homeostatic")),
+                    message=str(payload.get("message", "")),
+                    tag=str(payload.get("tag", "")),
+                    urgent=payload.get("loudness") == "urgent"
+                    and payload.get("silent") is not True
+                    and payload.get("action") != "resolve",
+                    silent=payload.get("silent") is True,
+                    clear=payload.get("action") == "resolve"
+                    and payload.get("loudness") != "urgent",
+                )
+            except HomeAssistantError as err:
+                self.delivery_failures.append(
+                    {"delivery_id": delivery_id, "channel": channel, "error": str(err)}
+                )
+
     def notification_id(self, episode_id: str) -> str:
         """Stable id for replacement and dismissal, scoped to this installation."""
         return f"{DOMAIN}_{self.entry.entry_id}_{episode_id}"
@@ -1425,7 +1486,24 @@ class Runtime:
         members.sort(
             key=lambda item: (item["state"] != "unavailable", str(item["name"]))
         )
-        return json_object({"members": members[:50], "total": len(members)})
+        return json_object(
+            {
+                "members": members[:50],
+                "total": len(members),
+                "reporting_count": sum(
+                    item["state"] not in {"unknown", "missing", "unavailable"}
+                    and not item["restored"]
+                    for item in members
+                ),
+                "unavailable_count": sum(
+                    item["state"] == "unavailable" for item in members
+                ),
+                "unknown_count": sum(
+                    item["state"] in {"unknown", "missing"} or bool(item["restored"])
+                    for item in members
+                ),
+            }
+        )
 
     def entity_status(self, node_id: str) -> dict[str, JSONValue] | None:
         """Present captured HA state alongside current public library answers."""
@@ -1461,6 +1539,7 @@ class Runtime:
             "notification_consumer_missing": self.consumer_missing,
             "situation_availability_verified": False,
             "notification_requests": list(self.delivery.messages.values()),
+            "delivery_failures": to_json(list(self.delivery_failures)),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 

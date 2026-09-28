@@ -15,6 +15,7 @@ class DeliveryState:
         self.messages: dict[str, dict[str, JSONValue]] = {}
         self.outbox: list[dict[str, JSONValue]] = []
         self.summarized: set[str] = set()
+        self.attempted: set[str] = set()
 
     @property
     def episode_ids(self) -> set[str]:
@@ -24,7 +25,11 @@ class DeliveryState:
     def restore(self, data: dict[str, Any]) -> None:
         """Reject malformed delivery state before mutating it."""
         if (
-            set(data) != {"sequence", "messages", "outbox", "summarized"}
+            set(data)
+            not in (
+                {"sequence", "messages", "outbox", "summarized"},
+                {"sequence", "messages", "outbox", "summarized", "attempted"},
+            )
             or type(data["sequence"]) is not int
             or data["sequence"] < 0
         ):
@@ -60,10 +65,16 @@ class DeliveryState:
                 raise ValueError("Invalid notification payload")
         if any(not isinstance(payload.get("delivery_id"), str) for payload in outbox):
             raise ValueError("Invalid delivery id")
+        attempts = data.get("attempted", [])
+        if not isinstance(attempts, list) or not all(
+            isinstance(item, str) for item in attempts
+        ):
+            raise ValueError("Invalid delivery attempts")
         self.sequence = data["sequence"]
         self.messages = {key: dict(value) for key, value in messages.items()}
         self.outbox = [dict(value) for value in outbox]
         self.summarized = set(summarized)
+        self.attempted = set(attempts)
 
     def snapshot(self) -> dict[str, Any]:
         """Return the adapter-owned durable state."""
@@ -72,6 +83,7 @@ class DeliveryState:
             "messages": self.messages.copy(),
             "outbox": list(self.outbox),
             "summarized": sorted(self.summarized),
+            "attempted": sorted(self.attempted),
         }
 
     def enqueue(self, payload: dict[str, JSONValue]) -> None:

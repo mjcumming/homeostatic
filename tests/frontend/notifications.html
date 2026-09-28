@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Notifications settings preview</title>
+<style>:root{--primary-text-color:#e8eef2;--primary-background-color:#111;--card-background-color:#1d1d1d;--secondary-background-color:#292929;--secondary-text-color:#aaa;--divider-color:#414141;--primary-color:#19a4ce;--text-primary-color:#fff}body{margin:0;background:#111;color:#eee;font:14px Arial,sans-serif}</style></head>
+<body><div id="screen">Loading synthetic preview…</div><pre id="error"></pre><script>window.addEventListener("error",event=>{document.querySelector("#error").textContent=event.message});window.addEventListener("unhandledrejection",event=>{document.querySelector("#error").textContent=String(event.reason)});</script><script type="module">
+import {installationSettings} from "../../custom_components/homeostatic/frontend/installation-settings.mjs";
+import {styles} from "../../custom_components/homeostatic/frontend/styles.mjs";
+const screen=document.querySelector("#screen");
+if(new URLSearchParams(location.search).has("mobile")){screen.style.cssText="width:390px;max-width:100%;margin:auto;container-type:inline-size";}
+const root=screen.attachShadow({mode:"open"});
+const policy={timezone:"America/Chicago",recipients:{owner:{channels:["event"]}},digests:{},rules:[{match:{importance:["critical"]},loudness:"urgent",to:["owner"]},{match:{},loudness:"notify",to:["owner"]}]};
+const settings={timings:{settle:120,unknown_hold:900,retry_hold:120,clear_hold:120,rejoin_grace:60,startup_grace:120,startup_quiet_max:600,coalesce_count:3,coalesce_window:60,batch:30},notifications:false,consumer:null,policy,simple_notifications:{timezone:"America/Chicago",people:{michael:{level:"Important",channels:["phone:iphone"],quiet_hours:{start:"22:00",end:"07:00"}},sarah:{level:"All",channels:["phone:pixel"]}}}};
+const card={configuration:{settings:structuredClone(settings),notification_people:[{id:"michael",name:"Michael",user_id:"user-m",administrator:true},{id:"sarah",name:"Sarah",user_id:"user-s",administrator:false}],notification_destinations:[{channel:"phone:iphone",name:"iPhone 16",user_id:"user-m",available:true},{channel:"phone:pixel",name:"Pixel 9",user_id:"user-s",available:true},{channel:"notify:email",name:"Email",user_id:null,available:true}],consumers:[]},settingsDraft:settings,page:"notifications",settingsBusy:false,current:{data:{entry_id:"synthetic",functions:[]}}};
+root.innerHTML=`<style>${styles}</style>${installationSettings(card)}`;
+</script></body></html>

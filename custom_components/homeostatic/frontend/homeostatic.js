@@ -1,17 +1,20 @@
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
-  sourceMap} from "./model.mjs?v=23";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=23";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=23";
-import {diagnosticOverview} from "./evidence.mjs?v=23";
+  sourceMap} from "./model\.mjs?v=30";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem\.mjs?v=30";
+import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=30";
+import {diagnosticOverview} from "./evidence\.mjs?v=30";
 import {editCatalogRule, MATCH_FIELDS, MATCH_LABELS, monitoringScope,
-  newCatalogRule, scopeChoice, setScopeChoice} from "./configuration.mjs?v=23";
-import {styles} from "./styles.mjs?v=23";
-import {locationBranch, setBranchExpanded} from "./tree.mjs?v=23";
+  newCatalogRule, ruleSummary, scopeChoice, setScopeChoice} from "./configuration\.mjs?v=30";
+import {styles} from "./styles\.mjs?v=31";
+import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=30";
 
-import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=23";
+import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=30";
+import {sourcesBrowser, sourcesTree, sourcePaths} from "./sources-workspace\.mjs?v=30";
 
-const VIEWS = ["overview", "house", "coverage", "functions", "problems", "history", "configuration"];
+import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=32";
+
+const VIEWS = ["overview", "sources", "house", "coverage", "functions", "problems", "history", "notifications", "configuration"];
 const homeostaticOptionsUrl = (entryId) => `/config/integrations/integration/homeostatic#config_entry=${encodeURIComponent(entryId)}`;
 const status = (value) => {
   const safe = ["ready", "blocked", "unknown", "degraded", "pass", "warn", "fail"].includes(value) ? value : "unknown";
@@ -24,6 +27,7 @@ const ownerStatus = (value) => ({ready:"Available",blocked:"Unavailable",unknown
 const icon = (name) => `<ha-icon icon="mdi:${name}" aria-hidden="true"></ha-icon>`;
 const RAIL_WIDTH_KEY = "homeostatic-house-rail-width";
 const EXPLORE_LOCATION_KEY = "homeostatic-explore-location";
+const SOURCES_GROUPING_KEY = "homeostatic-sources-grouping";
 const RAIL_MIN = 300;
 const RAIL_MAX = 600;
 
@@ -39,6 +43,11 @@ function savedRailWidth() {
 function savedExploreLocation() {
   try { return window.sessionStorage.getItem(EXPLORE_LOCATION_KEY); }
   catch { return null; }
+}
+
+function savedSourcesGrouping() {
+  try { return window.sessionStorage.getItem(SOURCES_GROUPING_KEY) === "location" ? "location" : "integration"; }
+  catch { return "integration"; }
 }
 
 class HomeostaticCard extends HTMLElement {
@@ -62,10 +71,26 @@ class HomeostaticCard extends HTMLElement {
     this.configBusy = false;
     this.configQuery = "";
     this.configExpanded = new Set();
-    this.configPages = new Map();
     this.configSelection = null;
-    this.configDisclosures = new Map();
-    this.settingsSection = "monitoring";
+    this.sourcesGrouping = savedSourcesGrouping();
+    this.sourcesSelection = null;
+    this.sourcesExpanded = new Set();
+    this.sourcesQuery = "";
+    this.sourcesNeedsReview = false;
+    this.sourcesEdit = false;
+    this.sourcesView = "source";
+    this.sourcesSettingsPanel = "";
+    this.settingsSection = "timing";
+    this.settingsDraft = null;
+    this.settingsPreview = null;
+    this.settingsBusy = false;
+    this.settingsError = null;
+    this.settingsNotice = null;
+    this.sourcesLimits = new Map();
+    this.sourcesMobileDetail = false;
+    this.sourceDetail = null;
+    this.sourceSequence = 0;
+    this.issueSort = "oldest";
     this.configAdvancedOpen = false;
     this.configScopes = [];
     this.alertDraft = null;
@@ -80,7 +105,7 @@ class HomeostaticCard extends HTMLElement {
     this.current = {status: "loading", data: null, error: null};
     this.detail = null;
     this.detailSequence = 0;
-    this.shadowRoot.innerHTML = `<style>${styles}</style><div class="shell"><header class="header"><div class="brand">${icon("home-heart")}Homeostatic</div><nav class="nav" aria-label="Homeostatic pages"><button type="button" data-page="overview">Overview</button><button type="button" data-page="problems">Issues</button><button type="button" data-page="house">Explore</button><button type="button" data-page="coverage">Monitoring</button><button type="button" data-page="history">History</button><button type="button" data-page="configuration">Settings</button></nav><button type="button" class="button" data-action="back" hidden>Back</button></header><main aria-live="polite"></main></div><dialog aria-labelledby="detail-title"><header class="dialog-head"><div><p class="small" id="detail-label"></p><h2 id="detail-title"></h2></div><button type="button" class="button" data-action="close" aria-label="Close detail">Close</button></header><div class="dialog-body"></div></dialog>`;
+    this.shadowRoot.innerHTML = `<style>${styles}</style><div class="shell"><header class="header"><div class="brand">${icon("home-heart")}Homeostatic</div><nav class="nav" aria-label="Homeostatic pages"><button type="button" data-page="overview">Overview</button><button type="button" data-page="problems">Issues</button><button type="button" data-page="sources">Sources</button><button type="button" data-page="history">History</button><button type="button" data-page="notifications">Notifications</button><button type="button" data-page="configuration">Settings</button></nav><button type="button" class="button" data-action="back" hidden>Back</button></header><main aria-live="polite"></main></div><dialog aria-labelledby="detail-title"><header class="dialog-head"><div><p class="small" id="detail-label"></p><h2 id="detail-title"></h2></div><button type="button" class="button" data-action="close" aria-label="Close detail">Close</button></header><div class="dialog-body"></div></dialog>`;
     this.main = this.shadowRoot.querySelector("main");
     this.dialog = this.shadowRoot.querySelector("dialog");
     this.shadowRoot.addEventListener("click", (event) => this.clicked(event));
@@ -97,13 +122,37 @@ class HomeostaticCard extends HTMLElement {
         search?.setSelectionRange(position,position);
         return;
       }
+      if (event.target.matches("[data-sources-search]")) {
+        this.sourcesQuery = event.target.value;
+        const position = event.target.selectionStart;
+        this.revealSourcesSearch();
+        this.render();
+        const search = this.shadowRoot.querySelector("[data-sources-search]");
+        search?.focus();
+        search?.setSelectionRange(position,position);
+        return;
+      }
       if (event.target.matches("[data-coverage-search]")) {
         this.coverageQuery = event.target.value;
         this.render();
       }
     });
     this.shadowRoot.addEventListener("change", (event) => {
+      if (editInstallation(this,event)) return;
+      if (event.target.matches?.("[data-issue-sort]")) {this.issueSort=event.target.value;this.render();return;}
       if (this.editAlert(event)) return;
+      if (event.target.matches?.("[data-sources-group]")) {
+        this.sourcesGrouping = event.target.value;
+        try { window.sessionStorage.setItem(SOURCES_GROUPING_KEY,this.sourcesGrouping); } catch { /* Embedded storage may be unavailable. */ }
+        this.revealSourcesSelection();
+        this.render();
+        return;
+      }
+      if (event.target.matches?.("[data-sources-review]")) {
+        this.sourcesNeedsReview = event.target.checked;
+        this.render();
+        return;
+      }
       if (!this.editScope(event)) this.editRule(event);
     });
     this.shadowRoot.addEventListener("pointerdown", (event) => this.startRailResize(event));
@@ -119,10 +168,15 @@ class HomeostaticCard extends HTMLElement {
 
   setConfig(config) {
     if (config.view !== undefined && !VIEWS.includes(config.view)) {
-      throw new Error("Homeostatic view must be overview, house, coverage, history, configuration, functions, or problems.");
+      throw new Error("Homeostatic view must be overview, sources, history, notifications, configuration, functions, problems, house, or coverage.");
     }
     this.config = {...config, view: config.view ?? "overview"};
-    this.page = this.config.view;
+    this.page = ["house","coverage"].includes(this.config.view) ? "sources" : this.config.view;
+    if (this.config.view === "house") {
+      this.sourcesGrouping = "location";
+      if (this.location) this.sourcesSelection = `location:${this.location}`;
+    }
+    if (this.config.view === "coverage") this.sourcesNeedsReview = true;
     this.render();
   }
 
@@ -145,6 +199,9 @@ class HomeostaticCard extends HTMLElement {
 
   release() {
     this.tools.disconnect();
+    this.sourceObserver?.disconnect();
+    this.sourceSequence++;
+    this.sourceDetail = null;
     this.dialog.close();
     this.detail = null;
     this.removeListener?.();
@@ -166,7 +223,7 @@ class HomeostaticCard extends HTMLElement {
       this.current = value;
       this.tools.update(value);
       this.render();
-      if (this.page === "configuration" && value.status === "current" && !this.configuration && !this.configBusy) this.loadConfiguration();
+      if ((["configuration","notifications"].includes(this.page) || this.page === "sources" && this.sourcesView === "settings") && value.status === "current" && !this.configuration && !this.configBusy) this.loadConfiguration();
       if (this.pendingEpisode && value.status === "current") {
         const episodeId = this.pendingEpisode;
         this.pendingEpisode = null;
@@ -176,7 +233,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   viewIdentity() {
-    return `${this.page}:${this.page === "house" ? this.location : ""}:${this.page === "configuration" ? this.settingsSection : ""}`;
+    return `${this.page}:${this.page === "configuration" ? this.settingsSection : ""}`;
   }
 
   disclosures() {
@@ -210,7 +267,7 @@ class HomeostaticCard extends HTMLElement {
     for (let node = this.main; node; node = node.parentNode ?? node.getRootNode()?.host) {
       if (node.scrollTop || node.scrollLeft) scroll.push([node,node.scrollTop,node.scrollLeft]);
     }
-    const innerScroll = [".config-rail",".locations"].map((selector) => {
+    const innerScroll = [".config-rail",".config-detail",".locations"].map((selector) => {
       const node = this.main.querySelector(selector);
       return [selector,node?.scrollTop ?? 0,node?.scrollLeft ?? 0];
     });
@@ -229,7 +286,7 @@ class HomeostaticCard extends HTMLElement {
     for (const [selector,top,left] of state.innerScroll) {
       const node = this.main.querySelector(selector);
       if (node) {
-        node.scrollTop = top;
+        node.scrollTop = selector === ".config-detail" && this.resetSourceScroll ? 0 : top;
         node.scrollLeft = left;
       }
     }
@@ -244,11 +301,6 @@ class HomeostaticCard extends HTMLElement {
   }
 
   render() {
-    const oldDetail = this.main.querySelector(".config-detail");
-    const oldBulk = oldDetail?.querySelector("[data-config-disclosure]");
-    if (oldDetail?.dataset.selection && oldBulk) this.configDisclosures.set(oldDetail.dataset.selection,oldBulk.open);
-    const oldRail = this.main.querySelector(".config-rail");
-    const railState = oldRail ? {query:oldRail.dataset.query,top:oldRail.scrollTop} : null;
     const view = this.viewIdentity();
     if (view !== this.renderedView) this.savedPageState = this.page === "house" && this.exploreState?.location === this.location ? this.exploreState.state : null;
     else if (this.renderedCurrent) this.savedPageState = this.capturePageState();
@@ -258,7 +310,7 @@ class HomeostaticCard extends HTMLElement {
     back.hidden = this.config.navigation !== false || this.page === this.config.view;
     back.textContent = this.config.view === "house" && this.locationName
       ? `← Back to ${this.locationName} in Explore`
-      : `← Back to ${{overview:"Overview",house:"Explore",coverage:"Monitoring",functions:"Functions",problems:"Issues",history:"History",configuration:"Settings"}[this.config.view]}`;
+      : `← Back to ${{overview:"Overview",house:"Sources",coverage:"Sources",sources:"Sources",functions:"Functions",problems:"Issues",history:"History",notifications:"Notifications",configuration:"Settings"}[this.config.view]}`;
     this.shadowRoot.querySelectorAll("[data-page]").forEach((button) => {
       if (button.closest(".nav")) {
         if (button.dataset.page === this.page) button.setAttribute("aria-current", "page");
@@ -278,7 +330,8 @@ class HomeostaticCard extends HTMLElement {
       return;
     }
     const data = this.current.data;
-    if (this.page === "configuration") this.main.innerHTML = this.configurationPage();
+    if (["configuration","notifications"].includes(this.page)) this.main.innerHTML = installationSettings(this);
+    else if (this.page === "sources") this.main.innerHTML = this.sourcesPage();
     else if (this.page === "history") this.main.innerHTML = this.history(data);
     else if (this.page === "functions") this.main.innerHTML = this.functionsPanel(data);
     else if (this.page === "problems") this.main.innerHTML = this.issuesPage(data);
@@ -288,15 +341,13 @@ class HomeostaticCard extends HTMLElement {
     if (this.savedPageState) this.restorePageState(this.savedPageState);
     const configDetail = this.main.querySelector(".config-detail");
     if (configDetail) {
-      configDetail.dataset.selection = this.configSelection ?? "";
-      const bulk = configDetail.querySelector("[data-config-disclosure]");
-      if (bulk) bulk.open = this.configDisclosures.get(this.configSelection) ?? false;
-      const rail = this.main.querySelector(".config-rail");
-      rail.dataset.query = this.configQuery;
-      if (railState?.query === this.configQuery) rail.scrollTop = railState.top;
+      configDetail.dataset.selection = this.page === "sources" ? this.sourcesSelection ?? "" : this.configSelection ?? "";
     }
     this.renderedView = this.viewIdentity();
     this.renderedCurrent = true;
+    this.resetSourceScroll = false;
+    this.observeSourceBranches();
+    if (this.page === "sources") queueMicrotask(()=>this.loadSource());
   }
 
   configurationChoice(label, scope, current, detail = "") {
@@ -304,38 +355,64 @@ class HomeostaticCard extends HTMLElement {
     const index = this.configScopes.push(scope) - 1;
     const choice = scopeChoice(this.configDraft,scope);
     const option = (value, name) => `<option value="${value}"${choice === value ? " selected" : ""}>${name}</option>`;
+    const devices = scope.kind === "integration_devices";
     const choices = choice === "multiple"
-      ? '<option selected>Multiple direct rules; edit below</option>'
-      : `${option("inherit","Use matching rules")}${option("attach","Watch")}${option("exclude","Ignore availability")}`;
+      ? '<option selected>Multiple direct policies; review below</option>'
+      : `${option("inherit","Follow broader choice")}${option("attach",devices ? "Watch these devices" : "Watch")}${option("exclude",devices ? "Leave these devices unmonitored" : "Do not monitor")}`;
     const original = scopeChoice(this.configuration.rules,scope);
     const pending = original !== choice ? " · Unsaved choice" : "";
-    return `<label class="config-choice"><span>${esc(label)}${detail ? `<small>${esc(detail)}</small>` : ""}<small>Currently: ${esc(current)}</small><small>Choice: ${choice === "inherit" ? "Use other matching rules" : choice === "attach" ? "Watch; matching exclusions still apply" : choice === "exclude" ? "Ignore availability" : "Review advanced rules"}${pending}</small></span><select data-scope-index="${index}" aria-label="${esc(label)} monitoring choice"${this.configBusy || choice === "multiple" ? " disabled" : ""}>${choices}</select></label>`;
+    return `<label class="config-choice"><span>${esc(label)}${detail ? `<small>${esc(detail)}</small>` : ""}<small>Currently: ${esc(current)}${pending}</small></span><select data-scope-index="${index}" aria-label="${esc(label)} monitoring choice"${this.configBusy || choice === "multiple" ? " disabled" : ""}>${choices}</select></label>`;
   }
 
-  configurationPage() {
+  configurationPage(embedded = false) {
     const data = this.current.data;
     const intro = '<div class="intro"><div><h1>Settings</h1><p class="sub">Choose what Homeostatic watches and how it responds.</p></div></div>';
-    const sections = `<nav class="settings-nav" aria-label="Settings sections">${[
-      ["monitoring","Monitoring choices"],["alerts","Alerts & delivery"],
-    ].map(([id,label]) => `<button type="button" class="button${this.settingsSection === id ? " primary" : ""}" data-settings-section="${id}" aria-pressed="${this.settingsSection === id}">${label}</button>`).join("")}</nav>`;
-    if (this.settingsSection === "alerts") return this.alertSettingsPage(data,intro,sections);
-    const monitoringIntro = '<section class="settings-lead"><h2>Monitoring choices</h2><p class="sub">Choose an integration or device, then adjust what you expect to be available. Current monitoring stays unchanged until you review and save. Use matching rules removes a direct choice; other watch or ignore rules may still apply.</p></section>';
-    if (!this.configuration) return `${intro}${sections}${monitoringIntro}<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading monitoring rules…")}</p><button type="button" class="button" data-action="load-configuration">Reload configuration</button></div></section>`;
+    if (!embedded) return installationSettings(this);
+    if (!this.configuration) return `${intro}<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading monitoring rules…")}</p><button type="button" class="button" data-action="load-configuration">Reload configuration</button></div></section>`;
     if (this.main.querySelector(".config-tree")) {
       this.configAdvancedOpen = this.main.querySelector(".config-advanced")?.open ?? false;
     }
-    this.configScopes = [];
-    const browser = configurationBrowser(this);
     const rules = this.configDraft.map((rule, index) => {
       const fields = MATCH_FIELDS.map((field) => `<label><span>${esc(MATCH_LABELS[field])}</span><input type="text" data-rule-index="${index}" data-rule-field="match:${field}" value="${esc((rule.match?.[field] ?? []).join(", "))}" placeholder="Any" autocomplete="off"></label>`).join("");
-      return `<section class="config-rule"><div class="config-rule-head"><label><span>Rule ID</span><input type="text" data-rule-index="${index}" data-rule-field="id" value="${esc(rule.id)}" spellcheck="false"></label><label><span>Action</span><select data-rule-index="${index}" data-rule-field="action"><option value="attach"${rule.action === "attach" ? " selected" : ""}>Watch availability</option><option value="exclude"${rule.action === "exclude" ? " selected" : ""}>Exclude</option></select></label><label class="config-enabled"><input type="checkbox" data-rule-index="${index}" data-rule-field="enabled"${rule.enabled !== false ? " checked" : ""}> Enabled</label><button type="button" class="link" data-remove-rule="${index}">Remove</button></div><details class="config-matches"><summary>Match sources · ${esc(Object.keys(rule.match ?? {}).join(", ") || "all eligible sources")}</summary><p class="sub">Fields combine with AND; comma-separated values within one field combine with OR. Empty fields match anything. Exclusions always win.</p><div class="config-fields">${fields}</div></details></section>`;
+      return `<details class="config-rule"><summary>${esc(ruleSummary(rule))}</summary><div class="config-rule-head"><label><span>Action</span><select data-rule-index="${index}" data-rule-field="action"><option value="attach"${rule.action === "attach" ? " selected" : ""}>Watch availability</option><option value="exclude"${rule.action === "exclude" ? " selected" : ""}>Leave unmonitored</option></select></label><label class="config-enabled"><input type="checkbox" data-rule-index="${index}" data-rule-field="enabled"${rule.enabled !== false ? " checked" : ""}> Enabled</label><button type="button" class="link" data-remove-rule="${index}">Remove</button></div><div class="config-fields">${fields}</div><p class="small">All filled conditions must match. Any listed value within one condition can match.</p></details>`;
     }).join("");
     const preview = this.configPreview;
-    const changes = (items, count, label) => count ? `<div><strong>${count} ${label}</strong><ul>${items.map((item) => `<li>${esc(item.name)} <span class="small">${esc(item.node_id)}</span></li>`).join("")}</ul>${count > items.length ? `<p class="small">Showing the first ${items.length}.</p>` : ""}</div>` : `<p>No sources ${label}.</p>`;
-    const result = preview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Preview of current inventory</h2></div><div class="body"><p><strong>${preview.watched}</strong> watched sources after this change.</p><div class="config-change-list">${changes(preview.added,preview.added_count,"newly watched")}${changes(preview.removed,preview.removed_count,"no longer watched")}</div><details><summary>Rule match counts</summary><ul>${preview.matches.map((item) => `<li>${esc(item.id)}: ${item.matches} matching sources</li>`).join("")}</ul></details>${preview.functions.length ? `<details><summary>Function readiness from current evidence</summary><ul>${preview.functions.map((item) => `<li>${esc(item.name)}: ${esc(item.readiness.answer)}${item.requirements.some((source) => source.monitoring === "excluded" || source.monitoring === "unwatched") ? " · has an unwatched requirement" : ""}</li>`).join("")}</ul><p class="small">This preview does not replay existing holds or episode history.</p></details>` : ""}<p class="small">This preview uses current Home Assistant evidence. New devices may match these rules later.</p></div></section>` : "";
-    const advanced = `<details class="config-advanced"${this.configAdvancedOpen ? " open" : ""}><summary>Advanced rules · ${this.configDraft.length}</summary><div class="body"><p class="sub">Edit combinations such as areas, labels, or device classes here. These are the same rules used by the choices above.</p><button type="button" class="button" data-action="add-rule"${this.configBusy ? " disabled" : ""}>Add advanced rule</button><fieldset class="config-editor"${this.configBusy ? " disabled" : ""}>${rules || '<p>No rules. Nothing is selected for passive monitoring.</p>'}</fieldset></div></details>`;
-    const actions = `<section class="panel config-review"><div><strong>${JSON.stringify(this.configDraft) === JSON.stringify(this.configuration.rules) ? "No unsaved monitoring choices" : "Unsaved monitoring choices"}</strong><p class="small">${preview ? "Review the preview below, then save your choices." : "Review the effective result before saving. Matching exclusions take precedence."}</p></div><div><div class="config-actions"><button type="button" class="button" data-action="preview-configuration"${this.configBusy ? " disabled" : ""}>Review changes</button><button type="button" class="button primary" data-action="save-configuration"${!preview || this.configBusy ? " disabled" : ""}>Save choices</button><button type="button" class="link" data-action="load-configuration"${this.configBusy ? " disabled" : ""}>Discard edits and reload</button></div>${this.configError ? `<p class="config-error" role="alert">${esc(this.configError)}</p>` : ""}</div></section>`;
-    return `${intro}${sections}${monitoringIntro}${actions}${result}${browser}<section class="panel">${advanced}</section>`;
+    const changes = (items, count, label) => count ? `<div><strong>${count} ${label}</strong><ul>${items.map((item) => `<li>${esc(item.name)}</li>`).join("")}</ul>${count > items.length ? `<p class="small">Showing the first ${items.length}.</p>` : ""}</div>` : `<p>No sources ${label}.</p>`;
+    const result = preview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Review monitoring changes</h2></div><div class="body"><p><strong>${preview.watched}</strong> watched sources after this change.</p><div class="config-change-list">${changes(preview.added,preview.added_count,"newly watched")}${changes(preview.removed,preview.removed_count,"no longer watched")}</div>${preview.functions.length ? `<details><summary>Function readiness from current evidence</summary><ul>${preview.functions.map((item) => `<li>${esc(item.name)}: ${esc(item.readiness.answer)}${item.requirements.some((source) => source.monitoring === "excluded" || source.monitoring === "unwatched") ? " · has an unwatched requirement" : ""}</li>`).join("")}</ul><p class="small">This preview does not replay existing holds or episode history.</p></details>` : ""}<p class="small">This preview uses current Home Assistant evidence. New devices may match these rules later.</p></div></section>` : "";
+    const advanced = `<details class="config-advanced"${this.configAdvancedOpen ? " open" : ""}><summary>Custom policies (${this.configDraft.length})</summary><div class="body"><p class="sub">These policies explain broader choices, including future matches. Select one to inspect or edit its conditions.</p><button type="button" class="button" data-action="add-rule"${this.configBusy ? " disabled" : ""}>Add custom policy</button><fieldset class="config-editor"${this.configBusy ? " disabled" : ""}>${rules || '<p>No broad policies saved.</p>'}</fieldset></div></details>`;
+    const changed=JSON.stringify(this.configDraft)!==JSON.stringify(this.configuration.rules);
+    const actions = `<section class="config-review">${changed?`<div class="config-actions"><span class="small">Unsaved monitoring choices</span><button type="button" class="button primary" data-action="${preview?'save-configuration':'preview-configuration'}"${this.configBusy?' disabled':''}>${preview?'Save choices':'Review changes'}</button><button type="button" class="link" data-action="discard-monitoring"${this.configBusy?' disabled':''}>Discard</button></div>`:'<p class="small">Changes are reviewed before saving.</p>'}${this.configError?`<p class="config-error" role="alert">${esc(this.configError)}</p>`:''}</section>`;
+    return `${result}${actions}${advanced}`;
+  }
+
+  sourcesPage() {
+    const intro = '<div class="intro"><div><h1>Sources</h1></div></div>';
+    this.configScopes = [];
+    this.sourcesSettingsPanel = this.sourcesView === "settings"
+      ? this.configuration ? this.configurationPage(true)
+        : `<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading monitoring choices…")}</p><button type="button" class="button" data-action="load-configuration">Reload choices</button></div></section>` : "";
+    return intro + sourcesBrowser(this);
+  }
+
+  revealSourcesSelection() {
+    if (this.current.status !== "current") return;
+    this.sourcesExpanded ??= new Set();
+    this.sourcesGrouping ??= "integration";
+    const paths = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping));
+    const selected = paths.get(this.sourcesSelection);
+    if (selected) for (const parent of selected.parents) this.sourcesExpanded.add(parent.key);
+  }
+
+  revealSourcesSearch() {
+    if (this.current.status !== "current") return;
+    const needle = this.sourcesQuery.trim().toLocaleLowerCase();
+    if (!needle) return;
+    const paths = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping,key=>this._hass?.localize?.(key)));
+    for (const {node,parents} of paths.values()) {
+      if ([node.name,node.source?.entity_id].filter(Boolean).join(" ").toLocaleLowerCase().includes(needle)) {
+        for (const parent of parents) this.sourcesExpanded.add(parent.key);
+      }
+    }
   }
 
   alertSettingsPage(data, intro, sections) {
@@ -366,15 +443,14 @@ class HomeostaticCard extends HTMLElement {
 
   expandConfigurationMatches(query) {
     this.configExpanded = new Set();
-    this.configPages = new Map();
     if (!query.trim()) return;
     const index = monitoringIndex(monitoringNavigation(this.current.data,query));
     for (const node of index.values()) {
-      if (node.children.length && node.type !== "device" && !node.children.every((child) => child.type === "entity")) this.configExpanded.add(node.key);
+      if (node.children.length && node.type === "integration") this.configExpanded.add(node.key);
     }
     const exact = [...index.values()].find((node) => node.source?.entity_id === query || node.source?.name === query);
     this.configSelection = exact?.key ?? index.keys().next().value;
-    if (exact) revealMonitoringPath(monitoringNavigation(this.current.data,query),exact.key,this.configExpanded,this.configPages);
+    if (exact) revealMonitoringPath(monitoringNavigation(this.current.data,query),exact.key,this.configExpanded);
   }
 
   selectConfiguration(key) {
@@ -384,20 +460,28 @@ class HomeostaticCard extends HTMLElement {
       this.configQuery = "";
       tree = monitoringNavigation(this.current.data);
     }
-    revealMonitoringPath(tree,key,this.configExpanded,this.configPages);
+    revealMonitoringPath(tree,key,this.configExpanded);
     this.render();
     this.shadowRoot.querySelector("#config-detail-title")?.focus({preventScroll:true});
+    if (this.getBoundingClientRect().width <= 900) {
+      this.shadowRoot.querySelector(".config-detail")?.scrollIntoView({block:"start"});
+    }
   }
 
-  async loadConfiguration() {
+  async loadConfiguration(reset = "all") {
     if (this.configBusy) return;
     this.configBusy = true;
     this.configError = null;
     this.render();
     try {
       const result = await this._hass.callWS({type:"homeostatic/configuration"});
+      const previous = this.configuration;
+      const monitoringDirty = previous && JSON.stringify(this.configDraft) !== JSON.stringify(previous.rules);
+      const settingsDirty = previous && JSON.stringify(this.settingsDraft) !== JSON.stringify(previous.settings);
       this.configuration = result;
-      this.configDraft = structuredClone(result.rules);
+      if (reset !== "settings" || !monitoringDirty) this.configDraft = structuredClone(result.rules);
+      if (reset !== "monitoring" || !settingsDirty) this.settingsDraft = structuredClone(result.settings);
+      this.settingsPreview = null;
       this.configPreview = null;
       this.alertDraft = {notifications:result.alerts.notifications,consumer:result.alerts.consumer};
       this.alertPreview = null;
@@ -406,7 +490,7 @@ class HomeostaticCard extends HTMLElement {
       this.configError = error?.message ?? "Could not load configuration.";
     } finally {
       this.configBusy = false;
-      if (this.page === "configuration") this.render();
+      if (["configuration","notifications","sources"].includes(this.page)) this.render();
     }
   }
 
@@ -420,7 +504,9 @@ class HomeostaticCard extends HTMLElement {
     this.shadowRoot.querySelector(".config-preview")?.remove();
     const pending = this.shadowRoot.querySelector(".config-review strong");
     if (pending) pending.textContent = "Unsaved monitoring choices";
-    this.shadowRoot.querySelector('[data-action="save-configuration"]')?.setAttribute("disabled", "");
+    const action=this.shadowRoot.querySelector('[data-action="save-configuration"],[data-action="preview-configuration"]');
+    if(action){action.dataset.action="preview-configuration";action.textContent="Review changes";}
+    else this.render();
     return true;
   }
 
@@ -441,11 +527,12 @@ class HomeostaticCard extends HTMLElement {
     if (!scope || !setScopeChoice(this.configDraft,scope,event.target.value)) return false;
     this.configPreview = null;
     this.render();
-    this.shadowRoot.querySelector(`[data-scope-index="${index}"]`)?.focus();
+    this.shadowRoot.querySelector(`[data-scope-index="${index}"][value="${event.target.value}"]`)?.focus({preventScroll:true});
     return true;
   }
 
   async previewConfiguration() {
+    if (this.current.status !== "current" || !this.configuration || this.configBusy) return;
     this.configBusy = true;
     this.configError = null;
     this.render();
@@ -461,14 +548,14 @@ class HomeostaticCard extends HTMLElement {
   }
 
   async saveConfiguration() {
-    if (!this.configPreview || this.configBusy) return;
+    if (this.current.status !== "current" || !this.configPreview || this.configBusy || this.settingsBusy) return;
     this.configBusy = true;
     this.configError = null;
     this.render();
     try {
       await this._hass.callWS({type:"homeostatic/save_configuration",revision:this.configuration.revision,preview_token:this.configPreview.preview_token,rules:this.configDraft});
       this.configBusy = false;
-      await this.loadConfiguration();
+      await this.loadConfiguration("monitoring");
       return;
     } catch (error) {
       this.configError = error?.message ?? "Could not save monitoring rules.";
@@ -516,6 +603,64 @@ class HomeostaticCard extends HTMLElement {
     }
   }
 
+  async loadSource(force = false) {
+    if (this.page !== "sources" || this.sourcesView !== "source" || this.current.status !== "current") return;
+    const selected = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping)).get(this.sourcesSelection)?.node;
+    const nodeId = selected?.source?.node_id;
+    if (!nodeId) return;
+    const stamp = this.current.data.updated_at;
+    if (!force && this.sourceDetail?.nodeId === nodeId && this.sourceDetail.stamp === stamp) return;
+    const sequence = ++this.sourceSequence;
+    this.sourceDetail = {nodeId,stamp,loading:true};
+    try {
+      const result = await this._hass.callWS({type:"homeostatic/source",node_id:nodeId});
+      if (sequence !== this.sourceSequence) return;
+      this.sourceDetail = {...result,nodeId,stamp};
+    } catch (error) {
+      if (sequence !== this.sourceSequence) return;
+      this.sourceDetail = {nodeId,stamp,error:error?.message || "Could not read this source."};
+    }
+    if (this.page === "sources") this.render();
+  }
+
+  observeSourceBranches() {
+    this.sourceObserver?.disconnect();
+    if (this.page !== "sources" || typeof IntersectionObserver === "undefined") return;
+    const rail = this.main.querySelector(".config-rail");
+    const desktop = this.getBoundingClientRect().width > 760;
+    this.sourceObserver = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry=>entry.isIntersecting && entry.target.isConnected);
+      if (!visible.length) return;
+      for (const entry of visible) {
+        const key = entry.target.dataset.sourceMore;
+        this.sourcesLimits.set(key,(this.sourcesLimits.get(key)||80)+80);
+      }
+      this.render();
+    },{root:desktop?rail:null,rootMargin:"120px"});
+    this.main.querySelectorAll("[data-source-more]").forEach(element=>this.sourceObserver.observe(element));
+  }
+
+  async previewSettings() {
+    if (!this.settingsDraft || this.settingsBusy || this.configBusy || this.current.status !== "current") return;
+    if ([...this.main.querySelectorAll(".installation-editor input")].some(input=>!input.reportValidity())) return;
+    this.settingsBusy = true;this.settingsError = null;this.render();
+    try {
+      this.settingsPreview = await this._hass.callWS({type:"homeostatic/preview_settings",revision:this.configuration.revision,settings:this.settingsDraft});
+    } catch (error) {this.settingsError=error?.message||"Could not preview settings.";this.settingsPreview=null;}
+    finally {this.settingsBusy=false;this.render();this.main.querySelector(".settings-preview")?.scrollIntoView({block:"nearest"});}
+  }
+
+  async saveSettings() {
+    if (!this.settingsPreview || this.settingsBusy || this.configBusy) return;
+    this.settingsBusy=true;this.settingsError=null;this.render();
+    try {
+      await this._hass.callWS({type:"homeostatic/save_settings",revision:this.configuration.revision,preview_token:this.settingsPreview.preview_token,settings:this.settingsDraft});
+      await this.loadConfiguration("settings");
+      this.settingsNotice=this.page==="notifications"?"Notifications saved.":"Settings saved.";
+    } catch(error) {this.settingsError=error?.message||"Could not save settings.";}
+    finally {this.settingsBusy=false;this.render();}
+  }
+
   displaySourceName(source) {
     if (source?.kind !== "integration") return source?.name ?? "Monitored source";
     const provider = integrationProblem(source,[],(key) => this._hass.localize?.(key)).integration;
@@ -535,21 +680,28 @@ class HomeostaticCard extends HTMLElement {
     const labels = {failure:"Reported problem",retrying:"Connection retrying",uncertain:"Availability to review",
       neutral:"Configuration review",recovering:"Confirming recovery",situation:"Active situation"};
     const context = problem?.context ?? problem?.integration ?? (situation ? "Situation" : "Home Assistant");
+    const deviceCondition = source?.kind === "device" ? {
+      incomplete_evidence:"Review selected entities",some_unavailable:"Some selected entities unavailable",
+      all_unavailable:"All selected entities unavailable",
+    }[problem?.currentReason] : null;
     const impact = affected.map((item) => `${item.name}: ${ownerStatus(item.readiness.answer).toLowerCase()}`).join("; ");
-    return `<article class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}"><div class="issue-copy"><p class="small">${esc(labels[tone] ?? "Current issue")} · ${esc(context)}${["high","critical"].includes(episode.importance) ? ` · ${esc(episode.importance === "critical" ? "Critical" : "Important")}` : ""}</p><h3>${esc(this.displaySourceName(source))}</h3><p>${esc(problem?.headline ?? "Current condition needs review")}</p>${impact ? `<p class="impact-line">Function status: ${esc(impact)}</p>` : ""}<p class="small">Recorded ${esc(date(episode.opened_at))}</p></div><button type="button" class="button" data-episode="${esc(episode.episode_id)}">View details</button></article>`;
+    return `<article class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}"><div class="issue-copy"><p class="small">${esc(context)}${["high","critical"].includes(episode.importance) ? ` · ${esc(episode.importance === "critical" ? "Critical" : "Important")}` : ""}</p><h3>${esc(this.displaySourceName(source))}</h3><p>${esc(deviceCondition ?? problem?.headline ?? "Current condition needs review")}</p>${impact ? `<p class="impact-line">Function status: ${esc(impact)}</p>` : ""}<p class="small">Open since ${esc(date(episode.opened_at))}</p></div><div class="actions"><button type="button" class="button" data-episode="${esc(episode.episode_id)}">View details</button>${source && !situation ? `<button type="button" class="link" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}</div></article>`;
   }
 
   issuesPanel(data, episodes, recent = false) {
     const total = data.inventory.episodes.length;
-    const title = recent ? "Recent issues" : "Open issues";
-    const rows = episodes.map((episode) => this.issueRow(data, episode)).join("");
-    const empty = '<div class="body"><p>No open issues reported. Review Monitoring for what these checks can establish.</p></div>';
-    return `<section class="panel issues-panel"><div class="panel-head"><div><h2>${title}</h2>${recent ? '<p class="small">The three most recently recorded open issues</p>' : '<p class="small">Ordered by importance, then longest open</p>'}</div><span class="small">${total} open</span></div>${rows || empty}${recent && total ? '<div class="body issues-footer"><button type="button" class="link" data-page="problems">View all issues →</button></div>' : ""}</section>`;
+    const rows = episodes.map(episode => this.issueRow(data,episode)).join("");
+    return `<section class="panel issues-panel">${recent?'<div class="panel-head"><h2>Recent issues</h2></div>':''}${rows||'<div class="body"><p>No open issues.</p></div>'}${recent&&total?'<div class="body issues-footer"><button type="button" class="link" data-page="problems">View all issues →</button></div>':''}</section>`;
   }
 
   issuesPage(data) {
-    return `<div class="intro"><div><h1>Issues</h1><p class="sub">Current problems, situations, and conditions needing review.</p></div><span class="small">Updated ${esc(date(data.updated_at))}</span></div>${this.issuesPanel(data, sortedEpisodes(data))}`;
+    let episodes = sortedEpisodes(data);
+    if(this.issueSort==="newest") episodes=episodes.sort((a,b)=>b.opened_at.localeCompare(a.opened_at));
+    else if(this.issueSort==="name") {const nodes=sourceMap(data);episodes=episodes.sort((a,b)=>this.displaySourceName(nodes.get(a.anchor)).localeCompare(this.displaySourceName(nodes.get(b.anchor))));}
+    else if(this.issueSort==="oldest") episodes=episodes.sort((a,b)=>a.opened_at.localeCompare(b.opened_at));
+    return `<div class="intro"><h1>Issues</h1></div><div class="issues-toolbar"><span>${episodes.length} open</span><label>Sort by <select data-issue-sort>${[["oldest","Longest open"],["newest","Newest first"],["name","Device name"],["importance","Importance, then longest open"]].map(([id,label])=>`<option value="${id}"${this.issueSort===id?' selected':''}>${label}</option>`).join('')}</select></label></div>${this.issueSort==="importance"?'<p class="small">Uses each source’s configured importance: critical, high, normal, then low. Sources default to normal.</p>':''}${this.issuesPanel(data,episodes)}`;
   }
+
 
   functionsPanel(data, selected = data.functions, heading = "Home functions") {
     const nodes = sourceMap(data);
@@ -561,15 +713,9 @@ class HomeostaticCard extends HTMLElement {
 
   overview(data) {
     const total = data.inventory.episodes.length;
-    const notReady = data.functions.filter((item) => item.readiness.answer !== "ready").length;
-    const evidence = Math.max(0, data.evidence_gaps - Number(Boolean(data.coverage.notification_consumer_missing)));
-    const notification = !data.policy.notifications_enabled ? "Off"
-      : data.coverage.notification_consumer_missing ? "Consumer missing" : "Requests on";
+    const notification = !data.policy.notifications_enabled ? "Off" : data.coverage.notification_consumer_missing ? "Needs setup" : "On";
     const activeControls = (data.inventory.operator_controls ?? []).length;
-    const recentlyResolved = data.inventory.resolved_history?.episodes?.length ?? 0;
-    const functionValue = data.functions.length ? String(notReady) : "Not configured";
-    const functionNote = data.functions.length ? `${data.functions.length} defined` : "No home functions defined";
-    return `<div class="intro"><div><h1>Overview</h1><p class="sub">A current view of your house and its monitoring.</p></div><span class="small">Updated ${esc(date(data.updated_at))}</span></div><div class="overview-stats"><button type="button" class="overview-stat" data-page="problems"><span>Open issues</span><strong>${total}</strong><small>Problems and active situations</small></button><button type="button" class="overview-stat" data-page="functions"><span>Functions not confirmed ready</span><strong>${esc(functionValue)}</strong><small>${esc(functionNote)}</small></button><button type="button" class="overview-stat" data-page="coverage"><span>Evidence to review</span><strong>${evidence}</strong><small>${data.inventory.catalog.watched} sources selected for HA checks</small></button><button type="button" class="overview-stat" data-settings-section="alerts"><span>Notification requests</span><strong>${esc(notification)}</strong><small>Review alert settings</small></button></div>${this.issuesPanel(data, recentEpisodes(data), true)}${activeControls ? controlsPanel(data) : ""}${recentlyResolved ? `<p class="home-history-link"><button type="button" class="link" data-page="history">${recentlyResolved} recently resolved · View history →</button></p>` : ""}`;
+    return `<div class="intro"><h1>Overview</h1><span class="small">Updated ${esc(date(data.updated_at))}</span></div><div class="overview-stats"><button type="button" class="overview-stat" data-page="problems"><span>Open issues</span><strong>${total}</strong><small>${total?'Review what needs attention':'No open problems reported'}</small></button><button type="button" class="overview-stat" data-page="notifications"><span>Notification requests</span><strong>${esc(notification)}</strong><small>${notification==='Off'?'Issues still appear here':notification==='On'?'Requests are enabled':'Check notification destinations'}</small></button></div>${this.issuesPanel(data,recentEpisodes(data),true)}${activeControls?controlsPanel(data):''}`;
   }
 
   history(data) {
@@ -777,6 +923,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   clicked(event) {
+    if (editInstallation(this,event)) return;
     const locationToggle = event.target.closest?.("[data-location-toggle]");
     if (locationToggle) {
       const button = locationToggle.closest("button.location-parent");
@@ -788,6 +935,47 @@ class HomeostaticCard extends HTMLElement {
     }
     const button = event.target.closest("button");
     if (!button) return;
+    if (button.dataset.sourceMore) {const key=button.dataset.sourceMore;this.sourcesLimits.set(key,(this.sourcesLimits.get(key)||80)+80);this.render();return;}
+    if (button.dataset.action === "back-sources") {this.sourcesMobileDetail=false;this.render();[...this.main.querySelectorAll("[data-sources-select]")].find(item=>item.dataset.sourcesSelect===this.sourcesSelection)?.focus();return;}
+    if (button.dataset.action === "all-sources") {this.sourcesNeedsReview=false;this.render();return;}
+    if (button.dataset.action === "refresh-source") {this.loadSource(true);return;}
+    if (button.dataset.action === "preview-settings") {this.previewSettings();return;}
+    if (button.dataset.action === "save-settings") {this.saveSettings();return;}
+    if (button.dataset.action === "discard-settings") {this.loadConfiguration("settings");return;}
+    if (button.dataset.action === "discard-monitoring") {this.loadConfiguration("monitoring");return;}
+    if (button.dataset.sourcesToggle !== undefined) {
+      const key = button.dataset.sourcesToggle;
+      if (this.sourcesExpanded.has(key)) this.sourcesExpanded.delete(key);
+      else this.sourcesExpanded.add(key);
+      this.render();
+      [...this.shadowRoot.querySelectorAll("[data-sources-toggle]")].find((item) => item.dataset.sourcesToggle === key)?.focus();
+      return;
+    }
+    if (button.dataset.sourcesSelect !== undefined) {
+      this.sourcesSelection = button.dataset.sourcesSelect;
+      this.sourcesMobileDetail = true;
+      this.resetSourceScroll = true;
+      this.revealSourcesSelection();
+      this.render();
+      this.shadowRoot.querySelector("#sources-detail-title")?.focus({preventScroll:true});
+      if (this.getBoundingClientRect().width <= 760) this.shadowRoot.querySelector(".source-heading")?.scrollIntoView({block:"start"});
+      return;
+    }
+    if (button.dataset.sourcesView) {
+      this.sourcesView = button.dataset.sourcesView;
+      this.resetSourceScroll = true;
+      this.render();
+      if (this.sourcesView === "settings" && !this.configuration) this.loadConfiguration();
+      return;
+    }
+    if (button.dataset.action === "collapse-sources") {this.sourcesExpanded.clear(); this.render(); return;}
+    if (button.dataset.action === "edit-sources") {
+      this.sourcesEdit = true;
+      this.sourcesView = "settings";
+      this.render();
+      if (!this.configuration) this.loadConfiguration();
+      return;
+    }
     if (button.dataset.configToggle !== undefined) {
       const key = button.dataset.configToggle;
       if (this.configExpanded.has(key)) this.configExpanded.delete(key);
@@ -797,14 +985,6 @@ class HomeostaticCard extends HTMLElement {
       return;
     }
     if (button.dataset.configSelect !== undefined) {this.selectConfiguration(button.dataset.configSelect); return;}
-    if (button.dataset.configPage !== undefined) {
-      const key = button.dataset.configPage;
-      this.configPages.set(key,Number(button.dataset.pageNumber));
-      this.render();
-      const controls = [...this.shadowRoot.querySelectorAll("[data-config-page]")].filter((item) => item.dataset.configPage === key);
-      (controls.find((item) => !item.disabled) ?? controls[0])?.focus();
-      return;
-    }
     if (button.dataset.action === "collapse-config") {this.configExpanded.clear(); this.render(); this.shadowRoot.querySelector('[data-action="collapse-config"]')?.focus(); return;}
     if (button.dataset.action === "clear-config-search") {this.configQuery = ""; this.expandConfigurationMatches(""); this.render(); this.shadowRoot.querySelector("[data-config-search]")?.focus(); return;}
     if (button.dataset.coverageToggle) {
@@ -812,11 +992,9 @@ class HomeostaticCard extends HTMLElement {
       this.render();
     }
     else if (button.dataset.coverageSource) {
-      this.rememberExploreState();
-      this.coverageSelection = new Set([button.dataset.coverageSource]);
-      this.coverageLocation = null;
-      this.coverageQuery = "";
-      this.page = "coverage";
+      this.sourcesSelection = `source:${button.dataset.coverageSource}`;
+      this.page = "sources";
+      this.revealSourcesSelection();
       this.render();
     }
     else if (button.hasAttribute("data-location-coverage")) {
@@ -825,7 +1003,10 @@ class HomeostaticCard extends HTMLElement {
       this.coverageSelection = new Set(selected?.sources.map((source) => source.node_id) ?? []);
       this.coverageLocation = selected?.name ?? null;
       this.coverageQuery = "";
-      this.page = "coverage";
+      this.page = "sources";
+      this.sourcesGrouping = "location";
+      this.sourcesSelection = selected ? `location:${selected.id}` : null;
+      this.revealSourcesSelection();
       this.render();
     }
     else if (button.dataset.page) {
@@ -835,24 +1016,44 @@ class HomeostaticCard extends HTMLElement {
         this.coverageLocation = null;
         this.coverageQuery = "";
       }
-      this.page = button.dataset.page;
+      this.page = ["house","coverage"].includes(button.dataset.page) ? "sources" : button.dataset.page;
+      if (button.dataset.page === "coverage") this.sourcesNeedsReview = true;
+      if (button.dataset.page === "house") this.sourcesGrouping = "location";
       this.render();
-      if (this.page === "configuration" && !this.configuration) this.loadConfiguration();
+      if (["configuration","notifications"].includes(this.page) && !this.configuration) this.loadConfiguration();
+    }
+    else if (button.dataset.settingsSection === "monitoring") {
+      this.page = "sources";
+      this.sourcesEdit = true;
+      this.sourcesView = "settings";
+      this.render();
+      if (!this.configuration) this.loadConfiguration();
     }
     else if (button.dataset.settingsSection) {
       this.rememberExploreState();
-      this.page = "configuration";
-      this.settingsSection = button.dataset.settingsSection;
+      this.page = button.dataset.settingsSection==="notifications"||button.dataset.settingsSection==="alerts"?"notifications":"configuration";
+      if (this.page==="configuration") this.settingsSection = button.dataset.settingsSection;
       this.render();
       if (!this.configuration) this.loadConfiguration();
     }
     else if (button.dataset.removeRule !== undefined) {this.configDraft.splice(Number(button.dataset.removeRule),1); this.configPreview = null; this.render();}
     else if (button.dataset.ignoreAvailability) this.ignoreAvailability(button.dataset.ignoreAvailability);
-    else if (button.dataset.configSource) {this.dialog.close(); this.configQuery = button.dataset.configSource; this.expandConfigurationMatches(this.configQuery); this.settingsSection = "monitoring"; this.page = "configuration"; this.render(); if (!this.configuration) this.loadConfiguration();}
-    else if (button.dataset.location) {this.location = button.dataset.location; this.page = "house"; this.render();}
+    else if (button.dataset.configSource) {
+      this.dialog.close();
+      const source = this.current.status === "current" ? inventoryRows(this.current.data).find((item) => item.node_id === button.dataset.configSource) : null;
+      if (source) {this.sourcesSelection = `source:${source.node_id}`; this.sourcesQuery = ""; this.revealSourcesSelection();}
+      else {this.sourcesQuery = button.dataset.configSource; this.revealSourcesSearch();}
+      this.page = "sources";
+      this.sourcesEdit = true;
+      this.sourcesView = "settings";
+      this.render();
+      if (!this.configuration) this.loadConfiguration();
+    }
+    else if (button.dataset.sourceLink) {this.dialog.close(); this.sourcesMobileDetail=true; this.sourcesView="source"; this.resetSourceScroll=true; this.sourcesSelection = `source:${button.dataset.sourceLink}`; this.page = "sources"; this.revealSourcesSelection(); this.render();}
+    else if (button.dataset.location) {this.location = button.dataset.location; this.sourcesGrouping = "location"; this.sourcesSelection = `location:${this.location}`; this.page = "sources"; this.revealSourcesSelection(); this.render();}
     else if (button.dataset.node) this.openDetail({nodeId: button.dataset.node});
     else if (button.dataset.episode) this.openDetail({episodeId: button.dataset.episode});
-    else if (button.dataset.action === "back") {this.page = this.config.view; this.render();}
+    else if (button.dataset.action === "back") {this.page = ["house","coverage"].includes(this.config.view) ? "sources" : this.config.view; this.render();}
     else if (button.dataset.action === "close") this.dialog.close();
     else if (button.dataset.action === "retry") this.store?.retry();
     else if (button.dataset.action === "add-rule") {this.configDraft.push(newCatalogRule(this.configDraft)); this.configPreview = null; this.render();}
@@ -872,6 +1073,15 @@ class HomeostaticCard extends HTMLElement {
       else this.configExpanded.delete(key);
       this.render();
       [...this.shadowRoot.querySelectorAll("[data-config-toggle]")].find((item) => item.dataset.configToggle === key)?.focus();
+      return;
+    }
+    if (event.target.matches?.("[data-sources-toggle]") && ["ArrowLeft","ArrowRight"].includes(event.key)) {
+      event.preventDefault();
+      const key = event.target.dataset.sourcesToggle;
+      if (event.key === "ArrowRight") this.sourcesExpanded.add(key);
+      else this.sourcesExpanded.delete(key);
+      this.render();
+      [...this.shadowRoot.querySelectorAll("[data-sources-toggle]")].find((item) => item.dataset.sourcesToggle === key)?.focus();
       return;
     }
     if (event.target.matches?.(".rail-resizer")) {
@@ -901,8 +1111,9 @@ class HomeostaticCard extends HTMLElement {
     const source = inventoryRows(this.current.data).find((item) => item.node_id === nodeId);
     if (!source) return;
     this.dialog.close();
-    this.settingsSection = "monitoring";
-    this.page = "configuration";
+    this.sourcesEdit = true;
+    this.sourcesView = "settings";
+    this.page = "sources";
     if (!this.configuration) await this.loadConfiguration();
     if (!this.configuration || this.current.status !== "current") return;
     const scope = monitoringScope("entity",nodeId,source);
@@ -911,8 +1122,8 @@ class HomeostaticCard extends HTMLElement {
     } else {
       this.configError = null;
     }
-    this.configQuery = source.entity_id ?? source.name;
-    this.expandConfigurationMatches(this.configQuery);
+    this.sourcesSelection = `source:${source.node_id}`;
+    this.revealSourcesSelection();
     this.configPreview = null;
     this.render();
   }
@@ -956,30 +1167,36 @@ class HomeostaticCard extends HTMLElement {
       const problem = deviceProblem(source, result.entity_status, Boolean(episode)) ??
         integrationProblem(source, findings, (key) => this._hass.localize?.(key), result.integration_evidence, Boolean(episode)) ??
         entityProblem(source, result.entity_status, nodes.get(`entry:${source.owner_id}`), data.areas, (key) => this._hass.localize?.(key), Boolean(episode));
-      const memberEvidence = result.device_evidence;
-      const availabilityChoices = memberEvidence ? `<section class="detail"><h3>Entities expected to be available</h3><p class="small">Current Home Assistant states. Ignoring availability opens a draft monitoring change for preview and save.</p><ul>${memberEvidence.members.map((member) => `<li><strong>${esc(member.name)}</strong> · ${esc(member.restored ? "Restored; current value unknown" : member.state)} <button class="link" type="button" data-ignore-availability="${esc(member.node_id)}">Ignore availability…</button></li>`).join("")}</ul><p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} selected entities.</p><button class="link" type="button" data-config-source="${esc(source.name)}">Review all monitoring choices</button></section>` : source.kind === "entity" ? `<section class="detail"><button class="button" type="button" data-ignore-availability="${esc(source.node_id)}">Ignore this availability check…</button><p class="small">Opens a draft monitoring change for preview and save. Home Assistant state stays unchanged.</p></section>` : "";
+      const memberEvidence = result.device_evidence?.total ? result.device_evidence : null;
+      const uncertainMembers = memberEvidence?.members.filter((member) => member.restored || ["unknown", "unavailable", "missing"].includes(member.state)) ?? [];
+      const expanded = new Set([...body.querySelectorAll("details[open][data-disclosure]")].map((item) => item.dataset.disclosure));
+      const disclosure = (key) => `data-disclosure="${key}"${expanded.has(key) ? " open" : ""}`;
+      const integrationDomains = source.attributes?.integration_domain ?? [];
+      const deviceIntegrations = [...new Set(integrationDomains.map((domain) => integrationProblem({kind:"integration",attributes:{domain:[domain]}},[],(key) => this._hass.localize?.(key)).integration))];
+      const reportingCount = memberEvidence?.reporting_count ?? 0;
+      const availabilityChoices = memberEvidence ? `<details ${disclosure("selected-readings")}><summary>All selected entities and monitoring choices</summary><ul>${memberEvidence.members.map((member) => `<li><strong>${esc(member.name)}</strong> · ${esc(member.restored ? "Restored; current value unknown" : member.state)} <button class="link" type="button" data-ignore-availability="${esc(member.node_id)}">Ignore availability…</button></li>`).join("")}</ul>${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} selected entities.</p>` : ""}<p class="small">Changes to monitoring are previewed before saving.</p><button class="link" type="button" data-config-source="${esc(source.node_id)}">Review monitoring choices</button><button class="link" type="button" data-source-link="${esc(source.node_id)}">View in Sources</button></details>` : source.kind === "entity" ? `<section class="detail"><button class="button" type="button" data-ignore-availability="${esc(source.node_id)}">Ignore this availability check…</button><p class="small">Opens a draft monitoring change for preview and save. Home Assistant state stays unchanged.</p></section>` : "";
       const dependencies = result.explanation.nodes.filter((node) => node.node_id !== nodeId);
       const unwatched = result.readiness?.nodes.filter((node) => !node.watched) ?? [];
-      const nativeLink = source.kind === "integration" && problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : "") : source.entity_id
+      const nativeLink = source.kind === "device" ? "" : source.kind === "integration" && problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : "") : source.entity_id
         ? `<button class="button primary" type="button" data-entity="${esc(source.entity_id)}">${esc(problem?.entityLabel ?? "View in Home Assistant")}</button>`
         : source.entry_id || source.owner_id ? '<a class="button primary" href="/config/integrations">Review connection</a>' : "";
       const explanation = episode ? data.policy.episodes.find((item) => item.episode_id === episode.episode_id) : null;
       const controls = (data.inventory.operator_controls ?? []).filter((control) => [episode?.episode_id, nodeId].includes(control.target));
       const diagnosticData = {evidence:result,policy:explanation,notifications_enabled:data.policy.notifications_enabled,controls};
-      const expanded = new Set([...body.querySelectorAll("details[open][data-disclosure]")].map((item) => item.dataset.disclosure));
-      const disclosure = (key) => `data-disclosure="${key}"${expanded.has(key) ? " open" : ""}`;
       const genericSummary = source.kind === "situation" ? (episode ? "This reported condition remains open. Check its current state." : "No open problem is reported for this condition.")
         : result.readiness ? `${ownerStatus(result.readiness.answer)} in Home Assistant.` : "Current status has not been confirmed.";
-      body.innerHTML = `<section class="detail problem-brief">${problem ? `${source.kind === "integration" ? "" : `<p class="small">${esc(problem.context ?? problem.integration)}</p>`}<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}
-         <div class="next-action"><p>${esc(problem?.nextStep ?? (nativeLink ? "Check the current state in Home Assistant." : "Check the listed requirements to find what needs attention."))}</p>${nativeLink || problem?.deviceUrl ? `<div class="actions">${nativeLink}${problem?.deviceUrl ? `<a class="button" href="${esc(problem.deviceUrl)}">Open device page</a>` : ""}</div>` : ""}</div>
+      body.innerHTML = `<section class="detail problem-brief">${memberEvidence ? `<p class="small">${deviceIntegrations.length ? `Integration: ${esc(deviceIntegrations.join(", "))}` : "Home Assistant device"}</p><p>${esc(`Reporting in Home Assistant: ${reportingCount} of ${memberEvidence.total} selected entities.`)}</p>${uncertainMembers.length ? `<p><strong>Needs review</strong></p><ul>${uncertainMembers.map((member) => `<li><strong>${esc(member.name)}</strong> · ${esc(member.restored ? "restored; current value unknown" : member.state)}</li>`).join("")}</ul>` : ""}${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing the first 50 selected entities. More may need review.</p>` : ""}` : problem ? `${source.kind === "integration" ? "" : `<p class="small">${esc(problem.context ?? problem.integration)}</p>`}<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}
+         <div class="next-action"><p>${memberEvidence ? "Check the entities needing review on the device page." : esc(problem?.nextStep ?? (nativeLink ? "Check the current state in Home Assistant." : "Check the listed requirements to find what needs attention."))}</p>${nativeLink || problem?.deviceUrl ? `<div class="actions">${nativeLink}${problem?.deviceUrl ? `<a class="button${memberEvidence ? " primary" : ""}" href="${esc(problem.deviceUrl)}">Open device page</a>` : ""}</div>` : ""}</div>
          ${episode ? `<p class="small problem-progress">Open since ${esc(date(episode.opened_at))}</p>` : ""}</section>
          ${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}
          ${problem?.connectionNote ? `<section class="detail"><p>${esc(problem.connectionNote)}</p><button class="link" data-node="${esc(problem.connectionNode)}">${esc(problem.connectionLabel)}</button></section>` : ""}
          ${availabilityChoices}
-         ${diagnostic ? `<section class="detail evidence-overview" aria-label="Evidence summary"><h3>What Homeostatic knows</h3><dl><dt>Monitoring</dt><dd>${esc(diagnostic.monitoring)}</dd><dt>What is checked</dt><dd>${esc(diagnostic.checks)}</dd><dt>Current assessment</dt><dd>${esc(diagnostic.assessment)}</dd><dt>Household impact</dt><dd>${esc(diagnostic.impact)}</dd></dl></section>` : ""}
+         ${diagnostic ? source.kind === "device" ? `<section class="detail evidence-overview" aria-label="Household impact"><h3>What this means at home</h3><p>${esc(diagnostic.impact)}</p></section>` : `<section class="detail evidence-overview" aria-label="Evidence summary"><h3>What Homeostatic knows</h3><dl><dt>Monitoring</dt><dd>${esc(diagnostic.monitoring)}</dd><dt>What is checked</dt><dd>${esc(diagnostic.checks)}</dd><dt>Current assessment</dt><dd>${esc(diagnostic.assessment)}</dd><dt>Household impact</dt><dd>${esc(diagnostic.impact)}</dd></dl></section>` : ""}
+          ${["integration","entity"].includes(source.kind) ? `<button type="button" class="button" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}
          ${controls.map((control) => `<p class="control-notice">${control.action === "shelve" ? "Alerts paused" : "Working on equipment"} until ${esc(date(control.until))}.</p>`).join("")}
         ${this.tools.detailButtons(source, episode, data)}
         <details ${disclosure("technical")}><summary>Technical details</summary>
+           ${memberEvidence ? `<h3>Assessment rule</h3><p>A current Home Assistant state counts as reporting. Unknown, missing, restored, and unavailable states need review. These states do not verify physical connectivity or device health.</p>` : ""}
           ${problem?.reported ? `<div class="reported-error"><h3>${problem.historical ? "Last reported error" : "Reported error"}</h3>${problem.reportedAt ? `<p class="small">${esc(date(problem.reportedAt))}</p>` : ""}${problem.historical ? '<p class="small">From an earlier attempt; the current activity is shown above.</p>' : ""}<pre>${esc(problem.reported)}</pre></div>` : problem?.missingDetail ? "<p>Home Assistant did not report a specific cause.</p>" : ""}
           ${problem?.logsUrl ? `<p><a class="button" href="${esc(problem.logsUrl)}">View integration logs</a></p>` : ""}
           ${dependencies.length || unwatched.length ? `<h3>Reported requirements</h3><ul>${dependencies.map((node) => `<li>${esc(nodes.get(node.node_id)?.name ?? node.node_id)} · ${esc(node.own)} · ${list(node.reasons)}</li>`).join("")}${unwatched.map((node) => `<li>${esc(nodes.get(node.node_id)?.name ?? node.node_id)} · Not monitored</li>`).join("")}</ul>` : ""}
@@ -1040,16 +1257,18 @@ class HomeostaticStrategy {
   static async generate() {
     return {title:"Homeostatic",views:[
       {title:"Home",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"overview",navigation:false}]},
-      {title:"Explore",path:"house",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"house",navigation:false}]},
-      {title:"Monitoring",path:"coverage",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"coverage",navigation:false}]},
+      {title:"Issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"problems",navigation:false}]},
+      {title:"Sources",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"sources",navigation:false}]},
       {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"history",navigation:false}]},
+      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"notifications",navigation:false}]},
       {title:"Settings",path:"configuration",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"configuration",navigation:false}]},
     ]};
   }
 }
 
 if (!customElements.get("homeostatic-card-v21")) customElements.define("homeostatic-card-v21", HomeostaticCard);
-if (!customElements.get("homeostatic-panel-v21")) customElements.define("homeostatic-panel-v21", HomeostaticPanel);
+if (!customElements.get("homeostatic-panel-v22")) customElements.define("homeostatic-panel-v22", HomeostaticPanel);
+if (!customElements.get("homeostatic-panel-v21")) customElements.define("homeostatic-panel-v21", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v15")) customElements.define("homeostatic-card-v15", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-panel-v15")) customElements.define("homeostatic-panel-v15", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v14")) customElements.define("homeostatic-card-v14", class extends HomeostaticCard {});

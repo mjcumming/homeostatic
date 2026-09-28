@@ -1,11 +1,24 @@
-import {inventoryRows} from "./model.mjs?v=23";
+import {inventoryRows} from "./model.mjs?v=27";
 
-export const MATCH_FIELDS = ["kind", "domain", "device_class", "integration", "device", "entity", "area", "floor", "label"];
+export const MATCH_FIELDS = ["kind", "domain", "device_class", "integration", "integration_domain", "device", "entity", "area", "floor", "label"];
 
 export const MATCH_LABELS = {
-  kind:"Source type", domain:"Domain", device_class:"Device class", integration:"Integration instance ID",
+  integration_domain:"Integration type", kind:"Source type", domain:"Domain", device_class:"Device class", integration:"Integration instance ID",
   device:"Device ID", entity:"Entity ID or stable reference", area:"Area ID", floor:"Floor ID", label:"Label ID",
 };
+
+/** Describe a saved rule by its scope rather than its internal identifier. */
+export function ruleSummary(rule) {
+  const match = rule.match ?? {};
+  const kind = match.kind?.[0];
+  const target = match.device?.length ? `${match.device.length} selected ${match.device.length === 1 ? "device" : "devices"}`
+    : match.entity?.length ? `${match.entity.length} selected ${match.entity.length === 1 ? "entity" : "entities"}`
+      : kind === "device" ? "device summaries" : kind === "integration" ? "integration connections"
+        : kind === "entity" ? "entities" : "matching sources";
+  const location = match.integration?.length ? ` in ${match.integration.length} integration ${match.integration.length === 1 ? "instance" : "instances"}` : "";
+  const other = ["integration_domain","domain","device_class","area","floor","label"].filter((field) => match[field]?.length);
+  return `${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${target}${location}${other.length ? ` matching ${other.map((field) => MATCH_LABELS[field].toLowerCase()).join(", ")}` : ""}${rule.enabled === false ? " · paused" : ""}`;
+}
 
 export function editCatalogRule(rule, field, value) {
   if (field.startsWith("match:")) {
@@ -14,6 +27,9 @@ export function editCatalogRule(rule, field, value) {
     if (values.length) rule.match[key] = values;
     else delete rule.match[key];
   } else rule[field] = value;
+  if (rule.overridable && (rule.action !== "exclude" ||
+    !["integration,kind","integration_domain,kind"].includes(Object.keys(rule.match).sort().join(",")) ||
+    rule.match.kind?.length !== 1 || rule.match.kind[0] !== "device")) delete rule.overridable;
 }
 
 export function newCatalogRule(rules) {
@@ -88,6 +104,7 @@ export function monitoringScope(kind, id, source = null) {
   if (kind === "both") return {kind,id,match:{integration:[id]}};
   if (kind === "entry") return {kind,id,match:{integration:[id],kind:["integration"]}};
   if (kind === "entities") return {kind,id,match:{integration:[id],kind:["entity"]}};
+  if (kind === "integration_devices") return {kind,id,match:{integration:[id],kind:["device"]}};
   if (kind === "device") return {kind,id,match:{device:[id]}};
   if (kind === "device_availability") return {kind,id,match:{kind:["device"],device:[id]}};
   const reference = source?.attributes?.entity?.[0] ??
@@ -122,6 +139,11 @@ export function setScopeChoice(rules, scope, choice) {
   if (indices.length) {
     rules[indices[0]].action = choice;
     rules[indices[0]].enabled = true;
-  } else rules.push({...newCatalogRule(rules),action:choice,match:scope.match});
+    if (scope.kind === "integration_devices") {
+      if (choice === "exclude") rules[indices[0]].overridable = true;
+      else delete rules[indices[0]].overridable;
+    }
+  } else rules.push({...newCatalogRule(rules),action:choice,match:scope.match,
+    ...(scope.kind === "integration_devices" && choice === "exclude" ? {overridable:true} : {})});
   return true;
 }

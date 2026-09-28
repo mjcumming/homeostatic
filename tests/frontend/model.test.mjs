@@ -1,4 +1,6 @@
-import {configurationBrowser, monitoringNavigation, monitoringIndex, monitoringPage, revealMonitoringPath} from "../../custom_components/homeostatic/frontend/monitoring-browser.mjs";
+import {durationSeconds,editInstallation,installationSettings,settingsChanges} from "../../custom_components/homeostatic/frontend/installation-settings.mjs";
+import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "../../custom_components/homeostatic/frontend/monitoring-browser.mjs";
+import {filterSources, sourceMonitoringChoices, sourcePaths, sourcesBrowser, sourcesTree} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import {historyPage, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
@@ -9,8 +11,76 @@ import {DashboardStore, affectedFunctions, browseHighlights, coverageInventory, 
   escapeHtml, inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel,
   recentActivity, sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
 import {locationBranch, setBranchExpanded} from "../../custom_components/homeostatic/frontend/tree.mjs";
-import {editCatalogRule, monitoringScope, monitoringTree, newCatalogRule,
+import {editCatalogRule, monitoringScope, monitoringTree, newCatalogRule, ruleSummary,
   scopeChoice, setScopeChoice} from "../../custom_components/homeostatic/frontend/configuration.mjs";
+
+test("adding a linked person stages a route without sending or saving", () => {
+  let rendered=0;
+  const card={settingsDraft:{simple_notifications:{people:{}},policy:{timezone:"UTC"}},
+    configuration:{notification_people:[{id:"person-1",user_id:"user-1",administrator:true}],
+      notification_destinations:[{channel:"phone:device-1",user_id:"user-1",available:true}]},
+    render(){rendered++;}};
+  const event={type:"change",target:{dataset:{notificationAdd:""},value:"person-1"}};
+  assert.equal(editInstallation(card,event),true);
+  assert.deepEqual(card.settingsDraft.simple_notifications.people["person-1"],
+    {level:"Important",channels:["phone:device-1"]});
+  assert.equal(rendered,1);
+});
+
+test("clicking a notification dropdown leaves it mounted until selection changes", () => {
+  let rendered=0;
+  const card={settingsDraft:{simple_notifications:{people:{"person-1":{level:"Important",channels:[]}}}},render(){rendered++;}};
+  const target={dataset:{notificationLevel:"person-1"},value:"Urgent only",closest(){return null;}};
+  assert.equal(editInstallation(card,{type:"click",target}),false);
+  assert.equal(rendered,0);
+  assert.equal(editInstallation(card,{type:"change",target}),true);
+  assert.equal(card.settingsDraft.simple_notifications.people["person-1"].level,"Urgent only");
+  assert.equal(rendered,1);
+});
+
+test("notification settings offer person delivery and keep legacy automation out of setup", () => {
+  const settings={timings:{batch:30},notifications:false,consumer:null,policy:{timezone:"UTC",recipients:{},rules:[]},simple_notifications:{people:{},timezone:"UTC"}};
+  const card={configuration:{settings,consumers:[]},settingsDraft:settings,page:"notifications",settingsSection:"timing",
+    current:{data:{entry_id:"example",functions:[]}},settingsBusy:false};
+  const empty=installationSettings(card);
+  assert.match(empty,/<h1>Notifications<\/h1>/);
+  assert.doesNotMatch(empty,/installation-nav|Problem grouping/);
+  assert.doesNotMatch(empty,/Choose automation|Advanced routing and timing|Edit detailed routing/);
+  assert.match(empty,/data-setting-path="notifications" disabled/);
+  assert.match(empty,/data-setting-path="policy.timezone"/);
+  card.page="configuration";
+  const timing=installationSettings(card);
+  assert.match(timing,/<h1>Settings<\/h1>/);
+  assert.match(timing,/Notification delay/);
+  assert.match(timing,/data-setting-path="timings.batch"/);
+  assert.doesNotMatch(timing,/data-setting-path="notifications"|data-notification-add|data-settings-section="notifications"/);
+  card.page="notifications";
+  card.configuration.consumers=[{entity_id:"automation.alerts",name:"House alerts",state:"on"}];
+  card.settingsDraft={...settings,consumer:"automation.alerts"};
+  const configured=installationSettings(card);
+  assert.match(configured,/older notification automation is selected/);
+  assert.match(configured,/Open Home Assistant options to clear/);
+  assert.doesNotMatch(configured,/Choose automation|data-consumer-action/);
+  assert.match(configured,/data-setting-path="notifications" disabled/);
+  card.configuration.notification_people=[{id:"mike",name:"Michael",user_id:"user-1",administrator:true}];
+  card.configuration.notification_destinations=[{channel:"phone:device-1",name:"iPhone",user_id:"user-1",available:true}];
+  card.settingsDraft={...settings,consumer:null,simple_notifications:{timezone:"UTC",people:{mike:{level:"Important",channels:["phone:device-1"]}}}};
+  const person=installationSettings(card);
+  assert.match(person,/Michael/);
+  assert.match(person,/iPhone/);
+  assert.match(person,/data-notification-test="phone:device-1"/);
+  assert.doesNotMatch(person,/data-setting-path="notifications" disabled/);
+});
+
+test("settings hide the household functions section and keep saved definitions untouched", () => {
+  const settings={timings:Object.fromEntries(["settle","unknown_hold","retry_hold","clear_hold","rejoin_grace","startup_grace","startup_quiet_max","coalesce_count","coalesce_window","batch"].map(key=>[key,0])),notifications:false,consumer:null,policy:{timezone:"UTC",recipients:{},rules:[]},simple_notifications:{people:{},timezone:"UTC"}};
+  const card={configuration:{settings,consumers:[]},settingsDraft:settings,settingsSection:"functions",
+    current:{data:{entry_id:"example",functions:[{name:"Driveway"}]}},settingsBusy:false};
+  const html=installationSettings(card);
+  assert.doesNotMatch(html,/Household functions|Configure functions and situations|Driveway/);
+  assert.match(html,/data-settings-section="timing" aria-current="page"/);
+  assert.equal(card.current.data.functions[0].name,"Driveway");
+});
 
 function source(id, fields = {}) {
   return {node_id:id,name:id,kind:"entity",attributes:{},watched:true,
@@ -683,6 +753,18 @@ test("guided exclusion preserves a broader pilot rule and can be removed",()=>{
   assert.deepEqual(rules,[pilot]);
 });
 
+test("integration device default stages one overridable policy and keeps readable scope",()=>{
+  const rules=[{id:"all_device_summaries",action:"attach",match:{kind:["device"]}}];
+  const scope=monitoringScope("integration_devices","eero-entry");
+  assert.equal(setScopeChoice(rules,scope,"exclude"),true);
+  assert.equal(scopeChoice(rules,scope),"exclude");
+  assert.equal(rules[1].overridable,true);
+  assert.match(ruleSummary(rules[0]),/Watch device summaries/);
+  assert.match(ruleSummary(rules[1]),/Leave unmonitored device summaries in 1 integration instance/);
+  assert.equal(setScopeChoice(rules,scope,"attach"),true);
+  assert.equal(rules[1].overridable,undefined);
+});
+
 test("ignore availability stages a stable exclusion without saving or discarding the draft",async(t)=>{
   const elements=new Map();
   globalThis.HTMLElement=class {};
@@ -700,7 +782,7 @@ test("ignore availability stages a stable exclusion without saving or discarding
     dialog:{close(){}},render(){},_hass:{async callWS(command){calls.push(command.type);return {rules:saved,revision:"one"};}}});
   await card.ignoreAvailability(entity.node_id);
   assert.deepEqual(calls,["homeostatic/configuration"]);
-  assert.equal(card.page,"configuration");
+  assert.equal(card.page,"sources");
   assert.equal(card.configPreview,null);
   assert.equal(saved.length,1);
   assert.deepEqual(card.configDraft[1].match,{entity:["registry:optional"]});
@@ -733,11 +815,12 @@ test("monitoring tree reaches missing owners through one catchall and preserves 
   const data=monitoringExample();
   const index=monitoringIndex(monitoringNavigation(data));
   const catchall=[...index.values()].find((node)=>node.name==="Other sources");
-  assert.deepEqual(catchall.children.map((node)=>node.name),["Devices","Entities without a device"]);
+  assert.ok(catchall.children.some((node)=>node.type==="device"));
+  assert.ok(catchall.children.some((node)=>node.type==="entity"));
   assert.equal([...index.values()].filter((node)=>node.type==="entity").length,data.inventory.nodes.filter((node)=>node.kind==="entity").length);
   assert.equal([...index.values()].filter((node)=>node.name==="Other sources").length,1);
   const orphan=[...index.values()].find((node)=>node.source?.entity_id==="sensor.unassigned_124");
-  assert.deepEqual(orphan.parents.map((node)=>node.name),["Other sources","Entities without a device","Sensors"]);
+  assert.deepEqual(orphan.parents.map((node)=>node.name),["Other sources"]);
   const summary=[...index.values()].find((node)=>node.type==="device" && node.device.id==="standalone");
   assert.equal(summary.device.summary.node_id,"device:standalone");
 });
@@ -747,41 +830,34 @@ test("monitoring search preserves full ancestors and leaves group choices unfilt
   const tree=monitoringNavigation(data,"sensor.camera_1_104");
   const nodes=[...monitoringIndex(tree).values()];
   const target=nodes.find((node)=>node.type==="entity");
-  assert.deepEqual(target.parents.map((node)=>node.name),["Frigate","Devices","Back Porch","Sensors"]);
+  assert.deepEqual(target.parents.map((node)=>node.name),["Frigate","Back Porch"]);
   assert.equal(nodes.filter((node)=>node.type==="entity").length,1);
   assert.equal(nodes.find((node)=>node.type==="device").device.entities.length,105);
   assert.deepEqual(monitoringScope("device","camera-1").match,{device:["camera-1"]});
   assert.deepEqual(monitoringNavigation(data,"no matching source"),[]);
 });
 
-for (const [label,select] of [
-  ["integrations",(tree)=>tree],
-  ["devices",(tree)=>tree[0].children[0].children],
-  ["device entities",(tree)=>tree[0].children[0].children[1].children[0].children],
-  ["catchall entities",(tree)=>tree.at(-1).children[1].children[0].children],
-]) test(`monitoring pagination bounds ${label} and reaches every item`,()=>{
-  const items=select(monitoringNavigation(monitoringExample()));
-  assert.ok(items.length>20);
-  const pages=Array.from({length:Math.ceil(items.length/20)},(_,page)=>monitoringPage(items,page));
-  assert.ok(pages.every((page)=>page.items.length<=20));
-  assert.deepEqual(pages.flatMap((page)=>page.items),items);
-  assert.equal(monitoringPage(items,999).current,pages.length-1);
-  assert.equal(monitoringPage([],999).current,0);
+test("monitoring tree exposes every integration and renders children on expansion without pages",()=>{
+  const data=monitoringExample();
+  const tree=monitoringNavigation(data);
+  const target=[...monitoringIndex(tree).values()].find((node)=>node.type==="device"&&node.device.id==="camera-1");
+  const card={current:{data},configQuery:"",configExpanded:new Set([target.parents[0].key,target.key]),configSelection:target.key,
+    displaySourceName:(source)=>source.name,configurationChoice:()=>""};
+  const html=configurationBrowser(card);
+  assert.ok(tree.length>20);
+  assert.match(html,/Back Porch signal 104/);
+  assert.doesNotMatch(html,/data-config-page|config-paging|class="config-member"/);
 });
 
 test("monitoring device editor distinguishes included members, ignored entities and separate checks",()=>{
   const data=monitoringExample();
   const node=[...monitoringIndex(monitoringNavigation(data)).values()].find((node)=>node.type==="device"&&node.device.id==="camera-1");
-  const card={current:{data},configQuery:"",configExpanded:new Set(),configPages:new Map(),configSelection:node.key,
+  const card={current:{data},configQuery:"",configExpanded:new Set(),configSelection:node.key,
     displaySourceName:(source)=>source.name,configurationChoice:(label,scope,current)=>`${label}: ${current}`};
   const html=configurationBrowser(card);
-  assert.match(html,/104 entities selected for the summary · 1 ignored · 0 separate checks/);
-  assert.match(html,/Included in device summary/);
-  assert.match(html,/Availability ignored/);
-  assert.equal((html.match(/class="config-member"/g)||[]).length,20);
-  assert.doesNotMatch(html,/0 of 105 watched|No specific choice/);
-  card.configPages.set(`members:${node.key}`,5);
-  assert.equal((configurationBrowser(card).match(/class="config-member"/g)||[]).length,5);
+  assert.match(html,/104 eligible entities · 1 ignored/);
+  assert.match(html,/Device availability summary: Monitored/);
+  assert.doesNotMatch(html,/Bulk changes|config-member/);
 });
 
 test("shared devices expose the same summary through every owning integration",()=>{
@@ -797,7 +873,7 @@ test("monitoring renders untrusted names as text and tolerates arbitrary entity 
   const data=monitoringExample();
   data.inventory.nodes.push(baseSource("entity:registry:unsafe",'<img src=x onerror="bad()">',"entity",{attributes:{domain:["__proto__"],entity:["registry:unsafe"]}}));
   const target=[...monitoringIndex(monitoringNavigation(data)).values()].find((node)=>node.source?.node_id==="entity:registry:unsafe");
-  const card={current:{data},configQuery:"",configExpanded:new Set(),configPages:new Map(),configSelection:target.key,
+  const card={current:{data},configQuery:"",configExpanded:new Set(),configSelection:target.key,
     displaySourceName:(source)=>source.name,configurationChoice:()=>""};
   const html=configurationBrowser(card);
   assert.match(html,/&lt;img/);
@@ -805,14 +881,157 @@ test("monitoring renders untrusted names as text and tolerates arbitrary entity 
 });
 
 
-test("selecting a later catchall entity reveals its paginated ancestors",()=>{
+test("selecting a catchall entity reveals its ancestors",()=>{
   const tree=monitoringNavigation(monitoringExample());
   const index=monitoringIndex(tree);
   const target=[...index.values()].find((node)=>node.source?.entity_id==="sensor.unassigned_124");
-  const expanded=new Set(),pages=new Map();
-  revealMonitoringPath(tree,target.key,expanded,pages);
-  assert.equal(pages.get("nav:root"),1);
-  assert.equal(pages.get(`nav:${target.parents.at(-1).key}`),6);
+  const expanded=new Set();
+  revealMonitoringPath(tree,target.key,expanded);
   assert.ok(target.parents.every((node)=>expanded.has(node.key)));
   assert.equal(expanded.has(target.key),false);
+});
+
+test("Sources keeps device and entity identities across integration and location grouping",()=>{
+  const data=monitoringExample();
+  data.floors=[{id:"first",name:"First floor"}];
+  data.areas=[{id:"porch",name:"Porch",floor_id:"first"}];
+  const entity=data.inventory.nodes.find((row)=>row.node_id==="entity:registry:camera-1-1");
+  entity.attributes.area=["porch"];
+  const integration=sourcePaths(sourcesTree(data,"integration"));
+  const location=sourcePaths(sourcesTree(data,"location"));
+  assert.ok(integration.has("source:entity:registry:camera-1-1"));
+  assert.ok(location.has("source:entity:registry:camera-1-1"));
+  assert.ok(integration.has("source:device:camera-1"));
+  assert.ok(location.has("source:device:camera-1"));
+  assert.ok(location.has("source:entity:registry:orphan-124"));
+  assert.ok(location.has("source:entry:frigate"));
+  assert.equal(location.get("source:entity:registry:camera-1-1").parents[0].name,"First floor");
+});
+
+test("Sources review filtering retains grouped ancestors and does not auto-expand them",()=>{
+  const data=monitoringExample();
+  data.coverage.never_observed=[{node_id:"entity:registry:camera-1-1",check_id:"availability"}];
+  const tree=sourcesTree(data);
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:true,
+    sourcesExpanded:new Set(),sourcesSelection:"source:entry:frigate",sourcesEdit:false};
+  const html=sourcesBrowser(card);
+  assert.match(html,/Show all sources/);
+  assert.doesNotMatch(html,/data-sources-toggle=.*aria-expanded="true"/);
+  assert.ok(filterSources(tree,"camera_1_001").length);
+  assert.ok(sourcePaths(tree).has("source:entity:registry:orphan-124"));
+});
+
+test("Sources badges count open issues rather than every evidence gap",()=>{
+  const data=monitoringExample();
+  const candidates=data.inventory.nodes.filter((row)=>row.kind==="entity").slice(0,78);
+  for (const row of candidates) row.watched=true;
+  data.coverage.never_observed=candidates.map((row)=>({node_id:row.node_id,check_id:"availability"}));
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:true,
+    sourcesExpanded:new Set(),sourcesSelection:"source:entry:frigate",sourcesEdit:false};
+  const html=sourcesBrowser(card);
+  assert.doesNotMatch(html,/78 need review/);
+  assert.equal((html.match(/data-sources-select=/g)??[]).length,0);
+  assert.doesNotMatch(html,/first 20/i);
+});
+
+test("Sources bounds a large opened branch while full search reaches the last entity",()=>{
+  const data=monitoringExample();
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+    sourcesExpanded:new Set(["source:entry:frigate","source:device:camera-1"]),sourcesSelection:"source:device:camera-1",sourcesEdit:false};
+  const html=sourcesBrowser(card);
+  assert.match(html,/Show more sources/);
+  card.sourcesLimits=new Map([["source:device:camera-1",160]]);
+  assert.match(sourcesBrowser(card),/data-sources-select="source:entity:registry:camera-1-104"/);
+  card.sourcesQuery="sensor.camera_1_104";
+  const searched=filterSources(sourcesTree(data),card.sourcesQuery);
+  assert.ok(sourcePaths(searched).has("source:entity:registry:camera-1-104"));
+});
+
+test("Sources keeps a 6,000-entity inventory searchable with bounded initial markup",()=>{
+  const data=monitoringExample();
+  for (let number=0;number<6000;number++) data.inventory.nodes.push(baseSource(
+    `entity:registry:scale-${number}`,`Scale sensor ${number}`,"entity",
+    {entity_id:`sensor.scale_${number}`,owner_id:"frigate",attributes:{entity:[`registry:scale-${number}`],device:["camera-1"]}},
+  ));
+  data.inventory.catalog.candidates=data.inventory.nodes;
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+    sourcesExpanded:new Set(),sourcesSelection:"source:entry:frigate",sourcesEdit:false};
+  const initial=sourcesBrowser(card);
+  assert.ok(initial.length<20000);
+  const last=filterSources(sourcesTree(data),"sensor.scale_5999");
+  assert.ok(sourcePaths(last).has("source:entity:registry:scale-5999"));
+  card.sourcesSelection="source:entity:registry:scale-5999";
+  card.sourcesExpanded=new Set(["source:entry:frigate","source:device:camera-1"]);
+  const linked=sourcesBrowser(card);
+  assert.match(linked,/data-sources-select="source:entity:registry:scale-5999"/);
+  assert.ok(linked.length<70000);
+});
+
+test("Sources keeps one tree while source settings and history show selected source context",()=>{
+  const data=monitoringExample();
+  const entry=data.inventory.nodes.find((row)=>row.node_id==="entry:frigate");
+  entry.name="";
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+    sourcesExpanded:new Set(),sourcesSelection:"source:entry:frigate",sourcesEdit:false,sourcesView:"source"};
+  const source=sourcesBrowser(card);
+  assert.match(source,/Frigate/);
+  assert.match(source,/Reading current Home Assistant values/);
+  assert.doesNotMatch(source,/No current availability gap/);
+  assert.equal((source.match(/<h2>Sources<\/h2>/g)??[]).length,0);
+  assert.match(source,/data-sources-view="source"/);
+  card.sourcesView="settings";
+  const settings=sourcesBrowser(card);
+  assert.match(settings,/Loading monitoring choices/);
+  assert.doesNotMatch(settings,/Edit monitoring/);
+  assert.doesNotMatch(settings,/Current evidence/);
+  card.sourcesView="history";
+  const history=sourcesBrowser(card);
+  assert.match(history,/No problems in retained history/);
+  assert.doesNotMatch(history,/Edit monitoring/);
+});
+
+
+test("Integration families combine connections and keep devices reachable",()=>{
+  const data=monitoringExample();
+  data.inventory.nodes.push(baseSource("entry:frigate2","Second house","integration",{entry_id:"frigate2",attributes:{domain:["frigate"]}}));
+  const tree=sourcesTree(data),family=tree.find(node=>node.domain==="frigate");
+  assert.equal(family.entries.length,2);
+  assert.equal(family.name,"Frigate");
+  assert.ok(sourcePaths(tree).has("source:entry:frigate2"));
+  assert.ok(sourcePaths(tree).has("source:device:camera-1"));
+  const scope={kind:"integration_devices",id:"frigate",match:{kind:["device"],integration_domain:["frigate"]}},rules=[];
+  setScopeChoice(rules,scope,"exclude");
+  assert.equal(rules[0].overridable,true);
+  editCatalogRule(rules[0],"match:integration_domain","frigate, eero");
+  assert.equal(rules[0].overridable,true);
+});
+
+test("Integration-wide off retains narrower choices and hides them until monitoring resumes",()=>{
+  const data=monitoringExample(),family=sourcesTree(data).find(node=>node.domain==="frigate");
+  const rules=[{id:"device_choice",action:"attach",match:{kind:["device"],device:["camera-1"]}}];
+  const scope={kind:"integration_all",id:"frigate",match:{integration_domain:["frigate"],kind:["integration","device","entity"]}};
+  const card={configuration:{rules},configDraft:rules,configScopes:[],current:{data},sourcesSettingsPanel:""};
+  assert.match(sourceMonitoringChoices(card,family),/Stop monitoring this integration/);
+  assert.equal(setScopeChoice(rules,scope,"exclude"),true);
+  card.configScopes=[];
+  const stopped=sourceMonitoringChoices(card,family);
+  assert.doesNotMatch(stopped,/Monitor all devices/);
+  assert.equal(rules[0].id,"device_choice");
+  assert.equal(scopeChoice(rules,scope),"exclude");
+  assert.equal(setScopeChoice(rules,scope,"inherit"),true);
+  assert.equal(rules.length,1);
+  card.configScopes=[];
+  assert.match(sourceMonitoringChoices(card,family),/Monitor all devices/);
+});
+
+test("Timing preview describes edits while preserving unrelated policy structure",()=>{
+  assert.equal(durationSeconds("1h30m"),5400);
+  assert.equal(durationSeconds("2d5s"),172805);
+  assert.equal(durationSeconds("invalid"),null);
+  const before={timings:{unknown_hold:900},notifications:false,consumer:null,policy:{timezone:"UTC",recipients:{owner:{channels:["event"]}},digests:{morning:{at:"08:00",to:"owner"}},rules:[{match:{category:["security"]},loudness:"notify",to:["owner"]}]}};
+  const after=structuredClone(before);after.timings.unknown_hold=300;after.policy.rules[0].remind_every=600;
+  const changes=settingsChanges(before,after);
+  assert.equal(changes.length,2);
+  assert.match(changes[1][0],/security/);
+  assert.deepEqual(after.policy.digests,before.policy.digests);
 });

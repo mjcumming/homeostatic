@@ -5,14 +5,21 @@
 <script type="module">
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
 import {monitoringExample} from "./monitoring-fixture.mjs";
-const card=document.querySelector("homeostatic-card");
-const data=monitoringExample();
+const card=document.querySelector("homeostatic-card"),data=monitoringExample();
 const saved=[{id:"entries",action:"attach",enabled:true,match:{kind:["integration"]},checks:["availability"]},{id:"devices",action:"attach",enabled:true,match:{kind:["device"]},checks:["availability"]}];
-let revision=1,previewRules=null,previewCalls=0,saveCalls=0;
+let settings={timings:{settle:120,unknown_hold:900,retry_hold:120,clear_hold:120,rejoin_grace:60,startup_grace:120,startup_quiet_max:600,coalesce_count:3,coalesce_window:60,batch:30},notifications:false,consumer:null,policy:{timezone:"America/Chicago",recipients:{owner:{channels:["event"]}},digests:{morning:{at:"08:00",to:"owner"}},rules:[{match:{importance:["critical"]},loudness:"urgent",to:["owner"]},{match:{},loudness:"notify",to:["owner"]}]}};
+let revision=1,previewRules=null,settingsToken=null,previewCalls=0,saveCalls=0,settingsSaves=0;
 const errors=[];
-window.addEventListener("error",(event)=>{errors.push(event.message);document.querySelector("#feedback").textContent="ERROR: "+event.message;});
+window.addEventListener("error",event=>{errors.push(event.message);document.querySelector("#feedback").textContent="ERROR: "+event.message;});
+const configuration=()=>({rules:structuredClone(saved),settings:structuredClone(settings),revision:String(revision),alerts:{notifications:settings.notifications,consumer:settings.consumer,policy:settings.policy},consumers:[{entity_id:"automation.homeostatic",name:"Homeostatic notifications",state:"on"},...Array.from({length:1000},(_,i)=>({entity_id:`automation.cabin_${i}`,name:`Cabin automation ${i}`,state:"on"}))]});
 card._hass={user:{is_admin:true},localize:()=>null,async callWS(command){
-  if(command.type==="homeostatic/configuration")return{rules:structuredClone(saved),revision:String(revision)};
+  if(command.type==="homeostatic/configuration")return configuration();
+  if(command.type==="homeostatic/source"){
+    const source=data.inventory.nodes.find(row=>row.node_id===command.node_id);
+    const entities=source.kind==="device"?source.availability_entities:source.entity_id?[source.entity_id]:[];
+    const members=entities.map(id=>{const row=data.inventory.nodes.find(item=>item.entity_id===id);return{node_id:row.node_id,name:row.name,state:"42"};});
+    return{members:members.slice(0,50),total:members.length,updated_at:data.updated_at,integration_evidence:source.kind==="integration"?{current:{reason:"loaded"}}:null};
+  }
   if(command.type==="homeostatic/preview_configuration"){
     previewCalls++;previewRules=JSON.stringify(command.rules);
     return{preview_token:"synthetic-preview",watched:51,added:[],added_count:0,removed:[],removed_count:0,matches:[],functions:[]};
@@ -21,56 +28,94 @@ card._hass={user:{is_admin:true},localize:()=>null,async callWS(command){
     if(command.preview_token!=="synthetic-preview"||previewRules!==JSON.stringify(command.rules)||command.revision!==String(revision))throw Error("Exact preview required");
     saveCalls++;revision++;saved.splice(0,saved.length,...structuredClone(command.rules));return{};
   }
+  if(command.type==="homeostatic/preview_settings"){
+    settingsToken=JSON.stringify(command.settings);
+    return{before:structuredClone(settings),after:structuredClone(command.settings),preview_token:"settings-preview",open_problems:0,requests_now:0};
+  }
+  if(command.type==="homeostatic/save_settings"){
+    if(command.preview_token!=="settings-preview"||settingsToken!==JSON.stringify(command.settings)||command.revision!==String(revision))throw Error("Exact settings preview required");
+    settingsSaves++;revision++;settings=structuredClone(command.settings);return{saved:true};
+  }
   throw Error("Unexpected command: "+command.type);
 }};
-card.current={status:"current",data};card.page="configuration";card.configuration={rules:structuredClone(saved),revision:String(revision)};card.configDraft=structuredClone(saved);card.render();
+card.current={status:"current",data};card.page="sources";card.configuration=configuration();card.configDraft=structuredClone(saved);card.settingsDraft=structuredClone(settings);card.render();
 document.querySelector("#update").onclick=()=>{data.updated_at="2026-09-27T12:01:00Z";card.render();};
-document.querySelector("#narrow").onchange=(event)=>{card.style.width=event.target.checked?"390px":"";};
-document.querySelector("#dark").onchange=(event)=>{document.documentElement.style.cssText=event.target.checked?"--primary-text-color:#e8ecef;--primary-background-color:#10181e;--card-background-color:#19242b;--secondary-background-color:#283740;--secondary-text-color:#b0bfc9;--divider-color:#3e4c56;--primary-color:#4abde5;--text-primary-color:#102530":"";};
+document.querySelector("#narrow").onchange=event=>{card.style.width=event.target.checked?"390px":"";};
+document.querySelector("#dark").onchange=event=>{document.documentElement.style.cssText=event.target.checked?"--primary-text-color:#e8ecef;--primary-background-color:#10181e;--card-background-color:#19242b;--secondary-background-color:#283740;--secondary-text-color:#b0bfc9;--divider-color:#3e4c56;--primary-color:#4abde5;--text-primary-color:#102530":"";};
 document.querySelector("#run").onclick=async()=>{
-  const feedback=document.querySelector("#feedback");
-  const root=card.shadowRoot;
+  const feedback=document.querySelector("#feedback"),root=card.shadowRoot;
   const expect=(condition,message)=>{if(!condition)throw Error(message);};
-  const find=(selector,attribute,value)=>[...root.querySelectorAll(selector)].find((element)=>element.getAttribute(attribute)===value);
-  const clickName=(name)=>{const button=[...root.querySelectorAll(".config-detail [data-config-select]")].find((element)=>element.querySelector("span")?.textContent===name);expect(button,"Missing "+name);button.click();};
-  const search=(value)=>{const input=root.querySelector("[data-config-search]");input.value=value;input.dispatchEvent(new Event("input",{bubbles:true,composed:true}));};
+  const settle=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  const clickName=name=>{const button=[...root.querySelectorAll(".config-tree [data-sources-select]")].find(element=>element.querySelector("span")?.textContent===name);expect(button,"Missing "+name);button.click();};
+  const change=(element,value)=>{expect(element,"Control missing");if(element.type==="checkbox")element.checked=value;else element.value=value;element.dispatchEvent(new Event("change",{bubbles:true,composed:true}));};
+  const search=value=>{const input=root.querySelector("[data-sources-search]");input.value=value;input.dispatchEvent(new Event("input",{bubbles:true,composed:true}));};
   try{
-    card.configQuery="";card.configSelection=null;card.configExpanded.clear();card.render();
-    expect(root.querySelectorAll(".config-tree > .config-branch").length===20,"Root list exceeds its page bound");
-    const selected=card.configSelection;
-    root.querySelector("[data-config-toggle]").click();
-    expect(card.configSelection===selected,"Expanding a branch changed selection");
-    clickName("Devices");
-    expect(root.querySelectorAll(".config-child-list > .config-pick").length===20,"Device list exceeds its bound");
-    clickName("Back Porch");
-    expect(root.querySelectorAll(".config-member").length===20,"Member list exceeds its bound");
-    expect(root.querySelector(".config-detail").textContent.includes("104 entities selected for the summary · 1 ignored · 0 separate checks"),"Summary membership is unclear");
-    root.querySelector("[data-config-disclosure] summary").click();
-    const deviceKey=card.configSelection;
-    const select=root.querySelector('select[aria-label="Separate checks for all entities on this device monitoring choice"]');
-    select.value="attach";select.dispatchEvent(new Event("change",{bubbles:true,composed:true}));
-    expect(root.querySelector("[data-config-disclosure]").open,"Editing collapsed bulk changes");
-    expect(card.configDraft.some((rule)=>rule.match.device?.[0]==="camera-1"),"Device choice did not stage");
-    expect(saveCalls===0&&previewCalls===0,"Editing made a server mutation");
-    const rail=root.querySelector(".config-rail");rail.scrollTop=90;const scroll=rail.scrollTop;
-    card.render();
-    expect(root.querySelector(".config-rail").scrollTop===scroll,"Live update reset tree scroll");
-    expect(card.configSelection===deviceKey&&root.querySelector("[data-config-disclosure]").open,"Live update lost selection or disclosure");
-    for(let page=0;page<5;page++)root.querySelector('.config-detail button[aria-label="Next page in selected group"]').click();
-    expect(root.querySelectorAll(".config-member").length===5,"Last member page is wrong");
+    card.page="sources";card.style.width="";card.sourcesQuery="";card.sourcesSelection=null;card.sourcesExpanded.clear();card.sourcesGrouping="integration";card.sourcesView="source";card.sourcesMobileDetail=false;card.render();
+    expect(root.querySelectorAll(".config-tree > .config-branch").length===26,"Integration roots or catchall missing");
+    expect(!root.querySelector("[data-config-page],.config-paging"),"Nested pagination remains");
+    root.querySelector('[data-sources-toggle="source:entry:frigate"]').click();
+    expect(card.sourcesSelection===null,"Expanding a branch changed selection");
+    clickName("Back Porch");await settle();
+    expect(root.querySelector(".config-detail").textContent.includes("Entities available"),"Source did not show current entity states");
+    const rail=root.querySelector(".config-rail"),detail=root.querySelector(".config-detail"),beforeTop=detail.getBoundingClientRect().top;
+    rail.scrollTop=400;expect(Math.abs(detail.getBoundingClientRect().top-beforeTop)<1,"Tree scroll displaced details");
+    root.querySelector('[data-sources-view="settings"]').click();
+    root.querySelector('[data-scope-index="0"][value="attach"]').click();
+    expect(card.configDraft.some(rule=>rule.match.device?.[0]==="camera-1"),"Device choice did not stage");
+    expect(saveCalls===0&&previewCalls===0,"Editing mutated saved configuration");
+    root.querySelector('[data-sources-view="history"]').click();
+    expect(root.querySelector(".config-detail").textContent.includes("No problems in retained history"),"Scoped history missing");
+    root.querySelector('[data-sources-view="settings"]').click();
     search("sensor.unassigned_124");
-    expect(root.querySelector(".config-path").textContent.includes("Other sources / Entities without a device / Sensors"),"Search lost the catchall path");
-    expect(root.querySelector("#config-detail-title").textContent==="Unassigned sensor 124","Search did not reach the last orphan");
-    expect(card.configDraft.some((rule)=>rule.match.device?.[0]==="camera-1"),"Navigation discarded a draft");
-    await card.previewConfiguration();
+    expect(card.sourcesSelection==="source:device:camera-1","Typing unexpectedly replaced the selection");
+    clickName("Unassigned sensor 124");
+    expect(root.querySelector(".config-path").textContent.includes("Other sources"),"Search lost catchall path");
+    change(root.querySelector("[data-sources-group]"),"location");
+    expect(card.sourcesSelection==="source:entity:registry:orphan-124","Grouping lost source identity");
+    change(root.querySelector("[data-sources-group]"),"integration");
+    search("Frigate");clickName("Frigate");
+    root.querySelector('[data-scope-index="0"][value="exclude"]').click();
+    expect(card.configDraft.some(rule=>rule.match.integration_domain?.[0]==="frigate"&&rule.match.kind?.length===3&&rule.action==="exclude"),"Integration-wide off did not stage");
+    expect(!root.querySelector('[data-scope-index="2"]'),"Narrower choices remain active while integration is off");
+    root.querySelector('[data-scope-index="0"][value="inherit"]').click();
+    expect(!card.configDraft.some(rule=>rule.match.integration_domain?.[0]==="frigate"&&rule.match.kind?.length===3),"Resuming did not remove integration-wide off");
+    root.querySelector('[data-scope-index="2"][value="exclude"]').click();
+    expect(card.configDraft.some(rule=>rule.match.integration_domain?.[0]==="frigate"&&rule.overridable),"Future family device default missing");
+    card.page="configuration";card.settingsSection="timing";card.render();
+    expect(root.querySelectorAll('[data-setting-path^="timings."]').length===8,"Timing controls missing");
+    root.querySelector('[data-settings-section="grouping"]').click();
+    expect(root.querySelectorAll('[data-setting-path^="timings."]').length===2,"Grouping controls missing");
+    root.querySelector('.nav [data-page="notifications"]').click();
+    expect(root.querySelector('h1').textContent==="Notifications","Notifications did not open as a main page");
+    expect(root.querySelector('[data-setting-path="notifications"]'),"Notification activation missing");
+    expect(!root.querySelector('[data-consumer-action]'),"Deferred automation picker remains");
+    root.querySelector('.nav [data-page="configuration"]').click();
+    expect(!root.querySelector('[data-setting-path="notifications"]'),"Notification controls remain in Settings");
+    root.querySelector('[data-settings-section="timing"]').click();
+    change(root.querySelector('[data-setting-path="timings.unknown_hold"]'),"4");
+    await card.previewSettings();await card.saveSettings();
+    expect(settingsSaves===1&&settings.timings.unknown_hold===240,"Settings save failed");
+    expect(card.configDraft.some(rule=>rule.match.device?.[0]==="camera-1"),"Settings save discarded monitoring draft");
+    change(root.querySelector('[data-setting-path="timings.clear_hold"]'),"3");
+    card.page="sources";card.render();await card.previewConfiguration();
     expect(root.querySelector('[data-action="save-configuration"]').disabled===false,"Preview did not enable Save");
-    const entityChoice=root.querySelector("[data-scope-index]");entityChoice.value="exclude";entityChoice.dispatchEvent(new Event("change",{bubbles:true,composed:true}));
-    expect(card.configPreview===null&&root.querySelector('[data-action="save-configuration"]').disabled,"Changing a choice did not invalidate preview");
+    root.querySelector('[data-scope-index="2"][value="attach"]').click();
+    expect(card.configPreview===null&&!root.querySelector('[data-action="save-configuration"]'),"Changed choice retained stale preview");
     await card.previewConfiguration();await card.saveConfiguration();
     expect(saveCalls===1,"Exact reviewed save was not sent once");
+    expect(card.settingsDraft.timings.clear_hold===180,"Monitoring save discarded timing draft");
+    card.sourcesView="source";card.sourcesQuery="";card.sourcesSelection="source:device:camera-1";card.sourcesMobileDetail=true;card.style.width="390px";card.render();await settle();
+    expect(getComputedStyle(root.querySelector(".config-rail")).display==="none","Mobile stacked tree and details");
+    expect(getComputedStyle(root.querySelector(".sources-back")).display!=="none","Mobile Back missing");
+    root.querySelector('[data-action="back-sources"]').click();
+    expect(getComputedStyle(root.querySelector(".config-detail")).display==="none","Mobile Back did not restore list");
+    card.page="overview";card.render();
+    expect(root.querySelectorAll(".overview-stat").length===2,"Overview still has unclear KPI cards");
+    expect(!root.querySelector(".home-history-link"),"Overview still repeats resolved history");
+    card.style.width="";card.page="sources";card.sourcesView="source";card.sourcesMobileDetail=false;card.render();await settle();
     expect(errors.length===0,errors.join("; "));
-    search("");card.configSelection=deviceKey;card.configDisclosures.set(deviceKey,false);card.configExpanded.add(JSON.stringify(["frigate"]));card.configExpanded.add(JSON.stringify(["frigate","devices"]));card.render();
-    feedback.textContent="PASS: bounded root/device/entity lists; independent expansion; summary membership; catchall search; live updates; retained drafts; exact preview/save.";
+    feedback.textContent="PASS: family tree, full search, persistent details, immediate editing, retained drafts, exact reviewed saves, ten timings, separate Notifications page, and mobile list/detail.";
   }catch(error){feedback.textContent="FAIL: "+error.message;}
 };
+
 </script></body></html>

@@ -28,15 +28,17 @@ from homeassistant.helpers.dispatcher import (
 from homeassistant.util.hass_dict import HassKey
 
 from .config import Settings, normalize_rules, rule_data
-from .const import DOMAIN, NAME
+from .const import DEFAULTS, DOMAIN, NAME
+from .notification_routes import async_send, destinations
 from .runtime import Runtime
 from .serialization import json_object
+from .simple_notifications import available_people, generate_policy, simple_choices
 
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=23"
-PANEL_ELEMENT = "homeostatic-panel-v21"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=32"
+PANEL_ELEMENT = "homeostatic-panel-v22"
 
 
 def _digest(value: dict[str, Any]) -> str:
@@ -256,13 +258,96 @@ def websocket_node(
     )
 
 
-@websocket_command({vol.Required("type"): "homeostatic/configuration"})
+@websocket_command(
+    {vol.Required("type"): "homeostatic/source", vol.Required("node_id"): str}
+)
 @require_admin
 @callback
+def websocket_source(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Read current HA observations for a discovered source without enrolling it."""
+    runtime = hass.data[DATA_DASHBOARD].runtime
+    if runtime is None or not runtime.available:
+        connection.send_error(msg["id"], "not_ready", "Monitoring is unavailable")
+        return
+    node_id = msg["node_id"]
+    source = runtime.candidates.get(node_id)
+    if source is None:
+        connection.send_error(
+            msg["id"], "not_found", "This source is no longer discovered"
+        )
+        return
+    entity_ids = (
+        source.availability_entities
+        if source.kind == "device"
+        else ((source.entity_id,) if source.entity_id else ())
+    )
+    candidates = {
+        item.entity_id: item for item in runtime.candidates.values() if item.entity_id
+    }
+    members = []
+    for entity_id in entity_ids:
+        member = candidates.get(entity_id)
+        state = hass.states.get(entity_id)
+        members.append(
+            {
+                "node_id": member.node_id
+                if member
+                else f"entity:entity_id:{entity_id}",
+                "entity_id": entity_id,
+                "name": member.name if member else entity_id,
+                "state": state.state if state is not None else "missing",
+                "restored": bool(state and state.attributes.get("restored")),
+            }
+        )
+    members.sort(
+        key=lambda item: (
+            item["state"] not in {"unavailable", "unknown", "missing"},
+            str(item["name"]),
+        )
+    )
+    evidence = runtime.integration_evidence.view(node_id) or {}
+    if source.kind == "integration" and source.entry_id:
+        entry = hass.config_entries.async_get_entry(source.entry_id)
+        if entry is not None and not evidence.get("current"):
+            evidence = {**evidence, "current": {"reason": entry.state.value}}
+    connection.send_result(
+        msg["id"],
+        {
+            "members": members[:50],
+            "total": len(members),
+            "unavailable_count": sum(
+                item["state"] == "unavailable" for item in members
+            ),
+            "unknown_count": sum(
+                item["state"] in {"unknown", "missing"} or bool(item["restored"])
+                for item in members
+            ),
+            "integration_evidence": evidence,
+            "entity_status": runtime.entity_status(node_id)
+            if node_id in runtime.sources
+            else None,
+            "updated_at": runtime.updated_at.isoformat()
+            if runtime.updated_at
+            else None,
+        },
+    )
+
+
+@websocket_command({vol.Required("type"): "homeostatic/configuration"})
+@require_admin
 def websocket_configuration(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
     """Provide the current saved settings without a second configuration store."""
+    hass.async_create_task(_async_configuration(hass, connection, msg))
+
+
+async def _async_configuration(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Include current people and destinations in the administrator editor."""
     runtime = hass.data[DATA_DASHBOARD].runtime
     if runtime is None:
         connection.send_error(msg["id"], "not_ready", "Homeostatic is not loaded")
@@ -275,6 +360,17 @@ def websocket_configuration(
         {
             "revision": revision,
             "rules": rule_data(hass, settings),
+            "settings": _editable_settings(settings),
+            "notification_people": await available_people(hass),
+            "notification_destinations": [
+                {
+                    "channel": item.channel,
+                    "name": item.name,
+                    "user_id": item.user_id,
+                    "available": item.available,
+                }
+                for item in destinations(hass)
+            ],
             "alerts": {
                 "notifications": settings.notifications,
                 "consumer": settings.consumer,
@@ -291,6 +387,231 @@ def websocket_configuration(
             ],
         },
     )
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/test_notification",
+        vol.Required("channel"): str,
+    }
+)
+@require_admin
+@callback
+def websocket_test_notification(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Request a fixed test through one currently available route."""
+    hass.async_create_task(_async_test_notification(hass, connection, msg))
+
+
+async def _async_test_notification(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Keep a route test outside episodes, policy clocks, and the outbox."""
+    runtime = hass.data[DATA_DASHBOARD].runtime
+    if runtime is None or not runtime.available:
+        connection.send_error(msg["id"], "not_ready", "Homeostatic is unavailable")
+        return
+    channel = msg["channel"]
+    if not any(
+        item.channel == channel and item.available for item in destinations(hass)
+    ):
+        connection.send_error(msg["id"], "invalid_route", "Destination unavailable")
+        return
+    try:
+        await async_send(
+            hass,
+            channel,
+            title="Homeostatic test",
+            message="Homeostatic test: this route works",
+            tag="homeostatic_test",
+        )
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "delivery_failed", str(err))
+        return
+    connection.send_result(msg["id"], {"requested": True})
+
+
+def _editable_settings(settings: Settings) -> dict[str, Any]:
+    """Expose only installation options supported by the dashboard editor."""
+    return {
+        "timings": dict(settings.timings),
+        "notifications": settings.notifications,
+        "consumer": settings.consumer,
+        "policy": settings.policy,
+        "simple_notifications": simple_choices(settings.policy),
+    }
+
+
+async def _settings_candidate(
+    hass: HomeAssistant, current: dict[str, Any], proposed: dict[str, Any]
+) -> dict[str, Any]:
+    """Preserve unrelated options and validate a complete editable proposal."""
+    if set(proposed) not in (
+        {"timings", "notifications", "consumer", "policy"},
+        {"timings", "notifications", "consumer", "policy", "simple_notifications"},
+    ):
+        raise ValueError("Provide timing, notification, consumer, and policy settings")
+    if not isinstance(proposed["timings"], dict) or set(proposed["timings"]) != set(
+        DEFAULTS
+    ):
+        raise ValueError("Provide every supported timing")
+    candidate = {
+        **current,
+        **{
+            key: value
+            for key, value in proposed.items()
+            if key != "simple_notifications"
+        },
+    }
+    simple = proposed.get("simple_notifications")
+    if simple is not None and simple != simple_choices(
+        Settings.from_data(current).policy
+    ):
+        candidate["policy"] = generate_policy(
+            hass, simple, await available_people(hass)
+        )
+        if candidate.get("consumer"):
+            raise ValueError(
+                "Clear the existing notification automation before switching to person delivery"
+            )
+    settings = Settings.from_data(candidate)
+    previous = Settings.from_data(current)
+    if settings.notifications and (
+        not previous.notifications or settings.consumer != previous.consumer
+    ):
+        consumer = hass.states.get(settings.consumer) if settings.consumer else None
+        built_in = any(
+            channel.startswith(("phone:", "notify:"))
+            for recipient in settings.policy_config().recipients.values()
+            for channel in recipient.channels
+        )
+        if not built_in and (consumer is None or consumer.state != "on"):
+            raise ValueError("Enable the selected consumer automation first")
+    return candidate
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/preview_settings",
+        vol.Required("revision"): str,
+        vol.Required("settings"): dict,
+    }
+)
+@require_admin
+@callback
+def websocket_preview_settings(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Review timing and notification options without advancing live monitoring."""
+    hass.async_create_task(_async_preview_settings(hass, connection, msg))
+
+
+async def _async_preview_settings(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Validate people and routes before returning an exact review token."""
+    runtime = hass.data[DATA_DASHBOARD].runtime
+    if runtime is None or not runtime.available:
+        connection.send_error(msg["id"], "not_ready", "Homeostatic is unavailable")
+        return
+    current, revision = _configuration(runtime)
+    if msg["revision"] != revision:
+        connection.send_error(
+            msg["id"], "stale_configuration", "Settings changed; reload this page"
+        )
+        return
+    try:
+        candidate = await _settings_candidate(hass, current, msg["settings"])
+        settings = Settings.from_data(candidate)
+        policy = runtime.preview_policy(settings.policy)
+    except (ValueError, TypeError, KeyError, vol.Invalid) as err:
+        connection.send_error(msg["id"], "invalid_settings", str(err))
+        return
+    connection.send_result(
+        msg["id"],
+        {
+            "preview_token": _digest(
+                {"revision": revision, "settings": msg["settings"]}
+            ),
+            "before": _editable_settings(Settings.from_data(current)),
+            "after": msg["settings"],
+            "activating": settings.notifications
+            and not Settings.from_data(current).notifications,
+            "requests_now": len(cast(list[JSONValue], policy["deliveries"])),
+            "open_problems": len(runtime.episodes),
+        },
+    )
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/save_settings",
+        vol.Required("revision"): str,
+        vol.Required("preview_token"): str,
+        vol.Required("settings"): dict,
+    }
+)
+@require_admin
+@callback
+def websocket_save_settings(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Apply exactly reviewed installation settings under the shared save lock."""
+    hass.async_create_task(_async_save_settings(hass, connection, msg))
+
+
+async def _async_save_settings(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    dashboard = hass.data[DATA_DASHBOARD]
+    async with dashboard.save_lock:
+        runtime = dashboard.runtime
+        if runtime is None or not runtime.available:
+            connection.send_error(msg["id"], "not_ready", "Homeostatic is unavailable")
+            return
+        current, revision = _configuration(runtime)
+        if msg["revision"] != revision:
+            connection.send_error(
+                msg["id"], "stale_configuration", "Settings changed; reload this page"
+            )
+            return
+        try:
+            candidate = await _settings_candidate(hass, current, msg["settings"])
+        except (ValueError, TypeError, KeyError, vol.Invalid) as err:
+            connection.send_error(msg["id"], "invalid_settings", str(err))
+            return
+        if msg["preview_token"] != _digest(
+            {"revision": revision, "settings": msg["settings"]}
+        ):
+            connection.send_error(
+                msg["id"],
+                "preview_required",
+                "Review these exact settings before saving",
+            )
+            return
+        entry = runtime.entry
+        previous_options = dict(entry.options)
+        hass.config_entries.async_update_entry(entry, options=candidate)
+        try:
+            loaded = await hass.config_entries.async_reload(entry.entry_id)
+        except HomeAssistantError:
+            loaded = False
+        if not loaded:
+            hass.config_entries.async_update_entry(entry, options=previous_options)
+            try:
+                recovered = await hass.config_entries.async_reload(entry.entry_id)
+            except HomeAssistantError:
+                recovered = False
+            connection.send_error(
+                msg["id"],
+                "reload_failed",
+                "Could not apply settings; previous options restored"
+                if recovered
+                else "Previous options restored, but monitoring is unavailable",
+            )
+            return
+        connection.send_result(msg["id"], {"saved": True})
 
 
 def _alert_candidate(
@@ -588,7 +909,11 @@ async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> Non
         hass.data[DATA_DASHBOARD] = Dashboard(hass)
         websocket_api.async_register_command(hass, websocket_subscribe)
         websocket_api.async_register_command(hass, websocket_node)
+        websocket_api.async_register_command(hass, websocket_source)
         websocket_api.async_register_command(hass, websocket_configuration)
+        websocket_api.async_register_command(hass, websocket_test_notification)
+        websocket_api.async_register_command(hass, websocket_preview_settings)
+        websocket_api.async_register_command(hass, websocket_save_settings)
         websocket_api.async_register_command(hass, websocket_preview_alerts)
         websocket_api.async_register_command(hass, websocket_save_alerts)
         websocket_api.async_register_command(hass, websocket_preview_configuration)

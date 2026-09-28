@@ -1,6 +1,6 @@
 # Proposed spec section: notification settings and built-in delivery
 
-**Status:** Proposed with [ADR 0015](../adr/0015-deliver-notifications-to-people.md). This text moves into `spec.md` (Attention and persistence) and `events.md` when implemented. Until then, `spec.md` remains the contract.
+**Status:** Accepted direction under [ADR 0015](../adr/0015-deliver-notifications-to-people.md); implementation in progress. The delivered subset is described in `spec.md` and `events.md`. This proposal remains the target for announcements, phone controls, and remaining delivery behavior.
 
 ## Outcome
 
@@ -17,7 +17,7 @@ The audience is decided by who can act on a problem, not by how bad it is.
 
 ## Settings page
 
-The dashboard gains **Settings → Notifications**. Like the rest of the dashboard it is administrator-only. It edits the same options entry as native options; there is no second configuration store.
+The dashboard gains a top-level **Notifications** page ([ADR 0022](../adr/0022-top-level-notifications-page.md)). Like the rest of the dashboard it is administrator-only. It edits the same options entry as native options; there is no second configuration store.
 
 ```
 Notifications                                             [ On ● ]

@@ -6,7 +6,7 @@ import voluptuous as vol
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
@@ -35,6 +35,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
             f"Invalid Homeostatic configuration or snapshot: {err}"
         ) from err
     entry.runtime_data = runtime
+
+    @callback
+    def handle_notification(event: Event) -> None:
+        hass.async_create_task(runtime.async_send_notification(dict(event.data)))
+
+    entry.async_on_unload(
+        hass.bus.async_listen(EVENT_NOTIFICATION, handle_notification)
+    )
     await async_register_dashboard(hass, runtime)
     entry.async_on_unload(lambda: async_remove_dashboard(hass))
     async_register_services(hass, runtime)

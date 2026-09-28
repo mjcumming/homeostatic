@@ -168,7 +168,14 @@ def data_from_input(
     data["consumer"] = consumer
     if data["notifications"]:
         state = hass.states.get(consumer) if isinstance(consumer, str) else None
-        if (
+        built_in = any(
+            channel.startswith(("phone:", "notify:"))
+            for recipient in Settings.from_data(data)
+            .policy_config()
+            .recipients.values()
+            for channel in recipient.channels
+        )
+        if not built_in and (
             state is None
             or state.state != "on"
             or not isinstance(consumer, str)
@@ -210,6 +217,7 @@ def normalize_rules(hass: HomeAssistant, value: Any) -> list[dict[str, Any]]:
                 "id": rule.id,
                 "enabled": rule.enabled,
                 "action": rule.action,
+                **({"overridable": True} if rule.overridable else {}),
                 "match": match,
                 "checks": ["availability"],
             }
@@ -224,6 +232,7 @@ def rule_data(hass: HomeAssistant, settings: Settings) -> list[dict[str, Any]]:
             {
                 "id": rule.id,
                 "action": rule.action,
+                **({"overridable": True} if rule.overridable else {}),
                 "enabled": rule.enabled,
                 "match": {key: list(values) for key, values in rule.match.items()},
                 "checks": ["availability"],

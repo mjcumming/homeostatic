@@ -162,9 +162,11 @@ def inventory(
             and owner_entry.domain != "switch_as_x"
         ):
             entry_ids.add(owner_id)
+            metadata["integration_domain"] = (owner_entry.domain,)
         else:
             if owner_entry is not None and owner_entry.domain == "switch_as_x":
                 metadata.pop("integration", None)
+                metadata.pop("integration_domain", None)
             owner_id = None
         sources[node_id] = Source(
             node_id=node_id,
@@ -207,6 +209,17 @@ def inventory(
             "kind": ("device",),
             "device": (device_id,),
             "integration": tuple(sorted(owner_ids)),
+            "integration_domain": tuple(
+                sorted(
+                    {
+                        entry.domain
+                        for owner_id in owner_ids
+                        if (entry := hass.config_entries.async_get_entry(owner_id))
+                        is not None
+                        and entry.domain not in {DOMAIN, "switch_as_x"}
+                    }
+                )
+            ),
             "area": (device.area_id,) if device and device.area_id else (),
             "floor": (area.floor_id,) if area and area.floor_id else (),
             "label": tuple(
@@ -241,6 +254,7 @@ def inventory(
         metadata = {"kind": ("integration",), "integration": (entry_id,)}
         if entry is not None:
             metadata["domain"] = (entry.domain,)
+            metadata["integration_domain"] = (entry.domain,)
         else:
             metadata = known.get(node_id, metadata)
         sources[node_id] = Source(

@@ -30,7 +30,7 @@ DEFAULT_POLICY: dict[str, Any] = {
         {"match": {}, "loudness": "notify", "to": ["owner"]},
     ],
 }
-_ID = vol.Match(r"^[a-z][a-z0-9_]*$")
+_ID = vol.Match(r"^[a-z][a-z0-9_:-]*$")
 _TEXT = vol.All(str, vol.Length(min=1))
 _CLOCK = vol.All(str, vol.Match(r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"))
 _DURATION = re.compile(r"^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
@@ -76,6 +76,7 @@ _MATCH = vol.Schema(
 _SCHEMA = vol.Schema(
     {
         vol.Required("timezone"): _TEXT,
+        vol.Optional("generated"): dict,
         vol.Required("recipients"): {
             _ID: {
                 vol.Required("channels"): names,

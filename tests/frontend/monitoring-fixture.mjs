@@ -2,7 +2,7 @@ export const baseSource = (node_id,name,kind,fields = {}) => ({node_id,name,kind
 
 /** A large synthetic inventory, including missing owners and shared devices. */
 export function monitoringExample() {
-  const rows = [baseSource("entry:frigate","Frigate","integration",{entry_id:"frigate",watched:true,attached_by:["entries"]})];
+  const rows = [baseSource("entry:frigate","Frigate","integration",{entry_id:"frigate",attributes:{domain:["frigate"]},watched:true,attached_by:["entries"]})];
   const devices = [];
   for (let device = 0; device < 26; device++) {
     const id = `camera-${device}`;

@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Use Home Assistant's “entity” terminology for selectable and monitored sources in Sources and device problem details, while retaining “reading” for physical measurements and the act of retrieving values.
+- Move Notifications to the main dashboard navigation, link Overview's request status to it, and leave Timing and Problem grouping in Settings.
+- Defer guided notification automation routing: remove its picker and detailed-routing link, move notification delay to Timing and time zone beside quiet hours, and preserve existing automation selections.
+- Keep notification dropdowns open on touch devices by waiting for a selection change before redrawing Settings.
+- Lead device problem details with the integration, current-reading count, and named readings needing review; shorten repeated explanations and make the device page the primary action.
+- Hide the link-only Household functions Settings section while preserving existing function definitions and monitoring behavior.
+- Add an integration-wide monitoring off choice that covers its connection, devices, and separate readings while preserving narrower choices for later resumption.
+
+- Make device availability details identify the selected entities lacking usable Home Assistant states, explain the assessment rule, and put the full selection and monitoring changes behind a disclosure.
+
+
+- Implement the accepted dashboard baseline: concise Overview and Issues, integration-family Sources tree, persistent desktop details, mobile list/detail navigation, and immediately editable source monitoring.
+- Add reviewed installation-wide timing and notification-policy editing while preserving arbitrary saved policies and unrelated options. Integration device defaults can cover future connections of the same integration type.
+
 ### Added
+
+- Add a person-based Notifications editor with phone and notify-entity destinations, simple alert levels, quiet hours, an isolated route test, and preview-before-save. Built-in service requests record attempts durably before sending; notification requests remain off until the owner enables them.
+
+- Combine Explore, Monitoring, and source-specific choices in one Sources workspace ([ADR 0017](docs/adr/0017-one-sources-workspace.md)). Browse by integration or HA location, review evidence beside current monitoring, and edit in place with the existing preview and save guard. Existing source views route into Sources.
 
 - Optional HA template blueprint for mapping a diagnostic entity's explicit fault and clear states to a problem binary sensor for situation binding; other or restored states remain unavailable.
 - User how-to for translating a documented device diagnostic state into a local HA binary sensor and Homeostatic situation alert, including ISY communication errors and unknown-source handling.
@@ -10,6 +30,10 @@
 - Example blueprints: a function status light and a problem logbook.
 
 ### Changed
+
+- Sources now keeps one tree beside Source, Settings, and History views for the selected item. Empty integration names receive readable labels and repeated page headings are removed.
+
+- Monitoring setup now uses an integration → device → entity tree without nested paging, clearer saved-policy summaries, and integration-level device defaults. New installations leave device summaries unmonitored until selected; an individual device can override its integration's device default. Existing saved monitoring choices are preserved until reviewed and saved.
 
 - Add a quick local check (`script/check.py --quick`, `make quick`) for lint, format, and frontend checks. The commit hook uses it. CI still runs the full suite.
 - Readiness sensors are enum sensors, so the automation editor offers their states.

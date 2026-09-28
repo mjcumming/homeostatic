@@ -21,6 +21,8 @@ from pytest_homeassistant_custom_component.common import (
 )
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
+from custom_components.homeostatic import dashboard as dashboard_module
+from custom_components.homeostatic import simple_notifications
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.dashboard import (
     DATA_DASHBOARD,
@@ -28,9 +30,64 @@ from custom_components.homeostatic.dashboard import (
     PANEL_ELEMENT,
     snapshot,
 )
+from custom_components.homeostatic.notification_routes import Destination
 from tests.test_lifecycle import SCENARIOS, start_monitor
 
 NODE = "entity:entity_id:sensor.observed"
+
+
+async def test_person_notification_settings_save_without_sending(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One reviewed person route becomes the saved policy while requests stay off."""
+    people = [
+        {"id": "mike", "name": "Michael", "user_id": "user-1", "administrator": True}
+    ]
+    route = Destination(
+        channel="phone:device-1", name="iPhone", user_id="user-1", available=True
+    )
+
+    async def listed_people(_hass: HomeAssistant) -> list[dict[str, Any]]:
+        return people
+
+    monkeypatch.setattr(dashboard_module, "available_people", listed_people)
+    monkeypatch.setattr(dashboard_module, "destinations", lambda _hass: [route])
+    monkeypatch.setattr(simple_notifications, "destinations", lambda _hass: [route])
+    config_data["notifications"] = False
+    hass.states.async_set("sensor.observed", "42")
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    await start_monitor(hass, entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    draft = deepcopy(current["settings"])
+    draft["consumer"] = None
+    draft["simple_notifications"]["people"]["mike"] = {
+        "level": "Important",
+        "channels": ["phone:device-1"],
+    }
+    change = {"revision": current["revision"], "settings": draft}
+    await client.send_json({"id": 2, "type": "homeostatic/preview_settings", **change})
+    preview = (await client.receive_json())["result"]
+    assert preview["requests_now"] == 0
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "homeostatic/save_settings",
+            **change,
+            "preview_token": preview["preview_token"],
+        }
+    )
+    assert (await client.receive_json())["result"] == {"saved": True}
+    assert entry.options["policy"]["recipients"]["person:mike"]["channels"] == [
+        "phone:device-1"
+    ]
+    assert entry.options["notifications"] is False
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.close()
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=[row["id"] for row in SCENARIOS])
@@ -212,6 +269,20 @@ async def test_location_names_and_situation_detail(
         pytest.param({"type": "homeostatic/subscribe"}, id="subscription"),
         pytest.param({"type": "homeostatic/node", "node_id": NODE}, id="node"),
         pytest.param({"type": "homeostatic/configuration"}, id="configuration"),
+        pytest.param({"type": "homeostatic/source", "node_id": NODE}, id="source"),
+        pytest.param(
+            {"type": "homeostatic/preview_settings", "revision": "x", "settings": {}},
+            id="preview-settings",
+        ),
+        pytest.param(
+            {
+                "type": "homeostatic/save_settings",
+                "revision": "x",
+                "settings": {},
+                "preview_token": "x",
+            },
+            id="save-settings",
+        ),
         pytest.param(
             {
                 "type": "homeostatic/preview_alerts",
@@ -773,5 +844,188 @@ async def test_monitoring_preview_keeps_excluded_function_requirement_unknown(
     function = (await client.receive_json())["result"]["functions"][0]
     assert function["readiness"]["answer"] == "unknown"
     assert function["requirements"][0]["monitoring"] == "unwatched"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.close()
+
+
+async def test_installation_settings_exact_review_preserves_definitions(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Timing and quiet-hour edits remain read-only until the exact guarded save."""
+    config_data.update(
+        notifications=False,
+        functions=[
+            {
+                "id": "lighting",
+                "name": "Lighting",
+                "requires": [NODE],
+            }
+        ],
+    )
+    hass.states.async_set("sensor.observed", "42")
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    draft = deepcopy(current["settings"])
+    draft["timings"]["unknown_hold"] = 240
+    draft["policy"]["recipients"]["owner"]["quiet_hours"] = {
+        "start": "22:00",
+        "end": "07:00",
+    }
+    draft["policy"]["rules"][1]["remind_every"] = 3600
+    before = deepcopy(runtime.snapshot())
+    change = {"revision": current["revision"], "settings": draft}
+    await client.send_json({"id": 2, "type": "homeostatic/preview_settings", **change})
+    response = await client.receive_json()
+    assert "result" in response, response
+    preview = response["result"]
+    assert preview["after"] == draft
+    assert runtime.snapshot() == before
+    assert not entry.options
+    altered = deepcopy(draft)
+    altered["timings"]["unknown_hold"] = 300
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "homeostatic/save_settings",
+            **change,
+            "settings": altered,
+            "preview_token": preview["preview_token"],
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "preview_required"
+    assert not entry.options
+    await client.send_json(
+        {
+            "id": 4,
+            "type": "homeostatic/save_settings",
+            **change,
+            "preview_token": preview["preview_token"],
+        }
+    )
+    assert (await client.receive_json())["result"] == {"saved": True}
+    assert entry.options["functions"] == config_data["functions"]
+    assert entry.options["entities"] == config_data["entities"]
+    assert entry.options["timings"]["unknown_hold"] == 240
+    assert entry.options["policy"] == draft["policy"]
+    assert entry.runtime_data.available
+    assert not entry.runtime_data.delivery.messages
+    await client.send_json({"id": 5, "type": "homeostatic/preview_settings", **change})
+    assert (await client.receive_json())["error"]["code"] == "stale_configuration"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.close()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        pytest.param("settle", -1, id="negative"),
+        pytest.param("settle", "120", id="text"),
+        pytest.param("coalesce_count", 1, id="count"),
+        pytest.param("unknown_hold", True, id="boolean"),
+    ],
+)
+async def test_installation_settings_reject_invalid_timing(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    field: str,
+    value: Any,
+) -> None:
+    """The API enforces timing limits even when bypassing browser validation."""
+    await start_monitor(hass, config_entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    draft = deepcopy(current["settings"])
+    draft["timings"][field] = value
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "homeostatic/preview_settings",
+            "revision": current["revision"],
+            "settings": draft,
+        }
+    )
+    assert (await client.receive_json())["error"]["code"] == "invalid_settings"
+    assert not config_entry.options
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
+
+
+async def test_installation_settings_restore_on_failed_reload(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """An unsuccessful apply restores the previous options and attempts recovery."""
+    await start_monitor(hass, config_entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    draft = deepcopy(current["settings"])
+    draft["timings"]["unknown_hold"] = 240
+    change = {"revision": current["revision"], "settings": draft}
+    await client.send_json({"id": 2, "type": "homeostatic/preview_settings", **change})
+    response = await client.receive_json()
+    assert "result" in response, response
+    with patch.object(
+        hass.config_entries, "async_reload", new=AsyncMock(side_effect=[False, True])
+    ) as reload:
+        await client.send_json(
+            {
+                "id": 3,
+                "type": "homeostatic/save_settings",
+                **change,
+                "preview_token": response["result"]["preview_token"],
+            }
+        )
+        assert (await client.receive_json())["error"]["code"] == "reload_failed"
+    assert reload.await_count == 2
+    assert not config_entry.options
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
+
+
+async def test_unmonitored_sources_show_observations_without_enrollment(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Browsing unmonitored entities and connections cannot create checks or episodes."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    registered = er.async_get(hass).async_get_or_create(
+        "sensor", "test", "sample", config_entry=owner
+    )
+    hass.states.async_set(registered.entity_id, "unavailable")
+    config_data.update(rules=[], notifications=False)
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    client = await hass_ws_client(hass)
+    before = deepcopy(runtime.snapshot())
+    await client.send_json(
+        {
+            "id": 1,
+            "type": "homeostatic/source",
+            "node_id": f"entity:registry:{registered.id}",
+        }
+    )
+    response = await client.receive_json()
+    assert "result" in response, response
+    assert response["result"]["members"][0]["state"] == "unavailable"
+    assert response["result"]["entity_status"] is None
+    await client.send_json(
+        {"id": 2, "type": "homeostatic/source", "node_id": f"entry:{owner.entry_id}"}
+    )
+    response = await client.receive_json()
+    assert "result" in response, response
+    assert response["result"]["integration_evidence"]["current"]["reason"] == "loaded"
+    assert runtime.snapshot() == before
+    assert not runtime.episodes
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()

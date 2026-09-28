@@ -35,7 +35,7 @@ Confidence depends on knowing the limits of your monitoring. Homeostatic makes t
 | Question | Where to look |
 | --- | --- |
 | What needs my attention? | Home and problem details, with evidence, affected functions, and next steps |
-| What is happening in this part of the house? | Explore using your existing Home Assistant floors, areas, and devices |
+| What is happening in this part of the house? | Sources grouped by your existing Home Assistant floors and areas |
 | What can we actually assess? | Monitoring, with watched sources, missing evidence, exclusions, and discovered inventory |
 | What should we monitor? | Settings, with guided Watch/Exclude choices and a preview before saving |
 
@@ -80,7 +80,7 @@ Review the supplied availability rules. New installations select integration sta
 
 ### Open the dashboard
 
-After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu, including on phones. **Overview** shows current issue and monitoring counts with three recent issues; **Issues** lists every open problem; **Explore** investigates floors, areas and devices; **Monitoring** shows selected HA checks and evidence needing review; **History** shows ended problems; **Settings** offers monitoring choices and alert-request controls with previews before saving. Alerts & delivery can turn requests on or off and select the consumer automation; it summarizes saved routing policy and links directly to Homeostatic's HA integration entry for detailed policy, functions, situations and timing. Turning requests on can alert about already-open problems. The pages and problem/function details use one shared live subscription. Explore and Monitoring search all discovered sources while keeping rendered lists bounded. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
+After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu, including on phones. **Overview** shows current issue and monitoring counts with three recent issues; **Issues** lists every open problem; **Sources** groups discovered sources by integration or HA location and shows evidence, current monitoring, and in-place choices; **History** shows ended problems; **Settings** handles installation-wide alert requests. Alerts & delivery can turn requests on or off and select the consumer automation; it summarizes saved routing policy and links directly to Homeostatic's HA integration entry for detailed policy, functions, situations and timing. Turning requests on can alert about already-open problems. The pages and problem/function details use one shared live subscription. Sources searches all discovered sources while keeping rendered branches bounded. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
 
 The monitoring catalog omits **Change device type of a switch** helper entries because they wrap an existing switch; the converted entity can still be monitored. **Group** entries stay because a group can be an automation control target. A healthy Group entry or group entity does not establish that every member works. Monitor important members directly; the Group row's source count is not a device count.
 
@@ -93,7 +93,7 @@ type: custom:homeostatic-card
 view: overview
 ```
 
-Supported views are `overview` (Home), `house` (Explore), `coverage` (Monitoring), `history`, `configuration` (Settings), `functions`, and `problems`. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
+Supported views are `overview` (Home), `sources`, `history`, `configuration` (Settings), `functions`, and `problems`. Older `house` and `coverage` view settings open Sources. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
 
 The dashboard is administrator-only because it includes installation-wide configuration, inventory and routing. Readiness entities retain their ordinary HA access controls. Problem cards and details explain the reported condition, confirmed effects on configured functions, a relevant next step and recovery progress. NuHeat and receiver timeouts, sign-in requests, disabled connections and recovery have distinct guidance. **Pause alerts** is directly visible in problem details and applies only to that problem; other problems on the equipment are unaffected. Equipment **Working on this equipment** is available from source details. Active controls keep a visible expiry notice. **Technical details** holds timestamped original errors, filtered logs, **Copy diagnostic data** and optional **View raw data**. Pausing alerts and maintenance each require an end time within seven days. Maintenance previews affected capabilities, functions and existing problems before applying. Existing alerts remain active during maintenance; shelving holds new alerts, including urgent ones, for every recipient. Administrators can use **Acknowledge** to record awareness and **End now** to cancel a temporary control. Active controls show their expiry and reason. Both forms use the existing administrator actions and keep unfinished entries through live updates. Availability does not prove physical freshness or command completion.
 
@@ -101,7 +101,7 @@ The dashboard is administrator-only because it includes installation-wide config
 
 ### Choose what to watch
 
-Use **Settings → Monitoring choices** for guided watch or exclude choices. Preview the exact selection before saving. The native options editor and advanced Settings disclosure retain the complete catalog rules for more complex matches.
+Use **Sources → Edit monitoring** for guided watch or exclude choices. Preview the exact selection before saving. The native options editor and the Saved monitoring policies disclosure retain the complete catalog rules for more complex matches.
 
 On a new installation, **Catalog rules (YAML list)** starts with:
 
@@ -110,13 +110,11 @@ On a new installation, **Catalog rules (YAML list)** starts with:
   action: attach
   match: {kind: integration}
   checks: [availability]
-- id: device_availability
-  action: attach
-  match: {kind: device}
-  checks: [availability]
 ```
 
-Each device rule creates one availability check over enabled ordinary entities, or diagnostics if no ordinary entities exist. Hidden entities are still included; disabled and configuration entities are not. Entity exclusions also remove those entities from device summaries. All selected members available passes; some unavailable produces a warning; all unavailable fails. Unknown or missing evidence without an unavailable member stays unknown. Excluding every member leaves no check and is not evidence of health. There are no manufacturer-specific exceptions.
+New installations leave device summaries and separate entity checks unmonitored. Choose an integration to watch its current and future devices, or select individual devices and entities. Existing saved broad rules keep their scope until you review and save a change.
+
+Each selected device creates one availability check over enabled ordinary entities, or diagnostics if no ordinary entities exist. Hidden entities are still included; disabled and configuration entities are not. Entity exclusions also remove those entities from device summaries. All selected members available passes; some unavailable produces a warning; all unavailable fails. Unknown or missing evidence without an unavailable member stays unknown. Excluding every member leaves no check and is not evidence of health. There are no manufacturer-specific exceptions.
 
 ### What an availability problem means
 
@@ -124,11 +122,11 @@ Home Assistant does not provide one error status that rolls down from system to 
 
 `off` or `idle` normally means an entity is available but inactive. `unknown` means its value is not known. `unavailable` means HA currently cannot supply that entity's functionality or data. It can accompany communication failure, but an integration can also use it for an optional capability that is absent in the current operating mode. That state alone does not tell Homeostatic whether anything needs repair. Hiding an entity changes its presentation, not its availability or monitoring.
 
-Homeostatic checks an **expectation**: selecting an entity says it should be available; selecting a device summary applies that expectation to the selected members. Broad defaults are a starting point to review, and future matching sources inherit them. Problems describe the reported availability and show the contributing entity names and current states. They do not claim the hardware is broken. See HA's [entities and devices](https://www.home-assistant.io/getting-started/concepts-terminology/) and [availability guidance](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/entity-unavailable/) for the underlying model.
+Homeostatic checks an **expectation**: selecting an entity says it should be available; selecting a device summary applies that expectation to the selected members. New setups monitor integration connections and let you opt in to device summaries by integration or device. Existing saved choices stay in force until you change them. Problems describe the reported availability and show the contributing entity names and current states. They do not claim the hardware is broken. See HA's [entities and devices](https://www.home-assistant.io/getting-started/concepts-terminology/) and [availability guidance](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/entity-unavailable/) for the underlying model.
 
 If an unavailable capability is normal or unimportant in your home, choose **Ignore availability** in its details, review the monitoring preview, and **Save**. This records a persistent exclusion for that entity, including its contribution to device summaries. Its HA state stays unchanged. Registry identity keeps the choice through renames and restarts; remove the exclusion in **What to monitor** to watch it again. Removing evidence ends the old problem as removed from monitoring, not recovered. Acknowledging a problem means you have seen it; shelving temporarily postpones attention. Neither means the source recovered or should be permanently ignored.
 
-A saved broad rule without `kind: device` does not implicitly enroll device summaries. Edit or disable a rule with `enabled: false`; an empty list intentionally watches no equipment. All matching attachments contribute; **every matching exclusion wins**, regardless of rule order. Check timings are house settings below the rules field.
+A saved broad rule without `kind: device` does not implicitly enroll device summaries. Edit or disable a rule with `enabled: false`; an empty list intentionally watches no equipment. Exclusions normally win regardless of rule order. An integration device default can leave current and future devices unmonitored while an exact device choice watches one device. Check timings are house settings below the rules field.
 
 For example, keep the broad rule and add:
 

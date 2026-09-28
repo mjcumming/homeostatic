@@ -11,6 +11,7 @@ FIELDS = frozenset(
         "domain",
         "device_class",
         "integration",
+        "integration_domain",
         "device",
         "entity",
         "area",
@@ -23,12 +24,6 @@ DEFAULT_RULES: list[dict[str, Any]] = [
         "id": "integration_availability",
         "action": "attach",
         "match": {"kind": "integration"},
-        "checks": ["availability"],
-    },
-    {
-        "id": "device_availability",
-        "action": "attach",
-        "match": {"kind": "device"},
         "checks": ["availability"],
     },
 ]
@@ -60,6 +55,7 @@ class CatalogRule:
     action: str
     match: Mapping[str, tuple[str, ...]]
     enabled: bool = True
+    overridable: bool = False
 
     def matches(self, metadata: Attributes) -> bool:
         """Match every field, accepting any of its configured values."""
@@ -84,6 +80,7 @@ def parse_rules(value: Any) -> tuple[CatalogRule, ...]:
             "match",
             "checks",
             "enabled",
+            "overridable",
         }:
             raise ValueError("Unknown catalog rule field")
         rule_id = row.get("id")
@@ -101,12 +98,24 @@ def parse_rules(value: Any) -> tuple[CatalogRule, ...]:
         enabled = row.get("enabled", True)
         if type(enabled) is not bool:
             raise ValueError("Rule enabled must be boolean")
+        overridable = row.get("overridable", False)
+        if type(overridable) is not bool or (
+            overridable
+            and (
+                action != "exclude"
+                or set(attributes(row.get("match", {})))
+                not in ({"kind", "integration"}, {"kind", "integration_domain"})
+                or attributes(row["match"])["kind"] != ("device",)
+            )
+        ):
+            raise ValueError("Only an integration device default may be overridable")
         result.append(
             CatalogRule(
                 id=rule_id,
                 action=action,
                 match=attributes(row.get("match", {})),
                 enabled=enabled,
+                overridable=overridable,
             )
         )
         ids.add(rule_id)
@@ -129,11 +138,22 @@ class Decision:
 def decide(rules: tuple[CatalogRule, ...], metadata: Attributes) -> Decision:
     """Evaluate a source without rule-order precedence or side effects."""
     matching = [rule for rule in rules if rule.matches(metadata)]
+    explicit_device_watch = "device" in metadata.get("kind", ()) and any(
+        rule.action == "attach"
+        and rule.match.get("kind") == ("device",)
+        and rule.match.get("device") == metadata.get("device")
+        for rule in matching
+    )
     return Decision(
         attached_by=tuple(
             sorted(rule.id for rule in matching if rule.action == "attach")
         ),
         excluded_by=tuple(
-            sorted(rule.id for rule in matching if rule.action == "exclude")
+            sorted(
+                rule.id
+                for rule in matching
+                if rule.action == "exclude"
+                and not (rule.overridable and explicit_device_watch)
+            )
         ),
     )

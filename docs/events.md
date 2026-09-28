@@ -57,7 +57,7 @@ The [function status light](../blueprints/automation/homeostatic/function_status
 
 ## Notification requests
 
-Homeostatic emits `homeostatic_notification` on the Home Assistant event bus. A consumer automation decides how to deliver it. The integration does not call a phone, TTS, notify service, or an episode persistent notification. Its own storage/configuration errors still use a native persistent notification.
+Homeostatic emits `homeostatic_notification` on the Home Assistant event bus. A consumer automation can deliver opaque channels such as `event`. For owner-selected `phone:<device registry id>` and `notify:<entity registry id>` channels, Homeostatic also requests delivery through the corresponding Home Assistant notification action. The event payload remains the shared contract. A channel id with another prefix remains consumer-owned. The integration does not create an episode persistent notification; its own storage/configuration errors still use a native persistent notification. Household announcements remain unfinished.
 
 ### Payload version 1
 

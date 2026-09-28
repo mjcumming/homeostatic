@@ -310,6 +310,7 @@ async def test_persistent_ignore_changes_expectation_without_claiming_recovery(
     evidence = runtime.device_evidence(node_id)
     assert evidence is not None
     assert evidence["total"] == 2
+    assert evidence["reporting_count"] == 1
     assert evidence["members"][0]["entity_id"] == group.entity_id
     assert evidence["members"][0]["state"] == "unavailable"
     excluded = [

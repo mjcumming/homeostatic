@@ -1,6 +1,6 @@
 # ADR 0015: Deliver notifications to people with a built-in sender
 
-**Status:** Proposed
+**Status:** Accepted; implementation in progress
 
 **Date:** 2026-09-27
 

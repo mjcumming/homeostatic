@@ -1,6 +1,6 @@
 # Homeostatic UI: ideas worksheet
 
-Owner-facing plans and working notes for `homeostatic`. Sections 16 and 17 record owner decisions; earlier explorations remain proposals unless adopted there. Accepted product direction is distinct from implemented behavior: `docs/spec.md` controls the integration implementation, and the library RFP and ADRs control health and attention semantics.
+Owner-facing plans and working notes for `homeostatic`. Sections 16 and 17 record the initial owner decisions; section 30 records the accepted Sources workspace direction; earlier explorations remain proposals unless adopted there. Accepted product direction is distinct from implemented behavior: `docs/spec.md` controls the integration implementation, and the library RFP and ADRs control health and attention semantics.
 
 Expanded 2026-09-24. Layout remains open. This worksheet names owner tasks, proposes workflows and priorities, and distinguishes existing library behavior from integration work. Owner requirements include user-created alerts; section 14 explores the mechanism. Recommendations remain proposals for review, not accepted library changes. The ADR index now records ADRs 0024 through 0028 as accepted.
 
@@ -1083,13 +1083,13 @@ confirmation; historical episode reasons never stand in for current state.
 
 The first editable dashboard page addresses the gap between Coverage showing a rule decision and native options presenting the whole integration as one form. It edits the existing attach/exclude catalog, with no second enrollment setting or configuration store. This is a focused first slice of Configuration; functions, situations, policy and house timing continue through native options.
 
-[ADR 0012](adr/0012-monitoring-expectations-and-persistent-exclusions.md) records the general monitoring-expectation decision. The Outdoor Speakers example does not justify a manufacturer exception or assuming all partial unavailability is harmless. A selected availability check is an expectation. Report what HA says and show the selected entity names and current states, without diagnosing physical failure or inventing an actionability judgment. Explain broad defaults and future matches when editing monitoring.
+[ADR 0012](adr/0012-monitoring-expectations-and-persistent-exclusions.md) records the general monitoring-expectation decision. The Outdoor Speakers example does not justify a manufacturer exception or assuming all partial unavailability is harmless. A selected availability check is an expectation. Report what HA says and show the selected entity names and current states, without diagnosing physical failure or inventing an actionability judgment. Explain current defaults and future matches when editing monitoring.
 
 Device details show at most 50 current members, unavailable first, and link to full monitoring choices. **Ignore availability** stages a persistent entity exclusion in the existing editor, with preview before save. Apply the exclusion to direct checks and device summaries. An empty set is unmonitored, not healthy. End an old aggregate episode as removed when its excluded members change; do not call that recovery. Stable registry identity preserves the choice through renames and reload. Acknowledgment and temporary shelving retain their separate meanings and cannot serve as persistent ignore choices.
 
 The owner can add, enable, disable, edit and remove a rule. Match inputs cover the accepted stable fields. Empty fields match any value, values within a field are alternatives, and populated fields combine. The page explains that new discoveries inherit matching rules, that exclusions win, and that excluding a required capability leaves its function without evidence. It edits the current availability check only; the page cannot create a physical-health claim or a per-check timing override.
 
-The primary page is a compact source tree beside a focused settings panel. Expand and select are independent. Known integrations contain devices and entity-type groups; Other sources catches missing or unknown integration associations and retains device grouping where possible. Navigation siblings, search results, and detail lists are paged twenty at a time. Each integration leads with its HA loading check; overlapping group choices stay under Bulk changes. Device panels show summary membership, exclusions, and separate checks without suggesting that zero individual checks means no device monitoring. Search reveals paths but never narrows rule scope. Review and save stay in a visible toolbar, with the same exact-preview contract. The current effective state is shown separately from pending direct choices because broader rules and exclusions may overlap. A choice edits the one catalog rule model and requires preview before save. Preserve arbitrary existing catalog rules through a collapsed advanced editor rather than reducing them to tree checkboxes or losing match fields.
+The initial monitoring editor uses a source tree beside a focused settings panel. Expand and select are independent. ADR 0016 replaces the earlier nested type-group and twenty-item paging prototype with integration/device/entity navigation, on-demand branches, and whole-inventory search. Section 30 moves this editor into the shared Sources workspace. Each integration leads with its HA loading check; overlapping group choices stay under Bulk changes. Device panels show summary membership, exclusions, and separate checks without suggesting that zero individual checks means no device monitoring. Search reveals paths but never narrows rule scope. Review and save stay in a visible toolbar, with the same exact-preview contract. The current effective state is shown separately from pending direct choices because broader rules and exclusions may overlap. A choice edits the one catalog rule model and requires preview before save. Preserve arbitrary existing catalog rules through a collapsed advanced editor rather than reducing them to tree checkboxes or losing match fields.
 
 Preview must show current rule match counts, watched count, sources newly watched or no longer watched, and current-evidence function readiness. It changes no live engine, options, episodes or delivery. Save requires that exact rule preview, rejects options changed elsewhere, validates using the same rule and full-settings contracts as native options, and reloads the integration. The editor shows a reload error and restores previous options if the new configuration does not load. Disconnection or an unavailable runtime disables editing rather than presenting stale status as current.
 
@@ -1110,3 +1110,84 @@ Acceptance: with four open episodes of differing importance and opening times, O
 The owner found that Functions & situations, Alerts & delivery, and Advanced repeated a generic link to HA integrations instead of offering settings. Keep only sections that perform a task. Monitoring choices retains its guided editor. Alerts & delivery is the next editable slice: show the saved notification switch and selected consumer automation, explain whether that consumer is enabled, preview activation against current open problems, and save only the reviewed change to the same HA options. Keep notification requests off until the owner deliberately enables them; a preview sends nothing. Show the saved recipients, channels, quiet hours, digests, rule count and time zone without suggesting that an event proves phone delivery.
 
 Functions, situations, detailed policy and timing remain in native Homeostatic options until guided editors with meaningful preview and correction paths exist. Link to the Homeostatic integration entry rather than the generic integrations list. No second configuration store or duplicate catalog-rule route is needed.
+
+## 30. One Sources workspace — 2026-09-27
+
+**Implemented locally for review.** [ADR 0017](adr/0017-one-sources-workspace.md) records why the three source surfaces converge. The [Sources specification](spec.md#sources-workspace-target) controls the behavior and acceptance checks. This section replaces the separate source-navigation proposals in sections 17, 26, 27, 28, and 29; their evidence, issue, and preview/save boundaries remain applicable.
+
+The owner should find a source once and work with it in place. A shared component on three pages would still make them change pages to answer related questions. Use one **Sources** destination instead of separate Explore and Monitoring destinations and a second tree in Settings. Keep **Overview, Issues, Sources, History, Settings** as the main navigation. Settings continues to handle installation-wide configuration.
+
+The workspace has search and a grouping selector above one expandable tree, with one detail panel beside the selected item. On narrow screens those regions stack. By integration starts with integrations and their devices/entities; By location starts with native HA floors/areas. These are two organizations of the same inventory, not different monitoring models. Remember the grouping and retain the selected source when it changes. Missing associations have clear fallbacks; no source disappears because it lacks an integration, area, or device.
+
+The owner walkthrough revised the detail layout in [ADR 0018](adr/0018-source-panel-views.md). Keep one tree on the left and **Source**, **Settings**, and **History** views for its selected item on the right. Source shows identity/location and current evidence. Settings shows saved monitoring and offers **Edit monitoring**, with the draft and Review/Save in place. History shows related open and retained ended problems. Switching views preserves selection and draft. Advanced policies and raw evidence stay secondary. Group selections summarize children; they do not repeat every child's full explanation.
+
+**Needs review** filters the tree. Counts identify the affected branches, and the owner chooses what to open. Do not place a flat findings report before the browser or expand every branch because it contains a gap. Search reveals a matching source in its parent path. Keep expansion and selection independent. Preserve ADR 0016's simple integration/device/entity levels and ordinary page scrolling; the earlier twenty-item nested pagination prototype is superseded. Large inventories need bounded rendering, not an extra scrollbar or invented menu levels.
+
+For example, selecting Frigate shows its HA connection and the counts of device summaries, individual checks, and evidence needing review. Selecting Back Deck shows that device's actual summary membership, exceptions, current evidence, and related issues/functions where supported. Edit monitoring opens its existing choices without losing Back Deck. Switching to location grouping reveals the same device at its HA location, or under the appropriate unassigned fallback. Search can reach any of its entities directly.
+
+The shared Sources view now routes the existing entry points into one tree and focused detail. Local validation uses synthetic inventory and does not change live monitoring choices. Labels, spacing, and responsive layout can be refined after owner review.
+
+## 31. Accepted working mockup — 2026-09-27
+
+The owner approved the interactive mockup and requested implementation. ADR 0019 and the accepted-baseline section of the specification supersede the earlier stacked mobile layout, entry-level integration roots, hidden monitoring editor, and timing-only-in-native-options proposals. The five main destinations remain Overview, Issues, Sources, History, and Settings.
+
+The accepted baseline is implemented locally. Verification covers 136 focused Python scenarios, 65 frontend model tests, the local quick gate, backend type checks, and the real-component browser workflow at desktop and phone sizes. The installation settings expose the existing ten timings with displayed units. On 2026-09-28, the owner chose to hide the link-only Household functions Settings section while retaining stored definitions and runtime support. The same component was deployed to the local HA pilot on 2026-09-27 and verified after a Core restart; saved monitoring choices remained unchanged.
+
+The owner subsequently deferred the automation routing editor. The guided Notifications page now centers people and destinations. Existing consumer configuration remains saved, with a native options link shown only when one is selected. Notification delay is in Timing, and time zone sits with quiet hours ([ADR 0021](adr/0021-defer-automation-notification-routing-ui.md)).
+
+The owner then moved Notifications out of Settings and into the main navigation. The six destinations are Overview, Issues, Sources, History, Notifications, and Settings. The existing recipient editor and guarded save flow remain on Notifications; Settings retains Timing and Problem grouping ([ADR 0022](adr/0022-top-level-notifications-page.md)).
+
+
+### Local pilot verification, 2026-09-27
+
+The accepted baseline was copied from the dirty `main` working tree at
+`8ae4208e4eeed9a665b432cd6bd7fac3b1a7488b`. Only the 37 files in
+`custom_components/homeostatic` were installed; caches and development files
+were excluded. No commit or push was performed for this deployment.
+
+- Staging and installed files passed all 37 SHA-256 checks. The complete copied
+  file list and hashes remain on HA at
+  `/config/homeostatic-staging/baseline-v26-20260927/SHA256SUMS.txt`.
+- HA 2026.9.3 configuration validation and Core restart completed successfully.
+  The served `homeostatic.js?v=26` matched the working-tree bytes.
+- Live browser checks confirmed integration families, the WiZ device hierarchy,
+  independently scrolling panes, Eero's opt-in device choice, always-open source
+  settings, real device readings, and installation timing controls.
+- Homeostatic's saved data/options had the same checksum before and after restart;
+  notification requests remained off. No live settings were saved during testing.
+  The post-restart Core log query returned no Homeostatic errors.
+- The previous component is retained at
+  `/config/homeostatic-backups/baseline-before-v26-20260927/homeostatic`.
+  This code-only trial used a component rollback copy without a new full HA backup.
+
+The transport archive SHA-256 was
+`a1d69e95f54310af436b1a29773325af5d35882faa5135ec591f8ea61eb8f0b6`.
+This is a local trial, not a published release.
+
+
+### Notification automation picker, 2026-09-27
+
+Historical local pilot: this picker was removed from the guided Settings page by [ADR 0021](adr/0021-defer-automation-notification-routing-ui.md). Existing consumer settings remain saved.
+
+Replaced the native dropdown of all HA automation states with an explicit
+search picker. Names and entity ids remain searchable for custom consumers.
+The picker shows up to eight alphabetical matches, preserves the current
+selection while searching or cancelling, and supports clear and Escape.
+Selecting an automation edits the draft and still requires review and save.
+It does not infer compatibility from an automation's name.
+
+The quick gate and 65 frontend tests passed. The real-component browser
+scenario exercised 1,001 automations, late-result search, empty results,
+selection/cancel/clear, focus across updates, and preview-before-save.
+The 390-pixel dark phone layout and live search were inspected.
+
+The 37-file component from dirty main at `8ae4208` was deployed as frontend
+revision v27. All installed file checksums matched; HA configuration validation
+and Core restart succeeded. The served picker matched the tested bytes.
+Saved Homeostatic data/options checksums matched before and after deployment,
+notification requests stayed off, and the Core log check returned no Homeostatic
+errors. No live settings were saved and no commit or push was made.
+The prior component is at
+`/config/homeostatic-backups/picker-before-v27-20260927/homeostatic`; the copied
+file manifest is at
+`/config/homeostatic-staging/picker-v27-20260927/SHA256SUMS.txt`.

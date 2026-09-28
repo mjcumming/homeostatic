@@ -64,6 +64,50 @@ def test_exclusion_is_order_independent(reverse: bool) -> None:
     assert decide(
         parse_rules(ordered), {"domain": ("sensor",), "area": ("kitchen",)}
     ).watched
+
+
+def test_transient_network_clients_require_an_explicit_device_expectation() -> None:
+    """A guest leaves silently while one chosen device can override its entry default."""
+    guest = {"kind": ("device",), "integration": ("eero",), "device": ("guest",)}
+    chosen = {"kind": ("device",), "integration": ("eero",), "device": ("router",)}
+    connection = {"kind": ("integration",), "integration": ("eero",)}
+    assert not decide(parse_rules(DEFAULT_RULES), guest).watched
+    assert decide(parse_rules(DEFAULT_RULES), connection).watched
+
+    rules = parse_rules(
+        [
+            rule("legacy_devices", kind="device"),
+            {
+                **rule("eero_clients", "exclude", kind="device", integration="eero"),
+                "overridable": True,
+            },
+            rule("chosen_router", kind="device", device="router"),
+        ]
+    )
+    assert not decide(rules, guest).watched
+    assert decide(rules, chosen).watched
+    blocked = parse_rules(
+        [
+            rule("chosen_router", kind="device", device="router"),
+            rule("blocked", "exclude", kind="device", device="router"),
+        ]
+    )
+    assert not decide(blocked, chosen).watched
+
+
+async def test_integration_device_default_survives_options_round_trip(
+    hass: HomeAssistant,
+) -> None:
+    """Preview and save use the same persisted rule contract."""
+    draft = [
+        {
+            **rule("eero_devices", "exclude", kind="device", integration="eero"),
+            "overridable": True,
+        }
+    ]
+    saved = data_from_input(hass, {"rules": draft})
+    assert saved["rules"][0]["overridable"] is True
+    assert rule_data(hass, Settings.from_data(saved))[0]["overridable"] is True
     assert not decide(
         parse_rules([rule("both", domain=["sensor", "light"], label="security")]),
         {"domain": ("sensor",)},
@@ -156,6 +200,7 @@ async def test_stable_registry_match_fields(hass: HomeAssistant) -> None:
         "domain": ("sensor",),
         "device_class": ("temperature",),
         "integration": (entry.entry_id,),
+        "integration_domain": ("test",),
         "device": (device.id,),
         "area": (area.id,),
         "floor": (floor.floor_id,),
@@ -467,7 +512,6 @@ async def test_empty_rules_and_legacy_conversion(hass: HomeAssistant) -> None:
     assert rule_data(hass, Settings.from_data({"entities": []})) == []
     assert [row["id"] for row in data_from_input(hass, {})["rules"]] == [
         "integration_availability",
-        "device_availability",
     ]
 
 
@@ -585,3 +629,105 @@ async def test_disabled_device_is_unknown(
     assert runtime.readiness == "unknown"
     assert runtime.sources[f"entity:registry:{entity.id}"].disabled
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_family_default_covers_future_connections_and_device_opt_in(
+    hass: HomeAssistant,
+) -> None:
+    """A new connection inherits its family default while exact device choices work."""
+    settings = Settings.from_data(
+        {
+            "rules": [
+                *DEFAULT_RULES,
+                rule("devices", kind="device"),
+                {
+                    **rule(
+                        "family", "exclude", kind="device", integration_domain="test"
+                    ),
+                    "overridable": True,
+                },
+            ]
+        }
+    )
+    first = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    first.add_to_hass(hass)
+    before = evaluate(inventory(hass, settings, {}), settings.rules or ())
+    assert before[f"entry:{first.entry_id}"].watched
+    future = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    future.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=future.entry_id, identifiers={("test", "guest")}
+    )
+    entity = er.async_get(hass).async_get_or_create(
+        "sensor", "test", "guest", config_entry=future, device_id=device.id
+    )
+    hass.states.async_set(entity.entity_id, "unknown")
+    discovered = inventory(hass, settings, {})
+    evaluated = evaluate(discovered, settings.rules or ())
+    assert evaluated[f"entry:{future.entry_id}"].watched
+    assert not evaluated[f"device:{device.id}"].watched
+    assert discovered[f"entity:registry:{entity.id}"].attributes[
+        "integration_domain"
+    ] == ("test",)
+    chosen = (
+        *settings.rules,
+        *parse_rules([rule("chosen", kind="device", device=device.id)]),
+    )
+    assert evaluate(discovered, chosen)[f"device:{device.id}"].watched
+    blocked = (
+        *chosen,
+        *parse_rules([rule("ordinary", "exclude", kind="device", device=device.id)]),
+    )
+    assert not evaluate(discovered, blocked)[f"device:{device.id}"].watched
+
+
+async def test_integration_wide_off_covers_connection_device_and_entity(
+    hass: HomeAssistant,
+) -> None:
+    """A family off choice defeats narrower watches, including future connections."""
+    first = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    first.add_to_hass(hass)
+    future = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    future.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=future.entry_id, identifiers={("test", "guest")}
+    )
+    entity = er.async_get(hass).async_get_or_create(
+        "sensor", "test", "guest", config_entry=future, device_id=device.id
+    )
+    hass.states.async_set(entity.entity_id, "available")
+    saved = Settings.from_data(
+        {
+            "rules": [
+                *DEFAULT_RULES,
+                rule("devices", kind="device"),
+                rule("chosen", kind="device", device=device.id),
+                rule("reading", kind="entity", entity=f"registry:{entity.id}"),
+            ]
+        }
+    )
+    discovered = inventory(hass, saved, {})
+    watched = evaluate(discovered, saved.rules or ())
+    assert watched[f"entry:{first.entry_id}"].watched
+    assert watched[f"entry:{future.entry_id}"].watched
+    assert watched[f"device:{device.id}"].watched
+    assert watched[f"entity:registry:{entity.id}"].watched
+    stopped = (
+        *saved.rules,
+        *parse_rules(
+            [
+                rule(
+                    "family_off",
+                    "exclude",
+                    integration_domain="test",
+                    kind=["integration", "device", "entity"],
+                )
+            ]
+        ),
+    )
+    excluded = evaluate(discovered, stopped)
+    assert not excluded[f"entry:{first.entry_id}"].watched
+    assert not excluded[f"entry:{future.entry_id}"].watched
+    assert not excluded[f"device:{device.id}"].watched
+    assert not excluded[f"entity:registry:{entity.id}"].watched
+    assert evaluate(discovered, saved.rules or ()) == watched
