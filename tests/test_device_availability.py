@@ -31,6 +31,16 @@ from tests.test_lifecycle import start_monitor
 @pytest.mark.parametrize(
     ("states", "status", "reason"),
     [
+        pytest.param((), Status.UNKNOWN, "source_missing", id="no-member-evidence"),
+        pytest.param(
+            (None,), Status.UNKNOWN, "incomplete_evidence", id="missing-state"
+        ),
+        pytest.param(
+            (State("button.identify", "unknown"),),
+            Status.PASS,
+            "available",
+            id="only-unknown-value",
+        ),
         pytest.param(
             (State("sensor.a", "off"), State("sensor.b", "unknown")),
             Status.PASS,
@@ -61,7 +71,7 @@ from tests.test_lifecycle import start_monitor
     ],
 )
 def test_generic_summary_reports_selected_availability_expectations(
-    states: tuple[State, ...],
+    states: tuple[State | None, ...],
     status: Status,
     reason: str,
 ) -> None:
@@ -73,6 +83,19 @@ def test_generic_summary_reports_selected_availability_expectations(
     )
     assert observation.status == status
     assert observation.reason == reason
+
+
+def test_disabled_device_summary_does_not_warn_on_unavailable_member() -> None:
+    """A disabled summary remains outside active availability monitoring."""
+    observation = device_observation(
+        Source(
+            node_id="device:disabled", name="Disabled", kind="device", disabled=True
+        ),
+        (State("sensor.a", "unavailable"),),
+        datetime(2026, 9, 26, tzinfo=UTC),
+    )
+    assert observation.status == Status.UNKNOWN
+    assert observation.reason == "disabled"
 
 
 @pytest.mark.parametrize(
