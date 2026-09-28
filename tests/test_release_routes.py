@@ -154,7 +154,7 @@ async def test_phone_delivery_modes(
 ) -> None:
     """Phone requests retain replacement tags and use the selected alert mode."""
     send = AsyncMock()
-    monkeypatch.setattr(hass.services, "async_call", send)
+    monkeypatch.setattr(type(hass.services), "async_call", send)
     monkeypatch.setattr(routes, "webhook_id_from_device_id", lambda *_: "webhook")
     monkeypatch.setattr(routes, "supports_push", lambda *_: True)
     monkeypatch.setattr(routes, "get_notify_service", lambda *_: "alice")
@@ -291,7 +291,7 @@ async def test_notify_entity_route(
 ) -> None:
     """Only an enabled current notify entity receives a message request."""
     send = AsyncMock()
-    monkeypatch.setattr(hass.services, "async_call", send)
+    monkeypatch.setattr(type(hass.services), "async_call", send)
     registry = SimpleNamespace(entities=SimpleNamespace(get_entry=lambda _: entity))
     monkeypatch.setattr(routes.er, "async_get", lambda _: registry)
     if error is not None:
@@ -364,7 +364,9 @@ def test_destination_catalog_uses_current_registry_and_state(
         entry_id="entry", data={"device_name": "Owner phone", "user_id": "owner"}
     )
     absent = SimpleNamespace(entry_id="absent", data={})
-    monkeypatch.setattr(hass.config_entries, "async_entries", lambda _: [entry, absent])
+    monkeypatch.setattr(
+        type(hass.config_entries), "async_entries", lambda self, _: [entry, absent]
+    )
     monkeypatch.setattr(routes, "webhook_id_from_device_id", lambda *_: "webhook")
     monkeypatch.setattr(routes, "supports_push", lambda *_: True)
     monkeypatch.setattr(routes, "get_notify_service", lambda *_: "owner")
