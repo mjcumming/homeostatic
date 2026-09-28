@@ -373,15 +373,16 @@ def test_destination_catalog_uses_current_registry_and_state(
     hass.states.async_set("notify.owner", "ready", {"friendly_name": "Owner inbox"})
     assert routes.destinations(hass) == [
         Destination(
+            channel="notify:notify-id", name="Owner inbox", user_id=None, available=True
+        ),
+        Destination(
             channel="phone:phone-device",
             name="Owner phone",
             user_id="owner",
             available=True,
         ),
-        Destination(
-            channel="notify:notify-id", name="Owner inbox", user_id=None, available=True
-        ),
     ]
+    monkeypatch.undo()
 
 
 @pytest.mark.parametrize(
