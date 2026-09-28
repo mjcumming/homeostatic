@@ -933,10 +933,10 @@ class Runtime:
         for node_id, source in sources.items():
             if source.kind != "device":
                 continue
-            previous = self.device_exclusions.get(node_id)
+            previous_scope = self.device_exclusions.get(node_id)
             scope_changed = (
-                previous != source.ignored_availability
-                if previous is not None
+                previous_scope != source.ignored_availability
+                if previous_scope is not None
                 else bool(source.ignored_availability)
             )
             if (
