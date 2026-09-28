@@ -19,6 +19,7 @@ from custom_components.homeostatic.notification_routes import Destination
     [
         (None, None),
         ({"devices": {}}, None),
+        ({"devices": {"other": SimpleNamespace(id="other")}}, None),
         ({"devices": {"webhook": SimpleNamespace(id="selected")}}, "webhook"),
     ],
 )
@@ -37,6 +38,22 @@ def test_phone_webhook_resolution(
         ({"config_entries": {}}, False),
         (
             {"config_entries": {"webhook": SimpleNamespace(data={"app_data": {}})}},
+            False,
+        ),
+        (
+            {
+                "config_entries": {
+                    "webhook": SimpleNamespace(data={"app_data": {"push_token": "a"}})
+                }
+            },
+            False,
+        ),
+        (
+            {
+                "config_entries": {
+                    "webhook": SimpleNamespace(data={"app_data": {"push_url": "b"}})
+                }
+            },
             False,
         ),
         (
@@ -78,6 +95,14 @@ def test_push_registration(hass: HomeAssistant, mobile: Any, expected: bool) -> 
         ({"notify": None}, None),
         ({"notify": SimpleNamespace(registered_targets={"alice": "webhook"})}, "alice"),
         ({"notify": SimpleNamespace(registered_targets={"alice": "other"})}, None),
+        (
+            {
+                "notify": SimpleNamespace(
+                    registered_targets={"alice": "other", "bob": "webhook"}
+                )
+            },
+            "bob",
+        ),
     ],
 )
 def test_registered_notify_service(
@@ -227,6 +252,28 @@ def test_simple_choices_detects_edits(hass: HomeAssistant) -> None:
     assert simple.simple_choices(DEFAULT_POLICY) == {"people": {}, "timezone": "UTC"}
     assert simple.simple_choices({"timezone": "UTC"}) is None
     assert simple.simple_choices({"generated": {"version": "simple-v1"}}) is None
+    assert (
+        simple.simple_choices(
+            {
+                "generated": {
+                    "version": "simple-v1",
+                    "choices": {"people": [], "timezone": "UTC"},
+                }
+            }
+        )
+        is None
+    )
+    assert (
+        simple.simple_choices(
+            {
+                "generated": {
+                    "version": "simple-v1",
+                    "choices": {"people": {}, "timezone": 2},
+                }
+            }
+        )
+        is None
+    )
     assert (
         simple.simple_choices(
             {
