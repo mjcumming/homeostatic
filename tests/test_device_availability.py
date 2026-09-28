@@ -42,6 +42,12 @@ from tests.test_lifecycle import start_monitor
             id="only-unknown-value",
         ),
         pytest.param(
+            (State("button.identify", "unknown", {"restored": True}),),
+            Status.UNKNOWN,
+            "incomplete_evidence",
+            id="restored-unknown-is-incomplete",
+        ),
+        pytest.param(
             (State("sensor.a", "off"), State("sensor.b", "unknown")),
             Status.PASS,
             "available",
