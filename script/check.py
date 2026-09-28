@@ -31,7 +31,12 @@ def main() -> None:
 
     for command in (
         ("node", "--check", "custom_components/homeostatic/frontend/homeostatic.js"),
-        ("node", "--test", "tests/frontend/model.test.mjs"),
+        (
+            "node",
+            "--test",
+            "tests/frontend/model.test.mjs",
+            "tests/frontend/reporting.test.mjs",
+        ),
     ):
         result = subprocess.run(command, cwd=root, check=False)
         if result.returncode:

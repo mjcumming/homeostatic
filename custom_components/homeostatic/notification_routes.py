@@ -162,7 +162,7 @@ async def async_send(
             or entity.disabled_by is not None
         ):
             raise HomeAssistantError("Selected message destination is unavailable")
-        if clear:
+        if clear or silent:
             return
         await hass.services.async_call(
             "notify",

@@ -131,3 +131,21 @@ the adapter derives the actor from the authenticated action context. An
 acknowledgment may produce a silent update, never a recovery notice. Rules opt
 in with `require_acknowledgment: true`. The dashboard displays the library's
 first acknowledgment time. Phone action wiring remains a consumer increment.
+
+## Fixed reporting preferences
+
+Set up reporting in Notifications, select people and their destinations, and review
+before enabling requests. Assign Immediate, Immediate with acknowledgement, Morning,
+Evening, Weekly, or Dashboard only in Sources Settings. Both immediate choices
+include overnight; only acknowledgement repeats every 30 minutes. Acknowledgement
+records awareness and never clears a problem.
+
+New sources inherit Weekly (Sunday 09:00). Morning is 08:00; evening 18:00.
+Summaries show new and still-outstanding open problems with age. Empty reports and
+resolved entries are omitted. Destinations without silent replacement support receive
+no update or resolution messages. A notification request is not proof of receipt.
+
+Existing notification policies stay active until you review a migration. Source
+defaults can be changed in bulk while condition exceptions remain intact. Shared
+root problems use the strongest explicit affected-source preference, preserving one
+episode. Overview shows readiness and the next nonempty report's provisional count.

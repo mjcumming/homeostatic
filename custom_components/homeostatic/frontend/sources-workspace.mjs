@@ -1,3 +1,4 @@
+import {sourceReporting} from "./reporting.mjs?v=1";
 import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=27";
 import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=27";
 import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=27";
@@ -90,6 +91,14 @@ export function topomationTree(data,topomation) {
 
 /** Organize one inventory by integration family or location. */
 export function sourcesTree(data,grouping = "integration",localize = () => null,topomation = null) {
+  const tree=groupedSources(data,grouping,localize,topomation);
+  const present=sourcePaths(tree);
+  const situations=inventoryRows(data).filter(source=>source.kind==="situation"&&!present.has(`source:${source.node_id}`)).map(sourceNode);
+  if(situations.length)tree.push({key:"situations",name:"Configured situations",type:"location",children:situations});
+  return tree;
+}
+
+function groupedSources(data,grouping,localize,topomation) {
   localize ||= () => null;
   if(grouping === "integration") return integrationFamilies(data,localize);
   const topology=grouping === "topomation" ? topomationTree(data,topomation) : null;
@@ -167,15 +176,20 @@ export function sourceMonitoringChoices(card,node) {
     const family=integrationFamilies(card.current.data).find(item=>item.children.some(child=>child.source?.node_id===source.node_id));
     if(family)controls+=`<button type="button" class="link" data-sources-select="${esc(family.key)}">View ${esc(family.name)} default</button>`;
   }
+  if(source?.kind==="situation")controls='<p class="sub">This situation uses its configured condition. Reporting does not change what detects it.</p>';
   if(!controls)controls='<p class="sub">Select an integration, device, or entity to change monitoring.</p>';
   const exceptions=node.family&&scopeChoice(card.configDraft,allScope)!=="exclude"?node.children.filter(child=>child.type==="device"&&child.source&&scopeChoice(card.configDraft,monitoringScope("device_availability",child.device.id))!=="inherit"):[];
   if(exceptions.length)controls+=`<section class="source-section"><h3>Individual choices</h3>${exceptions.map(child=>`<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}</span><small>${esc(scopeChoice(card.configDraft,monitoringScope("device_availability",child.device.id))==="attach"?"Always monitor":"Do not monitor")}</small></button>`).join("")}</section>`;
   if(source?.excluded_by?.length)controls+='<p class="note">A saved exclusion applies. Review changes to see the effective result; an individual watch does not override ordinary exclusions.</p>';
-  return controls+(card.sourcesSettingsPanel||"");
+  return controls+(card.sourcesSettingsPanel||"")+sourceReporting(card,node);
 }
 
 function sourceReport(card,node,episodes) {
   const source=node.source,data=card.current.data;
+  if(source?.kind==="situation"){
+    const active=episodes.find(item=>item.anchor===source.node_id);
+    return `<section class="source-section"><h3>${active?"Situation active":"No active situation"}</h3><p>${esc(active?.reasons?.map(finding=>finding.message||finding.reason).join("; ")||"The configured condition is not currently reported as active.")}</p><button type="button" class="link" data-sources-view="settings">Change reporting preference</button></section>`;
+  }
   const evidence=card.sourceDetail?.nodeId===source?.node_id?card.sourceDetail:null;
   const devices=node.family?node.children.filter(child=>child.type==="device"):[];
   const deviceSummary=node.family?`<section class="source-section"><h3>Devices</h3><p>${devices.filter(child=>child.source?.watched).length} of ${devices.length} devices monitored.</p>${devices.filter(child=>episodes.some(episode=>episode.anchor===child.source?.node_id||child.children.some(member=>member.source?.node_id===episode.anchor))).map(child=>`<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}</span><small>Open issue</small></button>`).join("")}<button type="button" class="link" data-sources-view="settings">Change what this integration monitors</button></section>`:"";

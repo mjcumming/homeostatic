@@ -1,6 +1,6 @@
 # ADR 0015: Deliver notifications to people with a built-in sender
 
-**Status:** Accepted; implementation in progress
+**Status:** Accepted; implementation in progress; reporting configuration model partially superseded by [ADR 0026](0026-fixed-reporting-preferences.md)
 
 **Date:** 2026-09-27
 

@@ -1191,3 +1191,11 @@ The prior component is at
 `/config/homeostatic-backups/picker-before-v27-20260927/homeostatic`; the copied
 file manifest is at
 `/config/homeostatic-staging/picker-v27-20260927/SHA256SUMS.txt`.
+
+## 32. Reporting preferences interface draft - 2026-09-28
+
+Retain the Notifications page and redesign it around the five reporting choices from [ADR 0026](adr/0026-fixed-reporting-preferences.md). Notifications owns shared schedules, people, destinations, enablement, and explicit delivery tests. Sources -> Settings owns assignments to supported device conditions, with the resulting timing and recipients visible.
+
+Remove Everything / Important / Urgent only filters and quiet-hour controls from the new guided workflow. Both immediate choices include overnight; summaries run on configured schedules. Preserve existing custom-policy semantics until reviewed migration.
+
+The [interface draft](proposals/reporting-preferences.md#interface-draft-notifications-and-sources) contains wireframes, retained/removed controls, review/save behavior, compatibility requirements, and prototype acceptance cases. Page responsibilities are agreed; recipient scope, defaults, reminder frequency, summary contents, and detailed layout remain proposed. No runtime changes or live notification tests accompany this draft.

@@ -93,6 +93,19 @@ class DeliveryState:
             {**payload, "delivery_id": f"{self.entry_id}:{self.sequence}"}
         )
 
+    def prepare_reports(self, deliveries: list[Delivery]) -> None:
+        """Limit each new report to this occurrence's authorized membership."""
+        groups: dict[str, set[str]] = {}
+        for delivery in deliveries:
+            if isinstance(delivery, Notification) and delivery.cause == "digest":
+                group = f"digest_{delivery.digest}_{delivery.recipient}"
+                groups.setdefault(group, set()).add(delivery.episode_id)
+        for key, message in list(self.messages.items()):
+            group = str(message.get("group", ""))
+            if group in groups and message["episode_id"] not in groups[group]:
+                del self.messages[key]
+                self.summarized.discard(key)
+
     def record(
         self,
         delivery: Delivery,
@@ -135,6 +148,9 @@ class DeliveryState:
                 "silent": delivery.silent,
                 "action": action,
                 "digest": delivery.digest,
+                "previously_reported": previous.get("previously_reported", False)
+                if delivery.silent and previous
+                else delivery.previously_reported,
             }
             if group is not None:
                 payload["group"] = group
@@ -143,7 +159,7 @@ class DeliveryState:
             self.summarized.discard(key)
             if old_group and old_group != group:
                 self._group(old_group, "update", True, previous)
-            elif group and previous is not None:
+            elif group and previous is not None and old_group != group:
                 self.outbox = [
                     item for item in self.outbox if item["tag"] != previous["tag"]
                 ]
@@ -229,6 +245,7 @@ class DeliveryState:
                 }
             )
             return
+        members.sort(key=lambda item: bool(item.get("previously_reported", False)))
         first = members[0]
         noisy = [item for item in members if item["episode_id"] in alerting]
         if silent and noisy:
@@ -246,7 +263,18 @@ class DeliveryState:
                 ).value,
                 "title": f"Homeostatic: {len(members)} open problems",
                 "message": "\n".join(
-                    f"{item['title']}: {item['message']}" for item in members
+                    (
+                        (
+                            "Still outstanding: "
+                            if item.get("previously_reported")
+                            else "New: "
+                        )
+                        if group.startswith("digest_")
+                        else ""
+                    )
+                    + f"{item['title']}: {item['message']}"
+                    + (f" (open {item['age']})" if "age" in item else "")
+                    for item in members
                 ),
                 "functions": cast(
                     list[JSONValue],

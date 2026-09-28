@@ -55,6 +55,7 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from . import reporting
 from .attention import explanations, supports_attention_controls
 from .catalog import (
     Source,
@@ -1178,6 +1179,7 @@ class Runtime:
     def _deliveries(self, deliveries: list[Delivery]) -> None:
         if not self.settings.notifications or self._activating:
             return
+        self.delivery.prepare_reports(deliveries)
         for delivery in deliveries:
             content = (
                 self._content(delivery.episode_id)
@@ -1218,6 +1220,7 @@ class Runtime:
             "episode_id": episode_id,
             "tag": self.notification_id(episode_id),
             "title": title,
+            "age": f"{max(0, int((dt_util.utcnow() - datetime.fromisoformat(str(episode['opened_at']))).total_seconds()) // 3600)}h",
             "message": message,
             "functions": names,
             "cause": anchor,
@@ -1413,6 +1416,13 @@ class Runtime:
                         for name, recipient in self.settings.policy_config().recipients.items()
                     },
                     "notifications_enabled": self.settings.notifications,
+                    "reports": self.policy.reports(dt_util.utcnow()),
+                    "unavailable_destinations": reporting.unavailable_destinations(
+                        self.hass, self.settings.policy
+                    ),
+                    "reporting_missing": reporting.missing_profiles(choices)
+                    if (choices := reporting.choices(self.settings.policy))
+                    else [],
                 }
             )
         if action == "functions":

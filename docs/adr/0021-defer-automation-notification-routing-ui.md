@@ -1,6 +1,6 @@
 # ADR 0021: Defer automation notification routing in Settings
 
-**Status:** Accepted
+**Status:** Accepted; guided digest deferral partially superseded by [ADR 0026](0026-fixed-reporting-preferences.md)
 **Date:** 2026-09-28
 **Decider:** Michael Cumming
 

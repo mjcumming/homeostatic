@@ -68,6 +68,9 @@ _MATCH = vol.Schema(
         vol.Optional("importance"): names,
         vol.Optional("reason"): names,
         vol.Optional("category"): names,
+        vol.Optional("nodes"): names,
+        vol.Optional("checks"): names,
+        vol.Optional("excluded_checks"): names,
         vol.Optional("labels", default=dict): {_TEXT: str},
         vol.Optional("age"): duration,
         vol.Optional("due_within"): duration,
@@ -87,7 +90,12 @@ _SCHEMA = vol.Schema(
             }
         },
         vol.Optional("digests", default=dict): {
-            _ID: {vol.Required("at"): _CLOCK, vol.Required("to"): _TEXT}
+            _ID: {
+                vol.Required("at"): _CLOCK,
+                vol.Required("to"): _TEXT,
+                vol.Optional("weekdays"): [vol.All(int, vol.Range(min=0, max=6))],
+                vol.Optional("repeat_open"): bool,
+            }
         },
         vol.Required("rules"): vol.All(
             [
@@ -137,7 +145,12 @@ def build_policy(value: Any, batch: timedelta) -> PolicyConfig:
             for name, row in data["recipients"].items()
         },
         digests={
-            name: Digest(at=time.fromisoformat(row["at"]), to=row["to"])
+            name: Digest(
+                at=time.fromisoformat(row["at"]),
+                to=row["to"],
+                weekdays=frozenset(row.get("weekdays", range(7))),
+                repeat_open=row.get("repeat_open", False),
+            )
             for name, row in data["digests"].items()
         },
         rules=tuple(_rule(row) for row in data["rules"]),
@@ -157,6 +170,9 @@ def _rule(row: dict[str, Any]) -> Rule:
             reason=frozenset(match["reason"]) if "reason" in match else None,
             category=frozenset(match["category"]) if "category" in match else None,
             labels=match["labels"],
+            nodes=frozenset(match["nodes"]) if "nodes" in match else None,
+            checks=frozenset(match["checks"]) if "checks" in match else None,
+            excluded_checks=frozenset(match.get("excluded_checks", [])),
             age=match.get("age"),
             due_within=match.get("due_within"),
         ),

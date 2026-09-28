@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.1.0b16] - 2026-09-28
+
+### Added
+
+- Add a standalone interactive reporting prototype with Notifications and Sources settings, synthetic data, desktop/phone and light/dark previews, bulk assignment, guarded sample review/save, and configuration error scenarios. Dashboard only appears as a regular option in the reporting selector. It does not connect to Home Assistant or send notifications.
+
+### Changed
+
+- Document the owner-agreed five reporting preferences in ADR 0026 and draft the Notifications/Sources interface: retain Notifications for shared settings, put assignments in Sources Settings, and remove old level filters and quiet-hour controls from the new workflow. Include wireframes, migration safeguards, and prototype acceptance cases. Implement per-profile recipients and shared destinations, weekly household defaults, recurring open-problem summaries, per-source/check preferences, and an Overview forecast. Preserve existing policies until reviewed migration. Both immediate choices include overnight; acknowledgement reminders repeat every 30 minutes.
+
 ## [0.1.0b15] - 2026-09-28
 
 ### Changed

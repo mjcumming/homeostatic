@@ -2,6 +2,8 @@
 
 **Status:** Accepted direction under [ADR 0015](../adr/0015-deliver-notifications-to-people.md); implementation in progress. The delivered subset is described in `spec.md` and `events.md`. This proposal remains the target for announcements, phone controls, and remaining delivery behavior.
 
+The owner reporting direction is now [five fixed reporting preferences](reporting-preferences.md), recorded in [ADR 0026](../adr/0026-fixed-reporting-preferences.md). It replaces broad person levels as the target reporting interface and introduces guided morning, evening, and weekly schedules. This older proposal remains context for delivery and audience work; its level and digest-deferral choices do not override the new direction. Runtime behavior has not changed.
+
 ## Outcome
 
 Each person hears about the problems they can act on, on their phone. Urgent things that happen in the house can also be spoken at home. Every problem is heard once: not again after a restart, not duplicated, and one tap tells everyone it is handled.

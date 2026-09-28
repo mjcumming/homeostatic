@@ -1,3 +1,4 @@
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=1";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
   sourceMap} from "./model\.mjs?v=30";
@@ -6,13 +7,13 @@ import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=30";
 import {diagnosticOverview} from "./evidence\.mjs?v=30";
 import {editCatalogRule, MATCH_FIELDS, MATCH_LABELS, monitoringScope,
   newCatalogRule, ruleSummary, scopeChoice, setScopeChoice} from "./configuration\.mjs?v=30";
-import {styles} from "./styles\.mjs?v=32";
+import {styles} from "./styles\.mjs?v=33";
 import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=30";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=30";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=35";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=36";
 
-import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=32";
+import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=33";
 
 const VIEWS = ["overview", "sources", "house", "coverage", "functions", "problems", "history", "notifications", "configuration"];
 const homeostaticOptionsUrl = (entryId) => `/config/integrations/integration/homeostatic#config_entry=${encodeURIComponent(entryId)}`;
@@ -738,7 +739,7 @@ class HomeostaticCard extends HTMLElement {
       all_unavailable:memberName ? `${memberName} is unavailable` : "All selected entities are unavailable",
     }[problem?.currentReason] : null;
     const impact = affected.map((item) => `${item.name}: ${ownerStatus(item.readiness.answer).toLowerCase()}`).join("; ");
-    return `<article class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}"><div class="issue-copy">${eyebrow ? `<p class="small">${esc(eyebrow)}</p>` : ""}<h3>${esc(sourceName)}</h3><p>${esc(deviceCondition ?? problem?.headline ?? "Current condition needs review")}</p>${impact ? `<p class="impact-line">Function status: ${esc(impact)}</p>` : ""}<p class="small">Open since ${esc(date(episode.opened_at))}</p></div><div class="actions"><button type="button" class="button" data-episode="${esc(episode.episode_id)}">View details</button>${source && !situation ? `<button type="button" class="link" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}</div></article>`;
+    return `<article class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}"><div class="issue-copy">${eyebrow ? `<p class="small">${esc(eyebrow)}</p>` : ""}<h3>${esc(sourceName)}</h3><p>${esc(deviceCondition ?? problem?.headline ?? "Current condition needs review")}</p>${impact ? `<p class="impact-line">Function status: ${esc(impact)}</p>` : ""}<p class="small">Open since ${esc(date(episode.opened_at))}</p><p class="small">${esc(reportingStatus(data,episode))}</p></div><div class="actions"><button type="button" class="button" data-episode="${esc(episode.episode_id)}">View details</button>${source && !situation ? `<button type="button" class="link" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}</div></article>`;
   }
 
   issuesPanel(data, episodes, recent = false) {
@@ -766,9 +767,8 @@ class HomeostaticCard extends HTMLElement {
 
   overview(data) {
     const total = data.inventory.episodes.length;
-    const notification = !data.policy.notifications_enabled ? "Off" : data.coverage.notification_consumer_missing ? "Needs setup" : "On";
     const activeControls = (data.inventory.operator_controls ?? []).length;
-    return `<div class="intro"><h1>Overview</h1><span class="small">Updated ${esc(date(data.updated_at))}</span></div><div class="overview-stats"><button type="button" class="overview-stat" data-page="problems"><span>Open issues</span><strong>${total}</strong><small>${total?'Review what needs attention':'No open problems reported'}</small></button><button type="button" class="overview-stat" data-page="notifications"><span>Notification requests</span><strong>${esc(notification)}</strong><small>${notification==='Off'?'Issues still appear here':notification==='On'?'Requests are enabled':'Check notification destinations'}</small></button></div>${this.issuesPanel(data,recentEpisodes(data),true)}${activeControls?controlsPanel(data):''}`;
+    return `<div class="intro"><h1>Overview</h1><span class="small">Updated ${esc(date(data.updated_at))}</span></div><div class="overview-stats"><button type="button" class="overview-stat" data-page="problems"><span>Open issues</span><strong>${total}</strong><small>${total?'Review what needs attention':'No open problems reported'}</small></button></div>${reportingOverview(data)}${this.issuesPanel(data,recentEpisodes(data),true)}${activeControls?controlsPanel(data):''}`;
   }
 
   history(data) {
@@ -1239,7 +1239,7 @@ class HomeostaticCard extends HTMLElement {
         : result.readiness ? `${ownerStatus(result.readiness.answer)} in Home Assistant.` : "Current status has not been confirmed.";
       body.innerHTML = `<section class="detail problem-brief">${memberEvidence ? `<p class="small">${deviceIntegrations.length ? `Integration: ${esc(deviceIntegrations.join(", "))}` : "Home Assistant device"}</p>${uncertainMembers.length === 1 ? `<p><strong>${esc(uncertainMembers[0].name)}</strong> · ${esc(uncertainMembers[0].restored ? "restored; current value unknown" : uncertainMembers[0].state)} in Home Assistant</p>` : uncertainMembers.length ? `<p>Entities needing review:</p><ul>${uncertainMembers.map((member) => `<li><strong>${esc(member.name)}</strong> · ${esc(member.restored ? "restored; current value unknown" : member.state)}</li>`).join("")}</ul>` : `<p>All selected entities have current Home Assistant states.</p>`}${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing the first 50 selected entities. More may need review.</p>` : ""}` : problem ? `${source.kind === "integration" ? "" : `<p class="small">${esc(problem.context ?? problem.integration)}</p>`}<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}
          <div class="next-action"><p>${memberEvidence ? "Check the affected entities on the device page; review monitoring if this state is expected." : esc(problem?.nextStep ?? (nativeLink ? "Check the current state in Home Assistant." : "Check the listed requirements to find what needs attention."))}</p>${nativeLink || problem?.deviceUrl ? `<div class="actions">${nativeLink}${problem?.deviceUrl ? `<a class="button${memberEvidence ? " primary" : ""}" href="${esc(problem.deviceUrl)}">Open device page</a>` : ""}</div>` : ""}</div>
-         ${episode ? `<p class="small problem-progress">Open since ${esc(date(episode.opened_at))}</p>` : ""}</section>
+         ${episode ? `<p class="small problem-progress">Open since ${esc(date(episode.opened_at))}</p><p class="small">${esc(reportingStatus(data,episode))}</p>` : ""}</section>
          ${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}
          ${problem?.connectionNote ? `<section class="detail"><p>${esc(problem.connectionNote)}</p><button class="link" data-node="${esc(problem.connectionNode)}">${esc(problem.connectionLabel)}</button></section>` : ""}
          ${availabilityChoices}

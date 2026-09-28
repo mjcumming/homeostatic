@@ -18,18 +18,20 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0012](0012-monitoring-expectations-and-persistent-exclusions.md) | Monitor declared availability expectations and persist exclusions | Partially superseded by 0013 and 0025 |
 | [0013](0013-retire-automatically-discovered-sources.md) | Retire automatically selected sources when HA removes registry evidence | Accepted |
 | [0014](0014-publish-detected-facts-for-owner-automations.md) | Publish detected facts for owner automations | Proposed |
-| [0015](0015-deliver-notifications-to-people.md) | Deliver notifications to people with a built-in sender | Accepted; implementation in progress |
+| [0015](0015-deliver-notifications-to-people.md) | Deliver notifications to people with a built-in sender | Accepted; reporting configuration model partially superseded by 0026 |
 | [0016](0016-guided-integration-availability-defaults.md) | Guide availability enrollment by integration | Accepted; navigation scope extended by 0017 |
 | [0017](0017-one-sources-workspace.md) | Use one Sources workspace | Accepted; implemented locally for review |
 | [0018](0018-source-panel-views.md) | Use source-specific views beside one tree | Accepted |
 | [0019](0019-accepted-dashboard-baseline.md) | Implement the accepted task-focused dashboard baseline | Accepted; automation picker superseded by 0021 and navigation by 0022 |
 | [0020](0020-integration-monitoring-master-control.md) | Stop monitoring an integration as one scope | Accepted |
-| [0021](0021-defer-automation-notification-routing-ui.md) | Defer automation notification routing in Settings | Accepted |
+| [0021](0021-defer-automation-notification-routing-ui.md) | Defer automation notification routing in Settings | Accepted; guided digest deferral partially superseded by 0026 |
 | [0022](0022-top-level-notifications-page.md) | Give Notifications its own dashboard page | Accepted |
 | [0023](0023-optional-topomation-location-tree.md) | Use Topomation as an optional location tree | Superseded by 0024 |
 | [0024](0024-explicit-topomation-grouping.md) | Offer Topomation as its own Sources grouping | Accepted |
 | [0025](0025-follow-home-assistant-availability-semantics.md) | Follow Home Assistant entity availability semantics | Accepted; supersedes 0012 source eligibility and status mapping |
+| [0026](0026-fixed-reporting-preferences.md) | Use five fixed reporting preferences | Accepted product direction; contract and implementation pending |
 
 Records 0003–0008 document choices from the owner worksheet and pilot specification. Their dates are the dates recorded here, not claimed dates of the original decisions. Accepted records settled owner direction, not production readiness. An accepted decision is superseded by a new record, not silently rewritten. A proposed decision records the current pilot approach and its unresolved tradeoffs; it does not claim owner approval.
+| [0027](0027-reporting-defaults-and-delivery.md) | Fixed reporting defaults and delivery semantics | Accepted |
 
 Write an ADR when an adapter boundary, source eligibility, graph-confirmation rule, delivery or persistence contract, or enduring UI model has real alternatives and would be easy to reverse without its rationale. Keep ordinary bug fixes, wording adjustments, and release validation in the spec, changelog, and tests.

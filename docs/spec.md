@@ -302,3 +302,18 @@ This section supersedes the earlier Sources layout and native-only timing editor
 - `configuration` returns editable settings in addition to existing rules/alerts. Administrator-only `preview_settings` and `save_settings` accept the supported settings object and saved revision. Preview changes no live state or delivery. Save requires the exact preview token, serializes with other saves, rejects stale revisions, reloads, and restores previous options on reload failure. Changing notification settings does not prove delivery. Enabling notifications or changing an active consumer requires the selected automation to be enabled.
 
 Acceptance covers integration-family grouping with multiple connections, future matching devices and individual exceptions, separate mobile navigation, full-inventory search, live-update scroll retention, clean Overview/Issues, timing edits across sections, exact-preview validation, stale saves, invalid settings, preservation of unrelated options, and reload rollback. Tests use synthetic data or an isolated HA instance and send no live notifications.
+
+## Fixed reporting preferences (ADR 0027)
+
+Generated reporting-v1 policies provide Immediate, Immediate with acknowledgment,
+Morning, Evening, Weekly and Dashboard only. Both immediate profiles bypass quiet
+hours. Acknowledgment repeats every 30 minutes until acknowledged or resolved.
+Weekly is the household default, Sunday 09:00; morning is 08:00 and evening 18:00.
+Requests stay off until reviewed and enabled. Profiles select people explicitly.
+Reports include new and ongoing open problems only, no empty or resolved messages.
+Device assignments and supported-check exceptions use affected-node matching;
+explicit conflicts favor acknowledgment, immediate, morning, evening, weekly,
+then dashboard. Existing custom policies are preserved until reviewed migration.
+Overview provides read-only reporting readiness and provisional next-report counts.
+Configuration uses one generated policy with integrity hash and existing guarded
+preview/save revision checks. Bulk device defaults preserve condition exceptions.

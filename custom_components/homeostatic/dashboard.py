@@ -27,6 +27,7 @@ from homeassistant.helpers.dispatcher import (
 )
 from homeassistant.util.hass_dict import HassKey
 
+from . import reporting
 from .config import Settings, normalize_rules, rule_data
 from .const import DEFAULTS, DOMAIN, NAME
 from .notification_routes import async_send, destinations
@@ -440,6 +441,7 @@ def _editable_settings(settings: Settings) -> dict[str, Any]:
         "consumer": settings.consumer,
         "policy": settings.policy,
         "simple_notifications": simple_choices(settings.policy),
+        "reporting": reporting.choices(settings.policy),
     }
 
 
@@ -450,6 +452,14 @@ async def _settings_candidate(
     if set(proposed) not in (
         {"timings", "notifications", "consumer", "policy"},
         {"timings", "notifications", "consumer", "policy", "simple_notifications"},
+        {
+            "timings",
+            "notifications",
+            "consumer",
+            "policy",
+            "simple_notifications",
+            "reporting",
+        },
     ):
         raise ValueError("Provide timing, notification, consumer, and policy settings")
     if not isinstance(proposed["timings"], dict) or set(proposed["timings"]) != set(
@@ -461,7 +471,7 @@ async def _settings_candidate(
         **{
             key: value
             for key, value in proposed.items()
-            if key != "simple_notifications"
+            if key not in {"simple_notifications", "reporting"}
         },
     }
     simple = proposed.get("simple_notifications")
@@ -474,6 +484,25 @@ async def _settings_candidate(
         if candidate.get("consumer"):
             raise ValueError(
                 "Clear the existing notification automation before switching to person delivery"
+            )
+    requested_reporting = proposed.get("reporting")
+    if requested_reporting is not None:
+        if (
+            requested_reporting != reporting.choices(Settings.from_data(current).policy)
+            or proposed["notifications"]
+        ):
+            candidate["policy"] = reporting.generate(
+                hass, requested_reporting, await available_people(hass)
+            )
+            if candidate.get("consumer"):
+                raise ValueError(
+                    "Clear the existing notification automation before switching"
+                )
+        if proposed["notifications"] and reporting.missing_profiles(
+            requested_reporting
+        ):
+            raise ValueError(
+                "Choose people and destinations for every used reporting profile"
             )
     settings = Settings.from_data(candidate)
     previous = Settings.from_data(current)
@@ -540,6 +569,11 @@ async def _async_preview_settings(
             and not Settings.from_data(current).notifications,
             "requests_now": len(cast(list[JSONValue], policy["deliveries"])),
             "open_problems": len(runtime.episodes),
+            "reporting_assignments": len(
+                msg["settings"].get("reporting", {}).get("assignments", {})
+            )
+            if msg["settings"].get("reporting")
+            else 0,
         },
     )
 
