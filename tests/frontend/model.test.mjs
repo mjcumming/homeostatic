@@ -632,6 +632,7 @@ test("occupancy, motion and generic sensor guidance follows actual metadata",()=
 });
 
 for(const [reason,headline] of [
+  ["value_unknown","Value unknown"],
   ["state_unknown","Waiting for a known state"],["source_missing","No current state found"],
   ["restored_state","Waiting for a fresh reading"],["stale","Reading is out of date"],
   ["disabled","Disabled in Home Assistant"],["__proto__","Current condition isn't confirmed"],
@@ -916,17 +917,23 @@ test("Sources uses Topomation nesting and keeps unplaced sources reachable",()=>
     {id:"home",name:"Home",parent_id:null,order:0,ha_area_id:null,entity_ids:[]},
     {id:"porch",name:"Front porch",parent_id:"home",order:0,ha_area_id:"porch",entity_ids:[]},
   ]};
-  const paths=sourcePaths(sourcesTree(data,"location",null,topomation));
+  const paths=sourcePaths(sourcesTree(data,"topomation",null,topomation));
   assert.deepEqual(paths.get("source:entity:registry:camera-1-1").parents.slice(0,2).map(item=>item.name),["Home","Front porch"]);
   assert.ok(paths.has("source:entity:registry:orphan-124"));
   assert.ok(paths.has("source:entry:frigate"));
   topomation.locations.push({id:"utility",name:"Utility",parent_id:"home",order:1,ha_area_id:null,entity_ids:[entity.entity_id]});
-  const moved=sourcePaths(sourcesTree(data,"location",null,topomation));
+  const moved=sourcePaths(sourcesTree(data,"topomation",null,topomation));
   assert.equal(moved.get("source:entity:registry:camera-1-1").parents[1].name,"Utility");
-  assert.equal(sourcesTree(data,"location",null,{locations:[]})[0]?.type,"location");
-  assert.equal(sourcesTree(data,"location",null,{locations:[
+  assert.equal(sourcePaths(sourcesTree(data,"location",null,topomation)).get("source:entity:registry:camera-1-1").parents[0].name,"Unassigned");
+  assert.equal(sourcesTree(data,"topomation",null,{locations:[]})[0]?.type,"location");
+  assert.equal(sourcesTree(data,"topomation",null,{locations:[
     {id:"a",parent_id:"b"},{id:"b",parent_id:"a"},
   ]})[0]?.type,"location");
+  const card={current:{data},topomation,sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+    sourcesExpanded:new Set(),sourcesSelection:null};
+  assert.match(sourcesBrowser(card),/<option value="topomation">Topomation<\/option>/);
+  card.topomation=null;
+  assert.doesNotMatch(sourcesBrowser(card),/<option value="topomation"/);
 });
 
 test("Sources review filtering retains grouped ancestors and does not auto-expand them",()=>{
@@ -1009,6 +1016,9 @@ test("Sources keeps one tree while source settings and history show selected sou
   const history=sourcesBrowser(card);
   assert.match(history,/No problems in retained history/);
   assert.doesNotMatch(history,/Edit monitoring/);
+  card.sourcesSelection="source:entity:registry:camera-1-1";
+  const entity=sourcesBrowser(card);
+  assert.match(entity,/<h2 id="sources-detail-title"[^>]*>[^<]+<\/h2><p class="source-entity-id">sensor\.camera_1_001<\/p>/);
 });
 
 

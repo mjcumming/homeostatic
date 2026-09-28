@@ -826,10 +826,29 @@ class Runtime:
             self.policy = Policy(self.settings.policy_config())
         assert self.engine is not None
         assert self.policy is not None
+        for node_id, source in sources.items():
+            previous = self.sources.get(node_id)
+            if (
+                not first
+                and source.kind == "device"
+                and not source.availability_entities
+                and previous is not None
+                and previous.availability_entities
+            ):
+                # Losing the last signal is a scope removal, not recovery.
+                events.extend(self.engine.remove(node_id, now))
+        deferred = [
+            source.node(self.settings)
+            for source in sources.values()
+            if first and source.kind == "device" and not source.availability_entities
+        ]
         changed = [
             source.node(self.settings)
             for node_id, source in sources.items()
-            if first or source != self.sources.get(node_id)
+            if (first or source != self.sources.get(node_id))
+            and not (
+                first and source.kind == "device" and not source.availability_entities
+            )
         ]
         if changed:
             events.extend(self.engine.register_many(changed, now))
@@ -907,8 +926,10 @@ class Runtime:
                 for entry_id, value in self.saved["retry_since"].items()
             }
             self.policy.restore(self.saved["policy"], now)
-            events = self.engine.restore(self.saved["engine"], now)
+            events.extend(self.engine.restore(self.saved["engine"], now))
             self.saved = None
+        if deferred:
+            events.extend(self.engine.register_many(deferred, now))
         for node_id, source in sources.items():
             if source.kind != "device":
                 continue
@@ -918,8 +939,12 @@ class Runtime:
                 if previous is not None
                 else bool(source.ignored_availability)
             )
-            if scope_changed and any(
-                episode["anchor"] == node_id for episode in self.episodes.values()
+            if (
+                scope_changed
+                and source.availability_entities
+                and any(
+                    episode["anchor"] == node_id for episode in self.episodes.values()
+                )
             ):
                 # A different monitoring expectation cannot prove recovery.
                 events.extend(self.engine.remove(node_id, now))

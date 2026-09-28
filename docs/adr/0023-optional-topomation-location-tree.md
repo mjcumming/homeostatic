@@ -1,6 +1,6 @@
 # ADR 0023: Use Topomation as an optional location tree
 
-**Status:** Accepted
+**Status:** Superseded by 0024
 **Date:** 2026-09-28
 **Decider:** Michael Cumming
 

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.1.0b15] - 2026-09-28
+
+### Changed
+
+- Follow Home Assistant availability semantics in passive checks: an `unknown` entity value does not create an issue, and an `unavailable` entity raises a warning. Buttons remain eligible for device summaries; an unpressed Identify button no longer raises a device issue. Device choices with no eligible entity remain saved without an open availability check.
+- Explain in the README which selected Home Assistant entity states produce a device availability warning and what the summary cannot prove.
+- Make device issue cards name a sole affected entity, and shorten device details to the observed states and the next step.
+
+- Show the selected entity ID beneath its name in Sources and identify the entity and saved choice in the monitoring review. Explain when a draft does not add or stop any watched sources, including the possible effect on device availability membership and future monitoring.
+- Offer Topomation as a separate Sources grouping when its hierarchy is available, alongside Integration and Home Assistant location.
+
 ## [0.1.0b14] - 2026-09-28
 
 ### Changed

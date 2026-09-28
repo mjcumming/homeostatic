@@ -162,7 +162,7 @@ async def test_stream_tracks_enrollment_failure_unload_and_reload(
     hass.states.async_set("sensor.observed", "unavailable")
     await hass.async_block_till_done()
     failed = (await client.receive_json())["event"]
-    assert failed["functions"][0]["readiness"]["answer"] == "blocked"
+    assert failed["functions"][0]["readiness"]["answer"] == "degraded"
     assert failed["inventory"]["episodes"]
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert not (await client.receive_json())["event"]["available"]
@@ -414,10 +414,10 @@ async def test_entity_brief_uses_current_queries_through_unknown_and_recovery(
     assert unknown["inventory_changed"] is False
     assert (
         unknown["inventory"]["entity_status"][NODE]["current"]["reason"]
-        == "state_unknown"
+        == "value_unknown"
     )
     assert (
-        unknown["inventory"]["entity_status"][NODE]["readiness"]["answer"] == "unknown"
+        unknown["inventory"]["entity_status"][NODE]["readiness"]["answer"] == "degraded"
     )
     hass.states.async_set("sensor.observed", "42")
     await hass.async_block_till_done()
@@ -426,7 +426,7 @@ async def test_entity_brief_uses_current_queries_through_unknown_and_recovery(
     context = recovering["inventory"]["entity_status"][NODE]
     assert context["explanation"]["findings"] == []
     assert context["current"]["reason"] == "available"
-    assert context["readiness"]["answer"] == "unknown"
+    assert context["readiness"]["answer"] == "degraded"
     assert runtime.engine is not None
     before = runtime.engine.snapshot()
     await client.send_json({"id": 2, "type": "homeostatic/node", "node_id": NODE})

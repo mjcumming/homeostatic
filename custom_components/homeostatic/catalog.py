@@ -111,18 +111,26 @@ def device_observation(
 ) -> Observation:
     """Summarize HA availability across one device's eligible entities."""
     signatures = tuple(entity_state_signature(state)[0] for state in states)
-    available = signatures.count(Status.PASS)
-    unavailable = signatures.count(Status.FAIL)
+    value_unknown = sum(
+        state is not None
+        and state.state == STATE_UNKNOWN
+        and not state.attributes.get("restored")
+        for state in states
+    )
+    available = signatures.count(Status.PASS) - value_unknown
+    unavailable = signatures.count(Status.WARN)
     unknown = len(signatures) - available - unavailable
+    evidence_missing = signatures.count(Status.UNKNOWN)
     if source.disabled:
         status, reason = Status.UNKNOWN, "disabled"
     elif not signatures:
         status, reason = Status.UNKNOWN, "source_missing"
-    elif unavailable == len(signatures):
-        status, reason = Status.FAIL, "all_unavailable"
     elif unavailable:
-        status, reason = Status.WARN, "some_unavailable"
-    elif unknown:
+        status, reason = (
+            Status.WARN,
+            "all_unavailable" if unavailable == len(signatures) else "some_unavailable",
+        )
+    elif evidence_missing:
         status, reason = Status.UNKNOWN, "incomplete_evidence"
     else:
         status, reason = Status.PASS, "available"
@@ -151,9 +159,9 @@ def entity_state_signature(state: State | None) -> tuple[Status, str]:
     if state.attributes.get("restored"):
         return Status.UNKNOWN, "restored_state"
     if state.state == STATE_UNKNOWN:
-        return Status.UNKNOWN, "state_unknown"
+        return Status.PASS, "value_unknown"
     if state.state == STATE_UNAVAILABLE:
-        return Status.FAIL, "unavailable"
+        return Status.WARN, "unavailable"
     return Status.PASS, "available"
 
 

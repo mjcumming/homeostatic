@@ -97,7 +97,20 @@ The [pilot guide](docs/pilot.md) covers backups, verifying the archive, and roll
 
 Homeostatic turns your HA setup into a dependency graph: integrations, devices, entities, and the functions you define on top of them. It feeds HA's own signals (integration setup state and entity availability) into [Health Tree](https://github.com/mjcumming/health-tree), a separate, dependency-free Python library that works out root causes, groups symptoms into one episode per root, tracks recovery, and decides who hears what. Homeostatic handles everything HA-specific: discovery, storage, the dashboard, and delivery.
 
-**Available isn't the same as healthy.** Today's checks see what Home Assistant reports. They can't yet prove a sensor is still sending fresh readings or that a garage door actually closed. Missing evidence is shown as unknown, never as fine.
+### How a device gets an availability warning
+
+Home Assistant's device record groups entities; it does not provide one device-health state. When you choose to monitor a device, Homeostatic makes one availability summary from its enabled ordinary entities (including buttons), or enabled diagnostic entities if it has no ordinary ones. Disabled and configuration entities are not included. You can exclude a selected entity through the monitoring rules. New installations watch integration setup state first; device summaries require a monitoring choice.
+
+| Home Assistant evidence from selected entities | Device availability summary |
+| --- | --- |
+| Any entity is `unavailable` | **Warning:** Home Assistant cannot currently read or control that entity. This remains a warning even if every selected entity is unavailable. |
+| An entity is `unknown` | No availability issue from that value. Home Assistant has the entity, but its value is not known; an unpressed button is a common example. |
+| No entity is `unavailable` | No availability warning. This does not verify the device's physical operation or the correctness of its readings. |
+| An entity is missing or has only a restored startup state | Evidence is incomplete; Homeostatic keeps this distinct from a confirmed availability warning. |
+
+Home Assistant's **Not provided** filter is different from an entity reporting `unavailable`: the registry still lists an entity that is not currently supplied. Homeostatic treats that as a source or monitoring-scope question, not a device error. An automatically discovered entity removed from the registry leaves monitoring scope; an explicit requirement stays visible until you change it.
+
+The device summary does not assign an **error** from entity availability alone. Integration setup failures, authentication requests, and owner-defined situation alerts are separate signals with their own rules. Open the device's details to see exactly which entities and states contributed. Homeostatic cannot yet prove that a sensor is sending fresh readings or that a command succeeded; see [ADR 0025](docs/adr/0025-follow-home-assistant-availability-semantics.md) and the [specification](docs/spec.md) for the precise rules.
 
 ## Dashboard and cards
 
@@ -132,7 +145,7 @@ A **Homeostatic** dashboard strategy is available in HA's new-dashboard dialog.
 
 ## Project status
 
-**Beta (0.1.0b14).** Running in a real-house pilot. The dashboard, availability monitoring, functions, situations, notification policy, and operator controls work and are backed by executable scenarios and integration tests with 95% statement and branch coverage floors. Known limits:
+**Beta (0.1.0b15).** Running in a real-house pilot. The dashboard, availability monitoring, functions, situations, notification policy, and operator controls work and are backed by executable scenarios and integration tests with 95% statement and branch coverage floors. Known limits:
 
 - Whole-house monitoring of every entity on very large installs (6,000+ entities) doesn't yet meet responsiveness targets. Start with integrations and selected devices. See [runtime scaling](docs/testing/runtime-scaling.md).
 - Freshness, detector liveness, and command-completion checks aren't built yet.

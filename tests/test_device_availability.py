@@ -12,7 +12,11 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.homeostatic.catalog import Source, device_observation
+from custom_components.homeostatic.catalog import (
+    Source,
+    device_observation,
+    entity_state_signature,
+)
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.enrollment import (
@@ -29,15 +33,21 @@ from tests.test_lifecycle import start_monitor
     [
         pytest.param(
             (State("sensor.a", "off"), State("sensor.b", "unknown")),
-            Status.UNKNOWN,
-            "incomplete_evidence",
-            id="usable-with-unknown",
+            Status.PASS,
+            "available",
+            id="unknown-value-does-not-warn",
         ),
         pytest.param(
             (State("sensor.a", "unavailable"), State("sensor.b", "unknown")),
             Status.WARN,
             "some_unavailable",
             id="no-usable-evidence",
+        ),
+        pytest.param(
+            (State("sensor.a", "unavailable"), State("sensor.b", "unavailable")),
+            Status.WARN,
+            "all_unavailable",
+            id="all-unavailable-still-warns",
         ),
         pytest.param(
             (
@@ -55,7 +65,7 @@ def test_generic_summary_reports_selected_availability_expectations(
     status: Status,
     reason: str,
 ) -> None:
-    """Missing or unavailable selected evidence cannot be assumed harmless."""
+    """Only HA unavailability warns in a device availability summary."""
     observation = device_observation(
         Source(node_id="device:generic", name="Generic", kind="device"),
         states,
@@ -63,6 +73,37 @@ def test_generic_summary_reports_selected_availability_expectations(
     )
     assert observation.status == status
     assert observation.reason == reason
+
+
+@pytest.mark.parametrize(
+    ("state", "status", "reason"),
+    [
+        pytest.param(
+            State("button.identify", "unknown"),
+            Status.PASS,
+            "value_unknown",
+            id="unknown-value",
+        ),
+        pytest.param(
+            State("button.identify", "unavailable"),
+            Status.WARN,
+            "unavailable",
+            id="unavailable",
+        ),
+        pytest.param(
+            State("button.identify", "unknown", {"restored": True}),
+            Status.UNKNOWN,
+            "restored_state",
+            id="restored",
+        ),
+        pytest.param(None, Status.UNKNOWN, "source_missing", id="missing"),
+    ],
+)
+def test_entity_availability_distinguishes_unknown_value_from_lost_access(
+    state: State | None, status: Status, reason: str
+) -> None:
+    """A missing value is not evidence that Home Assistant lost access."""
+    assert entity_state_signature(state) == (status, reason)
 
 
 def test_existing_broad_rules_do_not_enroll_device_summaries() -> None:
@@ -136,7 +177,7 @@ async def test_device_summary_tracks_partial_total_unknown_and_recovery(
     for entity_id in entities[1:]:
         hass.states.async_set(entity_id, "unavailable")
     await hass.async_block_till_done()
-    assert runtime.engine.readiness([node_id]).answer == "blocked"
+    assert runtime.engine.readiness([node_id]).answer == "degraded"
     assert len(runtime.episodes) == 1
     episode_id = next(iter(runtime.episodes))
     assert episode_id == partial_episode_id
@@ -152,8 +193,8 @@ async def test_device_summary_tracks_partial_total_unknown_and_recovery(
     for entity_id in entities:
         hass.states.async_set(entity_id, "unknown")
     await hass.async_block_till_done()
-    assert runtime.engine.readiness([node_id]).answer == "unknown"
-    assert list(runtime.episodes) == [episode_id]
+    assert runtime.engine.readiness([node_id]).answer == "ready"
+    assert not runtime.episodes
 
     for entity_id in entities:
         hass.states.async_set(entity_id, "off")
@@ -221,10 +262,10 @@ async def test_auto_device_summary_ends_when_last_member_is_deleted(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_exact_device_selection_remains_unknown_without_members(
+async def test_exact_device_selection_stays_saved_without_members(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """An exact device choice remains an unmet expectation after entity deletion."""
+    """An exact device choice remains visible without a device check."""
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     owner.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(
@@ -255,13 +296,15 @@ async def test_exact_device_selection_remains_unknown_without_members(
     registry.async_remove(member.entity_id)
     await hass.async_block_till_done()
     assert runtime.sources[node_id].availability_entities == ()
-    assert runtime.sources[node_id].watched
+    assert not runtime.sources[node_id].watched
+    assert not runtime.episodes
     assert runtime.readiness == "unknown"
 
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     restored = entry.runtime_data
-    assert restored.sources[node_id].watched
+    assert not restored.sources[node_id].watched
+    assert not restored.episodes
     assert restored.readiness == "unknown"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -355,7 +398,7 @@ async def test_persistent_ignore_changes_expectation_without_claiming_recovery(
     )
     hass.states.async_set(primary.entity_id, "unavailable")
     await hass.async_block_till_done()
-    assert runtime.engine.readiness([node_id]).answer == "blocked"
+    assert runtime.engine.readiness([node_id]).answer == "degraded"
     outage_id = next(iter(runtime.episodes))
     assert outage_id != episode_id
 
@@ -383,7 +426,7 @@ async def test_persistent_ignore_changes_expectation_without_claiming_recovery(
 
     runtime.settings = Settings.from_data(config_data)
     await runtime.async_refresh()
-    assert runtime.engine.readiness([node_id]).answer == "blocked"
+    assert runtime.engine.readiness([node_id]).answer == "degraded"
     assert runtime.episodes
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -486,7 +529,7 @@ async def test_device_rule_tracks_hidden_entities_but_not_disabled_devices(
     node_id = f"device:{device.id}"
     assert device_members(hass)[device.id] == (hidden.entity_id,)
     assert runtime.engine is not None
-    assert runtime.engine.readiness([node_id]).answer == "blocked"
+    assert runtime.engine.readiness([node_id]).answer == "degraded"
     assert runtime.episodes
 
     devices.async_update_device(device.id, disabled_by=dr.DeviceEntryDisabler.USER)
@@ -499,7 +542,157 @@ async def test_device_rule_tracks_hidden_entities_but_not_disabled_devices(
     await hass.async_block_till_done()
     assert device_members(hass)[device.id] == (hidden.entity_id,)
     assert runtime.sources[node_id].watched
-    assert runtime.engine.readiness([node_id]).answer == "blocked"
+    assert runtime.engine.readiness([node_id]).answer == "degraded"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_unpressed_identify_button_is_not_device_availability_evidence(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """A button's unknown last-pressed state does not open a device issue."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id,
+        identifiers={("test", "button_only")},
+        name="Button-only hub",
+    )
+    identify = er.async_get(hass).async_get_or_create(
+        "button",
+        "test",
+        "identify",
+        config_entry=owner,
+        device_id=device.id,
+    )
+    hass.states.async_set(identify.entity_id, "unknown")
+    config_data.update(
+        entities=[],
+        config_entries=[],
+        notifications=False,
+        rules=[
+            {
+                "id": "hub",
+                "action": "attach",
+                "match": {"kind": "device", "device": device.id},
+            }
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    node_id = f"device:{device.id}"
+    assert device_members(hass)[device.id] == (identify.entity_id,)
+    assert runtime.sources[node_id].availability_entities == (identify.entity_id,)
+    assert runtime.sources[node_id].watched
+    assert not runtime.episodes
+
+    hass.states.async_set(identify.entity_id, "unavailable")
+    await hass.async_block_till_done()
+    assert runtime.engine is not None
+    assert runtime.engine.readiness([node_id]).answer == "degraded"
+    assert runtime.episodes
+
+    hass.states.async_set(identify.entity_id, "unknown")
+    await hass.async_block_till_done()
+    assert runtime.engine.readiness([node_id]).answer == "ready"
+    assert not runtime.episodes
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_losing_last_reporting_entity_retires_device_issue(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """An unknown button value cannot keep an availability issue open."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id,
+        identifiers={("test", "mixed")},
+    )
+    registry = er.async_get(hass)
+    reporting = registry.async_get_or_create(
+        "sensor", "test", "reporting", config_entry=owner, device_id=device.id
+    )
+    identify = registry.async_get_or_create(
+        "button", "test", "identify", config_entry=owner, device_id=device.id
+    )
+    hass.states.async_set(reporting.entity_id, "unavailable")
+    hass.states.async_set(identify.entity_id, "unknown")
+    config_data.update(
+        entities=[],
+        config_entries=[],
+        notifications=False,
+        rules=[
+            {
+                "id": "mixed",
+                "action": "attach",
+                "match": {"kind": "device", "device": device.id},
+            }
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    node_id = f"device:{device.id}"
+    assert runtime.sources[node_id].availability_entities == tuple(
+        sorted((reporting.entity_id, identify.entity_id))
+    )
+    assert runtime.episodes
+
+    registry.async_update_entity(
+        reporting.entity_id, disabled_by=er.RegistryEntryDisabler.USER
+    )
+    await hass.async_block_till_done()
+    assert runtime.sources[node_id].watched
+    assert not runtime.episodes
+    history = await action(hass, "resolved_history", {})
+    assert history["episodes"][0]["resolution"] == "removed"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_restore_retires_issue_when_only_identify_button_remains(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """A saved device episode does not become a false recovery on reload."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id,
+        identifiers={("test", "restored_button")},
+    )
+    registry = er.async_get(hass)
+    reporting = registry.async_get_or_create(
+        "sensor", "test", "reporting", config_entry=owner, device_id=device.id
+    )
+    hass.states.async_set(reporting.entity_id, "unavailable")
+    config_data.update(
+        entities=[],
+        config_entries=[],
+        notifications=False,
+        rules=[
+            {
+                "id": "restored_hub",
+                "action": "attach",
+                "match": {"kind": "device", "device": device.id},
+            }
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    assert runtime.episodes
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+    hass.states.async_remove(reporting.entity_id)
+    registry.async_remove(reporting.entity_id)
+    identify = registry.async_get_or_create(
+        "button", "test", "identify", config_entry=owner, device_id=device.id
+    )
+    hass.states.async_set(identify.entity_id, "unknown")
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    restored = entry.runtime_data
+    assert restored.sources[f"device:{device.id}"].watched
+    assert not restored.episodes
+    history = await action(hass, "resolved_history", {})
+    assert history["episodes"][0]["resolution"] == "removed"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -532,7 +725,7 @@ async def test_device_summary_falls_back_to_diagnostic_evidence(
     runtime = await start_monitor(hass, entry)
     node_id = f"device:{device.id}"
     assert runtime.engine is not None
-    assert runtime.engine.readiness([node_id]).answer == "blocked"
+    assert runtime.engine.readiness([node_id]).answer == "degraded"
     assert len(runtime.episodes) == 1
     hass.states.async_set(diagnostic.entity_id, "ok")
     await hass.async_block_till_done()
