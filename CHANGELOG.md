@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
+## [0.1.0b14] - 2026-09-28
+
 ### Changed
 
+- Rewrite the README as a short landing page with badges, HACS and manual installation, and a quick start; move the full reference to `docs/guide.md` and developer setup to `docs/development.md`. Add `hacs.json` for installation as a HACS custom repository.
 - Use Home Assistant's “entity” terminology for selectable and monitored sources in Sources and device problem details, while retaining “reading” for physical measurements and the act of retrieving values.
 - Move Notifications to the main dashboard navigation, link Overview's request status to it, and leave Timing and Problem grouping in Settings.
 - Defer guided notification automation routing: remove its picker and detailed-routing link, move notification delay to Timing and time zone beside quiet hours, and preserve existing automation selections.
@@ -19,6 +22,8 @@
 - Add reviewed installation-wide timing and notification-policy editing while preserving arbitrary saved policies and unrelated options. Integration device defaults can cover future connections of the same integration type.
 
 ### Added
+
+- Use Topomation's location hierarchy for the Sources location tree when its read-only location endpoint is available; retain the Home Assistant tree as fallback and keep unassigned sources visible.
 
 - Add a person-based Notifications editor with phone and notify-entity destinations, simple alert levels, quiet hours, an isolated route test, and preview-before-save. Built-in service requests record attempts durably before sending; notification requests remain off until the owner enables them.
 
