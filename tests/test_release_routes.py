@@ -433,3 +433,71 @@ def test_person_policy_levels(
             "end": "07:00",
         }
         assert simple.simple_choices(result) is not None
+
+
+async def test_available_people_requires_linked_current_users() -> None:
+    """Only linked people with current HA users appear in the editor."""
+    states = [
+        SimpleNamespace(name="No person id", attributes={"user_id": "admin"}),
+        SimpleNamespace(name="No user id", attributes={"id": "missing"}),
+        SimpleNamespace(name="Gone", attributes={"id": "gone", "user_id": "gone"}),
+        SimpleNamespace(name="Zoe", attributes={"id": "zoe", "user_id": "member"}),
+        SimpleNamespace(name="Alice", attributes={"id": "alice", "user_id": "admin"}),
+    ]
+
+    async def get_user(user_id: str) -> Any:
+        users = {
+            "member": SimpleNamespace(is_admin=False),
+            "admin": SimpleNamespace(is_admin=True),
+        }
+        return users.get(user_id)
+
+    fake_hass = SimpleNamespace(
+        states=SimpleNamespace(async_all=lambda _: states),
+        auth=SimpleNamespace(async_get_user=get_user),
+    )
+    assert await simple.available_people(fake_hass) == [
+        {"id": "alice", "name": "Alice", "user_id": "admin", "administrator": True},
+        {"id": "zoe", "name": "Zoe", "user_id": "member", "administrator": False},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("choice", "route", "error"),
+    [
+        (
+            {"level": "Everything", "channels": ["notify:shared"]},
+            True,
+            "valid notification level",
+        ),
+        ({"level": "All", "channels": [1]}, True, "distinct notification destinations"),
+        (
+            {"level": "All", "channels": ["notify:shared"]},
+            False,
+            "unavailable or belongs",
+        ),
+    ],
+)
+def test_household_policy_rejects_invalid_routes(
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    choice: dict[str, Any],
+    route: bool,
+    error: str,
+) -> None:
+    """Household levels and route availability are validated separately."""
+    monkeypatch.setattr(
+        simple,
+        "destinations",
+        lambda _: [
+            Destination(
+                channel="notify:shared", name="Shared", user_id=None, available=route
+            )
+        ],
+    )
+    with pytest.raises(ValueError, match=error):
+        simple.generate_policy(
+            hass,
+            {"timezone": "UTC", "people": {"member": choice}},
+            [{"id": "member", "user_id": "member", "administrator": False}],
+        )
