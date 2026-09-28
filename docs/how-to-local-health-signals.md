@@ -46,4 +46,4 @@ For one device, you can also create the same state-based binary sensor directly 
 - Make missing, restored, unknown, unavailable, and unexpected source values unavailable in the derived entity. Test that losing the source cannot clear an open alert.
 - Check the derived entity after HA restart and after a real source transition. A local template can only report the evidence its source supplies; it cannot prove that a physical device has recovered.
 
-See [Bind a situation](../README.md#bind-a-situation) for the Homeostatic binding contract and [HA's template documentation](https://www.home-assistant.io/integrations/template/) for template setup and reload instructions.
+See [Bind a situation](guide.md#bind-a-situation) for the Homeostatic binding contract and [HA's template documentation](https://www.home-assistant.io/integrations/template/) for template setup and reload instructions.

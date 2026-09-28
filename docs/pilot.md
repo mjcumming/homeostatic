@@ -1,6 +1,6 @@
 # Homeostatic pilot
 
-The 0.1.0b13 pilot combines the live dashboard, availability enrollment, function readiness, notification policy, administrator controls and bounded resolution history. Start with passive observation. This build is for trying real equipment and recording what happens; it is not a completed production release.
+The 0.1.0b14 pilot combines the live dashboard, availability enrollment, function readiness, notification policy, administrator controls and bounded resolution history. Start with passive observation. This build is for trying real equipment and recording what happens; it is not a completed production release.
 
 For an owner-authorized local UI trial before publication, use the [quick local test cycle](development-workflows.md). The installation steps below apply to a released archive.
 
@@ -9,7 +9,7 @@ For an owner-authorized local UI trial before publication, use the [quick local 
 The tested baseline is Home Assistant **2026.9.3** with Python 3.14. HA OS and Container manage Python themselves. Compatibility with other HA versions must be checked before installation. The integration requires access to PyPI on first setup to install its pinned **health-tree 0.4.0** dependency. No library checkout, editable install, Node.js or developer tools are needed on the HA host.
 
 1. Confirm a recent usable Home Assistant automatic backup and save the installed Homeostatic component folder for rollback. Make a fresh full HA backup if this upgrade changes stored data, the options schema or the pinned dependency, or if no suitable backup exists. Ordinary code-only upgrades do not need another full backup.
-2. Extract `homeostatic-0.1.0b13-pilot.zip` on your computer. `BUILD_INFO.json` identifies the exact commit and lists checksums for the packaged files. The adjacent `.sha256` file verifies the ZIP itself.
+2. Extract `homeostatic-0.1.0b14-pilot.zip` on your computer. `BUILD_INFO.json` identifies the exact commit and lists checksums for the packaged files. The adjacent `.sha256` file verifies the ZIP itself.
 3. Copy the extracted `custom_components/homeostatic` folder to your Home Assistant configuration directory, resulting in `<HA config>/custom_components/homeostatic/manifest.json`. On HA OS this configuration directory is normally `/config`; with Container it is the host directory mounted at `/config`. Use your existing method of accessing those configuration files. Replace an old component folder in full so obsolete files do not remain. Do not copy the whole repository or ZIP inside the component folder.
 4. Restart Home Assistant. In **Settings > Devices & services > Add integration**, search for **Homeostatic**. An existing entry should load the updated component after restart instead of creating another entry.
 5. Leave **Notification events** off. Narrow the passive availability rule using the first-observation guidance below before previewing or saving on a large installation. Open **Homeostatic** in the sidebar using an administrator account. No manual JavaScript-resource registration is needed.
@@ -40,7 +40,7 @@ Alternatively, select a few familiar entities. Replace `sensor.YOUR_ENTITY` with
   checks: [availability]
 ```
 
-Use **Preview without saving** to inspect the scope. Define one or two familiar functions with real requirements, using the examples in `README.md`. Without declared functions, the dashboard explicitly reports that no functions are defined. Availability describes HA's reported control path; it does not demonstrate fresh physical readings or successful device commands.
+Use **Preview without saving** to inspect the scope. Define one or two familiar functions with real requirements, using the examples in the [user guide](guide.md#define-a-function). Without declared functions, the dashboard explicitly reports that no functions are defined. Availability describes HA's reported control path; it does not demonstrate fresh physical readings or successful device commands.
 
 Observe normal operation for **24–48 hours**, leaving notifications off. Record the installed build, HA version, selected sources, expected behavior and any unexpected problem or coverage gap. Inspect coverage for excluded, unwatched, missing or unknown requirements. The dashboard presents current problems, enrollment changes, and **Recently resolved** history with search and outcome filters. The native `homeostatic.resolved_history` action and inventory field expose the same retained history.
 
@@ -57,7 +57,7 @@ Use expendable test equipment or a synthetic helper. Do not interrupt an essenti
 | Short maintenance window | Preview the exact scope first; use **Working on this equipment** in source details to create a brief bounded window; check expiry. Existing problems and situation alerts remain active. |
 | Shelve an open test problem | **Pause alerts** directly in problem details retains the problem and pauses future alerts until expiry. Use a short window; **End now** resumes due attention under the remaining policy holds. |
 
-Use the action examples in `README.md`, replacing node ids and timestamps with current values. History keeps the latest 100 observed terminal episodes within 30 days, including removal and absorption as distinct outcomes. It is not a complete activity log, and old history is not reconstructed on upgrade.
+Use the action examples in the [user guide](guide.md#operator-controls), replacing node ids and timestamps with current values. History keeps the latest 100 observed terminal episodes within 30 days, including removal and absorption as distinct outcomes. It is not a complete activity log, and old history is not reconstructed on upgrade.
 
 Only after passive behavior is understood, configure the included Companion blueprint for one recipient and one intended phone. The optional file belongs at `<HA config>/blueprints/automation/homeostatic/companion_notification.yaml`. Create and enable its automation, select it in Homeostatic options, then enable notification events. Confirm opening, replacement, recovery, quiet hours and urgent behavior on that phone. Event publication alone does not prove phone delivery. See `docs/events.md` for the routing contract.
 

@@ -1,379 +1,148 @@
 # Homeostatic
 
-**Understand what your home needs. Give it the right attention.**
+**Know what's wrong with your home, what it affects, and who needs to hear about it.**
 
-Home Assistant lets us build homes that do remarkable things. As those homes grow, so does the work of understanding them. A light that stops following motion might be a light problem, a missing sensor, or an integration that needs attention. The useful questions are simple: **What is wrong? What does it affect? What should I do next?**
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
+[![Installations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fanalytics.home-assistant.io%2Fcustom_integrations.json&query=%24.homeostatic.total&label=installs&color=41BDF5&logo=home-assistant&cacheSeconds=3600)](https://analytics.home-assistant.io/custom_integrations.json)
+[![GitHub Release](https://img.shields.io/github/v/release/mjcumming/homeostatic?include_prereleases&sort=semver)](https://github.com/mjcumming/homeostatic/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/mjcumming/homeostatic/ci.yml?branch=main&label=CI)](https://github.com/mjcumming/homeostatic/actions/workflows/ci.yml)
+[![Coverage floor](https://img.shields.io/badge/coverage%20floor-95%25-brightgreen.svg)](CONTRIBUTING.md)
+[![Home Assistant](https://img.shields.io/badge/home%20assistant-2026.9.3+-blue.svg)](https://www.home-assistant.io/)
+[![Python](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
+[![health-tree](https://img.shields.io/pypi/v/health-tree?label=health-tree)](https://pypi.org/project/health-tree/)
+[![Project Status](https://img.shields.io/badge/project%20status-beta-orange.svg)](#project-status)
+[![Maintenance](https://img.shields.io/maintenance/yes/2026.svg)](https://github.com/mjcumming/homeostatic)
+[![License](https://img.shields.io/github/license/mjcumming/homeostatic.svg)](LICENSE)
+[![GitHub Issues](https://img.shields.io/github/issues/mjcumming/homeostatic.svg)](https://github.com/mjcumming/homeostatic/issues)
 
-Homeostatic brings those questions together inside Home Assistant. It connects reported problems to the functions you care about, follows them through recovery, and helps you choose when they deserve an interruption. The aim is a home that is easier to understand, maintain, and rely on.
+> ⭐ **Using Homeostatic?** Please [star the repo](https://github.com/mjcumming/homeostatic). It takes 25 stars to get into the HACS default store, and it helps other Home Assistant users find the project.
 
-Built on the separate [Health Tree](https://github.com/mjcumming/health-tree) library. An early pilot; see [project status](#project-status) before installing.
+A growing Home Assistant install fails in quiet, confusing ways. The lights stop following motion: is it the light, the motion sensor, or the Zigbee integration behind both? A dozen entities go unavailable at once and you get a dozen alerts for one problem.
 
-## See what a problem means for your home
+Homeostatic sits inside Home Assistant and answers three questions:
 
-Give the things your home does a name: **Garage access**, **Motion lighting**, **Arriving home**. Define the capabilities each function requires, and Homeostatic can explain whether those requirements are ready, unknown, degraded, or blocked. It can suggest requirements from selected automations for you to review and confirm.
+1. **What is wrong?** One problem per root cause, not one alert per symptom.
+2. **What does it affect?** The things your home *does*, like **Garage access** or **Motion lighting**, and whether they're ready.
+3. **Who should hear about it, and when?** A notification policy with quiet hours, reminders, and escalation, off until you turn it on.
 
-When a known dependency fails, Homeostatic connects the affected sources to that shared problem. It keeps their individual evidence visible while reducing repeated alerts for symptoms of the same failure. The importance you assign to a function also carries upstream to the capabilities it depends on.
+<!--
+Screenshots: save PNGs to docs/images/ and uncomment.
+Suggested: overview.png (Home page with counts and recent issues),
+problem.png (a problem's details with affected functions and next step),
+sources.png (Sources grouped by area), notifications.png (the Notifications page).
 
-For example, if a monitored lighting integration fails and its lights become unavailable, the dependency graph can associate those symptoms with the integration problem. A **Motion lighting** function that requires those lights can show why it is blocked. That gives you somewhere useful to start investigating. The explanation follows reported evidence and known dependencies; it does not guess which physical component broke.
+<p align="center">
+  <img src="docs/images/overview.png" alt="Homeostatic overview" width="720"/>
+</p>
+-->
 
-## Attention that fits the household
+## Features
 
-Some things need attention now. Others can wait until morning. Homeostatic gives ongoing problems an identity, so changing evidence, reminders, and recovery belong to the same episode.
+- **Root-cause grouping.** When an integration fails, its unavailable devices are linked to that one problem instead of paging you for each.
+- **Functions and readiness.** Name what your home does, list what it needs, and get a `ready`, `unknown`, `degraded`, or `blocked` sensor for each. Homeostatic can suggest requirements from your existing automations.
+- **Importance flows upstream.** Mark **Garage access** as high importance and the hub it depends on inherits that importance when it fails.
+- **Situation alerts.** Bind conditions you define, like **Garage open at night**, to the same attention system, even when all the equipment works.
+- **Notification policy.** Recipients, quiet hours, digests, reminders, and escalation, with a preview before saving. Notifications start off.
+- **Acknowledge, pause, and maintenance.** Record that you've seen a problem, pause its alerts, or declare a maintenance window with a preview of what it affects.
+- **Coverage you can see.** The dashboard shows what's watched, what's excluded, and where evidence is missing, so silence never passes for health.
+- **Native to Home Assistant.** Config flow, floors and areas, entity registry identity, sidebar dashboard, reusable cards, response actions, and blueprints. Runs locally with passive monitoring; it never polls your devices.
 
-You choose recipients, quiet hours, digests, reminders, and escalation. You can preview a notification policy before saving it, and inspect why a problem is being routed a particular way. Notifications start switched off. When you activate them, existing problems are summarized as the policy permits.
+## Requirements
 
-Administrators can acknowledge a problem to record awareness, pause its alerts, and end a temporary pause or maintenance window early. Acknowledgment stops repeated attention only for rules that opt in; the problem remains open until observed recovery.
+- Home Assistant **2026.9.3** or newer (tested on 2026.9.3, Python 3.14).
+- Internet access to PyPI on first setup, so HA can install the pinned [health-tree](https://pypi.org/project/health-tree/) library.
+- An administrator account for the dashboard.
 
-Situation alerts use that same attention system for conditions you define in Home Assistant, such as **Garage open at night**. The condition can deserve attention even when all the equipment works. If its source becomes unavailable, the open situation stays unresolved until there is evidence that it cleared.
+## Installation
 
-The included [Companion app blueprint](blueprints/automation/homeostatic/companion_notification.yaml) connects notification requests to your phone. Home Assistant automations own delivery, so you can build other consumers around the same [event contract](docs/events.md). To act on problems yourself, with or without notifications, use the `homeostatic_episode` and `homeostatic_control` events or each function's problem event entity; the [status light](blueprints/automation/homeostatic/function_status_light.yaml) and [logbook](blueprints/automation/homeostatic/problem_logbook.yaml) blueprints are examples.
+### HACS (recommended)
 
-## Know what is being watched
+1. In HACS, open the menu (⋮) and choose **Custom repositories**.
+2. Add `https://github.com/mjcumming/homeostatic` with type **Integration**.
+3. Find **Homeostatic**, turn on **Show beta versions** if the latest release is a beta, and download it.
+4. Restart Home Assistant.
 
-Confidence depends on knowing the limits of your monitoring. Homeostatic makes those limits visible alongside current problems.
+[![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mjcumming&repository=homeostatic&category=integration)
 
-| Question | Where to look |
-| --- | --- |
-| What needs my attention? | Home and problem details, with evidence, affected functions, and next steps |
-| What is happening in this part of the house? | Sources grouped by your existing Home Assistant floors and areas |
-| What can we actually assess? | Monitoring, with watched sources, missing evidence, exclusions, and discovered inventory |
-| What should we monitor? | Settings, with guided Watch/Exclude choices and a preview before saving |
+### Manual
 
-The dashboard populates from your installation and updates as sources change. Reusable cards can bring the same views into an existing dashboard. Monitoring rules can include future matching sources, and registered sources retain their identity across renames.
+1. Download `homeostatic-<version>-pilot.zip` from the [latest release](https://github.com/mjcumming/homeostatic/releases).
+2. Copy its `custom_components/homeostatic` folder into your HA configuration directory, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy in full.
+3. Restart Home Assistant.
 
-**Available is evidence, not a guarantee.** Today's equipment checks observe Home Assistant integration state and entity availability. They cannot establish that a physical sensor is still reporting, a detector is making progress, or a garage door completed a command. Missing evidence stays visible as uncertainty. Richer checks need their own evidence before they can support stronger conclusions.
+The [pilot guide](docs/pilot.md) covers backups, verifying the archive, and rollback.
 
-## Built to fit Home Assistant
+## Quick start
 
-Homeostatic uses native integration setup and options, entity identities, floors and areas, storage, and automation consumers. It runs locally, and its current availability monitoring is passive: it observes Home Assistant without polling your devices. The dashboard requires administrator access; readiness sensors are also available as ordinary HA entities.
+1. Go to **Settings > Devices & services > Add integration** and add **Homeostatic**.
 
-Behind the interface, Health Tree handles dependencies, episodes, readiness, and attention decisions. Homeostatic supplies the Home Assistant observations and presentation. Problem state and attention timers survive ordinary restarts, and notification requests are persisted for retry. A request still needs a working consumer and transport to reach someone.
+   [![Open your Home Assistant instance and start setting up Homeostatic.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeostatic)
 
-The behavior is backed by executable scenarios, integration tests, and separate 95% statement and branch coverage requirements. Those checks help keep the model dependable as it grows; real installations still need validation.
+2. Open **Homeostatic** in the sidebar. New installs watch integration health only.
+3. In **Sources**, pick a few integrations or devices you know well and choose **Edit monitoring**. Preview, then save. On a large install, start small.
+4. Define one function you care about, for example:
 
-## Project status
+   ```yaml
+   - id: garage_access
+     name: Garage access
+     importance: high
+     requires:
+       - cover.garage_door
+       - binary_sensor.garage_obstruction
+   ```
 
-**Status: 0.1.0b13 pilot.** Tested against Home Assistant 2026.9.3 on Python 3.14. HealthTree 0.4.0 is pinned in the integration manifest and installed automatically by HA. Follow the [pilot installation and observation guide](docs/pilot.md). Problem details identify the light or sensor, explain the missing reading or control path and suggest a relevant first check. The administrator dashboard includes bounded resolved history, shelving and previewed equipment maintenance, using the existing native HA actions. A bounded real-house pilot is underway; HACS distribution and extended observation remain outstanding. Graph construction and enrollment preview have passed isolated 10,000-source checks, but whole-house responsiveness remains under qualification. Keep the catalog rule narrow on large installations; see the [pilot scope guidance](docs/pilot.md#first-observation).
+5. Watch it for a day or two with notifications off. When it behaves the way you expect, set up the [Companion app blueprint](blueprints/automation/homeostatic/companion_notification.yaml) and turn them on in **Notifications**.
 
-## What works now
+## How it works
 
-- Automatically populated Homeostatic sidebar dashboard, reusable cards and a dashboard strategy, with live problems, functions, HA location browsing, coverage, rule provenance and current problem details. The first aggregate surface requires an administrator.
+Homeostatic turns your HA setup into a dependency graph: integrations, devices, entities, and the functions you define on top of them. It feeds HA's own signals (integration setup state and entity availability) into [Health Tree](https://github.com/mjcumming/health-tree), a separate, dependency-free Python library that works out root causes, groups symptoms into one episode per root, tracks recovery, and decides who hears what. Homeostatic handles everything HA-specific: discovery, storage, the dashboard, and delivery.
 
-- Native setup/options with editable attach/exclude catalog rules, match previews, passive enrollment of future sources, and explanations of every attachment/exclusion. Registered sources keep their identity across renames.
-- Integration setup, retries and authentication evidence; one HA availability summary per device with optional individual entity checks; dependency correlation into episodes.
-- Named functions with entity, integration, function and external capability requirements; editable importance; per-function automation suggestions and confirmed/rejected decisions; each exporting readiness as `ready`, `unknown`, `degraded`, or `blocked`.
-- Named situation alerts bound to existing HA entities: `on` is active, `off` is clear, missing/unknown/unavailable is unknown. A situation remains independent of equipment readiness.
-- Owner YAML notification policy with recipients, channels, quiet hours, reminders, escalation, grouped digests, explanations and safe previews.
-- Overall readiness, open-problem and evidence-gap sensors, plus `inventory`, `explain`, `readiness`, `impact`, `coverage`, and `rollup` response actions.
-- Notifications off by default, one activation summary, versioned `homeostatic_notification` events, and a [Companion app consumer blueprint](blueprints/automation/homeostatic/companion_notification.yaml).
-- Ordered observation capture during storage writes, retry continuity, restart persistence, durable delivery outbox, and unload cleanup.
+**Available isn't the same as healthy.** Today's checks see what Home Assistant reports. They can't yet prove a sensor is still sending fresh readings or that a garage door actually closed. Missing evidence is shown as unknown, never as fine.
 
-A passing availability check shows that HA currently reports an available control path. It does not verify physical-device freshness, detector progress, command completion, or phone receipt. Those require their own evidence producers and real traces.
+## Dashboard and cards
 
-Richer evidence checks, specific Repairs links, optional TopoMation enrichment, and the external watchdog are tracked in the [build roadmap](docs/roadmap.md). The structured YAML forms are development interfaces.
-
-## Install the pilot
-
-Follow the [pilot installation guide](docs/pilot.md): confirm a usable HA backup, keep the prior component for rollback, copy the packaged `custom_components/homeostatic` folder into your HA configuration directory, and restart. HA installs the pinned published HealthTree dependency automatically. Add **Homeostatic** through **Settings > Devices & services > Add integration**, or let the existing entry reload after an upgrade. No sibling library checkout is needed. The [quick local test cycle](docs/development-workflows.md) copies a working component without publishing a release.
-
-Review the supplied availability rules. New installations select integration state and one availability summary per enabled Home Assistant device; hidden but enabled entities can supply evidence, while disabled devices and entities do not. Individual entity checks are opt-in. Existing saved rules retain their scope until edited. Notifications remain off until activated. Missing entity evidence and explicitly required sources remain unknown across restarts. When Home Assistant confirms that an automatically enrolled config entry was deleted, Homeostatic removes it from scope and resolves its episode as removed. Startup grace and recovery confirmation default to two minutes; ordinary notification batching defaults to thirty seconds. See the [specification](docs/spec.md) for every timing and its meaning.
-
-### Open the dashboard
-
-After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu, including on phones. **Overview** shows current issue and monitoring counts with three recent issues; **Issues** lists every open problem; **Sources** groups discovered sources by integration or HA location and shows evidence, current monitoring, and in-place choices; **History** shows ended problems; **Settings** handles installation-wide alert requests. Alerts & delivery can turn requests on or off and select the consumer automation; it summarizes saved routing policy and links directly to Homeostatic's HA integration entry for detailed policy, functions, situations and timing. Turning requests on can alert about already-open problems. The pages and problem/function details use one shared live subscription. Sources searches all discovered sources while keeping rendered branches bounded. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
-
-The monitoring catalog omits **Change device type of a switch** helper entries because they wrap an existing switch; the converted entity can still be monitored. **Group** entries stay because a group can be an automation control target. A healthy Group entry or group entity does not establish that every member works. Monitor important members directly; the Group row's source count is not a device count.
-
-Problem details identify the integration and instance, show Home Assistant's reported setup reason when available, and link to that entry or its filtered logs. Sign-in instructions appear for a pending HA reauthentication request. A setup error without a reported cause is labeled as such; it does not guess that a password is wrong. During retries, the last reported failure remains available with its timestamp while the current setup activity is shown separately. Disabled entries have a distinct explanation and remain unknown. Dependency causes appear only when present, with technical and notification details available below.
-
-The integration also registers a **Homeostatic** community dashboard strategy in HA's new-dashboard dialog. Add it there for a separate dashboard, or add the Homeostatic card to an existing dashboard:
+Administrators get a **Homeostatic** sidebar panel with **Overview**, **Issues**, **Sources**, **History**, **Notifications**, and **Settings**. You can also add a card to any dashboard:
 
 ```yaml
 type: custom:homeostatic-card
-view: overview
+view: overview   # or sources, history, notifications, configuration, functions, problems
 ```
 
-Supported views are `overview` (Home), `sources`, `history`, `configuration` (Settings), `functions`, and `problems`. Older `house` and `coverage` view settings open Sources. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
+A **Homeostatic** dashboard strategy is available in HA's new-dashboard dialog.
 
-The dashboard is administrator-only because it includes installation-wide configuration, inventory and routing. Readiness entities retain their ordinary HA access controls. Problem cards and details explain the reported condition, confirmed effects on configured functions, a relevant next step and recovery progress. NuHeat and receiver timeouts, sign-in requests, disabled connections and recovery have distinct guidance. **Pause alerts** is directly visible in problem details and applies only to that problem; other problems on the equipment are unaffected. Equipment **Working on this equipment** is available from source details. Active controls keep a visible expiry notice. **Technical details** holds timestamped original errors, filtered logs, **Copy diagnostic data** and optional **View raw data**. Pausing alerts and maintenance each require an end time within seven days. Maintenance previews affected capabilities, functions and existing problems before applying. Existing alerts remain active during maintenance; shelving holds new alerts, including urgent ones, for every recipient. Administrators can use **Acknowledge** to record awareness and **End now** to cancel a temporary control. Active controls show their expiry and reason. Both forms use the existing administrator actions and keep unfinished entries through live updates. Availability does not prove physical freshness or command completion.
+## Blueprints
 
-**History** shows up to 100 ended episodes within 30 days, with search, outcome filtering and twenty rows per page. Details distinguish confirmed recovery, removal from monitoring and absorption into another problem; retained findings are historical evidence. Collection start and retention limits are visible. Current monitoring scope and evidence gaps appear in Monitoring. TopoMation is not required or read by this increment. Notification event/blueprint links and automatic Repairs remedies remain follow-up work.
-
-### Choose what to watch
-
-Use **Sources → Edit monitoring** for guided watch or exclude choices. Preview the exact selection before saving. The native options editor and the Saved monitoring policies disclosure retain the complete catalog rules for more complex matches.
-
-On a new installation, **Catalog rules (YAML list)** starts with:
-
-```yaml
-- id: integration_availability
-  action: attach
-  match: {kind: integration}
-  checks: [availability]
-```
-
-New installations leave device summaries and separate entity checks unmonitored. Choose an integration to watch its current and future devices, or select individual devices and entities. Existing saved broad rules keep their scope until you review and save a change.
-
-Each selected device creates one availability check over enabled ordinary entities, or diagnostics if no ordinary entities exist. Hidden entities are still included; disabled and configuration entities are not. Entity exclusions also remove those entities from device summaries. All selected members available passes; some unavailable produces a warning; all unavailable fails. Unknown or missing evidence without an unavailable member stays unknown. Excluding every member leaves no check and is not evidence of health. There are no manufacturer-specific exceptions.
-
-### What an availability problem means
-
-Home Assistant does not provide one error status that rolls down from system to integration to device. An **integration** connects software or equipment to HA. A **device** groups related **entities**, each representing a capability or value. Integration setup state, entity availability, explicit problem sensors, and Repairs issues are different signals; a loaded integration does not guarantee that all its entities work.
-
-`off` or `idle` normally means an entity is available but inactive. `unknown` means its value is not known. `unavailable` means HA currently cannot supply that entity's functionality or data. It can accompany communication failure, but an integration can also use it for an optional capability that is absent in the current operating mode. That state alone does not tell Homeostatic whether anything needs repair. Hiding an entity changes its presentation, not its availability or monitoring.
-
-Homeostatic checks an **expectation**: selecting an entity says it should be available; selecting a device summary applies that expectation to the selected members. New setups monitor integration connections and let you opt in to device summaries by integration or device. Existing saved choices stay in force until you change them. Problems describe the reported availability and show the contributing entity names and current states. They do not claim the hardware is broken. See HA's [entities and devices](https://www.home-assistant.io/getting-started/concepts-terminology/) and [availability guidance](https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/entity-unavailable/) for the underlying model.
-
-If an unavailable capability is normal or unimportant in your home, choose **Ignore availability** in its details, review the monitoring preview, and **Save**. This records a persistent exclusion for that entity, including its contribution to device summaries. Its HA state stays unchanged. Registry identity keeps the choice through renames and restarts; remove the exclusion in **What to monitor** to watch it again. Removing evidence ends the old problem as removed from monitoring, not recovered. Acknowledging a problem means you have seen it; shelving temporarily postpones attention. Neither means the source recovered or should be permanently ignored.
-
-A saved broad rule without `kind: device` does not implicitly enroll device summaries. Edit or disable a rule with `enabled: false`; an empty list intentionally watches no equipment. Exclusions normally win regardless of rule order. An integration device default can leave current and future devices unmonitored while an exact device choice watches one device. Check timings are house settings below the rules field.
-
-For example, keep the broad rule and add:
-
-```yaml
-- id: ignore_workbench
-  action: exclude
-  match:
-    area: YOUR_AREA_ID
-
-- id: ignore_one_source
-  action: exclude
-  match:
-    entity: sensor.experimental_temperature
-  checks: [availability]
-```
-
-These are additional rows in the same list. `availability` is the only supported catalog check in this increment. Omitting `checks` has the same effect today; other checks/parameters are rejected. Equipment exclusions do not suppress situation alerts.
-
-| Match field | Value |
+| Blueprint | What it does |
 | --- | --- |
-| `domain` | Entity domain (`sensor`, `light`, etc.), or integration domain for an integration node |
-| `device_class` | Effective HA device class, such as `temperature` |
-| `integration` | Config-entry id; matches that instance and its entities |
-| `device` | Device registry id; matches its entities, and a device summary when `kind: device` is explicit |
-| `entity` | Current entity id on input, saved as `registry:<id>` when registered |
-| `area` | Effective area id: entity override, otherwise device area |
-| `floor` | Floor id of that effective area |
-| `label` | Label id on the entity, device, or effective area |
-| `kind` | `entity`, `device`, or `integration`; device summaries require an explicit device kind match |
+| [Companion notifications](blueprints/automation/homeostatic/companion_notification.yaml) | Sends Homeostatic notification requests to the HA Companion app |
+| [Function status light](blueprints/automation/homeostatic/function_status_light.yaml) | Shows a function's readiness on a light |
+| [Problem logbook](blueprints/automation/homeostatic/problem_logbook.yaml) | Writes problem changes to the logbook |
+| [Diagnostic state](blueprints/template/homeostatic/diagnostic_state.yaml) | Template blueprint for situation-alert sources |
 
-A field accepts a string or a list of alternatives. Different fields must all match. Names never drive matching. Get exact ids and matching attributes from `homeostatic.inventory`; entity display names can change without changing rule identity. State-only entities use the weaker `entity_id:` reference and need edits after a rename.
+## Documentation
 
-Turn on **Preview without saving**, then submit to see each rule's match count and the resulting number of watched sources. Edit and preview again as needed; turn Preview off and submit to apply. For full per-source explanations without saving:
+| Guide | For |
+| --- | --- |
+| [User guide](docs/guide.md) | Monitoring rules, functions, situations, notification policy, actions, and operator controls |
+| [Pilot guide](docs/pilot.md) | First install, first observation, controlled checks, rollback |
+| [Event contract](docs/events.md) | Building your own automations on Homeostatic events |
+| [Specification](docs/spec.md) | Exact implemented behavior and timings |
+| [Roadmap](docs/roadmap.md) | What's planned |
+| [Changelog](CHANGELOG.md) | What changed |
 
-```yaml
-action: homeostatic.preview_rules
-data:
-  rules:
-    - id: temperature_sources
-      action: attach
-      match:
-        domain: sensor
-        device_class: temperature
-response_variable: preview
-```
+## Project status
 
-Device/area/label moves trigger matching again; the periodic reconciliation also catches new integration instances. Inventory includes `attached_by`, `excluded_by`, and the last 50 enrollment changes from the current runtime, with before/after attributes. It includes excluded candidates so an absent check can be explained. Previously enrolled missing identities retain their last known attributes for matching until explicitly excluded or unmatched by edited rules.
+**Beta (0.1.0b14).** Running in a real-house pilot. The dashboard, availability monitoring, functions, situations, notification policy, and operator controls work and are backed by executable scenarios and integration tests with 95% statement and branch coverage floors. Known limits:
 
-Existing development selections appear as narrow `selected_entities` / `selected_integrations` rules when opening options. Saving converts them to the same rule model. This preserves existing scope rather than turning on the broad default for an existing installation.
+- Whole-house monitoring of every entity on very large installs (6,000+ entities) doesn't yet meet responsiveness targets. Start with integrations and selected devices. See [runtime scaling](docs/testing/runtime-scaling.md).
+- Freshness, detector liveness, and command-completion checks aren't built yet.
+- Phone action buttons (acknowledge from the notification) are still consumer-side work.
 
-### Define a function
+Bug reports and pilot observations are welcome in [Issues](https://github.com/mjcumming/homeostatic/issues).
 
-In **Functions (YAML list)**:
+## Contributing
 
-```yaml
-- id: garage_access
-  name: Garage access
-  importance: high
-  requires:
-    - cover.garage_door
-    - binary_sensor.garage_obstruction
-
-- id: arriving_home
-  name: Arriving home
-  importance: critical
-  requires:
-    - function:garage_access
-    - entry:YOUR_CONFIG_ENTRY_ID
-```
-
-Keep `id` stable; it identifies the function and its readiness entity. Names may change. Importance is `low`, `normal`, `high`, or `critical`, and HealthTree propagates it upstream to shared causes. It does not directly choose notification routing.
-
-Requirements may name an entity, an integration (`entry:<id>`), another function (`function:<id>`), or an external capability (`external:<id>`). Entity inputs are saved as `entity:registry:<id>` when registered; already-saved references are accepted too. The earlier `entities` list still works alongside `requires`. Cycles and situation-node requirements are rejected before saving.
-
-Catalog rules decide which checks watch each requirement. Missing, excluded or unmatched requirements remain explicit unknowns. An excluded entity cannot borrow readiness from its healthy integration. A function with no requirements is an unwatched draft. Any answer other than `ready` means the requirements are not all proven ready. Availability checks still do not prove successful command completion or physical-device freshness.
-
-For a capability outside HA, enter this in **External capabilities (YAML list)**:
-
-```yaml
-- id: backyard_network
-  name: Backyard network service
-  importance: high
-```
-
-Then add `external:backyard_network` to a function's `requires`. This declares an unwatched requirement, so the function stays unknown until an appropriate evidence producer exists. This increment implements declarations and dependencies; it does not probe the external service or accept external health reports. Deleting a declaration that a function still requires leaves a visible missing requirement.
-
-### Review automation suggestions
-
-Associate existing automations with the function whose needs you are defining:
-
-```yaml
-- id: basement_lighting
-  name: Basement motion lighting
-  importance: high
-  automations:
-    - automation.basement_motion_lighting
-  accept:
-    - binary_sensor.basement_motion
-    - light.basement
-  reject:
-    - input_boolean.optional_mode
-```
-
-Start with `automations` and preview before choosing `accept` or `reject`. The preview lists statically discoverable entity references and current members of device/area/floor/label targets. Every suggestion identifies the automation and reference type. Conditions, optional actions and notification targets can all appear; **accept only a capability whose failure prevents this function from working**. Listing an automation does not itself create a dependency on its availability.
-
-Accepted candidates become required edges for this function. Rejected and unreviewed candidates create no edges. Decisions use stable entity identities and survive refresh/reload. If an automation stops referencing an accepted entity, the requirement remains until explicitly removed; the preview marks it as no longer suggested. Automations outside a function contribute no suggestions to that function and no inferred dependency edges.
-
-Candidate discovery is deliberately marked incomplete: runtime templates and downstream scripts/scenes are not recursively analyzed. Declare any missing requirement explicitly. Situation alerts remain independent of this equipment graph.
-
-### Preview function changes
-
-Turn on **Preview without saving** in setup/options for rule counts, function readiness, gaps, and candidate decisions. Correct any validation error, review the result, then turn Preview off to save. For full explanations, use `homeostatic.functions` for current monitoring, or preview an unsaved replacement list:
-
-```yaml
-action: homeostatic.preview_functions
-data:
-  functions:
-    - id: garage_access
-      name: Garage access
-      importance: high
-      requires:
-        - cover.garage_door
-        - binary_sensor.garage_obstruction
-response_variable: preview
-```
-
-The response includes added/removed requirement edges, rule attachment/exclusion explanations, missing requirements, effective upstream importance and affected functions. Optional `external_capabilities` and `rules` fields replace those settings for the preview; omitting them retains current settings. The `functions` list replaces the entire function list in the preview.
-
-Preview uses current observations in an isolated HealthTree model. It does not reproduce previous hold timers or episode history, save options, fire notifications, or execute automations. `present` means a current HA state/entry exists, or that a function/external declaration exists; it does not establish health. Readiness and monitoring status are separate fields.
-
-### Bind a situation
-
-Create the condition in HA first, using a template, binary sensor, or an automation-maintained helper. In **Situation alerts (YAML list)**:
-
-```yaml
-- id: garage_open_at_night
-  name: Garage open at night
-  importance: critical
-  entity: binary_sensor.garage_open_at_night
-```
-
-The entity owns the condition, schedule, and delay. Homeostatic owns the episode and attention lifecycle. The source must report **unavailable when its evidence disappears**, not off; otherwise a dead source looks like a cleared situation. Its availability contract is not automatically verified in this increment. Restored or unexpected values are unknown. Only a genuine `off` clears the alert. Situation nodes have no dependency edges and never enter the overall readiness selection.
-
-### Activate notifications
-
-1. Install the [consumer blueprint](blueprints/automation/homeostatic/companion_notification.yaml) and create an enabled automation using your actual Companion `notify.mobile_app_...` action.
-2. Set its recipient and channel to match the policy. Create a consumer for each route you intend to deliver. Select that automation in **Notification consumer automation**.
-3. Enable **Activate notification events**.
-
-Existing open problems are summarized per recipient when policy permits delivery, then followed by live changes. Quiet hours and batch delays can defer the summary; digest-only problems wait for their digest. Record-only problems and an empty activation send nothing. The selected consumer is checked for being present and enabled; arbitrary consumer logic and phone receipt are not verified. A missing/disabled consumer appears as an evidence gap.
-
-The integration emits events and retains the last requested content. A consumer owns tags, replacements, clearing, sound, and transport-specific behavior. Unknown evidence does not blank the previous failure message. Dismissing a phone message does not resolve its episode. The [event contract](docs/events.md) describes payloads and at-least-once replay after interrupted storage acknowledgement. Critical importance requests urgent delivery in the default policy; the phone's actual behavior needs testing.
-
-### Configure notification policy
-
-Edit **Notification policy (YAML mapping)** in setup/options. The default is `owner`
-on the `event` channel, with critical problems urgent and other problems notified
-after the house's notification delay. This example uses phone consumers:
-
-```yaml
-timezone: America/Chicago
-recipients:
-  owner:
-    channels: [phone]
-    quiet_hours: {start: "22:00", end: "07:00"}
-  backup:
-    channels: [phone]
-digests:
-  morning: {at: "08:00", to: owner}
-rules:
-  - match: {importance: critical}
-    loudness: urgent
-    to: [owner, backup]
-    remind_every: 15m
-  - match: {category: situation}
-    loudness: notify
-    to: owner
-    remind_every: 1h
-    escalate_after: 2h
-  - match: {status: unknown}
-    loudness: digest
-    digest: morning
-    remind_every: 1d
-  - match: {}
-    loudness: notify
-    to: owner
-    remind_every: 4h
-    escalate_after: 1d
-```
-
-For each reason, the first matching rule wins; HealthTree chooses the loudest
-result across reasons. Supported matches are `status`, `importance`, `reason`,
-`category`, `labels`, `age`, and `due_within`. Omitted fields match anything;
-values within a field are alternatives. Labels must all match. Durations accept
-integer seconds or strings such as `1d2h30m`; reminders must be positive. Clock
-times must be quoted `HH:MM`. Set `timezone` explicitly for the house.
-
-`record` retains a problem without sending it. `digest` requires a named digest;
-`notify` and `urgent` require recipients. Urgent requests pass quiet hours. Notify
-reminders wait through that recipient's quiet hours. Escalation raises one level
-when a destination is available; it does not repeatedly climb the ladder.
-Recipients and channels are opaque ids, not notification service names. Configure
-a blueprint instance for `owner`/`phone` and another for `backup`/`phone` in the
-example. The selected consumer check cannot verify every route or actual receipt.
-
-Call `homeostatic.policy` to inspect current winning rule indexes (zero based),
-recipients, pending times, and the next deadline. Call `homeostatic.preview_policy`
-with the proposed mapping under `policy` to simulate activation against current
-open episodes. Preview returns proposed requests and decisions without saving,
-sending, or changing live timers. The options Preview also displays those decisions.
-
-Activation preserves problem history and starts escalation afresh. Each recipient's
-reminders begin with their first request. Ordinary restart preserves these clocks.
-Editing policy or notification delay while enabled clears old requests and starts
-attention under the replacement policy. Summaries and digests update silently as
-members resolve; the last resolution clears the group. An individual reminder or
-escalation replaces that episode's membership with its own message.
-
-Presence-dependent recipients and phone acknowledgment wiring remain future integration work. Administrator acknowledgment is available through the dashboard and native HA actions.
-Shelving is available through the administrator action described below. Policies cannot execute corrective actions.
-
-### Inspect the model
-
-In **Developer tools → Actions**, call `homeostatic.inventory` for node ids, rule explanations, recent enrollment changes, episodes, and notification requests. Pass a node id to `homeostatic.explain` or `homeostatic.impact`. `homeostatic.readiness` and `homeostatic.rollup` default to selected capabilities/functions and accept `node_ids`. These actions are read-only. Situation ids are `situation:<id>`, function ids are `function:<id>`, and external capability ids are `external:<id>`.
-
-## Scaling validation
-
-This candidate skips health graph construction for enrollment previews with
-no functions, and uses HealthTree's atomic registration for setup, function
-validation, function preview and graph changes. Healthy monitored sources remain
-in the graph; explicit missing or unwatched requirements remain coverage gaps.
-Unrelated inventory stays outside monitoring.
-
-Graph construction has passed isolated 10,000-source scenarios. The 0.1.0b13
-pilot pins HealthTree 0.4.0. In ten synthetic device-summary outage cycles,
-settlement took 0.358-0.502 seconds; one event-loop gap reached 186 ms, above
-the proposed 100 ms target. All 6,000 individual entity checks still miss the
-burst budgets. These results do not qualify broad enrollment or HA appliance
-performance. See [runtime qualification](docs/testing/runtime-scaling.md).
-
-## Development and checks
-
-Use Python 3.14.2 or newer within the 3.14 series and Node.js 22 or newer, on Linux or WSL:
-
-Only this repository is required; development and HA installation use the same published HealthTree version.
-
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the [development setup](docs/development.md). In short:
 
 ```bash
 uv sync --locked
@@ -381,82 +150,6 @@ uv run prek install
 uv run python script/check.py --quick
 ```
 
-`make quick` and the commit hook run lint, format, and frontend checks. Run focused Python tests for changed behavior before copying a local test build. CI runs `make check`: strict mypy, the complete Home Assistant integration tests, separate 95% statement and branch coverage floors, and the frontend checks. Its release job also builds and smoke-tests the archive. The [two workflows](docs/development-workflows.md) describe when to copy a local test build and when to publish a release. The consumer blueprint is exercised by HA's real automation engine with a mocked phone service; tests never send messages to a live installation.
+## License
 
-The lockfile and integration manifest pin `health-tree==0.4.0` from PyPI. CI installs that published package. Library behavior changes belong in the separate library RFP/ADR and tests; release a new library version before updating this pin.
-
-Build a reproducible installation archive from a clean committed checkout with `uv run python script/build_pilot.py`. The ZIP includes frontend assets, the optional consumer blueprint, installation instructions and exact build identity.
-
-On this workstation, the prepared environment is outside the mounted Windows filesystem:
-
-```bash
-cd /mnt/c/GitHub/homeostatic
-export UV_PROJECT_ENVIRONMENT="$HOME/.cache/homeostatic/venv"
-export PATH="$HOME/.cache/homeostatic/tools:$PATH"
-uv sync --locked
-uv run python script/check.py --quick
-```
-
-Run commits from WSL after installing the WSL hook. Home Assistant metadata is validated separately by the pinned official hassfest action in CI. With Docker available, run locally from the repository:
-
-```bash
-docker run --rm --mount "type=bind,source=$PWD,target=/github/workspace,readonly" ghcr.io/home-assistant/hassfest
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow, [docs/spec.md](docs/spec.md) for implemented behavior, [docs/roadmap.md](docs/roadmap.md) for remaining scope, [docs/ui.md](docs/ui.md) for owner-facing working notes, and [CHANGELOG.md](CHANGELOG.md) for changes.
-
-## Recently resolved problems
-
-`homeostatic.resolved_history` returns the latest 100 terminal episodes observed within 30 days, newest first. The same response is available under `homeostatic.inventory` → `resolved_history`. It includes collection start time and retention limits. History survives a restart and includes problems that cleared before a notification was requested.
-
-Each row retains the original episode id, opening time, findings and display labels under `episode`, plus `resolved_at`, `resolution`, `absorbed_into` and a source display snapshot when available. `cleared` means the library observed recovery; `removed` means monitoring ended; `absorbed` links to a larger problem. Resolution time is when Homeostatic learned of the event, including after downtime. Old findings describe the past episode, not current device health. Upgrading starts collection from that point; earlier resolutions are not reconstructed. This is bounded problem history, not a full activity or delivery journal.
-
-## Operator controls
-
-Use **Developer Tools > Actions** while the monitor is running. `homeostatic.inventory` supplies stable node and episode ids; `homeostatic.operator_controls` lists active controls and their expiry/reason. Mutations require administrator access for user calls; HA automations can use the same actions. All expiries must include a timezone, be in the future, and be within seven days.
-
-Preview a scope before creating maintenance. Replace the example node and expiry with your actual selection:
-
-```yaml
-action: homeostatic.preview_maintenance
-data:
-  node_id: "entity:entity_id:sensor.observed"
-  include_dependents: true
-  until: "2026-09-25T22:00:00Z"
-response_variable: maintenance_preview
-```
-
-The response names the current scope, functions and existing problems. Use the same fields with `homeostatic.start_maintenance` and an optional `reason` to apply it. Dependents follow the graph during the window. Maintenance prevents new equipment problems from opening; readiness, existing alerts and independent situation alerts remain active.
-
-To pause alerts for an already-open problem across every recipient:
-
-```yaml
-action: homeostatic.shelve
-data:
-  episode_id: "<current episode id from inventory>"
-  until: "2026-09-25T22:00:00Z"
-  reason: "Working on this problem"
-```
-
-Shelving leaves the problem and its current message visible. Silent updates and resolution still work. The shelf holds reminders and escalation, including urgent alerts, until expiry; other policy holds still apply. Shelves and maintenance survive restarts. A shelf can be extended. Shelving and maintenance dashboard forms are available. Administrator acknowledgment and early cancellation use the same durable native actions. If an action reports a storage error, inspect active controls after the monitor recovers before retrying.
-
-## Beyond the pilot
-
-Complete product presentation; capture healthy/failure/recovery traces for detector liveness, device-originated freshness and command completion; verify an external watchdog and notification consumers; validate the actual deployment. Synthetic fixtures and high coverage do not satisfy the real-house evidence gates.
-
-MIT licensed. See [SECURITY.md](SECURITY.md) for reporting a security concern.
-
-### Awareness and ending controls early
-
-Administrators can use
-**Acknowledge** on a problem and **End now** on an active temporary control.
-Acknowledgment records awareness; the problem remains until observed recovery.
-Add `require_acknowledgment: true` to a notification policy rule when its repeated
-alerts should stop once acknowledged. Other rules keep their configured behavior.
-Native actions are `homeostatic.acknowledge` (`episode_id`) and
-`homeostatic.cancel_control` (`control_id`). Their replies confirm durable state.
-
-HealthTree 0.4.0 provides these APIs and HA installs it automatically. Acknowledgment
-records the first actor and time across recipients and survives restarts. Phone
-action wiring remains separate consumer work; receipt and dismissal do not count
-as acknowledgment.
+[MIT](LICENSE). Report security issues as described in [SECURITY.md](SECURITY.md).
