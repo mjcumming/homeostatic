@@ -16,18 +16,74 @@ from custom_components.homeostatic.const import EVENT_EPISODE, EVENT_NOTIFICATIO
 
 
 @pytest.mark.parametrize(
-    "action,loudness,silent,expected_message,critical",
+    "action,loudness,silent,expected_message,critical,expected_url",
     [
-        pytest.param("open", "notify", False, "Door open", 0, id="ordinary"),
-        pytest.param("open", "urgent", False, "Door open", 1, id="urgent"),
-        pytest.param("update", "urgent", True, "Door open", 0, id="silent-update"),
         pytest.param(
-            "resolve", "notify", True, "clear_notification", None, id="resolution"
+            "open",
+            "notify",
+            False,
+            "Door open",
+            0,
+            "/homeostatic/episode/episode",
+            id="ordinary",
         ),
-        pytest.param("remind", "notify", False, "Door open", 0, id="reminder"),
-        pytest.param("escalate", "urgent", False, "Door open", 1, id="escalation"),
-        pytest.param("digest", "digest", False, "Door open", 0, id="digest"),
-        pytest.param("summary", "notify", False, "Door open", 0, id="summary"),
+        pytest.param(
+            "open",
+            "urgent",
+            False,
+            "Door open",
+            1,
+            "/homeostatic/episode/episode",
+            id="urgent",
+        ),
+        pytest.param(
+            "update",
+            "urgent",
+            True,
+            "Door open",
+            0,
+            "/homeostatic/episode/episode",
+            id="silent-update",
+        ),
+        pytest.param(
+            "resolve", "notify", True, "clear_notification", None, None, id="resolution"
+        ),
+        pytest.param(
+            "remind",
+            "notify",
+            False,
+            "Door open",
+            0,
+            "/homeostatic/episode/episode",
+            id="reminder",
+        ),
+        pytest.param(
+            "escalate",
+            "urgent",
+            False,
+            "Door open",
+            1,
+            "/homeostatic/episode/episode",
+            id="escalation",
+        ),
+        pytest.param(
+            "digest",
+            "digest",
+            False,
+            "Door open",
+            0,
+            "/homeostatic/issues",
+            id="digest",
+        ),
+        pytest.param(
+            "summary",
+            "notify",
+            False,
+            "Door open",
+            0,
+            "/homeostatic/issues",
+            id="summary",
+        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -48,6 +104,7 @@ async def test_companion_consumer(
     silent: bool,
     expected_message: str,
     critical: int | None,
+    expected_url: str | None,
     tag: str,
 ) -> None:
     """The real blueprint routes requests without contacting any device."""
@@ -101,6 +158,8 @@ async def test_companion_consumer(
     expected_tag = sha256(tag.encode()).hexdigest() if len(tag.encode()) > 64 else tag
     assert calls[0].data["data"]["tag"] == expected_tag
     assert len(calls[0].data["data"]["tag"].encode()) <= 64
+    assert calls[0].data["data"].get("url") == expected_url
+    assert calls[0].data["data"].get("clickAction") == expected_url
     assert (
         calls[0].data["data"].get("push", {}).get("sound", {}).get("critical")
         == critical

@@ -1,21 +1,23 @@
-import {monitoringPolicies} from "./monitoring-policies.mjs?v=41";
-import {sourceSettingsAction} from "./source-settings.mjs?v=41";
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=41";
+import {monitoringPolicies} from "./monitoring-policies.mjs?v=42";
+import {sourceSettingsAction} from "./source-settings.mjs?v=42";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=42";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
-  sourceMap} from "./model\.mjs?v=41";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem\.mjs?v=41";
-import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=41";
-import {diagnosticOverview} from "./evidence\.mjs?v=41";
+  sourceMap} from "./model\.mjs?v=42";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem\.mjs?v=42";
+import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=42";
+import {diagnosticOverview} from "./evidence\.mjs?v=42";
 import {editCatalogRule, monitoringScope,
-  newCatalogRule, scopeChoice, setScopeChoice} from "./configuration\.mjs?v=41";
-import {styles} from "./styles\.mjs?v=41";
-import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=41";
+  newCatalogRule, scopeChoice, setScopeChoice} from "./configuration\.mjs?v=42";
+import {styles} from "./styles\.mjs?v=42";
+import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=42";
 
-import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=41";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=41";
+import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=42";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=42";
 
-import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=41";
+import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=42";
+
+import {applyNotificationRoute} from "./notification-navigation.mjs?v=42";
 
 const VIEWS = ["overview", "sources", "house", "coverage", "functions", "problems", "history", "notifications", "configuration"];
 const homeostaticOptionsUrl = (entryId) => `/config/integrations/integration/homeostatic#config_entry=${encodeURIComponent(entryId)}`;
@@ -170,7 +172,7 @@ class HomeostaticCard extends HTMLElement {
     this.shadowRoot.addEventListener("pointerup", (event) => this.endRailResize(event));
     this.shadowRoot.addEventListener("pointercancel", (event) => this.endRailResize(event));
     this.tools = new DashboardTools(this);
-    this.dialog.addEventListener("close", () => {this.detail = null; this.detailSequence++;});
+    this.dialog.addEventListener("close", () => {if (!this.dialog.open) {this.detail = null; this.detailSequence++;}});
   }
 
   static getStubConfig() { return {view: "overview"}; }
@@ -1225,8 +1227,15 @@ class HomeostaticCard extends HTMLElement {
     }
     const episode = selection.episodeId ? data.inventory.episodes.find((item) => item.episode_id === selection.episodeId) : null;
     if (selection.episodeId && !episode) {
-      this.shadowRoot.querySelector("#detail-label").textContent = "No longer open";
-      body.innerHTML = "<p>This episode is no longer open. It may have recovered, been absorbed into another problem, or been removed from monitoring.</p>";
+      const retained = data.inventory.resolved_history?.episodes.some((item) => item.episode.episode_id === selection.episodeId);
+      if (retained) {
+        this.page = "history";
+        this.render();
+        this.tools.showHistory(selection.episodeId);
+        return;
+      }
+      this.shadowRoot.querySelector("#detail-label").textContent = "History unavailable";
+      body.innerHTML = '<p>This issue is not in current issues or retained history. Its outcome cannot be determined here.</p><p><a href="/homeostatic/issues">Open Issues</a> · <a href="/homeostatic/history">Open History</a></p>';
       return;
     }
     const nodeId = episode?.anchor ?? selection.nodeId;
@@ -1317,15 +1326,9 @@ class HomeostaticPanel extends HomeostaticCard {
   }
 
   set route(value) {
-    const match = value?.path?.match(/^\/episode\/([^/]+)$/);
-    if (match) {
-      try {
-        const episodeId = decodeURIComponent(match[1]);
-        if (this.isConnected && this.current.status === "current") this.openDetail({episodeId});
-        else this.pendingEpisode = episodeId;
-      } catch { this.pendingEpisode = null; }
-    }
+    applyNotificationRoute(this, value?.path ?? "");
   }
+
 }
 
 class HomeostaticStrategy {

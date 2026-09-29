@@ -454,3 +454,22 @@ an owner-maintained state source instead. HA owns timer/restart semantics.
 Condition evaluation errors (such as nonnumeric temperature values) report unknown.
 The blueprint checks both the positive condition and its explicit negation;
 falling through an errored condition does not report clear.
+
+## Notification tap destinations
+
+Companion notification taps navigate without acknowledging, clearing or changing
+monitoring (ADR 0033). Individual requests link to
+`/homeostatic/episode/<percent-encoded episode id>`. Group summaries and digests
+link to `/homeostatic/issues`; route tests open `/homeostatic/notifications`.
+Both the built-in sender and shipped Companion blueprint provide iOS `url` and
+Android `clickAction` using relative paths on the sending HA server. Notification
+text, urgency, replacement identity and recipient choices remain independent.
+
+The panel waits for current data before opening an individual issue. Open issues
+show current detail and explicit acknowledgment controls. Ended issues open their
+retained historical detail, preserving the distinction between recovery, removal
+and absorption. Missing/expired history is stated explicitly with links to Issues
+and History; absence never asserts recovery. A detail already open when its issue
+ends follows the same history behavior. Disconnection shows unavailable evidence.
+Malformed destinations fall back to Issues. Existing HA authentication and admin
+authorization still apply; the link grants no access. Tapping does not acknowledge.

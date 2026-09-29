@@ -95,7 +95,7 @@ from .facts import (
 )
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
-from .notification_routes import async_send
+from .notification_routes import async_send, notification_url
 from .rules import Attributes, parse_rules
 from .serialization import json_object, to_json
 from .situation_reports import report_observation
@@ -1320,6 +1320,7 @@ class Runtime:
                     title=str(payload.get("title", "Homeostatic")),
                     message=str(payload.get("message", "")),
                     tag=str(payload.get("tag", "")),
+                    url=notification_url(payload),
                     urgent=payload.get("loudness") == "urgent"
                     and payload.get("silent") is not True
                     and payload.get("action") != "resolve",

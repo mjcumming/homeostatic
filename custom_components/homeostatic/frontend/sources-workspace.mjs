@@ -1,9 +1,9 @@
-import {sourceReporting} from "./reporting.mjs?v=41";
-import {integrationSettings} from "./source-settings.mjs?v=41";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=41";
-import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=41";
-import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=41";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=41";
+import {sourceReporting} from "./reporting.mjs?v=42";
+import {integrationSettings} from "./source-settings.mjs?v=42";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=42";
+import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=42";
+import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=42";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=42";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);

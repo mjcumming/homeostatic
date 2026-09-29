@@ -164,3 +164,10 @@ Its optional response contains node_id, state, accepted_at, and expires_at.
 Successful return confirms durable processing, not notification receipt.
 Episode facts preserve the calling HA context; existing notification policy and
 request identities remain authoritative. See [setup and examples](automation-situations.md).
+
+## Companion notification navigation
+
+Individual phone requests link to their episode in Homeostatic; summaries and
+digests open Issues. The Companion blueprint derives the same relative destination
+from episode_id and summary membership. Event identity and tags are unchanged.
+A tap is navigation only, not acknowledgment. See ADR 0033.

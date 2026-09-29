@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any
+from urllib.parse import quote
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -108,6 +109,19 @@ def destinations(hass: HomeAssistant) -> list[Destination]:
     return sorted(result, key=lambda item: (item.name.casefold(), item.channel))
 
 
+def notification_url(payload: dict[str, Any]) -> str:
+    """Link individual deliveries to history-safe issue detail on the HA server."""
+    episode_id = payload.get("episode_id")
+    if payload.get("episodes") is not None or payload.get("action") in {
+        "summary",
+        "digest",
+    }:
+        return "/homeostatic/issues"
+    if isinstance(episode_id, str) and episode_id:
+        return f"/homeostatic/episode/{quote(episode_id, safe='')}"
+    return "/homeostatic/issues"
+
+
 async def async_send(
     hass: HomeAssistant,
     channel: str,
@@ -118,6 +132,7 @@ async def async_send(
     urgent: bool = False,
     silent: bool = False,
     clear: bool = False,
+    url: str = "/homeostatic/notifications",
 ) -> None:
     """Request one delivery through a currently valid selected route."""
     if channel.startswith("phone:"):
@@ -133,6 +148,7 @@ async def async_send(
         if clear:
             message = "clear_notification"
         else:
+            notification_data.update(url=url, clickAction=url)
             if urgent:
                 notification_data.update(
                     {

@@ -431,3 +431,12 @@ selects that source.
 Use the native **Homeostatic: Report situation** action or the supplied blueprint
 with HA condition and trigger editors. See [automation situation setup](automation-situations.md)
 for water, temperature and motion/time/moon examples, refresh requirements, and notification setup.
+
+## Open a phone alert
+
+Tap an individual Companion notification to open its Homeostatic issue. Summaries
+and digests open Issues. If the issue ended, the link shows retained history; if
+that history expired, the page says so. Acknowledge is a separate action inside
+the issue. You must be signed into the sending HA server with access to Homeostatic.
+Route-test notifications open Notifications. Notifications sent before this
+feature need a new push to gain a tap destination.

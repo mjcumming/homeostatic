@@ -41,3 +41,5 @@ Records 0003–0008 document choices from the owner worksheet and pilot specific
 Write an ADR when an adapter boundary, source eligibility, graph-confirmation rule, delivery or persistence contract, or enduring UI model has real alternatives and would be easy to reverse without its rationale. Keep ordinary bug fixes, wording adjustments, and release validation in the spec, changelog, and tests.
 
 | [0032](0032-automation-reported-situations.md) | Receive expiring situation reports from HA automations | Accepted |
+
+| [0033](0033-notification-tap-destinations.md) | Open issue context from notification taps | Accepted |

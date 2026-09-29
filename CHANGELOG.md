@@ -4,6 +4,10 @@
 
 ### Added
 
+- Open Homeostatic issue details from phone notification taps, including retained
+  details after resolution. Summaries open Issues and route tests open Notifications.
+  Tapping never acknowledges or clears a problem.
+
 - Report continuing situations from native Home Assistant automations using the
   Report situation action and a condition-editor blueprint. Reports expire to
   unknown, remain independent of equipment, and require fresh evidence after

@@ -130,7 +130,12 @@ async def test_phone_route_requests_only_selected_service(
         {
             "message": "Hello",
             "title": "Test",
-            "data": {"tag": expected_tag, "group": "homeostatic"},
+            "data": {
+                "tag": expected_tag,
+                "group": "homeostatic",
+                "url": "/homeostatic/notifications",
+                "clickAction": "/homeostatic/notifications",
+            },
             "target": "webhook-admin",
         }
     ]
@@ -142,6 +147,8 @@ async def test_phone_route_requests_only_selected_service(
         hass, "phone:admin", title="Test", message="Cleared", tag=tag, clear=True
     )
     assert [call["data"]["tag"] for call in calls] == [expected_tag] * 3
+    assert calls[1]["data"]["url"] == "/homeostatic/notifications"
+    assert "url" not in calls[-1]["data"]
     assert calls[-1]["message"] == "clear_notification"
     await notification_routes.async_send(
         hass,
@@ -178,6 +185,7 @@ async def test_replayed_request_uses_one_durable_route_attempt(
     send = AsyncMock()
     monkeypatch.setattr(runtime_module, "async_send", send)
     payload = {
+        "episode_id": "episode",
         "delivery_id": f"{entry.entry_id}:123",
         "channels": ["phone:admin"],
         "recipient": "person:admin",
@@ -190,6 +198,7 @@ async def test_replayed_request_uses_one_durable_route_attempt(
     await runtime.async_send_notification(payload)
     await runtime.async_send_notification(payload)
     send.assert_awaited_once()
+    assert send.call_args.kwargs["url"] == "/homeostatic/episode/episode"
     assert f"{entry.entry_id}:123:phone:admin" in runtime.delivery.attempted
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -197,4 +206,46 @@ async def test_replayed_request_uses_one_durable_route_attempt(
     restored = entry.runtime_data
     await restored.async_send_notification(payload)
     send.assert_awaited_once()
+    assert send.call_args.kwargs["url"] == "/homeostatic/episode/episode"
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize(
+    ("payload", "url"),
+    [
+        pytest.param(
+            {"episode_id": "issue", "action": "open"},
+            "/homeostatic/episode/issue",
+            id="open",
+        ),
+        pytest.param(
+            {"episode_id": "issue", "action": "resolve"},
+            "/homeostatic/episode/issue",
+            id="resolved",
+        ),
+        pytest.param(
+            {"episode_id": "a/b ?#é", "action": "update"},
+            "/homeostatic/episode/a%2Fb%20%3F%23%C3%A9",
+            id="encoded",
+        ),
+        pytest.param(
+            {"episode_id": "group", "action": "summary"},
+            "/homeostatic/issues",
+            id="summary",
+        ),
+        pytest.param(
+            {"episode_id": "group", "action": "digest"},
+            "/homeostatic/issues",
+            id="digest",
+        ),
+        pytest.param(
+            {"episode_id": "group", "episodes": [], "action": "resolve"},
+            "/homeostatic/issues",
+            id="ended-summary",
+        ),
+        pytest.param({}, "/homeostatic/issues", id="missing-identity"),
+    ],
+)
+def test_notification_destination(payload: dict[str, Any], url: str) -> None:
+    """Destinations preserve individual identity and use safe relative routes."""
+    assert notification_routes.notification_url(payload) == url

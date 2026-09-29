@@ -42,6 +42,10 @@ conditions:
     value_template: "{{ channel in trigger.event.data.get('channels', ['event']) }}"
 actions:
   - variables:
+      notification_url: >-
+        {{ '/homeostatic/issues'
+           if 'episodes' in trigger.event.data or trigger.event.data.action in ['summary', 'digest']
+           else '/homeostatic/episode/' ~ (trigger.event.data.episode_id | urlencode | replace('/', '%2F')) }}
       notification_tag: >-
         {{ trigger.event.data.tag | sha256
            if trigger.event.data.tag.encode("utf-8") | length > 64
@@ -61,6 +65,8 @@ actions:
           message: "{{ trigger.event.data.message }}"
           data:
             tag: "{{ notification_tag }}"
+            url: "{{ notification_url }}"
+            clickAction: "{{ notification_url }}"
             alert_once: "{{ trigger.event.data.silent }}"
             push:
               sound:
