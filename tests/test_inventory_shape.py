@@ -95,8 +95,12 @@ def test_selective_enrollment_preserves_large_inventory(hass: HomeAssistant) -> 
     assert len(registry.entities) == 6651
     assert sum(entity.device_id is None for entity in candidates) == 1184
     assert sum(source.disabled for source in sources.values()) == 1192
-    assert sum(source.kind == "device" for source in sources.values()) == 418
-    assert len(sources) == 7080
+    device_sources = [source for source in sources.values() if source.kind == "device"]
+    assert {source.node_id for source in device_sources} == {
+        f"device:{device.id}" for device in devices.devices
+    }
+    assert sum(bool(source.availability_entities) for source in device_sources) == 418
+    assert len(sources) == 7357
     assert len(watched) == 13
     assert {source.node_id for source in watched if source.kind == "entity"} == {
         f"entity:{reference}" for reference in references

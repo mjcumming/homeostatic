@@ -263,8 +263,9 @@ the household's dependency topology or traffic.
 
 `test_inventory_shape.py` creates those registries with real HA helpers and
 confirms a three-capability selection watches exactly those capabilities plus
-the ten controllers, retains the entire candidate inventory and preserves all
-1,192 disabled sources. `test_device_pilot.py` separately models two devices
+the ten controllers, retains all 695 device records (including the 277 without
+selected monitoring evidence), and preserves all 1,192 disabled sources. The
+complete browse inventory has 7,357 candidates; visibility does not enroll them. `test_device_pilot.py` separately models two devices
 with 12 and 15 registered entities, selecting one capability on each. Both
 already-unavailable capabilities are detected; one can recover independently;
 unknown evidence does not clear the other problem; reload preserves its id;
