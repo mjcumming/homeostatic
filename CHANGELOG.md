@@ -11,6 +11,11 @@
 
 ### Fixed
 
+- Bound Companion notification replacement tags to Apple's 64-byte limit in
+  both the built-in phone sender and consumer blueprint. Long identifiers use
+  a stable hash, so leak alerts, updates and clearing reach the push service
+  without losing recipient separation.
+
 - Clarify integration Settings with current monitoring counts, compact Change
   editors, named exceptions, notification activation and device reporting
   summaries. Review and save monitoring and reporting together, preserving

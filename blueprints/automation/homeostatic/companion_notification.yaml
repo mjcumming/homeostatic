@@ -41,6 +41,11 @@ conditions:
   - condition: template
     value_template: "{{ channel in trigger.event.data.get('channels', ['event']) }}"
 actions:
+  - variables:
+      notification_tag: >-
+        {{ trigger.event.data.tag | sha256
+           if trigger.event.data.tag.encode("utf-8") | length > 64
+           else trigger.event.data.tag }}
   - choose:
       - conditions: "{{ trigger.event.data.action == 'resolve' }}"
         sequence:
@@ -48,14 +53,14 @@ actions:
             data:
               message: clear_notification
               data:
-                tag: "{{ trigger.event.data.tag }}"
+                tag: "{{ notification_tag }}"
     default:
       - action: "{{ notify_service }}"
         data:
           title: "{{ trigger.event.data.title }}"
           message: "{{ trigger.event.data.message }}"
           data:
-            tag: "{{ trigger.event.data.tag }}"
+            tag: "{{ notification_tag }}"
             alert_once: "{{ trigger.event.data.silent }}"
             push:
               sound:

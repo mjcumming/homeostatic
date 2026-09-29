@@ -1,6 +1,7 @@
 """Resolve owner-selected Home Assistant notification destinations."""
 
 from dataclasses import dataclass
+from hashlib import sha256
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -127,7 +128,8 @@ async def async_send(
         service = get_notify_service(hass, webhook_id)
         if service is None:
             raise HomeAssistantError("Selected phone has no notification action")
-        notification_data: dict[str, Any] = {"tag": tag, "group": "homeostatic"}
+        phone_tag = sha256(tag.encode()).hexdigest() if len(tag.encode()) > 64 else tag
+        notification_data: dict[str, Any] = {"tag": phone_tag, "group": "homeostatic"}
         if clear:
             message = "clear_notification"
         else:

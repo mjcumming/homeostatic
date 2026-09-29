@@ -1,6 +1,7 @@
 """Person routing scenarios in an isolated Home Assistant instance."""
 
 from datetime import timedelta
+from hashlib import sha256
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -87,13 +88,28 @@ def test_other_users_phone_is_rejected(
         )
 
 
+@pytest.mark.parametrize(
+    "tag",
+    [
+        pytest.param("homeostatic_test", id="short"),
+        pytest.param("a" * 64, id="64-bytes"),
+        pytest.param("a" * 65, id="65-bytes"),
+        pytest.param("é" * 32, id="unicode-64-bytes"),
+        pytest.param("é" * 33, id="unicode-66-bytes"),
+        pytest.param(
+            "homeostatic_" + "e" * 26 + "_" + "p" * 36 + "_person:owner",
+            id="episode-recipient",
+        ),
+    ],
+)
 async def test_phone_route_requests_only_selected_service(
-    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch, tag: str
 ) -> None:
-    """A phone test uses its resolved webhook and preserves its replacement tag."""
+    """Phone lifecycle requests fit APNs and retain one replacement identity."""
     calls: list[dict[str, Any]] = []
 
     async def receive(call: ServiceCall) -> None:
+        assert len(call.data["data"]["tag"].encode()) <= 64
         calls.append(dict(call.data))
 
     hass.services.async_register("notify", "mobile_app_admin", receive)
@@ -107,16 +123,34 @@ async def test_phone_route_requests_only_selected_service(
         notification_routes, "get_notify_service", lambda _hass, _id: "mobile_app_admin"
     )
     await notification_routes.async_send(
-        hass, "phone:admin", title="Test", message="Hello", tag="homeostatic_test"
+        hass, "phone:admin", title="Test", message="Hello", tag=tag
     )
+    expected_tag = sha256(tag.encode()).hexdigest() if len(tag.encode()) > 64 else tag
     assert calls == [
         {
             "message": "Hello",
             "title": "Test",
-            "data": {"tag": "homeostatic_test", "group": "homeostatic"},
+            "data": {"tag": expected_tag, "group": "homeostatic"},
             "target": "webhook-admin",
         }
     ]
+
+    await notification_routes.async_send(
+        hass, "phone:admin", title="Test", message="Updated", tag=tag, silent=True
+    )
+    await notification_routes.async_send(
+        hass, "phone:admin", title="Test", message="Cleared", tag=tag, clear=True
+    )
+    assert [call["data"]["tag"] for call in calls] == [expected_tag] * 3
+    assert calls[-1]["message"] == "clear_notification"
+    await notification_routes.async_send(
+        hass,
+        "phone:admin",
+        title="Other",
+        message="Other recipient",
+        tag=tag + "_other",
+    )
+    assert calls[-1]["data"]["tag"] != expected_tag
 
 
 async def test_replayed_request_uses_one_durable_route_attempt(

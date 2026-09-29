@@ -1,5 +1,6 @@
 """Exercise the shipped consumer with Home Assistant's automation engine."""
 
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,17 @@ from custom_components.homeostatic.const import EVENT_EPISODE, EVENT_NOTIFICATIO
         pytest.param("summary", "notify", False, "Door open", 0, id="summary"),
     ],
 )
+@pytest.mark.parametrize(
+    "tag",
+    [
+        pytest.param("homeostatic_test_episode", id="short-tag"),
+        pytest.param("a" * 64, id="64-byte-tag"),
+        pytest.param(
+            "homeostatic_" + "e" * 26 + "_" + "p" * 36 + "_person:owner", id="long-tag"
+        ),
+        pytest.param("é" * 33, id="multibyte-tag"),
+    ],
+)
 async def test_companion_consumer(
     hass: HomeAssistant,
     action: str,
@@ -36,6 +48,7 @@ async def test_companion_consumer(
     silent: bool,
     expected_message: str,
     critical: int | None,
+    tag: str,
 ) -> None:
     """The real blueprint routes requests without contacting any device."""
     path = (
@@ -72,7 +85,7 @@ async def test_companion_consumer(
             "entry_id": "test",
             "episode_id": "episode",
             "delivery_id": "test:1",
-            "tag": "homeostatic_test_episode",
+            "tag": tag,
             "action": action,
             "recipient": "owner",
             "channels": ["event"],
@@ -85,7 +98,9 @@ async def test_companion_consumer(
     await hass.async_block_till_done()
     assert len(calls) == 1
     assert calls[0].data["message"] == expected_message
-    assert calls[0].data["data"]["tag"] == "homeostatic_test_episode"
+    expected_tag = sha256(tag.encode()).hexdigest() if len(tag.encode()) > 64 else tag
+    assert calls[0].data["data"]["tag"] == expected_tag
+    assert len(calls[0].data["data"]["tag"].encode()) <= 64
     assert (
         calls[0].data["data"].get("push", {}).get("sound", {}).get("critical")
         == critical
