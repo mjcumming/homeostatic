@@ -133,6 +133,7 @@ async def async_send(
     silent: bool = False,
     clear: bool = False,
     url: str = "/homeostatic/notifications",
+    acknowledgment: str | None = None,
 ) -> None:
     """Request one delivery through a currently valid selected route."""
     if channel.startswith("phone:"):
@@ -149,6 +150,14 @@ async def async_send(
             message = "clear_notification"
         else:
             notification_data.update(url=url, clickAction=url)
+            if acknowledgment:
+                notification_data["actions"] = [
+                    {
+                        "action": acknowledgment,
+                        "title": "Acknowledge",
+                        "authenticationRequired": True,
+                    }
+                ]
             if urgent:
                 notification_data.update(
                     {

@@ -473,3 +473,48 @@ and History; absence never asserts recovery. A detail already open when its issu
 ends follows the same history behavior. Disconnection shows unavailable evidence.
 Malformed destinations fall back to Issues. Existing HA authentication and admin
 authorization still apply; the link grants no access. Tapping does not acknowledge.
+
+## Automation-owned alerts and Companion acknowledgment (ADR 0034)
+
+`report_alert` accepts a saved HA automation entity, optional stable alert_key
+(default `default`), name, rendered message, profile, active/clear/unknown state,
+and report_timeout (default 300 seconds). First valid reports register a durable
+source without separate YAML. HA registry unique_id plus alert_key identifies the
+condition; changes to entity id, alias, text or profile preserve identity. Duplicate
+automations have different unique_ids. Reports remain administrator services;
+HA-owned automation calls use HA's existing service authorization convention.
+
+Registration and its observation use the existing serialized snapshot transaction.
+Invalid inputs mutate nothing. Storage failures publish no new delivery and mark
+the runtime unavailable until a durable retry. Registration does not enable requests.
+Outgoing profiles require existing generated reporting settings; missing profile
+destinations record the issue without fallback and return a visible status. Dashboard
+only requires no recipient configuration. Sources links to the owning automation
+and shows its profile without a second editable assignment. Metadata updates occur
+on the next report; report text is limited to 2000 characters and names to 200.
+
+Registrations, including retirement tombstones, are capped at 1000 per installation.
+`manage_alert` explicitly retires/resumes an owner/key. Retirement removes monitoring
+(not recovery) and blocks refresh from re-enrolling it until resumed. Disabling or
+deleting an automation alone expires evidence to unknown. Optional administrator
+`adopt_situation_id` transfers an existing report-only declaration to automation
+ownership while preserving its node and episode; entity-bound declarations must
+remain entity-bound. The old declaration is retained but shadowed, including while
+retired. The old report_situation action rejects transferred identities.
+
+Built-in phone delivery adds Acknowledge only to active individual episodes. Each
+opaque callback reference is private to a delivery/recipient/phone/episode and
+persisted before transport. One integration listener accepts only remote events
+with HA-authenticated, active user context matching the current phone owner and a
+still-permitted recipient route. Payload actor/device values grant no permission.
+Intended recipients need no admin role for this narrowly scoped callback; existing
+administrator services keep their authorization. References expire after 30 days,
+are capped at 2000 (oldest evicted), and survive restart. Duplicate acknowledgments
+are idempotent; old or ended episode callbacks cannot acknowledge a new occurrence.
+Callbacks while delivery is disabled, or after a route is removed, do nothing.
+
+Phone dismissal and clear requests are not acknowledgment or receipt. Main taps
+retain ADR 0033 behavior. Summaries/resolution notices have no acknowledgment button.
+Legacy event-only consumers retain their existing behavior; authenticated phone
+actions are provided by the built-in person/phone sender. Evidence alone resolves
+conditions. Tests use isolated HA and mocked phone transports.

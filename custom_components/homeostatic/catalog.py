@@ -32,6 +32,9 @@ class Source:
     availability_entities: tuple[str, ...] = ()
     ignored_availability: tuple[str, ...] = ()
     report_timeout: int | None = None
+    alert_profile: str | None = None
+    automation_url: str | None = None
+    alert_reporting_status: str | None = None
 
     def node(self, settings: Settings) -> Node:
         """Declare a check for the observed HA control-path capability."""
@@ -53,6 +56,11 @@ class Source:
             else (),
             labels={
                 "name": self.name,
+                **(
+                    {"homeostatic_alert_profile": self.alert_profile}
+                    if self.alert_profile
+                    else {}
+                ),
                 "source": "owner_declared"
                 if self.kind == "external"
                 else "home_assistant",

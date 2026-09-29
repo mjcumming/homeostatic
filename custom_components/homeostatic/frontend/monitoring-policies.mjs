@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=42";
-import {MATCH_FIELDS, MATCH_LABELS, ruleSummary} from "./configuration.mjs?v=42";
+import {escapeHtml as esc} from "./model.mjs?v=43";
+import {MATCH_FIELDS, MATCH_LABELS, ruleSummary} from "./configuration.mjs?v=43";
 
 /** Keep exact source choices in Sources, including mixed and multi-source rules. */
 export function isGroupPolicy(rule) {

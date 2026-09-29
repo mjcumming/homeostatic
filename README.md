@@ -91,7 +91,51 @@ The [pilot guide](docs/pilot.md) covers backups, verifying the archive, and roll
        - binary_sensor.garage_obstruction
    ```
 
-5. Watch it for a day or two with notifications off. When it behaves the way you expect, set up the [Companion app blueprint](blueprints/automation/homeostatic/companion_notification.yaml) and turn them on in **Notifications**.
+5. Watch it for a day or two with notifications off. Then open **Notifications**, select people and their phone destinations, review the reporting profiles, and enable requests when ready. The built-in phone sender handles delivery and acknowledgment; no notification-consumer automation is needed.
+
+## Create your own alert
+
+Use Home Assistant's automation editor for the condition, and Homeostatic for its
+issue history, reporting schedule, and acknowledgment. There is no separate
+Situation alerts YAML declaration for this workflow.
+
+1. Import the [Homeostatic alert blueprint](https://github.com/mjcumming/homeostatic/blob/main/blueprints/automation/homeostatic/alert.yaml)
+   in **Settings > Automations & scenes > Blueprints**, or copy `alert.yaml` from
+   the release archive to `blueprints/automation/homeostatic/` and reload automations.
+2. Choose **Create automation** and fill in:
+
+   | Field | Example |
+   | --- | --- |
+   | Alert name | Basement water leak |
+   | Notification message | Water detected near the basement water heater. |
+   | Active when | Basement water sensor is Wet / on |
+   | Required evidence | Basement water sensor |
+   | Reporting preference | Immediate with acknowledgment |
+
+3. Save and enable the automation. It evaluates on evidence changes and each minute;
+   **Run actions** evaluates immediately. An already-active condition can request a
+   real notification as soon as it is evaluated. Start with **Dashboard only** when
+   checking a new rule. **Immediate** profiles include overnight notifications.
+4. Open **Homeostatic > Sources** to inspect the registered alert and its reporting
+   status. Edit its condition, name, text, and preference through **Edit alert automation**.
+   Shared recipients and schedules stay in **Homeostatic > Notifications**.
+
+An active condition opens one issue. Repeated reports keep that issue current; a
+clear report resolves it. Missing evidence or a stopped automation never means
+recovery. Acknowledge directly from an individual phone notification or its issue
+page; acknowledgment records awareness and leaves the issue open. Swiping away a
+notification has no effect on the issue. Summary taps open Issues.
+
+The blueprint supplies stable identity from the saved automation. Renames and
+message changes keep that identity; duplicating the automation creates another
+alert. Multiple conditions can share the same reporting profile independently.
+
+Use HA's AND/OR, time, state, and numeric conditions for more complex rules. Include
+every entity needed to evaluate conditions or message templates as required
+evidence. For custom automations, conversion of existing situations, or retirement,
+see the [alert workflow guide](docs/automation-situations.md). A one-time occurrence
+such as a doorbell press needs a different workflow; this blueprint represents a
+continuing condition with observed clearing.
 
 ## How it works
 

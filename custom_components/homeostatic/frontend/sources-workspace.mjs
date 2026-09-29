@@ -1,9 +1,9 @@
-import {sourceReporting} from "./reporting.mjs?v=42";
-import {integrationSettings} from "./source-settings.mjs?v=42";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=42";
-import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=42";
-import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=42";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=42";
+import {sourceReporting} from "./reporting.mjs?v=43";
+import {integrationSettings} from "./source-settings.mjs?v=43";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=43";
+import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=43";
+import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=43";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=43";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -151,6 +151,7 @@ function monitoringState(source,included) {
 }
 
 export function sourceMonitoringChoices(card,node) {
+  if(node.source?.automation_url)return '<p class="sub">Edit the condition, name, message, and reporting preference in its Home Assistant automation.</p>'+sourceReporting(card,node);
   if(!card.configuration)return `<p class="sub">${esc(card.configError||"Loading monitoring choices…")}</p><button type="button" class="button" data-action="load-configuration">Reload choices</button>`;
   if(node.family)return integrationSettings(card,node);
   const source=node.source;

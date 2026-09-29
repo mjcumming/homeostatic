@@ -9,6 +9,7 @@ from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.service import async_register_admin_service
 
+from .automation_alerts import REPORT_FIELDS
 from .const import DOMAIN
 from .runtime import Runtime
 
@@ -18,6 +19,8 @@ MUTATIONS = (
     "acknowledge",
     "cancel_control",
     "report_situation",
+    "report_alert",
+    "manage_alert",
 )
 SERVICES = (
     *MUTATIONS,
@@ -58,7 +61,15 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
 
     for service in SERVICES:
         fields: dict[Any, Any] = {}
-        if service == "report_situation":
+        if service == "report_alert":
+            fields = REPORT_FIELDS
+        elif service == "manage_alert":
+            fields = {
+                vol.Required("automation"): cv.entity_id,
+                vol.Optional("alert_key", default="default"): cv.string,
+                vol.Required("operation"): vol.In(("retire", "resume")),
+            }
+        elif service == "report_situation":
             fields = {
                 vol.Required("situation_id"): vol.All(
                     cv.string, vol.Match(r"^[a-z][a-z0-9_]*$")

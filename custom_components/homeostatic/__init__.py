@@ -43,6 +43,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
     entry.async_on_unload(
         hass.bus.async_listen(EVENT_NOTIFICATION, handle_notification)
     )
+    entry.async_on_unload(
+        hass.bus.async_listen(
+            "mobile_app_notification_action", runtime.async_phone_action
+        )
+    )
     await async_register_dashboard(hass, runtime)
     entry.async_on_unload(lambda: async_remove_dashboard(hass))
     async_register_services(hass, runtime)

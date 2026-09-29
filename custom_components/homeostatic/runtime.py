@@ -22,6 +22,7 @@ from health_tree.types import (
     JSONValue,
     Notification,
     Observation,
+    PolicyConfig,
     PolicyContext,
     ProbeRequested,
     QuietWindow,
@@ -57,7 +58,8 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from . import reporting
-from .attention import explanations, supports_attention_controls
+from .attention import build_policy, explanations, supports_attention_controls
+from .automation_alerts import AutomationAlerts, automation_owner, identity
 from .catalog import (
     Source,
     device_observation,
@@ -96,6 +98,7 @@ from .facts import (
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
 from .notification_routes import async_send, notification_url
+from .phone_actions import PhoneActions
 from .rules import Attributes, parse_rules
 from .serialization import json_object, to_json
 from .situation_reports import report_observation
@@ -133,6 +136,8 @@ class Runtime:
         self.entity_evidence: dict[str, ReportedCondition] = {}
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
+        self.automation_alerts = AutomationAlerts()
+        self.phone_actions = PhoneActions()
         self.delivery_failures: deque[dict[str, str]] = deque(maxlen=50)
         self._legacy_notifications: set[str] = set()
         self._activating = False
@@ -172,7 +177,7 @@ class Runtime:
         """An enabled notification route needs an enabled consumer automation."""
         if any(
             channel.startswith(("phone:", "notify:"))
-            for recipient in self.settings.policy_config().recipients.values()
+            for recipient in self._policy_config().recipients.values()
             for channel in recipient.channels
         ):
             return False
@@ -229,6 +234,8 @@ class Runtime:
             self.delivery.restore(self.saved["delivery"])
             if type(self.saved.get("notifications_enabled")) is not bool:
                 raise ValueError("Invalid notification activation state")
+        self.automation_alerts.restore(self.saved.get("automation_alerts", {}))
+        self.phone_actions.restore(self.saved.get("phone_actions", {}))
         if "resolved_history" in self.saved:
             self.history.restore(self.saved["resolved_history"])
         self.integration_evidence.restore(self.saved.get("integration_evidence", {}))
@@ -481,7 +488,10 @@ class Runtime:
                 )
         self._discovered = True
         self.candidates = candidates
-        sources, self.targets = compose(self.hass, self.settings, candidates)
+        sources, self.targets = compose(
+            self.hass, self.automation_alerts.compose(self.settings), candidates
+        )
+        sources.update(self.automation_alerts.sources(self.settings))
         self.enrolled = {
             node_id: source.attributes
             for node_id, source in sources.items()
@@ -557,6 +567,7 @@ class Runtime:
         self._deliveries(self.policy.advance(now, PolicyContext()))
         self._prune_controls(now)
         self.history.advance(now)
+        self.phone_actions.prune(now)
         if not self.settings.notifications:
             self.delivery.deactivate()
         self._end_quiet(now)
@@ -669,7 +680,16 @@ class Runtime:
     ) -> dict[str, JSONValue]:
         assert self.engine is not None
         assert self.policy is not None
+        if action in {"report_alert", "manage_alert"}:
+            return self._apply_alert(action, data, now, context)
         if action == "report_situation":
+            if any(
+                row["node_id"] == f"situation:{data['situation_id']}"
+                for row in self.automation_alerts.records.values()
+            ):
+                raise ValueError(
+                    "This situation is now owned by its reporting automation"
+                )
             source = self.sources.get(f"situation:{data['situation_id']}")
             if source is None or source.report_timeout is None:
                 raise ValueError(
@@ -796,6 +816,76 @@ class Runtime:
         self._control_fact("ended", control, ended_reason="cancelled", context=context)
         return {"cancelled_control_id": control_id}
 
+    def _apply_alert(
+        self, action: str, data: dict[str, Any], now: datetime, context: Context | None
+    ) -> dict[str, JSONValue]:
+        assert self.engine is not None
+        assert self.policy is not None
+        first = not self.automation_alerts.records
+        if action == "report_alert":
+            key, row = self.automation_alerts.prepare(self.hass, self.settings, data)
+        else:
+            key = identity(
+                automation_owner(self.hass, data["automation"]),
+                data.get("alert_key", "default"),
+            )
+            if key not in self.automation_alerts.records:
+                raise ValueError("Choose an existing automation alert")
+            row = {
+                **self.automation_alerts.records[key],
+                "retired": data["operation"] == "retire",
+            }
+        changed = self.automation_alerts.records.get(key) != row
+        self.automation_alerts.records[key] = row
+        if first:
+            previous = self.policy.snapshot()
+            self.policy = Policy(self._policy_config())
+            self.policy.restore(previous, now)
+        if changed:
+            self._inventory_dirty = True
+            self._handle(self._evaluate(now), now, context)
+        if action == "report_alert":
+            source = self.sources[row["node_id"]]
+            observation = report_observation(source, data["state"], now)
+            if data["state"] == "active":
+                from dataclasses import replace
+
+                observation = replace(observation, message=data["message"])
+            self._handle(self.engine.ingest_many([observation], now), now, context)
+        return {
+            "node_id": row["node_id"],
+            "retired": row["retired"],
+            "reporting_status": self.automation_alerts.status(self.settings, row),
+        }
+
+    def _policy_config(self) -> PolicyConfig:
+        return build_policy(
+            self.automation_alerts.policy(self.settings),
+            self.settings.duration("batch"),
+        )
+
+    async def async_phone_action(self, event: Event[Any]) -> None:
+        """Apply an authenticated recipient response through existing operator controls."""
+        row = await self.phone_actions.authorize(self.hass, event, dt_util.utcnow())
+        if row is None or not self.settings.notifications:
+            return
+        recipient = self._policy_config().recipients.get(row["recipient"])
+        if (
+            recipient is None
+            or row["channel"] not in recipient.channels
+            or row["episode_id"] not in self.episodes
+        ):
+            return
+        try:
+            await self.async_control(
+                "acknowledge",
+                {"episode_id": row["episode_id"]},
+                row["user_id"],
+                event.context,
+            )
+        except HomeAssistantError, ValueError:
+            _LOGGER.debug("Phone acknowledgment was not applied")
+
     async def async_control(
         self,
         action: str,
@@ -849,7 +939,7 @@ class Runtime:
         events: list[HealthEvent] = []
         if first:
             self.engine = Engine(self.settings.engine_settings())
-            self.policy = Policy(self.settings.policy_config())
+            self.policy = Policy(self._policy_config())
         assert self.engine is not None
         assert self.policy is not None
         changed = [
@@ -1294,7 +1384,7 @@ class Runtime:
         recipient_id = payload.get("recipient")
         if not isinstance(recipient_id, str):
             return
-        recipient = self.settings.policy_config().recipients.get(recipient_id)
+        recipient = self._policy_config().recipients.get(recipient_id)
         if recipient is None:
             return
         permitted = set(recipient.channels)
@@ -1308,10 +1398,29 @@ class Runtime:
                 if attempt in self.delivery.attempted:
                     continue
                 self.delivery.attempted.add(attempt)
+                previous_actions = deepcopy(self.phone_actions.records)
+                sent_to = (
+                    self.policy.explain(str(payload["episode_id"]))["sent_to"]
+                    if self.policy is not None
+                    and payload.get("episode_id") in self.episodes
+                    else []
+                )
+                acknowledgment = (
+                    self.phone_actions.prepare(
+                        self.hass, payload, channel, dt_util.utcnow()
+                    )
+                    if payload.get("episode_id") in self.episodes
+                    and self.policy is not None
+                    and not self._acknowledged(str(payload["episode_id"]))
+                    and isinstance(sent_to, list)
+                    and recipient_id in sent_to
+                    else None
+                )
                 try:
                     await self._save()
                 except OSError, HomeAssistantError, ValueError, TypeError:
                     self.delivery.attempted.remove(attempt)
+                    self.phone_actions.records = previous_actions
                     raise
             try:
                 await async_send(
@@ -1321,6 +1430,7 @@ class Runtime:
                     message=str(payload.get("message", "")),
                     tag=str(payload.get("tag", "")),
                     url=notification_url(payload),
+                    **({"acknowledgment": acknowledgment} if acknowledgment else {}),
                     urgent=payload.get("loudness") == "urgent"
                     and payload.get("silent") is not True
                     and payload.get("action") != "resolve",
@@ -1370,6 +1480,8 @@ class Runtime:
         assert self.policy is not None
         return {
             "schema_version": 2,
+            "automation_alerts": deepcopy(self.automation_alerts.records),
+            "phone_actions": deepcopy(self.phone_actions.records),
             "device_exclusions": {
                 key: list(members) for key, members in self.device_exclusions.items()
             },
@@ -1409,7 +1521,11 @@ class Runtime:
         settings = Settings.from_data(
             {**(self.entry.options or self.entry.data), "policy": data}
         )
-        candidate = Policy(settings.policy_config())
+        candidate = Policy(
+            build_policy(
+                self.automation_alerts.policy(settings), settings.duration("batch")
+            )
+        )
         now = dt_util.utcnow()
         candidate.restore(self.policy.snapshot(), now)
         deliveries = candidate.activate(now, PolicyContext())
@@ -1443,7 +1559,7 @@ class Runtime:
                     "next_deadline": self.policy.next_deadline(),
                     "routes": {
                         name: list(recipient.channels)
-                        for name, recipient in self.settings.policy_config().recipients.items()
+                        for name, recipient in self._policy_config().recipients.items()
                     },
                     "notifications_enabled": self.settings.notifications,
                     "reports": self.policy.reports(dt_util.utcnow()),

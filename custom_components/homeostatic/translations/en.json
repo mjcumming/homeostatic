@@ -93,6 +93,62 @@
           "description": "Active opens or updates; cleared resolves; unknown preserves an unresolved issue."
         }
       }
+    },
+    "report_alert": {
+      "name": "Report alert",
+      "description": "Register or refresh an automation-owned condition. May request notifications using the selected shared profile.",
+      "fields": {
+        "automation": {
+          "name": "Automation",
+          "description": "Saved automation that owns this condition. Its stable HA ID supplies identity."
+        },
+        "alert_key": {
+          "name": "Alert key",
+          "description": "Keep this stable. Use separate keys if one automation reports multiple conditions."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Recognizable alert title; changing this does not change identity."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Current evidence message. Supply rendered template text from the automation."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "Existing Homeostatic reporting preference. Does not enable outgoing requests."
+        },
+        "state": {
+          "name": "State",
+          "description": "Active, observed clear, or unknown evidence. Only clear resolves the condition."
+        },
+        "report_timeout": {
+          "name": "Report timeout",
+          "description": "Evidence lifetime in seconds. Must exceed the report refresh interval."
+        },
+        "adopt_situation_id": {
+          "name": "Adopt situation id",
+          "description": "Optional explicit conversion of a declared report-only situation; preserves its issue identity."
+        }
+      }
+    },
+    "manage_alert": {
+      "name": "Manage automation alert",
+      "description": "Retire monitoring or explicitly resume a retired alert. Retirement is not recovery.",
+      "fields": {
+        "automation": {
+          "name": "Automation",
+          "description": "Saved owning automation."
+        },
+        "alert_key": {
+          "name": "Alert key",
+          "description": "The same stable key used when reporting."
+        },
+        "operation": {
+          "name": "Operation",
+          "description": "Retire blocks subsequent reports until explicitly resumed."
+        }
+      }
     }
   }
 }

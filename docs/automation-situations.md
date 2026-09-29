@@ -1,4 +1,88 @@
-# Report a situation from a Home Assistant automation
+# Create an alert in a Home Assistant automation
+
+The **Homeostatic alert** blueprint is the recommended workflow. Follow the
+[README walkthrough](../README.md#create-your-own-alert): configure name, message,
+condition, required evidence and reporting preference in one HA form. The first
+valid report registers its source automatically, even if it is currently clear.
+Profiles require household people/destinations to be configured once in Notifications.
+Requests remain off until explicitly enabled. Missing destinations are shown in
+Sources; there is no silent fallback. Automated alerts follow their own selected
+profile rather than the household default or a separately saved Sources assignment.
+
+## Evidence and timing
+
+The one-minute refresh bounds time-only reevaluation unless you add exact time
+triggers under Advanced. Evidence timeout defaults to 300 seconds and means report
+age, not notification delay. Every required entity must have usable, non-restored
+evidence. False conditions report clear; missing evidence and condition errors
+report unknown. A message template that fails to render stops that report, so its
+last accepted evidence expires to unknown. Neither case invents recovery.
+
+For a door-open condition restricted to a time window, leaving the window ends the
+condition; it does not prove the door physically closed. Use suitable message text.
+HA owns duration and template semantics, including restart limitations.
+
+## Advanced native actions
+
+`homeostatic.report_alert` accepts `automation`, `name`, rendered `message`,
+`profile`, and `state` (active, clear, unknown). It also accepts `alert_key`
+(default `default`) and `report_timeout` (default 300). Use the saved owning
+automation's entity ID. Multiple conditions in one automation need distinct stable
+keys. The integration derives durable identity from HA's automation unique ID.
+
+```yaml
+action: homeostatic.report_alert
+data:
+  automation: "{{ this.entity_id }}"
+  alert_key: basement_water
+  name: Basement water leak
+  message: Water detected near the basement water heater.
+  profile: acknowledge
+  state: active
+```
+
+Custom automations must report clear on observed recovery, unknown for evidence
+loss, and refresh before the timeout. One owner reports each key; serialize its
+runs. Do not use changing messages or automation-run IDs as alert keys. These
+actions retain administrator authorization; HA-owned automations use HA's normal
+service permissions. They cannot create recipients or enable notification requests.
+
+## Retirement and existing declarations
+
+To remove an alert from monitoring, use **Homeostatic: Manage automation alert**
+with its owning automation, alert key, and **Retire**. This records removal from
+monitoring, not recovery, and rejects further reports until **Resume** is explicitly
+called. Disable its reporting automation too to avoid repeated rejected calls.
+Disabling or deleting an automation by itself only lets its evidence expire.
+Retire before deleting the owner automation. Registrations and retained retirement
+records are capped at 1000; there is no automatic eviction of issue identity.
+
+Existing entity-bound and explicitly declared situations still work. To transfer
+a declared report-only situation, stop its old reporter and use `report_alert`
+with `adopt_situation_id` set to the declared ID. Keep supplying this optional
+field or omit it after the first accepted conversion. The node and open episode
+are preserved, its old declaration is shadowed, and `report_situation` can no longer
+overwrite it. Entity-bound situations cannot be adopted by this action.
+
+## Phone acknowledgment
+
+Built-in person/phone delivery includes **Acknowledge** for an active individual
+issue. It uses the authenticated recipient's HA identity without granting admin
+configuration access. Main taps open details; summaries open Issues and have no
+bulk acknowledgment. Legacy consumer blueprints retain delivery/clear behavior
+without these authenticated buttons.
+
+Callbacks survive restart, expire after 30 days, and are capped at 2000 outstanding
+references. Old or expired buttons cannot acknowledge a later occurrence. Android
+dismissal callbacks and iPhone notification removal are not acknowledgment or
+proof of recovery. Urgent resolution messages are quiet; phone removal remains
+subject to Companion/iOS limitations.
+
+## Legacy explicitly declared situations
+
+The following existing workflow remains supported for installations already using
+it; new automation alerts should use the one-form blueprint above.
+
 
 Home Assistant decides whether your condition holds. Homeostatic keeps one issue
 open, routes notifications, manages acknowledgment and reminders, and resolves

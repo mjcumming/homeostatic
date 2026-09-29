@@ -189,3 +189,73 @@ report_situation:
               value: clear
             - label: Cannot determine
               value: unknown
+
+report_alert:
+  fields:
+    automation:
+      required: true
+      selector:
+        entity:
+          domain: automation
+    alert_key:
+      default: default
+      selector:
+        text: null
+    name:
+      required: true
+      selector:
+        text: null
+    message:
+      required: true
+      selector:
+        text:
+          multiline: true
+    profile:
+      required: true
+      selector:
+        select:
+          options:
+          - immediate
+          - acknowledge
+          - morning
+          - evening
+          - weekly
+          - dashboard
+    state:
+      required: true
+      selector:
+        select:
+          options:
+          - active
+          - clear
+          - unknown
+    report_timeout:
+      default: 300
+      selector:
+        number:
+          min: 60
+          max: 86400
+          mode: box
+          unit_of_measurement: seconds
+    adopt_situation_id:
+      advanced: true
+      selector:
+        text: null
+manage_alert:
+  fields:
+    automation:
+      required: true
+      selector:
+        entity:
+          domain: automation
+    alert_key:
+      default: default
+      selector:
+        text: null
+    operation:
+      required: true
+      selector:
+        select:
+          options:
+          - retire
+          - resume

@@ -573,3 +573,32 @@ def test_household_policy_rejects_invalid_routes(
             {"timezone": "UTC", "people": {"member": choice}},
             [{"id": "member", "user_id": "member", "administrator": False}],
         )
+
+
+async def test_phone_action_payload(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both Companion platforms receive the explicit authenticated action and detail link."""
+    monkeypatch.setattr(routes, "webhook_id_from_device_id", lambda *_: "webhook")
+    monkeypatch.setattr(routes, "supports_push", lambda *_: True)
+    monkeypatch.setattr(routes, "get_notify_service", lambda *_: "alice")
+    send = AsyncMock()
+    hass.services.async_register("notify", "alice", send)
+    await routes.async_send(
+        hass,
+        "phone:device",
+        title="Leak",
+        message="Wet",
+        tag="tag",
+        url="/homeostatic/episode/one",
+        acknowledgment="HOMEOSTATIC_ACK_example",
+    )
+    data = send.call_args.args[0].data["data"]
+    assert data["actions"] == [
+        {
+            "action": "HOMEOSTATIC_ACK_example",
+            "title": "Acknowledge",
+            "authenticationRequired": True,
+        }
+    ]
+    assert data["url"] == data["clickAction"] == "/homeostatic/episode/one"

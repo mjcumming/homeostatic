@@ -28,3 +28,8 @@ The structured YAML rule/function/situation forms are development interfaces. Le
 The automation-first situation handoff is implemented locally: native report action,
 expiring evidence, condition-editor blueprint, restart and delivery scenarios.
 Guided Homeostatic situation menus and one-shot event reporting remain future work.
+
+[ADR 0034](adr/0034-create-alerts-from-ha-automations.md) is implemented: configure
+an alert once in the HA automation editor, with automatic registration and a shared
+Companion acknowledgment handler. Native device validation remains a separate
+owner-authorized pilot; ADR 0032's explicit declarations remain supported.

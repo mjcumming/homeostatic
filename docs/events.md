@@ -171,3 +171,15 @@ Individual phone requests link to their episode in Homeostatic; summaries and
 digests open Issues. The Companion blueprint derives the same relative destination
 from episode_id and summary membership. Event identity and tags are unchanged.
 A tap is navigation only, not acknowledgment. See ADR 0033.
+
+## Companion acknowledgment callbacks
+
+The built-in phone sender adds a private `HOMEOSTATIC_ACK_...` action reference to
+active individual deliveries. It is not part of the public Homeostatic event
+contract. The integration listens once for `mobile_app_notification_action` and
+validates HA's authenticated remote user context, current phone ownership, allowed
+recipient route, expiry, and exact current episode. No client-supplied actor field
+grants authority. Successful callbacks use the existing durable acknowledgment
+control and its fact event; duplicate callbacks are idempotent. Callbacks do not
+resolve conditions. No callback automation is required. References survive restart,
+expire after 30 days, and oldest entries are removed at the 2000-reference cap.

@@ -1,23 +1,23 @@
-import {monitoringPolicies} from "./monitoring-policies.mjs?v=42";
-import {sourceSettingsAction} from "./source-settings.mjs?v=42";
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=42";
+import {monitoringPolicies} from "./monitoring-policies.mjs?v=43";
+import {sourceSettingsAction} from "./source-settings.mjs?v=43";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=43";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
-  sourceMap} from "./model\.mjs?v=42";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem\.mjs?v=42";
-import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=42";
-import {diagnosticOverview} from "./evidence\.mjs?v=42";
+  sourceMap} from "./model\.mjs?v=43";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem\.mjs?v=43";
+import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=43";
+import {diagnosticOverview} from "./evidence\.mjs?v=43";
 import {editCatalogRule, monitoringScope,
-  newCatalogRule, scopeChoice, setScopeChoice} from "./configuration\.mjs?v=42";
-import {styles} from "./styles\.mjs?v=42";
-import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=42";
+  newCatalogRule, scopeChoice, setScopeChoice} from "./configuration\.mjs?v=43";
+import {styles} from "./styles\.mjs?v=43";
+import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=43";
 
-import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=42";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=42";
+import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=43";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=43";
 
-import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=42";
+import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=43";
 
-import {applyNotificationRoute} from "./notification-navigation.mjs?v=42";
+import {applyNotificationRoute} from "./notification-navigation.mjs?v=43";
 
 const VIEWS = ["overview", "sources", "house", "coverage", "functions", "problems", "history", "notifications", "configuration"];
 const homeostaticOptionsUrl = (entryId) => `/config/integrations/integration/homeostatic#config_entry=${encodeURIComponent(entryId)}`;

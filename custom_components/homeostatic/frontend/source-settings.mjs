@@ -1,7 +1,7 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=42";
-import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=42";
-import {REPORTING, reportingChoices} from "./reporting.mjs?v=42";
-import {settingsChanges} from "./installation-settings.mjs?v=42";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=43";
+import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=43";
+import {REPORTING, reportingChoices} from "./reporting.mjs?v=43";
+import {settingsChanges} from "./installation-settings.mjs?v=43";
 
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const reportingLabel = id => REPORTING.find(row=>row[0]===id)?.[1] || id;

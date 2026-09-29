@@ -95,7 +95,7 @@ test("acknowledgement is awareness and status never claims receipt",()=>{
   assert.match(reportingStatus(data,{episode_id:"a"}),/problem remains open/);
 });
 
-import {sourcesTree,sourcePaths} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
+import {sourcesTree,sourcePaths,sourceMonitoringChoices} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {monitoringExample,baseSource} from "./monitoring-fixture.mjs";
 for(const grouping of ["integration","location","topomation"])test(`Configured situations are reachable with ${grouping} grouping`,()=>{
   const data=monitoringExample();data.inventory.nodes.push(baseSource("situation:water","Water detected","situation",{watched:true}));
@@ -139,4 +139,20 @@ test("initial reporting review names the selected source preference",()=>{
   const changes=reportingChanges(null,after);
   assert.ok(changes.some(([name,,to])=>name==="Reporting · device:a"&&to.includes("Immediate")));
   assert.ok(changes.some(([name])=>name==="Weekly summary"));
+});
+
+for(const [status,warning] of [["requests_disabled","Outgoing requests are disabled"],["missing_destinations","no configured destination"],["configured","Shared recipients"]])test(`automation alert reporting is owned by HA with ${status} status`,()=>{
+  const c=card();c.settingsDraft=null;
+  const html=sourceReporting(c,{source:{node_id:"situation:leak",automation_url:"/config/automation/edit/owner",alert_profile:"acknowledge",alert_reporting_status:status}});
+  assert.match(html,/Immediate.*acknowledgement required/);
+  assert.match(html,/href="\/config\/automation\/edit\/owner"/);
+  assert.ok(html.includes(warning));
+  assert.doesNotMatch(html,/<select|data-reporting-node/);
+});
+
+test("automation settings never offer a competing local save flow",()=>{
+  const html=sourceMonitoringChoices({}, {source:{automation_url:"/config/automation/edit/owner",alert_profile:"dashboard"}});
+  assert.match(html,/Edit the condition, name, message/);
+  assert.match(html,/Edit alert automation/);
+  assert.doesNotMatch(html,/Changes are reviewed|Loading monitoring choices/);
 });

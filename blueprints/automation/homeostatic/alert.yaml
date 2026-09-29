@@ -1,0 +1,138 @@
+blueprint:
+  name: Homeostatic alert
+  description: >-
+    Configure a continuing alert here, without a separate Homeostatic declaration.
+    Choose current-state conditions and list all required evidence. Saving and
+    enabling evaluates within a minute and can send a real notification for an
+    already-active condition. Shared recipients and request activation are managed
+    in Homeostatic Notifications. Immediate includes overnight; acknowledgment
+    repeats every 30 minutes. Missing evidence never clears an existing problem.
+    Save this automation with a unique HA ID. One automation owns each alert.
+  domain: automation
+  homeassistant:
+    min_version: 2026.9.0
+  input:
+    alert_name:
+      name: Alert name
+      selector:
+        text:
+    message:
+      name: Notification message
+      description: Plain text or an HA template. Include entities used here in Required evidence.
+      selector:
+        template:
+    profile:
+      name: Reporting preference
+      description: Configure people and destinations for this profile in Homeostatic Notifications first.
+      selector:
+        select:
+          options:
+            - label: Immediate
+              value: immediate
+            - label: Immediate with acknowledgment
+              value: acknowledge
+            - label: Morning summary
+              value: morning
+            - label: Evening summary
+              value: evening
+            - label: Weekly summary
+              value: weekly
+            - label: Dashboard only
+              value: dashboard
+    evidence_entities:
+      name: Required evidence
+      description: Every sensor, person or other entity needed to evaluate this condition.
+      selector:
+        entity:
+          multiple: true
+    active_conditions:
+      name: Active when
+      description: All conditions must hold. HA AND/OR groups allow alternatives.
+      selector:
+        condition:
+    advanced:
+      name: Advanced
+      icon: mdi:tune
+      collapsed: true
+      input:
+        report_timeout:
+          name: Evidence expires after
+          description: Seconds without a fresh report before evidence is unknown; not a notification delay.
+          default: 300
+          selector:
+            number:
+              min: 300
+              max: 86400
+              mode: box
+              unit_of_measurement: seconds
+        extra_triggers:
+          name: Exact reevaluation times or other triggers
+          default: []
+          selector:
+            trigger:
+mode: queued
+max: 10
+variables:
+  evidence_entities: !input evidence_entities
+triggers:
+  - trigger: state
+    entity_id: !input evidence_entities
+  - trigger: homeassistant
+    event: start
+  - trigger: time_pattern
+    minutes: "*"
+  - triggers: !input extra_triggers
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >-
+              {% set evidence = namespace(valid=true) %}
+              {% for entity in evidence_entities %}
+                {% if not has_value(entity) or state_attr(entity, 'restored') %}
+                  {% set evidence.valid = false %}
+                {% endif %}
+              {% endfor %}
+              {{ not evidence.valid }}
+        sequence:
+          - action: homeostatic.report_alert
+            data:
+              automation: "{{ this.entity_id }}"
+              name: !input alert_name
+              message: ""
+              profile: !input profile
+              report_timeout: !input report_timeout
+              state: unknown
+      - conditions: !input active_conditions
+        sequence:
+          - action: homeostatic.report_alert
+            data:
+              automation: "{{ this.entity_id }}"
+              name: !input alert_name
+              message: !input message
+              profile: !input profile
+              report_timeout: !input report_timeout
+              state: active
+      - conditions:
+          - condition: not
+            conditions:
+              - condition: and
+                conditions: !input active_conditions
+        sequence:
+          - action: homeostatic.report_alert
+            data:
+              automation: "{{ this.entity_id }}"
+              name: !input alert_name
+              message: ""
+              profile: !input profile
+              report_timeout: !input report_timeout
+              state: clear
+    default:
+      - action: homeostatic.report_alert
+        data:
+          automation: "{{ this.entity_id }}"
+          name: !input alert_name
+          message: ""
+          profile: !input profile
+          report_timeout: !input report_timeout
+          state: unknown

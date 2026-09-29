@@ -4,6 +4,8 @@
 
 ### Added
 
+- Configure alerts entirely in HA with automatic source registration, shared reporting profiles, explicit retirement/conversion, and authenticated Acknowledge buttons on individual phone notifications.
+
 - Open Homeostatic issue details from phone notification taps, including retained
   details after resolution. Summaries open Issues and route tests open Notifications.
   Tapping never acknowledges or clears a problem.

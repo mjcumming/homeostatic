@@ -1,6 +1,6 @@
 # ADR 0032: Receive expiring situation reports from HA automations
 
-**Status:** Accepted
+**Status:** Accepted; separate declaration and registration restriction partially superseded by [ADR 0034](0034-create-alerts-from-ha-automations.md)
 **Date:** 2026-09-29
 **Deciders:** Michael Cumming
 
