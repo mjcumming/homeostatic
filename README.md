@@ -19,16 +19,11 @@ Homeostatic is a Home Assistant integration that watches the health of your home
 
 > ⭐ **Using Homeostatic?** Please [star the repo](https://github.com/mjcumming/homeostatic). It takes 25 stars to get into the HACS default store, and it helps other Home Assistant users find the project.
 
-<!--
-Screenshots: save PNGs to docs/images/ and uncomment.
-Suggested: overview.png (Overview with counts and recent issues),
-issue.png (an issue's details with affected functions and next step),
-sources.png (Sources grouped by area), notifications.png (the Notifications page).
-
 <p align="center">
-  <img src="docs/images/overview.png" alt="Homeostatic overview" width="720"/>
+  <img src="docs/images/overview.png" alt="Fictional Willow House demo: Homeostatic Overview with one Zigbee issue and two affected functions" width="720"/>
 </p>
--->
+
+<p align="center"><small>Fictional Willow House demo using the Homeostatic interface. No personal household data is shown.</small></p>
 
 ## The problem
 
@@ -51,6 +46,31 @@ Home Assistant has the inventory: integrations, devices, entities, areas, automa
 **Controls for real life.** *Acknowledge* records that someone has seen a problem. *Pause alerts* shelves one problem for up to a week. *Working on this equipment* declares a maintenance window and previews what it affects before you start.
 
 **Events for your own automations.** Every opened, updated, and resolved problem, and every operator action, is a Home Assistant event whether notifications are on or not. Two example blueprints turn them into a status light and a logbook.
+
+## See it in action
+
+In this fictional home, Home Assistant reports that the Zigbee connection could not start. Homeostatic groups the unavailable hall and kitchen entities under that connection and shows that hall motion lighting and the kitchen leak alert are unavailable. The earlier, unrelated availability episodes in History cleared after Home Assistant reported those entities available again. These images come from the [repeatable demo fixture](docs/testing/readme-demo.md), rendered with Homeostatic's production frontend.
+
+<details>
+<summary>Open issue, Sources, History, and Notifications screenshots</summary>
+
+### One issue and its impact
+
+<img src="docs/images/issue.png" alt="Zigbee issue detail with connection next step, affected functions, and notification request status" width="720"/>
+
+### Sources and current evidence
+
+<img src="docs/images/sources.png" alt="Sources tree with monitored Zigbee devices and the failed connection" width="720"/>
+
+### Resolved history
+
+<img src="docs/images/history.png" alt="History with three fictional availability problems recorded as recovered" width="720"/>
+
+### Reporting choices
+
+<img src="docs/images/notifications.png" alt="Notifications page with Alex's fictional phone and reporting schedules" width="600"/>
+
+</details>
 
 ## How it works
 

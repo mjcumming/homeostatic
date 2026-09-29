@@ -4,6 +4,9 @@
 
 ### Added
 
+- Add a repeatable fictional Willow House frontend demo and five README screenshots
+  covering an open issue, source evidence, resolved history, and reporting.
+
 - Document the maintenance and health roadmap, distinguishing planned battery,
   action-detail, household-access and presentation work from future options.
   The roadmap builds on the existing health-tree architecture and changes no

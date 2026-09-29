@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Homeostatic README demo — Willow House</title>
+<style>
+  :root {--primary-text-color:#182a34;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--secondary-text-color:#546875;--divider-color:#dce4e9;--primary-color:#007eab;--text-primary-color:#fff}
+  body {margin:0;background:#f5f7f8;color:#182a34;font:14px Arial,sans-serif}
+  .demo-bar {box-sizing:border-box;max-width:1200px;margin:0 auto;padding:15px 22px;display:flex;gap:14px;align-items:baseline;border-bottom:1px solid #dce4e9}
+  .demo-bar strong {font-size:16px}.demo-bar span {color:#546875}
+  homeostatic-panel {display:block;max-width:1200px;margin:0 auto}
+  #error {max-width:1200px;margin:auto;color:#a42020}
+  @media(max-width:700px){.demo-bar {display:block}.demo-bar span {display:block;margin-top:4px}}
+</style>
+<div class="demo-bar"><strong>Willow House</strong><span>Fictional demo data · Homeostatic production interface</span></div>
+<homeostatic-panel></homeostatic-panel>
+<p id="error" role="alert"></p>
+<script type="module">
+  import "../../custom_components/homeostatic/frontend/homeostatic.js";
+  import {snapshot,configuration,nodeDetail} from "./readme-demo-data.mjs";
+
+  const card = document.querySelector("homeostatic-panel");
+  const params = new URLSearchParams(location.search);
+  const view = ["overview","problems","sources","history","notifications"].includes(params.get("view")) ? params.get("view") : "overview";
+  const listeners = new Map();
+  const connection = {
+    addEventListener(name, handler) {listeners.set(name, handler);},
+    removeEventListener(name, handler) {if (listeners.get(name) === handler) listeners.delete(name);},
+    async subscribeMessage(handler) {queueMicrotask(() => handler(snapshot)); return () => {};},
+  };
+  const hass = {
+    connection, user: {id: "demo-admin", is_admin: true}, config: {time_zone: "America/Chicago"}, states: {},
+    localize(key) {return {"component.zha.title":"Zigbee Home Automation","component.unifi.title":"UniFi Network"}[key] ?? null;},
+    async callWS(message) {
+      if (message.type === "topomation/locations/list") return {locations: []};
+      if (message.type === "homeostatic/configuration") return structuredClone(configuration);
+      if (message.type === "homeostatic/node" || message.type === "homeostatic/source") return nodeDetail(message.node_id);
+      throw new Error(`The fictional demo is read only (${message.type ?? message.service}).`);
+    },
+  };
+  window.addEventListener("error", event => {document.querySelector("#error").textContent = event.message;});
+  card.setConfig({view});
+  card.hass = hass;
+  if (params.get("detail") === "zigbee") {
+    const wait = () => {
+      if (card.current.status === "current") card.openDetail({episodeId: "willow-zigbee-20260929"});
+      else setTimeout(wait, 20);
+    };
+    wait();
+  }
+  window.__homeostaticDemo = {card,snapshot,configuration};
+</script>
+</html>
