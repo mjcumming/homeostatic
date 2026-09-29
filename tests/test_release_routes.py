@@ -152,6 +152,8 @@ async def test_unavailable_phone_or_unknown_route(
                 "priority": "high",
                 "channel": "Homeostatic urgent",
                 "interruption-level": "critical",
+                "url": "/homeostatic/notifications",
+                "clickAction": "/homeostatic/notifications",
             },
         ),
         (
@@ -163,6 +165,8 @@ async def test_unavailable_phone_or_unknown_route(
                 "push": {"sound": "none"},
                 "alert_once": True,
                 "interruption-level": "passive",
+                "url": "/homeostatic/notifications",
+                "clickAction": "/homeostatic/notifications",
             },
         ),
         (True, False, True, "clear_notification", {}),
