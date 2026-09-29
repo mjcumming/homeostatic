@@ -37,9 +37,7 @@ Records 0003–0008 document choices from the owner worksheet and pilot specific
 | [0029](0029-load-catalog-pages-on-demand.md) | Load revision-bound catalog pages on demand | Proposed; implemented locally for review |
 | [0030](0030-separate-group-policies-from-source-choices.md) | Show group policies separately from individual source choices | Accepted; partially supersedes 0028 |
 | [0031](0031-review-source-settings-together.md) | Review integration monitoring and reporting together | Accepted |
+| [0032](0032-automation-reported-situations.md) | Receive expiring situation reports from HA automations | Accepted |
+| [0033](0033-notification-tap-destinations.md) | Open issue context from notification taps | Accepted |
 
 Write an ADR when an adapter boundary, source eligibility, graph-confirmation rule, delivery or persistence contract, or enduring UI model has real alternatives and would be easy to reverse without its rationale. Keep ordinary bug fixes, wording adjustments, and release validation in the spec, changelog, and tests.
-
-| [0032](0032-automation-reported-situations.md) | Receive expiring situation reports from HA automations | Accepted |
-
-| [0033](0033-notification-tap-destinations.md) | Open issue context from notification taps | Accepted |
