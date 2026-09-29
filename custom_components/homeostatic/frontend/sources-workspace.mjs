@@ -1,4 +1,6 @@
 import {sourceReporting} from "./reporting.mjs?v=41";
+import {integrationSettings} from "./source-settings.mjs?v=41";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=41";
 import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=41";
 import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=41";
 import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=41";
@@ -150,6 +152,7 @@ function monitoringState(source,included) {
 
 export function sourceMonitoringChoices(card,node) {
   if(!card.configuration)return `<p class="sub">${esc(card.configError||"Loading monitoring choices…")}</p><button type="button" class="button" data-action="load-configuration">Reload choices</button>`;
+  if(node.family)return integrationSettings(card,node);
   const source=node.source;
   const choice=(label,scope,options)=>{
     if(!scope)return "";
@@ -159,17 +162,8 @@ export function sourceMonitoringChoices(card,node) {
     return `<fieldset class="source-choices"${card.configBusy?' disabled':''}><legend>${esc(label)}</legend>${options.map(([value,title,help])=>`<label class="source-radio"><input type="radio" name="source-choice-${index}" data-scope-index="${index}" value="${value}"${current===value?' checked':''}><span><strong>${esc(title)}</strong>${help?`<small>${esc(help)}</small>`:''}</span></label>`).join("")}</fieldset>`;
   };
   let controls="";
-  let allScope=null;
-  if(node.family) {
-    const scope=(kind)=>node.domain?{kind:kind==="device"?"integration_devices":"entry",id:node.domain,match:{integration_domain:[node.domain],kind:[kind]}}:monitoringScope(kind==="device"?"integration_devices":"entry",node.entries[0]?.entry_id);
-    allScope=node.domain?{kind:"integration_all",id:node.domain,match:{integration_domain:[node.domain],kind:["integration","device","entity"]}}:{kind:"integration_all",id:node.entries[0]?.entry_id,match:{integration:[node.entries[0]?.entry_id],kind:["integration","device","entity"]}};
-    if(node.entries.length)controls+=choice("Monitor this integration",allScope,[["inherit","Use saved monitoring choices","Monitor the connection, devices, and entities selected below."],["exclude","Stop monitoring this integration","Turn off connection, device, and separate entity checks for current and future sources. Saved choices remain available if monitoring resumes."]]);
-    if(node.entries.length&&scopeChoice(card.configDraft,allScope)!=="exclude") {
-      controls+=choice("Integration connection",scope("integration"),[["inherit","Use saved connection policy",`${node.entries.filter(entry=>entry.watched).length} of ${node.entries.length} connections currently monitored.`],["attach","Monitor the integration connection","Report if Home Assistant cannot load this integration."],["exclude","Do not monitor the connection",""]]);
-      controls+=choice("Device availability",scope("device"),[["inherit","Use saved device policy","Keep other matching policies in effect."],["attach","Monitor all devices","Include current and future devices from this integration."],["exclude","Only devices I choose","New devices stay unmonitored until you choose them."]]);
-    }
-  } else if(source?.kind==="integration")controls+=choice("Integration connection",monitoringScope("entry",source.entry_id),[["inherit","Use integration default","Follow the saved policy for this integration."],["attach","Monitor this connection","Report if Home Assistant cannot load it."],["exclude","Do not monitor this connection",""]]);
-  else if(source?.kind==="device")controls+=choice("Device availability",monitoringScope("device_availability",source.attributes?.device?.[0]??source.node_id.slice(7)),[["inherit","Use integration default",`Currently ${source.watched?"monitored":"not monitored"}.`],["attach","Always monitor this device","Report unavailable or unknown entities."],["exclude","Do not monitor this device","Keep it in Sources without availability issues."]]);
+  if(source?.kind==="integration")controls+=choice("Integration connection",monitoringScope("entry",source.entry_id),[["inherit","Use integration default","Follow the saved policy for this integration."],["attach","Monitor this connection","Report if Home Assistant cannot load it."],["exclude","Do not monitor this connection",""]]);
+  else if(source?.kind==="device")controls+=choice("Device availability",monitoringScope("device_availability",source.attributes?.device?.[0]??source.node_id.slice(7)),[["inherit","Use integration default",`Currently ${source.watched?"monitored":"not monitored"}.`],["attach","Always monitor this device","Report selected entities becoming unavailable."],["exclude","Do not monitor this device","Keep it in Sources without availability issues."]]);
   else if(source?.kind==="entity")controls+=choice("Entity availability",monitoringScope("entity",source.node_id,source),[["inherit","Use device and integration choices","Include in device monitoring when selected by its device."],["attach","Monitor this entity separately","Give this entity its own availability check."],["exclude","Exclude this entity","Exclude it from device monitoring and separate checks."]]);
   if(source?.kind==="device"){
     controls+=`<p class="small">${source.availability_entities?.length||0} entities included. Open an entity in the tree to change its inclusion.</p>`;
@@ -178,8 +172,6 @@ export function sourceMonitoringChoices(card,node) {
   }
   if(source?.kind==="situation")controls='<p class="sub">This situation uses its configured condition. Reporting does not change what detects it.</p>';
   if(!controls)controls='<p class="sub">Select an integration, device, or entity to change monitoring.</p>';
-  const exceptions=node.family&&scopeChoice(card.configDraft,allScope)!=="exclude"?node.children.filter(child=>child.type==="device"&&child.source&&scopeChoice(card.configDraft,monitoringScope("device_availability",child.device.id))!=="inherit"):[];
-  if(exceptions.length)controls+=`<section class="source-section"><h3>Individual choices</h3>${exceptions.map(child=>`<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}</span><small>${esc(scopeChoice(card.configDraft,monitoringScope("device_availability",child.device.id))==="attach"?"Always monitor":"Do not monitor")}</small></button>`).join("")}</section>`;
   if(source?.excluded_by?.length)controls+='<p class="note">A saved exclusion applies. Review changes to see the effective result; an individual watch does not override ordinary exclusions.</p>';
   return controls+(card.sourcesSettingsPanel||"")+sourceReporting(card,node);
 }
@@ -227,10 +219,8 @@ function sourceReport(card,node,episodes) {
 }
 
 function sourceHistory(card,node) {
-  const related=new Set([...sourcePaths([node]).values()].map(item=>item.node.source?.node_id).filter(Boolean));
-  const data=card.current.data;
-  const events=[...sortedEpisodes(data).filter(item=>related.has(item.anchor)).map(item=>({id:item.episode_id,name:"Open problem",date:item.opened_at,action:"episode"})),...(data.inventory.resolved_history?.episodes||[]).filter(item=>related.has(item.episode.anchor)).map(item=>({id:item.episode.episode_id,name:item.resolution==="removed"?"Monitoring changed":item.resolution==="recovered"?"Recovered":item.resolution.replaceAll("_"," "),date:item.resolved_at||item.ended_at,action:"history"}))];
-  return events.length?`<ol class="source-timeline">${events.map(item=>`<li><button type="button" class="link" data-${item.action}="${esc(item.id)}">${esc(item.name)}</button><time>${esc(displayDate(item.date))}</time></li>`).join("")}</ol>`:'<p class="sub">No problems in retained history for this source.</p>';
+  const sources=[...sourcePaths([node]).values()].map(item=>item.node.source).filter(Boolean);
+  return renderSourceHistory(card.current.data,sources);
 }
 
 /** Render the accepted tree-and-detail workspace without nested page navigation. */

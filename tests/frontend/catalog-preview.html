@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Homeostatic catalog regression</title>
+<style>
+  :root{--primary-text-color:#182a34;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--secondary-text-color:#546875;--divider-color:#dce4e9;--primary-color:#007eab}
+  body{margin:0;font:14px Arial,sans-serif}header{padding:12px;background:#edf2f5}button{padding:8px}homeostatic-panel{max-width:1100px;margin:auto}
+</style>
+<header>Synthetic catalog · 6,000 sources <button id="release">Finish catalog loading</button> <button id="invalidate">Change catalog revision</button> <button id="fail">Fail next page</button> <span id="status" role="status">No catalog requested</span></header>
+<homeostatic-panel></homeostatic-panel>
+<script type="module">
+  import "../../custom_components/homeostatic/frontend/homeostatic.js";
+  const source=(node_id,name,kind,extra={})=>({node_id,name,kind,requirements:[],attributes:{},watched:false,attached_by:[],excluded_by:[],...extra});
+  const owner=source("entry:demo","Synthetic integration","integration",{entry_id:"demo",watched:true,attributes:{domain:["demo"]}});
+  const candidates=Array.from({length:6000},(_,i)=>source(`entity:demo-${i}`,`Reading ${i}`,"entity",{entity_id:`sensor.reading_${i}`,owner_id:"demo",attributes:{integration_domain:["demo"]}}));
+  const sections={nodes:[owner],candidates:[owner,...candidates],areas:[],floors:[],devices:[],targets:[],enrollment_changes:[]};
+  let revision=1, callback, release, requests=0, fail=false;
+  const summary=()=>({schema_version:3,available:true,catalog_loaded:false,catalog_revision:revision,
+    catalog_sections:Object.fromEntries(Object.entries(sections).map(([key,rows])=>[key,rows.length])),
+    entry_id:"synthetic",updated_at:new Date().toISOString(),readiness:{answer:"ready",nodes:[]},functions:[],evidence_gaps:0,
+    coverage:{no_checks:[],never_observed:[],stale:[]},policy:{notifications_enabled:false,routes:{},episodes:[]},areas:[],floors:[],devices:[],
+    inventory:{nodes:[],catalog:{candidates:[],watched:1},episodes:[],operator_controls:[],resolved_history:[],enrollment_changes:[],notification_requests:[]}});
+  const connection={addEventListener(){},removeEventListener(){},
+    async subscribeMessage(fn){callback=fn;queueMicrotask(()=>fn(summary()));return()=>{};},
+    async sendMessagePromise(request){
+      requests++;document.querySelector("#status").textContent=`Catalog requests: ${requests}`;
+      if(request.offset===0&&request.section==="nodes")await new Promise(resolve=>{release=resolve;});
+      if(fail){fail=false;throw new Error("Synthetic page failure. Retry loading sources.");}
+      const rows=sections[request.section], end=Math.min(request.offset+request.limit,rows.length);
+      return{revision:request.revision,section:request.section,offset:request.offset,total:rows.length,items:rows.slice(request.offset,end),next_offset:end<rows.length?end:null};
+    }};
+  const card=document.querySelector("homeostatic-panel");
+  card.hass={connection,user:{is_admin:true},localize(){return null;},async callWS(){throw new Error("Read-only synthetic fixture");}};
+  document.querySelector("#release").onclick=()=>{release?.();release=null;};
+  document.querySelector("#invalidate").onclick=()=>{revision++;callback(summary());};
+  document.querySelector("#fail").onclick=()=>{fail=true;};
+</script>
+</html>

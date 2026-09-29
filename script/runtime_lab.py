@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import gc
 import json
 import shutil
 import sys
@@ -208,18 +209,64 @@ async def run(
             await ws.send_json({"type": "auth", "access_token": token})
             assert (await ws.receive_json())["type"] == "auth_ok"
             await ws.send_json(
-                {"id": 1, "type": "homeostatic/subscribe", "compact": True}
+                {"id": 1, "type": "homeostatic/subscribe", "paged": True}
             )
             assert (await ws.receive_json())["success"]
             baseline = await ws.receive()
-            assert json.loads(baseline.data)["event"]["inventory_changed"]
+            initial = json.loads(baseline.data)["event"]
+            assert initial["schema_version"] == 3 and not initial["catalog_loaded"]
             results["initial_websocket_bytes"] = len(baseline.data.encode())
+            page_sizes = []
+            request_id = 1
+            catalog_started = perf_counter()
+            for section, total in initial["catalog_sections"].items():
+                received = 0
+                for offset in range(0, total, 200):
+                    request_id += 1
+                    await ws.send_json(
+                        {
+                            "id": request_id,
+                            "type": "homeostatic/catalog",
+                            "revision": initial["catalog_revision"],
+                            "section": section,
+                            "offset": offset,
+                        }
+                    )
+                    packet = await ws.receive()
+                    page = json.loads(packet.data)["result"]
+                    assert page["revision"] == initial["catalog_revision"]
+                    assert page["section"] == section and page["offset"] == offset
+                    assert len(page["items"]) <= 200
+                    received += len(page["items"])
+                    page_sizes.append(len(packet.data.encode()))
+                assert received == total
+            results["catalog_pages"] = {
+                "count": len(page_sizes),
+                "bytes": sum(page_sizes),
+                "max_page_bytes": max(page_sizes, default=0),
+                "seconds": perf_counter() - catalog_started,
+            }
 
             async def measure(name: str, state: str) -> None:
                 """Time one captured burst through a received WebSocket event."""
                 previous = perf_counter()
                 gaps = []
                 handle = None
+                gc_started = 0.0
+                gc_pauses = []
+
+                def collection(phase, info) -> None:
+                    """Attribute scheduler outliers without changing GC policy."""
+                    nonlocal gc_started
+                    if phase == "start":
+                        gc_started = perf_counter()
+                    else:
+                        gc_pauses.append(
+                            {
+                                "generation": info["generation"],
+                                "seconds": perf_counter() - gc_started,
+                            }
+                        )
 
                 def probe() -> None:
                     """Sample event-loop scheduling gaps without sleeps."""
@@ -231,6 +278,7 @@ async def run(
 
                 started = perf_counter()
                 handle = asyncio.get_running_loop().call_soon(probe)
+                gc.callbacks.append(collection)
                 try:
                     with (
                         patch.object(runtime, "_save", wraps=runtime._save) as saves,
@@ -245,7 +293,7 @@ async def run(
                         packet = await asyncio.wait_for(ws.receive(), 10)
                         payload = json.loads(packet.data)["event"]
                         assert (
-                            payload["schema_version"] == 2
+                            payload["schema_version"] == 3
                             and not payload["inventory_changed"]
                         )
                         assert len(payload["inventory"]["episodes"]) == (
@@ -258,17 +306,19 @@ async def run(
                             "inventory_scans": scans.call_count,
                             "websocket_bytes": len(packet.data.encode()),
                             "episodes": len(runtime.episodes),
+                            "gc_pauses": gc_pauses,
                         }
                 finally:
                     handle.cancel()
+                    gc.callbacks.remove(collection)
 
             await measure("outage_60", "unavailable")
-            assert runtime.readiness == "blocked"
+            assert runtime.readiness == "degraded"
             await measure("recovery_60", "1")
             assert runtime.readiness == "ready"
             for cycle in range(1, cycles):
                 await measure(f"outage_cycle_{cycle + 1}", "unavailable")
-                assert runtime.readiness == "blocked"
+                assert runtime.readiness == "degraded"
                 await measure(f"recovery_cycle_{cycle + 1}", str(cycle + 1))
                 assert runtime.readiness == "ready"
             results["cycles"] = cycles

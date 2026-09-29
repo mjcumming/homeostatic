@@ -31,6 +31,7 @@ class Source:
     excluded_by: tuple[str, ...] = ()
     availability_entities: tuple[str, ...] = ()
     ignored_availability: tuple[str, ...] = ()
+    report_timeout: int | None = None
 
     def node(self, settings: Settings) -> Node:
         """Declare a check for the observed HA control-path capability."""
@@ -63,7 +64,9 @@ class Source:
                     clear_hold=timedelta(0)
                     if situation
                     else settings.duration("clear_hold"),
-                    ttl=None,
+                    ttl=timedelta(seconds=self.report_timeout)
+                    if self.report_timeout is not None
+                    else None,
                     unknown_hold=settings.duration("unknown_hold"),
                     labels={"category": "situation" if situation else "fault"},
                 ),

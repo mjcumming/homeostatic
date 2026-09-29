@@ -123,6 +123,9 @@ class Dashboard:
         self.catalog_revision = 0
         self._catalog: dict[str, JSONValue] | None = None
         self._locations: dict[str, JSONValue] = {}
+        self.catalog_sections: dict[str, list[JSONValue]] = {}
+        self._node_rows: dict[str, JSONValue] = {}
+        self.summary = self.update
         self._cancel: Callable[[], None] | None = None
         self.save_lock = asyncio.Lock()
 
@@ -150,6 +153,24 @@ class Dashboard:
                 self._locations = {
                     key: self.value[key] for key in ("areas", "devices", "floors")
                 }
+                catalog = cast(dict[str, JSONValue], self._catalog["catalog"])
+                self.catalog_sections = {
+                    key: cast(list[JSONValue], self._catalog[key])
+                    for key in ("nodes", "targets", "enrollment_changes")
+                }
+                self.catalog_sections["candidates"] = cast(
+                    list[JSONValue], catalog["candidates"]
+                )
+                self.catalog_sections.update(
+                    {
+                        key: cast(list[JSONValue], value)
+                        for key, value in self._locations.items()
+                    }
+                )
+                self._node_rows = {
+                    str(cast(dict[str, JSONValue], row)["node_id"]): row
+                    for row in self.catalog_sections["nodes"]
+                }
             self.value.update(self._locations)
             dynamic = self.runtime.inventory_updates()
             self.update = {
@@ -163,9 +184,52 @@ class Dashboard:
                 "inventory_changed": False,
                 "inventory": dynamic,
             }
+            names = {
+                str(episode["anchor"]) for episode in self.runtime.episodes.values()
+            }
+            names.update(
+                source.node_id
+                for source in self.runtime.sources.values()
+                if source.kind == "function"
+            )
+            names.update(
+                str(control["target"])
+                for control in cast(
+                    list[dict[str, JSONValue]], dynamic["operator_controls"]
+                )
+            )
+            names.update(
+                f"entry:{self.runtime.sources[name].owner_id}"
+                for name in tuple(names)
+                if name in self.runtime.sources and self.runtime.sources[name].owner_id
+            )
+            catalog = cast(dict[str, JSONValue], self._catalog["catalog"])
+            self.summary = {
+                **self.update,
+                "schema_version": 3,
+                "catalog_loaded": False,
+                "catalog_sections": {
+                    key: len(rows) for key, rows in self.catalog_sections.items()
+                },
+                "inventory": {
+                    **dynamic,
+                    "nodes": [
+                        row for name, row in self._node_rows.items() if name in names
+                    ],
+                    "catalog": {**catalog, "candidates": []},
+                    "targets": [],
+                    "enrollment_changes": [],
+                },
+                "areas": [],
+                "devices": [],
+                "floors": [],
+            }
         else:
             self._catalog = None
             self.update = {**self.value, "schema_version": 2}
+            self.catalog_sections = {}
+            self._node_rows = {}
+            self.summary = {**self.value, "schema_version": 3, "catalog_loaded": False}
         async_dispatcher_send(self.hass, SIGNAL_DASHBOARD)
 
 
@@ -173,6 +237,7 @@ class Dashboard:
     {
         vol.Required("type"): "homeostatic/subscribe",
         vol.Optional("compact", default=False): bool,
+        vol.Optional("paged", default=False): bool,
     }
 )
 @require_admin
@@ -190,7 +255,9 @@ def websocket_subscribe(
         nonlocal revision
         dashboard = hass.data[DATA_DASHBOARD]
         payload = dashboard.value
-        if msg["compact"]:
+        if msg["paged"]:
+            payload = dashboard.summary
+        elif msg["compact"]:
             if not payload["available"]:
                 revision = None
                 payload = dashboard.update
@@ -211,6 +278,61 @@ def websocket_subscribe(
     )
     connection.send_result(msg["id"])
     send()
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/catalog",
+        vol.Required("revision"): vol.All(int, vol.Range(min=0)),
+        vol.Required("section"): vol.In(
+            (
+                "nodes",
+                "candidates",
+                "targets",
+                "enrollment_changes",
+                "areas",
+                "devices",
+                "floors",
+            )
+        ),
+        vol.Optional("offset", default=0): vol.All(int, vol.Range(min=0)),
+        vol.Optional("limit", default=200): vol.All(int, vol.Range(min=1, max=200)),
+    }
+)
+@require_admin
+@callback
+def websocket_catalog(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return one bounded page from the exact currently published catalog."""
+    dashboard = hass.data[DATA_DASHBOARD]
+    if not dashboard.value["available"]:
+        connection.send_error(msg["id"], "not_ready", "Monitoring is unavailable")
+        return
+    if msg["revision"] != dashboard.catalog_revision:
+        connection.send_error(
+            msg["id"], "stale_catalog", "The source catalog changed; reload its pages"
+        )
+        return
+    rows = dashboard.catalog_sections[msg["section"]]
+    offset = msg["offset"]
+    if offset > len(rows):
+        connection.send_error(
+            msg["id"], "invalid_offset", "The offset exceeds this catalog section"
+        )
+        return
+    end = min(offset + msg["limit"], len(rows))
+    connection.send_result(
+        msg["id"],
+        {
+            "revision": dashboard.catalog_revision,
+            "section": msg["section"],
+            "offset": offset,
+            "total": len(rows),
+            "items": rows[offset:end],
+            "next_offset": end if end < len(rows) else None,
+        },
+    )
 
 
 @websocket_command(
@@ -450,7 +572,7 @@ async def _settings_candidate(
     hass: HomeAssistant, current: dict[str, Any], proposed: dict[str, Any]
 ) -> dict[str, Any]:
     """Preserve unrelated options and validate a complete editable proposal."""
-    if set(proposed) not in (
+    if set(proposed) - {"rules"} not in (
         {"timings", "notifications", "consumer", "policy"},
         {"timings", "notifications", "consumer", "policy", "simple_notifications"},
         {
@@ -475,6 +597,8 @@ async def _settings_candidate(
             if key not in {"simple_notifications", "reporting"}
         },
     }
+    if "rules" in proposed:
+        candidate["rules"] = normalize_rules(hass, proposed["rules"])
     simple = proposed.get("simple_notifications")
     if simple is not None and simple != simple_choices(
         Settings.from_data(current).policy
@@ -555,6 +679,11 @@ async def _async_preview_settings(
         candidate = await _settings_candidate(hass, current, msg["settings"])
         settings = Settings.from_data(candidate)
         policy = runtime.preview_policy(settings.policy)
+        monitoring = (
+            _monitoring_preview(runtime, candidate["rules"])
+            if "rules" in msg["settings"]
+            else None
+        )
     except (ValueError, TypeError, KeyError, vol.Invalid) as err:
         connection.send_error(msg["id"], "invalid_settings", str(err))
         return
@@ -566,6 +695,7 @@ async def _async_preview_settings(
             ),
             "before": _editable_settings(Settings.from_data(current)),
             "after": msg["settings"],
+            **({"monitoring": monitoring} if monitoring is not None else {}),
             "activating": settings.notifications
             and not Settings.from_data(current).notifications,
             "requests_now": len(cast(list[JSONValue], policy["deliveries"])),
@@ -828,13 +958,24 @@ def websocket_preview_configuration(
     try:
         rules = normalize_rules(hass, msg["rules"])
         Settings.from_data({**current, "rules": rules})
-        result = cast(dict[str, Any], runtime.query("preview_rules", {"rules": rules}))
-        functions = cast(
-            dict[str, Any], runtime.query("preview_functions", {"rules": rules})
-        )["functions"]
+        result = _monitoring_preview(runtime, rules)
     except (ValueError, TypeError, KeyError, vol.Invalid) as err:
         connection.send_error(msg["id"], "invalid_rules", str(err))
         return
+    connection.send_result(
+        msg["id"],
+        {"preview_token": _digest({"revision": revision, "rules": rules}), **result},
+    )
+
+
+def _monitoring_preview(
+    runtime: Runtime, rules: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Describe proposed enrollment without mutating live monitoring."""
+    result = cast(dict[str, Any], runtime.query("preview_rules", {"rules": rules}))
+    functions = cast(
+        dict[str, Any], runtime.query("preview_functions", {"rules": rules})
+    )["functions"]
     inventory = cast(dict[str, Any], runtime.query("inventory", {}))
     before = {item["node_id"]: item for item in inventory["catalog"]["candidates"]}
     added = []
@@ -845,20 +986,16 @@ def websocket_preview_configuration(
             added.append({"node_id": item["node_id"], "name": item["name"]})
         elif not item["watched"] and previous and previous["watched"]:
             removed.append({"node_id": item["node_id"], "name": item["name"]})
-    connection.send_result(
-        msg["id"],
-        {
-            "preview_token": _digest({"revision": revision, "rules": rules}),
-            "watched": result["watched"],
-            "matches": result["rules"],
-            "added_count": len(added),
-            "removed_count": len(removed),
-            "added": added[:50],
-            "removed": removed[:50],
-            "functions": functions,
-            "current_evidence_only": True,
-        },
-    )
+    return {
+        "watched": result["watched"],
+        "matches": result["rules"],
+        "added_count": len(added),
+        "removed_count": len(removed),
+        "added": added[:50],
+        "removed": removed[:50],
+        "functions": functions,
+        "current_evidence_only": True,
+    }
 
 
 @websocket_command(
@@ -943,6 +1080,7 @@ async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> Non
         )
         hass.data[DATA_DASHBOARD] = Dashboard(hass)
         websocket_api.async_register_command(hass, websocket_subscribe)
+        websocket_api.async_register_command(hass, websocket_catalog)
         websocket_api.async_register_command(hass, websocket_node)
         websocket_api.async_register_command(hass, websocket_source)
         websocket_api.async_register_command(hass, websocket_configuration)

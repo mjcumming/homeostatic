@@ -55,12 +55,13 @@ class ExternalCapability:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Situation:
-    """An independent alert reported by a stateful Home Assistant entity."""
+    """An independent alert reported by an HA entity or expiring automation reports."""
 
     id: str
     name: str
     importance: Importance
-    entity: str
+    entity: str | None
+    report_timeout: int | None = None
 
 
 def rows(data: Mapping[str, Any], kind: str, fields: set[str]) -> list[dict[str, Any]]:
@@ -141,14 +142,27 @@ def definitions(
             )
         functions.append(function)
     situations = []
-    for row in rows(data, "situations", {"entity"}):
-        entity = references([row.get("entity")], ("registry:", "entity_id:"))[0]
+    for row in rows(data, "situations", {"entity", "report_timeout"}):
+        timeout = row.get("report_timeout")
+        if "report_timeout" in row:
+            if (
+                "entity" in row
+                or type(timeout) is not int
+                or not 60 <= timeout <= 86400
+            ):
+                raise ValueError(
+                    "Automation situations need report_timeout of 60 to 86400 seconds and no entity"
+                )
+            entity = None
+        else:
+            entity = references([row.get("entity")], ("registry:", "entity_id:"))[0]
         situations.append(
             Situation(
                 id=row["id"],
                 name=row["name"],
                 importance=Importance(row.get("importance", "normal")),
                 entity=entity,
+                report_timeout=timeout,
             )
         )
     return tuple(functions), tuple(situations)

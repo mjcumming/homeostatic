@@ -1,4 +1,5 @@
 import {monitoringPolicies} from "./monitoring-policies.mjs?v=41";
+import {sourceSettingsAction} from "./source-settings.mjs?v=41";
 import {reportingOverview, reportingStatus} from "./reporting.mjs?v=41";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
@@ -85,6 +86,9 @@ class HomeostaticCard extends HTMLElement {
     this.sourcesEdit = false;
     this.sourcesView = "source";
     this.sourcesSettingsPanel = "";
+    this.sourceSettingsReview = null;
+    this.sourceSettingsError = null;
+    this.sourceSettingsNotice = null;
     this.settingsSection = "timing";
     this.settingsDraft = null;
     this.settingsPreview = null;
@@ -230,8 +234,13 @@ class HomeostaticCard extends HTMLElement {
     this.store = dashboardStore(this._hass.connection);
     this.loadTopomation();
     this.removeListener = this.store.listen((value) => {
+      const catalogArrived = value.data?.catalog_loaded && !this.current.data?.catalog_loaded;
       this.current = value;
-      if(value.status==="current"&&this.topomationLoaded&&this.sourcesGrouping==="topomation"&&!topomationTree(value.data,this.topomation)) {
+      if (catalogArrived) {
+        this.revealSourcesSelection();
+        if (this.sourcesQuery) this.revealSourcesSearch();
+      }
+      if(value.status==="current"&&value.data.catalog_loaded!==false&&this.topomationLoaded&&this.sourcesGrouping==="topomation"&&!topomationTree(value.data,this.topomation)) {
         this.sourcesGrouping="location";
         try { window.sessionStorage.setItem(SOURCES_GROUPING_KEY,this.sourcesGrouping); } catch { /* Embedded storage may be unavailable. */ }
         this.revealSourcesSelection();
@@ -258,7 +267,7 @@ class HomeostaticCard extends HTMLElement {
       this.topomation=null;
     }
     this.topomationLoaded=true;
-    if(this.current.status==="current"&&this.sourcesGrouping==="topomation"&&!topomationTree(this.current.data,this.topomation)) {
+    if(this.current.status==="current"&&this.current.data.catalog_loaded!==false&&this.sourcesGrouping==="topomation"&&!topomationTree(this.current.data,this.topomation)) {
       this.sourcesGrouping="location";
       try { window.sessionStorage.setItem(SOURCES_GROUPING_KEY,this.sourcesGrouping); } catch { /* Embedded storage may be unavailable. */ }
     }
@@ -365,6 +374,12 @@ class HomeostaticCard extends HTMLElement {
       return;
     }
     const data = this.current.data;
+    if (["sources","coverage","house","configuration","functions"].includes(this.page) && data.schema_version === 3 && !data.catalog_loaded) {
+      this.main.innerHTML = `<div class="banner" role="status"><h2>${this.current.catalogError ? "Sources unavailable" : "Loading sources"}</h2><p>${esc(this.current.catalogError || "Loading the complete source catalog for browsing and search.")}</p>${this.current.catalogError ? '<button class="link" type="button" data-action="retry-catalog">Retry loading sources</button>' : ""}</div>`;
+      this.renderedCurrent = false;
+      this.store?.ensureCatalog();
+      return;
+    }
     if (["configuration","notifications"].includes(this.page)) this.main.innerHTML = installationSettings(this);
     else if (this.page === "sources") this.main.innerHTML = this.sourcesPage();
     else if (this.page === "history") this.main.innerHTML = this.history(data);
@@ -430,7 +445,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   revealSourcesSelection() {
-    if (this.current.status !== "current") return;
+    if (this.current.status !== "current" || this.current.data.catalog_loaded === false) return;
     this.sourcesExpanded ??= new Set();
     this.sourcesGrouping ??= "integration";
     const paths = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping,null,this.topomation));
@@ -526,6 +541,7 @@ class HomeostaticCard extends HTMLElement {
       if (reset !== "monitoring" || !settingsDirty) this.settingsDraft = structuredClone(result.settings);
       this.settingsPreview = null;
       this.configPreview = null;
+      this.sourceSettingsReview = null;
       this.alertDraft = {notifications:result.alerts.notifications,consumer:result.alerts.consumer};
       this.alertPreview = null;
       this.alertError = null;
@@ -568,12 +584,17 @@ class HomeostaticCard extends HTMLElement {
 
   editScope(event) {
     if (!event.target.matches?.("[data-scope-index]")) return false;
+    if (this.configBusy || this.settingsBusy) return true;
     const index = Number(event.target.dataset.scopeIndex);
     const scope = this.configScopes[index];
-    if (!scope || !setScopeChoice(this.configDraft,scope,event.target.value)) return false;
+    const value = event.target.hasAttribute("data-integration-master") ? event.target.checked ? "inherit" : "exclude" : event.target.value;
+    if (!scope || !setScopeChoice(this.configDraft,scope,value)) return false;
     this.configPreview = null;
+    this.sourceSettingsReview = null;
+    this.sourceSettingsNotice = null;
+    this.sourceSettingsError = null;
     this.render();
-    this.shadowRoot.querySelector(`[data-scope-index="${index}"][value="${event.target.value}"]`)?.focus({preventScroll:true});
+    this.shadowRoot.querySelector(`[data-scope-index="${index}"]${event.target.hasAttribute("data-integration-master")?'':`[value="${value}"]`}`)?.focus({preventScroll:true});
     return true;
   }
 
@@ -988,6 +1009,7 @@ class HomeostaticCard extends HTMLElement {
     }
     const button = event.target.closest("button");
     if (!button) return;
+    if (sourceSettingsAction(this,button)) return;
     if (button.dataset.sourceMore) {const key=button.dataset.sourceMore;this.sourcesLimits.set(key,(this.sourcesLimits.get(key)||80)+80);this.render();return;}
     if (button.dataset.action === "back-sources") {this.sourcesMobileDetail=false;this.render();[...this.main.querySelectorAll("[data-sources-select]")].find(item=>item.dataset.sourcesSelect===this.sourcesSelection)?.focus();return;}
     if (button.dataset.action === "all-sources") {this.sourcesNeedsReview=false;this.render();return;}
@@ -1109,6 +1131,7 @@ class HomeostaticCard extends HTMLElement {
     else if (button.dataset.action === "back") {this.page = ["house","coverage"].includes(this.config.view) ? "sources" : this.config.view; this.render();}
     else if (button.dataset.action === "close") this.dialog.close();
     else if (button.dataset.action === "retry") this.store?.retry();
+    else if (button.dataset.action === "retry-catalog") { this.store?.ensureCatalog(true); this.render(); }
     else if (button.dataset.action === "add-rule") {const rule = newCatalogRule(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
     else if (button.dataset.action === "load-configuration") this.loadConfiguration();
     else if (button.dataset.action === "preview-alerts") this.previewAlerts();
@@ -1282,6 +1305,7 @@ class HomeostaticCard extends HTMLElement {
 class HomeostaticPanel extends HomeostaticCard {
   constructor() {
     super();
+    this.shadowRoot.querySelector(".shell").classList.add("panel-shell");
     const menu = document.createElement("button");
     menu.type = "button";
     menu.className = "ha-menu";

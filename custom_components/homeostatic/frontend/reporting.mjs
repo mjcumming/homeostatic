@@ -114,6 +114,9 @@ export function editReporting(card,event) {
   const target=event.target.closest?.("[data-reporting-review],[data-reporting-remove]")||event.target;
   if(!card.settingsDraft||!Object.keys(target.dataset||{}).some(key=>key.startsWith("reporting")))return false;
   if(event.type==="click"&&!target.matches("[data-reporting-review],[data-reporting-remove]"))return false;
+  if(card.settingsBusy||card.configBusy)return true;
+  if(target.dataset.reportingBulk&&!target.value)return true;
+  card.sourceSettingsReview=null;card.sourceSettingsNotice=null;card.sourceSettingsError=null;
   card.reportingExpanded=[...(target.getRootNode?.().querySelectorAll?.("details[data-profile-id][open]")||[])].map(item=>item.dataset.profileId);
   prepareReporting(card);
   const choices=card.settingsDraft.reporting;

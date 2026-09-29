@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+### Added
+
+- Report continuing situations from native Home Assistant automations using the
+  Report situation action and a condition-editor blueprint. Reports expire to
+  unknown, remain independent of equipment, and require fresh evidence after
+  restart. Explicit clearing resolves through the existing notification policy.
+
+### Fixed
+
+- Clarify integration Settings with current monitoring counts, compact Change
+  editors, named exceptions, notification activation and device reporting
+  summaries. Review and save monitoring and reporting together, preserving
+  existing rules and check-specific preferences with one guarded reload.
+
+- Keep the standalone panel's hamburger, title, and page tabs visible at the top
+  while scrolling on phones and desktops.
+
+- Explain Sources History entries with source names, recorded findings, readable
+  outcomes, opening and observed resolution times, and recorded duration. Show
+  newest events first and distinguish recovery from monitoring ending or joining
+  another problem, with explicit history limits and links to details.
+
+- Yield ordered observation processing after 20 ms or eight batches, preserving
+  every captured transition and its timestamp.
+- Load source catalogs on demand in revision-bound pages. Overview receives
+  current problems without the complete catalog; Sources installs all pages
+  together before enabling full-inventory browsing and search. Disconnection,
+  reload and catalog changes discard stale pages; failed reads offer retry.
+
 ## [0.1.0b18] - 2026-09-29
 
 ### Fixed

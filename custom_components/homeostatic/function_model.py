@@ -63,7 +63,11 @@ def compose(
         )
     registry = er.async_get(hass)
     for situation in settings.situations:
-        entity_id = resolve_entity(hass, situation.entity)
+        entity_id = (
+            resolve_entity(hass, situation.entity)
+            if situation.entity is not None
+            else None
+        )
         registered = registry.async_get(entity_id) if entity_id else None
         if registered is not None and registered.platform == DOMAIN:
             raise ValueError("Homeostatic cannot use its own entities")
@@ -74,6 +78,7 @@ def compose(
             kind="situation",
             entity_id=entity_id,
             importance=situation.importance,
+            report_timeout=situation.report_timeout,
             disabled=registered is not None and registered.disabled_by is not None,
         )
     return dict(

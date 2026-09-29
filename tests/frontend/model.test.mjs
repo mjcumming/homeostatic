@@ -1,9 +1,9 @@
-import {monitoringPolicyRules} from "./monitoring-policies-fixture.mjs";
-import {groupPolicyScope, isGroupPolicy, monitoringPolicies} from "../../custom_components/homeostatic/frontend/monitoring-policies.mjs";
 import {durationSeconds,editInstallation,installationSettings,settingsChanges} from "../../custom_components/homeostatic/frontend/installation-settings.mjs";
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "../../custom_components/homeostatic/frontend/monitoring-browser.mjs";
 import {filterSources, sourceMonitoringChoices, sourcePaths, sourcesBrowser, sourcesTree} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
+import {monitoringPolicyRules} from "./monitoring-policies-fixture.mjs";
+import {groupPolicyScope, isGroupPolicy, monitoringPolicies} from "../../custom_components/homeostatic/frontend/monitoring-policies.mjs";
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import {historyPage, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
@@ -416,6 +416,133 @@ for (const [name,payload,status] of [
     });
   }
 }
+
+function pagedExample(revision = 1, count = 601) {
+  const full = example();
+  const sections = {nodes:full.inventory.nodes,
+    candidates:Array.from({length:count},(_,i)=>source(`candidate-${i}`,{name:`Candidate ${i}`})),
+    targets:[],enrollment_changes:[],areas:full.areas,devices:full.devices,floors:full.floors};
+  const data = {...full,schema_version:3,catalog_revision:revision,catalog_loaded:false,
+    catalog_sections:Object.fromEntries(Object.entries(sections).map(([key,rows])=>[key,rows.length])),
+    inventory:{...full.inventory,catalog:{...full.inventory.catalog,candidates:[]}},areas:[],devices:[],floors:[]};
+  return {data,sections};
+}
+
+function catalogPage(request, sections) {
+  const rows = sections[request.section];
+  const end = Math.min(request.offset + request.limit,rows.length);
+  return {revision:request.revision,section:request.section,offset:request.offset,
+    total:rows.length,items:rows.slice(request.offset,end),next_offset:end < rows.length ? end : null};
+}
+
+test("catalog loads only on demand, once for shared cards, with latest evidence",async()=>{
+  const {data,sections}=pagedExample();
+  const client=connection(), store=dashboardStore(client), requests=[];
+  const stop=store.listen(()=>{});
+  client.callback(data);
+  client.sendMessagePromise=async request=>{
+    requests.push(request);
+    client.callback({...data,updated_at:"new evidence",inventory:{...data.inventory,episodes:[]}});
+    assert.equal(store.state.data.catalog_loaded,false);
+    return catalogPage(request,sections);
+  };
+  assert.equal(requests.length,0);
+  const first=store.ensureCatalog(), second=store.ensureCatalog();
+  assert.equal(first,second);
+  await first;
+  assert.equal(store.state.data.catalog_loaded,true);
+  assert.equal(store.state.data.updated_at,"new evidence");
+  assert.deepEqual(store.state.data.inventory.episodes,[]);
+  assert.deepEqual(store.state.data.inventory.catalog.candidates,sections.candidates);
+  assert.equal(inventoryRows(store.state.data).some(row=>row.name==="Candidate 600"),true);
+  assert.deepEqual(requests.filter(r=>r.section==="candidates").map(r=>r.offset),[0,200,400,600]);
+  const cached=store.state.data.inventory.catalog;
+  client.callback(data);
+  assert.equal(store.state.data.inventory.catalog,cached);
+  stop();await Promise.resolve();
+});
+
+test("a new catalog revision cancels old pages and coalesces replacement loading",async()=>{
+  const old=pagedExample(1), fresh=pagedExample(2,1);
+  const client=connection(), store=dashboardStore(client), requests=[];
+  const stop=store.listen(()=>{});
+  client.callback(old.data);
+  let finish;
+  client.sendMessagePromise=request=>{
+    requests.push(request);
+    return new Promise(resolve=>{finish=()=>resolve(catalogPage(request,old.sections));});
+  };
+  const pending=store.ensureCatalog();await Promise.resolve();
+  client.callback(fresh.data);
+  client.sendMessagePromise=async request=>{requests.push(request);return catalogPage(request,fresh.sections);};
+  finish();await pending;await store.catalogTask;
+  assert.equal(store.state.data.catalog_revision,2);
+  assert.equal(store.state.data.catalog_loaded,true);
+  assert.deepEqual(store.state.data.inventory.catalog.candidates,fresh.sections.candidates);
+  assert.equal(requests.filter(request=>request.revision===1).length,1);
+  stop();await Promise.resolve();
+});
+
+test("a failed catalog is explicit and retries without replacing current evidence",async()=>{
+  const {data,sections}=pagedExample();
+  const client=connection(), store=dashboardStore(client);
+  const stop=store.listen(()=>{});client.callback(data);
+  client.sendMessagePromise=async()=>{throw new Error("Read failed");};
+  await store.ensureCatalog();
+  assert.equal(store.state.status,"current");
+  assert.equal(store.state.catalogError,"Read failed");
+  assert.equal(store.state.data.catalog_loaded,false);
+  client.sendMessagePromise=async request=>catalogPage(request,sections);
+  const retry=store.ensureCatalog(true);
+  assert.equal(store.state.catalogError,null);
+  await retry;
+  assert.equal(store.state.catalogError,null);
+  assert.equal(store.state.data.catalog_loaded,true);
+  stop();await Promise.resolve();
+});
+
+test("reconnect loads a new catalog without waiting for an abandoned request",async()=>{
+  const {data,sections}=pagedExample();
+  const client=connection(), store=dashboardStore(client);
+  const stop=store.listen(()=>{});client.callback(data);
+  let finish;
+  client.sendMessagePromise=request=>new Promise(resolve=>{finish=()=>resolve(catalogPage(request,sections));});
+  const pending=store.ensureCatalog();await Promise.resolve();
+  client.events.get("disconnected")();
+  client.sendMessagePromise=async request=>catalogPage(request,sections);
+  client.callback(data);await store.catalogTask;
+  assert.equal(store.state.data.catalog_loaded,true);
+  finish();await pending;
+  assert.equal(store.state.data.catalog_loaded,true);
+  stop();await Promise.resolve();
+});
+
+test("malformed catalog pages cannot install partial search results",async()=>{
+  const {data,sections}=pagedExample();
+  const client=connection(), store=dashboardStore(client);
+  const stop=store.listen(()=>{});client.callback(data);
+  client.sendMessagePromise=async request=>({...catalogPage(request,sections),next_offset:123});
+  await store.ensureCatalog();
+  assert.match(store.state.catalogError,/Incomplete source catalog/);
+  assert.equal(store.state.data.catalog_loaded,false);
+  stop();await Promise.resolve();
+});
+
+for (const [name,invalidate] of [
+  ["disconnect",client=>client.events.get("disconnected")()],
+  ["unavailable",client=>client.callback({schema_version:3,available:false})],
+  ["unsubscribe",(_client,stop)=>stop()],
+]) test(`catalog completion after ${name} is discarded`,async()=>{
+  const {data,sections}=pagedExample();
+  const client=connection(), store=dashboardStore(client);
+  const stop=store.listen(()=>{});client.callback(data);
+  let finish;
+  client.sendMessagePromise=request=>new Promise(resolve=>{finish=()=>resolve(catalogPage(request,sections));});
+  const pending=store.ensureCatalog();await Promise.resolve();
+  invalidate(client,stop);await Promise.resolve();finish();await pending;
+  assert.notEqual(store.state.data?.catalog_loaded,true);
+  stop();await Promise.resolve();
+});
 
 test("reconnect requires a full compact baseline even at the same catalog revision",async()=>{
   const client=connection();
@@ -1115,17 +1242,18 @@ test("Integration-wide off retains narrower choices and hides them until monitor
   const rules=[{id:"device_choice",action:"attach",match:{kind:["device"],device:["camera-1"]}}];
   const scope={kind:"integration_all",id:"frigate",match:{integration_domain:["frigate"],kind:["integration","device","entity"]}};
   const card={configuration:{rules},configDraft:rules,configScopes:[],current:{data},sourcesSettingsPanel:""};
-  assert.match(sourceMonitoringChoices(card,family),/Stop monitoring this integration/);
+  assert.match(sourceMonitoringChoices(card,family),/data-integration-master checked/);
   assert.equal(setScopeChoice(rules,scope,"exclude"),true);
   card.configScopes=[];
   const stopped=sourceMonitoringChoices(card,family);
-  assert.doesNotMatch(stopped,/Monitor all devices/);
+  assert.doesNotMatch(stopped,/What to monitor/);
+  assert.doesNotMatch(stopped,/data-integration-master checked/);
   assert.equal(rules[0].id,"device_choice");
   assert.equal(scopeChoice(rules,scope),"exclude");
   assert.equal(setScopeChoice(rules,scope,"inherit"),true);
   assert.equal(rules.length,1);
   card.configScopes=[];
-  assert.match(sourceMonitoringChoices(card,family),/Monitor all devices/);
+  assert.match(sourceMonitoringChoices(card,family),/All devices, including new devices/);
 });
 
 test("Timing preview describes edits while preserving unrelated policy structure",()=>{

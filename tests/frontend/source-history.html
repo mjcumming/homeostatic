@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sources History preview</title>
+<style>:root{--primary-text-color:#e8ecef;--primary-background-color:#111;--card-background-color:#1c1c1c;--secondary-background-color:#282828;--secondary-text-color:#aaa;--divider-color:#3e3e3e;--primary-color:#4abde5;--text-primary-color:#102530}body{margin:0;background:var(--primary-background-color);color:var(--primary-text-color);font:14px Arial,sans-serif}#controls{padding:12px;display:flex;gap:14px;flex-wrap:wrap}button{padding:8px}homeostatic-card{display:block;max-width:390px;margin:auto}</style></head>
+<body><div id="controls"><strong>Synthetic MQTT history · no live connection</strong><label><input id="wide" type="checkbox"> Desktop width</label><button id="run">Run history scenario</button><span id="feedback" role="status"></span></div><homeostatic-card></homeostatic-card>
+<script type="module">
+import "../../custom_components/homeostatic/frontend/homeostatic.js";
+import {sourceHistoryExample} from "./source-history-fixture.mjs";
+const card=document.querySelector("homeostatic-card"),data=sourceHistoryExample();
+card._hass={user:{is_admin:false},localize:()=>null,async callWS(){throw Error("This history preview does not request live data.");}};
+card.current={status:"current",data};card.page="sources";card.sourcesSelection="source:entry:mqtt";card.sourcesView="history";card.sourcesMobileDetail=true;card.render();
+document.querySelector("#wide").onchange=event=>{card.style.maxWidth=event.target.checked?"1200px":"390px";};
+window.addEventListener("error",event=>{document.querySelector("#feedback").textContent=`FAIL: ${event.message}`;});
+document.querySelector("#run").onclick=()=>{
+  const expect=(value,message)=>{if(!value)throw Error(message);};
+  const root=card.shadowRoot;
+  root.querySelector('[data-history="cleared"]').click();
+  expect(card.tools.dialog.open,"History details must open");
+  expect(card.tools.body.textContent.includes("Last recorded evidence"),"Retained evidence must be available");
+  card.tools.close();
+  root.querySelector('[data-history="absorbed"]').click();
+  expect(card.tools.body.textContent.includes("Recovery was not established"),"Absorption must not claim recovery");
+  expect(card.tools.body.querySelector('[data-open-episode="open"]'),"Absorption must retain its related problem link");
+  card.tools.close();
+  data.updated_at="2026-09-29T12:01:00Z";card.render();
+  expect(root.querySelectorAll(".source-timeline li").length===4,"Live rendering must retain all four records");
+  expect(root.querySelector(".config-detail").scrollWidth<=root.querySelector(".config-detail").clientWidth,"Phone details must not overflow horizontally");
+  document.querySelector("#feedback").textContent="PASS: details, related problem link, live render and phone width";
+};
+</script></body></html>

@@ -58,6 +58,19 @@ The dashboard is administrator-only because it includes installation-wide config
 
 ### Choose what to watch
 
+Open an integration's **Settings** in Sources. **Monitor this integration** stops
+or resumes its connection, device and separate entity checks while retaining
+individual choices. **What to monitor** shows current counts; **Change** opens
+connection or device choices. Saved exclusions and individual choices remain
+visible. Review shows the effect of an unsaved choice before it is applied.
+
+**When to notify** shows device reporting preferences and check-specific
+exceptions. A bulk reporting edit applies to the listed current devices; new
+devices use the household reporting default. Manage shared times, recipients
+and activation in **Notifications**. The single **Review changes** footer
+includes all pending monitoring and settings changes. Nothing is saved until
+**Save changes**, and notification activation is never implicit.
+
 Use **Sources → Edit monitoring** for guided watch or exclude choices. Preview the exact selection before saving. The native options editor and the Saved monitoring policies disclosure retain the complete catalog rules for more complex matches.
 
 On a new installation, **Catalog rules (YAML list)** starts with:
@@ -412,3 +425,9 @@ complete catalog for inspecting exact conditions or correcting overlapping rules
 Opening either page preserves your choices; edits require **Review changes** and
 **Save choices**. Removing a rule does not stop monitoring if another rule still
 selects that source.
+
+### Report situations from HA automations
+
+Use the native **Homeostatic: Report situation** action or the supplied blueprint
+with HA condition and trigger editors. See [automation situation setup](automation-situations.md)
+for water, temperature and motion/time/moon examples, refresh requirements, and notification setup.

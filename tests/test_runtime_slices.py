@@ -2,15 +2,47 @@
 
 import asyncio
 from datetime import timedelta
+from itertools import count
 from typing import Any
 from unittest.mock import patch
 
+import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, callback
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.const import DOMAIN
 from tests.test_lifecycle import start_monitor
+
+
+@pytest.mark.parametrize(
+    ("step", "yields"), [(0.0, 2), (0.021, 19)], ids=["batch-limit", "time-limit"]
+)
+async def test_observation_slice_budget(
+    hass: HomeAssistant, config_data: dict[str, Any], step: float, yields: int
+) -> None:
+    """Elapsed work can yield before eight batches without losing transitions."""
+    config_data["notifications"] = False
+    hass.states.async_set("sensor.observed", "42")
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    with (
+        patch(
+            "custom_components.homeostatic.runtime.perf_counter",
+            side_effect=count(0, step),
+        ),
+        patch.object(
+            runtime, "_yield_observations", wraps=runtime._yield_observations
+        ) as pause,
+    ):
+        for _ in range(10):
+            hass.states.async_set("sensor.observed", "unavailable")
+            hass.states.async_set("sensor.observed", "42")
+        await hass.async_block_till_done()
+    assert pause.call_count == yields
+    assert len(runtime.history.snapshot()["episodes"]) == 10
+    assert not runtime.episodes
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_burst_yields_and_retains_later_evidence(

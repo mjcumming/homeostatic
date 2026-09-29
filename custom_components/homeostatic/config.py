@@ -293,6 +293,12 @@ def normalize_definitions(
                 else ("entity",)
             )
             for field in fields:
+                if (
+                    field == "entity"
+                    and "report_timeout" in item
+                    and "entity" not in item
+                ):
+                    continue
                 values = [item.get(field)] if field == "entity" else item.get(field, [])
                 if not isinstance(values, list) or not all(
                     isinstance(value, str) for value in values

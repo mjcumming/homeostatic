@@ -1,0 +1,86 @@
+blueprint:
+  name: Report a situation to Homeostatic
+  description: >-
+    Use Home Assistant conditions to maintain one continuing Homeostatic issue.
+    First declare its id and report_timeout in Homeostatic Situation alerts.
+    Use a timeout of 300 seconds or more with this one-minute refresh.
+    List every entity whose evidence the condition needs. Unknown or unavailable
+    evidence reports Cannot determine; false conditions report Cleared.
+    Choose current-state conditions, not trigger-id or event-only conditions.
+    One automation owns each situation. Notifications follow Homeostatic settings.
+  domain: automation
+  homeassistant:
+    min_version: 2026.9.0
+  input:
+    situation_id:
+      name: Situation ID
+      description: The id configured in Homeostatic, for example basement_water.
+      selector:
+        text:
+    evidence_entities:
+      name: Required evidence
+      description: Include all sensors, people, and other entities the conditions need.
+      selector:
+        entity:
+          multiple: true
+    active_conditions:
+      name: Situation is active when
+      description: All conditions must hold. Use HA's AND/OR groups for alternatives.
+      selector:
+        condition:
+    extra_triggers:
+      name: Additional reevaluation triggers
+      description: Optional exact time boundaries; state changes and each minute are built in.
+      default: []
+      selector:
+        trigger:
+mode: queued
+max: 10
+variables:
+  evidence_entities: !input evidence_entities
+triggers:
+  - trigger: state
+    entity_id: !input evidence_entities
+  - trigger: homeassistant
+    event: start
+  - trigger: time_pattern
+    minutes: "*"
+  - triggers: !input extra_triggers
+actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >-
+              {% set evidence = namespace(valid=true) %}
+              {% for entity in evidence_entities %}
+                {% if not has_value(entity) or state_attr(entity, 'restored') %}
+                  {% set evidence.valid = false %}
+                {% endif %}
+              {% endfor %}
+              {{ not evidence.valid }}
+        sequence:
+          - action: homeostatic.report_situation
+            data:
+              situation_id: !input situation_id
+              state: unknown
+      - conditions: !input active_conditions
+        sequence:
+          - action: homeostatic.report_situation
+            data:
+              situation_id: !input situation_id
+              state: active
+      - conditions:
+          - condition: not
+            conditions:
+              - condition: and
+                conditions: !input active_conditions
+        sequence:
+          - action: homeostatic.report_situation
+            data:
+              situation_id: !input situation_id
+              state: clear
+    default:
+      - action: homeostatic.report_situation
+        data:
+          situation_id: !input situation_id
+          state: unknown

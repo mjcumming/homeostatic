@@ -12,7 +12,7 @@ const treeCache = new WeakMap();
 export function sourceMap(data) {
   const nodes = data.inventory?.nodes;
   if (!nodes) return new Map();
-  if (data.schema_version !== 2) return new Map(nodes.map(source => [source.node_id, source]));
+  if (![2,3].includes(data.schema_version)) return new Map(nodes.map(source => [source.node_id, source]));
   if (!sourceMaps.has(nodes)) sourceMaps.set(nodes, new Map(nodes.map(source => [source.node_id, source])));
   return sourceMaps.get(nodes);
 }
@@ -37,13 +37,13 @@ export function recentEpisodes(data, limit = 3) {
 
 export function inventoryRows(data) {
   const key = data.inventory.catalog;
-  const cached = data.schema_version === 2 ? rowCache.get(key) : null;
+  const cached = [2,3].includes(data.schema_version) ? rowCache.get(key) : null;
   if (cached?.nodes === data.inventory.nodes) return cached.rows;
   const rows = new Map(data.inventory.catalog.candidates.map((row) => [row.node_id, row]));
   for (const row of data.inventory.nodes) rows.set(row.node_id, row);
   const sorted = [...rows.values()].sort((a, b) =>
     a.name.localeCompare(b.name) || a.node_id.localeCompare(b.node_id));
-  if (data.schema_version === 2) rowCache.set(key, {nodes:data.inventory.nodes, rows:sorted});
+  if ([2,3].includes(data.schema_version)) rowCache.set(key, {nodes:data.inventory.nodes, rows:sorted});
   return sorted;
 }
 
@@ -539,6 +539,17 @@ export function sourcePage(rows, query = "", page = 0) {
 
 export function mergeDashboard(previous, data) {
   if (data.schema_version === 1 || !data.available) return data;
+  if (data.schema_version === 3) {
+    if (!Number.isInteger(data.catalog_revision) || !data.inventory?.nodes || !data.inventory?.catalog ||
+        !CATALOG_SECTIONS.every(section => Number.isInteger(data.catalog_sections?.[section]) && data.catalog_sections[section] >= 0)) {
+      throw new Error("Incomplete Homeostatic catalog summary. Retry the connection.");
+    }
+    if (previous?.schema_version !== 3 || !previous.catalog_loaded || previous.catalog_revision !== data.catalog_revision) return data;
+    return {...data,catalog_loaded:true,inventory:{...data.inventory,
+      nodes:previous.inventory.nodes,catalog:previous.inventory.catalog,
+      targets:previous.inventory.targets,enrollment_changes:previous.inventory.enrollment_changes},
+      areas:previous.areas,devices:previous.devices,floors:previous.floors};
+  }
   if (data.inventory_changed === true) {
     if (!data.inventory?.nodes || !data.inventory?.catalog || !data.areas || !data.floors || !data.devices || !Number.isInteger(data.catalog_revision)) {
       throw new Error("Incomplete Homeostatic catalog. Retry the connection.");
@@ -553,6 +564,7 @@ export function mergeDashboard(previous, data) {
 }
 
 const stores = new WeakMap();
+const CATALOG_SECTIONS = ["nodes","candidates","targets","enrollment_changes","areas","devices","floors"];
 
 export class DashboardStore {
   constructor(connection) {
@@ -563,8 +575,13 @@ export class DashboardStore {
     this.unsubscribe = null;
     this.active = false;
     this.baseline = null;
+    this.catalogWanted = false;
+    this.catalogGeneration = 0;
+    this.catalogTask = null;
     this.disconnected = () => {
       this.baseline = null;
+      this.catalogGeneration++;
+      this.catalogTask = null;
       this.update({status: "disconnected", error: null});
     };
     this.ready = () => {
@@ -598,20 +615,25 @@ export class DashboardStore {
     this.update({status: "loading", error: null});
     this.connection.subscribeMessage((data) => {
       if (generation !== this.generation) return;
-      if (![1,2].includes(data.schema_version)) {
+      if (![1,2,3].includes(data.schema_version)) {
         this.baseline = null;
         this.update({status: "error", error: "Unsupported Homeostatic data version. Reload after updating."});
         return;
       }
       try {
+        if (!data.available || this.baseline?.catalog_revision !== data.catalog_revision) {
+          this.catalogGeneration++;
+          this.state = {...this.state,catalogError:null};
+        }
         data = mergeDashboard(this.baseline, data);
         this.baseline = data.available ? data : null;
         this.update({status: data.available ? "current" : "unavailable", data, error: null});
+        if (this.catalogWanted) this.ensureCatalog();
       } catch (error) {
         this.baseline = null;
         this.update({status:"error",data:null,error:error.message});
       }
-    }, {type: "homeostatic/subscribe", compact:true}).then((unsubscribe) => {
+    }, {type: "homeostatic/subscribe", paged:true}).then((unsubscribe) => {
       if (generation !== this.generation) {
         Promise.resolve(unsubscribe()).catch(() => {});
       } else {
@@ -627,6 +649,9 @@ export class DashboardStore {
   stop() {
     this.active = false;
     this.baseline = null;
+    this.catalogGeneration++;
+    this.catalogWanted = false;
+    this.catalogTask = null;
     this.generation++;
     this.connection.removeEventListener("disconnected", this.disconnected);
     this.connection.removeEventListener("ready", this.ready);
@@ -640,6 +665,52 @@ export class DashboardStore {
   retry() {
     this.stop();
     this.start();
+  }
+
+  ensureCatalog(retry = false) {
+    this.catalogWanted = true;
+    if (retry) this.state = {...this.state,catalogError:null};
+    if (this.catalogTask) return this.catalogTask;
+    const data = this.baseline;
+    if (this.state.status !== "current" || data?.schema_version !== 3 || data.catalog_loaded || this.state.catalogError) return Promise.resolve();
+    const token = this.catalogGeneration;
+    const revision = data.catalog_revision;
+    const current = () => token === this.catalogGeneration && this.active && this.state.status === "current";
+    const task = Promise.resolve().then(async () => {
+      const sections = {};
+      for (const section of CATALOG_SECTIONS) {
+        const total = data.catalog_sections[section];
+        const items = [];
+        for (let offset = 0; offset < total;) {
+          if (!current()) return;
+          const page = await this.connection.sendMessagePromise({type:"homeostatic/catalog",revision,section,offset,limit:200});
+          if (!current()) return;
+          const end = Math.min(offset + 200,total);
+          if (page.revision !== revision || page.section !== section || page.offset !== offset ||
+              page.total !== total || !Array.isArray(page.items) || page.items.length !== end - offset ||
+              page.next_offset !== (end < total ? end : null)) throw new Error("Incomplete source catalog. Retry loading sources.");
+          items.push(...page.items);
+          offset = end;
+        }
+        sections[section] = items;
+      }
+      if (!current()) return;
+      const latest = this.baseline;
+      this.baseline = {...latest,catalog_loaded:true,inventory:{...latest.inventory,
+        nodes:sections.nodes,catalog:{...latest.inventory.catalog,candidates:sections.candidates},
+        targets:sections.targets,enrollment_changes:sections.enrollment_changes},
+        areas:sections.areas,devices:sections.devices,floors:sections.floors};
+      this.update({data:this.baseline,catalogError:null});
+    }).catch(error => {
+      if (current()) this.update({catalogError:error?.message ?? "Could not load sources. Retry loading sources."});
+    }).finally(() => {
+      if (this.catalogTask !== task) return;
+      this.catalogTask = null;
+      if (token !== this.catalogGeneration && this.catalogWanted) this.ensureCatalog();
+    });
+    this.catalogTask = task;
+    if (retry) this.update({catalogError:null});
+    return this.catalogTask;
   }
 }
 

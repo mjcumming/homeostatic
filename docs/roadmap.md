@@ -24,3 +24,7 @@ Updated 2026-09-28. This file tracks delivery; [spec.md](spec.md) controls imple
 | Distribution | Bounded live pilot underway | Published health-tree 0.4.0 pin in the 0.1.0b12 candidate, reproducible ZIP, isolated package-install smoke and metadata checks; native live setup and dashboard verified with 129 integration instances; extended observation and HACS distribution remain |
 
 The structured YAML rule/function/situation forms are development interfaces. Legacy entity selections migrate to catalog rules; there is one attach/exclude model. The current catalog contains availability checks only. Check-specific parameters and additional evidence producers will arrive with their own contracts and traces. The dashboard now includes guided monitoring rule editing with preview and guarded save. Configuration-health suggestions for excessive one-entity rules remain presentation work. Do not add a competing per-entity override system or a native condition builder. No phone receipt, physical-device freshness, or production readiness is inferred from passing synthetic tests.
+
+The automation-first situation handoff is implemented locally: native report action,
+expiring evidence, condition-editor blueprint, restart and delivery scenarios.
+Guided Homeostatic situation menus and one-shot event reporting remain future work.

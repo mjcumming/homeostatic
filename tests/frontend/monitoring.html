@@ -4,6 +4,7 @@
 <body><div id="controls"><strong>Synthetic inventory · no live changes</strong><button id="run">Run monitoring scenarios</button><button id="update">Simulate live update</button><label><input type="checkbox" id="narrow">Narrow layout</label><label><input type="checkbox" id="dark">Dark theme</label><span id="feedback" role="status"></span></div><homeostatic-card></homeostatic-card>
 <script type="module">
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
+import {previewSourceSettings,saveSourceSettings} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
 import {monitoringExample} from "./monitoring-fixture.mjs";
 const card=document.querySelector("homeostatic-card"),data=monitoringExample();
 const saved=[{id:"entries",action:"attach",enabled:true,match:{kind:["integration"]},checks:["availability"]},{id:"devices",action:"attach",enabled:true,match:{kind:["device"]},checks:["availability"]}];
@@ -34,7 +35,7 @@ card._hass={user:{is_admin:true},localize:()=>null,async callWS(command){
   }
   if(command.type==="homeostatic/save_settings"){
     if(command.preview_token!=="settings-preview"||settingsToken!==JSON.stringify(command.settings)||command.revision!==String(revision))throw Error("Exact settings preview required");
-    settingsSaves++;revision++;settings=structuredClone(command.settings);return{saved:true};
+    settingsSaves++;revision++;settings=structuredClone(command.settings);if(settings.rules){saved.splice(0,saved.length,...settings.rules);delete settings.rules;}return{saved:true};
   }
   throw Error("Unexpected command: "+command.type);
 }};
@@ -74,10 +75,10 @@ document.querySelector("#run").onclick=async()=>{
     expect(card.sourcesSelection==="source:entity:registry:orphan-124","Grouping lost source identity");
     change(root.querySelector("[data-sources-group]"),"integration");
     search("Frigate");clickName("Frigate");
-    root.querySelector('[data-scope-index="0"][value="exclude"]').click();
+    root.querySelector("[data-integration-master]").click();
     expect(card.configDraft.some(rule=>rule.match.integration_domain?.[0]==="frigate"&&rule.match.kind?.length===3&&rule.action==="exclude"),"Integration-wide off did not stage");
     expect(!root.querySelector('[data-scope-index="2"]'),"Narrower choices remain active while integration is off");
-    root.querySelector('[data-scope-index="0"][value="inherit"]').click();
+    root.querySelector("[data-integration-master]").click();
     expect(!card.configDraft.some(rule=>rule.match.integration_domain?.[0]==="frigate"&&rule.match.kind?.length===3),"Resuming did not remove integration-wide off");
     root.querySelector('[data-scope-index="2"][value="exclude"]').click();
     expect(card.configDraft.some(rule=>rule.match.integration_domain?.[0]==="frigate"&&rule.overridable),"Future family device default missing");
@@ -96,7 +97,7 @@ document.querySelector("#run").onclick=async()=>{
     expect(!root.querySelector('[data-setting-path="notifications"]'),"Notification controls remain in Settings");
     root.querySelector('[data-settings-section="policies"]').click();
     expect(root.querySelector(".config-advanced"),"Global policies missing from Settings");
-    expect(root.querySelectorAll(".config-rule").length===card.configDraft.length,"Global editor lost saved policies");
+    expect(root.querySelectorAll(".config-advanced .config-rule").length===card.configDraft.length,"Global editor lost saved policies");
     root.querySelector('[data-settings-section="timing"]').click();
     change(root.querySelector('[data-setting-path="timings.unknown_hold"]'),"4");
     await card.previewSettings();await card.saveSettings();
@@ -106,12 +107,12 @@ document.querySelector("#run").onclick=async()=>{
     card.page="sources";card.render();
     expect(!root.querySelector(".config-advanced"),"Global policies remain inside source Settings");
     expect(root.querySelector("[data-reporting-bulk]"),"Integration device reporting is hidden");
-    await card.previewConfiguration();
-    expect(root.querySelector('[data-action="save-configuration"]').disabled===false,"Preview did not enable Save");
+    await previewSourceSettings(card);
+    expect(root.querySelector('[data-action="save-source-settings"]').disabled===false,"Preview did not enable Save");
     root.querySelector('[data-scope-index="2"][value="attach"]').click();
-    expect(card.configPreview===null&&!root.querySelector('[data-action="save-configuration"]'),"Changed choice retained stale preview");
-    await card.previewConfiguration();await card.saveConfiguration();
-    expect(saveCalls===1,"Exact reviewed save was not sent once");
+    expect(card.sourceSettingsReview===null&&!root.querySelector('[data-action="save-source-settings"]'),"Changed choice retained stale preview");
+    await previewSourceSettings(card);await saveSourceSettings(card);
+    expect(settingsSaves===2&&saveCalls===0,"Exact combined save was not sent once");
     expect(card.settingsDraft.timings.clear_hold===180,"Monitoring save discarded timing draft");
     card.sourcesView="source";card.sourcesQuery="";card.sourcesSelection="source:device:camera-1";card.sourcesMobileDetail=true;card.style.width="390px";card.render();await settle();
     expect(getComputedStyle(root.querySelector(".config-rail")).display==="none","Mobile stacked tree and details");

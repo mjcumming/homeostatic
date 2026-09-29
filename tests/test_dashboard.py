@@ -267,6 +267,13 @@ async def test_location_names_and_situation_detail(
     "command",
     [
         pytest.param({"type": "homeostatic/subscribe"}, id="subscription"),
+        pytest.param(
+            {"type": "homeostatic/subscribe", "paged": True}, id="paged-subscription"
+        ),
+        pytest.param(
+            {"type": "homeostatic/catalog", "revision": 0, "section": "nodes"},
+            id="catalog-page",
+        ),
         pytest.param({"type": "homeostatic/node", "node_id": NODE}, id="node"),
         pytest.param({"type": "homeostatic/configuration"}, id="configuration"),
         pytest.param({"type": "homeostatic/source", "node_id": NODE}, id="source"),

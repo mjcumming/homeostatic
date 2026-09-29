@@ -989,6 +989,16 @@ The first bounded pilot proposal uses one availability capability on each of two
 
 ## 21. Resolved history and dashboard controls
 
+Sources History should answer which source had a problem, what was reported,
+when it opened, and how it ended without requiring every row to be opened.
+Use retained source names and findings for ended problems; current evidence
+must not rewrite them. Show newest events first, readable terminal outcomes,
+observed timing and duration, and a clear details action. State the retention
+limit and that observed resolution time does not establish physical recovery
+time. Missing evidence or history must be visible. The executable Sources
+History scenario in `tests/frontend/source-history.html` covers these boundaries
+and the existing detail actions; it is linked from `tests/frontend/preview.html`.
+
 Implemented 2026-09-25 in the isolated dashboard increment. The spec remains the behavior contract.
 
 - Overview includes eight recently ended episodes and active controls. The history view searches retained source names, identities and findings, filters outcomes, and shows twenty records at a time. Stored evidence is never presented as current readiness. Removal and absorption do not imply recovery.
@@ -1199,3 +1209,24 @@ Retain the Notifications page and redesign it around the five reporting choices 
 Remove Everything / Important / Urgent only filters and quiet-hour controls from the new guided workflow. Both immediate choices include overnight; summaries run on configured schedules. Preserve existing custom-policy semantics until reviewed migration.
 
 The [interface draft](proposals/reporting-preferences.md#interface-draft-notifications-and-sources) contains wireframes, retained/removed controls, review/save behavior, compatibility requirements, and prototype acceptance cases. Page responsibilities are agreed; recipient scope, defaults, reminder frequency, summary contents, and detailed layout remain proposed. No runtime changes or live notification tests accompany this draft.
+
+## 33. Integration settings with current outcomes - 2026-09-29
+
+The owner approved the compact integration Settings proposal after a design and
+UX-writing pass. The page leads with monitoring activation, **What to monitor**,
+and **When to notify**. Current counts precede Change disclosures. Exceptions
+identify affected devices; reporting activation and current-versus-future device
+scope are explicit. Raw policy rules remain in the existing Settings editor.
+
+Implemented locally with one complete review/save/discard workflow. ADR 0031
+records the combined proposal and guarded save; catalog and notification
+semantics are unchanged. The synthetic real-component preview is
+`tests/frontend/integration-settings.html`. Its scenario covers reading without
+mutation, live-render disclosure preservation, saved counts versus pending
+choices, check exceptions, master stop/resume, exact combined save, failure and
+discard. The existing monitoring browser scenario also passes.
+
+Validation: quick gate including 129 frontend tests, 46 focused Home Assistant
+tests (`test_source_settings.py` and `test_dashboard.py`), and strict typing of
+the changed dashboard module. Phone dark and desktop light layouts were
+inspected. This is local implementation and verification, not a deployment.

@@ -131,6 +131,7 @@ A **Homeostatic** dashboard strategy is available in HA's new-dashboard dialog.
 | [Function status light](blueprints/automation/homeostatic/function_status_light.yaml) | Shows a function's readiness on a light |
 | [Problem logbook](blueprints/automation/homeostatic/problem_logbook.yaml) | Writes problem changes to the logbook |
 | [Diagnostic state](blueprints/template/homeostatic/diagnostic_state.yaml) | Template blueprint for situation-alert sources |
+| [Report a situation](blueprints/automation/homeostatic/report_situation.yaml) | Uses HA conditions to report active, clear, or unknown situations; [setup guide](docs/automation-situations.md) |
 
 ## Documentation
 

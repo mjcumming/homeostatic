@@ -1,5 +1,105 @@
 # Runtime bursts and device enrollment assessment
 
+## 2026-09-29 current local candidate
+
+This section supersedes the implementation-status statements in the historical
+measurements below. Homeostatic is based on `842eb90` (0.1.0b17); health-tree is
+based on `2035c1c` (0.5.0), with local uncommitted changes in both repositories.
+The manifest still pins published health-tree 0.5.0. The measurements below load
+the local library candidate through `PYTHONPATH`; installing the unchanged
+manifest alone does not obtain its engine optimization. Nothing was deployed,
+published, enrolled or enabled in a household instance.
+
+The candidate adds registered-edge indexes in health-tree, a 20 ms/eight-batch
+adapter processing budget, and schema-3 subscriptions with on-demand catalog
+pages. Existing schema-1/2 clients retain their full-baseline contracts.
+The runtime preserves every captured batch, timestamp and event order. Time
+slicing checks after each batch and cannot interrupt one engine call, garbage
+collection, reconciliation, serialization or publication.
+
+The engine-only benchmark on this WSL2 host reduced the mean 60-transition burst
+with 6,010 nodes from 3.041 s to 0.557 s (5.5 times faster). Maximum single-call
+time fell from 93.35 ms to 15.70 ms. Three failure/recovery cycles retained all
+360 opening/clearing events and matching kind/anchor/id sequence hashes; two
+later open episodes retained their persisted records across restore. Reproduce
+in health-tree with `uv run python -m tests.runtime_profile --output
+build/runtime-profile/result.json`. See its `docs/runtime-scaling.md` for scope.
+
+### Running Home Assistant with real storage and WebSocket
+
+Python 3.14.7 and HA 2026.9.3, 6,000 synthetic entities, 300 device summaries and
+ten controllers. Ten cycles each change all 1,200 members of 60 devices and then
+recover them. Notifications remain off. Current passive availability semantics
+produce warning episodes and degraded readiness (ADR 0025), so the old lab's
+blocked-readiness assertion was corrected before recording these results.
+
+| Measurement | Current local candidate |
+| --- | ---: |
+| Outage settlement, min / mean / max | 0.147 / 0.155 / 0.164 s |
+| Recovery settlement, min / mean / max | 0.139 / 0.173 / 0.290 s |
+| Longest outage / recovery loop gap | 0.019 / 0.161 s |
+| Saves / inventory scans per burst | 1 / 0 |
+| Episodes after each outage / recovery | 60 / 0 |
+| Initial summary event, before requesting catalog | 1.4 kB |
+| On-demand catalog | 39 responses, 4.19 MB total |
+| Largest catalog response | 174 kB |
+| Catalog fetch through loopback | 0.034 s |
+| Reload preserves subsequent two episode ids | Yes |
+
+An initial run observed a 147 ms recovery gap. A repeat with GC callbacks
+recorded generation-2 collections lasting 135 and 147 ms in recovery cycles
+four and ten, whose loop gaps were approximately 137 and 161 ms. Other burst
+gaps were below 20 ms. The diagnostic observes collection without changing HA's
+process-wide GC policy. The proposed 100 ms slice target is still not a hard
+guarantee. A catalog page is bounded to 200 rows, not a byte or latency limit.
+Sources still downloads the whole catalog when opened. The initial summary
+grows with open problems and current evidence; 1.4 kB is this healthy fixture.
+
+The browser fixture `tests/frontend/catalog-preview.html` verified Overview
+without a catalog request, explicit loading, search reaching Reading 5999 among
+6,000 sources, preserved search across invalidation, a visible failed-page
+state, and retry returning to loading before the complete tree reappears.
+Frontend scenarios also cover concurrent evidence during paging, shared cards,
+revision replacement, incomplete pages and late results after disconnect,
+unavailability and final unsubscribe. Backend scenarios use real HA WebSocket
+connections to check complete reconstruction, stale revisions, bounds,
+administrator access and read-only behavior.
+
+Validation passed: 529 regular HA tests (the three opt-in profiles were skipped
+there and passed in a separate run), 97.16% statement and 95.53% branch coverage,
+strict typing and quick checks. The final combined frontend checkout, including
+concurrent monitoring-policy UI work, passed 115 Node tests. Browser verification
+used synthetic data only.
+
+Reproduce the actual-storage run from Homeostatic:
+
+```bash
+PYTHONPATH=/mnt/c/GitHub/health-tree/src uv run python script/runtime_lab.py \
+  --device-summaries --cycles 10
+```
+
+The report is `build/runtime-profile/device-summaries.json`; each burst now
+includes observed GC pauses. Missing FFmpeg/libturbojpeg warnings in this
+development installation are unrelated to the availability assertions.
+
+### Broad entity scope remains a separate qualification gate
+
+The HA-helper profile with 6,011 watched sources now measured 1.095 s for 60
+unavailable transitions and 1.113 s for recovery, with maximum loop gaps of
+0.266 and 0.277 s. Unchanged reconciliation took 0.329 s with a 0.328 s gap.
+The legacy full initial snapshot was 8.26 MB; that field deliberately measures
+the schema-1 presentation, not the new summary. Each burst still performed one
+save, zero inventory scans and one publication. This profile mocks storage and
+measures schema-2 serialized update bytes, not real network transfer.
+
+Full-graph reconciliation, snapshot work and process-wide pauses still matter.
+Broad entity enrollment is not qualified by these improvements. Sustained
+household traffic and deployment hardware remain unmeasured. Historical numbers
+below describe older versions and semantics, not outstanding per-event scan/save
+bugs or current deployment status.
+
+## Historical baseline
+
 Measured 2026-09-25 on the development WSL host with Python 3.14.7, Home
 Assistant 2026.9.3, health-tree 0.3.0 and Homeostatic 0.1.0b3 (`24b45dd`).
 This assessment adds tests and records limitations; it changes no integration

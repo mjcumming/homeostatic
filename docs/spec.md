@@ -14,7 +14,7 @@ This increment pins HealthTree 0.4.0 for the acknowledgment and cancellation API
 
 ## Ordered observation work slices
 
-Queued observations retain their timestamps, ordering and atomic batch boundaries. The adapter yields to the HA loop after at most eight captured batches while retaining its runtime lock. New arrivals join the queue and are drained before current-state reconciliation, controls, persistence and publication. The current time is read after draining, preventing time from moving backward when new evidence arrives during a yield. No transition is dropped or collapsed by this scheduling change. This bounds the number of evaluations in a slice, not their duration; graph evaluation, reconciliation, serialization and catalog transfer still require measurement.
+Queued observations retain their timestamps, ordering and atomic batch boundaries. The adapter yields to the HA loop after eight captured batches or 20 ms of elapsed processing, whichever comes first, while retaining its runtime lock. Elapsed processing uses a monotonic clock, independently of observation UTC timestamps. The budget is checked after each complete batch and its policy work; it cannot interrupt one synchronous engine call. New arrivals join the queue and are drained before current-state reconciliation, controls, persistence and publication. The current time is read after draining, preventing time from moving backward when new evidence arrives during a yield. No transition is dropped or collapsed by this scheduling change. Graph evaluation, reconciliation, serialization and catalog transfer still require measurement.
 
 ## Scope and setup
 
@@ -101,9 +101,28 @@ The integration registers a Homeostatic sidebar dashboard at `/homeostatic`, a r
 
 Home, History, and problem detail are read-only. Sources browsing is read-only until the administrator opens Edit monitoring; Settings contains the alert-request editor for the saved notification switch and selected consumer automation. The alert editor shows the current policy's routing summary; detailed policy, functions, situations and timing remain in native Homeostatic options. Its HA link opens the Homeostatic integration entry. All Homeostatic dashboard WebSocket commands enforce administrator access because the view includes installation-wide inventory, configuration and notification routing; hiding the sidebar is not the authorization boundary. Non-administrators get an explicit access message. Existing readiness entities remain available through HA's entity access controls.
 
-Without `compact: true`, `homeostatic/subscribe` sends a schema-version-1 snapshot after subscription acknowledgement and on runtime publication. One adapter-owned presentation is shared by clients. It contains availability, last completed update, overall readiness, configured function readiness/requirements, inventory and rule provenance, current episodes and operator controls, coverage, policy explanations, and HA device/area/floor names. It never reads engine snapshot internals or advances time. Initial startup, a storage error, and unload publish `available: false` with `unavailable_reason` set to `starting`, `error`, or `unloaded`; an available snapshot sets it to null. No empty payload means healthy. Subscriptions remain valid across entry reload and are removed on client unsubscribe/disconnect. Static routes and WebSocket command registration are process-scoped to avoid duplicate routes after reload.
+Without `compact: true` or `paged: true`, `homeostatic/subscribe` sends a schema-version-1 snapshot after subscription acknowledgement and on runtime publication. One adapter-owned presentation is shared by clients. It contains availability, last completed update, overall readiness, configured function readiness/requirements, inventory and rule provenance, current episodes and operator controls, coverage, policy explanations, and HA device/area/floor names. It never reads engine snapshot internals or advances time. Initial startup, a storage error, and unload publish `available: false` with `unavailable_reason` set to `starting`, `error`, or `unloaded`; an available snapshot sets it to null. No empty payload means healthy. Subscriptions remain valid across entry reload and are removed on client unsubscribe/disconnect. Static routes and WebSocket command registration are process-scoped to avoid duplicate routes after reload.
 
 `homeostatic/node` accepts one `node_id` and returns its source, public explanation, potential impact and readiness (null for situations). Unknown nodes return `not_found`; unavailable monitoring returns `not_ready`. Subscription, node detail, configuration read and previews do not mutate state. `homeostatic/save_configuration` changes catalog rules; `homeostatic/save_alerts` changes notification activation and the consumer. Enabling requests can authorize messages for already-open episodes after reload. No dashboard endpoint acknowledges problems, starts maintenance, shelves, or directly sends a notification.
+
+The shipped frontend requests `paged: true` on `homeostatic/subscribe` (schema 3).
+It receives current evidence and source names for open episodes, functions and
+active controls without the full discovered catalog. `catalog_revision` and
+`catalog_sections` identify a coherent set of static lists. Sources and views
+that need the complete inventory load it on demand with `homeostatic/catalog`:
+revision, section, offset and limit (1–200, default 200). Each response contains
+the same revision, section, offset, total, items and next offset, or null when
+complete. Stale revisions return `stale_catalog`; unavailable monitoring returns
+`not_ready`. This endpoint is administrator-only and read-only.
+
+One shared client fetches pages sequentially and installs the completed catalog
+atomically, merging the latest dynamic evidence. Partial pages never imply a
+complete search or empty healthy inventory. Loading and retry states replace the
+Sources tree until complete. New catalog revisions, unavailability, disconnect
+and final unsubscribe discard in-flight results. Revision changes coalesce into
+one replacement fetch; errors require explicit retry. Search still covers every
+source and the tree gains no visible pagination. Existing full and compact
+subscriptions retain their contracts. See ADR 0029.
 
 Coverage and house source rows show monitoring status and evidence without displaying catalog rule ids. Rule ids remain available in administrator inventory and configuration previews for tracing enrollment decisions.
 
@@ -185,7 +204,7 @@ Ordinary available-value changes do not trigger a new availability observation o
 
 ## Presentation and queries
 
-The standalone Homeostatic panel includes a keyboard-accessible hamburger button in its persistent header, with a 44-pixel touch target. It dispatches Home Assistant's native `hass-toggle-menu` event to open or close the HA sidebar, including on narrow screens and while monitoring is loading, disconnected or unavailable. Internal Homeostatic page tabs remain separate. Embedded dashboard cards rely on their containing HA dashboard for global navigation.
+The standalone Homeostatic panel includes a keyboard-accessible hamburger button in its persistent header, with a 44-pixel touch target. The header, including its title and page tabs, stays at the top of the panel's scrolling viewport while content scrolls beneath it on phones and desktops. It dispatches Home Assistant's native `hass-toggle-menu` event to open or close the HA sidebar, including on narrow screens and while monitoring is loading, disconnected or unavailable. Internal Homeostatic page tabs remain separate. Embedded dashboard cards rely on their containing HA dashboard for global navigation and retain an ordinary scrolling card header.
 
 An overall readiness sensor preserves `ready`, `unknown`, `degraded`, and `blocked`. It uses all rule-enrolled capabilities and declared functions; no selections yield unknown. Additional diagnostic sensors show open episode count and evidence-gap count. Intentionally composite function nodes are not counted as unwatched evidence gaps; their requirements provide the evidence. The raw coverage query retains the library no-checks list. Queries/actions expose inventory, explain, readiness, impact, coverage, and rollup through service responses. Queries use only public library APIs. Episode presentation is maintained from engine events and persisted independently, never extracted from engine snapshot internals.
 
@@ -195,7 +214,7 @@ The integration registers a Homeostatic sidebar dashboard at `/homeostatic`, a r
 
 The dashboard is administrator-only because the aggregate view includes installation-wide inventory, configuration and notification routing. Read and configuration WebSocket commands enforce administrator access; hiding the sidebar is not the authorization boundary. Operator forms call the existing HA administrator services, which enforce authorization independently. Non-administrators get an explicit access message. Existing readiness entities remain available through HA's entity access controls.
 
-Without `compact: true`, `homeostatic/subscribe` sends a schema-version-1 snapshot after subscription acknowledgement and on runtime publication. One adapter-owned presentation is shared by clients. It contains availability, last completed update, overall readiness, configured function readiness/requirements, inventory and rule provenance, current episodes and operator controls, coverage, policy explanations, and HA area/floor names. It never reads engine snapshot internals or advances time. Initial startup, a storage error, and unload publish `available: false`; no empty payload means healthy. Subscriptions remain valid across entry reload and are removed on client unsubscribe/disconnect. Static routes and WebSocket command registration are process-scoped to avoid duplicate routes after reload.
+Without `compact: true` or `paged: true`, `homeostatic/subscribe` sends a schema-version-1 snapshot after subscription acknowledgement and on runtime publication. One adapter-owned presentation is shared by clients. It contains availability, last completed update, overall readiness, configured function readiness/requirements, inventory and rule provenance, current episodes and operator controls, coverage, policy explanations, and HA area/floor names. It never reads engine snapshot internals or advances time. Initial startup, a storage error, and unload publish `available: false`; no empty payload means healthy. Subscriptions remain valid across entry reload and are removed on client unsubscribe/disconnect. Static routes and WebSocket command registration are process-scoped to avoid duplicate routes after reload.
 
 `homeostatic/node` accepts one `node_id` and returns its source, public explanation, potential impact and readiness (null for situations). Unknown nodes return `not_found`; unavailable monitoring returns `not_ready`. No endpoint changes configuration, acknowledges problems, starts maintenance, shelves, or sends notifications.
 
@@ -250,6 +269,8 @@ Phone destination choices group a Companion phone route and its mobile-app notif
 Homeostatic publishes `homeostatic_episode` and `homeostatic_control` events for every opened, meaningfully updated and resolved episode and every operator control start and end, independent of notification settings ([ADR 0014](adr/0014-publish-detected-facts-for-owner-automations.md)). Facts publish after the durable save and before notification requests from the same change, at most once, without replay on reload. Readiness sensors are enum sensors, and each function has an event entity for problems that affect it. [events.md](events.md#detected-facts-for-owner-automations) is the payload contract.
 
 ## Recently resolved problems
+
+Sources History explains each related open or retained ended problem with its source name, recorded finding, outcome, opening time, and (for ended problems) observed resolution time and recorded duration. Entries sort newest first by opening or observed resolution time. It uses the shared recovery, monitoring-ended, and absorption labels; removal and absorption never imply recovery. Retained names and findings remain historical even when current source names or states change. Missing findings and unavailable history are explicit. The view states the retention limits and observation-time boundary and opens the existing problem or history details.
 
 The read-only `resolved_history` action and additive `inventory.resolved_history` field return `{started_at, retention, episodes}`. `retention` contains `max_episodes: 100` and `max_age_days: 30`. Entries are newest resolution first. The adapter keeps only the latest 100 terminal episodes whose resolution was observed less than 30 days ago; expiry is applied to queries immediately and to persistence at reconciliation. This is bounded terminal history, not a full transition, configuration, operator-action or delivery journal.
 
@@ -325,6 +346,40 @@ This section supersedes the earlier Sources layout and native-only timing editor
 
 Acceptance covers integration-family grouping with multiple connections, future matching devices and individual exceptions, separate mobile navigation, full-inventory search, live-update scroll retention, clean Overview/Issues, timing edits across sections, exact-preview validation, stale saves, invalid settings, preservation of unrelated options, and reload rollback. Tests use synthetic data or an isolated HA instance and send no live notifications.
 
+## Integration settings presentation and review (ADR 0031)
+
+Integration Settings leads with one monitoring on/off control, then **What to
+monitor** and **When to notify**. Show actual saved connection/device monitoring
+counts before exposing choices through Change. Label those counts as current;
+unsaved policy choices are separate and their effective result comes from the
+server preview. Following policies, explicit watches, individual exclusions and
+multiple direct policies remain distinct. Turning the integration off retains
+narrower choices and hides their editors. A saved broad exclusion must never be
+presented as overridden by an individual watch.
+
+Reporting shows current device preference counts, check-specific exceptions with
+source names, and household notification activation. Before reporting setup,
+show that existing notification policy remains active rather than presenting
+prospective defaults as saved preferences. Bulk edits affect only the listed
+current device summaries; future devices use the household default. Device
+monitoring defaults still cover future matching devices. Reading or expanding
+settings changes no draft, monitoring, or notification state.
+
+One footer reviews all pending monitoring and installation-setting changes,
+including drafts made elsewhere. Preview uses the complete draft, names changes
+and current affected sources, and sends nothing. `preview_settings` and
+`save_settings` accept optional `rules` inside `settings`; validation normalizes
+these rules, includes the complete proposal in the exact preview token, and
+saves both through the existing revision check, save lock, single reload and
+whole-options rollback. A combined preview includes `monitoring` enrollment
+results. Its policy-request count describes existing open problems under the
+proposed policy, not a simulation of episodes after changed enrollment. Editing
+either draft invalidates the shared review. Saving elsewhere invalidates it too.
+
+The frontend retains the reviewed payload separately from shared drafts, so a
+later edit or navigation cannot reuse a token for different content. Save and
+discard cover the full proposal; notification activation is never implicit.
+
 ## Fixed reporting preferences (ADR 0027)
 
 Generated reporting-v1 policies provide Immediate, Immediate with acknowledgment,
@@ -358,3 +413,44 @@ person destinations, and clears any previous consumer in the draft. Preview and
 save replace the previous policy only after review. Timing-only edits do not
 stage a reporting replacement. Browser scenarios cover global/source separation,
 old-policy visibility, retained drafts, and exact reviewed saves.
+
+## Automation-reported situations (ADR 0032)
+
+A situation declares either an `entity` or a `report_timeout` integer from 60 to
+86400 seconds, never both. The latter accepts the administrator action
+`homeostatic.report_situation` with its configured `situation_id` and `state`
+(`active`, `clear`, `unknown`). HA automations without a user context use the
+normal administrator-service convention. Reports never create configuration.
+Only one automation should own each id; calls are applied in serialized arrival
+order using adapter UTC acceptance time. Retrying the same state retains the
+episode and refreshes evidence; it is not a new occurrence.
+
+The existing condition check uses report_timeout as its TTL. Reports map to
+fail/pass/unknown; expiration never resolves an open episode. The normal
+unknown_hold then governs stale attention. Ordinary reconciliation never renews
+a report. Every setup/reload requires a fresh report: a restored open episode
+retains its identity and receives unknown before current reports arrive.
+The source is edgeless, excluded from readiness, and protected from equipment
+maintenance, like an entity-bound situation.
+
+Actions use the same serialized persistence-before-publication path as operator
+controls. Storage failure returns an error, publishes no new delivery, and marks
+monitoring unavailable; inspect state after recovery before retrying. No separate
+report store, lifecycle or notification bypass is introduced. Reports do not
+enable notifications, create recipients, or prove delivery. One-shot informational
+events are outside this increment.
+
+The supplied automation blueprint checks all declared evidence entities, reports
+unknown for missing/unknown/unavailable/restored evidence, otherwise evaluates
+native HA conditions and reports active or clear. It reevaluates on source
+changes, HA start, each minute, and optional owner triggers. Configure timeout
+longer than this cadence. Disabling/removing the reporter causes expiry, never
+clear. Conditions run inside the action sequence so a false result reports clear
+rather than skipping the automation. Startup races retry on the next minute.
+Owners must list every entity needed as evidence and use one reporter per id.
+Conditions describe continuing states; trigger-specific event predicates require
+an owner-maintained state source instead. HA owns timer/restart semantics.
+
+Condition evaluation errors (such as nonnumeric temperature values) report unknown.
+The blueprint checks both the positive condition and its explicit negation;
+falling through an errored condition does not report clear.

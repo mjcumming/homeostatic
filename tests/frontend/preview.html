@@ -10,11 +10,19 @@
   </style>
 </head>
 <body>
+  <p><a href="source-history.html">Sources History: MQTT phone and desktop scenario</a></p>
   <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="device">Front Porch reading unknown</option><option value="light">Light unavailable</option><option value="occupancy">Occupancy sensor unavailable</option><option value="entity-recovery">Light recovering</option><option value="entity-unknown">Light state unknown</option><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="entity-check">Run entity regression</button><button type="button" id="menu-check">Run menu regression</button><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="live-navigation-check">Run live update regression</button><button type="button" id="scroll-panel-check">Open scrolling panel</button><button type="button" id="page-check">Run page map regression</button><button type="button" id="house-check">Run house layout regression</button><button type="button" id="device-check">Run device popup regression</button><button type="button" id="problem-check">Run problem regression</button><button type="button" id="policy-check">Run monitoring policy regression</button><span id="feedback" role="status"></span></div>
   <homeostatic-panel></homeostatic-panel>
+  <button type="button" id="header-check">Run pinned header regression</button>
   <script type="module">
     import "../../custom_components/homeostatic/frontend/homeostatic.js";
+    import {runPanelHeaderScenario} from "./panel-header-scenario.mjs";
     import {runMonitoringPolicyScenario} from "./monitoring-policies-scenario.mjs";
+    document.querySelector("#header-check").addEventListener("click", async () => {
+      const feedback = document.querySelector("#feedback");
+      try { feedback.textContent = await runPanelHeaderScenario(); }
+      catch (error) { feedback.textContent = `FAIL: ${error.message}`; }
+    });
     const card=document.querySelector("homeostatic-panel");
     document.querySelector("#policy-check").addEventListener("click",async()=>{
       const feedback=document.querySelector("#feedback");

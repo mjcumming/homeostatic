@@ -134,6 +134,12 @@ first acknowledgment time. Phone action wiring remains a consumer increment.
 
 ## Fixed reporting preferences
 
+Integration Settings reviews monitoring and reporting together. Optional `rules`
+in a `preview_settings`/`save_settings` proposal are bound to the same revision
+and token as reporting; both are saved or rolled back together. Preview emits no
+notification events. The policy-request forecast concerns existing open problems
+and does not simulate changed enrollment.
+
 Set up reporting in Notifications, select people and their destinations, and review
 before enabling requests. Assign Immediate, Immediate with acknowledgement, Morning,
 Evening, Weekly, or Dashboard only in Sources Settings. Both immediate choices
@@ -149,3 +155,12 @@ Existing notification policies stay active until you review a migration. Source
 defaults can be changed in bulk while condition exceptions remain intact. Shared
 root problems use the strongest explicit affected-source preference, preserving one
 episode. Overview shows readiness and the next nonempty report's provisional count.
+
+## Incoming automation reports
+
+`homeostatic.report_situation` is an administrator action, not an event to fire.
+It accepts a configured automation situation id and active/clear/unknown state.
+Its optional response contains node_id, state, accepted_at, and expires_at.
+Successful return confirms durable processing, not notification receipt.
+Episode facts preserve the calling HA context; existing notification policy and
+request identities remain authoritative. See [setup and examples](automation-situations.md).

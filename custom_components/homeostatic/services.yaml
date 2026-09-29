@@ -163,3 +163,29 @@ cancel_control:
       description: Current control id from Operator controls.
       selector:
         text:
+
+report_situation:
+  name: Report situation
+  description: >-
+    Report a configured automation situation as active, cleared, or unknown.
+    Refresh before its report timeout; only clear resolves it. Does not enable notifications.
+  fields:
+    situation_id:
+      name: Situation ID
+      description: ID declared in Situation alerts with report_timeout and no entity.
+      required: true
+      example: basement_water
+      selector:
+        text:
+    state:
+      name: Condition state
+      required: true
+      selector:
+        select:
+          options:
+            - label: Active
+              value: active
+            - label: Cleared
+              value: clear
+            - label: Cannot determine
+              value: unknown

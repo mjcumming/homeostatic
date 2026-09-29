@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Monitor your home",
-        "description": "Edit passive attach/exclude rules and define functions or entity-bound situations. Exclusions always win. Enable Preview to inspect rule matches, function requirements and candidate decisions without saving, then turn it off to apply. Policy controls recipients, channels, quiet hours, reminders, escalation and digests. Notifications need an enabled consumer automation. Situation sources must report evidence loss as unavailable. Timing values are seconds except coalescing count. See README examples.\n\n{preview}\n{error_detail}",
+        "description": "Edit passive attach/exclude rules and define functions or entity-bound or automation-reported situations. Exclusions always win. Enable Preview to inspect rule matches, function requirements and candidate decisions without saving, then turn it off to apply. Policy controls recipients, channels, quiet hours, reminders, escalation and digests. Notifications need an enabled consumer automation. Situation sources must report evidence loss as unavailable. Timing values are seconds except coalescing count. See README examples.\n\n{preview}\n{error_detail}",
         "data": {
           "notifications": "Activate notification events",
           "settle": "Dependency settle time",
@@ -39,7 +39,7 @@
     "step": {
       "init": {
         "title": "Monitoring options",
-        "description": "Edit passive attach/exclude rules and define functions or entity-bound situations. Exclusions always win. Enable Preview to inspect rule matches, function requirements and candidate decisions without saving, then turn it off to apply. Policy controls recipients, channels, quiet hours, reminders, escalation and digests. Notifications need an enabled consumer automation. Situation sources must report evidence loss as unavailable. Timing values are seconds except coalescing count. See README examples.\n\n{preview}\n{error_detail}",
+        "description": "Edit passive attach/exclude rules and define functions or entity-bound or automation-reported situations. Exclusions always win. Enable Preview to inspect rule matches, function requirements and candidate decisions without saving, then turn it off to apply. Policy controls recipients, channels, quiet hours, reminders, escalation and digests. Notifications need an enabled consumer automation. Situation sources must report evidence loss as unavailable. Timing values are seconds except coalescing count. See README examples.\n\n{preview}\n{error_detail}",
         "data": {
           "notifications": "Activate notification events",
           "settle": "Dependency settle time",
@@ -76,6 +76,22 @@
       },
       "evidence_gaps": {
         "name": "Evidence gaps"
+      }
+    }
+  },
+  "services": {
+    "report_situation": {
+      "name": "Report situation",
+      "description": "Report an automation situation as active, cleared, or unknown. Refresh before its configured timeout. Does not enable notifications.",
+      "fields": {
+        "situation_id": {
+          "name": "Situation ID",
+          "description": "ID declared in Situation alerts with report_timeout and no entity."
+        },
+        "state": {
+          "name": "Condition state",
+          "description": "Active opens or updates; cleared resolves; unknown preserves an unresolved issue."
+        }
       }
     }
   }

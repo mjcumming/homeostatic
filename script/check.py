@@ -36,6 +36,8 @@ def main() -> None:
             "--test",
             "tests/frontend/model.test.mjs",
             "tests/frontend/reporting.test.mjs",
+            "tests/frontend/source-settings.test.mjs",
+            "tests/frontend/source-history.test.mjs",
         ),
     ):
         result = subprocess.run(command, cwd=root, check=False)

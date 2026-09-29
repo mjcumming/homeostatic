@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Integration settings scenarios</title>
+<style>:root{--primary-text-color:#eeeeee;--primary-background-color:#111;--card-background-color:#1c1c1c;--secondary-background-color:#252525;--secondary-text-color:#b5b9bc;--divider-color:#383838;--primary-color:#22c5eb;--text-primary-color:#06242c;color-scheme:dark}body{margin:0;background:var(--primary-background-color);color:var(--primary-text-color);font:16px Arial,sans-serif}#controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:16px}#controls button{padding:10px;font:inherit}homeostatic-card{display:block;max-width:1100px;margin:auto}#feedback{white-space:pre-wrap}body.light{--primary-text-color:#212121;--primary-background-color:#f5f5f5;--card-background-color:#fff;--secondary-background-color:#eee;--secondary-text-color:#606060;--divider-color:#ddd;--primary-color:#006f94;--text-primary-color:#fff;color-scheme:light}</style></head>
+<body><div id="controls"><strong>Synthetic settings · no live changes</strong><button id="run">Run settings scenarios</button><label><input type="checkbox" id="narrow" checked>Phone width</label><label><input type="checkbox" id="light">Light theme</label><span id="feedback" role="status"></span></div><homeostatic-card style="width:390px;max-width:100%"></homeostatic-card>
+<script type="module">
+import "../../custom_components/homeostatic/frontend/homeostatic.js";
+import {monitoringExample} from "./monitoring-fixture.mjs";
+import {previewSourceSettings,saveSourceSettings} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
+const card=document.querySelector("homeostatic-card"),feedback=document.querySelector("#feedback");
+const data=monitoringExample();
+const omitted=new Set(["camera-21","camera-22","camera-23","camera-24","camera-25"]);
+data.devices=data.devices.filter(device=>!omitted.has(device.id));
+data.inventory.nodes=data.inventory.nodes.filter(source=>!omitted.has(source.attributes.device?.[0]));
+data.inventory.catalog.candidates=data.inventory.nodes;
+const originals=[{id:"connections",action:"attach",enabled:true,match:{kind:["integration"]},checks:["availability"]},{id:"devices",action:"attach",enabled:true,match:{kind:["device"]},checks:["availability"]},...[2,3,4].map(number=>({id:`excluded-${number}`,action:"exclude",enabled:true,match:{kind:["device"],device:[`camera-${number}`]},checks:["availability"]}))];
+const originalSettings={timings:{settle:120,unknown_hold:900,retry_hold:120,clear_hold:120,rejoin_grace:60,startup_grace:120,startup_quiet_max:600,coalesce_count:3,coalesce_window:60,batch:30},notifications:false,consumer:null,simple_notifications:null,policy:{timezone:"America/Chicago",recipients:{},rules:[]},reporting:{timezone:"America/Chicago",default:"weekly",people:{},profiles:{immediate:{people:[]},acknowledge:{people:[]},morning:{people:[],at:"08:00"},evening:{people:[],at:"18:00"},weekly:{people:[],at:"09:00",weekday:6}},assignments:{"device:camera-1":{default:"weekly",checks:{availability:"immediate"}}}}};
+let savedRules=structuredClone(originals),savedSettings=structuredClone(originalSettings),revision=1,review=null,saveCalls=0,failSave=false;
+const configuration=()=>({revision:String(revision),rules:structuredClone(savedRules),settings:structuredClone(savedSettings),alerts:{notifications:false,consumer:null},notification_people:[],notification_destinations:[]});
+function reflectSaved(){
+  const off=savedRules.some(rule=>rule.action==="exclude"&&rule.match.kind?.length===3);
+  for(const source of data.inventory.nodes.filter(source=>source.kind==="device"&&source.attributes.integration?.includes("frigate"))){
+    const excluded=savedRules.filter(rule=>rule.action==="exclude"&&rule.match.device?.includes(source.attributes.device[0]));
+    source.excluded_by=excluded.map(rule=>rule.id);source.watched=!off&&!excluded.length;
+  }
+}
+reflectSaved();
+card._hass={user:{is_admin:true},localize:()=>null,async callWS(request){
+  if(request.type==="homeostatic/configuration")return configuration();
+  if(request.type==="homeostatic/preview_settings"){
+    review=structuredClone(request);
+    return {preview_token:"combined-review",before:structuredClone(savedSettings),after:structuredClone(request.settings),requests_now:0,open_problems:0,monitoring:{watched:19,added:[],removed:[],added_count:0,removed_count:0,functions:[]}};
+  }
+  if(request.type==="homeostatic/save_settings"){
+    if(failSave)throw Error("Settings changed; reload this page");
+    if(request.preview_token!=="combined-review"||request.revision!==String(revision)||JSON.stringify(request.settings)!==JSON.stringify(review.settings))throw Error("Exact combined preview required");
+    saveCalls++;savedRules=structuredClone(request.settings.rules);savedSettings=structuredClone(request.settings);delete savedSettings.rules;revision++;reflectSaved();return {saved:true};
+  }
+  if(request.type==="homeostatic/source")return {members:[],total:0,updated_at:data.updated_at};
+  throw Error(`Unexpected request: ${request.type}`);
+}};
+card.current={status:"current",data};card.page="sources";card.sourcesView="settings";card.sourcesSelection="source:entry:frigate";card.sourcesMobileDetail=true;
+await card.loadConfiguration();
+document.querySelector("#narrow").onchange=event=>{card.style.width=event.target.checked?"390px":"100%";card.render();};
+document.querySelector("#light").onchange=event=>document.body.classList.toggle("light",event.target.checked);
+window.addEventListener("error",event=>feedback.textContent="ERROR: "+event.message);
+document.querySelector("#run").onclick=async()=>{
+  const expect=(value,message)=>{if(!value)throw Error(message);};
+  const root=card.shadowRoot;
+  try {
+    savedRules=structuredClone(originals);savedSettings=structuredClone(originalSettings);revision++;reflectSaved();
+    card.page="sources";card.sourcesView="settings";card.sourcesSelection="source:entry:frigate";card.sourcesMobileDetail=true;await card.loadConfiguration();
+    const original=JSON.stringify(configuration());
+    expect(root.querySelector(".integration-settings"),"Integration settings not rendered");
+    expect(card.main.innerText.includes("Currently 18 of 21 devices monitored"),"Saved monitoring counts are missing");
+    expect(!card.main.innerText.includes("All devices, including new devices"),"Choice editor should start collapsed");
+    const change=root.querySelector('[data-ui-key="integration-devices"]');change.querySelector("summary").click();
+    expect(card.main.innerText.includes("All devices, including new devices"),"Change did not expose controls");
+    expect(JSON.stringify(configuration())===original,"Opening Change mutated saved settings");
+    root.querySelector('[data-scope-index="2"][value="attach"]').click();
+    expect(root.querySelector('[data-ui-key="integration-devices"]').open,"Live render lost open editor");
+    expect(card.main.innerText.includes("Currently 18 of 21 devices monitored"),"Draft invented an effective count");
+    root.querySelector('[data-ui-key="integration-reporting"]>summary').click();
+    const bulk=root.querySelector("[data-reporting-bulk]");bulk.value="evening";bulk.dispatchEvent(new Event("change",{bubbles:true}));
+    expect(card.settingsDraft.reporting.assignments["device:camera-1"].checks.availability==="immediate","Bulk edit erased a check preference");
+    expect(card.main.innerText.includes("20 Evening summary"),"Draft reporting summary is missing");
+    expect(!root.querySelector('[data-action="save-source-settings"]'),"Unreviewed changes have a save button");
+    await previewSourceSettings(card);
+    expect(!!root.querySelector('[data-action="save-source-settings"]'),"Combined preview did not expose Save");
+    root.querySelector("[data-integration-master]").click();
+    expect(!root.querySelector('[data-action="save-source-settings"]'),"Master edit reused a stale preview");
+    expect(!card.main.innerText.includes("What to monitor"),"Master off did not hide narrower monitoring controls");
+    root.querySelector("[data-integration-master]").click();
+    expect(card.settingsDraft.reporting.assignments["device:camera-1"].default==="evening","Master toggle discarded reporting draft");
+    await previewSourceSettings(card);failSave=true;await saveSourceSettings(card);failSave=false;
+    expect(card.main.innerText.includes("Settings changed; reload this page"),"Failed save needs an explicit error");
+    expect(!root.querySelector('[data-action="save-source-settings"]'),"Failed save retained reusable review");
+    const count=saveCalls;await previewSourceSettings(card);await saveSourceSettings(card);
+    expect(saveCalls===count+1,"Combined save was not sent exactly once");
+    expect(savedRules.length===6&&savedSettings.reporting.assignments["device:camera-1"].default==="evening","Combined save omitted a draft");
+    expect(savedSettings.notifications===false,"Saving activated notifications");
+    expect(card.main.innerText.includes("No unsaved changes"),"Successful save did not clear drafts");
+    expect(root.querySelector(".integration-settings").scrollWidth<=root.querySelector(".source-body").clientWidth,"Settings overflow at phone width");
+    card.render();expect(!root.querySelector('[data-action="save-source-settings"]'),"Live update resurrected a saved preview");
+    root.querySelector('[data-ui-key="integration-devices"]>summary').click();
+    root.querySelector('[data-scope-index="2"][value="exclude"]').click();
+    root.querySelector('[data-action="discard-source-settings"]').click();
+    expect(JSON.stringify(card.configDraft)===JSON.stringify(savedRules),"Discard did not restore monitoring");
+    feedback.textContent="PASS: actual counts, collapsed editors, draft preservation, exception retention, combined review/save, stale review, save failure, discard and phone layout";
+    for(const details of root.querySelectorAll("details"))details.open=false;
+  } catch(error){failSave=false;feedback.textContent="FAIL: "+error.message;}
+};
+</script></body></html>

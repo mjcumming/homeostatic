@@ -7,6 +7,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime, timedelta
 from functools import partial
+from time import perf_counter
 from typing import Any
 from uuid import uuid4
 
@@ -97,6 +98,7 @@ from .history import ResolvedHistory
 from .notification_routes import async_send
 from .rules import Attributes, parse_rules
 from .serialization import json_object, to_json
+from .situation_reports import report_observation
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -343,14 +345,19 @@ class Runtime:
         assert self.engine is not None
         assert self.policy is not None
         processed = 0
+        slice_started = perf_counter()
         while self._pending:
             now, observations, cause = self._pending.popleft()
             self._record_observations(observations)
             self._handle(self.engine.ingest_many(observations, now), now, cause)
             self._deliveries(self.policy.advance(now, PolicyContext()))
             processed += 1
-            if processed % 8 == 0 and self._pending:
+            if self._pending and (
+                processed >= 8 or perf_counter() - slice_started >= 0.020
+            ):
                 await self._yield_observations()
+                processed = 0
+                slice_started = perf_counter()
 
     async def _yield_observations(self) -> None:
         """Let HA service other callbacks without releasing ordered state ownership."""
@@ -662,6 +669,22 @@ class Runtime:
     ) -> dict[str, JSONValue]:
         assert self.engine is not None
         assert self.policy is not None
+        if action == "report_situation":
+            source = self.sources.get(f"situation:{data['situation_id']}")
+            if source is None or source.report_timeout is None:
+                raise ValueError(
+                    "Choose a configured automation situation with report_timeout"
+                )
+            observation = report_observation(source, data["state"], now)
+            self._handle(self.engine.ingest_many([observation], now), now, context)
+            return {
+                "node_id": source.node_id,
+                "state": data["state"],
+                "accepted_at": now.isoformat(),
+                "expires_at": (
+                    now + timedelta(seconds=source.report_timeout)
+                ).isoformat(),
+            }
         if action in {"acknowledge", "cancel_control"}:
             if not supports_attention_controls():
                 raise ValueError("This action requires HealthTree 0.4.0 or newer")
@@ -808,7 +831,9 @@ class Runtime:
             ) as err:
                 self._failed(err)
                 raise HomeAssistantError(
-                    "Could not confirm operator control; inspect controls after recovery"
+                    "Could not confirm situation report; inspect current state after recovery"
+                    if action == "report_situation"
+                    else "Could not confirm operator control; inspect controls after recovery"
                 ) from err
             finally:
                 async_dispatcher_send(self.hass, self.signal)
@@ -939,6 +964,10 @@ class Runtime:
         observations = []
         for source in sources.values():
             if not source.watched:
+                continue
+            if source.report_timeout is not None:
+                if first:
+                    observations.append(report_observation(source, "unknown", now))
                 continue
             if source.kind in {"entity", "situation"} and discover:
                 state = (

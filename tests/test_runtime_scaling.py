@@ -181,7 +181,7 @@ async def test_registered_inventory_runtime_load(
         runtime,
         lambda: changes(hass, shape.entities[:60], "unavailable"),
     )
-    assert runtime.readiness == "blocked"
+    assert runtime.readiness == "degraded"
     assert len(runtime.episodes) == 60
     results["recovery_60_updates"] = await measure(
         hass,

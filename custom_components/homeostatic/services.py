@@ -12,7 +12,13 @@ from homeassistant.helpers.service import async_register_admin_service
 from .const import DOMAIN
 from .runtime import Runtime
 
-MUTATIONS = ("shelve", "start_maintenance", "acknowledge", "cancel_control")
+MUTATIONS = (
+    "shelve",
+    "start_maintenance",
+    "acknowledge",
+    "cancel_control",
+    "report_situation",
+)
 SERVICES = (
     *MUTATIONS,
     "operator_controls",
@@ -52,7 +58,14 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
 
     for service in SERVICES:
         fields: dict[Any, Any] = {}
-        if service in {"acknowledge", "cancel_control"}:
+        if service == "report_situation":
+            fields = {
+                vol.Required("situation_id"): vol.All(
+                    cv.string, vol.Match(r"^[a-z][a-z0-9_]*$")
+                ),
+                vol.Required("state"): vol.In(("active", "clear", "unknown")),
+            }
+        elif service in {"acknowledge", "cancel_control"}:
             fields = {
                 vol.Required(
                     "episode_id" if service == "acknowledge" else "control_id"
