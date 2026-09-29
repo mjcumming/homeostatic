@@ -561,8 +561,15 @@ export class DashboardStore {
     this.state = {status: "loading", data: null, error: null};
     this.generation = 0;
     this.unsubscribe = null;
-    this.disconnected = () => this.update({status: "disconnected", error: null});
-    this.ready = () => this.update({status: "loading", error: null});
+    this.active = false;
+    this.baseline = null;
+    this.disconnected = () => {
+      this.baseline = null;
+      this.update({status: "disconnected", error: null});
+    };
+    this.ready = () => {
+      if (this.state.status === "disconnected") this.update({status: "loading", error: null});
+    };
   }
 
   update(change) {
@@ -573,14 +580,18 @@ export class DashboardStore {
   listen(listener) {
     this.listeners.add(listener);
     listener(this.state);
-    if (this.listeners.size === 1) this.start();
+    if (!this.active) this.start();
     return () => {
       this.listeners.delete(listener);
-      if (!this.listeners.size) this.stop();
+      // HA can replace a card within one navigation turn without losing its stream.
+      queueMicrotask(() => {
+        if (!this.listeners.size) this.stop();
+      });
     };
   }
 
   start() {
+    this.active = true;
     const generation = ++this.generation;
     this.connection.addEventListener("disconnected", this.disconnected);
     this.connection.addEventListener("ready", this.ready);
@@ -588,13 +599,16 @@ export class DashboardStore {
     this.connection.subscribeMessage((data) => {
       if (generation !== this.generation) return;
       if (![1,2].includes(data.schema_version)) {
+        this.baseline = null;
         this.update({status: "error", error: "Unsupported Homeostatic data version. Reload after updating."});
         return;
       }
       try {
-        data = mergeDashboard(this.state.data, data);
+        data = mergeDashboard(this.baseline, data);
+        this.baseline = data.available ? data : null;
         this.update({status: data.available ? "current" : "unavailable", data, error: null});
       } catch (error) {
+        this.baseline = null;
         this.update({status:"error",data:null,error:error.message});
       }
     }, {type: "homeostatic/subscribe", compact:true}).then((unsubscribe) => {
@@ -611,6 +625,8 @@ export class DashboardStore {
   }
 
   stop() {
+    this.active = false;
+    this.baseline = null;
     this.generation++;
     this.connection.removeEventListener("disconnected", this.disconnected);
     this.connection.removeEventListener("ready", this.ready);

@@ -1,9 +1,51 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {destinationChoices} from "../../custom_components/homeostatic/frontend/reporting.mjs";
 import {REPORTING,editReporting,reportingSettings,sourceReporting,reportingOverview,reportingStatus,reportingChoices,reportingChanges} from "../../custom_components/homeostatic/frontend/reporting.mjs";
 const choices=()=>({timezone:"America/Chicago",default:"weekly",people:{mike:["phone:one"]},profiles:{immediate:{people:["mike"]},acknowledge:{people:["mike"]},morning:{at:"08:00",people:["mike"]},evening:{at:"18:00",people:["mike"]},weekly:{at:"09:00",weekday:6,people:["mike"]}},assignments:{"device:a":{default:"immediate",checks:{availability:"dashboard"}}}});
 function card(){const reporting=choices();return {settingsDraft:{reporting,notifications:false},configuration:{settings:{reporting:structuredClone(reporting)},notification_people:[{id:"mike",name:"Michael",user_id:"m"}],notification_destinations:[]},current:{data:{inventory:{}}},settingsPreview:{},render(){this.rendered=true;}};}
 const target=dataset=>({dataset,closest(){return this;},hasAttribute(name){const key=name.slice(5).replace(/-([a-z])/g,(_,c)=>c.toUpperCase());return Object.hasOwn(dataset,key);},matches(){return true;}});
+
+const duplicatePhones=[
+  {channel:"notify:one",phone_channel:"phone:one",name:"iPhone",user_id:null,available:true},
+  {channel:"phone:one",name:"iPhone",user_id:"m",available:true},
+  {channel:"notify:two",phone_channel:"phone:two",name:"iPhone",user_id:null,available:true},
+  {channel:"phone:two",name:"iPhone",user_id:"m",available:true},
+  {channel:"notify:email",name:"Email",user_id:null,available:true},
+  {channel:"phone:other",name:"Other phone",user_id:"other",available:true},
+  {channel:"notify:other",phone_channel:"phone:other",name:"Other phone",user_id:null,available:true},
+];
+for(const selected of [["phone:one"],["notify:one"],["phone:one","notify:one"]]) {
+  test(`phone aliases render once and preserve saved selections: ${selected.join(",")}`,()=>{
+    const c=card();c.configuration.notification_destinations=duplicatePhones;
+    c.settingsDraft.reporting.people.mike=[...selected];
+    const before=structuredClone(c.settingsDraft);
+    const rows=destinationChoices(duplicatePhones,"m",selected);
+    assert.equal(rows.length,3);
+    assert.deepEqual(rows.map(row=>row.channels),[["notify:one","phone:one"],["notify:two","phone:two"],["notify:email"]]);
+    const html=reportingSettings(c);
+    assert.equal((html.match(/data-reporting-channel=/g)||[]).length,3);
+    assert.equal((html.match(/data-reporting-person="mike" checked/g)||[]).length,1);
+    assert.deepEqual(c.settingsDraft,before);
+    assert.equal(rows[0].selected,selected.length);
+    assert.ok(selected.includes(rows[0].channel));
+    const checkbox=target({reportingChannel:rows[0].channel,reportingPerson:"mike"});
+    checkbox.checked=false;editReporting(c,{type:"change",target:checkbox});
+    assert.deepEqual(c.settingsDraft.reporting.people.mike,[]);
+    const unselected=destinationChoices(duplicatePhones,"m",[]);
+    const fresh=target({reportingChannel:unselected[0].channel,reportingPerson:"mike"});
+    fresh.checked=true;editReporting(c,{type:"change",target:fresh});
+    assert.deepEqual(c.settingsDraft.reporting.people.mike,["phone:one"]);
+  });
+}
+
+test("an unavailable selected alias is retained instead of silently switching transport",()=>{
+  const routes=structuredClone(duplicatePhones);routes[0].available=false;
+  const rows=destinationChoices(routes,"m",["notify:one"]);
+  assert.equal(rows[0].channel,"notify:one");
+  assert.equal(rows[0].available,false);
+  assert.equal(rows[0].selected,1);
+});
 test("dashboard is a peer choice and immediate explicitly includes overnight",()=>{
   const c=card(),html=sourceReporting(c,{source:{node_id:"device:a",kind:"device"}});
   assert.equal(REPORTING.length,6);

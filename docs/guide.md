@@ -380,6 +380,8 @@ Complete product presentation; capture healthy/failure/recovery traces for detec
 
 ## Fixed reporting preferences
 
+Each Companion phone appears once under People and destinations, even when Home Assistant exposes both a phone action and a notify entity for it. Saved selections are retained. Separate device registrations remain separate choices; matching names do not prove they are the same device.
+
 Open Notifications to see reporting types and schedules directly, select people and their destinations, and review
 before enabling requests. Assign Immediate, Immediate with acknowledgement, Morning,
 Evening, Weekly, or Dashboard only in Sources Settings. Both immediate choices

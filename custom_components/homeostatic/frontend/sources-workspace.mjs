@@ -1,7 +1,7 @@
-import {sourceReporting} from "./reporting.mjs?v=2";
-import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=27";
-import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=27";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=27";
+import {sourceReporting} from "./reporting.mjs?v=39";
+import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=39";
+import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=39";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=39";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);

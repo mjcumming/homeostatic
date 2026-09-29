@@ -57,11 +57,13 @@ class Destination:
     name: str
     user_id: str | None
     available: bool
+    phone_channel: str | None = None
 
 
 def destinations(hass: HomeAssistant) -> list[Destination]:
     """List supported phone and message routes without guessing delivery."""
     result: list[Destination] = []
+    phones: set[str] = set()
     devices = dr.async_get(hass)
     for entry in hass.config_entries.async_entries("mobile_app"):
         device = next(
@@ -84,6 +86,7 @@ def destinations(hass: HomeAssistant) -> list[Destination]:
                 available=ready,
             )
         )
+        phones.add(device.id)
     for entity in er.async_get(hass).entities.values():
         if entity.domain != "notify" or entity.disabled_by is not None:
             continue
@@ -94,6 +97,11 @@ def destinations(hass: HomeAssistant) -> list[Destination]:
                 name=state.name if state else entity.name or entity.entity_id,
                 user_id=None,
                 available=state is not None and state.state != "unavailable",
+                phone_channel=(
+                    f"phone:{entity.device_id}"
+                    if entity.platform == "mobile_app" and entity.device_id in phones
+                    else None
+                ),
             )
         )
     return sorted(result, key=lambda item: (item.name.casefold(), item.channel))

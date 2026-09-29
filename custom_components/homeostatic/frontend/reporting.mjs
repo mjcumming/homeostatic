@@ -1,4 +1,4 @@
-import {escapeHtml as esc, sourceMap} from "./model.mjs?v=27";
+import {escapeHtml as esc, sourceMap} from "./model.mjs?v=39";
 
 export const REPORTING = [
   ["immediate","Immediate","Notify once, including overnight."],
@@ -53,6 +53,23 @@ function description(p,choices,people=[]) {
   const names=p.people.map(id=>people.find(person=>person.id===id)?.name||id).join(", ")||"No recipients";
   return [p.weekday!==undefined?weekdays[p.weekday]:null,p.at,names].filter(Boolean).join(" · ");
 }
+export function destinationChoices(routes,userId,selected) {
+  const groups=new Map();
+  for(const route of routes) {
+    const key=route.phone_channel||route.channel;
+    if(!groups.has(key))groups.set(key,[]);
+    if(!groups.get(key).some(item=>item.channel===route.channel))groups.get(key).push(route);
+  }
+  return [...groups.values()].filter(group=>group.some(route=>selected.includes(route.channel))||
+    group.some(route=>route.channel.startsWith("phone:")?route.user_id===userId:!route.phone_channel))
+    .map(group=>{
+      const phone=group.find(route=>route.channel.startsWith("phone:"));
+      const chosen=group.find(route=>selected.includes(route.channel))||phone||group[0];
+      return {...chosen,name:phone?.name||chosen.name,channels:group.map(route=>route.channel),
+        selected:group.filter(route=>selected.includes(route.channel)).length};
+    });
+}
+
 export function reportingSettings(card) {
   const choices=reportingChoices(card);
   const people=card.configuration.notification_people||[],routes=card.configuration.notification_destinations||[];
@@ -62,9 +79,9 @@ export function reportingSettings(card) {
 
   const peopleRows=selected.map(id=>{
     const person=people.find(item=>item.id===id);
-    const available=routes.filter(route=>route.channel.startsWith("notify:")||route.user_id===person?.user_id);
-    const missing=choices.people[id].filter(channel=>!available.some(route=>route.channel===channel));
-    return `<section class="installation-group"><h4>${esc(person?.name||id)}</h4>${available.map(route=>`<div class="notification-route"><label class="installation-toggle"><input type="checkbox" data-reporting-channel="${esc(route.channel)}" data-reporting-person="${esc(id)}"${choices.people[id].includes(route.channel)?' checked':''}${!route.available&&!choices.people[id].includes(route.channel)?' disabled':''}> ${esc(route.name)}${route.available?'':' — unavailable'}</label>${route.available?`<button type="button" class="link" data-notification-test="${esc(route.channel)}">Send test</button>`:""}</div>`).join("")}${missing.map(channel=>`<label class="installation-toggle"><input type="checkbox" checked data-reporting-channel="${esc(channel)}" data-reporting-person="${esc(id)}"> ${esc(channel)} — unavailable; remove this destination</label>`).join("")}${!choices.people[id].length?'<p class="note">Choose a destination for this person.</p>':''}<button type="button" class="link" data-reporting-remove="${esc(id)}">Remove person</button></section>`;
+    const available=destinationChoices(routes,person?.user_id,choices.people[id]);
+    const missing=choices.people[id].filter(channel=>!available.some(route=>route.channels.includes(channel)));
+    return `<section class="installation-group"><h4>${esc(person?.name||id)}</h4>${available.map(route=>`<div class="notification-route"><label class="installation-toggle"><input type="checkbox" data-reporting-channel="${esc(route.channel)}" data-reporting-person="${esc(id)}"${route.selected?' checked':''}${!route.available&&!route.selected?' disabled':''}> ${esc(route.name)}${route.selected>1?' — multiple saved routes; clear and reselect to use one':''}${route.available?'':' — unavailable'}</label>${route.available?`<button type="button" class="link" data-notification-test="${esc(route.channel)}">Send test</button>`:""}</div>`).join("")}${missing.map(channel=>`<label class="installation-toggle"><input type="checkbox" checked data-reporting-channel="${esc(channel)}" data-reporting-person="${esc(id)}"> ${esc(channel)} — unavailable; remove this destination</label>`).join("")}${!choices.people[id].length?'<p class="note">Choose a destination for this person.</p>':''}<button type="button" class="link" data-reporting-remove="${esc(id)}">Remove person</button></section>`;
   }).join("");
   const profiles=REPORTING.filter(([id])=>id!=="dashboard").map(([id,name,help])=>{
     const profile=choices.profiles[id];
@@ -109,7 +126,12 @@ export function editReporting(card,event) {
   else if(target.hasAttribute("data-reporting-zone"))choices.timezone=target.value;
   else if(target.dataset.reportingTime)choices.profiles[target.dataset.reportingTime].at=target.value;
   else if(target.hasAttribute("data-reporting-weekday"))choices.profiles.weekly.weekday=Number(target.value);
-  else if(target.dataset.reportingChannel){const id=target.dataset.reportingPerson,channel=target.dataset.reportingChannel;choices.people[id]=target.checked?[...new Set([...choices.people[id],channel])]:choices.people[id].filter(c=>c!==channel);}
+  else if(target.dataset.reportingChannel){
+    const id=target.dataset.reportingPerson,channel=target.dataset.reportingChannel;
+    const group=destinationChoices(card.configuration.notification_destinations||[],null,choices.people[id]).find(route=>route.channels.includes(channel));
+    const remaining=choices.people[id].filter(c=>!(group?.channels||[channel]).includes(c));
+    choices.people[id]=target.checked?[...remaining,channel]:remaining;
+  }
   else if(target.dataset.reportingRecipient){const p=choices.profiles[target.dataset.reportingProfile],id=target.dataset.reportingRecipient;p.people=target.checked?[...new Set([...p.people,id])]:p.people.filter(x=>x!==id);}
   else if(target.dataset.reportingNode){
     const id=target.dataset.reportingNode,check=target.dataset.reportingCheck;

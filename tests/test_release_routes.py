@@ -372,8 +372,23 @@ async def test_notify_entity_route(
         )
 
 
+@pytest.mark.parametrize(
+    ("platform", "device_id", "phone_channel"),
+    [
+        pytest.param("test", None, None, id="independent-message"),
+        pytest.param("test", "phone-device", None, id="other-platform-same-device"),
+        pytest.param("mobile_app", "other-device", None, id="unmatched-mobile-device"),
+        pytest.param(
+            "mobile_app", "phone-device", "phone:phone-device", id="same-phone-alias"
+        ),
+    ],
+)
 def test_destination_catalog_uses_current_registry_and_state(
-    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+    hass: HomeAssistant,
+    monkeypatch: pytest.MonkeyPatch,
+    platform: str,
+    device_id: str | None,
+    phone_channel: str | None,
 ) -> None:
     """Displayed routes reflect current phones and enabled notify entities."""
     phone = SimpleNamespace(
@@ -385,6 +400,8 @@ def test_destination_catalog_uses_current_registry_and_state(
         disabled_by=None,
         entity_id="notify.owner",
         name="Fallback",
+        platform=platform,
+        device_id=device_id,
     )
     disabled = SimpleNamespace(
         id="disabled",
@@ -420,7 +437,11 @@ def test_destination_catalog_uses_current_registry_and_state(
     hass.states.async_set("notify.owner", "ready", {"friendly_name": "Owner inbox"})
     assert routes.destinations(hass) == [
         Destination(
-            channel="notify:notify-id", name="Owner inbox", user_id=None, available=True
+            channel="notify:notify-id",
+            name="Owner inbox",
+            user_id=None,
+            available=True,
+            phone_channel=phone_channel,
         ),
         Destination(
             channel="phone:phone-device",

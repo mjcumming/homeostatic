@@ -1,19 +1,19 @@
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=2";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=39";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
-  sourceMap} from "./model\.mjs?v=30";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem\.mjs?v=31";
-import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=30";
-import {diagnosticOverview} from "./evidence\.mjs?v=30";
+  sourceMap} from "./model\.mjs?v=39";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem\.mjs?v=39";
+import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=39";
+import {diagnosticOverview} from "./evidence\.mjs?v=39";
 import {editCatalogRule, MATCH_FIELDS, MATCH_LABELS, monitoringScope,
-  newCatalogRule, ruleSummary, scopeChoice, setScopeChoice} from "./configuration\.mjs?v=30";
-import {styles} from "./styles\.mjs?v=35";
-import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=30";
+  newCatalogRule, ruleSummary, scopeChoice, setScopeChoice} from "./configuration\.mjs?v=39";
+import {styles} from "./styles\.mjs?v=39";
+import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=39";
 
-import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=30";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=37";
+import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=39";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=39";
 
-import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=34";
+import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=39";
 
 const VIEWS = ["overview", "sources", "house", "coverage", "functions", "problems", "history", "notifications", "configuration"];
 const homeostaticOptionsUrl = (entryId) => `/config/integrations/integration/homeostatic#config_entry=${encodeURIComponent(entryId)}`;
@@ -352,13 +352,14 @@ class HomeostaticCard extends HTMLElement {
     });
     if (this.current.status !== "current") {
       const messages = {
-        loading: ["Waiting for monitoring", "A fresh update is needed before health can be shown."],
+        loading: ["Loading dashboard", "Receiving the latest monitoring result from Home Assistant."],
         disconnected: ["Connection lost", "Current health is unknown. Reconnecting to Home Assistant."],
         unavailable: ["Monitoring unavailable", this.current.data?.error ? "Homeostatic reported an error. Check its configuration, storage and logs." : "Homeostatic is starting or has been unloaded."],
         error: ["Dashboard unavailable", this.current.error],
       };
       const [title, message] = messages[this.current.status];
-      this.main.innerHTML = `<div class="banner" role="status"><h2>${esc(title)}</h2><p>${esc(message)}</p><p class="small">Last completed update: ${esc(date(this.current.data?.updated_at))}</p>${this.store && this.current.status === "error" ? '<button class="link" type="button" data-action="retry">Retry connection</button>' : ""}</div>`;
+      const completed = this.current.data?.updated_at;
+      this.main.innerHTML = `<div class="banner" role="status"><h2>${esc(title)}</h2><p>${esc(message)}</p>${completed ? `<p class="small">Last completed update: ${esc(date(completed))}</p>` : ""}${this.store && this.current.status === "error" ? '<button class="link" type="button" data-action="retry">Retry connection</button>' : ""}</div>`;
       this.renderedCurrent = false;
       return;
     }

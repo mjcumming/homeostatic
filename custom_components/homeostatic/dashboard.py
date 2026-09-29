@@ -38,7 +38,7 @@ from .simple_notifications import available_people, generate_policy, simple_choi
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=38"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=39"
 PANEL_ELEMENT = "homeostatic-panel-v22"
 
 
@@ -369,6 +369,7 @@ async def _async_configuration(
                     "name": item.name,
                     "user_id": item.user_id,
                     "available": item.available,
+                    "phone_channel": item.phone_channel,
                 }
                 for item in destinations(hass)
             ],

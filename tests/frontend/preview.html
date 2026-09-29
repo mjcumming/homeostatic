@@ -20,10 +20,11 @@
     const admin=document.querySelector("#admin");
     const handlers=new Map();
     let subscribed;
+    let subscriptions=0;
     const connection={
       addEventListener(name,fn){handlers.set(name,fn);},
       removeEventListener(name,fn){if(handlers.get(name)===fn)handlers.delete(name);},
-      async subscribeMessage(fn){subscribed=fn;queueMicrotask(()=>fn(data()));return ()=>{subscribed=null;};},
+      async subscribeMessage(fn){subscriptions++;subscribed=fn;queueMicrotask(()=>fn(data()));return ()=>{subscribed=null;};},
     };
     const baseSource=(node_id,name,kind,extra={})=>({
       node_id,name,kind,requirements:[],attributes:{},attached_by:["passive_availability"],
@@ -110,6 +111,40 @@
     unsafe.addEventListener("change",change);
     admin.addEventListener("change",()=>{
       card.hass={...hass,user:{id:admin.checked?"demo":"viewer",is_admin:admin.checked}};
+    });
+    const lifecycleCheck=document.createElement("button");
+    lifecycleCheck.type="button";
+    lifecycleCheck.textContent="Run subscription regression";
+    document.querySelector("#controls").append(lifecycleCheck);
+    lifecycleCheck.addEventListener("click",async()=>{
+      const feedback=document.querySelector("#feedback");
+      const expect=(condition,message)=>{if(!condition)throw new Error(message);};
+      try {
+        scenario.value="healthy";change();card.setConfig({view:"overview"});
+        const root=card.shadowRoot,count=subscriptions;
+        for(const page of ["problems","sources","overview"]) {
+          root.querySelector(`.nav [data-page="${page}"]`).click();
+          expect(card.current.status==="current"&&!root.querySelector(".banner"),"Navigation must keep the current snapshot");
+        }
+        card.remove();document.body.append(card);
+        expect(card.current.status==="current"&&!root.querySelector(".banner"),"Remount must keep the current snapshot");
+        await Promise.resolve();
+        expect(subscriptions===count,"Navigation must reuse the subscription");
+        handlers.get("disconnected")();
+        expect(root.querySelector(".banner").textContent.includes("Connection lost"),"A real disconnect must hide current health");
+        subscribed(data());handlers.get("ready")();
+        expect(root.querySelector("h1")?.textContent==="Overview","Late ready must not hide the received snapshot");
+        handlers.get("disconnected")();handlers.get("ready")();
+        expect(root.querySelector(".banner").textContent.includes("Loading dashboard"),"Reconnect must wait for its snapshot");
+        subscribed(data());
+        expect(root.querySelector("h1")?.textContent==="Overview","Snapshot must restore the dashboard");
+        card.remove();await Promise.resolve();document.body.append(card);
+        expect(root.querySelector(".banner").textContent.includes("Loading dashboard"),"A new subscription describes loading the dashboard");
+        expect(!root.textContent.includes("No completed update"),"Loading must not claim monitoring has never completed");
+        await Promise.resolve();
+        expect(subscriptions===count+1&&card.current.status==="current","Reentry must receive the existing result");
+        feedback.textContent="PASS: navigation and remount reuse one stream; reconnect ordering and fresh entry restore the snapshot";
+      } catch(error) {feedback.textContent="FAIL: "+error.message;}
     });
     document.querySelector("#navigation-check").addEventListener("click",()=>{
       const feedback=document.querySelector("#feedback");

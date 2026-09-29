@@ -347,6 +347,7 @@ test("cards share a stream, disconnect is not healthy, and last release cleans u
   first();
   assert.equal(client.cancels,0);
   second();
+  await Promise.resolve();
   assert.equal(client.cancels,1);
   assert.equal(client.events.size,0);
   assert.equal(store.state.data,null);
@@ -358,12 +359,80 @@ test("late subscribe completion and late data after unmount are discarded",async
   const store=new DashboardStore(client);
   const stop=store.listen(()=>{});
   stop();
+  await Promise.resolve();
   client.callback(example());
   resolve(()=>{client.cancels++;});
   await Promise.resolve();
   assert.equal(client.cancels,1);
   assert.equal(store.state.data,null);
 });
+test("immediate page replacement keeps one stream and its current snapshot",async()=>{
+  const client=connection();
+  const store=dashboardStore(client);
+  const first=store.listen(()=>{});
+  await Promise.resolve();
+  const snapshot=example();
+  client.callback(snapshot);
+  first();
+  const seen=[];
+  const second=store.listen(state=>seen.push(state));
+  await Promise.resolve();
+  assert.equal(client.requests,1);
+  assert.equal(client.cancels,0);
+  assert.deepEqual(seen,[{status:"current",data:snapshot,error:null}]);
+  second();
+  await Promise.resolve();
+  assert.equal(client.cancels,1);
+  assert.equal(store.state.data,null);
+  const third=store.listen(()=>{});
+  assert.equal(client.requests,2);
+  assert.equal(store.state.status,"loading");
+  client.callback(snapshot);
+  assert.equal(store.state.status,"current");
+  third();
+  await Promise.resolve();
+});
+
+for (const [name,payload,status] of [
+  ["available",example(),"current"],
+  ["unavailable",{schema_version:1,available:false},"unavailable"],
+  ["incompatible",{schema_version:9,available:true},"error"],
+]) {
+  for (const order of ["ready-first","snapshot-first"]) {
+    test(`reconnect preserves ${name} result with ${order}`,async()=>{
+      const client=connection();
+      const store=dashboardStore(client);
+      const stop=store.listen(()=>{});
+      client.callback(example());
+      client.events.get("disconnected")();
+      const actions={ready:()=>client.events.get("ready")(),snapshot:()=>client.callback(payload)};
+      const sequence={"ready-first":["ready","snapshot"],"snapshot-first":["snapshot","ready"]};
+      sequence[order].forEach(action=>actions[action]());
+      assert.equal(store.state.status,status);
+      stop();
+      await Promise.resolve();
+    });
+  }
+}
+
+test("reconnect requires a full compact baseline even at the same catalog revision",async()=>{
+  const client=connection();
+  const store=dashboardStore(client);
+  const stop=store.listen(()=>{});
+  const full={...example(),schema_version:2,catalog_revision:3,inventory_changed:true};
+  client.callback(full);
+  assert.equal(store.state.status,"current");
+  client.events.get("disconnected")();
+  client.events.get("ready")();
+  client.callback({schema_version:2,available:true,catalog_revision:3,inventory_changed:false,inventory:{}});
+  assert.equal(store.state.status,"error");
+  assert.equal(store.state.data,null);
+  client.callback(full);
+  assert.equal(store.state.status,"current");
+  stop();
+  await Promise.resolve();
+});
+
 test("unavailable runtime, incompatible payload, and retry failures remain explicit",async()=>{
   const client=connection();
   const store=new DashboardStore(client);

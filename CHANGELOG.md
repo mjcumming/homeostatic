@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Show each Companion phone once in notification destinations when HA also exposes its notify entity, preserving saved route selections and keeping distinct device registrations separate.
+- Keep the dashboard subscription during immediate card/page replacement, and prevent a late connection-ready event from hiding a received snapshot. Initial loading now describes fetching the dashboard instead of implying monitoring must run again.
 - Move the installation-wide monitoring policy editor out of individual source settings into Settings → Monitoring policies. Keep source monitoring and reporting together, and show reporting types, schedules, and recipients directly on Notifications even when an older policy is saved. Opening a page changes nothing; edits still require review and save.
 
 ## [0.1.0b17] - 2026-09-28
