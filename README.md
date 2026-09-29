@@ -1,5 +1,7 @@
 # Homeostatic
 
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="custom_components/homeostatic/brand/dark_icon.png"><img src="custom_components/homeostatic/brand/icon.png" alt="Homeostatic: a home with connected health signals" width="88"></picture></p>
+
 **When the Zigbee coordinator drops at 2 a.m., forty entities go `unavailable`. Homeostatic opens one issue, on the coordinator, says the hall motion lighting is what you just lost, and decides whether that is worth your sleep. One flaky sensor waits for the morning summary.**
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
@@ -98,14 +100,14 @@ One honest limit. A passing availability check means Home Assistant currently ha
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with type **Integration**.
-3. Find **Homeostatic**, turn on **Show beta versions** if the latest release is a beta, and download it.
+3. Find **Homeostatic**. To install the current untagged `0.1.0b19` beta candidate, choose the default branch **main** in the version selector. HACS offers the default branch alongside published releases; tagged betas may contain older code. For tagged betas, turn on **Show beta versions** if needed.
 4. Restart Home Assistant.
 
 [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mjcumming&repository=homeostatic&category=integration)
 
 ### Manual
 
-1. Download `homeostatic-<version>-pilot.zip` from the [latest release](https://github.com/mjcumming/homeostatic/releases).
+1. For the current untagged beta, download the `homeostatic-pilot` artifact from the [successful CI run for main](https://github.com/mjcumming/homeostatic/actions/workflows/ci.yml?query=branch%3Amain). For a tagged beta, download `homeostatic-<version>-pilot.zip` from its [release](https://github.com/mjcumming/homeostatic/releases).
 2. Copy its `custom_components/homeostatic` folder into your Home Assistant configuration directory, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy in full.
 3. Restart Home Assistant.
 

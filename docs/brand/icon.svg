@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Homeostatic">
+  <path d="M66 224 239 78a27 27 0 0 1 34 0l173 146M88 214v203c0 16 13 29 29 29h278c16 0 29-13 29-29V214" fill="none" stroke="#07576B" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m219 298-48 56m122-56 48 56" fill="none" stroke="#05B7D5" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="168" cy="358" r="34" fill="#05B7D5"/>
+  <circle cx="344" cy="358" r="34" fill="#05B7D5"/>
+  <circle cx="256" cy="253" r="77" fill="#07576B"/>
+  <path d="M208 254h18l13-25 20 52 17-34 9 13h19" fill="none" stroke="#FFFDF8" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

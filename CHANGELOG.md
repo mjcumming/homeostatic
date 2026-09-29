@@ -4,6 +4,10 @@
 
 ### Added
 
+- Bundle a light and dark Homeostatic brand icon with the custom integration so
+  Home Assistant shows it locally. Document how to install the untagged
+  `0.1.0b19` beta candidate from the default branch or CI archive.
+
 - Add a repeatable fictional Willow House frontend demo and five README screenshots
   covering an open issue, source evidence, resolved history, and reporting.
 
