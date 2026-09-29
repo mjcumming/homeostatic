@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {REPORTING,editReporting,reportingSettings,sourceReporting,reportingOverview,reportingStatus} from "../../custom_components/homeostatic/frontend/reporting.mjs";
+import {REPORTING,editReporting,reportingSettings,sourceReporting,reportingOverview,reportingStatus,reportingChoices,reportingChanges} from "../../custom_components/homeostatic/frontend/reporting.mjs";
 const choices=()=>({timezone:"America/Chicago",default:"weekly",people:{mike:["phone:one"]},profiles:{immediate:{people:["mike"]},acknowledge:{people:["mike"]},morning:{at:"08:00",people:["mike"]},evening:{at:"18:00",people:["mike"]},weekly:{at:"09:00",weekday:6,people:["mike"]}},assignments:{"device:a":{default:"immediate",checks:{availability:"dashboard"}}}});
 function card(){const reporting=choices();return {settingsDraft:{reporting,notifications:false},configuration:{settings:{reporting:structuredClone(reporting)},notification_people:[{id:"mike",name:"Michael",user_id:"m"}],notification_destinations:[]},current:{data:{inventory:{}}},settingsPreview:{},render(){this.rendered=true;}};}
 const target=dataset=>({dataset,closest(){return this;},hasAttribute(name){const key=name.slice(5).replace(/-([a-z])/g,(_,c)=>c.toUpperCase());return Object.hasOwn(dataset,key);},matches(){return true;}});
@@ -26,9 +26,10 @@ test("removing an override restores inheritance without removing an exception",(
   assert.equal(c.settingsDraft.reporting.assignments["device:a"].default,undefined);
   assert.equal(c.settingsDraft.reporting.assignments["device:a"].checks.availability,"dashboard");
 });
-test("migration is a draft with conservative defaults and requests off",()=>{
+test("editing the visible reporting controls stages conservative defaults with requests off",()=>{
   const c=card();c.settingsDraft={policy:{timezone:"America/Chicago"},notifications:true,simple_notifications:{people:{mike:{channels:["phone:one"]}}}};
-  editReporting(c,{type:"click",target:target({reportingMigrate:""})});
+  const element=target({reportingTime:"morning"});element.value="07:30";
+  editReporting(c,{type:"change",target:element});
   assert.equal(c.settingsDraft.reporting.default,"weekly");
   assert.deepEqual(c.settingsDraft.reporting.profiles.weekly,{at:"09:00",weekday:6,people:[]});
   assert.deepEqual(c.settingsDraft.reporting.people,{mike:["phone:one"]});
@@ -58,4 +59,42 @@ for(const grouping of ["integration","location","topomation"])test(`Configured s
   const data=monitoringExample();data.inventory.nodes.push(baseSource("situation:water","Water detected","situation",{watched:true}));
   const paths=sourcePaths(sourcesTree(data,grouping));
   assert.equal(paths.get("source:situation:water").node.name,"Water detected");
+});
+
+for(const saved of [
+  {name:"custom",consumer:null,simple_notifications:null},
+  {name:"automation",consumer:"automation.old",simple_notifications:null},
+  {name:"person",consumer:null,simple_notifications:{people:{mike:{channels:["phone:one"]}}}},
+])test(`${saved.name} policy shows profiles and assignments without changing saved settings`,()=>{
+  const c=card();
+  c.settingsDraft={...saved,policy:{timezone:"UTC"},notifications:true};
+  c.configuration.settings=structuredClone(c.settingsDraft);
+  const before=structuredClone(c.settingsDraft);
+  assert.match(reportingSettings(c),/Reporting profiles/);
+  assert.match(sourceReporting(c,{source:{node_id:"device:a",kind:"device"}}),/data-reporting-node/);
+  assert.deepEqual(c.settingsDraft,before);
+  assert.deepEqual(c.configuration.settings,before);
+  assert.equal(reportingChoices(c).default,"weekly");
+  const element=target({reportingNode:"device:a",reportingCheck:""});element.value="immediate";
+  editReporting(c,{type:"change",target:element});
+  assert.equal(c.settingsDraft.reporting.assignments["device:a"].default,"immediate");
+  assert.equal(c.settingsDraft.notifications,false);
+  assert.equal(c.settingsDraft.consumer,null);
+  assert.deepEqual(c.configuration.settings,before);
+});
+
+test("reviewing initial reporting setup invokes preview without saving or sending",()=>{
+  const c=card();c.settingsDraft={policy:{timezone:"UTC"},notifications:true};
+  let previews=0;c.previewSettings=()=>{previews++;};
+  editReporting(c,{type:"click",target:target({reportingReview:""})});
+  assert.equal(previews,1);
+  assert.equal(c.settingsDraft.notifications,false);
+  assert.equal(c.settingsDraft.reporting.default,"weekly");
+});
+
+test("initial reporting review names the selected source preference",()=>{
+  const after=choices();
+  const changes=reportingChanges(null,after);
+  assert.ok(changes.some(([name,,to])=>name==="Reporting · device:a"&&to.includes("Immediate")));
+  assert.ok(changes.some(([name])=>name==="Weekly summary"));
 });

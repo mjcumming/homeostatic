@@ -38,7 +38,7 @@ test("clicking a notification dropdown leaves it mounted until selection changes
   assert.equal(rendered,1);
 });
 
-test("notification settings offer person delivery and keep legacy automation out of setup", () => {
+test("notification settings expose reporting directly for older saved policies", () => {
   const settings={timings:{batch:30},notifications:false,consumer:null,policy:{timezone:"UTC",recipients:{},rules:[]},simple_notifications:{people:{},timezone:"UTC"}};
   const card={configuration:{settings,consumers:[]},settingsDraft:settings,page:"notifications",settingsSection:"timing",
     current:{data:{entry_id:"example",functions:[]}},settingsBusy:false};
@@ -47,7 +47,9 @@ test("notification settings offer person delivery and keep legacy automation out
   assert.doesNotMatch(empty,/installation-nav|Problem grouping/);
   assert.doesNotMatch(empty,/Choose automation|Advanced routing and timing|Edit detailed routing/);
   assert.match(empty,/data-setting-path="notifications" disabled/);
-  assert.match(empty,/data-setting-path="policy.timezone"/);
+  assert.match(empty,/data-reporting-zone/);
+  assert.match(empty,/Reporting profiles/);
+  assert.doesNotMatch(empty,/Set up reporting preferences|Reset to person settings/);
   card.page="configuration";
   const timing=installationSettings(card);
   assert.match(timing,/<h1>Settings<\/h1>/);
@@ -58,8 +60,8 @@ test("notification settings offer person delivery and keep legacy automation out
   card.configuration.consumers=[{entity_id:"automation.alerts",name:"House alerts",state:"on"}];
   card.settingsDraft={...settings,consumer:"automation.alerts"};
   const configured=installationSettings(card);
-  assert.match(configured,/older notification automation is selected/);
-  assert.match(configured,/Open Home Assistant options to clear/);
+  assert.match(configured,/Reporting profiles/);
+  assert.doesNotMatch(configured,/Open Home Assistant options to clear/);
   assert.doesNotMatch(configured,/Choose automation|data-consumer-action/);
   assert.match(configured,/data-setting-path="notifications" disabled/);
   card.configuration.notification_people=[{id:"mike",name:"Michael",user_id:"user-1",administrator:true}];

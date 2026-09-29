@@ -1,4 +1,4 @@
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=1";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=2";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
   sourceMap} from "./model\.mjs?v=30";
@@ -7,13 +7,13 @@ import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=30";
 import {diagnosticOverview} from "./evidence\.mjs?v=30";
 import {editCatalogRule, MATCH_FIELDS, MATCH_LABELS, monitoringScope,
   newCatalogRule, ruleSummary, scopeChoice, setScopeChoice} from "./configuration\.mjs?v=30";
-import {styles} from "./styles\.mjs?v=34";
+import {styles} from "./styles\.mjs?v=35";
 import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=30";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=30";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=36";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=37";
 
-import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=33";
+import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=34";
 
 const VIEWS = ["overview", "sources", "house", "coverage", "functions", "problems", "history", "notifications", "configuration"];
 const homeostaticOptionsUrl = (entryId) => `/config/integrations/integration/homeostatic#config_entry=${encodeURIComponent(entryId)}`;
@@ -390,19 +390,18 @@ class HomeostaticCard extends HTMLElement {
     const option = (value, name) => `<option value="${value}"${choice === value ? " selected" : ""}>${name}</option>`;
     const devices = scope.kind === "integration_devices";
     const choices = choice === "multiple"
-      ? '<option selected>Multiple direct policies; review below</option>'
+      ? '<option selected>Multiple direct policies; review in Settings</option>'
       : `${option("inherit","Follow broader choice")}${option("attach",devices ? "Watch these devices" : "Watch")}${option("exclude",devices ? "Leave these devices unmonitored" : "Do not monitor")}`;
     const original = scopeChoice(this.configuration.rules,scope);
     const pending = original !== choice ? " · Unsaved choice" : "";
     return `<label class="config-choice"><span>${esc(label)}${detail ? `<small>${esc(detail)}</small>` : ""}<small>Currently: ${esc(current)}${pending}</small></span><select data-scope-index="${index}" aria-label="${esc(label)} monitoring choice"${this.configBusy || choice === "multiple" ? " disabled" : ""}>${choices}</select></label>`;
   }
 
-  configurationPage(embedded = false) {
+  monitoringEditor(global = false) {
     const data = this.current.data;
     const intro = '<div class="intro"><div><h1>Settings</h1><p class="sub">Choose what Homeostatic watches and how it responds.</p></div></div>';
-    if (!embedded) return installationSettings(this);
     if (!this.configuration) return `${intro}<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading monitoring rules…")}</p><button type="button" class="button" data-action="load-configuration">Reload configuration</button></div></section>`;
-    if (this.main.querySelector(".config-tree")) {
+    if (this.main.querySelector(".config-advanced")) {
       this.configAdvancedOpen = this.main.querySelector(".config-advanced")?.open ?? false;
     }
     const rules = this.configDraft.map((rule, index) => {
@@ -411,23 +410,23 @@ class HomeostaticCard extends HTMLElement {
     }).join("");
     const preview = this.configPreview;
     const changes = (items, count, label) => count ? `<div><strong>${count} ${label}</strong><ul>${items.map((item) => `<li>${esc(item.name)}</li>`).join("")}</ul>${count > items.length ? `<p class="small">Showing the first ${items.length}.</p>` : ""}</div>` : "";
-    const selected = embedded ? sourcePaths(sourcesTree(data,this.sourcesGrouping,null,this.topomation)).get(this.sourcesSelection)?.node : null;
+    const selected = !global ? sourcePaths(sourcesTree(data,this.sourcesGrouping,null,this.topomation)).get(this.sourcesSelection)?.node : null;
     const entity = selected?.source?.kind === "entity" ? selected.source : null;
     const entityChoice = entity ? scopeChoice(this.configDraft,monitoringScope("entity",entity.node_id,entity)) : null;
     const subject = entity ? `<p><strong>${esc(selected.name)}</strong><br><small>${esc(entity.entity_id)}</small></p><p>Selected choice: ${entityChoice === "exclude" ? "Exclude this entity" : entityChoice === "attach" ? "Monitor this entity separately" : "Use device and integration choices"}.</p>` : "";
     const noCountChange = !preview?.added_count && !preview?.removed_count ? `<p>No sources are newly watched or stopped by this draft.${entityChoice === "exclude" ? " This exclusion can still change which entities a device availability check uses, or keep this entity out of future device monitoring." : ""}</p>` : "";
     const result = preview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Review monitoring choices</h2></div><div class="body">${subject}<p><strong>${preview.watched}</strong> watched sources after this change.</p>${noCountChange}<div class="config-change-list">${changes(preview.added,preview.added_count,"newly watched")}${changes(preview.removed,preview.removed_count,"no longer watched")}</div>${preview.functions.length ? `<details><summary>Function readiness from current evidence</summary><ul>${preview.functions.map((item) => `<li>${esc(item.name)}: ${esc(item.readiness.answer)}${item.requirements.some((source) => source.monitoring === "excluded" || source.monitoring === "unwatched") ? " · has an unwatched requirement" : ""}</li>`).join("")}</ul><p class="small">This preview does not replay existing holds or episode history.</p></details>` : ""}<p class="small">This preview uses current Home Assistant evidence. New devices may match these rules later.</p></div></section>` : "";
-    const advanced = `<details class="config-advanced"${this.configAdvancedOpen ? " open" : ""}><summary>Custom policies (${this.configDraft.length})</summary><div class="body"><p class="sub">These policies explain broader choices, including future matches. Select one to inspect or edit its conditions.</p><button type="button" class="button" data-action="add-rule"${this.configBusy ? " disabled" : ""}>Add custom policy</button><fieldset class="config-editor"${this.configBusy ? " disabled" : ""}>${rules || '<p>No broad policies saved.</p>'}</fieldset></div></details>`;
+    const advanced = `<details class="config-advanced"${this.configAdvancedOpen ? " open" : ""}><summary>Custom policies (${this.configDraft.length})</summary><div class="body"><p class="sub">Policies can match current and future sources across your installation.</p><button type="button" class="button" data-action="add-rule"${this.configBusy ? " disabled" : ""}>Add custom policy</button><fieldset class="config-editor"${this.configBusy ? " disabled" : ""}>${rules || '<p>No broad policies saved.</p>'}</fieldset></div></details>`;
     const changed=JSON.stringify(this.configDraft)!==JSON.stringify(this.configuration.rules);
     const actions = `<section class="config-review">${changed?`<div class="config-actions"><span class="small">Unsaved monitoring choices</span><button type="button" class="button primary" data-action="${preview?'save-configuration':'preview-configuration'}"${this.configBusy?' disabled':''}>${preview?'Save choices':'Review changes'}</button><button type="button" class="link" data-action="discard-monitoring"${this.configBusy?' disabled':''}>Discard</button></div>`:'<p class="small">Changes are reviewed before saving.</p>'}${this.configError?`<p class="config-error" role="alert">${esc(this.configError)}</p>`:''}</section>`;
-    return `${result}${actions}${advanced}`;
+    return global ? `${advanced}${result}${actions}` : `${result}${actions}`;
   }
 
   sourcesPage() {
     const intro = '<div class="intro"><div><h1>Sources</h1></div></div>';
     this.configScopes = [];
     this.sourcesSettingsPanel = this.sourcesView === "settings"
-      ? this.configuration ? this.configurationPage(true)
+      ? this.configuration ? this.monitoringEditor()
         : `<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading monitoring choices…")}</p><button type="button" class="button" data-action="load-configuration">Reload choices</button></div></section>` : "";
     return intro + sourcesBrowser(this);
   }

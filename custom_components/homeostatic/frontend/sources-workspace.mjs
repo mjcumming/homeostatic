@@ -1,4 +1,4 @@
-import {sourceReporting} from "./reporting.mjs?v=1";
+import {sourceReporting} from "./reporting.mjs?v=2";
 import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=27";
 import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=27";
 import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=27";
@@ -155,7 +155,7 @@ export function sourceMonitoringChoices(card,node) {
     if(!scope)return "";
     const index=card.configScopes.push(scope)-1;
     const current=scopeChoice(card.configDraft,scope);
-    if(current==="multiple")return '<p class="note">Several saved policies apply here. Review them under Custom policies below.</p>';
+    if(current==="multiple")return '<p class="note">Several saved policies apply here.</p><button type="button" class="link" data-settings-section="policies">Review monitoring policies in Settings</button>';
     return `<fieldset class="source-choices"${card.configBusy?' disabled':''}><legend>${esc(label)}</legend>${options.map(([value,title,help])=>`<label class="source-radio"><input type="radio" name="source-choice-${index}" data-scope-index="${index}" value="${value}"${current===value?' checked':''}><span><strong>${esc(title)}</strong>${help?`<small>${esc(help)}</small>`:''}</span></label>`).join("")}</fieldset>`;
   };
   let controls="";

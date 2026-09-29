@@ -37,7 +37,7 @@ Review the supplied availability rules. New installations watch integration setu
 
 ### Open the dashboard
 
-After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu, including on phones. **Overview** shows current issue and monitoring counts with three recent issues; **Issues** lists every open problem; **Sources** groups discovered sources by integration or HA location and shows evidence, current monitoring, and in-place choices; **History** shows ended problems; **Settings** handles installation-wide alert requests. Alerts & delivery can turn requests on or off and select the consumer automation; it summarizes saved routing policy and links directly to Homeostatic's HA integration entry for detailed policy, functions, situations and timing. Turning requests on can alert about already-open problems. The pages and problem/function details use one shared live subscription. Sources searches all discovered sources while keeping rendered branches bounded. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
+After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu, including on phones. **Overview** shows current issue and monitoring counts with three recent issues; **Issues** lists every open problem; **Sources** groups discovered sources by integration or HA location and shows evidence, current monitoring, and in-place choices; **History** shows ended problems; **Notifications** configures reporting types, schedules, recipients, destinations, and outgoing requests; **Settings** contains Timing, Problem grouping, and the installation-wide Monitoring policies editor. Source Settings keeps monitoring choices and reporting assignments together. Turning requests on can alert about already-open problems. The pages and problem/function details use one shared live subscription. Sources searches all discovered sources while keeping rendered branches bounded. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
 
 The monitoring catalog omits **Change device type of a switch** helper entries because they wrap an existing switch; the converted entity can still be monitored. **Group** entries stay because a group can be an automation control target. A healthy Group entry or group entity does not establish that every member works. Monitor important members directly; the Group row's source count is not a device count.
 
@@ -50,7 +50,7 @@ type: custom:homeostatic-card
 view: overview
 ```
 
-Supported views are `overview` (Home), `sources`, `history`, `configuration` (Settings), `functions`, and `problems`. Older `house` and `coverage` view settings open Sources. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
+Supported views are `overview` (Home), `sources`, `history`, `notifications`, `configuration` (Settings), `functions`, and `problems`. Older `house` and `coverage` view settings open Sources. The last two are focused cards. Set `navigation: false` to hide internal page tabs; drill-downs retain a return button to the configured view. Local frontend resources are registered automatically; existing dashboards are not modified.
 
 The dashboard is administrator-only because it includes installation-wide configuration, inventory and routing. Readiness entities retain their ordinary HA access controls. Problem cards and details explain the reported condition, confirmed effects on configured functions, a relevant next step and recovery progress. NuHeat and receiver timeouts, sign-in requests, disabled connections and recovery have distinct guidance. **Pause alerts** is directly visible in problem details and applies only to that problem; other problems on the equipment are unaffected. Equipment **Working on this equipment** is available from source details. Active controls keep a visible expiry notice. **Technical details** holds timestamped original errors, filtered logs, **Copy diagnostic data** and optional **View raw data**. Pausing alerts and maintenance each require an end time within seven days. Maintenance previews affected capabilities, functions and existing problems before applying. Existing alerts remain active during maintenance; shelving holds new alerts, including urgent ones, for every recipient. Administrators can use **Acknowledge** to record awareness and **End now** to cancel a temporary control. Active controls show their expiry and reason. Both forms use the existing administrator actions and keep unfinished entries through live updates. Availability does not prove physical freshness or command completion.
 
@@ -380,7 +380,7 @@ Complete product presentation; capture healthy/failure/recovery traces for detec
 
 ## Fixed reporting preferences
 
-Set up reporting in Notifications, select people and their destinations, and review
+Open Notifications to see reporting types and schedules directly, select people and their destinations, and review
 before enabling requests. Assign Immediate, Immediate with acknowledgement, Morning,
 Evening, Weekly, or Dashboard only in Sources Settings. Both immediate choices
 include overnight; only acknowledgement repeats every 30 minutes. Acknowledgement
@@ -395,3 +395,8 @@ Existing notification policies stay active until you review a migration. Source
 defaults can be changed in bulk while condition exceptions remain intact. Shared
 root problems use the strongest explicit affected-source preference, preserving one
 episode. Overview shows readiness and the next nonempty report's provisional count.
+
+The reporting controls remain visible when an older notification policy is saved.
+Opening them does not change it. Editing or reviewing the initial setup creates a
+draft with requests off; review and save applies it. Global monitoring policies
+are under **Settings → Monitoring policies**, not inside an individual source.

@@ -13,9 +13,25 @@ const weekdays=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","S
 const options = (value,inherit=null) => (inherit?`<option value=""${!value?' selected':''}>${esc(inherit)}</option>`:"")+REPORTING.map(([id,name])=>`<option value="${id}"${value===id?' selected':''}>${esc(name)}</option>`).join("");
 const defaults = timezone => ({timezone,default:"weekly",people:{},profiles:{immediate:{people:[]},acknowledge:{people:[]},morning:{people:[],at:"08:00"},evening:{people:[],at:"18:00"},weekly:{people:[],at:"09:00",weekday:6}},assignments:{}});
 
+export function reportingChoices(card) {
+  if(card.settingsDraft.reporting)return card.settingsDraft.reporting;
+  const choices=defaults(card._hass?.config?.time_zone||card.settingsDraft.policy.timezone);
+  for(const [id,person] of Object.entries(card.settingsDraft.simple_notifications?.people||{}))choices.people[id]=[...(person.channels||[])];
+  return choices;
+}
+
+export function prepareReporting(card) {
+  if(card.settingsDraft.reporting)return;
+  card.settingsDraft.reporting=reportingChoices(card);
+  card.settingsDraft.simple_notifications=null;
+  card.settingsDraft.consumer=null;
+  card.settingsDraft.notifications=false;
+}
+
 export function reportingChanges(before,after,context=null) {
   if(JSON.stringify(before)===JSON.stringify(after))return [];
-  if(!before||!after)return [["Reporting preferences","Existing notification policy","Fixed reporting preferences"]];
+  if(!before&&after)return [["Reporting preferences","Existing notification policy","Fixed reporting preferences"],...reportingChanges(defaults(after.timezone),after,context)];
+  if(!after)return [["Reporting preferences","Fixed reporting preferences","Existing notification policy"]];
   const changes=[];
   if(before.default!==after.default)changes.push(["Household default",label(before.default),label(after.default)]);
   if(before.timezone!==after.timezone)changes.push(["Reporting time zone",before.timezone,after.timezone]);
@@ -38,8 +54,7 @@ function description(p,choices,people=[]) {
   return [p.weekday!==undefined?weekdays[p.weekday]:null,p.at,names].filter(Boolean).join(" · ");
 }
 export function reportingSettings(card) {
-  const choices=card.settingsDraft.reporting;
-  if(!choices)return `<section class="installation-group"><h3>Existing notification policy</h3><p>Your saved policy remains active. Switching starts a draft for review and keeps outgoing requests off until you enable them.</p><button type="button" class="button" data-reporting-migrate>Set up reporting preferences</button></section>`;
+  const choices=reportingChoices(card);
   const people=card.configuration.notification_people||[],routes=card.configuration.notification_destinations||[];
   const selected=Object.keys(choices.people),assigned=Object.keys(choices.assignments).length;
   const failures=card.current?.data?.inventory?.delivery_failures||[];
@@ -59,35 +74,36 @@ export function reportingSettings(card) {
   return `<p class="sub">Choose when a problem should reach someone. Immediate always includes overnight.</p><section class="installation-group"><h3>Reporting profiles</h3>${profiles}<p class="small">Summaries contain new and still-outstanding problems. No resolved entries or empty reports are sent.</p></section><section class="installation-group"><h3>People and destinations</h3>${failureNote}<p class="sub">Choose destinations once, then select these people in each reporting profile. A request does not prove receipt.</p>${peopleRows||'<p>No people configured.</p>'}<label class="installation-field"><span>Add person</span><select data-reporting-add><option value="">Choose a person</option>${people.filter(p=>!selected.includes(p.id)).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("")}</select></label></section><section class="installation-group"><h3>Household default</h3><label class="installation-field"><span>Newly monitored sources</span><select data-reporting-default>${options(choices.default)}</select></label><p class="small">Individual preferences are set in Sources. ${assigned} ${assigned===1?"source has":"sources have"} explicit preferences.</p><label class="installation-field"><span>Time zone</span><input required data-reporting-zone value="${esc(choices.timezone)}"></label></section>`;
 }
 export function sourceReporting(card,node) {
-  const source=node.source, choices=card.settingsDraft?.reporting;
+  const source=node.source;
   if(!card.settingsDraft)return "";
-  if(!choices)return '<section class="source-section"><h3>Reporting</h3><p>Uses your existing notification policy.</p><button class="link" data-page="notifications">Set up reporting preferences</button></section>';
+  const choices=reportingChoices(card);
+  const setup=!card.settingsDraft.reporting?'<p class="note">Choose a preference, then review and save to apply it. The current policy stays active until then.</p>':"";
   if(node.family){
     const devices=node.children.filter(child=>child.source?.kind==="device").map(child=>child.source.node_id);
     if(!devices.length)return "";
-    return `<section class="source-section"><h3>Device reporting</h3><p>Apply one default to these ${devices.length} devices. Condition exceptions stay in place.</p><label>Device default <select data-reporting-bulk="${esc(JSON.stringify(devices))}"><option value="">Choose a preference</option>${options(null)}</select></label>${reportingFooter(card)}</section>`;
+    return `<section class="source-section"><h3>Device reporting</h3>${setup}<p>Apply one default to these ${devices.length} devices. Condition exceptions stay in place.</p><label>Device default <select data-reporting-bulk="${esc(JSON.stringify(devices))}"><option value="">Choose a preference</option>${options(null)}</select></label><button type="button" class="link" data-page="notifications">Shared schedules and recipients</button>${reportingFooter(card)}</section>`;
   }
   if(!source||source.kind==="function")return "";
   const assignment=choices.assignments[source.node_id]||{},check=source.kind==="situation"?"condition":"availability";
-  return `<section class="source-section"><h3>Reporting</h3>${!card.settingsDraft.notifications?'<p class="note">Requests are off. These preferences take effect when reporting is enabled.</p>':''}<p class="small">Monitoring determines what is checked. Reporting determines when someone hears about it.</p><label class="installation-field"><span>Source preference</span><select data-reporting-node="${esc(source.node_id)}" data-reporting-check="">${options(assignment.default,`Use household default — ${label(choices.default)}`)}</select></label><details><summary>Condition exceptions</summary><label class="installation-field"><span>${source.kind==="situation"?"Configured situation":"Availability"}</span><select data-reporting-node="${esc(source.node_id)}" data-reporting-check="${check}">${options(assignment.checks?.[check],"Use source preference")}</select></label><p class="small">Only supported checks are listed. Availability does not detect water or prove a hardware failure.</p></details><button type="button" class="link" data-page="notifications">Change shared schedules and recipients</button>${reportingFooter(card)}</section>`;
+  return `<section class="source-section"><h3>Reporting</h3>${setup}${card.settingsDraft.reporting&&!card.settingsDraft.notifications?'<p class="note">Requests are off. These preferences take effect when reporting is enabled.</p>':''}<p class="small">Monitoring determines what is checked. Reporting determines when someone hears about it.</p><label class="installation-field"><span>Source preference</span><select data-reporting-node="${esc(source.node_id)}" data-reporting-check="">${options(assignment.default,`Use household default — ${label(choices.default)}`)}</select></label><details><summary>Condition exceptions</summary><label class="installation-field"><span>${source.kind==="situation"?"Configured situation":"Availability"}</span><select data-reporting-node="${esc(source.node_id)}" data-reporting-check="${check}">${options(assignment.checks?.[check],"Use source preference")}</select></label><p class="small">Only supported checks are listed. Availability does not detect water or prove a hardware failure.</p></details><button type="button" class="link" data-page="notifications">Change shared schedules and recipients</button>${reportingFooter(card)}</section>`;
 }
 function reportingFooter(card) {
+  if(!card.settingsDraft.reporting)return '<p class="small">Shared schedules and recipients are configured in Notifications.</p>';
   const changes=reportingChanges(card.configuration.settings.reporting,card.settingsDraft.reporting,card),preview=card.settingsPreview;
   if(!changes.length)return "";
   return `<div class="installation-actions"><p>${changes.length} reporting changes awaiting review.</p>${preview?`<section class="settings-preview"><h4>Review reporting changes</h4><ul>${changes.map(([name,from,to])=>`<li>${esc(name)}: ${esc(from)} → ${esc(to)}</li>`).join("")}</ul><p>Applies to ${preview.reporting_assignments} explicit source preferences. ${preview.requests_now} requests would be produced now. Requests ${card.settingsDraft.notifications?'enabled':'remain off'}.</p></section>`:""}${card.settingsError?`<p role="alert">${esc(card.settingsError)}</p>`:""}<button type="button" class="button" data-action="${preview?'save-settings':'preview-settings'}"${card.settingsBusy?' disabled':''}>${preview?'Save reporting':'Review reporting changes'}</button></div>`;
 }
 export function editReporting(card,event) {
-  const target=event.target.closest?.("[data-reporting-migrate],[data-reporting-remove]")||event.target;
+  const target=event.target.closest?.("[data-reporting-review],[data-reporting-remove]")||event.target;
   if(!card.settingsDraft||!Object.keys(target.dataset||{}).some(key=>key.startsWith("reporting")))return false;
-  if(event.type==="click"&&!target.matches("[data-reporting-migrate],[data-reporting-remove]"))return false;
+  if(event.type==="click"&&!target.matches("[data-reporting-review],[data-reporting-remove]"))return false;
   card.reportingExpanded=[...(target.getRootNode?.().querySelectorAll?.("details[data-profile-id][open]")||[])].map(item=>item.dataset.profileId);
-  let choices=card.settingsDraft.reporting;
-  if(target.hasAttribute("data-reporting-migrate")){
-    choices=defaults(card._hass?.config?.time_zone||card.settingsDraft.policy.timezone);
-    for(const [id,person] of Object.entries(card.settingsDraft.simple_notifications?.people||{}))choices.people[id]=[...(person.channels||[])];
-    card.settingsDraft.reporting=choices;card.settingsDraft.simple_notifications=null;card.settingsDraft.notifications=false;
-  }else if(!choices)return false;
-  else if(target.dataset.reportingRemove){const id=target.dataset.reportingRemove;delete choices.people[id];for(const p of Object.values(choices.profiles))p.people=p.people.filter(x=>x!==id);}
+  prepareReporting(card);
+  const choices=card.settingsDraft.reporting;
+  if(target.hasAttribute("data-reporting-review")){
+    card.settingsPreview=null;card.settingsError=null;card.settingsNotice=null;
+    card.previewSettings();return true;
+  }else if(target.dataset.reportingRemove){const id=target.dataset.reportingRemove;delete choices.people[id];for(const p of Object.values(choices.profiles))p.people=p.people.filter(x=>x!==id);}
   else if(target.hasAttribute("data-reporting-add")){if(target.value)choices.people[target.value]=[];}
   else if(target.hasAttribute("data-reporting-default"))choices.default=target.value;
   else if(target.hasAttribute("data-reporting-zone"))choices.timezone=target.value;

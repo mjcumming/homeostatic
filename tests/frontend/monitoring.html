@@ -30,7 +30,7 @@ card._hass={user:{is_admin:true},localize:()=>null,async callWS(command){
   }
   if(command.type==="homeostatic/preview_settings"){
     settingsToken=JSON.stringify(command.settings);
-    return{before:structuredClone(settings),after:structuredClone(command.settings),preview_token:"settings-preview",open_problems:0,requests_now:0};
+    return{before:structuredClone(settings),after:structuredClone(command.settings),preview_token:"settings-preview",open_problems:0,requests_now:0,reporting_assignments:Object.keys(command.settings.reporting?.assignments||{}).length};
   }
   if(command.type==="homeostatic/save_settings"){
     if(command.preview_token!=="settings-preview"||settingsToken!==JSON.stringify(command.settings)||command.revision!==String(revision))throw Error("Exact settings preview required");
@@ -88,16 +88,25 @@ document.querySelector("#run").onclick=async()=>{
     root.querySelector('.nav [data-page="notifications"]').click();
     expect(root.querySelector('h1').textContent==="Notifications","Notifications did not open as a main page");
     expect(root.querySelector('[data-setting-path="notifications"]'),"Notification activation missing");
+    expect(root.querySelectorAll(".reporting-profile").length===5,"Saved older policy hides reporting profiles");
+    expect(root.querySelector("[data-reporting-review]"),"Initial reporting review missing");
+    expect(!card.settingsDraft.reporting,"Browsing staged a reporting replacement");
     expect(!root.querySelector('[data-consumer-action]'),"Deferred automation picker remains");
     root.querySelector('.nav [data-page="configuration"]').click();
     expect(!root.querySelector('[data-setting-path="notifications"]'),"Notification controls remain in Settings");
+    root.querySelector('[data-settings-section="policies"]').click();
+    expect(root.querySelector(".config-advanced"),"Global policies missing from Settings");
+    expect(root.querySelectorAll(".config-rule").length===card.configDraft.length,"Global editor lost saved policies");
     root.querySelector('[data-settings-section="timing"]').click();
     change(root.querySelector('[data-setting-path="timings.unknown_hold"]'),"4");
     await card.previewSettings();await card.saveSettings();
     expect(settingsSaves===1&&settings.timings.unknown_hold===240,"Settings save failed");
     expect(card.configDraft.some(rule=>rule.match.device?.[0]==="camera-1"),"Settings save discarded monitoring draft");
     change(root.querySelector('[data-setting-path="timings.clear_hold"]'),"3");
-    card.page="sources";card.render();await card.previewConfiguration();
+    card.page="sources";card.render();
+    expect(!root.querySelector(".config-advanced"),"Global policies remain inside source Settings");
+    expect(root.querySelector("[data-reporting-bulk]"),"Integration device reporting is hidden");
+    await card.previewConfiguration();
     expect(root.querySelector('[data-action="save-configuration"]').disabled===false,"Preview did not enable Save");
     root.querySelector('[data-scope-index="2"][value="attach"]').click();
     expect(card.configPreview===null&&!root.querySelector('[data-action="save-configuration"]'),"Changed choice retained stale preview");
@@ -110,7 +119,7 @@ document.querySelector("#run").onclick=async()=>{
     root.querySelector('[data-action="back-sources"]').click();
     expect(getComputedStyle(root.querySelector(".config-detail")).display==="none","Mobile Back did not restore list");
     card.page="overview";card.render();
-    expect(root.querySelectorAll(".overview-stat").length===2,"Overview still has unclear KPI cards");
+    expect(root.querySelectorAll(".overview-stat").length===1,"Overview should show issues alongside reporting status");
     expect(!root.querySelector(".home-history-link"),"Overview still repeats resolved history");
     card.style.width="";card.page="sources";card.sourcesView="source";card.sourcesMobileDetail=false;card.render();await settle();
     expect(errors.length===0,errors.join("; "));

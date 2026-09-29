@@ -1,6 +1,6 @@
 import {escapeHtml as esc} from "./model.mjs?v=27";
 
-import {reportingSettings, reportingChanges, editReporting} from "./reporting.mjs?v=1";
+import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=2";
 
 export const TIMINGS = [
   ["Recovery", "settle", "Wait for related failures", "Allow dependencies that are still uncertain to settle before opening a separate problem."],
@@ -52,52 +52,29 @@ export function settingsChanges(before,after,context=null) {
   return changes;
 }
 
-function peopleSettings(card) {
-  const choices=card.settingsDraft.simple_notifications;
-  if(!choices)return `<section class="installation-group"><h3>Custom notification policy</h3><p>This policy was edited outside this page. Review it in Home Assistant, or reset it to configure people here.</p><button type="button" class="button" data-notification-reset>Reset to person settings</button></section>`;
-  const people=card.configuration.notification_people||[];
-  const routes=card.configuration.notification_destinations||[];
-  const failures=card.current?.data?.inventory?.delivery_failures||[];
-  const selected=choices.people||{};
-  const available=people.filter(person=>!selected[person.id]);
-  const add=available.length?`<label class="installation-field"><span><strong>Add person</strong><small>People linked to a Home Assistant user.</small></span><select data-notification-add><option value="">Choose a person</option>${available.map(person=>`<option value="${esc(person.id)}">${esc(person.name)}</option>`).join("")}</select></label>`:'<p class="sub">All linked people are listed.</p>';
-  const cards=Object.entries(selected).map(([id,choice])=>{
-    const person=people.find(item=>item.id===id);
-    const name=person?.name||id,admin=person?.administrator;
-    const phones=routes.filter(route=>route.channel.startsWith("phone:")&&route.user_id===person?.user_id);
-    const other=routes.filter(route=>route.channel.startsWith("notify:"));
-    const destinations=(items)=>items.map(route=>`<div class="notification-route"><label class="installation-toggle"><input type="checkbox" data-notification-channel="${esc(route.channel)}" data-notification-person="${esc(id)}"${choice.channels?.includes(route.channel)?' checked':''}${!route.available?' disabled':''}> ${esc(route.name)}${route.available?'':' · unavailable'}</label>${route.available?`<button type="button" class="link" data-notification-test="${esc(route.channel)}">Send test</button>`:''}</div>`).join("");
-    const levels=admin?["Everything","Important","Urgent only","Off"]:["All","Urgent only","Off"];
-    const quiet=choice.quiet_hours;
-    return `<section class="installation-group notification-person"><h4>${esc(name)} <small>${admin?'Administrator':'Household member'}</small></h4><label class="installation-field"><span><strong>${admin?'Tell me about':'Home alerts'}</strong><small>${admin?'Faults and home alerts':'Situations the household can act on'}</small></span><select data-notification-level="${esc(id)}">${levels.map(level=>`<option value="${esc(level)}"${choice.level===level?' selected':''}>${esc(level)}</option>`).join("")}</select></label><h5>Phones</h5>${phones.length?destinations(phones):'<p class="sub">No Companion app phone is registered to this person.</p>'}<details><summary>Other message destinations</summary>${other.length?destinations(other):'<p class="sub">No notify entities are available.</p>'}</details><label class="installation-toggle"><input type="checkbox" data-notification-quiet="${esc(id)}"${quiet?' checked':''}> Quiet hours</label>${quiet?`<div class="quiet-times"><label>From<input type="time" data-notification-quiet-time="start" data-notification-person="${esc(id)}" value="${esc(quiet.start)}" required></label><label>Until<input type="time" data-notification-quiet-time="end" data-notification-person="${esc(id)}" value="${esc(quiet.end)}" required></label></div>`:''}<button type="button" class="link" data-notification-remove="${esc(id)}">Remove person</button></section>`;
-  }).join("");
-  const latest=new Map(failures.map(item=>[item.channel,item.error]));
-  const failed=[...latest].map(([channel,error])=>`<li>${esc(routes.find(route=>route.channel===channel)?.name||channel)}: ${esc(error)}</li>`).join("");
-  return `<section class="installation-group"><h3>People</h3><p class="sub">Choose who can act on each kind of problem and where to reach them. A test requests delivery to one destination; it does not prove receipt.</p>${failed?`<div role="status"><strong>Recent delivery request failures</strong><ul>${failed}</ul></div>`:''}${cards||'<p>No people are configured yet.</p>'}${add}</section>`;
-}
-
 export function installationSettings(card) {
   const notificationsPage=card.page==="notifications";
   const intro=`<div class="intro"><h1>${notificationsPage?"Notifications":"Settings"}</h1></div>`;
   if(!card.configuration||!card.settingsDraft)return `${intro}<section class="panel body"><p>${esc(card.configError||"Loading settings…")}</p><button type="button" class="button" data-action="load-configuration">Reload settings</button></section>`;
-  const draft=card.settingsDraft,section=notificationsPage?"notifications":card.settingsSection==="grouping"?"grouping":"timing";
-  const nav=notificationsPage?"":`<nav class="installation-nav" aria-label="Installation settings">${[["timing","Timing"],["grouping","Problem grouping"]].map(([id,label])=>`<button type="button" data-settings-section="${id}" aria-current="${section===id?'page':'false'}">${label}</button>`).join("")}</nav>`;
+  const draft=card.settingsDraft,section=notificationsPage?"notifications":["grouping","policies"].includes(card.settingsSection)?card.settingsSection:"timing";
+  const nav=notificationsPage?"":`<nav class="installation-nav" aria-label="Installation settings">${[["timing","Timing"],["grouping","Problem grouping"],["policies","Monitoring policies"]].map(([id,label])=>`<button type="button" data-settings-section="${id}" aria-current="${section===id?'page':'false'}">${label}</button>`).join("")}</nav>`;
+  if(section==="policies")return `${intro}<div class="installation-layout">${nav}<section class="panel installation-content"><h2>Monitoring policies</h2><p class="sub">These policies apply across your installation. For one integration, device, or entity, use its Settings in Sources.</p>${card.monitoringEditor(true)}</section></div>`;
   let body="";
   if(section==="timing"||section==="grouping") {
     const rows=TIMINGS.filter(row=>section==="grouping"?row[0]==="Grouping":row[0]!=="Grouping");
     body=`<h2>${section==="grouping"?"Problem grouping":"Timing"}</h2><p class="sub">${section==="grouping"?"Combine related failures when they share a dependency.":"Set the waits used for detection, recovery, startup, and notification requests. Zero removes a wait."}</p>`+[...new Set(rows.map(row=>row[0]))].map(group=>`<section class="installation-group"><h3>${group}</h3>${rows.filter(row=>row[0]===group).map(([,key,label,help])=>timingField(`timings.${key}`,label,draft.timings[key],help,key==="coalesce_count")).join("")}</section>`).join("");
   }
   if(section==="notifications") {
-    const reporting=draft.reporting;
-    const routeReady=reporting?Object.values(reporting.people).some(channels=>channels.length):Object.values(draft.simple_notifications?.people||{}).some(choice=>choice.channels?.length);
-    body=(draft.consumer?'<p class="config-error">An older notification automation is selected. It remains saved. Clear it in Home Assistant options before switching to reporting preferences.</p>':reporting?reportingSettings(card):peopleSettings(card)+reportingSettings(card)+field("policy.timezone","Time zone",draft.simple_notifications?.timezone||draft.policy.timezone))+`<section class="installation-group"><h3>Outgoing requests</h3><label class="installation-toggle"><input type="checkbox" data-setting-path="notifications"${draft.notifications?' checked':''}${!routeReady&&!draft.notifications?' disabled':''}> Enable notification requests</label><p class="sub">Review and save to apply changes. Immediate includes overnight. Current open problems follow their selected reporting preferences.</p></section>`;
-
+    const reporting=reportingChoices(card);
+    const routeReady=Object.values(reporting.people).some(channels=>channels.length);
+    const enabled=Boolean(draft.reporting&&draft.notifications);
+    const setup=!card.configuration.settings.reporting?'<p class="note">Review and save to apply this reporting setup. The current policy stays active until then. New requests start off; choose recipients and enable them when ready.</p>':"";
+    body=setup+reportingSettings(card)+`<section class="installation-group"><h3>Outgoing requests</h3><label class="installation-toggle"><input type="checkbox" data-setting-path="notifications"${enabled?' checked':''}${!routeReady&&!enabled?' disabled':''}> Enable notification requests</label><p class="sub">Review and save to apply changes. Immediate includes overnight. Current open problems follow their selected reporting preferences.</p></section>`;
   }
-  const optionsUrl=`/config/integrations/integration/homeostatic#config_entry=${encodeURIComponent(card.current.data.entry_id)}`;
-  if(section==="notifications"&&draft.consumer)body+=`<section class="installation-group"><a href="${optionsUrl}">Open Home Assistant options to clear the saved automation</a></section>`;
   const changes=settingsChanges(card.configuration.settings,draft,card),preview=card.settingsPreview;
   const review=preview?`<section class="settings-preview" aria-live="polite"><h3>Review changes</h3><ul>${settingsChanges(preview.before,preview.after,card).map(([label,from,to])=>`<li><strong>${esc(label)}</strong>: ${esc(from)} → ${esc(to)}</li>`).join("")}</ul><p>Homeostatic will reload to apply these settings.</p><p>Right now: ${preview.open_problems} open problems would produce ${preview.requests_now} notification requests under this policy. This preview sends nothing. Scheduled problems wait for their report; resolved problems will be omitted.</p></section>`:"";
-  return `${intro}<div class="installation-layout${notificationsPage?' notification-layout':''}">${nav}<section class="panel installation-content"><fieldset class="installation-editor"${card.settingsBusy?' disabled':''}>${body}</fieldset>${card.settingsError?`<p class="config-error" role="alert">${esc(card.settingsError)}</p>`:''}${review}${card.settingsNotice?`<p role="status">${esc(card.settingsNotice)}</p>`:''}<footer class="installation-actions"><span class="small">${changes.length?`${changes.length} unsaved ${changes.length===1?'change':'changes'}`:'All changes saved'}</span><button type="button" class="button primary" data-action="${preview?'save-settings':'preview-settings'}"${card.settingsBusy||!changes.length?' disabled':''}>${preview?'Save settings':'Review changes'}</button>${changes.length?'<button type="button" class="link" data-action="discard-settings">Discard</button>':''}</footer></section></div>`;
+  const initialSetup=notificationsPage&&!draft.reporting;
+  return `${intro}<div class="installation-layout${notificationsPage?' notification-layout':''}">${nav}<section class="panel installation-content"><fieldset class="installation-editor"${card.settingsBusy?' disabled':''}>${body}</fieldset>${card.settingsError?`<p class="config-error" role="alert">${esc(card.settingsError)}</p>`:''}${review}${card.settingsNotice?`<p role="status">${esc(card.settingsNotice)}</p>`:''}<footer class="installation-actions"><span class="small">${initialSetup?'Reporting setup not saved':changes.length?`${changes.length} unsaved ${changes.length===1?'change':'changes'}`:'All changes saved'}</span><button type="button" class="button primary" ${initialSetup?'data-reporting-review':`data-action="${preview?'save-settings':'preview-settings'}"`}${card.settingsBusy||(!initialSetup&&!changes.length)?' disabled':''}>${initialSetup?'Review reporting setup':preview?'Save settings':'Review changes'}</button>${changes.length?'<button type="button" class="link" data-action="discard-settings">Discard</button>':''}</footer></section></div>`;
 }
 
 export function editInstallation(card,event) {
@@ -147,6 +124,7 @@ export function editInstallation(card,event) {
   }else if(element.dataset.quietTime){
     draft.policy.recipients[element.dataset.recipient].quiet_hours[element.dataset.quietTime]=element.value;
   }else if(element.dataset.settingPath){
+    if(element.dataset.settingPath==="notifications")prepareReporting(card);
     const path=element.dataset.settingPath.split("."),key=path.pop();
     let object=draft;for(const part of path)object=object[part];
     const value=element.type==="checkbox"?element.checked:element.type==="number"?Number(element.value)*Number(element.dataset.settingScale||1):element.value;

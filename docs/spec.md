@@ -317,3 +317,22 @@ then dashboard. Existing custom policies are preserved until reviewed migration.
 Overview provides read-only reporting readiness and provisional next-report counts.
 Configuration uses one generated policy with integrity hash and existing guarded
 preview/save revision checks. Bulk device defaults preserve condition exceptions.
+
+### Settings scope and initial reporting setup (ADR 0028)
+
+Source Settings shows scoped monitoring choices and reporting assignments. It
+does not embed the installation-wide catalog editor. Settings → Monitoring
+policies holds that editor and its existing preview/save controls; multiple
+direct source policies link there. Timing and Problem grouping remain separate.
+
+Notifications always shows fixed reporting types, schedules, people, destinations,
+household defaults, and activation. When reporting choices have not been saved,
+the page displays defaults and explains the pending setup; it does not render the
+retired person-level editor or require a setup/reset action to reveal controls.
+Source assignment controls are also visible before initial setup. Reading these
+pages leaves saved settings and drafts untouched. The first edit or Review
+reporting setup creates a reporting draft with requests off, carries over known
+person destinations, and clears any previous consumer in the draft. Preview and
+save replace the previous policy only after review. Timing-only edits do not
+stage a reporting replacement. Browser scenarios cover global/source separation,
+old-policy visibility, retained drafts, and exact reviewed saves.
