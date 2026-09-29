@@ -1,3 +1,5 @@
+import {monitoringPolicyRules} from "./monitoring-policies-fixture.mjs";
+import {groupPolicyScope, isGroupPolicy, monitoringPolicies} from "../../custom_components/homeostatic/frontend/monitoring-policies.mjs";
 import {durationSeconds,editInstallation,installationSettings,settingsChanges} from "../../custom_components/homeostatic/frontend/installation-settings.mjs";
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "../../custom_components/homeostatic/frontend/monitoring-browser.mjs";
 import {filterSources, sourceMonitoringChoices, sourcePaths, sourcesBrowser, sourcesTree} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
@@ -1136,4 +1138,54 @@ test("Timing preview describes edits while preserving unrelated policy structure
   assert.equal(changes.length,2);
   assert.match(changes[1][0],/security/);
   assert.deepEqual(after.policy.digests,before.policy.digests);
+});
+
+
+test("monitoring policy scenario keeps 18 direct choices out of the normal group view", () => {
+  const rules=monitoringPolicyRules(), before=structuredClone(rules);
+  const html=monitoringPolicies({configDraft:rules,current:{data:{}}});
+  const [normal,advanced]=html.split('<details class="config-advanced"');
+  assert.match(normal,/Group policies \(1\)/);
+  assert.match(normal,/Watch integration connections/);
+  assert.match(normal,/Choose specific integrations, devices, and entities by name in Sources/);
+  assert.doesNotMatch(normal,/Watch 1 selected device|Watch 2 selected entities|data-rule-index="0"|data-rule-index="2"/);
+  assert.match(normal,/data-rule-index="1"/);
+  assert.match(normal,/data-page="sources"/);
+  assert.match(advanced,/^><summary>Advanced rule details/);
+  assert.match(advanced,/data-rule-index="18"/);
+  assert.deepEqual(rules,before);
+});
+
+for(const [name,match,expected] of [
+  ["unrestricted",{},true],
+  ["multiple source types",{kind:["integration","entity"]},true],
+  ["integration type and label",{kind:["device"],integration_domain:["matter"],label:["critical"]},true],
+  ["integration instance default",{kind:["device"],integration:["matter-instance"]},false],
+  ["multiple devices and location",{device:["one","two"],area:["upstairs"]},false],
+  ["entity and domain",{entity:["light.porch"],domain:["light"]},false],
+])test(`monitoring policy scope: ${name}`,()=>{
+  assert.equal(isGroupPolicy({match}),expected);
+});
+
+test("group policy summaries retain every condition, paused state and escaping",()=>{
+  const rule={id:"scoped",action:"exclude",enabled:false,match:{kind:["device","entity"],
+    domain:["light","switch"],device_class:["outlet"],area:["porch"],label:["missing"]}};
+  const data={areas:[{id:"porch",name:"<Porch>"}]};
+  assert.deepEqual(groupPolicyScope(rule,data),{subject:"device availability or entity availability",conditions:[
+    "Domain: light or switch","Device class: outlet","Area: <Porch>","Label: Selected label (see rule details)"]});
+  const html=monitoringPolicies({configDraft:[rule],configBusy:true,current:{data}});
+  assert.match(html,/Leave unmonitored device availability or entity availability/);
+  assert.match(html,/Paused — this rule has no effect/);
+  assert.match(html,/&lt;Porch&gt;/);
+  assert.doesNotMatch(html,/<Porch>/);
+  assert.match(html,/<fieldset class="config-editor" disabled>/);
+  assert.deepEqual(groupPolicyScope({match:{}}).subject,"integration connections or entity availability");
+});
+
+test("no group policies directs owners to Sources without inventing defaults",()=>{
+  const rules=monitoringPolicyRules().filter(rule=>!isGroupPolicy(rule));
+  const html=monitoringPolicies({configDraft:rules,current:{data:{}}});
+  assert.match(html,/No group policies/);
+  assert.equal(rules.length,18);
+  assert.doesNotMatch(html,/<article class="monitoring-policy"/);
 });

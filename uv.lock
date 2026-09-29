@@ -1167,7 +1167,7 @@ wheels = [
 
 [[package]]
 name = "homeostatic"
-version = "0.1.0b17"
+version = "0.1.0b18"
 source = { virtual = "." }
 dependencies = [
     { name = "health-tree" },

@@ -402,3 +402,13 @@ The reporting controls remain visible when an older notification policy is saved
 Opening them does not change it. Editing or reviewing the initial setup creates a
 draft with requests off; review and save applies it. Global monitoring policies
 are under **Settings → Monitoring policies**, not inside an individual source.
+
+Monitoring policies lists group rules, such as watching integration connections
+or device availability for an integration type. These can match future sources
+as well as current ones. Open **Edit group policy** to change a group's conditions.
+For specific integrations, devices, or entities, open **Sources**, select the
+source by name, and use its **Settings**. **Advanced rule details** contains the
+complete catalog for inspecting exact conditions or correcting overlapping rules.
+Opening either page preserves your choices; edits require **Review changes** and
+**Save choices**. Removing a rule does not stop monitoring if another rule still
+selects that source.

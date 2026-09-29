@@ -1,6 +1,6 @@
-import {escapeHtml as esc} from "./model.mjs?v=39";
+import {escapeHtml as esc} from "./model.mjs?v=41";
 
-import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=39";
+import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=41";
 
 export const TIMINGS = [
   ["Recovery", "settle", "Wait for related failures", "Allow dependencies that are still uncertain to settle before opening a separate problem."],
@@ -58,7 +58,7 @@ export function installationSettings(card) {
   if(!card.configuration||!card.settingsDraft)return `${intro}<section class="panel body"><p>${esc(card.configError||"Loading settings…")}</p><button type="button" class="button" data-action="load-configuration">Reload settings</button></section>`;
   const draft=card.settingsDraft,section=notificationsPage?"notifications":["grouping","policies"].includes(card.settingsSection)?card.settingsSection:"timing";
   const nav=notificationsPage?"":`<nav class="installation-nav" aria-label="Installation settings">${[["timing","Timing"],["grouping","Problem grouping"],["policies","Monitoring policies"]].map(([id,label])=>`<button type="button" data-settings-section="${id}" aria-current="${section===id?'page':'false'}">${label}</button>`).join("")}</nav>`;
-  if(section==="policies")return `${intro}<div class="installation-layout">${nav}<section class="panel installation-content"><h2>Monitoring policies</h2><p class="sub">These policies apply across your installation. For one integration, device, or entity, use its Settings in Sources.</p>${card.monitoringEditor(true)}</section></div>`;
+  if(section==="policies")return `${intro}<div class="installation-layout">${nav}<section class="panel installation-content"><h2>Monitoring policies</h2><p class="sub">Set availability expectations for groups of current and future sources. For a specific integration, device, or entity, use its Settings in Sources.</p>${card.monitoringEditor(true)}</section></div>`;
   let body="";
   if(section==="timing"||section==="grouping") {
     const rows=TIMINGS.filter(row=>section==="grouping"?row[0]==="Grouping":row[0]!=="Grouping");

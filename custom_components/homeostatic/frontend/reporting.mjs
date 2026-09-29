@@ -1,4 +1,4 @@
-import {escapeHtml as esc, sourceMap} from "./model.mjs?v=39";
+import {escapeHtml as esc, sourceMap} from "./model.mjs?v=41";
 
 export const REPORTING = [
   ["immediate","Immediate","Notify once, including overnight."],

@@ -38,6 +38,24 @@ New matching sources enroll at the next registry event, state appearance, or 60-
 
 Native setup and options preview summarize watched integration instances, device availability summaries, entities associated with a current Home Assistant device, and entities without one before saving. These are inventory groupings, not physical or software classifications; the preview states that device association does not prove physical hardware. Existing rule-match and function-requirement explanations remain present.
 
+### Monitoring policy presentation
+
+Settings → Monitoring policies shows group rules without explicit `integration`,
+`device`, or `entity` selectors. Summaries show the source types and all filled
+conditions; these rules can match current and future sources. Any rule with an
+explicit source selector, including multi-source and mixed-condition rules,
+remains a source choice managed in Sources. Counts are rule counts, not inventory
+or watched-source counts. Disabled rules remain visible as paused.
+
+Group policy editing is explicitly disclosed. The complete technical catalog
+editor remains under a collapsed Advanced rule details section, including source
+rules that need overlap correction. Rendering never edits, filters, reorders or
+replaces the stored catalog. Edits retain original rule indices and submit the
+complete draft through the existing preview and guarded save path. Changing or
+removing a rule invalidates its preview. Opening Sources preserves pending edits.
+This presentation supersedes older descriptions of a raw catalog as the normal
+Settings view ([ADR 0030](adr/0030-separate-group-policies-from-source-choices.md)).
+
 ### Home Assistant device availability
 
 [ADR 0012](adr/0012-monitoring-expectations-and-persistent-exclusions.md) defines availability expectations and supersedes the interpretation in ADRs 0009 and 0011.
