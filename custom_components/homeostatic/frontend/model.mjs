@@ -641,7 +641,11 @@ export class DashboardStore {
       }
     }).catch((error) => {
       if (generation === this.generation) {
-        this.update({status: "error", error: error?.message ?? "Could not subscribe to Homeostatic."});
+        const versionMismatch = error?.code === "invalid_format" && /not a valid option at 'paged'/.test(error?.message ?? "");
+        const message = versionMismatch
+          ? "The Homeostatic dashboard and integration are out of sync. If Home Assistant is updating or restarting, let it finish, then refresh this page. If this continues, check that the dashboard and integration are from the same version."
+          : error?.message ?? "Could not subscribe to Homeostatic.";
+        this.update({status: "error", error: message});
       }
     });
   }

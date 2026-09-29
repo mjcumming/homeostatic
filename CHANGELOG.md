@@ -4,6 +4,16 @@
 
 ### Added
 
+- Document the maintenance and health roadmap, distinguishing planned battery,
+  action-detail, household-access and presentation work from future options.
+  The roadmap builds on the existing health-tree architecture and changes no
+  runtime behavior or access permissions.
+
+- Show device availability separately from selected-entity monitoring: Available,
+  Unavailable, Unknown, or Disabled using all enabled HA entities. Reserve Partially
+  available for explicit integration reports when supported upstream. Keep empty
+  and disabled devices browsable and refresh selected device access evidence.
+
 - Configure alerts entirely in HA with automatic source registration, shared reporting profiles, explicit retirement/conversion, and authenticated Acknowledge buttons on individual phone notifications.
 
 - Open Homeostatic issue details from phone notification taps, including retained
@@ -15,7 +25,22 @@
   unknown, remain independent of equipment, and require fresh evidence after
   restart. Explicit clearing resolves through the existing notification policy.
 
+### Changed
+
+- Rewrite the README for a Home Assistant user arriving cold: the problem in house
+  terms, what the panel, issues, functions, alerts, and notifications give you, how
+  the dependency graph and Health Tree work, and an honest note on what availability
+  evidence cannot prove. Shorten the alert walkthrough, keep its anchor, drop the
+  stale phone-acknowledgment limit, and list the alert blueprint first.
+
 ### Fixed
+
+- Align device availability documentation with ADR 0025: partial and total
+  unavailability both warn; unknown values differ from missing evidence. Clarify
+  that device summaries describe selected HA entities, not physical health.
+
+- Explain dashboard/backend update mismatches in plain language, with restart and
+  refresh guidance, instead of showing a raw `paged` validation error.
 
 - Bound Companion notification replacement tags to Apple's 64-byte limit in
   both the built-in phone sender and consumer blueprint. Long identifiers use

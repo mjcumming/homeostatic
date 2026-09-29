@@ -414,7 +414,8 @@ class Runtime:
 
     def _discover(self) -> dict[str, Source]:
         rules = parse_rules(rule_data(self.hass, self.settings))
-        candidates = evaluate(inventory(self.hass, self.settings, self.enrolled), rules)
+        discovered = inventory(self.hass, self.settings, self.enrolled)
+        candidates = evaluate(discovered, rules)
         at = dt_util.utcnow().isoformat()
         batch = uuid4().hex
         if not self._discovered:
@@ -457,7 +458,12 @@ class Runtime:
                         "node_id": node_id,
                         "at": at,
                         "batch": batch,
-                        "reason": "match_attributes_changed"
+                        "reason": "source_removed"
+                        if source.kind == "device"
+                        and previous.availability_entities
+                        and not discovered[node_id].availability_entities
+                        and not source.disabled
+                        else "match_attributes_changed"
                         if previous.attributes != source.attributes
                         else "rules_changed",
                         "before": json_object(previous),

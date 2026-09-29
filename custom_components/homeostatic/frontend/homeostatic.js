@@ -4,6 +4,7 @@ import {reportingOverview, reportingStatus} from "./reporting.mjs?v=43";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
   sourceMap} from "./model\.mjs?v=43";
+import {deviceAvailability, deviceAvailabilityStamp} from "./device-availability.mjs?v=43";
 import {deviceProblem, entityProblem, integrationProblem} from "./problem\.mjs?v=43";
 import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=43";
 import {diagnosticOverview} from "./evidence\.mjs?v=43";
@@ -199,6 +200,8 @@ class HomeostaticCard extends HTMLElement {
       this.release();
       this.connect();
     } else if (!this.removeListener) this.connect();
+    else if (this.page === "sources" && this.sourceDetail?.device_availability &&
+      !this.sourceDetail.stamp?.endsWith(`:${deviceAvailabilityStamp(this.sourceDetail.device_availability,value.states)}`)) this.loadSource();
   }
 
   connectedCallback() { this.connect(); }
@@ -366,7 +369,7 @@ class HomeostaticCard extends HTMLElement {
       const messages = {
         loading: ["Loading dashboard", "Receiving the latest monitoring result from Home Assistant."],
         disconnected: ["Connection lost", "Current health is unknown. Reconnecting to Home Assistant."],
-        unavailable: ["Monitoring unavailable", this.current.data?.error ? "Homeostatic reported an error. Check its configuration, storage and logs." : "Homeostatic is starting or has been unloaded."],
+        unavailable: ["Monitoring unavailable", this.current.data?.error ? "Homeostatic reported an error. Check its configuration, storage and logs." : "Homeostatic is starting or has been unloaded. During startup, this page will update automatically when monitoring is ready."],
         error: ["Dashboard unavailable", this.current.error],
       };
       const [title, message] = messages[this.current.status];
@@ -677,14 +680,17 @@ class HomeostaticCard extends HTMLElement {
     const selected = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping,null,this.topomation)).get(this.sourcesSelection)?.node;
     const nodeId = selected?.source?.node_id;
     if (!nodeId) return;
-    const stamp = this.current.data.updated_at;
+    const states = this._hass.states, updatedAt = this.current.data.updated_at;
+    const previous = this.sourceDetail?.nodeId === nodeId ? this.sourceDetail : null;
+    const stamp = `${updatedAt}:${deviceAvailabilityStamp(previous?.device_availability,states)}`;
     if (!force && this.sourceDetail?.nodeId === nodeId && this.sourceDetail.stamp === stamp) return;
     const sequence = ++this.sourceSequence;
-    this.sourceDetail = {nodeId,stamp,loading:true};
+    this.sourceDetail = {...previous,nodeId,stamp,loading:true};
     try {
       const result = await this._hass.callWS({type:"homeostatic/source",node_id:nodeId});
       if (sequence !== this.sourceSequence) return;
-      this.sourceDetail = {...result,nodeId,stamp};
+      const readStamp = `${updatedAt}:${deviceAvailabilityStamp(result.device_availability,states)}`;
+      this.sourceDetail = {...result,nodeId,stamp:readStamp};
     } catch (error) {
       if (sequence !== this.sourceSequence) return;
       this.sourceDetail = {nodeId,stamp,error:error?.message || "Could not read this source."};
@@ -1253,7 +1259,7 @@ class HomeostaticCard extends HTMLElement {
         integrationProblem(source, findings, (key) => this._hass.localize?.(key), result.integration_evidence, Boolean(episode)) ??
         entityProblem(source, result.entity_status, nodes.get(`entry:${source.owner_id}`), data.areas, (key) => this._hass.localize?.(key), Boolean(episode));
       const memberEvidence = result.device_evidence?.total ? result.device_evidence : null;
-      const uncertainMembers = memberEvidence?.members.filter((member) => member.restored || ["unknown", "unavailable", "missing"].includes(member.state)) ?? [];
+      const uncertainMembers = memberEvidence?.members.filter((member) => member.restored || ["unavailable", "missing"].includes(member.state)) ?? [];
       const expanded = new Set([...body.querySelectorAll("details[open][data-disclosure]")].map((item) => item.dataset.disclosure));
       const disclosure = (key) => `data-disclosure="${key}"${expanded.has(key) ? " open" : ""}`;
       const integrationDomains = source.attributes?.integration_domain ?? [];
@@ -1269,7 +1275,7 @@ class HomeostaticCard extends HTMLElement {
       const diagnosticData = {evidence:result,policy:explanation,notifications_enabled:data.policy.notifications_enabled,controls};
       const genericSummary = source.kind === "situation" ? (episode ? "This reported condition remains open. Check its current state." : "No open problem is reported for this condition.")
         : result.readiness ? `${ownerStatus(result.readiness.answer)} in Home Assistant.` : "Current status has not been confirmed.";
-      body.innerHTML = `<section class="detail problem-brief">${memberEvidence ? `<h3 class="problem-integration">${deviceIntegrations.length ? `<span>Integration</span> ${esc(deviceIntegrations.join(", "))}` : "Home Assistant device"}</h3>${uncertainMembers.length === 1 ? `<p><strong>${esc(uncertainMembers[0].name)}</strong> · ${esc(uncertainMembers[0].restored ? "restored; current value unknown" : uncertainMembers[0].state)} in Home Assistant</p>` : uncertainMembers.length ? `<p>Entities needing review:</p><ul>${uncertainMembers.map((member) => `<li><strong>${esc(member.name)}</strong> · ${esc(member.restored ? "restored; current value unknown" : member.state)}</li>`).join("")}</ul>` : `<p>All selected entities have current Home Assistant states.</p>`}${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing the first 50 selected entities. More may need review.</p>` : ""}` : problem ? `${source.kind === "integration" ? "" : `<p class="small">${esc(problem.context ?? problem.integration)}</p>`}<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}
+      body.innerHTML = `${deviceAvailability(result.device_availability)}<section class="detail problem-brief">${memberEvidence ? `<h3 class="problem-integration">${deviceIntegrations.length ? `<span>Integration</span> ${esc(deviceIntegrations.join(", "))}` : "Home Assistant device"}</h3>${uncertainMembers.length === 1 ? `<p><strong>${esc(uncertainMembers[0].name)}</strong> · ${esc(uncertainMembers[0].restored ? "restored; current value unknown" : uncertainMembers[0].state)} in Home Assistant</p>` : uncertainMembers.length ? `<p>Entities needing review:</p><ul>${uncertainMembers.map((member) => `<li><strong>${esc(member.name)}</strong> · ${esc(member.restored ? "restored; current value unknown" : member.state)}</li>`).join("")}</ul>` : `<p>All selected entities have current Home Assistant states.</p>`}${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing the first 50 selected entities. More may need review.</p>` : ""}` : problem ? `${source.kind === "integration" ? "" : `<p class="small">${esc(problem.context ?? problem.integration)}</p>`}<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}
          <div class="next-action"><p>${memberEvidence ? "Check the affected entities on the device page; review monitoring if this state is expected." : esc(problem?.nextStep ?? (nativeLink ? "Check the current state in Home Assistant." : "Check the listed requirements to find what needs attention."))}</p>${nativeLink || problem?.deviceUrl ? `<div class="actions">${nativeLink}${problem?.deviceUrl ? `<a class="button${memberEvidence ? " primary" : ""}" href="${esc(problem.deviceUrl)}">Open device page</a>` : ""}</div>` : ""}</div>
          ${episode ? `<p class="small problem-progress">Open since ${esc(date(episode.opened_at))}</p><p class="small">${esc(reportingStatus(data,episode))}</p>` : ""}</section>
          ${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}
@@ -1280,7 +1286,7 @@ class HomeostaticCard extends HTMLElement {
          ${controls.map((control) => `<p class="control-notice">${control.action === "shelve" ? "Alerts paused" : "Working on equipment"} until ${esc(date(control.until))}.</p>`).join("")}
         ${this.tools.detailButtons(source, episode, data)}
         <details ${disclosure("technical")}><summary>Technical details</summary>
-           ${memberEvidence ? `<h3>Assessment rule</h3><p>A current Home Assistant state counts as reporting. Unknown, missing, restored, and unavailable states need review. These states do not verify physical connectivity or device health.</p>` : ""}
+           ${memberEvidence ? `<h3>Assessment rule</h3><p>Unavailable entities are monitoring findings. Missing and restored states lack current evidence; an unknown entity value alone is not an availability issue. Device availability uses all enabled entities, independently of this selection, and does not verify physical device health.</p>` : ""}
           ${problem?.reported ? `<div class="reported-error"><h3>${problem.historical ? "Last reported error" : "Reported error"}</h3>${problem.reportedAt ? `<p class="small">${esc(date(problem.reportedAt))}</p>` : ""}${problem.historical ? '<p class="small">From an earlier attempt; the current activity is shown above.</p>' : ""}<pre>${esc(problem.reported)}</pre></div>` : problem?.missingDetail ? "<p>Home Assistant did not report a specific cause.</p>" : ""}
           ${problem?.logsUrl ? `<p><a class="button" href="${esc(problem.logsUrl)}">View integration logs</a></p>` : ""}
           ${dependencies.length || unwatched.length ? `<h3>Reported requirements</h3><ul>${dependencies.map((node) => `<li>${esc(nodes.get(node.node_id)?.name ?? node.node_id)} · ${esc(node.own)} · ${list(node.reasons)}</li>`).join("")}${unwatched.map((node) => `<li>${esc(nodes.get(node.node_id)?.name ?? node.node_id)} · Not monitored</li>`).join("")}</ul>` : ""}

@@ -5,6 +5,8 @@ import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sorte
 import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=43";
 import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=43";
 
+import {deviceAvailability} from "./device-availability.mjs?v=43";
+
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
 const sourceName = source => source.name?.trim() || (source.kind === "integration" ? "Unnamed connection" : source.kind === "device" ? "Unnamed device" : "Unnamed entity");
@@ -199,7 +201,7 @@ function sourceReport(card,node,episodes) {
   const current=evidence?.integration_evidence||data.inventory.integration_evidence?.[source.node_id];
   const problem=source.kind==="integration"?integrationProblem(source,linked.flatMap(item=>item.reasons||[]),key=>card._hass?.localize?.(key),current,Boolean(linked.length)):source.kind==="device"?deviceProblem(source,status,Boolean(linked.length)):entityProblem(source,status,null,data.areas,key=>card._hass?.localize?.(key),Boolean(linked.length));
   const members=evidence?.members||[];
-  const unavailable=members.filter(item=>item.state==="unavailable"),unknown=members.filter(item=>["unknown","missing"].includes(item.state)||item.restored);
+  const unavailable=members.filter(item=>item.state==="unavailable"),unknown=members.filter(item=>item.state==="missing"||item.restored);
   const badCount=evidence.unavailable_count??unavailable.length, unknownCount=evidence.unknown_count??unknown.length;
   const headline=source.disabled?"Disabled in Home Assistant":source.kind==="device"&&members.length?(badCount?`${badCount} ${badCount===1?"entity is":"entities are"} unavailable`:unknownCount?`${unknownCount} ${unknownCount===1?"entity is":"entities are"} unknown`:linked.length?"Confirming recovery":"Entities available"):
     source.kind==="entity"&&members.length?(members[0].restored?"Waiting for a current state":members[0].state==="unavailable"?"Entity unavailable":["unknown","missing"].includes(members[0].state)?"Waiting for an entity state":linked.length?"Confirming recovery":"Entity available"):
@@ -207,7 +209,7 @@ function sourceReport(card,node,episodes) {
   const usefulProblem=linked.length||badCount||unknownCount||(source.kind==="integration"&&current?.current?.reason&&current.current.reason!=="loaded");
   const summary=source.disabled?"Home Assistant is not using this source. Review its device or integration if this was not intentional.":source.kind==="device"&&members.length?usefulProblem?"Home Assistant cannot currently report the state of every selected entity.":"Home Assistant is reporting current entity states.":source.kind==="entity"&&members.length&&!usefulProblem?`Home Assistant reports ${members[0].state}.`:problem?.summary||"Current states have not been reported.";
   const next=source.kind==="device"?"Check the listed entities and this device in Home Assistant. Change monitoring if an entity is normally absent.":problem?.nextStep;
-  let html=`<section class="source-condition${usefulProblem?' needs-attention':''}"><h3>${esc(headline)}</h3><p>${esc(summary)}</p>${usefulProblem&&next?`<p><strong>Next step:</strong> ${esc(next)}</p>`:''}</section>`;
+  let html=(source.kind==="device"?deviceAvailability(evidence.device_availability):"")+`<section class="source-condition${usefulProblem?' needs-attention':''}"><h3>${source.kind==="device"?"Selected entity checks: ":""}${esc(headline)}</h3><p>${esc(summary)}</p>${usefulProblem&&next?`<p><strong>Next step:</strong> ${esc(next)}</p>`:''}</section>`;
   if(!source.watched)html+=`<p class="small">${source.kind==="entity"?"This entity has no separate check. Its device may still include it.":"Availability monitoring is off for this source."}</p>`;
   if(evidence?.error)html+=`<p role="alert">${esc(evidence.error)}</p><button type="button" class="link" data-action="refresh-source">Retry reading</button>`;
   if(members.length)html+=`<section class="source-section"><h3>Home Assistant entities</h3><table class="source-readings" aria-label="Home Assistant entities"><tbody>${members.map(item=>`<tr><td><button type="button" class="link" data-source-link="${esc(item.node_id)}">${esc(item.name)}</button></td><td>${esc(item.restored?"Restored state":item.state)}</td></tr>`).join("")}</tbody></table>${evidence.total>members.length?`<p class="small">Showing ${members.length} of ${evidence.total} entities. Expand this device or search to reach every entity.</p>`:''}</section>`;

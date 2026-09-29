@@ -263,7 +263,9 @@ async def test_auto_device_summary_ends_when_last_member_is_deleted(
     await hass.async_block_till_done()
     assert dr.async_get(hass).async_get(device.id) is not None
     assert node_id not in runtime.sources
-    assert node_id not in runtime.candidates
+    assert node_id in runtime.candidates
+    assert not runtime.candidates[node_id].watched
+    assert not runtime.candidates[node_id].availability_entities
     assert not runtime.episodes
     assert (
         runtime.history.view(datetime.now(UTC))["episodes"][0]["resolution"]

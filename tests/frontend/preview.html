@@ -11,7 +11,7 @@
 </head>
 <body>
   <p><a href="source-history.html">Sources History: MQTT phone and desktop scenario</a></p>
-  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="alert">Automation-owned water alert</option><option value="device">Front Porch reading unknown</option><option value="light">Light unavailable</option><option value="occupancy">Occupancy sensor unavailable</option><option value="entity-recovery">Light recovering</option><option value="entity-unknown">Light state unknown</option><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="entity-check">Run entity regression</button><button type="button" id="menu-check">Run menu regression</button><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="live-navigation-check">Run live update regression</button><button type="button" id="scroll-panel-check">Open scrolling panel</button><button type="button" id="page-check">Run page map regression</button><button type="button" id="house-check">Run house layout regression</button><button type="button" id="device-check">Run device popup regression</button><button type="button" id="problem-check">Run problem regression</button><button type="button" id="policy-check">Run monitoring policy regression</button><span id="feedback" role="status"></span></div>
+  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="alert">Automation-owned water alert</option><option value="device">Front Porch restored state</option><option value="light">Light unavailable</option><option value="occupancy">Occupancy sensor unavailable</option><option value="entity-recovery">Light recovering</option><option value="entity-unknown">Light state unknown</option><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="update-mismatch">Dashboard update mismatch</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="entity-check">Run entity regression</button><button type="button" id="menu-check">Run menu regression</button><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="live-navigation-check">Run live update regression</button><button type="button" id="scroll-panel-check">Open scrolling panel</button><button type="button" id="page-check">Run page map regression</button><button type="button" id="house-check">Run house layout regression</button><button type="button" id="device-check">Run device popup regression</button><button type="button" id="problem-check">Run problem regression</button><button type="button" id="policy-check">Run monitoring policy regression</button><span id="feedback" role="status"></span></div>
   <homeostatic-panel></homeostatic-panel>
   <button type="button" id="header-check">Run pinned header regression</button>
   <script type="module">
@@ -38,7 +38,7 @@
     const connection={
       addEventListener(name,fn){handlers.set(name,fn);},
       removeEventListener(name,fn){if(handlers.get(name)===fn)handlers.delete(name);},
-      async subscribeMessage(fn){subscriptions++;subscribed=fn;queueMicrotask(()=>fn(data()));return ()=>{subscribed=null;};},
+      async subscribeMessage(fn){if(scenario.value==="update-mismatch")throw{code:"invalid_format",message:"not a valid option at 'paged'. Got True"};subscriptions++;subscribed=fn;queueMicrotask(()=>fn(data()));return ()=>{subscribed=null;};},
     };
     const baseSource=(node_id,name,kind,extra={})=>({
       node_id,name,kind,requirements:[],attributes:{},attached_by:["passive_availability"],
@@ -104,7 +104,7 @@
       if(type==="homeostatic/save_alerts"){savedAlerts={notifications,consumer};return{saved:true};}
        const current=data(),source=current.inventory?.nodes.find(item=>item.node_id===node_id);
        if(!source)throw{message:"This capability is no longer monitored"};
-       if(source.kind==="device")return{source,entity_status:current.inventory.entity_status[node_id],device_evidence:{total:2,reporting_count:1,members:[{node_id:"entity:porch_status",name:"Front Porch Review Status",state:"unknown",restored:false},{node_id:"entity:porch_temperature",name:"Front Porch Temperature",state:"72",restored:false}]},explanation:{findings:[],nodes:[]},readiness:current.readiness,impact:{nodes:[]}};
+       if(source.kind==="device")return{source,device_availability:{status:"available",basis:"entities",entity_ids:["sensor.porch_status","sensor.porch_temperature"]},entity_status:current.inventory.entity_status[node_id],device_evidence:{total:2,reporting_count:1,members:[{node_id:"entity:porch_status",name:"Front Porch Review Status",state:"unknown",restored:true},{node_id:"entity:porch_temperature",name:"Front Porch Temperature",state:"72",restored:false}]},explanation:{findings:[],nodes:[]},readiness:current.readiness,impact:{nodes:[]}};
       if(current.inventory.entity_status?.[node_id])return{source,entity_status:current.inventory.entity_status[node_id],...current.inventory.entity_status[node_id],impact:{nodes:[]},updated_at:current.updated_at};
       return{source,integration_evidence:current.inventory.integration_evidence[node_id],readiness:current.readiness,updated_at:current.updated_at,
         explanation:{findings:current.inventory.episodes[0]?.reasons??[],nodes:source.kind==="function"?current.readiness.nodes:[]},
@@ -113,6 +113,7 @@
     card.setConfig({view:"overview"});
     card.hass=hass;
     function change(){
+      if(scenario.value==="update-mismatch"||card.store?.state.status==="error"){card.store.retry();return;}
       if(scenario.value==="disconnected"){handlers.get("disconnected")?.();return;}
       handlers.get("ready")?.();subscribed?.(data());
     }
@@ -368,13 +369,14 @@
       expect(!card.main.querySelector(".issue-row").innerText.includes("Monitored entity availability"),"Device card omits the generic label");
       change();card.openDetail({episodeId:"device-episode"});await card.loadDetail();
       expect(card.shadowRoot.querySelector("#detail-title").textContent==="Front Porch","Device name leads the detail");
+      expect(body.querySelector(".device-availability").textContent.includes("Device availability: Available"),"Device availability is separate from the selected restored entity");
       const integrationHeading=body.querySelector(".problem-integration");
       expect(integrationHeading.textContent==="Integration Matter","Known integration has a prominent heading under the device name");
       expect(parseFloat(getComputedStyle(integrationHeading).fontSize)>=20,"Integration name is easy to read");
       expect(integrationHeading.nextElementSibling.textContent.includes("Front Porch Review Status"),"Affected entity immediately follows integration");
       expect(!body.querySelector(".problem-brief").innerText.includes("Front Porch Temperature"),"Working entities stay out of the problem brief");
       expect(body.querySelector('[data-disclosure="selected-readings"]').textContent.includes("2 selected entities"),"Complete selected count stays in the disclosure");
-      expect(body.querySelector(".problem-brief").innerText.includes("Front Porch Review Status · unknown in Home Assistant"),"Entity needing review is named with its state");
+      expect(body.querySelector(".problem-brief").innerText.includes("Front Porch Review Status · restored; current value unknown in Home Assistant"),"Entity needing review is named with its state");
       expect(!body.querySelector(".problem-brief").innerText.includes("Reporting in Home Assistant:"),"Device brief omits the redundant count");
       expect(!body.querySelector(".problem-brief").innerText.includes("Device availability isn't confirmed"),"Conclusion does not crowd out readings");
       expect(body.querySelector('.next-action a.primary[href="/config/devices/device/porch"]'),"Device page is the primary action");

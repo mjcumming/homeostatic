@@ -1,6 +1,6 @@
 # Build roadmap
 
-Updated 2026-09-28. This file tracks delivery; [spec.md](spec.md) controls implemented behavior. The owner decisions in [ui.md](ui.md) sections 16 and 17 remain the target. The library owns health and attention semantics.
+Updated 2026-09-29. This file tracks delivery; [spec.md](spec.md) controls implemented behavior. The owner decisions in [ui.md](ui.md) sections 16 and 17 remain the target. The library owns health and attention semantics.
 
 | Increment | Status | Acceptance |
 | --- | --- | --- |
@@ -8,6 +8,7 @@ Updated 2026-09-28. This file tracks delivery; [spec.md](spec.md) controls imple
 | First function and situation | Complete | Stable bindings, function readiness entity, edgeless situation, unknown preserves episode, named delivery content |
 | Consumer delivery foundation | Complete | Notifications off initially; activation summary; versioned events and durable outbox; consumer blueprint and tests |
 | Detected facts for automations | Implemented; notification context parenting follows ADR 0015 | Episode and control fact events independent of notifications; function event entities; enum readiness; example blueprints ([ADR 0014](adr/0014-publish-detected-facts-for-owner-automations.md)) |
+| HA-aligned device availability | Entity fallback and device display implemented locally; native report ingestion pending upstream ([ADR 0035](adr/0035-align-device-availability-with-ha-proposal.md)) | Follow discussion 1400 vocabulary, explicit-report precedence and entity fallback; preserve provenance and independent entity monitoring. Confirm usable upstream API and unspecified evidence combinations; add lifecycle and fallback scenarios. |
 | Rule catalog and enrollment | Complete for availability | All stable match fields: domain, device class, integration, device, entity, area, floor, label; additive attach, exclude wins; passive enrollment of future sources; match preview and provenance |
 | Function configuration | Complete for declared capabilities and static suggestions | Entity/integration/function/external requirements; cycle validation; per-function accept/reject decisions; watched/excluded/missing previews; external evidence producers remain a release gate |
 | Owner YAML policy | Complete for static recipients | Validated rules and routes; recipient quiet hours and reminders; escalation and grouped digests; read-only explanations/activation preview; activation resets escalation without rewriting episode history |
@@ -33,3 +34,28 @@ Guided Homeostatic situation menus and one-shot event reporting remain future wo
 an alert once in the HA automation editor, with automatic registration and a shared
 Companion acknowledgment handler. Native device validation remains a separate
 owner-authorized pilot; ADR 0032's explicit declarations remain supported.
+
+## Maintenance and health product direction
+
+[Scope and acceptance](proposals/maintenance-and-health.md) define the increments
+below, building on the existing health-tree architecture. This table owns their
+delivery status; Planned
+means intended work, and Consider means an option without a delivery commitment.
+No item here is a claim of implementation or authorization to release or deploy.
+
+| Item | Status | Next milestone |
+| --- | --- | --- |
+| MH-1: Contextual battery maintenance | Planned; producer contract not written | Define percentage/binary evidence, charging context, duplicate signals, thresholds and recovery; validate real traces using the existing engine and reporting policy. |
+| MH-2: Practical action details and native repair handoff | Planned extension of existing problem details | Add supported action destinations and optional verified supplies metadata; preserve provenance and observation-based recovery. |
+| MH-3: Consistent summaries and drill-down | Planned verification/refinement of existing views | Audit shared result scopes and distinguish episodes, affected devices and evidence gaps; cover live resolution and removal. |
+| MH-4: Household visibility | Planned; access architecture first | Propose the scoped read/permission contract and test direct access before changing the administrator-only dashboard. |
+| MH-5: Stable views during live updates | Planned verification/refinement of existing handling | Separate layout/evidence updates; preserve selection, focus and drafts while retaining revision-bound previews. |
+| MH-6: Consumables and scheduled maintenance | Consider | Select one evidence-backed producer after the battery increment. |
+| MH-7: Supplies and task grouping | Consider | Establish trustworthy quantities and preserve each task's underlying episode. |
+| MH-8: Native maintenance surface integration | Consider | Verify a supported extension contract and compare user benefit and maintenance cost. |
+| MH-9: Structured third-party and host evidence | Consider | Select sources with stable identity and explicit opening/clearing evidence. |
+| MH-10: Optional supplies metadata integration | Consider | Evaluate supported providers, provenance and behavior when metadata is absent. |
+
+Start with MH-1 and the action details it requires; verify MH-3 and MH-5 alongside
+that increment. Design MH-4 independently before exposing data. Existing evidence
+producer and external-watchdog release gates remain in force.

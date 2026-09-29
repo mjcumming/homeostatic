@@ -1,6 +1,6 @@
 # Homeostatic
 
-**Know what's wrong with your home, what it affects, and who needs to hear about it.**
+**When the Zigbee coordinator drops at 2 a.m., forty entities go `unavailable`. Homeostatic opens one issue, on the coordinator, says the hall motion lighting is what you just lost, and decides whether that is worth your sleep. One flaky sensor waits for the morning summary.**
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
 [![Installations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fanalytics.home-assistant.io%2Fcustom_integrations.json&query=%24.homeostatic.total&label=installs&color=41BDF5&logo=home-assistant&cacheSeconds=3600)](https://analytics.home-assistant.io/custom_integrations.json)
@@ -15,20 +15,14 @@
 [![License](https://img.shields.io/github/license/mjcumming/homeostatic.svg)](LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/mjcumming/homeostatic.svg)](https://github.com/mjcumming/homeostatic/issues)
 
+Homeostatic is a Home Assistant integration that watches the health of your home. It knows which integrations are up, which devices Home Assistant can still reach, whether the things your home *does* are ready, and whether a situation you asked about is happening right now. When something goes wrong it groups the symptoms under their cause, keeps one issue per problem from onset to recovery, and tells the right people at the right time.
+
 > ⭐ **Using Homeostatic?** Please [star the repo](https://github.com/mjcumming/homeostatic). It takes 25 stars to get into the HACS default store, and it helps other Home Assistant users find the project.
-
-A growing Home Assistant install fails in quiet, confusing ways. The lights stop following motion: is it the light, the motion sensor, or the Zigbee integration behind both? A dozen entities go unavailable at once and you get a dozen alerts for one problem.
-
-Homeostatic sits inside Home Assistant and answers three questions:
-
-1. **What is wrong?** One problem per root cause, not one alert per symptom.
-2. **What does it affect?** The things your home *does*, like **Garage access** or **Motion lighting**, and whether they're ready.
-3. **Who should hear about it, and when?** A notification policy with quiet hours, reminders, and escalation, off until you turn it on.
 
 <!--
 Screenshots: save PNGs to docs/images/ and uncomment.
-Suggested: overview.png (Home page with counts and recent issues),
-problem.png (a problem's details with affected functions and next step),
+Suggested: overview.png (Overview with counts and recent issues),
+issue.png (an issue's details with affected functions and next step),
 sources.png (Sources grouped by area), notifications.png (the Notifications page).
 
 <p align="center">
@@ -36,21 +30,46 @@ sources.png (Sources grouped by area), notifications.png (the Notifications page
 </p>
 -->
 
-## Features
+## The problem
 
-- **Root-cause grouping.** When an integration fails, its unavailable devices are linked to that one problem instead of paging you for each.
-- **Functions and readiness.** Name what your home does, list what it needs, and get a `ready`, `unknown`, `degraded`, or `blocked` sensor for each. Homeostatic can suggest requirements from your existing automations.
-- **Importance flows upstream.** Mark **Garage access** as high importance and the hub it depends on inherits that importance when it fails.
-- **Situation alerts.** Bind conditions you define, like **Garage open at night**, to the same attention system, even when all the equipment works.
-- **Notification policy.** Recipients, quiet hours, digests, reminders, and escalation, with a preview before saving. Notifications start off.
-- **Acknowledge, pause, and maintenance.** Record that you've seen a problem, pause its alerts, or declare a maintenance window with a preview of what it affects.
-- **Coverage you can see.** The dashboard shows what's watched, what's excluded, and where evidence is missing, so silence never passes for health.
-- **Native to Home Assistant.** Config flow, floors and areas, entity registry identity, sidebar dashboard, reusable cards, response actions, and blueprints. Runs locally with passive monitoring; it never polls your devices.
+A growing Home Assistant install fails in quiet, confusing ways. The lights stop following motion: is it the light, the motion sensor, or the Zigbee integration behind both? A cloud integration needs you to sign in again, and you find out when the music will not play with guests over. A dozen entities go unavailable at once and you get a dozen alerts for one problem, or none, because you gave up on availability notifications a long time ago.
+
+Home Assistant has the inventory: integrations, devices, entities, areas, automations. What it does not have is a health layer that can tell a root failure from its symptoms, say what the failure takes down, and decide who hears about it and when. That is what Homeostatic adds.
+
+## What you get
+
+**A Homeostatic panel in the sidebar.** *Overview* shows what is open and what is watched, with the most recent issues. *Issues* lists every open problem. *Sources* is your whole install, grouped by integration or by floor and area, showing what is watched, what is excluded, what evidence Home Assistant is supplying, and letting you change any of it in place with a preview before you save. *History* keeps ended problems for thirty days. *Notifications* is where people, phones, and schedules live. Any of these pages is also a card you can drop on your own dashboard.
+
+**Issues that explain themselves.** An issue names the integration and the instance, quotes what Home Assistant reported (setup failed, needs sign-in, retrying), lists the affected entities, names the functions it takes down, suggests the next step, and shows recovery as it happens. When it is over, it resolves once and moves to History.
+
+**Functions, and whether they are ready.** Name the things your home does, such as *Garage access* or *Motion lighting*, say what each one needs, and mark how much it matters. Each becomes a sensor reading `ready`, `degraded`, `blocked`, or `unknown` that you can use in automations. Homeostatic can suggest a function's requirements from the automations you already have.
+
+**Alerts you write in the normal automation editor.** Water on the basement floor, the garage open after dark, the freezer above temperature: define the condition with Home Assistant's own triggers and conditions, pick a reporting preference, and Homeostatic gives it an issue, a history, and an Acknowledge button on the phone. A situation like this stays independent of equipment health: a Z-Wave outage makes it `unknown`, not resolved.
+
+**Notifications to people, not to `notify.` services.** Pick the people in your household and the phones they carry. Each source gets one of six reporting preferences: *Immediate*, *Immediate with acknowledgement* (reminds every thirty minutes until someone taps Acknowledge), *Morning*, *Evening*, *Weekly*, or *Dashboard only*. Tapping a notification opens the issue. Notifications are off until you turn them on, and Homeostatic holds everything while Home Assistant restarts so you get one summary instead of a burst.
+
+**Controls for real life.** *Acknowledge* records that someone has seen a problem. *Pause alerts* shelves one problem for up to a week. *Working on this equipment* declares a maintenance window and previews what it affects before you start.
+
+**Events for your own automations.** Every opened, updated, and resolved problem, and every operator action, is a Home Assistant event whether notifications are on or not. Two example blueprints turn them into a status light and a logbook.
+
+## How it works
+
+Homeostatic builds a dependency graph from watched entities and their providing integrations, plus the requirements of the functions you define. Device-level selected-entity checks remain separate; a shared inventory parent alone does not establish a dependency. It feeds Home Assistant's own signals into that graph, chiefly integration setup state and entity availability, plus the reports your alert automations send. Three things then happen that Home Assistant cannot do on its own.
+
+*One cause, one issue.* When a watched integration fails and watched entities that depend on it go unavailable with it, one issue opens on the integration and those entity failures are recorded on it as symptoms. Grouping follows the declared dependencies and timing rules; it does not infer a physical cause from simultaneous device failures alone.
+
+*Importance flows up.* A hub is just a box. But *Garage access* depends on it and *Garage access* is `high`, so the hub's issue is `high`. You rate the things you care about, and the equipment inherits it.
+
+*Attention is policy, not status.* A reporting preference decides who hears about a problem and when. Nothing about a problem's health changes because someone was or was not told, and nothing gets quieter because of where it sits in a tree, only because a known cause explains it.
+
+The reasoning lives in [Health Tree](https://github.com/mjcumming/health-tree), a separate Python library with no Home Assistant code and no dependencies, specified by eleven stories drawn from failures in one real house and run as its test suite. Homeostatic is everything Home Assistant-specific: discovery, the monitoring catalog, storage, the dashboard, and delivery.
+
+One honest limit. A passing availability check means Home Assistant currently has a control path to the entity. It does not prove the sensor is sending fresh readings or that a command did what it was told; those need evidence Home Assistant does not yet supply. Homeostatic keeps that distinction visible, so silence never passes for health. The [user guide](docs/guide.md#what-an-availability-problem-means) spells out exactly which entity states produce a warning.
 
 ## Requirements
 
 - Home Assistant **2026.9.3** or newer (tested on 2026.9.3, Python 3.14).
-- Internet access to PyPI on first setup, so HA can install the pinned [health-tree](https://pypi.org/project/health-tree/) library.
+- Internet access to PyPI on first setup, so Home Assistant can install the pinned [health-tree](https://pypi.org/project/health-tree/) library.
 - An administrator account for the dashboard.
 
 ## Installation
@@ -67,7 +86,7 @@ sources.png (Sources grouped by area), notifications.png (the Notifications page
 ### Manual
 
 1. Download `homeostatic-<version>-pilot.zip` from the [latest release](https://github.com/mjcumming/homeostatic/releases).
-2. Copy its `custom_components/homeostatic` folder into your HA configuration directory, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy in full.
+2. Copy its `custom_components/homeostatic` folder into your Home Assistant configuration directory, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy in full.
 3. Restart Home Assistant.
 
 The [pilot guide](docs/pilot.md) covers backups, verifying the archive, and rollback.
@@ -78,9 +97,9 @@ The [pilot guide](docs/pilot.md) covers backups, verifying the archive, and roll
 
    [![Open your Home Assistant instance and start setting up Homeostatic.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeostatic)
 
-2. Open **Homeostatic** in the sidebar. New installs watch integration health only.
-3. In **Sources**, pick a few integrations or devices you know well and choose **Edit monitoring**. Preview, then save. On a large install, start small.
-4. Define one function you care about, for example:
+2. Open **Homeostatic** in the sidebar. A new install watches integration health only, so you will see something useful right away without a flood.
+3. In **Sources**, pick a few integrations or devices you know well and choose **Edit monitoring**. Preview, then save. On a large install, start small and widen from there.
+4. Define one function you care about, in the integration's options under **Functions (YAML list)**:
 
    ```yaml
    - id: garage_access
@@ -91,18 +110,16 @@ The [pilot guide](docs/pilot.md) covers backups, verifying the archive, and roll
        - binary_sensor.garage_obstruction
    ```
 
-5. Watch it for a day or two with notifications off. Then open **Notifications**, select people and their phone destinations, review the reporting profiles, and enable requests when ready. The built-in phone sender handles delivery and acknowledgment; no notification-consumer automation is needed.
+   It shows up in the panel and as a readiness sensor.
+
+5. Watch it for a day or two with notifications off. Then open **Notifications**, choose people and their phones, review the reporting preferences, and enable requests. The built-in phone sender handles delivery and acknowledgment; no consumer automation is needed.
 
 ## Create your own alert
 
-Use Home Assistant's automation editor for the condition, and Homeostatic for its
-issue history, reporting schedule, and acknowledgment. There is no separate
-Situation alerts YAML declaration for this workflow.
+Use Home Assistant's automation editor for the condition and Homeostatic for the issue, its history, its schedule, and acknowledgment.
 
-1. Import the [Homeostatic alert blueprint](https://github.com/mjcumming/homeostatic/blob/main/blueprints/automation/homeostatic/alert.yaml)
-   in **Settings > Automations & scenes > Blueprints**, or copy `alert.yaml` from
-   the release archive to `blueprints/automation/homeostatic/` and reload automations.
-2. Choose **Create automation** and fill in:
+1. Import the [Homeostatic alert blueprint](https://github.com/mjcumming/homeostatic/blob/main/blueprints/automation/homeostatic/alert.yaml) in **Settings > Automations & scenes > Blueprints**, or copy `alert.yaml` from the release archive to `blueprints/automation/homeostatic/` and reload automations.
+2. Choose **Create automation** from the blueprint and fill in:
 
    | Field | Example |
    | --- | --- |
@@ -112,89 +129,56 @@ Situation alerts YAML declaration for this workflow.
    | Required evidence | Basement water sensor |
    | Reporting preference | Immediate with acknowledgment |
 
-3. Save and enable the automation. It evaluates on evidence changes and each minute;
-   **Run actions** evaluates immediately. An already-active condition can request a
-   real notification as soon as it is evaluated. Start with **Dashboard only** when
-   checking a new rule. **Immediate** profiles include overnight notifications.
-4. Open **Homeostatic > Sources** to inspect the registered alert and its reporting
-   status. Edit its condition, name, text, and preference through **Edit alert automation**.
-   Shared recipients and schedules stay in **Homeostatic > Notifications**.
+3. Save and enable it. An active condition opens one issue; repeated reports keep it current; a clear report resolves it. Missing evidence or a stopped automation never counts as recovery. Start with **Dashboard only** while you check a new rule, because both *Immediate* preferences deliver overnight.
 
-An active condition opens one issue. Repeated reports keep that issue current; a
-clear report resolves it. Missing evidence or a stopped automation never means
-recovery. Acknowledge directly from an individual phone notification or its issue
-page; acknowledgment records awareness and leaves the issue open. Swiping away a
-notification has no effect on the issue. Summary taps open Issues.
-
-The blueprint supplies stable identity from the saved automation. Renames and
-message changes keep that identity; duplicating the automation creates another
-alert. Multiple conditions can share the same reporting profile independently.
-
-Use HA's AND/OR, time, state, and numeric conditions for more complex rules. Include
-every entity needed to evaluate conditions or message templates as required
-evidence. For custom automations, conversion of existing situations, or retirement,
-see the [alert workflow guide](docs/automation-situations.md). A one-time occurrence
-such as a doorbell press needs a different workflow; this blueprint represents a
-continuing condition with observed clearing.
-
-## How it works
-
-Homeostatic turns your HA setup into a dependency graph: integrations, devices, entities, and the functions you define on top of them. It feeds HA's own signals (integration setup state and entity availability) into [Health Tree](https://github.com/mjcumming/health-tree), a separate, dependency-free Python library that works out root causes, groups symptoms into one episode per root, tracks recovery, and decides who hears what. Homeostatic handles everything HA-specific: discovery, storage, the dashboard, and delivery.
-
-### How a device gets an availability warning
-
-Home Assistant's device record groups entities; it does not provide one device-health state. When you choose to monitor a device, Homeostatic makes one availability summary from its enabled ordinary entities (including buttons), or enabled diagnostic entities if it has no ordinary ones. Disabled and configuration entities are not included. You can exclude a selected entity through the monitoring rules. New installations watch integration setup state first; device summaries require a monitoring choice.
-
-| Home Assistant evidence from selected entities | Device availability summary |
-| --- | --- |
-| Any entity is `unavailable` | **Warning:** Home Assistant cannot currently read or control that entity. This remains a warning even if every selected entity is unavailable. |
-| An entity is `unknown` | No availability issue from that value. Home Assistant has the entity, but its value is not known; an unpressed button is a common example. |
-| No entity is `unavailable` | No availability warning. This does not verify the device's physical operation or the correctness of its readings. |
-| An entity is missing or has only a restored startup state | Evidence is incomplete; Homeostatic keeps this distinct from a confirmed availability warning. |
-
-Home Assistant's **Not provided** filter is different from an entity reporting `unavailable`: the registry still lists an entity that is not currently supplied. Homeostatic treats that as a source or monitoring-scope question, not a device error. An automatically discovered entity removed from the registry leaves monitoring scope; an explicit requirement stays visible until you change it.
-
-The device summary does not assign an **error** from entity availability alone. Integration setup failures, authentication requests, and owner-defined situation alerts are separate signals with their own rules. Open the device's details to see exactly which entities and states contributed. Homeostatic cannot yet prove that a sensor is sending fresh readings or that a command succeeded; see [ADR 0025](docs/adr/0025-follow-home-assistant-availability-semantics.md) and the [specification](docs/spec.md) for the precise rules.
+Use any of Home Assistant's AND/OR, time, state, and numeric conditions, and list every entity the condition or message needs as required evidence. The [alert guide](docs/automation-situations.md) covers custom automations, the native `report_alert` action, retiring an alert, and converting older situation declarations.
 
 ## Dashboard and cards
 
-Administrators get a **Homeostatic** sidebar panel with **Overview**, **Issues**, **Sources**, **History**, **Notifications**, and **Settings**. You can also add a card to any dashboard:
+Administrators get the **Homeostatic** sidebar panel with **Overview**, **Issues**, **Sources**, **History**, **Notifications**, and **Settings**. Any view is also a card:
 
 ```yaml
 type: custom:homeostatic-card
 view: overview   # or sources, history, notifications, configuration, functions, problems
 ```
 
-A **Homeostatic** dashboard strategy is available in HA's new-dashboard dialog.
+A **Homeostatic** dashboard strategy is available in Home Assistant's new-dashboard dialog.
 
 ## Blueprints
 
 | Blueprint | What it does |
 | --- | --- |
-| [Companion notifications](blueprints/automation/homeostatic/companion_notification.yaml) | Sends Homeostatic notification requests to the HA Companion app |
+| [Homeostatic alert](blueprints/automation/homeostatic/alert.yaml) | Defines an alert from Home Assistant conditions; the recommended way to create one |
 | [Function status light](blueprints/automation/homeostatic/function_status_light.yaml) | Shows a function's readiness on a light |
 | [Problem logbook](blueprints/automation/homeostatic/problem_logbook.yaml) | Writes problem changes to the logbook |
-| [Diagnostic state](blueprints/template/homeostatic/diagnostic_state.yaml) | Template blueprint for situation-alert sources |
-| [Report a situation](blueprints/automation/homeostatic/report_situation.yaml) | Uses HA conditions to report active, clear, or unknown situations; [setup guide](docs/automation-situations.md) |
+| [Companion notifications](blueprints/automation/homeostatic/companion_notification.yaml) | Delivers notification requests through your own automation, if you would rather not use the built-in sender |
+| [Report a situation](blueprints/automation/homeostatic/report_situation.yaml) | Reports active, clear, or unknown for a situation declared in the integration's options; the earlier alert workflow |
+| [Diagnostic state](blueprints/template/homeostatic/diagnostic_state.yaml) | Maps a device's diagnostic entity to a problem binary sensor |
 
 ## Documentation
 
 | Guide | For |
 | --- | --- |
-| [User guide](docs/guide.md) | Monitoring rules, functions, situations, notification policy, actions, and operator controls |
+| [User guide](docs/guide.md) | Monitoring rules, functions, alerts, reporting preferences, actions, and operator controls |
+| [Alert guide](docs/automation-situations.md) | Creating alerts from automations, evidence and timing, retirement, phone acknowledgment |
 | [Pilot guide](docs/pilot.md) | First install, first observation, controlled checks, rollback |
 | [Event contract](docs/events.md) | Building your own automations on Homeostatic events |
 | [Specification](docs/spec.md) | Exact implemented behavior and timings |
+| [Decisions](docs/adr/README.md) | Architecture decision records: why each choice was made |
 | [Roadmap](docs/roadmap.md) | What's planned |
 | [Changelog](CHANGELOG.md) | What changed |
 
 ## Project status
 
-**Beta (0.1.0b17).** Running in a real-house pilot. The dashboard, availability monitoring, functions, situations, notification policy, and operator controls work and are backed by executable scenarios and integration tests with 95% statement and branch coverage floors. Known limits:
+**Beta**, running in a real-house pilot with 129 integration instances. The dashboard, availability monitoring, functions, alerts, reporting preferences, phone delivery with acknowledgment, and operator controls all work.
 
-- Whole-house monitoring of every entity on very large installs (6,000+ entities) doesn't yet meet responsiveness targets. Start with integrations and selected devices. See [runtime scaling](docs/testing/runtime-scaling.md).
-- Freshness, detector liveness, and command-completion checks aren't built yet.
-- Phone action buttons (acknowledge from the notification) are still consumer-side work.
+How it is built: behavior is written down in a [specification](docs/spec.md) before it changes, every behavior change ships with an executable scenario, and the integration tests run against an isolated Home Assistant instance with 95 percent statement and branch coverage floors. Every product decision that would be easy to reverse by mistake is an [architecture decision record](docs/adr/README.md), thirty-some so far. Notifications are never sent through a live install during tests.
+
+Known limits:
+
+- Homeostatic sees what Home Assistant reports. Freshness, detector liveness, and command-completion checks need evidence producers that do not exist yet; see the [roadmap](docs/roadmap.md).
+- Whole-house monitoring of every entity on very large installs (6,000+ entities) does not yet meet responsiveness targets. Start with integrations and selected devices. See [runtime scaling](docs/testing/runtime-scaling.md).
+- Homeostatic cannot report the death of the Home Assistant it runs in. A watchdog outside Home Assistant is on the roadmap and, until then, on you.
 
 Bug reports and pilot observations are welcome in [Issues](https://github.com/mjcumming/homeostatic/issues).
 

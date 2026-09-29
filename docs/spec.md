@@ -58,13 +58,30 @@ Settings view ([ADR 0030](adr/0030-separate-group-policies-from-source-choices.m
 
 ### Home Assistant device availability
 
-[ADR 0012](adr/0012-monitoring-expectations-and-persistent-exclusions.md) defines availability expectations and supersedes the interpretation in ADRs 0009 and 0011.
+Device details implement [ADR 0035](adr/0035-align-device-availability-with-ha-proposal.md), following HA architecture discussion 1400: Available, Partially available, Unavailable, Unknown, and Disabled. Device availability is read on demand from all enabled registry entities, including hidden, diagnostic and configuration entities, independently of monitoring exclusions. Disabled devices take precedence. Any current non-unavailable state, including an HA unknown value, establishes Available. Every enabled entity currently unavailable establishes Unavailable. An empty set, no current states, or unavailable states mixed with missing/restored evidence establishes Unknown. Restored values do not establish current availability. The latter mixed-evidence rule is Homeostatic's explicit conservative completion of an unspecified upstream case.
+
+The pure report reducer gives attached, loaded integration reports precedence: matching reports establish Available or Unavailable, and mixed reports establish Partially available. Only actual reports participate; absent reports are not negative reports. It retains provenance and consumes a current snapshot, so unloaded or detached entries cannot contribute. The supported HA version has no report API, so production uses entity fallback and never manufactures Partially available from mixed entity states. Native integration-report ingestion remains pending upstream.
+
+The `homeostatic/source` and `homeostatic/node` replies carry `device_availability` with status, basis, reason, entity ids/counts and integration reports. Non-device replies carry null. Disabled and empty registry devices remain browsable without acquiring monitoring checks. The Sources device view and issue detail display availability separately from selected-entity findings. The selected Sources view refreshes when HA access evidence changes, including unmonitored members; ordinary value changes do not refresh availability. This creates no episodes, dependency edges, notification requests, or saved settings. The selected-entity monitoring contract below remains separate.
+
+[ADR 0012](adr/0012-monitoring-expectations-and-persistent-exclusions.md) defines availability expectations. [ADR 0025](adr/0025-follow-home-assistant-availability-semantics.md) supersedes its member eligibility and status mapping: an HA `unknown` value is not an availability fault, and both partial and total unavailability warn.
 
 Selecting an entity's availability check declares that it is expected to be available. Selecting a device summary extends that expectation to its eligible members. Discovery alone makes no such declaration. New installations watch integration state with notifications off. Device summaries and separate entity checks require an owner choice; existing saved broad rules retain their scope until edited.
 
 Each device summary uses enabled ordinary entities, including buttons, or enabled diagnostic entities only when no ordinary entities exist. A button's unknown last-pressed value is not an availability problem. Configuration entities are not included. Hidden entities remain eligible; disabled entities and disabled devices do not. A device with no eligible entities has no device availability check, even when a device summary choice is saved; the choice remains visible for later eligible entities. Apply entity exclusions after choosing that base set, to both direct entity checks and device summaries. Excluding all ordinary members must not silently select diagnostics instead. If every member is deliberately excluded, attach no device check; exclusion is not passing evidence. No brand, entity-name, or unique-id-suffix exception determines health.
 
 For passive availability, an HA `unknown` state means the entity's value is unknown, not that HA has lost access. It counts as available for this check while its raw value remains visible. Any selected `unavailable` entity warns (`some_unavailable` or `all_unavailable`); total unavailability does not assert a physical failure. Missing or restored evidence with no unavailable member remains unknown (`incomplete_evidence`). These are observations against a monitoring expectation, not proof of physical freshness or an unexpected outage. `off` and `idle` are ordinary available states. Device registry association does not establish a parent health status or causal dependency.
+
+The current device monitoring summary describes availability through Home Assistant across the selected entities. It is an adapter-owned check, not an HA device-registry state, the ADR 0035 device availability assessment, or an overall equipment-health verdict. The current observation follows these rules; episode activation and recovery still use the library holds.
+
+| Selected entity evidence | Summary meaning | Observation |
+| --- | --- | --- |
+| Every member has current available evidence, including an HA `unknown` value | All monitored entities available | `pass/available` |
+| At least one member is unavailable, but not every member | Some monitored entities unavailable | `warn/some_unavailable` |
+| Every member is unavailable | All monitored entities unavailable | `warn/all_unavailable` |
+| No unavailable member, but some state is missing or restored | Insufficient current evidence | `unknown/incomplete_evidence` |
+
+A partial-unavailability finding does not prove that the remaining members are available: some may have missing or restored evidence. Keep those evidence gaps visible. An empty selected set attaches no check; an unmonitored or disabled device is not assessed as available. These distinctions do not add library statuses, change HA entity states, or create dependency edges.
 
 **Ignore availability** creates an ordinary catalog exclusion using the entity's stable registry identity where available. It stages a draft, previews the existing catalog rules, and requires Save. It survives entity renaming and reload, applies to both individual and summary checks, and can be removed in What to monitor. It changes neither HA entity state nor another situation check. When exclusions change an open summary's evidence set, retire that episode as `removed` using the public engine API and evaluate the remaining expectation anew. Do not report recovery based on removal of evidence. Persist the adapter's excluded-member identities beside opaque engine persistence so reload preserves this distinction. Acknowledgment means awareness; temporary shelving means postponing attention; neither changes monitoring expectations.
 
@@ -518,3 +535,13 @@ retain ADR 0033 behavior. Summaries/resolution notices have no acknowledgment bu
 Legacy event-only consumers retain their existing behavior; authenticated phone
 actions are provided by the built-in person/phone sender. Evidence alone resolves
 conditions. Tests use isolated HA and mocked phone transports.
+
+### Dashboard connection guidance during updates
+
+A subscription rejected because the backend does not accept the dashboard's
+`paged` option is a version mismatch, not a health finding or proof of slow startup.
+Show plain-language guidance to let any HA restart finish and refresh the page,
+then check matching installed versions if it persists. Keep unrelated connection
+errors distinguishable. An unavailable runtime without a reported error explains
+that startup updates will appear automatically when monitoring becomes ready.
+Neither message changes monitoring, retries mutations, or hides a stored error.

@@ -30,6 +30,7 @@ from homeassistant.util.hass_dict import HassKey
 from . import reporting
 from .config import Settings, normalize_rules, rule_data
 from .const import DEFAULTS, DOMAIN, NAME
+from .device_availability import device_availability
 from .notification_routes import async_send, destinations
 from .runtime import Runtime
 from .serialization import json_object
@@ -367,6 +368,11 @@ def websocket_node(
             "integration_evidence": runtime.integration_evidence.view(node_id),
             "entity_status": runtime.entity_status(node_id),
             "device_evidence": runtime.device_evidence(node_id),
+            "device_availability": device_availability(
+                hass, source.attributes["device"][0]
+            )
+            if source.kind == "device"
+            else None,
             "explanation": runtime.query("explain", {"node_id": node_id}),
             "impact": runtime.query("impact", {"node_id": node_id}),
             "readiness": (
@@ -438,14 +444,18 @@ def websocket_source(
     connection.send_result(
         msg["id"],
         {
+            "device_availability": device_availability(
+                hass, source.attributes["device"][0]
+            )
+            if source.kind == "device"
+            else None,
             "members": members[:50],
             "total": len(members),
             "unavailable_count": sum(
                 item["state"] == "unavailable" for item in members
             ),
             "unknown_count": sum(
-                item["state"] in {"unknown", "missing"} or bool(item["restored"])
-                for item in members
+                item["state"] == "missing" or bool(item["restored"]) for item in members
             ),
             "integration_evidence": evidence,
             "entity_status": runtime.entity_status(node_id)

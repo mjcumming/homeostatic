@@ -183,6 +183,15 @@ def inventory(
     members = device_members(hass)
     device_ids = set(members)
     device_ids.update(
+        device.id
+        for device in devices.devices
+        if any(
+            (entry := hass.config_entries.async_get_entry(entry_id)) is not None
+            and entry.domain not in {DOMAIN, "switch_as_x"}
+            for entry_id in device.config_entries
+        )
+    )
+    device_ids.update(
         device_id
         for rule in rules
         if rule.enabled

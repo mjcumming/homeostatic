@@ -1317,3 +1317,83 @@ test("no group policies directs owners to Sources without inventing defaults",()
   assert.equal(rules.length,18);
   assert.doesNotMatch(html,/<article class="monitoring-policy"/);
 });
+
+for(const [name,error,expected] of [
+  ["update mismatch",{code:"invalid_format",message:"not a valid option at 'paged'. Got True"},/out of sync.*restarting.*refresh this page/],
+  ["permission failure",{code:"unauthorized",message:"Access denied"},/^Access denied$/],
+  ["unrelated validation failure",{code:"invalid_format",message:"Invalid request"},/^Invalid request$/],
+])test(`subscription guidance distinguishes ${name}`,async()=>{
+  const client=connection();
+  client.subscribeMessage=()=>Promise.reject(error);
+  const store=new DashboardStore(client);
+  const stop=store.listen(()=>{});
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(store.state.status,"error");
+  assert.match(store.state.error,expected);
+  stop();await Promise.resolve();
+});
+
+
+import {deviceAvailability, deviceAvailabilityStamp} from "../../custom_components/homeostatic/frontend/device-availability.mjs";
+
+for (const [status,label] of Object.entries({available:"Available",partially_available:"Partially available",unavailable:"Unavailable",unknown:"Unknown",disabled:"Disabled"})) {
+  test(`device availability shows ${label} separately from monitoring`,()=>{
+    const html=deviceAvailability({status,basis:status==="partially_available"?"integration_reports":"entities",reason:"no_current_states"});
+    assert.match(html,new RegExp(`Device availability: ${label}`));
+    assert.doesNotMatch(html,/Degraded|Insufficient evidence|Awaiting status/);
+  });
+}
+
+test("selected device access can be available beside an unavailable monitored entity",()=>{
+  const data=monitoringExample(), id="device:camera-0";
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${id}`,sourcesView:"source",
+    sourceDetail:{nodeId:id,device_availability:{status:"available",basis:"entities"},members:[{name:"Required sensor",node_id:"sensor.required",state:"unavailable"}],total:1,unavailable_count:1,unknown_count:0}};
+  const html=sourcesBrowser(card);
+  assert.match(html,/Device availability: Available/);
+  assert.match(html,/Selected entity checks: 1 entity is unavailable/);
+  assert.match(html,/Required sensor/);
+});
+
+test("availability refresh follows excluded entities without reacting to value churn",()=>{
+  const value={entity_ids:["sensor.excluded"]};
+  const state=value=>({"sensor.excluded":{state:value,attributes:{}}});
+  assert.equal(deviceAvailabilityStamp(value,state("42")),deviceAvailabilityStamp(value,state("43")));
+  assert.equal(deviceAvailabilityStamp(value,state("unknown")),deviceAvailabilityStamp(value,state("off")));
+  assert.notEqual(deviceAvailabilityStamp(value,state("off")),deviceAvailabilityStamp(value,state("unavailable")));
+  assert.notEqual(deviceAvailabilityStamp(value,state("unavailable")),deviceAvailabilityStamp(value,{}));
+});
+
+
+test("selected device refresh coalesces reads and notices access changes",async(t)=>{
+  const elements=new Map();
+  globalThis.HTMLElement=class {};
+  globalThis.customElements={get:key=>elements.get(key),define:(key,value)=>elements.set(key,value)};
+  globalThis.window={};
+  t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
+  await import("../../custom_components/homeostatic/frontend/homeostatic.js?availability-test");
+  const card=Object.create(elements.get("homeostatic-card-v21").prototype);
+  const data=monitoringExample(),entity="sensor.excluded",nodeId="device:camera-0",pending=[];
+  Object.assign(card,{page:"sources",sourcesView:"source",current:{status:"current",data},sourcesGrouping:"integration",sourcesSelection:`source:${nodeId}`,sourceDetail:null,sourceSequence:0,
+    render(){},_hass:{states:{[entity]:{state:"off",attributes:{}}},callWS(){return new Promise(resolve=>pending.push(resolve));}}});
+  const first=card.loadSource();
+  await card.loadSource();
+  assert.equal(pending.length,1);
+  pending[0]({device_availability:{status:"available",entity_ids:[entity]}});
+  await first;
+  await card.loadSource();
+  assert.equal(pending.length,1);
+  card._hass.states={[entity]:{state:"unavailable",attributes:{}}};
+  const changed=card.loadSource();
+  await card.loadSource();
+  assert.equal(pending.length,2);
+  pending[1]({device_availability:{status:"unavailable",entity_ids:[entity]}});
+  await changed;
+  assert.equal(card.sourceDetail.device_availability.status,"unavailable");
+  card._hass.states={[entity]:{state:"42",attributes:{}}};
+  const recovery=card.loadSource();
+  pending[2]({device_availability:{status:"available",entity_ids:[entity]}});
+  await recovery;
+  card._hass.states={[entity]:{state:"43",attributes:{}}};
+  await card.loadSource();
+  assert.equal(pending.length,3);
+});
