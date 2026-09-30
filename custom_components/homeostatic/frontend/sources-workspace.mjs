@@ -50,7 +50,9 @@ export function integrationFamilies(data, localize = () => null) {
       children.push(...deviceNodes.filter(device=>!assigned.has(device.key)));
       children.push(...unique(family.groups.filter(group=>!entryIds.has(group.id)).flatMap(group=>group.loose).map(sourceNode)));
     } else {
-      children.push(...deviceNodes,...unique(family.groups.flatMap(group=>group.loose).map(sourceNode)));
+      const loose=unique(family.groups.flatMap(group=>group.loose).map(sourceNode));
+      const paired=Boolean(entries.length===1&&deviceNodes.length===1&&!loose.length&&deviceNodes[0].source&&deviceNodes[0].owner===entries[0].entry_id);
+      children.push(...deviceNodes.map(device=>paired?{...device,connection:entries[0]}:device),...loose);
     }
     return {...family,key:entries.length===1?`source:${entries[0].node_id}`:key("family",family.id),type:"integration",source:entries.length===1?entries[0]:null,entries,children:children.sort((a,b)=>Number(a.type==="integration")-Number(b.type==="integration")||byName(a,b)),family:true};
   }).sort(byName);

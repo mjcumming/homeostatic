@@ -1319,6 +1319,12 @@ test("Sources combines registry-owned one-device connections without merging the
   assert.match(html,/Connection issue · No device entities/);
   assert.equal((html.match(/data-sources-select="source:entry:theater"/g)||[]).length,1);
   assert.ok(sourcePaths(filterSources(tree,"Receiver setup")).has("source:device:family"));
+  data.inventory.nodes=data.inventory.nodes.filter(node=>!node.node_id.includes("theater"));
+  data.inventory.catalog.candidates=data.inventory.nodes;
+  data.devices=data.devices.filter(device=>device.id==="family-device");
+  const single=sourcesTree(data).find(node=>node.domain==="denonavr");
+  assert.equal(single.children.length,1);
+  assert.equal(single.children[0].connection.node_id,"entry:family");
 });
 
 test("Sources keeps an entry parent for several devices or unattached entities",()=>{

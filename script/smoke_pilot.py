@@ -84,7 +84,7 @@ async def exercise(config: Path, port: int) -> None:
                     {
                         "id": "pilot",
                         "action": "attach",
-                        "match": {"entity": "sensor.pilot_source"},
+                        "match": {"entity": ["entity_id:sensor.pilot_source"]},
                     }
                 ],
             },
