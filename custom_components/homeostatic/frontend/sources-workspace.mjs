@@ -1,11 +1,11 @@
-import {sourceReporting} from "./reporting.mjs?v=43";
-import {integrationSettings} from "./source-settings.mjs?v=43";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=43";
-import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=43";
-import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=43";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=43";
+import {sourceReporting} from "./reporting.mjs?v=44";
+import {integrationSettings} from "./source-settings.mjs?v=44";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=44";
+import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=44";
+import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=44";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=44";
 
-import {deviceAvailability} from "./device-availability.mjs?v=43";
+import {deviceAvailability} from "./device-availability.mjs?v=44";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -212,7 +212,7 @@ function sourceReport(card,node,episodes) {
   let html=(source.kind==="device"?deviceAvailability(evidence.device_availability):"")+`<section class="source-condition${usefulProblem?' needs-attention':''}"><h3>${source.kind==="device"?"Selected entity checks: ":""}${esc(headline)}</h3><p>${esc(summary)}</p>${usefulProblem&&next?`<p><strong>Next step:</strong> ${esc(next)}</p>`:''}</section>`;
   if(!source.watched)html+=`<p class="small">${source.kind==="entity"?"This entity has no separate check. Its device may still include it.":"Availability monitoring is off for this source."}</p>`;
   if(evidence?.error)html+=`<p role="alert">${esc(evidence.error)}</p><button type="button" class="link" data-action="refresh-source">Retry reading</button>`;
-  if(members.length)html+=`<section class="source-section"><h3>Home Assistant entities</h3><table class="source-readings" aria-label="Home Assistant entities"><tbody>${members.map(item=>`<tr><td><button type="button" class="link" data-source-link="${esc(item.node_id)}">${esc(item.name)}</button></td><td>${esc(item.restored?"Restored state":item.state)}</td></tr>`).join("")}</tbody></table>${evidence.total>members.length?`<p class="small">Showing ${members.length} of ${evidence.total} entities. Expand this device or search to reach every entity.</p>`:''}</section>`;
+  if(members.length)html+=`<section class="source-section"><h3>Home Assistant entities</h3><table class="source-readings" aria-label="Home Assistant entities"><tbody>${members.map(item=>`<tr><td>${item.node_id===source.node_id?esc(item.name):`<button type="button" class="link" data-source-link="${esc(item.node_id)}">${esc(item.name)}</button>`}</td><td>${esc(item.restored?"Restored state":item.state)}</td></tr>`).join("")}</tbody></table>${evidence.total>members.length?`<p class="small">Showing ${members.length} of ${evidence.total} entities. Expand this device or search to reach every entity.</p>`:''}</section>`;
   if(evidence?.updated_at)html+=`<p class="small source-updated">Updated ${esc(displayDate(evidence.updated_at))}</p>`;
   if(linked.length)html+=`<section class="source-section">${linked.map(item=>`<button type="button" class="button" data-episode="${esc(item.episode_id)}">Problem actions</button>`).join("")}</section>`;
   const deviceId=source.attributes?.device?.[0];

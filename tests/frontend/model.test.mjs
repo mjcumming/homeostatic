@@ -1354,6 +1354,20 @@ test("selected device access can be available beside an unavailable monitored en
   assert.match(html,/Required sensor/);
 });
 
+test("entity evidence names link only when they open another source",()=>{
+  const data=monitoringExample(),entityId="entity:registry:camera-1-1",deviceId="device:camera-1";
+  const member={node_id:entityId,name:"Back Porch signal 001",state:"unavailable"};
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
+    sourcesSelection:`source:${entityId}`,sourceDetail:{nodeId:entityId,members:[member],total:1,unavailable_count:1,unknown_count:0}};
+  const entity=sourcesBrowser(card);
+  assert.match(entity,/<table class="source-readings"[^>]*><tbody><tr><td>Back Porch signal 001<\/td>/);
+  assert.doesNotMatch(entity,/data-source-link="entity:registry:camera-1-1"/);
+  card.sourcesSelection=`source:${deviceId}`;
+  card.sourceDetail={...card.sourceDetail,nodeId:deviceId};
+  const device=sourcesBrowser(card);
+  assert.match(device,/<button type="button" class="link" data-source-link="entity:registry:camera-1-1">Back Porch signal 001<\/button>/);
+});
+
 test("availability refresh follows excluded entities without reacting to value churn",()=>{
   const value={entity_ids:["sensor.excluded"]};
   const state=value=>({"sensor.excluded":{state:value,attributes:{}}});

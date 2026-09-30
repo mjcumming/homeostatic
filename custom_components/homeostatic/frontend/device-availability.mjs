@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=43";
+import {escapeHtml as esc} from "./model.mjs?v=44";
 
 const labels = {available:"Available",partially_available:"Partially available",unavailable:"Unavailable",unknown:"Unknown",disabled:"Disabled"};
 

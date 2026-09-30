@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=43";
+import {escapeHtml as esc} from "./model.mjs?v=44";
 
 const date = (value) => value ? new Date(value).toLocaleString() : "Unknown";
 export const RESOLUTIONS = {

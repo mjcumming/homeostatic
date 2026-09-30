@@ -58,6 +58,13 @@ document.querySelector("#run").onclick=async()=>{
     expect(card.sourcesSelection===null,"Expanding a branch changed selection");
     clickName("Back Porch");await settle();
     expect(root.querySelector(".config-detail").textContent.includes("Entities available"),"Source did not show current entity states");
+    const memberLink=root.querySelector('.source-readings [data-source-link="entity:registry:camera-1-1"]');
+    expect(memberLink,"Device member did not link to its source");
+    memberLink.click();await settle();
+    expect(card.sourcesSelection==="source:entity:registry:camera-1-1","Member link did not open entity source");
+    expect(!root.querySelector('.source-readings [data-source-link="entity:registry:camera-1-1"]'),"Entity name still links to itself");
+    expect(root.querySelector(".source-readings td")?.textContent==="Back Porch signal 001","Current entity name is missing");
+    clickName("Back Porch");await settle();
     const rail=root.querySelector(".config-rail"),detail=root.querySelector(".config-detail"),beforeTop=detail.getBoundingClientRect().top;
     rail.scrollTop=400;expect(Math.abs(detail.getBoundingClientRect().top-beforeTop)<1,"Tree scroll displaced details");
     root.querySelector('[data-sources-view="settings"]').click();

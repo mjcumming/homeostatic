@@ -42,6 +42,9 @@
 
 ### Fixed
 
+- Show the current entity's name as plain text in its Source evidence instead of
+  a link that reopened the same page. Other entity names still open their Sources.
+
 - Align device availability documentation with ADR 0025: partial and total
   unavailability both warn; unknown values differ from missing evidence. Clarify
   that device summaries describe selected HA entities, not physical health.
