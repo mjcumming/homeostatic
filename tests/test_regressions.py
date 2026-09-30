@@ -15,6 +15,7 @@ from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )
+from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.homeostatic.config import data_from_input
 from custom_components.homeostatic.const import DOMAIN
@@ -65,16 +66,7 @@ async def test_notification_options_reload(
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {
-            "rules": [
-                {
-                    "id": "observed",
-                    "action": "attach",
-                    "match": {"entity": "sensor.observed"},
-                }
-            ],
-            "notifications": False,
-        },
+        {"notifications": False},
     )
     await hass.async_block_till_done()
     restored = config_entry.runtime_data
@@ -90,20 +82,35 @@ async def test_notification_options_reload(
 
 
 async def test_unenrollment_options_reload(
-    hass: HomeAssistant, config_entry: MockConfigEntry
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
 ) -> None:
-    """Removing all sources resolves removed episodes and reports unknown scope."""
+    """Removing all sources through the guided editor resolves their episodes."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
-    await hass.config_entries.options.async_configure(
-        result["flow_id"],
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    await client.send_json(
         {
+            "id": 2,
+            "type": "homeostatic/preview_configuration",
+            "revision": current["revision"],
             "rules": [],
-            "notifications": True,
-            "consumer": "automation.homeostatic_test_consumer",
-        },
+        }
     )
+    preview = (await client.receive_json())["result"]
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "homeostatic/save_configuration",
+            "revision": current["revision"],
+            "preview_token": preview["preview_token"],
+            "rules": [],
+        }
+    )
+    assert (await client.receive_json())["result"] == {"saved": True}
     await hass.async_block_till_done()
     restored = config_entry.runtime_data
     assert restored is not runtime
@@ -111,6 +118,7 @@ async def test_unenrollment_options_reload(
     assert not restored.episodes
     assert not restored.desired_notifications
     assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
 
 
 async def test_probe_does_not_fabricate_freshness(

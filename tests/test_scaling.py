@@ -7,10 +7,10 @@ from typing import Any
 from unittest.mock import patch
 
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.config import Settings
+from custom_components.homeostatic.config_flow import preview_summary
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.function_model import preview
 from tests.test_lifecycle import start_monitor
@@ -18,16 +18,13 @@ from tests.test_lifecycle import start_monitor
 LIGHTS = [{"id": "lights", "action": "attach", "match": {"domain": ["light"]}}]
 
 
-async def test_ten_thousand_source_native_preview_without_engine(
+async def test_ten_thousand_source_rule_preview_without_engine(
     hass: HomeAssistant,
     record_property: Callable[[str, object], None],
 ) -> None:
     """Enrollment counts must not construct a graph even for a large catalog."""
     for index in range(10000):
         hass.states.async_set(f"light.scale_{index}", "off")
-    initial = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": "user"}
-    )
     with (
         patch(
             "custom_components.homeostatic.config.Engine",
@@ -39,12 +36,9 @@ async def test_ten_thousand_source_native_preview_without_engine(
         ),
     ):
         started = perf_counter()
-        result = await hass.config_entries.flow.async_configure(
-            initial["flow_id"], {"rules": LIGHTS, "preview": True}
-        )
-    record_property("native_preview_seconds", perf_counter() - started)
-    assert result["type"] is FlowResultType.FORM
-    assert "10000 watched sources" in result["description_placeholders"]["preview"]
+        summary = preview_summary(hass, {"rules": LIGHTS})
+    record_property("rule_preview_seconds", perf_counter() - started)
+    assert "10000 watched sources" in summary
     assert not hass.config_entries.async_entries(DOMAIN)
 
 

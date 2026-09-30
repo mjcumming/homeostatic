@@ -443,17 +443,20 @@ async def test_preview_service_is_read_only(
 
 
 async def test_native_preview_edit_save(hass: HomeAssistant) -> None:
-    """Native previews preserve unsaved edits and do not create an entry."""
-    hass.states.async_set("sensor.observed", "42")
+    """Native setup previews its default connection policy before saving."""
+    owner = MockConfigEntry(domain="test", title="Observed source")
+    owner.add_to_hass(hass)
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    rules = [rule("observed", entity="sensor.observed")]
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"rules": rules, "preview": True}
+        result["flow_id"], {"preview": True}
     )
     assert result["type"] is FlowResultType.FORM
-    assert "observed: 1 matches" in result["description_placeholders"]["preview"]
+    assert (
+        "integration_availability: 1 matches"
+        in result["description_placeholders"]["preview"]
+    )
     assert not hass.config_entries.async_entries(DOMAIN)
     with patch("custom_components.homeostatic.async_setup_entry", return_value=True):
         result = await hass.config_entries.flow.async_configure(
@@ -461,26 +464,24 @@ async def test_native_preview_edit_save(hass: HomeAssistant) -> None:
         )
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["rules"][0]["match"]["entity"] == [
-        "entity_id:sensor.observed"
-    ]
+    assert result["data"]["rules"][0]["match"]["kind"] == ["integration"]
     assert result["data"]["notifications"] is False
 
 
 async def test_options_preview_no_reload(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
-    """Previewing changed rules retains current monitoring until explicitly saved."""
+    """Native options preview leaves saved monitoring and runtime untouched."""
     config_entry.add_to_hass(hass)
     before = dict(config_entry.data)
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     with patch.object(hass.config_entries, "async_reload", new=AsyncMock()) as reload:
         result = await hass.config_entries.options.async_configure(
-            result["flow_id"], {"rules": [], "preview": True, "notifications": False}
+            result["flow_id"], {"preview": True, "notifications": False}
         )
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.FORM
-    assert "0 watched" in result["description_placeholders"]["preview"]
+    assert "watched" in result["description_placeholders"]["preview"]
     assert dict(config_entry.data) == before
     reload.assert_not_called()
 
