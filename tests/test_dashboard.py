@@ -247,9 +247,12 @@ async def test_location_names_and_situation_detail(
     assert data["areas"] == [
         {"id": area.id, "name": "Garage", "floor_id": floor.floor_id}
     ]
-    assert {"id": device.id, "name": "Garage monitor", "disabled": False} in data[
-        "devices"
-    ]
+    assert {
+        "id": device.id,
+        "name": "Garage monitor",
+        "disabled": False,
+        "config_entry_id": source_entry.entry_id,
+    } in data["devices"]
     assert data["floors"] == [{"id": floor.floor_id, "name": "Main floor"}]
     client = await hass_ws_client(hass)
     await client.send_json(
@@ -1013,7 +1016,9 @@ async def test_unmonitored_sources_show_observations_without_enrollment(
     registered = er.async_get(hass).async_get_or_create(
         "sensor", "test", "sample", config_entry=owner
     )
-    hass.states.async_set(registered.entity_id, "unavailable")
+    hass.states.async_set(
+        registered.entity_id, "unavailable", {"unit_of_measurement": "%"}
+    )
     config_data.update(rules=[], notifications=False)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
@@ -1029,6 +1034,7 @@ async def test_unmonitored_sources_show_observations_without_enrollment(
     response = await client.receive_json()
     assert "result" in response, response
     assert response["result"]["members"][0]["state"] == "unavailable"
+    assert response["result"]["members"][0]["unit"] == "%"
     assert response["result"]["entity_status"] is None
     await client.send_json(
         {"id": 2, "type": "homeostatic/source", "node_id": f"entry:{owner.entry_id}"}

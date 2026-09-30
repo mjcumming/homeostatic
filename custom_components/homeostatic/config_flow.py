@@ -15,14 +15,11 @@ from .function_model import preview as preview_functions
 from .rules import DEFAULT_RULES, Attributes, parse_rules
 
 
-def form_schema(hass: HomeAssistant, data: dict[str, Any]) -> vol.Schema:
-    """Offer existing source identities and editable adapter defaults."""
+def form_schema(data: dict[str, Any]) -> vol.Schema:
+    """Offer native setup and options without catalog-rule editing."""
     settings = Settings.from_data(data)
     fields: dict[Any, Any] = {
         vol.Optional("policy", default=settings.policy): selector.ObjectSelector(),
-        vol.Optional(
-            "rules", default=rule_data(hass, settings) if data else DEFAULT_RULES
-        ): selector.ObjectSelector(),
         vol.Optional("preview", default=False): selector.BooleanSelector(),
         vol.Optional(
             "functions", default=data.get("functions", [])
@@ -60,7 +57,7 @@ class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Enroll selected sources using native HA controls."""
+        """Start with the default integration-availability policy."""
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
         errors: dict[str, str] = {}
@@ -69,7 +66,9 @@ class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         form_data: dict[str, Any] = {}
         if user_input is not None:
             try:
-                data = data_from_input(self.hass, user_input)
+                data = data_from_input(
+                    self.hass, {**user_input, "rules": DEFAULT_RULES}
+                )
             except (ValueError, vol.Invalid) as err:
                 errors["base"] = "invalid_config"
                 error_detail = str(err)
@@ -84,7 +83,7 @@ class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(
-                form_schema(self.hass, form_data), user_input if errors else None
+                form_schema(form_data), user_input if errors else None
             ),
             errors=errors,
             description_placeholders={"preview": preview, "error_detail": error_detail},
@@ -100,7 +99,7 @@ class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class HomeostaticOptionsFlow(config_entries.OptionsFlowWithReload):
-    """Update enrollment and timings while retaining unresolved requirements."""
+    """Update native options while retaining the saved monitoring catalog."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -112,7 +111,8 @@ class HomeostaticOptionsFlow(config_entries.OptionsFlowWithReload):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                data = data_from_input(self.hass, user_input)
+                saved_rules = rule_data(self.hass, Settings.from_data(current))
+                data = data_from_input(self.hass, {**user_input, "rules": saved_rules})
             except (ValueError, vol.Invalid) as err:
                 errors["base"] = "invalid_config"
                 error_detail = str(err)
@@ -134,7 +134,7 @@ class HomeostaticOptionsFlow(config_entries.OptionsFlowWithReload):
         return self.async_show_form(
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(
-                form_schema(self.hass, current), user_input if errors else None
+                form_schema(current), user_input if errors else None
             ),
             errors=errors,
             description_placeholders={"preview": preview, "error_detail": error_detail},

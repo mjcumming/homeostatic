@@ -13,13 +13,22 @@ window.addEventListener("error",event=>{document.querySelector("#feedback").text
 document.querySelector("#run").onclick=()=>{
   const expect=(value,message)=>{if(!value)throw Error(message);};
   const root=card.shadowRoot;
+  expect(root.querySelector(".nav button:last-child").dataset.page==="history","History must be the last top-level destination");
   root.querySelector('[data-history="cleared"]').click();
   expect(card.tools.dialog.open,"History details must open");
-  expect(card.tools.body.textContent.includes("Recorded finding"),"Retained evidence must be available");
+  expect(card.tools.body.querySelector("h3").textContent==="Issue cleared","Cleared history must identify the outcome");
+  expect([...card.tools.body.querySelectorAll(".history-times dt")].map(label=>label.textContent).join("|")==="Issue started at|Issue cleared at","History must label the observed times separately");
+  expect(card.tools.body.textContent.includes("Times show when Homeostatic observed the issue and its clearance"),"History must explain the time boundary");
+  expect(card.tools.body.querySelector("details:not([open])>summary").textContent==="Recorded finding","The saved finding must be available but collapsed");
+  expect(!card.tools.body.textContent.includes("Last recorded evidence") && !card.tools.body.textContent.includes("Historical evidence;"),"History must avoid redundant or misleading evidence copy");
   card.tools.close();
   root.querySelector('[data-history="absorbed"]').click();
   expect(card.tools.body.textContent.includes("Recovery was not established"),"Absorption must not claim recovery");
+  expect(card.tools.body.querySelector(".history-times>div:last-child dt").textContent==="Joined another problem at","Absorption must use its own ending label");
   expect(card.tools.body.querySelector('[data-open-episode="open"]'),"Absorption must retain its related problem link");
+  card.tools.close();
+  root.querySelector('[data-history="removed"]').click();
+  expect(card.tools.body.querySelector(".history-times>div:last-child dt").textContent==="Monitoring ended at","Removal must not look like clearance");
   card.tools.close();
   data.updated_at="2026-09-29T12:01:00Z";card.render();
   expect(root.querySelectorAll(".source-timeline li").length===4,"Live rendering must retain all four records");

@@ -2,6 +2,39 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-30
+
+### Changed
+
+- Group each Home Assistant connection with its sole registry-owned device in
+  Sources, while keeping connection and device evidence and monitoring choices
+  separate. Show connections with several devices as parents and retain
+  connection-only entries and entities without devices.
+- Label History's issue start and observed end separately, with outcome-specific
+  wording for clearance, monitoring removal, and absorption. Keep the exact
+  saved finding collapsed and remove misleading last-evidence copy.
+- Show watch policies first and collapse group exclusions on Monitoring policies,
+  so repeated exception rules do not obscure what the installation watches.
+- Explain the monitoring, evidence, and reporting path in the README and user
+  guide; align Sources and Monitoring policies copy with the actual menu and
+  clarify that allowing an integration does not select every check.
+- Put a direct **Monitor all batteries** action at the top of Monitoring
+  policies. It drafts a broad battery check for review without requiring a
+  source-type value or changing notification activation.
+- Move monitoring catalog editing entirely into Homeostatic's guided Monitoring
+  policies and Sources settings. Native Home Assistant setup/options no longer
+  expose catalog YAML and preserve saved rules when other options change.
+
+- Keep the Sources tree compact with inline device, entity, and issue counts and
+  a Collapse all control. Distinguish excluded and unselected entities from
+  entities included in a device check or monitored separately.
+- Explain default monitoring and device entity selection beside the Sources
+  tree, with the explanation available through live updates and search.
+- Put issue counts beside source names, show labeled integration connections
+  without another tree tier, and shorten device and entity details around HA
+  status, effective monitoring, and direct actions. Keep separate entity checks
+  available as a secondary choice when device monitoring already includes them.
+
 ## [1.1.0] - 2026-09-30
 
 ### Changed

@@ -42,7 +42,7 @@ from .simple_notifications import available_people, generate_policy, simple_choi
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=46"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=53"
 PANEL_ELEMENT = "homeostatic-panel-v22"
 
 
@@ -105,6 +105,7 @@ def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
                 "id": device.id,
                 "name": device.name_by_user or device.name or device.id,
                 "disabled": device.disabled_by is not None,
+                "config_entry_id": device.config_entry_id,
             }
             for device in devices.devices
         ],
@@ -446,6 +447,9 @@ def websocket_source(
                 "entity_id": entity_id,
                 "name": member.name if member else entity_id,
                 "state": state.state if state is not None else "missing",
+                "unit": state.attributes.get("unit_of_measurement")
+                if state is not None
+                else None,
                 "restored": bool(state and state.attributes.get("restored")),
             }
         )

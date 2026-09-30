@@ -1,6 +1,6 @@
 import {sourceReporting} from "./reporting.mjs?v=46";
-import {integrationSettings} from "./source-settings.mjs?v=46";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=46";
+import {integrationSettings} from "./source-settings.mjs?v=53";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=51";
 import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=46";
 import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=46";
 import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=46";
@@ -13,6 +13,7 @@ const sourceName = source => source.name?.trim() || (source.kind === "integratio
 const sourceNode = source => ({key:`source:${source.node_id}`,name:sourceName(source),type:source.kind,source,children:[]});
 const unique = (items, identity = item => item.key) => [...new Map(items.map(item => [identity(item),item])).values()];
 const displayDate = value => value ? new Date(value).toLocaleString() : "Time not reported";
+const familyDevices = family => [...sourcePaths(family.children).values()].map(item=>item.node).filter(node=>node.source?.kind==="device");
 
 /** Use the integration type, preserving individual connections below a family. */
 export function integrationFamilies(data, localize = () => null) {
@@ -30,10 +31,28 @@ export function integrationFamilies(data, localize = () => null) {
       devices.set(device.id,existing ? {...existing,summary:existing.summary || device.summary,entities:unique([...existing.entities,...device.entities],item=>item.node_id)} : {...device});
     }
     const entries = family.groups.flatMap(group=>group.entry?[group.entry]:[]);
-    const children = [...devices.values()].map(device=>({key:device.summary?`source:${device.summary.node_id}`:`device:${device.id}`,name:device.name?.trim()||"Unnamed device",type:"device",source:device.summary,device,children:device.entities.map(sourceNode).sort(byName)}));
-    children.push(...unique(family.groups.flatMap(group=>group.loose).map(sourceNode)));
-    if(entries.length>1) children.unshift({key:key("connections",family.id),name:"Connections",type:"connections",children:entries.map(sourceNode).sort(byName)});
-    return {...family,key:entries.length===1?`source:${entries[0].node_id}`:key("family",family.id),type:"integration",source:entries.length===1?entries[0]:null,entries,children:children.sort(byName),family:true};
+    const entryIds=new Set(entries.map(entry=>entry.entry_id));
+    const registryOwners=new Map((data.devices||[]).map(device=>[device.id,device.config_entry_id]));
+    const deviceNodes=[...devices.values()].map(device=>({key:device.summary?`source:${device.summary.node_id}`:`device:${device.id}`,name:device.name?.trim()||"Unnamed device",type:"device",source:device.summary,device,owner:registryOwners.get(device.id),children:device.entities.map(sourceNode).sort(byName)}));
+    const children=[];
+    if(entries.length>1) {
+      const assigned=new Set();
+      for(const entry of entries) {
+        const owned=deviceNodes.filter(device=>device.owner===entry.entry_id);
+        const loose=unique(family.groups.filter(group=>group.id===entry.entry_id).flatMap(group=>group.loose).map(sourceNode));
+        owned.forEach(device=>assigned.add(device.key));
+        if(owned.length===1&&owned[0].source&&!loose.length) {
+          children.push({...owned[0],connection:entry});
+        } else {
+          children.push({...sourceNode(entry),children:[...owned,...loose].sort(byName)});
+        }
+      }
+      children.push(...deviceNodes.filter(device=>!assigned.has(device.key)));
+      children.push(...unique(family.groups.filter(group=>!entryIds.has(group.id)).flatMap(group=>group.loose).map(sourceNode)));
+    } else {
+      children.push(...deviceNodes,...unique(family.groups.flatMap(group=>group.loose).map(sourceNode)));
+    }
+    return {...family,key:entries.length===1?`source:${entries[0].node_id}`:key("family",family.id),type:"integration",source:entries.length===1?entries[0]:null,entries,children:children.sort((a,b)=>Number(a.type==="integration")-Number(b.type==="integration")||byName(a,b)),family:true};
   }).sort(byName);
 }
 
@@ -126,9 +145,9 @@ function groupedSources(data,grouping,localize,topomation) {
 export function filterSources(tree,query = "",needsReview = false,gaps = new Map()) {
   const needle=query.trim().toLocaleLowerCase();
   const visit=(nodes,parentMatch=false)=>nodes.flatMap(node=>{
-    const match=parentMatch||[node.name,node.source?.entity_id].filter(Boolean).join(" ").toLocaleLowerCase().includes(needle);
+    const match=parentMatch||[node.name,node.source?.entity_id,node.connection?.name].filter(Boolean).join(" ").toLocaleLowerCase().includes(needle);
     const children=visit(node.children,match);
-    const review=!needsReview||gaps.has(node.source?.node_id)||children.length;
+    const review=!needsReview||gaps.has(node.source?.node_id)||gaps.has(node.connection?.node_id)||children.length;
     return review&&(match||children.length||!needle)?[{...node,children}]:[];
   });
   return visit(tree);
@@ -136,7 +155,7 @@ export function filterSources(tree,query = "",needsReview = false,gaps = new Map
 
 export function sourcePaths(tree) {
   const paths=new Map();
-  const visit=(nodes,parents)=>{for(const node of nodes){if(!paths.has(node.key))paths.set(node.key,{node,parents});visit(node.children,[...parents,node]);}};
+  const visit=(nodes,parents)=>{for(const node of nodes){if(!paths.has(node.key))paths.set(node.key,{node,parents});if(node.connection){const alias=sourceNode(node.connection);if(!paths.has(alias.key))paths.set(alias.key,{node:alias,parents});}visit(node.children,[...parents,node]);}};
   visit(tree,[]);return paths;
 }
 
@@ -147,9 +166,21 @@ export function sourceEvidence(data) {
 }
 
 function monitoringState(source,included) {
-  if(source.excluded_by?.length)return "Not monitored";
-  if(source.kind==="entity")return source.watched?"Monitored separately":included.has(source.entity_id)?"Included with device":"Not monitored";
+  if(source.excluded_by?.length)return "Excluded";
+  if(source.kind==="entity")return source.watched?"Separate check":included.has(source.entity_id)?"Included with device":"Not selected";
   return source.watched?"Monitored":"Not monitored";
+}
+
+function connectionState(source,data,episodes) {
+  if(episodes.some(item=>item.anchor===source.node_id))return "Connection issue";
+  const state=data.inventory.integration_evidence?.[source.node_id]?.current?.reason||data.inventory.integration_states?.[source.node_id];
+  if(state==="loaded")return "Connection loaded";
+  if(state&&state!=="not_loaded")return "Connection needs review";
+  return source.watched?"Connection monitored":"Connection not monitored";
+}
+
+function includedEntities(data) {
+  return new Set(inventoryRows(data).filter(row=>row.kind==="device"&&row.watched).flatMap(row=>row.availability_entities||[]));
 }
 
 export function sourceMonitoringChoices(card,node) {
@@ -157,21 +188,28 @@ export function sourceMonitoringChoices(card,node) {
   if(!card.configuration)return `<p class="sub">${esc(card.configError||"Loading monitoring choices…")}</p><button type="button" class="button" data-action="load-configuration">Reload choices</button>`;
   if(node.family)return integrationSettings(card,node);
   const source=node.source;
-  const choice=(label,scope,options)=>{
+  const choice=(label,scope,options,advanced=false)=>{
     if(!scope)return "";
     const index=card.configScopes.push(scope)-1;
     const current=scopeChoice(card.configDraft,scope);
     if(current==="multiple")return '<p class="note">Several saved policies apply here.</p><button type="button" class="link" data-settings-section="policies">Review monitoring policies in Settings</button>';
-    return `<fieldset class="source-choices"${card.configBusy?' disabled':''}><legend>${esc(label)}</legend>${options.map(([value,title,help])=>`<label class="source-radio"><input type="radio" name="source-choice-${index}" data-scope-index="${index}" value="${value}"${current===value?' checked':''}><span><strong>${esc(title)}</strong>${help?`<small>${esc(help)}</small>`:''}</span></label>`).join("")}</fieldset>`;
+    const option=([value,title,help])=>`<label class="source-radio"><input type="radio" name="source-choice-${index}" data-scope-index="${index}" value="${value}"${current===value?' checked':''}><span><strong>${esc(title)}</strong>${help?`<small>${esc(help)}</small>`:''}</span></label>`;
+    const choices=advanced?`${option(options[0])}${option(options[2])}<details class="source-advanced-choice"${current==="attach"?' open':''}><summary>More monitoring choices</summary>${option(options[1])}</details>`:options.map(option).join("");
+    return `<fieldset class="source-choices"${card.configBusy?' disabled':''}><legend>${esc(label)}</legend>${choices}</fieldset>`;
   };
   let controls="";
   if(source?.kind==="integration")controls+=choice("Integration connection",monitoringScope("entry",source.entry_id),[["inherit","Use integration default","Follow the saved policy for this integration."],["attach","Monitor this connection","Report if Home Assistant cannot load it."],["exclude","Do not monitor this connection",""]]);
   else if(source?.kind==="device")controls+=choice("Device availability",monitoringScope("device_availability",source.attributes?.device?.[0]??source.node_id.slice(7)),[["inherit","Use integration default",`Currently ${source.watched?"monitored":"not monitored"}.`],["attach","Always monitor this device","Report selected entities becoming unavailable."],["exclude","Do not monitor this device","Keep it in Sources without availability issues."]]);
-  else if(source?.kind==="entity")controls+=choice("Entity availability",monitoringScope("entity",source.node_id,source),[["inherit","Use device and integration choices","Include in device monitoring when selected by its device."],["attach","Monitor this entity separately","Give this entity its own availability check."],["exclude","Exclude this entity","Exclude it from device monitoring and separate checks."]]);
+  else if(source?.kind==="entity"){
+    const included=includedEntities(card.current.data);
+    controls+=`<p class="source-current-choice">Currently: ${esc(monitoringState(source,included))}</p>`;
+    controls+=choice("Entity availability",monitoringScope("entity",source.node_id,source),[["inherit","Follow device monitoring","Include this entity when its device selects it."],["attach",included.has(source.entity_id)?"Monitor this entity separately":"Monitor this entity","Give this entity its own availability check."],["exclude","Exclude this entity","Remove it from device monitoring and separate checks."]],included.has(source.entity_id));
+  }
   else if(source?.kind==="battery")controls+=choice("Battery condition",monitoringScope("battery",source.node_id,source),[["inherit","Use battery monitoring policies",`Currently ${source.watched?"monitored":"not monitored"}.`],["attach","Monitor this battery","Report a current low-battery condition."],["exclude","Do not monitor this battery","Keep its readings available for review without an issue."]]);
   if(source?.kind==="device"){
     controls+=`<p class="small">${source.availability_entities?.length||0} entities included. Open an entity in the tree to change its inclusion.</p>`;
-    const family=integrationFamilies(card.current.data).find(item=>item.children.some(child=>child.source?.node_id===source.node_id));
+    if(node.connection)controls+=`<button type="button" class="link" data-sources-select="source:${esc(node.connection.node_id)}">Change this connection's monitoring</button>`;
+    const family=integrationFamilies(card.current.data).find(item=>familyDevices(item).some(child=>child.source?.node_id===source.node_id));
     if(family)controls+=`<button type="button" class="link" data-sources-select="${esc(family.key)}">View ${esc(family.name)} default</button>`;
   }
   if(source?.kind==="situation")controls='<p class="sub">This situation uses its configured condition. Reporting does not change what detects it.</p>';
@@ -187,12 +225,12 @@ function sourceReport(card,node,episodes) {
     return `<section class="source-section"><h3>${active?"Situation active":"No active situation"}</h3><p>${esc(active?.reasons?.map(finding=>finding.message||finding.reason).join("; ")||"The configured condition is not currently reported as active.")}</p><button type="button" class="link" data-sources-view="settings">Change reporting preference</button></section>`;
   }
   const evidence=card.sourceDetail?.nodeId===source?.node_id?card.sourceDetail:null;
-  const devices=node.family?node.children.filter(child=>child.type==="device"):[];
-  const deviceSummary=node.family?`<section class="source-section"><h3>Devices</h3><p>${devices.filter(child=>child.source?.watched).length} of ${devices.length} devices monitored.</p>${devices.filter(child=>episodes.some(episode=>episode.anchor===child.source?.node_id||child.children.some(member=>member.source?.node_id===episode.anchor))).map(child=>`<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}</span><small>Open issue</small></button>`).join("")}<button type="button" class="link" data-sources-view="settings">Change what this integration monitors</button></section>`:"";
+  const devices=node.family?familyDevices(node):[];
+  const deviceSummary=node.family?`<section class="source-section"><h3>Devices</h3><p>${devices.filter(child=>child.source?.watched).length} of ${devices.length} devices monitored.</p>${devices.filter(child=>episodes.some(episode=>episode.anchor===child.source?.node_id||episode.anchor===child.connection?.node_id||child.children.some(member=>member.source?.node_id===episode.anchor))).map(child=>`<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}</span><small>Open issue</small></button>`).join("")}<button type="button" class="link" data-sources-view="settings">Change what this integration monitors</button></section>`:"";
   if(node.family&&node.entries.length>1) {
     const related=new Set([...sourcePaths([node]).values()].map(item=>item.node.source?.node_id));
     const count=episodes.filter(item=>related.has(item.anchor)).length;
-    return `<section class="source-section"><h3>${node.entries.length} connections</h3>${node.entries.map(entry=>`<button type="button" class="source-child" data-sources-select="source:${esc(entry.node_id)}"><span>${esc(sourceName(entry))}</span><small>${esc(data.inventory.integration_states?.[entry.node_id]==="loaded"?"Loaded in Home Assistant":"View connection")}</small></button>`).join("")}</section><p>${count?`${count} open ${count===1?"issue":"issues"} in this integration.`:"No open issues in monitored sources."}</p>${deviceSummary}`;
+    return `<p>${count?`${count} open ${count===1?"issue":"issues"} in this integration.`:"No open issues in monitored sources."}</p>${deviceSummary}<details class="source-section source-connections"><summary>${node.entries.length} Home Assistant connections</summary><p class="small">Each connection retains its own setup status and monitoring choice.</p>${node.entries.map(entry=>`<button type="button" class="source-child" data-sources-select="source:${esc(entry.node_id)}"><span>${esc(sourceName(entry))}</span><small>${esc(data.inventory.integration_states?.[entry.node_id]==="loaded"?"Loaded":"View connection")}</small></button>`).join("")}</details>`;
   }
   if(!source)return `<p class="sub">${node.children.length} items in this group.</p>${node.children.map(child=>`<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}</span><small>View</small></button>`).join("")}`;
   if(!evidence||evidence.loading)return '<p class="sub" role="status">Reading current Home Assistant values…</p>';
@@ -212,20 +250,40 @@ function sourceReport(card,node,episodes) {
   const members=evidence?.members||[];
   const unavailable=members.filter(item=>item.state==="unavailable"),unknown=members.filter(item=>item.state==="missing"||item.restored);
   const badCount=evidence.unavailable_count??unavailable.length, unknownCount=evidence.unknown_count??unknown.length;
-  const headline=source.disabled?"Disabled in Home Assistant":source.kind==="device"&&members.length?(badCount?`${badCount} ${badCount===1?"entity is":"entities are"} unavailable`:unknownCount?`${unknownCount} ${unknownCount===1?"entity is":"entities are"} unknown`:linked.length?"Confirming recovery":"Entities available"):
-    source.kind==="entity"&&members.length?(members[0].restored?"Waiting for a current state":members[0].state==="unavailable"?"Entity unavailable":["unknown","missing"].includes(members[0].state)?"Waiting for an entity state":linked.length?"Confirming recovery":"Entity available"):
-    source.kind==="integration"&&current?.current?.reason==="loaded"&&!linked.length?"Loaded in Home Assistant":problem?.headline||"No current state";
-  const usefulProblem=linked.length||badCount||unknownCount||(source.kind==="integration"&&current?.current?.reason&&current.current.reason!=="loaded");
-  const summary=source.disabled?"Home Assistant is not using this source. Review its device or integration if this was not intentional.":source.kind==="device"&&members.length?usefulProblem?"Home Assistant cannot currently report the state of every selected entity.":"Home Assistant is reporting current entity states.":source.kind==="entity"&&members.length&&!usefulProblem?`Home Assistant reports ${members[0].state}.`:problem?.summary||"Current states have not been reported.";
-  const next=source.kind==="device"?"Check the listed entities and this device in Home Assistant. Change monitoring if an entity is normally absent.":problem?.nextStep;
-  let html=(source.kind==="device"?deviceAvailability(evidence.device_availability):"")+`<section class="source-condition${usefulProblem?' needs-attention':''}"><h3>${source.kind==="device"?"Selected entity checks: ":""}${esc(headline)}</h3><p>${esc(summary)}</p>${usefulProblem&&next?`<p><strong>Next step:</strong> ${esc(next)}</p>`:''}</section>`;
-  if(!source.watched)html+=`<p class="small">${source.kind==="entity"?"This entity has no separate check. Its device may still include it.":"Availability monitoring is off for this source."}</p>`;
+  if(source.kind==="entity"){
+    const member=members[0];
+    const state=source.disabled?"Disabled in Home Assistant":member?.restored?"Waiting for a current Home Assistant state":member?.state==="unavailable"?"Unavailable in Home Assistant":!member||member.state==="missing"?"No current Home Assistant state":"Available in Home Assistant";
+    const unit=member?.unit?`${member.unit==="%"?"":" "}${member.unit}`:"";
+    const value=member&&!member.restored&&!['unavailable','missing'].includes(member.state)?`<p>Current value: ${esc(member.state+unit)}</p>`:"";
+    const monitoring=monitoringState(source,includedEntities(data));
+    const deviceId=source.attributes?.device?.[0];
+    const href=deviceId?`/config/devices/device/${encodeURIComponent(deviceId)}`:source.entity_id?`/developer-tools/state?entity_id=${encodeURIComponent(source.entity_id)}`:null;
+    const action=`<div class="source-actions"><button type="button" class="link" data-sources-view="settings">Change monitoring</button>${href?`<a class="link" href="${esc(href)}">${deviceId?"Open device":"View entity state"} in Home Assistant</a>`:''}</div>`;
+    return `<section class="source-condition${(linked.length||monitoring==="Included with device")&&member?.state==="unavailable"?' needs-attention':''}"><h3>${esc(state)}</h3>${value}<p class="source-monitoring-status">Monitoring: ${esc(monitoring)}</p></section>${action}${linked.map(item=>`<button type="button" class="button" data-episode="${esc(item.episode_id)}">View issue</button>`).join('')}${evidence?.updated_at?`<p class="small source-updated">Updated ${esc(displayDate(evidence.updated_at))}</p>`:''}`;
+  }
+  if(source.kind==="device"){
+    const selected=evidence.total??members.length;
+    const headline=source.disabled?"Disabled in Home Assistant":!source.watched?"Device availability monitoring is off":!selected?"No entities selected for this check":badCount?`${badCount} of ${selected} selected ${selected===1?"entity is":"entities are"} unavailable`:unknownCount?`${unknownCount} of ${selected} selected ${selected===1?"entity needs":"entities need"} a current state`:linked.length?"Confirming recovery":"Selected entities available";
+    const review=members.filter(item=>item.state==="unavailable"||item.state==="missing"||item.restored);
+    const other=members.filter(item=>!review.includes(item));
+    const rows=items=>`<table class="source-readings"><tbody>${items.map(item=>`<tr><td><button type="button" class="link" data-source-link="${esc(item.node_id)}">${esc(item.name)}</button></td><td>${esc(item.restored?"Restored state":item.state)}</td></tr>`).join("")}</tbody></table>`;
+    const href=source.attributes?.device?.[0]?`/config/devices/device/${encodeURIComponent(source.attributes.device[0])}`:null;
+    const actions=`<div class="source-actions"><button type="button" class="link" data-sources-view="settings">Change monitored entities</button>${href?`<a class="link" href="${esc(href)}">Open device in Home Assistant</a>`:''}</div>`;
+    const list=review.length?`<section class="source-section"><h3>Entities needing review</h3>${rows(review)}</section>`:"";
+    const healthy=other.length?`<details class="source-section source-healthy"><summary>${other.length} other selected ${other.length===1?"entity":"entities"}</summary>${rows(other)}</details>`:"";
+    const limit=selected>members.length?`<p class="small">Showing ${members.length} of ${selected} selected entities. Search the tree to find any others.</p>`:"";
+    const connection=node.connection?`<section class="source-section"><h3>Home Assistant connection</h3><p>${esc(connectionState(node.connection,data,episodes))}</p><button type="button" class="link" data-sources-select="source:${esc(node.connection.node_id)}">View connection details</button></section>`:"";
+    return `${connection}<section class="source-condition${badCount||unknownCount||linked.length?' needs-attention':''}"><h3>${esc(headline)}</h3></section>${deviceAvailability(evidence.device_availability,true)}${actions}${list}${healthy}${limit}${linked.map(item=>`<button type="button" class="button" data-episode="${esc(item.episode_id)}">View issue</button>`).join('')}${evidence?.updated_at?`<p class="small source-updated">Updated ${esc(displayDate(evidence.updated_at))}</p>`:''}`;
+  }
+  const headline=source.disabled?"Disabled in Home Assistant":current?.current?.reason==="loaded"&&!linked.length?"Loaded in Home Assistant":problem?.headline||"No current state";
+  const usefulProblem=linked.length||(current?.current?.reason&&current.current.reason!=="loaded");
+  const summary=source.disabled?"Home Assistant is not using this source. Review its integration if this was not intentional.":problem?.summary||"Current state has not been reported.";
+  let html=`<section class="source-condition${usefulProblem?' needs-attention':''}"><h3>${esc(headline)}</h3><p>${esc(summary)}</p>${usefulProblem&&problem?.nextStep?`<p><strong>Next step:</strong> ${esc(problem.nextStep)}</p>`:''}</section>`;
+  if(!source.watched)html+='<p class="small">Availability monitoring is off for this connection.</p>';
   if(evidence?.error)html+=`<p role="alert">${esc(evidence.error)}</p><button type="button" class="link" data-action="refresh-source">Retry reading</button>`;
-  if(members.length)html+=`<section class="source-section"><h3>Home Assistant entities</h3><table class="source-readings" aria-label="Home Assistant entities"><tbody>${members.map(item=>`<tr><td>${item.node_id===source.node_id?esc(item.name):`<button type="button" class="link" data-source-link="${esc(item.node_id)}">${esc(item.name)}</button>`}</td><td>${esc(item.restored?"Restored state":item.state)}</td></tr>`).join("")}</tbody></table>${evidence.total>members.length?`<p class="small">Showing ${members.length} of ${evidence.total} entities. Expand this device or search to reach every entity.</p>`:''}</section>`;
   if(evidence?.updated_at)html+=`<p class="small source-updated">Updated ${esc(displayDate(evidence.updated_at))}</p>`;
   if(linked.length)html+=`<section class="source-section">${linked.map(item=>`<button type="button" class="button" data-episode="${esc(item.episode_id)}">Problem actions</button>`).join("")}</section>`;
-  const deviceId=source.attributes?.device?.[0];
-  const href=source.kind==="integration"?problem?.integrationUrl:deviceId?`/config/devices/device/${encodeURIComponent(deviceId)}`:source.entity_id?`/developer-tools/state?entity_id=${encodeURIComponent(source.entity_id)}`:null;
+  const href=problem?.integrationUrl;
   if(href)html+=`<a class="link" href="${esc(href)}">Open in Home Assistant</a>`;
   return html+deviceSummary;
 }
@@ -242,23 +300,30 @@ export function sourcesBrowser(card) {
   const full=sourcesTree(data,card.sourcesGrouping,key=>card._hass?.localize?.(key),card.topomation);
   const paths=sourcePaths(full),episodes=sortedEpisodes(data);
   const issues=new Map(episodes.map(item=>[item.anchor,item]));
-  const included=new Set(inventoryRows(data).filter(row=>row.kind==="device"&&row.watched).flatMap(row=>row.availability_entities||[]));
+  const included=includedEntities(data);
   const visible=filterSources(full,card.sourcesQuery,card.sourcesNeedsReview,issues);
   const selected=paths.get(card.sourcesSelection);
   const branch=node=>{
     const expanded=card.sourcesExpanded.has(node.key);
-    const ids=new Set([...sourcePaths([node]).values()].map(item=>item.node.source?.node_id));
+    const fullNode=paths.get(node.key)?.node||node;
+    const ids=new Set([...sourcePaths([fullNode]).values()].map(item=>item.node.source?.node_id));
     const count=episodes.filter(item=>ids.has(item.anchor)).length;
     const limit=card.sourcesLimits?.get(node.key)||80;
     const shown=expanded?node.children.slice(0,limit):[];
-    const linked=expanded&&node.children.find(child=>child.key===card.sourcesSelection||selected?.parents.some(parent=>parent.key===child.key));
+    const linked=expanded&&node.children.find(child=>child.key===card.sourcesSelection||child.connection?.node_id===selected?.node.source?.node_id||selected?.parents.some(parent=>parent.key===child.key));
     if(linked&&!shown.includes(linked))shown.push(linked);
-    const summary=count?`${count} ${count===1?"issue":"issues"}`:node.family?`${node.children.filter(child=>child.type==="device").length} ${node.children.filter(child=>child.type==="device").length===1?"device":"devices"}`:node.source?monitoringState(node.source,included):`${node.children.length} items`;
-    return `<li class="config-branch"><div class="config-nav-row">${node.children.length?`<button type="button" class="config-toggle" data-sources-toggle="${esc(node.key)}" aria-expanded="${expanded}" aria-label="${expanded?'Collapse':'Expand'} ${esc(node.name)}"><span class="disclosure" aria-hidden="true"></span></button>`:'<span class="config-leaf" aria-hidden="true"></span>'}<button type="button" class="config-pick" data-sources-select="${esc(node.key)}"${card.sourcesSelection===node.key?' aria-current="true"':''}><span>${esc(node.name)}</span><small${count?' class="source-issue-count"':''}>${esc(summary)}</small></button></div>${expanded?`<ul class="config-nav-children">${shown.map(branch).join("")}${node.children.length>limit?`<li><button type="button" class="link source-more" data-source-more="${esc(node.key)}">Show more sources</button></li>`:''}</ul>`:''}</li>`;
+    const deviceCount=fullNode.family?familyDevices(fullNode).length:0;
+    const entityCount=fullNode.type==="device"?fullNode.children.filter(child=>child.type==="entity").length:0;
+    const includedCount=fullNode.type==="device"?fullNode.children.filter(child=>child.source?.kind==="entity"&&included.has(child.source.entity_id)&&!child.source.excluded_by?.length).length:0;
+    const deviceExtent=entityCount?`${includedCount}/${entityCount} entities included`:"No device entities";
+    const extent=node.family?`${deviceCount} ${deviceCount===1?"device":"devices"}`:node.type==="device"?`${node.connection?`${node.connection.name!==node.name?`${node.connection.name} · `:""}${connectionState(node.connection,data,episodes)} · `:""}${deviceExtent}`:node.source?.kind==="integration"?`Integration connection · ${monitoringState(node.source,included)}`:node.source?monitoringState(node.source,included):`${node.children.length} items`;
+    const issue=count?` <span class="source-issue-count">· ${count} ${count===1?"issue":"issues"}</span>`:"";
+    return `<li class="config-branch"><div class="config-nav-row">${node.children.length?`<button type="button" class="config-toggle" data-sources-toggle="${esc(node.key)}" aria-expanded="${expanded}" aria-label="${expanded?'Collapse':'Expand'} ${esc(node.name)}"><span class="disclosure" aria-hidden="true"></span></button>`:'<span class="config-leaf" aria-hidden="true"></span>'}<button type="button" class="config-pick" data-sources-select="${esc(node.key)}"${card.sourcesSelection===node.key||node.connection?.node_id===selected?.node.source?.node_id?' aria-current="true"':''}><span class="source-row-title">${esc(node.name)}${issue}</span><small>${esc(extent)}</small></button></div>${expanded?`<ul class="config-nav-children">${shown.map(branch).join("")}${node.children.length>limit?`<li><button type="button" class="link source-more" data-source-more="${esc(node.key)}">Show more sources</button></li>`:''}</ul>`:''}</li>`;
   };
   const node=selected?.node,view=card.sourcesView||"source";
   const tabs=`<nav class="sources-views" aria-label="Selected source views">${[["source","Source"],["settings","Settings"],["history","History"]].map(([id,label])=>`<button type="button" data-sources-view="${id}" aria-current="${view===id?'page':'false'}">${label}${id==="settings"&&card.configuration&&JSON.stringify(card.configDraft)!==JSON.stringify(card.configuration.rules)?" •":""}</button>`).join("")}</nav>`;
   const context=selected?.parents.map(parent=>parent.name).join(" / ")|| (node?.family?"Integration":node?.type==="location"?"Location":"");
   const detail=node?`<header class="source-heading"><button type="button" class="link sources-back" data-action="back-sources">← Back to sources</button><p class="config-path">${esc(context)}</p><h2 id="sources-detail-title" tabindex="-1">${esc(node.name)}</h2>${node.source?.entity_id?`<p class="source-entity-id">${esc(node.source.entity_id)}</p>`:""}${tabs}</header><div class="source-body">${view==="settings"?sourceMonitoringChoices(card,node):view==="history"?sourceHistory(card,node):sourceReport(card,node,episodes)}</div>`:'<div class="sources-empty"><h2>Choose an integration or device</h2><p class="sub">See its status, change monitoring, or review its history.</p></div>';
-  return `<section class="panel sources-workspace" data-mobile-detail="${Boolean(card.sourcesMobileDetail&&node)}"><div class="sources-tools"><label>Group by<select data-sources-group><option value="integration"${card.sourcesGrouping==="integration"?' selected':''}>Integration</option><option value="location"${card.sourcesGrouping==="location"?' selected':''}>Home Assistant location</option>${topomationAvailable||card.sourcesGrouping==="topomation"?`<option value="topomation"${card.sourcesGrouping==="topomation"?' selected':''}${topomationAvailable?'':' disabled'}>Topomation${topomationAvailable?'':' (loading)'}</option>`:''}</select></label><label class="coverage-search">Find a source<input type="search" data-sources-search value="${esc(card.sourcesQuery)}" placeholder="Search devices and integrations"></label>${card.sourcesNeedsReview?'<button type="button" class="link" data-action="all-sources">Show all sources</button>':''}</div><div class="config-layout"><nav class="config-rail" aria-label="Sources tree"><ul class="config-tree">${visible.map(branch).join("")||'<li class="sub">No matching sources.</li>'}</ul></nav><section class="config-detail" aria-label="Selected source">${detail}</section></div></section>`;
+  const guidance=`<details class="sources-explainer" data-sources-explainer${card.sourcesHelpOpen?' open':''}><summary>How monitoring is chosen</summary><p>New installations monitor integration connections. Device availability, separate entity checks, and battery conditions need a saved choice.</p><p>For a monitored device, Homeostatic checks enabled ordinary Home Assistant entities. It uses diagnostic entities only when there are no enabled ordinary ones. Configuration and disabled entities are left out. An entity exclusion removes it from the device check.</p><p>This checks availability in Home Assistant, not physical device health. Open a source’s Settings to review or change its choice.</p></details>`;
+  return `<section class="panel sources-workspace" data-mobile-detail="${Boolean(card.sourcesMobileDetail&&node)}"><div class="sources-tools"><label>Group by<select data-sources-group><option value="integration"${card.sourcesGrouping==="integration"?' selected':''}>Integration</option><option value="location"${card.sourcesGrouping==="location"?' selected':''}>Home Assistant location</option>${topomationAvailable||card.sourcesGrouping==="topomation"?`<option value="topomation"${card.sourcesGrouping==="topomation"?' selected':''}${topomationAvailable?'':' disabled'}>Topomation${topomationAvailable?'':' (loading)'}</option>`:''}</select></label><label class="coverage-search">Find a source<input type="search" data-sources-search value="${esc(card.sourcesQuery)}" placeholder="Search devices and integrations"></label>${card.sourcesExpanded.size?'<button type="button" class="link sources-collapse" data-action="collapse-sources">Collapse all</button>':''}${card.sourcesNeedsReview?'<button type="button" class="link" data-action="all-sources">Show all sources</button>':''}</div><div class="config-layout"><nav class="config-rail" aria-label="Sources tree">${guidance}<ul class="config-tree">${visible.map(branch).join("")||'<li class="sub">No matching sources.</li>'}</ul></nav><section class="config-detail" aria-label="Selected source">${detail}</section></div></section>`;
 }

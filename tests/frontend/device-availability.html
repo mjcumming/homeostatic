@@ -9,6 +9,6 @@ const host=document.querySelector("homeostatic-card"),root=host.attachShadow({mo
 const data=monitoringExample(),id="device:camera-0";
 const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${id}`,sourcesView:"source",sourcesMobileDetail:true,
 sourceDetail:{nodeId:id,device_availability:{status:"available",basis:"entities"},members:[{name:"Required sensor",node_id:"sensor.required",state:"unavailable"}],total:1,unavailable_count:1,unknown_count:0}};
-function render(){const status=document.querySelector("#status").value;card.sourceDetail.device_availability={status,basis:status==="partially_available"?"integration_reports":"entities"};root.innerHTML=`<style>${styles}</style><div class="shell">${sourcesBrowser(card)}</div>`;document.querySelector("#result").textContent=root.querySelector(".device-availability h3").textContent;}
+function render(){const status=document.querySelector("#status").value;card.sourceDetail.device_availability={status,basis:status==="partially_available"?"integration_reports":"entities"};root.innerHTML=`<style>${styles}</style><div class="shell">${sourcesBrowser(card)}</div>`;document.querySelector("#result").textContent=root.querySelector(".device-availability").textContent;}
 document.querySelector("#status").addEventListener("change",render);render();
 </script></body></html>

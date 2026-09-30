@@ -1,9 +1,22 @@
 import {escapeHtml as esc} from "./model.mjs?v=46";
-import {MATCH_FIELDS, MATCH_LABELS, ruleSummary} from "./configuration.mjs?v=46";
+import {MATCH_FIELDS, MATCH_LABELS, newCatalogRule, ruleSummary} from "./configuration.mjs?v=46";
 
 /** Keep exact source choices in Sources, including mixed and multi-source rules. */
 export function isGroupPolicy(rule) {
   return !["integration", "device", "entity"].some(field => rule.match?.[field]?.length);
+}
+
+export function isAllBatteryPolicy(rule) {
+  return rule.action === "attach" && rule.checks?.[0] === "battery" &&
+    rule.match?.kind?.length === 1 && rule.match.kind[0] === "battery" &&
+    Object.entries(rule.match).every(([field, values]) => field === "kind" || !values.length);
+}
+
+export function newAllBatteryPolicy(rules) {
+  const rule = newCatalogRule(rules);
+  rule.match = {kind:["battery"]};
+  rule.checks = ["battery"];
+  return rule;
 }
 
 const sourceTypes = {integration:"integration connections", device:"device availability", entity:"entity availability",battery:"battery condition"};
@@ -34,12 +47,26 @@ function ruleFields(rule, index, fields, view) {
 export function monitoringPolicies(card) {
   const rules = card.configDraft;
   const groups = rules.map((rule, index) => ({rule, index})).filter(({rule}) => isGroupPolicy(rule));
+  const battery = groups.find(({rule}) => isAllBatteryPolicy(rule));
   const disabled = card.configBusy ? " disabled" : "";
   const broadFields = MATCH_FIELDS.filter(field => !["integration", "device", "entity"].includes(field));
-  const policies = groups.map(({rule, index}) => {
+  const renderPolicy = ({rule, index}) => {
     const {subject, conditions} = groupPolicyScope(rule, card.configuration ?? card.current.data);
-    return `<article class="monitoring-policy" data-ui-key="policy:${esc(rule.id)}"><h3>${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${esc(subject)}</h3><p class="small">${rule.enabled === false ? "Paused — this rule has no effect." : "Enabled — applies to current and future matching sources."}</p>${conditions.length ? `<ul class="policy-conditions">${conditions.map(condition => `<li>${esc(condition)}</li>`).join("")}</ul>` : '<p class="sub">No additional conditions.</p>'}<details class="config-rule policy-edit"${card.configEditingRule === rule.id ? " open" : ""}><summary>Edit group policy</summary>${ruleControls(rule,index,"group")}${ruleFields(rule,index,broadFields,"group")}</details></article>`;
-  }).join("");
+    const newDraft = card.configuration?.rules && !card.configuration.rules.some(saved => saved.id === rule.id);
+    const status = newDraft ? "Draft — no effect until reviewed and saved."
+      : rule.enabled === false ? "Paused — this rule has no effect." : "Enabled — applies to current and future matching sources.";
+    return `<article class="monitoring-policy" data-ui-key="policy:${esc(rule.id)}"><h3>${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${esc(subject)}</h3><p class="small">${status}</p>${conditions.length ? `<ul class="policy-conditions">${conditions.map(condition => `<li>${esc(condition)}</li>`).join("")}</ul>` : '<p class="sub">No additional conditions.</p>'}<details class="config-rule policy-edit"${card.configEditingRule === rule.id ? " open" : ""}><summary>Edit group policy</summary>${ruleControls(rule,index,"group")}${ruleFields(rule,index,broadFields,"group")}</details></article>`;
+  };
+  const watched = groups.filter(({rule}) => rule.action !== "exclude").map(renderPolicy).join("");
+  const excluded = groups.filter(({rule}) => rule.action === "exclude").map(renderPolicy).join("");
+  const excludedCount = groups.filter(({rule}) => rule.action === "exclude").length;
   const advanced = rules.map((rule, index) => `<details class="config-rule" data-ui-key="advanced-policy:${esc(rule.id)}"><summary>${esc(ruleSummary(rule))}</summary>${ruleControls(rule,index,"advanced")}${ruleFields(rule,index,MATCH_FIELDS,"advanced")}<details><summary>Stored rule details</summary><pre>${esc(JSON.stringify(rule,null,2))}</pre></details></details>`).join("");
-  return `<div class="monitoring-policies"><h3>Group policies (${groups.length})</h3><fieldset class="config-editor"${disabled}>${policies || '<p class="sub">No group policies. Choose individual sources in Sources, or add a policy for a whole group.</p>'}<button type="button" class="button" data-action="add-rule"${disabled}>Add group policy</button></fieldset><div class="policy-sources"><h3>Individual source choices</h3><p class="sub">Choose specific integrations, devices, and entities by name in Sources.</p><button type="button" class="button" data-page="sources">Open Sources</button></div><details class="config-advanced"${card.configAdvancedOpen ? " open" : ""}><summary>Advanced rule details</summary><div class="body"><p class="sub">All ${rules.length} rules, including individual source choices. Use this editor to inspect exact conditions or resolve overlapping rules. Changes still require review and save.</p><fieldset class="config-editor"${disabled}>${advanced || '<p>No rules configured.</p>'}</fieldset></div></details></div>`;
+  const savedBattery = battery && card.configuration?.rules.find(rule => rule.id === battery.rule.id && isAllBatteryPolicy(rule));
+  const batteryStatus = battery?.rule.enabled === false ? "The all-battery policy is paused."
+    : savedBattery?.enabled !== false && savedBattery ? "An all-battery policy is enabled."
+      : "An all-battery policy is drafted. Review and save to enable it.";
+  const batteryAction = battery
+    ? `<p>${batteryStatus} Individual exclusions can still leave batteries unmonitored.</p><button type="button" class="button" data-action="edit-battery-rule"${disabled}>Review battery policy</button>`
+    : `<p>Watch current and future battery candidates for a low condition. Review the affected sources before saving.</p><button type="button" class="button" data-action="add-battery-rule"${disabled}>Monitor all batteries</button>`;
+  return `<div class="monitoring-policies"><section class="monitoring-policy"><h3>Battery conditions</h3>${batteryAction}</section><h3>Group policies (${groups.length})</h3><p class="sub">Watch policies choose checks for matching sources, including sources added later. Leave unmonitored policies exclude matching sources. Open a source in Sources to see its effective choice.</p><fieldset class="config-editor"${disabled}>${watched || (groups.length ? '<p class="sub">No watch policies in this group.</p>' : '<p class="sub">No group policies. Choose individual sources in Sources, or add a policy for a whole group.</p>')}${excludedCount ? `<details class="policy-exceptions"${groups.some(({rule}) => rule.action === "exclude" && rule.id === card.configEditingRule) ? " open" : ""}><summary>Leave unmonitored policies (${excludedCount})</summary><div>${excluded}</div></details>` : ""}<button type="button" class="button" data-action="add-rule"${disabled}>Add group policy</button></fieldset><div class="policy-sources"><h3>Individual source choices</h3><p class="sub">Choose a specific connection, device, entity, or battery by name in Sources.</p><button type="button" class="button" data-page="sources">Open Sources</button></div><details class="config-advanced"${card.configAdvancedOpen ? " open" : ""}><summary>Advanced rule details</summary><div class="body"><p class="sub">All ${rules.length} rules, including individual source choices. Use this editor to inspect exact conditions or resolve overlapping rules. Changes still require review and save.</p><fieldset class="config-editor"${disabled}>${advanced || '<p>No rules configured.</p>'}</fieldset></div></details></div>`;
 }

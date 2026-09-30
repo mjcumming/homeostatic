@@ -1,22 +1,22 @@
-import {monitoringPolicies} from "./monitoring-policies.mjs?v=46";
-import {sourceSettingsAction} from "./source-settings.mjs?v=46";
+import {isAllBatteryPolicy, monitoringPolicies, newAllBatteryPolicy} from "./monitoring-policies.mjs?v=50";
+import {sourceSettingsAction} from "./source-settings.mjs?v=53";
 import {reportingOverview, reportingStatus} from "./reporting.mjs?v=46";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
   sourceMap} from "./model.mjs?v=46";
 import {deviceAvailability, deviceAvailabilityStamp} from "./device-availability.mjs?v=46";
 import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=46";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=46";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=51";
 import {diagnosticOverview} from "./evidence.mjs?v=46";
 import {editCatalogRule, monitoringScope,
   newCatalogRule, scopeChoice, setScopeChoice} from "./configuration.mjs?v=46";
-import {styles} from "./styles.mjs?v=46";
+import {styles} from "./styles.mjs?v=52";
 import {locationBranch, setBranchExpanded} from "./tree.mjs?v=46";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=46";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=46";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=53";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=46";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=49";
 
 import {applyNotificationRoute} from "./notification-navigation.mjs?v=46";
 
@@ -84,6 +84,7 @@ class HomeostaticCard extends HTMLElement {
     this.topomationSequence = 0;
     this.sourcesSelection = null;
     this.sourcesExpanded = new Set();
+    this.sourcesHelpOpen = false;
     this.sourcesQuery = "";
     this.sourcesNeedsReview = false;
     this.sourcesEdit = false;
@@ -121,6 +122,9 @@ class HomeostaticCard extends HTMLElement {
     this.main = this.shadowRoot.querySelector("main");
     this.dialog = this.shadowRoot.querySelector("dialog");
     this.shadowRoot.addEventListener("click", (event) => this.clicked(event));
+    this.shadowRoot.addEventListener("toggle", event => {
+      if (event.target.matches?.("[data-sources-explainer]")) this.sourcesHelpOpen = event.target.open;
+    }, true);
     this.shadowRoot.addEventListener("keydown", (event) => this.keydown(event));
     this.shadowRoot.addEventListener("input", event => {
       if (this.editRule(event)) return;
@@ -1148,6 +1152,8 @@ class HomeostaticCard extends HTMLElement {
     else if (button.dataset.action === "retry") this.store?.retry();
     else if (button.dataset.action === "retry-catalog") { this.store?.ensureCatalog(true); this.render(); }
     else if (button.dataset.action === "add-rule") {const rule = newCatalogRule(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
+    else if (button.dataset.action === "add-battery-rule") {const rule = newAllBatteryPolicy(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
+    else if (button.dataset.action === "edit-battery-rule") {this.configEditingRule = this.configDraft.find(isAllBatteryPolicy)?.id ?? null; this.render(); this.shadowRoot.querySelector(".policy-edit[open]")?.scrollIntoView({block:"nearest"});}
     else if (button.dataset.action === "load-configuration") this.loadConfiguration();
     else if (button.dataset.action === "preview-alerts") this.previewAlerts();
     else if (button.dataset.action === "save-alerts") this.saveAlerts();
@@ -1350,7 +1356,7 @@ class HomeostaticStrategy {
   static getCreateSuggestions() { return {title:"Homeostatic",icon:"mdi:home-heart"}; }
   static async generate() {
     return {title:"Homeostatic",views:[
-      {title:"Home",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"overview",navigation:false}]},
+      {title:"Overview",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"overview",navigation:false}]},
       {title:"Issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"problems",navigation:false}]},
       {title:"Sources",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"sources",navigation:false}]},
       {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"notifications",navigation:false}]},

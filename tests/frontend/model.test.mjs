@@ -1279,11 +1279,71 @@ test("Integration families combine connections and keep devices reachable",()=>{
   assert.equal(family.name,"Frigate");
   assert.ok(sourcePaths(tree).has("source:entry:frigate2"));
   assert.ok(sourcePaths(tree).has("source:device:camera-1"));
+  assert.equal(family.children[0].type,"device");
+  assert.equal(family.children.at(-1).type,"integration");
+  assert.ok(!family.children.some(child=>child.type==="connections"));
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+    sourcesExpanded:new Set([family.key]),sourcesSelection:family.key,sourcesView:"source"};
+  const html=sourcesBrowser(card);
+  assert.match(html,/Integration connection · Not monitored/);
+  assert.match(html,/<details class="source-section source-connections"><summary>2 Home Assistant connections<\/summary>/);
   const scope={kind:"integration_devices",id:"frigate",match:{kind:["device"],integration_domain:["frigate"]}},rules=[];
   setScopeChoice(rules,scope,"exclude");
   assert.equal(rules[0].overridable,true);
   editCatalogRule(rules[0],"match:integration_domain","frigate, eero");
   assert.equal(rules[0].overridable,true);
+});
+
+test("Sources combines registry-owned one-device connections without merging their checks",()=>{
+  const data=monitoringExample();
+  data.inventory.nodes=[
+    baseSource("entry:family","Receiver setup","integration",{entry_id:"family",attributes:{domain:["denonavr"]},watched:true}),
+    baseSource("entry:theater","Home Theater","integration",{entry_id:"theater",attributes:{domain:["denonavr"]},watched:true}),
+    baseSource("device:family","Family Room","device",{attributes:{device:["family-device"],integration:["family"]},availability_entities:["media_player.family_room"],watched:true}),
+    baseSource("device:theater","Home Theater","device",{attributes:{device:["theater-device"],integration:["theater"]},availability_entities:[]}),
+    baseSource("entity:family-player","Family Room","entity",{entity_id:"media_player.family_room",owner_id:"family",attributes:{device:["family-device"]}}),
+  ];
+  data.devices=[{id:"family-device",name:"Family Room",config_entry_id:"family"},{id:"theater-device",name:"Home Theater",config_entry_id:"theater"}];
+  data.inventory.catalog.candidates=data.inventory.nodes;
+  data.inventory.episodes=[{episode_id:"theater-issue",anchor:"entry:theater",importance:"normal",opened_at:"2026-09-30T12:00:00Z",reasons:[]}];
+  const tree=sourcesTree(data),family=tree.find(node=>node.domain==="denonavr"),paths=sourcePaths(tree);
+  assert.deepEqual(family.children.map(node=>node.name),["Family Room","Home Theater"]);
+  assert.deepEqual(family.children.map(node=>node.type),["device","device"]);
+  assert.equal(paths.get("source:entry:family").node.source.node_id,"entry:family");
+  assert.equal(paths.get("source:device:family").node.connection.node_id,"entry:family");
+  assert.equal(paths.get("source:entity:family-player").parents.at(-1).key,"source:device:family");
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+    sourcesExpanded:new Set([family.key]),sourcesSelection:family.key,sourcesView:"source"};
+  const html=sourcesBrowser(card);
+  assert.match(html,/Family Room/);
+  assert.match(html,/Connection issue · No device entities/);
+  assert.equal((html.match(/data-sources-select="source:entry:theater"/g)||[]).length,1);
+  assert.ok(sourcePaths(filterSources(tree,"Receiver setup")).has("source:device:family"));
+});
+
+test("Sources keeps an entry parent for several devices or unattached entities",()=>{
+  const data=monitoringExample();
+  data.inventory.nodes=[
+    baseSource("entry:hub","House hub","integration",{entry_id:"hub",attributes:{domain:["sample"]}}),
+    baseSource("entry:service","Account","integration",{entry_id:"service",attributes:{domain:["sample"]}}),
+    baseSource("entry:mixed","Mixed","integration",{entry_id:"mixed",attributes:{domain:["sample"]}}),
+    baseSource("device:first","First","device",{attributes:{device:["first"],integration:["hub"]}}),
+    baseSource("device:second","Second","device",{attributes:{device:["second"],integration:["hub"]}}),
+    baseSource("device:mixed","Mixed device","device",{attributes:{device:["mixed"],integration:["mixed"]}}),
+    baseSource("entity:service","Account signal","entity",{entity_id:"sensor.account",owner_id:"service",attributes:{}}),
+    baseSource("entity:mixed","Loose signal","entity",{entity_id:"sensor.loose",owner_id:"mixed",attributes:{}}),
+  ];
+  data.devices=[{id:"first",name:"First",config_entry_id:"hub"},{id:"second",name:"Second",config_entry_id:"hub"},{id:"mixed",name:"Mixed device",config_entry_id:"mixed"}];
+  data.inventory.catalog.candidates=data.inventory.nodes;
+  const family=sourcesTree(data).find(node=>node.domain==="sample");
+  const hub=family.children.find(node=>node.source?.node_id==="entry:hub");
+  const service=family.children.find(node=>node.source?.node_id==="entry:service");
+  const mixed=family.children.find(node=>node.source?.node_id==="entry:mixed");
+  assert.deepEqual(hub.children.map(node=>node.name),["First","Second"]);
+  assert.deepEqual(service.children.map(node=>node.name),["Account signal"]);
+  assert.deepEqual(mixed.children.map(node=>node.name),["Loose signal","Mixed device"]);
+  const card={configuration:{rules:[],settings:{notifications:false}},configDraft:[],configScopes:[],current:{data},settingsDraft:null};
+  assert.match(sourceMonitoringChoices(card,family),/Currently 0 of 3 devices monitored/);
 });
 
 test("Integration-wide off retains narrower choices and hides them until monitoring resumes",()=>{
@@ -1324,7 +1384,7 @@ test("monitoring policy scenario keeps 18 direct choices out of the normal group
   const [normal,advanced]=html.split('<details class="config-advanced"');
   assert.match(normal,/Group policies \(1\)/);
   assert.match(normal,/Watch integration connections/);
-  assert.match(normal,/Choose specific integrations, devices, and entities by name in Sources/);
+  assert.match(normal,/Choose a specific connection, device, entity, or battery by name in Sources/);
   assert.doesNotMatch(normal,/Watch 1 selected device|Watch 2 selected entities|data-rule-index="0"|data-rule-index="2"/);
   assert.match(normal,/data-rule-index="1"/);
   assert.match(normal,/data-page="sources"/);
@@ -1357,6 +1417,22 @@ test("group policy summaries retain every condition, paused state and escaping",
   assert.doesNotMatch(html,/<Porch>/);
   assert.match(html,/<fieldset class="config-editor" disabled>/);
   assert.deepEqual(groupPolicyScope({match:{}}).subject,"integration connections or entity availability");
+});
+
+test("group exclusions start collapsed while watch policies remain visible",()=>{
+  const rules=[
+    {id:"watch",action:"attach",enabled:true,match:{kind:["integration"]},checks:["availability"]},
+    {id:"skip",action:"exclude",enabled:true,match:{kind:["integration"],integration_domain:["alexa_media"]},checks:["availability"]},
+  ];
+  const html=monitoringPolicies({configDraft:rules,current:{data:{}}});
+  assert.match(html,/Watch integration connections/);
+  assert.match(html,/<details class="policy-exceptions"><summary>Leave unmonitored policies \(1\)<\/summary>/);
+  assert.match(html,/Integration type: alexa_media/);
+  assert.match(html,/data-rule-index="1"/);
+  assert.doesNotMatch(html,/<details class="policy-exceptions" open>/);
+  const editing=monitoringPolicies({configDraft:rules,configEditingRule:"skip",current:{data:{}}});
+  assert.match(editing,/<details class="policy-exceptions" open>/);
+  assert.deepEqual(rules[1].match,{kind:["integration"],integration_domain:["alexa_media"]});
 });
 
 test("no group policies directs owners to Sources without inventing defaults",()=>{
@@ -1399,6 +1475,46 @@ test("compact device availability keeps the status without repeating its explana
   assert.doesNotMatch(html,/Every enabled entity|overall device health|monitoring choices/);
 });
 
+test("Sources starts collapsed and puts scope and issue counts beside names",()=>{
+  const data=monitoringExample();
+  const device=data.inventory.nodes.find(row=>row.node_id==="device:camera-0");
+  const separate=data.inventory.nodes.find(row=>row.node_id==="entity:registry:camera-0-1");
+  const unselected=data.inventory.nodes.find(row=>row.node_id==="entity:registry:camera-0-2");
+  device.availability_entities=device.availability_entities.filter(id=>id!==unselected.entity_id);
+  separate.watched=true;
+  data.inventory.episodes=[{episode_id:"camera-issue",anchor:device.node_id,opened_at:"2026-09-30T12:00:00Z",reasons:[]}];
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+    sourcesExpanded:new Set(),sourcesSelection:null,sourcesView:"source"};
+  const closed=sourcesBrowser(card);
+  assert.match(closed,/Frigate <span class="source-issue-count">· 1 issue<\/span><\/span><small>26 devices/);
+  assert.doesNotMatch(closed,/data-sources-select="source:device:camera-0"/);
+  assert.doesNotMatch(closed,/Collapse all/);
+  card.sourcesExpanded.add("source:entry:frigate");
+  card.sourcesExpanded.add("source:device:camera-0");
+  const opened=sourcesBrowser(card);
+  assert.match(opened,/Back Deck <span class="source-issue-count">· 1 issue<\/span><\/span><small>4\/6 entities included/);
+  assert.match(opened,/Back Deck signal 000<\/span><small>Excluded/);
+  assert.match(opened,/Back Deck signal 001<\/span><small>Separate check/);
+  assert.match(opened,/Back Deck signal 002<\/span><small>Not selected/);
+  assert.match(opened,/Back Deck signal 003<\/span><small>Included with device/);
+  assert.match(opened,/data-action="collapse-sources">Collapse all/);
+  card.sourcesQuery="Back Deck signal 003";
+  assert.match(sourcesBrowser(card),/Back Deck <span class="source-issue-count">· 1 issue<\/span><\/span><small>4\/6 entities included/);
+});
+
+test("Sources explains default monitoring without opening the tree",()=>{
+  const card={current:{data:monitoringExample()},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+    sourcesExpanded:new Set(),sourcesSelection:null,sourcesView:"source",sourcesHelpOpen:false};
+  const closed=sourcesBrowser(card);
+  assert.match(closed,/<details class="sources-explainer" data-sources-explainer><summary>How monitoring is chosen<\/summary>/);
+  assert.match(closed,/New installations monitor integration connections/);
+  assert.match(closed,/diagnostic entities only when there are no enabled ordinary ones/);
+  assert.match(closed,/An entity exclusion removes it from the device check/);
+  assert.match(closed,/<\/details><ul class="config-tree">/);
+  card.sourcesHelpOpen=true;
+  assert.match(sourcesBrowser(card),/<details class="sources-explainer" data-sources-explainer open>/);
+});
+
 test("cleared device history explains HA evidence without claiming a physical repair", () => {
   const item={resolution:"cleared",source:{kind:"device"},episode:{form:"root",reasons:[{check_id:"availability",reason:"some_unavailable",message:"Family Room Frigate: some unavailable"}]}};
   const [reported,ending,limit]=historyAccount(item);
@@ -1414,22 +1530,69 @@ test("selected device access can be available beside an unavailable monitored en
     sourceDetail:{nodeId:id,device_availability:{status:"available",basis:"entities"},members:[{name:"Required sensor",node_id:"sensor.required",state:"unavailable"}],total:1,unavailable_count:1,unknown_count:0}};
   const html=sourcesBrowser(card);
   assert.match(html,/Device availability: Available/);
-  assert.match(html,/Selected entity checks: 1 entity is unavailable/);
+  assert.match(html,/1 of 1 selected entity is unavailable/);
   assert.match(html,/Required sensor/);
+  assert.doesNotMatch(html,/Home Assistant cannot currently report|Next step:/);
 });
 
-test("entity evidence names link only when they open another source",()=>{
+test("entity detail shows HA state and monitoring once; device rows navigate",()=>{
   const data=monitoringExample(),entityId="entity:registry:camera-1-1",deviceId="device:camera-1";
   const member={node_id:entityId,name:"Back Porch signal 001",state:"unavailable"};
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
     sourcesSelection:`source:${entityId}`,sourceDetail:{nodeId:entityId,members:[member],total:1,unavailable_count:1,unknown_count:0}};
   const entity=sourcesBrowser(card);
-  assert.match(entity,/<table class="source-readings"[^>]*><tbody><tr><td>Back Porch signal 001<\/td>/);
+  assert.match(entity,/Unavailable in Home Assistant/);
+  assert.match(entity,/Monitoring: Included with device/);
+  assert.match(entity,/Change monitoring/);
+  assert.doesNotMatch(entity,/<h3>Home Assistant entities<\/h3>|This entity has no separate check|Next step:/);
+  assert.equal((entity.match(/Back Porch signal 001/g)??[]).length,1);
   assert.doesNotMatch(entity,/data-source-link="entity:registry:camera-1-1"/);
   card.sourcesSelection=`source:${deviceId}`;
   card.sourceDetail={...card.sourceDetail,nodeId:deviceId};
   const device=sourcesBrowser(card);
   assert.match(device,/<button type="button" class="link" data-source-link="entity:registry:camera-1-1">Back Porch signal 001<\/button>/);
+});
+
+test("device details put unavailable entities first and collapse other readings",()=>{
+  const data=monitoringExample(),id="device:camera-1";
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
+    sourcesSelection:`source:${id}`,sourceDetail:{nodeId:id,members:[
+      {node_id:"entity:registry:camera-1-1",name:"Broken sensor",state:"unavailable"},
+      {node_id:"entity:registry:camera-1-2",name:"Working sensor",state:"18"}],total:2,unavailable_count:1,unknown_count:0}};
+  const html=sourcesBrowser(card);
+  assert.match(html,/1 of 2 selected entities are unavailable/);
+  assert.match(html,/Entities needing review.*Broken sensor/s);
+  assert.match(html,/<details class="source-section source-healthy"><summary>1 other selected entity<\/summary>.*Working sensor/s);
+  assert.match(html,/Open device in Home Assistant/);
+  assert.doesNotMatch(html,/Home Assistant cannot currently report|Next step:/);
+});
+
+test("entity details separate availability from its current value",()=>{
+  const data=monitoringExample(),id="entity:registry:camera-1-1";
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
+    sourcesSelection:`source:${id}`,sourceDetail:{nodeId:id,members:[{node_id:id,name:"Back Porch signal 001",state:"18",unit:"%"}],total:1}};
+  assert.match(sourcesBrowser(card),/Available in Home Assistant.*Current value: 18%/s);
+  card.sourceDetail.members[0].state="unknown";
+  assert.match(sourcesBrowser(card),/Available in Home Assistant.*Current value: unknown/s);
+});
+
+test("entity Settings keep separate checks secondary only when device includes the entity",()=>{
+  const data=monitoringExample(),id="entity:registry:camera-1-1",node=sourcePaths(sourcesTree(data)).get(`source:${id}`).node;
+  const card={configuration:{rules:[]},configDraft:[],configScopes:[],current:{data},sourcesSettingsPanel:""};
+  const included=sourceMonitoringChoices(card,node);
+  assert.match(included,/Currently: Included with device/);
+  assert.match(included,/Follow device monitoring/);
+  assert.match(included,/Exclude this entity/);
+  assert.match(included,/<details class="source-advanced-choice"><summary>More monitoring choices<\/summary>.*Monitor this entity separately/s);
+  setScopeChoice(card.configDraft,monitoringScope("entity",id,node.source),"attach");
+  card.configScopes=[];
+  assert.match(sourceMonitoringChoices(card,node),/<details class="source-advanced-choice" open><summary>More monitoring choices<\/summary>.*value="attach" checked/s);
+  card.configDraft=[];
+  data.inventory.nodes.find(row=>row.node_id==="device:camera-1").availability_entities=[];
+  card.configScopes=[];
+  const unattached=sourceMonitoringChoices(card,node);
+  assert.match(unattached,/Monitor this entity/);
+  assert.doesNotMatch(unattached,/source-advanced-choice/);
 });
 
 test("availability refresh follows excluded entities without reacting to value churn",()=>{

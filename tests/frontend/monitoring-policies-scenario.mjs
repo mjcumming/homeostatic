@@ -67,11 +67,26 @@ export async function runMonitoringPolicyScenario(card) {
   expect(root.querySelectorAll(".policy-edit[open]").length > 0,"The new group's editor opens");
   root.querySelector('[data-remove-rule="19"]').click();
   expect(card.configDraft.length === 19,"Removing the new policy must preserve the catalog");
+  expect(!!root.querySelector('[data-action="add-battery-rule"]'),"Battery monitoring has a direct group action");
+  root.querySelector('[data-action="add-battery-rule"]').click();
+  const battery = card.configDraft.at(-1);
+  expect(battery.action === "attach" && battery.enabled &&
+    JSON.stringify(battery.match) === JSON.stringify({kind:["battery"]}) &&
+    JSON.stringify(battery.checks) === JSON.stringify(["battery"]),"The action drafts a broad battery check");
+  expect(saved.length === 19,"Adding a battery policy must not save it");
+  expect(!root.querySelector('[data-action="add-battery-rule"]'),"An existing broad battery policy must not be duplicated");
+  expect(visible().includes("An all-battery policy is drafted"),"The draft must not be described as saved monitoring");
+  expect(visible().includes("Draft — no effect until reviewed and saved"),"The new group rule must be marked as a draft");
+  await card.previewConfiguration();
+  expect(requests.at(-1).type === "homeostatic/preview_configuration" && requests.at(-1).rules.length === 20,
+    "Review must include the broad battery policy and all existing choices");
+  await card.saveConfiguration();
+  expect(saved.length === 20 && saved.at(-1).match.kind[0] === "battery","Save applies the reviewed battery policy");
   saved = structuredClone(original);
   card.configEditingRule = null;
   card.configAdvancedOpen = false;
   root.querySelector(".config-advanced").open = false;
   for(const details of root.querySelectorAll("details"))details.open = false;
   await card.loadConfiguration();
-  return "PASS: group scope, hidden technical fields, exact rule indices, preserved selections, draft navigation, complete preview/save, edit invalidation, add/remove";
+  return "PASS: group scope, hidden technical fields, exact rule indices, preserved selections, draft navigation, complete preview/save, edit invalidation, add/remove, direct battery policy";
 }

@@ -100,14 +100,14 @@ One honest limit. A passing availability check means Home Assistant currently ha
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with type **Integration**.
-3. Find **Homeostatic** and select version **1.1.0**. If you previously selected **main** or enabled beta versions, choose the 1.1.0 release explicitly.
+3. Find **Homeostatic** and select version **1.1.1**. If you previously selected **main** or enabled beta versions, choose the 1.1.1 release explicitly.
 4. Restart Home Assistant.
 
 [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mjcumming&repository=homeostatic&category=integration)
 
 ### Manual
 
-1. Download `homeostatic-1.1.0.zip` and its checksum file from the [1.1.0 GitHub release](https://github.com/mjcumming/homeostatic/releases/tag/v1.1.0).
+1. Download `homeostatic-1.1.1.zip` and its checksum file from the [1.1.1 GitHub release](https://github.com/mjcumming/homeostatic/releases/tag/v1.1.1).
 2. Copy its `custom_components/homeostatic` folder into your Home Assistant configuration directory, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy in full.
 3. Restart Home Assistant.
 
@@ -115,12 +115,14 @@ The [installation guide](docs/pilot.md) covers backups, verifying the archive, a
 
 ## Quick start
 
+Homeostatic follows three steps: **choose what to watch**, **read what HA reports**, and **decide when to tell someone**. New installs watch integration connections. In **Sources**, choose devices, entities, or batteries you also want checked; **Settings → Monitoring policies** can cover a whole group, including future sources. A selected availability check warns when HA reports `unavailable`; it does not diagnose the physical device. In **Notifications**, choose people, destinations, and report times. Notification requests start off. [See the step-by-step explanation](docs/guide.md#monitoring-in-three-steps).
+
 1. Go to **Settings > Devices & services > Add integration** and add **Homeostatic**.
 
    [![Open your Home Assistant instance and start setting up Homeostatic.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeostatic)
 
 2. Open **Homeostatic** in the sidebar. A new install watches integration health only, so you will see something useful right away without a flood.
-3. In **Sources**, pick a few integrations or devices you know well and choose **Edit monitoring**. Preview, then save. On a large install, start small and widen from there.
+3. In **Sources**, pick an integration or device you know well, open its **Settings**, and choose what to monitor. Review the effect, then save. On a large install, start small and widen from there.
 4. Define one function you care about, in the integration's options under **Functions (YAML list)**:
 
    ```yaml
@@ -192,7 +194,7 @@ A **Homeostatic** dashboard strategy is available in Home Assistant's new-dashbo
 
 ## Project status
 
-**Version 1.1.0** adds opt-in battery maintenance to the real-house pilot. Battery sources are discovered from Home Assistant metadata, warn at 20% or on an explicit low report, and clear when charging is confirmed. The dashboard, availability monitoring, functions, alerts, reporting preferences, phone delivery with acknowledgment, and operator controls remain included. The release scope is Home Assistant evidence and selected monitoring; the limits below still apply.
+**Version 1.1.1** groups a connection with its sole Home Assistant device in Sources and improves monitoring guidance. It retains opt-in battery maintenance: battery sources are discovered from Home Assistant metadata, warn at 20% or on an explicit low report, and clear when charging is confirmed. The dashboard, availability monitoring, functions, alerts, reporting preferences, phone delivery with acknowledgment, and operator controls remain included. The release scope is Home Assistant evidence and selected monitoring; the limits below still apply.
 
 How it is built: behavior is written down in a [specification](docs/spec.md) before it changes, every behavior change ships with an executable scenario, and the integration tests run against an isolated Home Assistant instance with 95 percent statement and branch coverage floors. Every product decision that would be easy to reverse by mistake is an [architecture decision record](docs/adr/README.md), thirty-some so far. Notifications are never sent through a live install during tests.
 

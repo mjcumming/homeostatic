@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Compact Sources scenario</title>
+<style>:root{--primary-text-color:#182a34;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--divider-color:#dce4e9;--primary-color:#007eab}body{margin:0;padding:20px;font:14px Arial,sans-serif;background:#f5f7f8}homeostatic-card{display:block;max-width:1200px;margin:auto}</style></head>
+<body><homeostatic-card></homeostatic-card><p id="result" role="status"></p>
+<script type="module">
+import {styles} from "../../custom_components/homeostatic/frontend/styles.mjs";
+import {sourcesBrowser} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
+import {monitoringExample,baseSource} from "./monitoring-fixture.mjs";
+
+const data=monitoringExample();
+data.inventory.nodes=data.inventory.nodes.filter(row=>row.node_id==="entry:frigate"||row.node_id==="device:camera-0"||row.node_id==="device:camera-1"||row.node_id.startsWith("entity:registry:camera-0-")||row.node_id.startsWith("entity:registry:camera-1-"));
+data.inventory.catalog.candidates=data.inventory.nodes;
+data.inventory.nodes.find(row=>row.node_id==="entry:frigate").attributes.domain=["mobile_app"];
+data.inventory.nodes.find(row=>row.node_id==="entry:frigate").name="Michael’s iPhone";
+data.inventory.nodes.push(baseSource("entry:phone-2","Mike iPhone","integration",{entry_id:"phone-2",attributes:{domain:["mobile_app"]},watched:true}));
+data.inventory.nodes.find(row=>row.node_id==="device:camera-0").name="Michael’s iPhone";
+data.inventory.nodes.find(row=>row.node_id==="device:camera-1").name="Michael’s iPhone (2)";
+data.devices=data.devices.filter(device=>["camera-0","camera-1"].includes(device.id));
+data.devices[0].name="Michael’s iPhone";
+data.devices[1].name="Michael’s iPhone (2)";
+data.inventory.nodes.find(row=>row.node_id==="entity:registry:camera-0-1").name="Michael’s iPhone Activity";
+data.inventory.episodes=[{episode_id:"phone-issue",anchor:"device:camera-0",opened_at:"2026-09-30T12:00:00Z",reasons:[]}];
+const view=new URLSearchParams(location.search).get("view")||"device";
+const deviceId="device:camera-0",entityId="entity:registry:camera-0-1";
+const member=(number,state)=>({node_id:`entity:registry:camera-0-${number}`,name:`Michael’s iPhone ${number===1?"Activity":"Audio Output"}`,state,entity_id:`sensor.camera_0_00${number}`});
+const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(["[\"family\",\"mobile_app\"]"]),sourcesSelection:view==="family"?"[\"family\",\"mobile_app\"]":view==="entity"||view==="settings"?`source:${entityId}`:`source:${deviceId}`,sourcesView:view==="settings"?"settings":"source",configScopes:[],configDraft:[],configuration:{rules:[]},sourcesSettingsPanel:"",_hass:{localize:key=>key==="component.mobile_app.title"?"Mobile App":null}};
+card.sourcesMobileDetail=new URLSearchParams(location.search).get("narrow")==="detail";
+card.sourceDetail=view==="entity"?{nodeId:entityId,members:[member(1,"unavailable")],total:1,unavailable_count:1,unknown_count:0}:view==="device"?{nodeId:deviceId,device_availability:{status:"available",basis:"entities"},members:[member(1,"unavailable"),member(2,"unavailable"),{node_id:"entity:registry:camera-0-3",name:"Michael’s iPhone Battery",state:"87",unit:"%"}],total:3,unavailable_count:2,unknown_count:0}:null;
+const host=document.querySelector("homeostatic-card"),root=host.attachShadow({mode:"open"});
+if(new URLSearchParams(location.search).has("narrow"))host.style.width="360px";
+root.innerHTML=`<style>${styles}</style>${sourcesBrowser(card)}`;
+const detail=root.querySelector(".source-body");
+document.querySelector("#result").textContent=view==="device"&&detail?.textContent.includes("2 of 3 selected entities are unavailable")&&!detail.textContent.includes("Next step:")?"PASS: device detail":view==="entity"&&detail?.textContent.includes("Monitoring: Included with device")&&!detail.querySelector(".source-readings")?"PASS: entity detail":view==="settings"&&detail?.querySelector(".source-advanced-choice")?"PASS: entity settings":view==="family"&&detail?.querySelector(".source-connections")?"PASS: connection grouping":"FAIL: compact Sources scenario";
+</script></body></html>

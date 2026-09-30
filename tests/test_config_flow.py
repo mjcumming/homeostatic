@@ -22,36 +22,27 @@ from custom_components.homeostatic.const import DOMAIN
 
 
 async def test_user_flow(hass: HomeAssistant) -> None:
-    """Setup converts selected entities into stable registry identities."""
+    """Setup starts with integration monitoring and no raw catalog field."""
     source = MockConfigEntry(domain="test", title="Controller")
     source.add_to_hass(hass)
-    registry_entry = er.async_get(hass).async_get_or_create(
-        "sensor", "test", "observed", config_entry=source
-    )
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     assert result["type"] is FlowResultType.FORM
+    assert all(
+        getattr(key, "schema", key) != "rules" for key in result["data_schema"].schema
+    )
     with patch("custom_components.homeostatic.async_setup_entry", return_value=True):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
-                "rules": [
-                    {
-                        "id": "selected",
-                        "action": "attach",
-                        "match": {"entity": registry_entry.entity_id},
-                    }
-                ],
                 "notifications": True,
                 "consumer": "automation.homeostatic_test_consumer",
             },
         )
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["rules"][0]["match"]["entity"] == [
-        f"registry:{registry_entry.id}"
-    ]
+    assert result["data"]["rules"][0]["match"]["kind"] == ["integration"]
 
 
 def test_preview_describes_ha_groupings(hass: HomeAssistant) -> None:
@@ -118,22 +109,13 @@ async def test_reject_self_monitoring(
 
 
 async def test_invalid_input_keeps_form(hass: HomeAssistant) -> None:
-    """A self-derived source is rejected with a useful form error."""
-    own_sensor = er.async_get(hass).async_get_or_create("sensor", DOMAIN, "orphan")
+    """Invalid remaining settings are rejected with a useful form error."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {
-            "rules": [
-                {
-                    "id": "self",
-                    "action": "attach",
-                    "match": {"entity": own_sensor.entity_id},
-                }
-            ]
-        },
+        {"policy": {"invalid": True}},
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_config"}
@@ -166,23 +148,48 @@ async def test_options_invalid(
 ) -> None:
     """Invalid options do not replace valid settings."""
     config_entry.add_to_hass(hass)
-    own_sensor = er.async_get(hass).async_get_or_create(
-        "sensor", DOMAIN, "orphan", config_entry=config_entry
-    )
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {
-            "rules": [
-                {
-                    "id": "self",
-                    "action": "attach",
-                    "match": {"entity": own_sensor.entity_id},
-                }
-            ]
-        },
+        {"policy": {"invalid": True}},
     )
     assert result["errors"] == {"base": "invalid_config"}
+
+
+async def test_options_keep_monitoring_rules_when_other_settings_change(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    """Native options preserve catalog choices made in Homeostatic."""
+    custom_rules = [
+        {
+            "id": "selected_device",
+            "action": "attach",
+            "match": {"kind": "device", "device": "device-1"},
+            "checks": ["availability"],
+        }
+    ]
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={**config_entry.data, "rules": custom_rules}
+    )
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.FORM
+    assert all(
+        getattr(key, "schema", key) != "rules" for key in result["data_schema"].schema
+    )
+    with patch.object(
+        hass.config_entries, "async_reload", new=AsyncMock(return_value=True)
+    ):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"notifications": False}
+        )
+        await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["rules"][0]["id"] == "selected_device"
+    assert result["data"]["rules"][0]["match"] == {
+        "kind": ["device"],
+        "device": ["device-1"],
+    }
 
 
 @pytest.mark.parametrize(
