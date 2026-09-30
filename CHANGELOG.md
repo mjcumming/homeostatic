@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-09-30
+
+### Changed
+
+- Pin the published health-tree 0.5.1 release in the integration manifest and
+  package lockfile.
+- Show the saved device name after monitoring ends, and shorten History details
+  around the observed condition and outcome. Keep the original finding available
+  under a disclosure without repeating the explanation.
+
 ## [1.1.1] - 2026-09-30
 
 ### Changed

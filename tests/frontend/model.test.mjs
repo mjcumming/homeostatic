@@ -5,7 +5,7 @@ import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
 import {monitoringPolicyRules} from "./monitoring-policies-fixture.mjs";
 import {groupPolicyScope, isGroupPolicy, monitoringPolicies} from "../../custom_components/homeostatic/frontend/monitoring-policies.mjs";
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
-import {historyAccount, historyPage, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
+import {historyAccount, historyName, historyPage, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
@@ -1292,6 +1292,15 @@ test("Integration families combine connections and keep devices reachable",()=>{
   assert.equal(rules[0].overridable,true);
   editCatalogRule(rules[0],"match:integration_domain","frigate, eero");
   assert.equal(rules[0].overridable,true);
+});
+
+test("removed device history uses its saved name and explains the monitoring limit", () => {
+  const item={resolution:"removed",source:null,episode:{episode_id:"ended-device",anchor:"device:opaque-id",labels:{name:"Former controller"},reasons:[{check_id:"availability",reason:"all_unavailable",message:"Former controller: all unavailable"}]}};
+  assert.equal(historyName(item),"Former controller");
+  assert.equal(historyName({...item,source:{name:"device:opaque-id"}}),"Former controller");
+  assert.equal(historyPage({episodes:[item]},"former controller").total,1);
+  assert.deepEqual(historyAccount(item),["Home Assistant reported every monitored entity on this device as unavailable.","Monitoring ended without an observed recovery.",""]);
+  assert.equal(historyName({...item,episode:{...item.episode,labels:{}}}),"Name not recorded");
 });
 
 test("Sources combines registry-owned one-device connections without merging their checks",()=>{

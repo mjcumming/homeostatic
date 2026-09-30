@@ -11,7 +11,7 @@ export function historyPage(history, query = "", resolution = "", page = 0) {
   const search = query.trim().toLocaleLowerCase();
   const rows = (history?.episodes ?? []).filter((item) =>
     (!resolution || item.resolution === resolution) &&
-    (!search || [item.source?.name, item.source?.node_id, item.episode.episode_id,
+    (!search || [historyName(item), item.source?.node_id, item.episode.episode_id,
       item.episode.anchor, ...(item.episode.reasons ?? []).map((r) => r.message || r.reason)]
       .join(" ").toLocaleLowerCase().includes(search)));
   const pages = Math.max(1, Math.ceil(rows.length / 20));
@@ -51,11 +51,16 @@ export function controlAllowed(current, admin, draft) {
     : inventory.nodes.some((item) => item.node_id === draft.target && ["entity", "integration", "external"].includes(item.kind));
 }
 
-const historyName = (item) => item.source?.name || item.episode.anchor || item.episode.episode_id;
+export const historyName = (item) => [item.source?.name, item.episode.labels?.name]
+  .find((name) => name && name !== item.episode.anchor) || "Name not recorded";
 const historyRows = (rows) => rows.map((item) => `<button type="button" class="row" data-history="${esc(item.episode.episode_id)}"><span class="row-main">${esc(historyName(item))}<small>${esc(RESOLUTIONS[item.resolution]?.[0] ?? "Episode ended")} · ${esc(date(item.resolved_at))}</small></span></button>`).join("");
 
 export function historyAccount(item) {
   const finding = item.episode.reasons?.find((reason) => reason.check_id !== null) ?? item.episode.reasons?.[0];
+  if (item.resolution === "removed" && ["some_unavailable", "all_unavailable"].includes(finding?.reason)) {
+    return [finding.reason === "all_unavailable" ? "Home Assistant reported every monitored entity on this device as unavailable." : "Home Assistant reported some monitored entities on this device as unavailable.",
+      "Monitoring ended without an observed recovery.", ""];
+  }
   if (item.resolution === "cleared" && item.episode.form === "group") {
     return ["Several related sources had a shared problem.",
       "Fewer sources met the group rule, so this grouped problem ended. An individual problem may still be open.",
@@ -218,8 +223,7 @@ export class DashboardTools {
         const retained = history.episodes.some((row) => row.episode.episode_id === item.absorbed_into);
         const outcome = item.resolution === "cleared" ? "Issue cleared" : label;
         const endedAt = item.resolution === "cleared" ? "Issue cleared at" : item.resolution === "removed" ? "Monitoring ended at" : "Joined another problem at";
-        const timeNote = item.resolution === "cleared" ? "Times show when Homeostatic observed the issue and its clearance." : "Times show when Homeostatic observed the issue and how it ended.";
-        this.body.innerHTML = `<section><h3>${esc(outcome)}</h3><p>${esc(reported)}</p><p>${esc(ending)}</p>${limit ? `<p class="small">${esc(limit)}</p>` : ""}<dl class="history-times"><div><dt>Issue started at</dt><dd>${esc(date(item.episode.opened_at))}</dd></div><div><dt>${esc(endedAt)}</dt><dd>${esc(date(item.resolved_at))}</dd></div></dl><p class="small">${esc(timeNote)}</p></section><details><summary>Recorded finding</summary>${(item.episode.reasons ?? []).map((reason) => `<p>${esc(reason.message || reason.reason)}</p>`).join("") || "<p>No finding was retained.</p>"}<p class="small">This finding was saved while the issue was open.</p></details>${item.absorbed_into ? open || retained ? `<button type="button" class="button" ${open ? "data-open-episode" : "data-history"}="${esc(item.absorbed_into)}">View related problem</button>` : '<p class="sub">The related problem is no longer available in open or retained history.</p>' : ""}`;
+        this.body.innerHTML = `<section><h3>${esc(outcome)}</h3><p>${esc(reported)}</p><p>${esc(ending)}</p>${limit ? `<p class="small">${esc(limit)}</p>` : ""}<dl class="history-times"><div><dt>Issue first observed</dt><dd>${esc(date(item.episode.opened_at))}</dd></div><div><dt>${esc(endedAt)}</dt><dd>${esc(date(item.resolved_at))}</dd></div></dl></section><details><summary>Original finding</summary>${(item.episode.reasons ?? []).map((reason) => `<p>${esc(reason.message || reason.reason)}</p>`).join("") || "<p>No finding was retained.</p>"}</details>${item.absorbed_into ? open || retained ? `<button type="button" class="button" ${open ? "data-open-episode" : "data-history"}="${esc(item.absorbed_into)}">View related problem</button>` : '<p class="sub">The related problem is no longer available in open or retained history.</p>' : ""}`;
       }
     }
     if (!this.dialog.open) this.dialog.showModal();

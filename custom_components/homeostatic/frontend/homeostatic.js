@@ -6,7 +6,7 @@ import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCove
   sourceMap} from "./model.mjs?v=46";
 import {deviceAvailability, deviceAvailabilityStamp} from "./device-availability.mjs?v=46";
 import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=46";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=51";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=54";
 import {diagnosticOverview} from "./evidence.mjs?v=46";
 import {editCatalogRule, monitoringScope,
   newCatalogRule, scopeChoice, setScopeChoice} from "./configuration.mjs?v=46";

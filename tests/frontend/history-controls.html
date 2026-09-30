@@ -17,7 +17,7 @@ const listeners=new Map();
 const source={node_id:"sensor.a",name:"Living room motion",kind:"entity",watched:true,requirements:[],attributes:{area:["living"]},attached_by:["watch"],excluded_by:[],entity_id:"binary_sensor.motion"};
 const fn={...source,node_id:"function.lighting",name:"Motion lighting",kind:"function",requirements:["sensor.a"],readiness:{answer:"blocked",nodes:[]}};
 const episode={episode_id:"open-1",anchor:"sensor.a",opened_at:"2026-09-25T10:00:00Z",importance:"normal",impact:[fn.node_id],reasons:[{reason:"unavailable",message:"Living room motion is unavailable"}]};
-const history={started_at:"2026-09-24T10:00:00Z",retention:{max_episodes:100,max_age_days:30},episodes:Array.from({length:45},(_,i)=>({episode:{...episode,episode_id:`ended-${i}`,reasons:i===0?[{check_id:"availability",reason:"some_unavailable",message:"Family Room Frigate: some unavailable"}]:episode.reasons},source:{node_id:source.node_id,name:i===0?"Family Room Frigate":i===4?'<img src=x onerror="fail()"> Old name':`Previous sensor ${i}`,kind:i===0?"device":"entity"},resolved_at:"2026-09-25T11:00:00Z",resolution:["cleared","removed","absorbed"][i%3],absorbed_into:i%3===2?"open-1":null}))};
+const history={started_at:"2026-09-24T10:00:00Z",retention:{max_episodes:100,max_age_days:30},episodes:Array.from({length:45},(_,i)=>({episode:{...episode,episode_id:`ended-${i}`,anchor:i===1?"device:old-controller":episode.anchor,labels:i===1?{name:"Former controller"}:episode.labels,reasons:i===0?[{check_id:"availability",reason:"some_unavailable",message:"Family Room Frigate: some unavailable"}]:i===1?[{check_id:"availability",reason:"all_unavailable",message:"Former controller: all unavailable"}]:episode.reasons},source:i===1?null:{node_id:source.node_id,name:i===0?"Family Room Frigate":i===4?'<img src=x onerror="fail()"> Old name':`Previous sensor ${i}`,kind:i===0?"device":"entity"},resolved_at:"2026-09-25T11:00:00Z",resolution:["cleared","removed","absorbed"][i%3],absorbed_into:i%3===2?"open-1":null}))};
 let data;
 function reset(){
   data={schema_version:1,available:true,updated_at:"2026-09-25T12:00:00Z",readiness:{answer:"blocked"},evidence_gaps:0,functions:[fn],areas:[{id:"living",name:"Living room",floor_id:"main"}],floors:[{id:"main",name:"Main floor"}],
@@ -82,7 +82,12 @@ document.querySelector("#run").addEventListener("click",async()=>{
     expect(card.tools.body.textContent.includes("non-unavailable Home Assistant states long enough"),"History must explain why the check cleared");
     expect(card.tools.body.textContent.includes("does not identify which entities changed"),"History must state the evidence gap");
     expect(!card.tools.body.querySelector("details").open,"Raw finding must start collapsed");
-    card.tools.showHistory("ended-1");expect(card.tools.body.textContent.includes("Recovery was not established"),"Removal cannot claim recovery");
+    card.tools.showHistory("ended-1");
+    expect(card.tools.dialog.querySelector("h2").textContent==="Former controller","Deleted device must retain its saved name");
+    expect(card.tools.body.textContent.includes("every monitored entity on this device as unavailable"),"Removal must explain the saved condition");
+    expect(card.tools.body.textContent.includes("without an observed recovery"),"Removal cannot claim recovery");
+    expect(card.tools.body.querySelector("details>summary").textContent==="Original finding","Exact finding belongs under a disclosure");
+    expect(!card.tools.body.textContent.includes("This finding was saved"),"History must avoid repeated explanation");
     card.tools.showHistory("ended-4");expect(!card.tools.dialog.querySelector("img"),"History source names must remain text");
     card.tools.showHistory("ended-2");expect(!!card.tools.body.querySelector("[data-open-episode]"),"Absorption must link to retained open episode");
     card.tools.body.querySelector('[data-open-episode]').click();await flush();expect(card.dialog.open,"Related problem must open");
