@@ -59,13 +59,6 @@ async def exercise(config: Path, port: int) -> None:
             flow["flow_id"],
             {
                 "notifications": False,
-                "rules": [
-                    {
-                        "id": "pilot",
-                        "action": "attach",
-                        "match": {"entity": "sensor.pilot_source"},
-                    }
-                ],
                 "functions": [
                     {
                         "id": "pilot_function",
@@ -83,13 +76,30 @@ async def exercise(config: Path, port: int) -> None:
         await hass.async_block_till_done()
         entry = result["result"]
         assert entry.state is ConfigEntryState.LOADED, entry.state
+        hass.config_entries.async_update_entry(
+            entry,
+            options={
+                **entry.data,
+                "rules": [
+                    {
+                        "id": "pilot",
+                        "action": "attach",
+                        "match": {"entity": "sensor.pilot_source"},
+                    }
+                ],
+            },
+        )
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
         runtime = entry.runtime_data
         assert runtime.available
         assert not runtime.settings.notifications
         assert runtime.query("readiness", {})["answer"] == "ready"
         async with ClientSession() as client:
             for asset in (
-                "homeostatic.js?v=22",
+                "homeostatic.js?v=53",
+                "sources-workspace.mjs?v=53",
+                "source-settings.mjs?v=53",
                 "model.mjs?v=22",
                 "problem.mjs?v=22",
                 "history-controls.mjs?v=22",
