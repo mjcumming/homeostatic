@@ -14,7 +14,7 @@ uv run python script/check.py --quick
 
 `make quick` and the commit hook run lint, format, and frontend checks. Run focused Python tests for changed behavior before copying a local test build. CI runs `make check`: strict mypy, the complete Home Assistant integration tests, separate 95% statement and branch coverage floors, and the frontend checks. Its release job also builds and smoke-tests the archive. The [two workflows](development-workflows.md) describe when to copy a local test build and when to publish a release. The consumer blueprint is exercised by HA's real automation engine with a mocked phone service; tests never send messages to a live installation.
 
-The lockfile and integration manifest pin `health-tree==0.4.0` from PyPI. CI installs that published package. Library behavior changes belong in the separate library RFP/ADR and tests; release a new library version before updating this pin.
+The lockfile and integration manifest pin `health-tree==0.5.0` from PyPI. CI installs that published package. Library behavior changes belong in the separate library RFP/ADR and tests; release a new library version before updating this pin.
 
 Build a reproducible installation archive from a clean committed checkout with `uv run python script/build_pilot.py`. The ZIP includes frontend assets, the optional consumer blueprint, installation instructions and exact build identity.
 

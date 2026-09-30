@@ -161,7 +161,7 @@ async def exercise(config: Path, port: int) -> None:
 def main() -> None:
     """Require a pristine dependency environment and report the installed release."""
     if len(sys.argv) != 2:
-        raise SystemExit("Usage: python script/smoke_pilot.py <pilot.zip>")
+        raise SystemExit("Usage: python script/smoke_pilot.py <release.zip>")
     try:
         importlib.metadata.distribution("health-tree")
     except importlib.metadata.PackageNotFoundError:

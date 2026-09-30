@@ -12,7 +12,7 @@
 [![Home Assistant](https://img.shields.io/badge/home%20assistant-2026.9.3+-blue.svg)](https://www.home-assistant.io/)
 [![Python](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
 [![health-tree](https://img.shields.io/pypi/v/health-tree?label=health-tree)](https://pypi.org/project/health-tree/)
-[![Project Status](https://img.shields.io/badge/project%20status-beta-orange.svg)](#project-status)
+[![Project Status](https://img.shields.io/badge/project%20status-1.0-blue.svg)](#project-status)
 [![Maintenance](https://img.shields.io/maintenance/yes/2026.svg)](https://github.com/mjcumming/homeostatic)
 [![License](https://img.shields.io/github/license/mjcumming/homeostatic.svg)](LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/mjcumming/homeostatic.svg)](https://github.com/mjcumming/homeostatic/issues)
@@ -100,18 +100,18 @@ One honest limit. A passing availability check means Home Assistant currently ha
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with type **Integration**.
-3. Find **Homeostatic**. To install the current untagged `0.1.0b19` beta candidate, choose the default branch **main** in the version selector. HACS offers the default branch alongside published releases; tagged betas may contain older code. For tagged betas, turn on **Show beta versions** if needed.
+3. Find **Homeostatic** and select version **1.0.0**. If you previously selected **main** or enabled beta versions, choose the 1.0.0 release explicitly.
 4. Restart Home Assistant.
 
 [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mjcumming&repository=homeostatic&category=integration)
 
 ### Manual
 
-1. For the current untagged beta, download the `homeostatic-pilot` artifact from the [successful CI run for main](https://github.com/mjcumming/homeostatic/actions/workflows/ci.yml?query=branch%3Amain). For a tagged beta, download `homeostatic-<version>-pilot.zip` from its [release](https://github.com/mjcumming/homeostatic/releases).
+1. Download `homeostatic-1.0.0.zip` and its checksum file from the [1.0.0 GitHub release](https://github.com/mjcumming/homeostatic/releases/tag/v1.0.0).
 2. Copy its `custom_components/homeostatic` folder into your Home Assistant configuration directory, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy in full.
 3. Restart Home Assistant.
 
-The [pilot guide](docs/pilot.md) covers backups, verifying the archive, and rollback.
+The [installation guide](docs/pilot.md) covers backups, verifying the archive, and rollback.
 
 ## Quick start
 
@@ -183,7 +183,7 @@ A **Homeostatic** dashboard strategy is available in Home Assistant's new-dashbo
 | --- | --- |
 | [User guide](docs/guide.md) | Monitoring rules, functions, alerts, reporting preferences, actions, and operator controls |
 | [Alert guide](docs/automation-situations.md) | Creating alerts from automations, evidence and timing, retirement, phone acknowledgment |
-| [Pilot guide](docs/pilot.md) | First install, first observation, controlled checks, rollback |
+| [Installation guide](docs/pilot.md) | First install, first observation, controlled checks, rollback |
 | [Event contract](docs/events.md) | Building your own automations on Homeostatic events |
 | [Specification](docs/spec.md) | Exact implemented behavior and timings |
 | [Decisions](docs/adr/README.md) | Architecture decision records: why each choice was made |
@@ -192,7 +192,7 @@ A **Homeostatic** dashboard strategy is available in Home Assistant's new-dashbo
 
 ## Project status
 
-**Beta**, running in a real-house pilot with 129 integration instances. The dashboard, availability monitoring, functions, alerts, reporting preferences, phone delivery with acknowledgment, and operator controls all work.
+**Version 1.0.0** is available as a GitHub release and has been exercised in a real-house pilot with 129 integration instances. The dashboard, availability monitoring, functions, alerts, reporting preferences, phone delivery with acknowledgment, and operator controls are included. The release scope is Home Assistant evidence and selected monitoring; the limits below still apply.
 
 How it is built: behavior is written down in a [specification](docs/spec.md) before it changes, every behavior change ships with an executable scenario, and the integration tests run against an isolated Home Assistant instance with 95 percent statement and branch coverage floors. Every product decision that would be easy to reverse by mistake is an [architecture decision record](docs/adr/README.md), thirty-some so far. Notifications are never sent through a live install during tests.
 

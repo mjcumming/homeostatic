@@ -47,7 +47,7 @@ def main() -> None:
     )
     contents = {name: git(root, "show", f"HEAD:{name}") for name in files}
     contents["INSTALL.md"] = (
-        b"# Homeostatic pilot\n\nRead [the installation guide](docs/pilot.md) before installing.\n"
+        b"# Homeostatic installation\n\nRead [the installation guide](docs/pilot.md) before installing.\n"
     )
     contents["BUILD_INFO.json"] = (
         json.dumps(
@@ -66,7 +66,7 @@ def main() -> None:
         )
         + "\n"
     ).encode()
-    output = root / "dist" / f"homeostatic-{version}-pilot.zip"
+    output = root / "dist" / f"homeostatic-{version}.zip"
     output.parent.mkdir(exist_ok=True)
     with ZipFile(output, "w", compression=ZIP_DEFLATED, compresslevel=9) as archive:
         for name, data in sorted(contents.items()):

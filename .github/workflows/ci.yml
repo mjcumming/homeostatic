@@ -47,7 +47,7 @@ jobs:
           name: homeostatic-coverage
           path: homeostatic/coverage.json
           if-no-files-found: ignore
-      - name: Build pilot archive
+      - name: Build release archive
         working-directory: homeostatic
         run: uv run python script/build_pilot.py
       - name: Verify clean package installation
@@ -55,11 +55,11 @@ jobs:
         run: |
           uv venv --python 3.14 "$RUNNER_TEMP/pilot-venv"
           uv pip install --python "$RUNNER_TEMP/pilot-venv/bin/python" homeassistant==2026.9.3
-          "$RUNNER_TEMP/pilot-venv/bin/python" script/smoke_pilot.py dist/homeostatic-*-pilot.zip
-      - name: Upload pilot archive
+          "$RUNNER_TEMP/pilot-venv/bin/python" script/smoke_pilot.py dist/homeostatic-*.zip
+      - name: Upload release archive
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: homeostatic-pilot
+          name: homeostatic-release
           path: homeostatic/dist/
           if-no-files-found: error
   hassfest:
