@@ -219,7 +219,7 @@ def normalize_rules(hass: HomeAssistant, value: Any) -> list[dict[str, Any]]:
                 "action": rule.action,
                 **({"overridable": True} if rule.overridable else {}),
                 "match": match,
-                "checks": ["availability"],
+                "checks": list(rule.checks),
             }
         )
     return result
@@ -235,7 +235,7 @@ def rule_data(hass: HomeAssistant, settings: Settings) -> list[dict[str, Any]]:
                 **({"overridable": True} if rule.overridable else {}),
                 "enabled": rule.enabled,
                 "match": {key: list(values) for key, values in rule.match.items()},
-                "checks": ["availability"],
+                "checks": list(rule.checks),
             }
             for rule in settings.rules
         ]

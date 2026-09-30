@@ -17,7 +17,7 @@ const listeners=new Map();
 const source={node_id:"sensor.a",name:"Living room motion",kind:"entity",watched:true,requirements:[],attributes:{area:["living"]},attached_by:["watch"],excluded_by:[],entity_id:"binary_sensor.motion"};
 const fn={...source,node_id:"function.lighting",name:"Motion lighting",kind:"function",requirements:["sensor.a"],readiness:{answer:"blocked",nodes:[]}};
 const episode={episode_id:"open-1",anchor:"sensor.a",opened_at:"2026-09-25T10:00:00Z",importance:"normal",impact:[fn.node_id],reasons:[{reason:"unavailable",message:"Living room motion is unavailable"}]};
-const history={started_at:"2026-09-24T10:00:00Z",retention:{max_episodes:100,max_age_days:30},episodes:Array.from({length:45},(_,i)=>({episode:{...episode,episode_id:`ended-${i}`},source:{node_id:source.node_id,name:i===4?'<img src=x onerror="fail()"> Old name':`Previous sensor ${i}`},resolved_at:"2026-09-25T11:00:00Z",resolution:["cleared","removed","absorbed"][i%3],absorbed_into:i%3===2?"open-1":null}))};
+const history={started_at:"2026-09-24T10:00:00Z",retention:{max_episodes:100,max_age_days:30},episodes:Array.from({length:45},(_,i)=>({episode:{...episode,episode_id:`ended-${i}`,reasons:i===0?[{check_id:"availability",reason:"some_unavailable",message:"Family Room Frigate: some unavailable"}]:episode.reasons},source:{node_id:source.node_id,name:i===0?"Family Room Frigate":i===4?'<img src=x onerror="fail()"> Old name':`Previous sensor ${i}`,kind:i===0?"device":"entity"},resolved_at:"2026-09-25T11:00:00Z",resolution:["cleared","removed","absorbed"][i%3],absorbed_into:i%3===2?"open-1":null}))};
 let data;
 function reset(){
   data={schema_version:1,available:true,updated_at:"2026-09-25T12:00:00Z",readiness:{answer:"blocked"},evidence_gaps:0,functions:[fn],areas:[{id:"living",name:"Living room",floor_id:"main"}],floors:[{id:"main",name:"Main floor"}],
@@ -66,7 +66,10 @@ document.querySelector("#run").addEventListener("click",async()=>{
   const passed=[];
   try{
     fail=false;hold=null;card.tools.close();card.tools.query="";card.tools.resolution="";card.tools.page=0;reset();publish(data);card.setConfig({view:"overview",navigation:false});await flush();
-    root.querySelector('main [data-page="history"]').click();
+    expect([...root.querySelectorAll('.nav button')].map(button=>button.textContent).join('|')==="Overview|Issues|Sources|Notifications|Settings|History","History must be the rightmost Homeostatic tab");
+    const generated=await customElements.get('ll-strategy-dashboard-homeostatic').generate();
+    expect(generated.views.map(view=>view.path).join('|')==="overview|issues|sources|notifications|configuration|history","History must be the last generated HA dashboard view");
+    card.page="history";card.render();
     expect(root.querySelectorAll('main [data-history]').length===20,"History must render at most 20 rows");
     root.querySelector('[data-tool="next"]').click();root.querySelector('[data-tool="next"]').click();
     expect(root.querySelectorAll('main [data-history]').length===5,"Last history page must contain remaining rows");
@@ -74,12 +77,17 @@ document.querySelector("#run").addEventListener("click",async()=>{
     expect(root.activeElement===root.querySelector('[data-history-search]'),"Typing must retain focus");
     expect(root.querySelectorAll('main [data-history]').length===11,"Search must reset the page and filter records");
     publish(data);expect(root.querySelector('[data-history-search]').value==="Previous sensor 2","Live update must preserve search");
+    card.tools.showHistory("ended-0");
+    expect(card.tools.body.textContent.includes("Some selected entities were unavailable in Home Assistant"),"History must explain the reported condition");
+    expect(card.tools.body.textContent.includes("non-unavailable Home Assistant states long enough"),"History must explain why the check cleared");
+    expect(card.tools.body.textContent.includes("does not identify which entities changed"),"History must state the evidence gap");
+    expect(!card.tools.body.querySelector("details").open,"Raw finding must start collapsed");
     card.tools.showHistory("ended-1");expect(card.tools.body.textContent.includes("Recovery was not established"),"Removal cannot claim recovery");
     card.tools.showHistory("ended-4");expect(!card.tools.dialog.querySelector("img"),"History source names must remain text");
     card.tools.showHistory("ended-2");expect(!!card.tools.body.querySelector("[data-open-episode]"),"Absorption must link to retained open episode");
     card.tools.body.querySelector('[data-open-episode]').click();await flush();expect(card.dialog.open,"Related problem must open");
     card.dialog.close();await flush();
-    passed.push("History pagination, search, focus, outcomes, safe text and related problem navigation");
+    passed.push("History-last navigation, pagination, search, focus, outcomes, safe text and related problem navigation");
 
     await open();expect(submit().disabled,"Maintenance cannot start without expiry and preview");
     expect(card.tools.body.textContent.includes("Existing problems and alerts continue"),"Maintenance must describe what remains active");

@@ -104,6 +104,49 @@ async def test_inventory_cache_refreshes_metadata_and_is_detached(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+async def test_noop_inventory_signal_keeps_catalog_revision(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """A rediscovery with unchanged sources does not restart catalog browsing."""
+    hass.states.async_set("sensor.observed", "1")
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    dashboard = hass.data[DATA_DASHBOARD]
+    catalog = runtime.inventory_static
+    revision = dashboard.catalog_revision
+
+    runtime._inventory_dirty = True
+    await runtime.async_refresh(reconcile=False)
+
+    assert runtime.inventory_static is catalog
+    assert dashboard.catalog_revision == revision
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_location_change_advances_catalog_without_source_rebuild(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """A new browsing location updates catalog pages even if sources are unchanged."""
+    hass.states.async_set("sensor.observed", "1")
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    dashboard = hass.data[DATA_DASHBOARD]
+    catalog = runtime.inventory_static
+    revision = dashboard.catalog_revision
+
+    area = ar.async_get(hass).async_create("Workshop")
+    await hass.async_block_till_done()
+
+    assert runtime.inventory_static is catalog
+    assert dashboard.catalog_revision > revision
+    assert {
+        "id": area.id,
+        "name": "Workshop",
+        "floor_id": None,
+    } in dashboard.catalog_sections["areas"]
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 async def test_compact_subscription_baselines_deltas_and_reload(
     hass: HomeAssistant, config_data: dict[str, Any], hass_ws_client: WebSocketGenerator
 ) -> None:

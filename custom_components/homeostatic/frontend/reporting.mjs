@@ -1,4 +1,4 @@
-import {escapeHtml as esc, sourceMap} from "./model.mjs?v=44";
+import {escapeHtml as esc, sourceMap} from "./model.mjs?v=46";
 
 export const REPORTING = [
   ["immediate","Immediate","Notify once, including overnight."],
@@ -47,7 +47,7 @@ export function reportingChanges(before,after,context=null) {
 }
 function assignmentText(a) {
   if(!a)return "Use household default";
-  return [a.default?label(a.default):"Use household default",...Object.entries(a.checks||{}).map(([check,id])=>`${check==="condition"?"Situation":"Availability"}: ${label(id)}`)].join("; ");
+  return [a.default?label(a.default):"Use household default",...Object.entries(a.checks||{}).map(([check,id])=>`${check==="condition"?"Situation":check==="battery"?"Battery condition":"Availability"}: ${label(id)}`)].join("; ");
 }
 function description(p,choices,people=[]) {
   const names=p.people.map(id=>people.find(person=>person.id===id)?.name||id).join(", ")||"No recipients";
@@ -102,8 +102,9 @@ export function sourceReporting(card,node) {
     return `<section class="source-section"><h3>Device reporting</h3>${setup}<p>Apply one default to these ${devices.length} devices. Condition exceptions stay in place.</p><label>Device default <select data-reporting-bulk="${esc(JSON.stringify(devices))}"><option value="">Choose a preference</option>${options(null)}</select></label><button type="button" class="link" data-page="notifications">Shared schedules and recipients</button>${reportingFooter(card)}</section>`;
   }
   if(!source||source.kind==="function")return "";
-  const assignment=choices.assignments[source.node_id]||{},check=source.kind==="situation"?"condition":"availability";
-  return `<section class="source-section"><h3>Reporting</h3>${setup}${card.settingsDraft.reporting&&!card.settingsDraft.notifications?'<p class="note">Requests are off. These preferences take effect when reporting is enabled.</p>':''}<p class="small">Monitoring determines what is checked. Reporting determines when someone hears about it.</p><label class="installation-field"><span>Source preference</span><select data-reporting-node="${esc(source.node_id)}" data-reporting-check="">${options(assignment.default,`Use household default — ${label(choices.default)}`)}</select></label><details><summary>Condition exceptions</summary><label class="installation-field"><span>${source.kind==="situation"?"Configured situation":"Availability"}</span><select data-reporting-node="${esc(source.node_id)}" data-reporting-check="${check}">${options(assignment.checks?.[check],"Use source preference")}</select></label><p class="small">Only supported checks are listed. Availability does not detect water or prove a hardware failure.</p></details><button type="button" class="link" data-page="notifications">Change shared schedules and recipients</button>${reportingFooter(card)}</section>`;
+  const assignment=choices.assignments[source.node_id]||{},check=source.kind==="situation"?"condition":source.kind==="battery"?"battery":"availability";
+  const checkName=check==="condition"?"Configured situation":check==="battery"?"Battery condition":"Availability";
+  return `<section class="source-section"><h3>Reporting</h3>${setup}${card.settingsDraft.reporting&&!card.settingsDraft.notifications?'<p class="note">Requests are off. These preferences take effect when reporting is enabled.</p>':''}<p class="small">Monitoring determines what is checked. Reporting determines when someone hears about it.</p><label class="installation-field"><span>Source preference</span><select data-reporting-node="${esc(source.node_id)}" data-reporting-check="">${options(assignment.default,`Use household default — ${label(choices.default)}`)}</select></label><details><summary>Condition exceptions</summary><label class="installation-field"><span>${checkName}</span><select data-reporting-node="${esc(source.node_id)}" data-reporting-check="${check}">${options(assignment.checks?.[check],"Use source preference")}</select></label><p class="small">Only supported checks are listed. Battery condition reports the HA signal, not physical battery recovery.</p></details><button type="button" class="link" data-page="notifications">Change shared schedules and recipients</button>${reportingFooter(card)}</section>`;
 }
 function reportingFooter(card) {
   if(!card.settingsDraft.reporting)return '<p class="small">Shared schedules and recipients are configured in Notifications.</p>';

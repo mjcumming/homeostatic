@@ -16,8 +16,11 @@ have no implementation commitment.
 
 ## Starting point
 
-The current catalog covers availability. The library's battery and rinse-aid
-stories establish engine behavior, not a working HA battery or consumable producer.
+The catalog now has a bounded HA battery producer alongside availability. The
+library's rinse-aid story establishes engine behavior, not a working HA
+consumable producer. Battery behavior is specified in
+[the product specification](../spec.md#battery-maintenance-producer);
+real-device traces and served UI verification remain release gates.
 Native floors/areas, catalog matching, reviewed enrollment, episode controls,
 reporting and source-specific views provide foundations to reuse.
 
@@ -45,24 +48,31 @@ the finding only on evidence defined by the producer contract.
 - Evaluate charging context where supplied. Distinguish replaceable batteries,
   rechargeable devices and storage batteries when supported metadata permits.
   Do not infer chemistry or normal discharge behavior from names.
-- Specify threshold defaults and overrides, holds, explicit-warning precedence,
-  conflicting reports, missing/restored values and recovery before coding.
-  HA's percentage threshold is prior art, not an adopted universal rule.
-- Define whether charging changes the condition or its recommended action.
-  Missing charging evidence never proves recovery; charging alone must not
-  silently close a continuing explicit replacement warning.
+- The owner set the first percentage low threshold at **20%** on 2026-09-29:
+  a current reading at or below 20% is low. A current, confirmed charging report
+  for the same battery **clears the low condition**, including an explicit
+  low-battery warning. If charging stops while low evidence remains, the
+  condition may open again. The recorded clearance means that the monitored
+  low-and-not-charging condition ended; it does not establish replacement or a
+  healthy charge. Missing, unavailable, or restored charging evidence does not
+  clear the condition. The 20% threshold is a Homeostatic choice, not a
+  universal battery standard.
+- Specify threshold overrides, holds, explicit-warning precedence, conflicting
+  reports, source pairing, missing/restored values, and the exact recovery
+  observation trace before coding.
 - Apply the existing capability model: a leading battery warning may belong to
   the capability; independent maintenance debt gets an edgeless maintenance node.
   Define this mapping per check, not per screen.
 
-**Acceptance:** Healthy, low, charging, conflicting, unavailable, restored and
-recovered traces; deduplication, restart continuity and independent availability
-findings. Exercise existing reporting preferences without another attention
-policy. Validate real device observations for every claimed evidence shape.
+**Acceptance:** Healthy, low, charging while low, charging stopping while low,
+conflicting, unavailable, restored and recovered traces; deduplication, restart
+continuity and independent availability findings. Exercise existing reporting
+preferences without another attention policy. Validate real device observations
+for every claimed evidence shape.
 
-**Next step:** A bounded battery producer contract in the specification, with an
-ADR only for choices not settled by existing decisions. No health-tree API
-change is currently justified.
+**Next step:** Validate real-device traces and the served UI, then decide whether
+the evidence supports a release. No health-tree API change is currently
+justified.
 
 ### MH-2: Findings that explain the work to do
 

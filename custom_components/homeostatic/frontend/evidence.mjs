@@ -9,6 +9,7 @@ export function diagnosticOverview(source, result, affectedFunctions = [], episo
     integration: "Home Assistant connection state; connected equipment is not physically verified.",
     device: "Availability of the entities selected by monitoring rules, after exclusions. Selecting them declares that they are expected to be available; it does not establish physical device health.",
     entity: "Home Assistant entity availability; a usable state does not verify the device's physical operation.",
+    battery: "Current Home Assistant battery percentage, low warning, and charging reports; no physical freshness is verified.",
     function: "Configured requirements and their current evidence; no separate physical check of the function.",
     external: "No direct Home Assistant observation for this external capability.",
     situation: "The owner-defined condition supplied by its bound Home Assistant signal.",
@@ -27,6 +28,8 @@ export function diagnosticOverview(source, result, affectedFunctions = [], episo
     ? "This is a configured home function. Its readiness reflects its declared requirements."
     : source.kind === "situation"
       ? "This situation is separate from equipment dependencies and home-function readiness."
+      : source.kind === "battery"
+        ? "This maintenance finding has no dependency edge to a configured home function."
       : affectedFunctions.length
         ? `Currently affected configured functions: ${affectedFunctions.map((item) => item.name).join(", ")}.`
         : "No configured home function is currently shown as affected. Uses outside configured functions are not assessed.";

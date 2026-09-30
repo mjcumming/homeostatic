@@ -5,7 +5,7 @@ import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
 import {monitoringPolicyRules} from "./monitoring-policies-fixture.mjs";
 import {groupPolicyScope, isGroupPolicy, monitoringPolicies} from "../../custom_components/homeostatic/frontend/monitoring-policies.mjs";
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
-import {historyPage, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
+import {historyAccount, historyPage, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
@@ -462,6 +462,55 @@ test("catalog loads only on demand, once for shared cards, with latest evidence"
   stop();await Promise.resolve();
 });
 
+test("a later catalog revision keeps the complete previous list visible during replacement",async()=>{
+  const old=pagedExample(1,2), fresh=pagedExample(2,3);
+  const client=connection(), store=dashboardStore(client);
+  const stop=store.listen(()=>{});
+  client.callback(old.data);
+  client.sendMessagePromise=async request=>catalogPage(request,old.sections);
+  await store.ensureCatalog();
+  const previous=store.state.data.inventory.catalog.candidates;
+  let release;
+  client.sendMessagePromise=async request=>{
+    if(request.section==="nodes")await new Promise(resolve=>{release=resolve;});
+    return catalogPage(request,fresh.sections);
+  };
+  client.callback(fresh.data);
+  assert.equal(store.catalogTask,null);
+  const pending=store.ensureCatalog();
+  await Promise.resolve();
+  assert.equal(store.state.data.catalog_loaded,true);
+  assert.equal(store.state.data.catalog_stale,true);
+  assert.equal(store.state.data.inventory.catalog.candidates,previous);
+  assert.equal(store.state.data.catalog_revision,2);
+  release();await pending;
+  assert.equal(store.state.data.catalog_stale,false);
+  assert.deepEqual(store.state.data.inventory.catalog.candidates,fresh.sections.candidates);
+  stop();await Promise.resolve();
+});
+
+test("a failed replacement retains browsing and retries the new revision",async()=>{
+  const old=pagedExample(1,2), fresh=pagedExample(2,3);
+  const client=connection(), store=dashboardStore(client);
+  const stop=store.listen(()=>{});
+  client.callback(old.data);
+  client.sendMessagePromise=async request=>catalogPage(request,old.sections);
+  await store.ensureCatalog();
+  const previous=store.state.data.inventory.catalog.candidates;
+  client.callback(fresh.data);
+  client.sendMessagePromise=async()=>{throw new Error("Catalog page unavailable");};
+  await store.ensureCatalog();
+  assert.equal(store.state.data.catalog_stale,true);
+  assert.equal(store.state.data.inventory.catalog.candidates,previous);
+  assert.equal(store.state.catalogError,"Catalog page unavailable");
+  client.sendMessagePromise=async request=>catalogPage(request,fresh.sections);
+  await store.ensureCatalog(true);
+  assert.equal(store.state.catalogError,null);
+  assert.equal(store.state.data.catalog_stale,false);
+  assert.deepEqual(store.state.data.inventory.catalog.candidates,fresh.sections.candidates);
+  stop();await Promise.resolve();
+});
+
 test("a new catalog revision cancels old pages and coalesces replacement loading",async()=>{
   const old=pagedExample(1), fresh=pagedExample(2,1);
   const client=connection(), store=dashboardStore(client), requests=[];
@@ -510,7 +559,7 @@ test("reconnect loads a new catalog without waiting for an abandoned request",as
   const pending=store.ensureCatalog();await Promise.resolve();
   client.events.get("disconnected")();
   client.sendMessagePromise=async request=>catalogPage(request,sections);
-  client.callback(data);await store.catalogTask;
+  client.callback(data);await store.ensureCatalog();
   assert.equal(store.state.data.catalog_loaded,true);
   finish();await pending;
   assert.equal(store.state.data.catalog_loaded,true);
@@ -1301,7 +1350,7 @@ test("group policy summaries retain every condition, paused state and escaping",
   const data={areas:[{id:"porch",name:"<Porch>"}]};
   assert.deepEqual(groupPolicyScope(rule,data),{subject:"device availability or entity availability",conditions:[
     "Domain: light or switch","Device class: outlet","Area: <Porch>","Label: Selected label (see rule details)"]});
-  const html=monitoringPolicies({configDraft:[rule],configBusy:true,current:{data}});
+  const html=monitoringPolicies({configDraft:[rule],configBusy:true,configuration:data,current:{data:{areas:[]}}});
   assert.match(html,/Leave unmonitored device availability or entity availability/);
   assert.match(html,/Paused — this rule has no effect/);
   assert.match(html,/&lt;Porch&gt;/);
@@ -1343,6 +1392,21 @@ for (const [status,label] of Object.entries({available:"Available",partially_ava
     assert.doesNotMatch(html,/Degraded|Insufficient evidence|Awaiting status/);
   });
 }
+
+test("compact device availability keeps the status without repeating its explanation",()=>{
+  const html=deviceAvailability({status:"unavailable",basis:"entities"},true);
+  assert.match(html,/Device availability: Unavailable/);
+  assert.doesNotMatch(html,/Every enabled entity|overall device health|monitoring choices/);
+});
+
+test("cleared device history explains HA evidence without claiming a physical repair", () => {
+  const item={resolution:"cleared",source:{kind:"device"},episode:{form:"root",reasons:[{check_id:"availability",reason:"some_unavailable",message:"Family Room Frigate: some unavailable"}]}};
+  const [reported,ending,limit]=historyAccount(item);
+  assert.match(reported,/Some selected entities were unavailable in Home Assistant/);
+  assert.match(ending,/current, non-unavailable Home Assistant states long enough/);
+  assert.match(limit,/does not identify which entities changed or why/);
+  assert.doesNotMatch([reported,ending,limit].join(" "),/physical repair|confirmed recovery/);
+});
 
 test("selected device access can be available beside an unavailable monitored entity",()=>{
   const data=monitoringExample(), id="device:camera-0";

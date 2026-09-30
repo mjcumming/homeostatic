@@ -37,7 +37,7 @@ Review the supplied availability rules. New installations watch integration setu
 
 ### Open the dashboard
 
-After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu, including on phones. **Overview** shows current issue and monitoring counts with three recent issues; **Issues** lists every open problem; **Sources** groups discovered sources by integration or HA location and shows evidence, current monitoring, and in-place choices; **History** shows ended problems; **Notifications** configures reporting types, schedules, recipients, destinations, and outgoing requests; **Settings** contains Timing, Problem grouping, and the installation-wide Monitoring policies editor. Source Settings keeps monitoring choices and reporting assignments together. Turning requests on can alert about already-open problems. The pages and problem/function details use one shared live subscription. Sources searches all discovered sources while keeping rendered branches bounded. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
+After setup, administrators can open **Homeostatic** in the HA sidebar. Use the hamburger beside the Homeostatic title to reopen the HA menu, including on phones. The top tabs run from **Overview** (current issue and monitoring counts with three recent issues), **Issues** (every open problem), and **Sources** (discovered sources, evidence, and in-place choices) through **Notifications** (reporting types, schedules, recipients, destinations, and outgoing requests) and **Settings** (Timing, Problem grouping, and installation-wide Monitoring policies) to **History** (ended problems) at the far right. Source Settings keeps monitoring choices and reporting assignments together. Turning requests on can alert about already-open problems. The pages and problem/function details use one shared live subscription. Sources searches all discovered sources while keeping rendered branches bounded. Startup, monitoring errors and a disconnected browser are explicitly unavailable.
 
 The monitoring catalog omits **Change device type of a switch** helper entries because they wrap an existing switch; the converted entity can still be monitored. **Group** entries stay because a group can be an automation control target. A healthy Group entry or group entity does not establish that every member works. Monitor important members directly; the Group row's source count is not a device count.
 
@@ -72,6 +72,25 @@ includes all pending monitoring and settings changes. Nothing is saved until
 **Save changes**, and notification activation is never implicit.
 
 Use **Sources → Edit monitoring** for guided watch or exclude choices. Preview the exact selection before saving. The native options editor and the Saved monitoring policies disclosure retain the complete catalog rules for more complex matches.
+
+### Battery condition
+
+Sources lists battery candidates discovered from Home Assistant battery percentage,
+low-warning, and charging entity classes. They are unmonitored until you choose
+**Monitor this battery** and save the reviewed change. A battery condition is
+separate from entity and device availability. A percentage of **20% or less** or
+an explicit low warning opens a battery finding. A current charging report
+clears that low condition even if the low reading remains; if charging stops
+while the low reading remains, the finding can return. Missing or restored
+readings do not prove recovery. Homeostatic does not know whether the battery
+was replaced or fully charged.
+
+Open the candidate in Sources to review every paired entity and its current
+reading before selecting it. If a device exposes several battery signals,
+Homeostatic offers separate candidates when their pairing is ambiguous. Use
+the ordinary reporting preference for the selected battery to choose when its
+finding reaches someone. Homeostatic does not infer battery chemistry or a
+replacement part from the entity name.
 
 On a new installation, **Catalog rules (YAML list)** starts with:
 
@@ -115,7 +134,11 @@ For example, keep the broad rule and add:
   checks: [availability]
 ```
 
-These are additional rows in the same list. `availability` is the only supported catalog check in this increment. Omitting `checks` has the same effect today; other checks/parameters are rejected. Equipment exclusions do not suppress situation alerts.
+These are additional rows in the same list. Rules support one check per row:
+`availability` or `battery`. Omitting `checks` selects `availability`.
+Battery rules apply to battery candidates and do not alter availability
+monitoring. Other checks/parameters are rejected. Equipment exclusions do not
+suppress situation alerts.
 
 | Match field | Value |
 | --- | --- |
@@ -127,7 +150,7 @@ These are additional rows in the same list. `availability` is the only supported
 | `area` | Effective area id: entity override, otherwise device area |
 | `floor` | Floor id of that effective area |
 | `label` | Label id on the entity, device, or effective area |
-| `kind` | `entity`, `device`, or `integration`; device summaries require an explicit device kind match |
+| `kind` | `entity`, `device`, `integration`, or `battery`; device summaries require an explicit device kind match |
 
 A field accepts a string or a list of alternatives. Different fields must all match. Names never drive matching. Get exact ids and matching attributes from `homeostatic.inventory`; entity display names can change without changing rule identity. State-only entities use the weaker `entity_id:` reference and need edits after a rename.
 

@@ -414,7 +414,7 @@ export function locationTree(data) {
   const cached = treeCache.get(inventory);
   if (cached && cached.areas === data.areas && cached.floors === data.floors &&
       cached.devices === data.devices && cached.functions === data.functions) return cached.tree;
-  const rows = inventory.filter((source) => ["entity","device"].includes(source.kind));
+  const rows = inventory.filter((source) => ["entity","device","battery"].includes(source.kind));
   const deviceNames = new Map((data.devices ?? []).map((device) => [device.id, device.name]));
   const describe = (location) => {
     const devices = new Map();
@@ -544,9 +544,13 @@ export function mergeDashboard(previous, data) {
         !CATALOG_SECTIONS.every(section => Number.isInteger(data.catalog_sections?.[section]) && data.catalog_sections[section] >= 0)) {
       throw new Error("Incomplete Homeostatic catalog summary. Retry the connection.");
     }
-    if (previous?.schema_version !== 3 || !previous.catalog_loaded || previous.catalog_revision !== data.catalog_revision) return data;
-    return {...data,catalog_loaded:true,inventory:{...data.inventory,
-      nodes:previous.inventory.nodes,catalog:previous.inventory.catalog,
+    if (previous?.schema_version !== 3 || !previous.catalog_loaded) return data;
+    const stale = Boolean(previous.catalog_stale || previous.catalog_revision !== data.catalog_revision);
+    return {...data,catalog_loaded:true,
+      catalog_stale:stale,
+      inventory:{...data.inventory,
+      nodes:previous.inventory.nodes,
+      catalog:stale ? {...data.inventory.catalog,candidates:previous.inventory.catalog.candidates} : previous.inventory.catalog,
       targets:previous.inventory.targets,enrollment_changes:previous.inventory.enrollment_changes},
       areas:previous.areas,devices:previous.devices,floors:previous.floors};
   }
@@ -582,6 +586,7 @@ export class DashboardStore {
       this.baseline = null;
       this.catalogGeneration++;
       this.catalogTask = null;
+      this.catalogWanted = false;
       this.update({status: "disconnected", error: null});
     };
     this.ready = () => {
@@ -628,7 +633,6 @@ export class DashboardStore {
         data = mergeDashboard(this.baseline, data);
         this.baseline = data.available ? data : null;
         this.update({status: data.available ? "current" : "unavailable", data, error: null});
-        if (this.catalogWanted) this.ensureCatalog();
       } catch (error) {
         this.baseline = null;
         this.update({status:"error",data:null,error:error.message});
@@ -672,11 +676,11 @@ export class DashboardStore {
   }
 
   ensureCatalog(retry = false) {
-    this.catalogWanted = true;
     if (retry) this.state = {...this.state,catalogError:null};
-    if (this.catalogTask) return this.catalogTask;
+    if (this.catalogTask) {this.catalogWanted = true;return this.catalogTask;}
     const data = this.baseline;
-    if (this.state.status !== "current" || data?.schema_version !== 3 || data.catalog_loaded || this.state.catalogError) return Promise.resolve();
+    if (this.state.status !== "current" || data?.schema_version !== 3 || data.catalog_loaded && !data.catalog_stale || this.state.catalogError) return Promise.resolve();
+    this.catalogWanted = true;
     const token = this.catalogGeneration;
     const revision = data.catalog_revision;
     const current = () => token === this.catalogGeneration && this.active && this.state.status === "current";
@@ -700,7 +704,7 @@ export class DashboardStore {
       }
       if (!current()) return;
       const latest = this.baseline;
-      this.baseline = {...latest,catalog_loaded:true,inventory:{...latest.inventory,
+      this.baseline = {...latest,catalog_loaded:true,catalog_stale:false,inventory:{...latest.inventory,
         nodes:sections.nodes,catalog:{...latest.inventory.catalog,candidates:sections.candidates},
         targets:sections.targets,enrollment_changes:sections.enrollment_changes},
         areas:sections.areas,devices:sections.devices,floors:sections.floors};
@@ -711,6 +715,7 @@ export class DashboardStore {
       if (this.catalogTask !== task) return;
       this.catalogTask = null;
       if (token !== this.catalogGeneration && this.catalogWanted) this.ensureCatalog();
+      else this.catalogWanted = false;
     });
     this.catalogTask = task;
     if (retry) this.update({catalogError:null});

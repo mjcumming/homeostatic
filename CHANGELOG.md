@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-30
+
+### Changed
+
+- Discover reviewable battery maintenance sources from HA battery and charging
+  entity classes. A selected battery warns at 20% or on an explicit low report;
+  confirmed charging clears the condition without claiming replacement.
+- Place History at the far right of the Homeostatic page tabs and generated
+  Home Assistant dashboard.
+- Explain the observed condition and clearance rule in History details, with a
+  single statement of what the retained record cannot establish. Collapse raw
+  findings, combine the opening and ending times, and remove a repeated cleared
+  status from Sources History rows.
+- Simplify open device-problem details: lead with the integration and affected
+  entity, show device availability as a compact separate status, and place alert
+  controls before optional monitoring choices. Keep assessment caveats in
+  Technical details.
+
+### Fixed
+
+- Keep the Sources catalog loaded when an inventory signal finds no actual
+  changes. Browsing-location changes still refresh the catalog so their names
+  and grouping stay current.
+- Open Settings without downloading the complete Sources catalog. When a loaded
+  Sources catalog changes, keep the previous tree usable with an updating notice
+  until the replacement is complete.
+
 ## [1.0.0] - 2026-09-29
 
 ### Added

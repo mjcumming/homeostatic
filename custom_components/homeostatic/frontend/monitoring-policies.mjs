@@ -1,12 +1,12 @@
-import {escapeHtml as esc} from "./model.mjs?v=44";
-import {MATCH_FIELDS, MATCH_LABELS, ruleSummary} from "./configuration.mjs?v=44";
+import {escapeHtml as esc} from "./model.mjs?v=46";
+import {MATCH_FIELDS, MATCH_LABELS, ruleSummary} from "./configuration.mjs?v=46";
 
 /** Keep exact source choices in Sources, including mixed and multi-source rules. */
 export function isGroupPolicy(rule) {
   return !["integration", "device", "entity"].some(field => rule.match?.[field]?.length);
 }
 
-const sourceTypes = {integration:"integration connections", device:"device availability", entity:"entity availability"};
+const sourceTypes = {integration:"integration connections", device:"device availability", entity:"entity availability",battery:"battery condition"};
 
 /** Explain every condition without treating a rule count as an inventory count. */
 export function groupPolicyScope(rule, data = {}) {
@@ -23,7 +23,7 @@ export function groupPolicyScope(rule, data = {}) {
 }
 
 function ruleControls(rule, index, view) {
-  return `<div class="config-rule-head"><label><span>Action</span><select data-rule-view="${view}" data-rule-index="${index}" data-rule-field="action"><option value="attach"${rule.action === "attach" ? " selected" : ""}>Watch availability</option><option value="exclude"${rule.action === "exclude" ? " selected" : ""}>Leave unmonitored</option></select></label><label class="config-enabled"><input type="checkbox" data-rule-view="${view}" data-rule-index="${index}" data-rule-field="enabled"${rule.enabled !== false ? " checked" : ""}> Enabled</label><button type="button" class="link" data-remove-rule="${index}">Remove rule</button></div>`;
+  return `<div class="config-rule-head"><label><span>Action</span><select data-rule-view="${view}" data-rule-index="${index}" data-rule-field="action"><option value="attach"${rule.action === "attach" ? " selected" : ""}>Watch</option><option value="exclude"${rule.action === "exclude" ? " selected" : ""}>Leave unmonitored</option></select></label><label><span>Check</span><select data-rule-view="${view}" data-rule-index="${index}" data-rule-field="checks"><option value="availability"${rule.checks?.[0] !== "battery" ? " selected" : ""}>HA availability</option><option value="battery"${rule.checks?.[0] === "battery" ? " selected" : ""}>Battery condition</option></select></label><label class="config-enabled"><input type="checkbox" data-rule-view="${view}" data-rule-index="${index}" data-rule-field="enabled"${rule.enabled !== false ? " checked" : ""}> Enabled</label><button type="button" class="link" data-remove-rule="${index}">Remove rule</button></div>`;
 }
 
 function ruleFields(rule, index, fields, view) {
@@ -37,7 +37,7 @@ export function monitoringPolicies(card) {
   const disabled = card.configBusy ? " disabled" : "";
   const broadFields = MATCH_FIELDS.filter(field => !["integration", "device", "entity"].includes(field));
   const policies = groups.map(({rule, index}) => {
-    const {subject, conditions} = groupPolicyScope(rule, card.current.data);
+    const {subject, conditions} = groupPolicyScope(rule, card.configuration ?? card.current.data);
     return `<article class="monitoring-policy" data-ui-key="policy:${esc(rule.id)}"><h3>${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${esc(subject)}</h3><p class="small">${rule.enabled === false ? "Paused — this rule has no effect." : "Enabled — applies to current and future matching sources."}</p>${conditions.length ? `<ul class="policy-conditions">${conditions.map(condition => `<li>${esc(condition)}</li>`).join("")}</ul>` : '<p class="sub">No additional conditions.</p>'}<details class="config-rule policy-edit"${card.configEditingRule === rule.id ? " open" : ""}><summary>Edit group policy</summary>${ruleControls(rule,index,"group")}${ruleFields(rule,index,broadFields,"group")}</details></article>`;
   }).join("");
   const advanced = rules.map((rule, index) => `<details class="config-rule" data-ui-key="advanced-policy:${esc(rule.id)}"><summary>${esc(ruleSummary(rule))}</summary>${ruleControls(rule,index,"advanced")}${ruleFields(rule,index,MATCH_FIELDS,"advanced")}<details><summary>Stored rule details</summary><pre>${esc(JSON.stringify(rule,null,2))}</pre></details></details>`).join("");

@@ -1,15 +1,15 @@
-import {sourceReporting} from "./reporting.mjs?v=44";
-import {integrationSettings} from "./source-settings.mjs?v=44";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=44";
-import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=44";
-import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=44";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=44";
+import {sourceReporting} from "./reporting.mjs?v=46";
+import {integrationSettings} from "./source-settings.mjs?v=46";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=46";
+import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=46";
+import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=46";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=46";
 
-import {deviceAvailability} from "./device-availability.mjs?v=44";
+import {deviceAvailability} from "./device-availability.mjs?v=46";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
-const sourceName = source => source.name?.trim() || (source.kind === "integration" ? "Unnamed connection" : source.kind === "device" ? "Unnamed device" : "Unnamed entity");
+const sourceName = source => source.name?.trim() || (source.kind === "integration" ? "Unnamed connection" : source.kind === "device" ? "Unnamed device" : source.kind === "battery" ? "Battery" : "Unnamed entity");
 const sourceNode = source => ({key:`source:${source.node_id}`,name:sourceName(source),type:source.kind,source,children:[]});
 const unique = (items, identity = item => item.key) => [...new Map(items.map(item => [identity(item),item])).values()];
 const displayDate = value => value ? new Date(value).toLocaleString() : "Time not reported";
@@ -66,7 +66,7 @@ export function topomationTree(data,topomation) {
     for(const id of Array.isArray(node.location.entity_ids)?node.location.entity_ids:[])if(typeof id==="string"&&!entityLocations.has(id))entityLocations.set(id,node);
   }
   const assigned=new Map(),unassigned=[];
-  for(const source of inventoryRows(data).filter(item=>["entity","device"].includes(item.kind))) {
+  for(const source of inventoryRows(data).filter(item=>["entity","device","battery"].includes(item.kind))) {
     const location=entityLocations.get(source.entity_id)||
       (source.attributes?.area||[]).map(id=>areaLocations.get(id)).find(Boolean);
     if(location) {
@@ -114,8 +114,8 @@ function groupedSources(data,grouping,localize,topomation) {
   const convert = location => ({key:`location:${location.id}`,name:location.name,type:"location",location,
     children:[...location.children.map(convert),...location.devices.map(device=>{
       const summary=device.sources.find(source=>source.kind==="device");
-      return {key:summary?`source:${summary.node_id}`:`device:${device.id}`,name:device.name?.trim()||"Unnamed device",type:"device",source:summary,device,children:device.sources.filter(source=>source.kind==="entity").map(sourceNode).sort(byName)};
-    }),...location.signals.filter(source=>source.kind==="entity").map(sourceNode)].sort(byName)});
+      return {key:summary?`source:${summary.node_id}`:`device:${device.id}`,name:device.name?.trim()||"Unnamed device",type:"device",source:summary,device,children:device.sources.filter(source=>["entity","battery"].includes(source.kind)).map(sourceNode).sort(byName)};
+    }),...location.signals.filter(source=>["entity","battery"].includes(source.kind)).map(sourceNode)].sort(byName)});
   const roots=locationTree(data).map(convert);
   const entries=inventoryRows(data).filter(source=>source.kind==="integration").map(source=>({...sourceNode(source),name:integrationProblem(source,[],localize).integration+" / "+sourceName(source)})).sort(byName);
   if(entries.length) roots.push({key:"location:other-sources",name:"Integration connections",type:"location",children:entries});
@@ -168,6 +168,7 @@ export function sourceMonitoringChoices(card,node) {
   if(source?.kind==="integration")controls+=choice("Integration connection",monitoringScope("entry",source.entry_id),[["inherit","Use integration default","Follow the saved policy for this integration."],["attach","Monitor this connection","Report if Home Assistant cannot load it."],["exclude","Do not monitor this connection",""]]);
   else if(source?.kind==="device")controls+=choice("Device availability",monitoringScope("device_availability",source.attributes?.device?.[0]??source.node_id.slice(7)),[["inherit","Use integration default",`Currently ${source.watched?"monitored":"not monitored"}.`],["attach","Always monitor this device","Report selected entities becoming unavailable."],["exclude","Do not monitor this device","Keep it in Sources without availability issues."]]);
   else if(source?.kind==="entity")controls+=choice("Entity availability",monitoringScope("entity",source.node_id,source),[["inherit","Use device and integration choices","Include in device monitoring when selected by its device."],["attach","Monitor this entity separately","Give this entity its own availability check."],["exclude","Exclude this entity","Exclude it from device monitoring and separate checks."]]);
+  else if(source?.kind==="battery")controls+=choice("Battery condition",monitoringScope("battery",source.node_id,source),[["inherit","Use battery monitoring policies",`Currently ${source.watched?"monitored":"not monitored"}.`],["attach","Monitor this battery","Report a current low-battery condition."],["exclude","Do not monitor this battery","Keep its readings available for review without an issue."]]);
   if(source?.kind==="device"){
     controls+=`<p class="small">${source.availability_entities?.length||0} entities included. Open an entity in the tree to change its inclusion.</p>`;
     const family=integrationFamilies(card.current.data).find(item=>item.children.some(child=>child.source?.node_id===source.node_id));
@@ -197,6 +198,14 @@ function sourceReport(card,node,episodes) {
   if(!evidence||evidence.loading)return '<p class="sub" role="status">Reading current Home Assistant values…</p>';
   if(evidence.error)return `<p role="alert">${esc(evidence.error)}</p><button type="button" class="button" data-action="refresh-source">Retry reading</button>`;
   const linked=episodes.filter(item=>item.anchor===source.node_id);
+  if(source.kind==="battery"){
+    const condition=evidence.battery_condition;
+    const problem=batteryProblem(source,{current:condition},Boolean(linked.length));
+    const rows=evidence.members||[];
+    const deviceId=source.attributes?.device?.[0];
+    const href=deviceId?`/config/devices/device/${encodeURIComponent(deviceId)}`:source.entity_id?`/developer-tools/state?entity_id=${encodeURIComponent(source.entity_id)}`:null;
+    return `<section class="source-condition${condition?.status==="warn"?' needs-attention':''}"><h3>${esc(problem.headline)}</h3><p>${esc(condition?.message||problem.summary)}</p><p><strong>Next step:</strong> ${esc(problem.nextStep)}</p></section>${!source.watched?'<p class="small">Battery monitoring is off. Review the choice in Settings before saving.</p>':''}<section class="source-section"><h3>Battery evidence</h3><table class="source-readings"><tbody>${rows.map(item=>`<tr><td>${esc(item.name)}</td><td>${esc(item.restored?'Restored state':item.state)}</td></tr>`).join('')}</tbody></table><p class="small">Home Assistant values do not prove physical freshness. Charging clears this low condition; it does not prove a full charge or replacement.</p></section>${linked.map(item=>`<button type="button" class="button" data-episode="${esc(item.episode_id)}">Problem actions</button>`).join('')}${href?`<a class="link" href="${esc(href)}">Open in Home Assistant</a>`:''}`;
+  }
   const status=evidence?.entity_status||data.inventory.entity_status?.[source.node_id];
   const current=evidence?.integration_evidence||data.inventory.integration_evidence?.[source.node_id];
   const problem=source.kind==="integration"?integrationProblem(source,linked.flatMap(item=>item.reasons||[]),key=>card._hass?.localize?.(key),current,Boolean(linked.length)):source.kind==="device"?deviceProblem(source,status,Boolean(linked.length)):entityProblem(source,status,null,data.areas,key=>card._hass?.localize?.(key),Boolean(linked.length));

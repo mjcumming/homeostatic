@@ -259,6 +259,10 @@ async def test_location_names_and_situation_detail(
     assert result["readiness"] is None
     assert result["impact"]["nodes"] == []
     assert result["explanation"]["findings"][0]["reason"] == "active"
+    await client.send_json({"id": 2, "type": "homeostatic/configuration"})
+    configuration = (await client.receive_json())["result"]
+    assert {"id": area.id, "name": "Garage"} in configuration["areas"]
+    assert {"id": floor.floor_id, "name": "Main floor"} in configuration["floors"]
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()
 

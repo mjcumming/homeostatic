@@ -10,7 +10,8 @@ test("MQTT history identifies evidence, outcomes, times and working detail targe
   assert.match(html,/Porch sensor/);
   assert.match(html,/porch temperature entity as unavailable/);
   assert.match(html,/Garage relay before rename/);
-  assert.match(html,/Recovered/);
+  assert.match(html,/Cleared/);
+  assert.doesNotMatch(html,/The monitored condition cleared/);
   assert.match(html,/Monitoring ended/);
   assert.match(html,/Joined another problem/);
   assert.match(html,/Recovery was not established/);

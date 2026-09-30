@@ -45,7 +45,7 @@ No item here is a claim of implementation or authorization to release or deploy.
 
 | Item | Status | Next milestone |
 | --- | --- | --- |
-| MH-1: Contextual battery maintenance | Planned; producer contract not written | Define percentage/binary evidence, charging context, duplicate signals, thresholds and recovery; validate real traces using the existing engine and reporting policy. |
+| MH-1: Contextual battery maintenance | Implemented in the development tree; real-device traces pending | Review battery candidates, validate percentage/binary and charging behavior against real devices, then verify served UI and reporting before release. |
 | MH-2: Practical action details and native repair handoff | Planned extension of existing problem details | Add supported action destinations and optional verified supplies metadata; preserve provenance and observation-based recovery. |
 | MH-3: Consistent summaries and drill-down | Planned verification/refinement of existing views | Audit shared result scopes and distinguish episodes, affected devices and evidence gaps; cover live resolution and removal. |
 | MH-4: Household visibility | Planned; access architecture first | Propose the scoped read/permission contract and test direct access before changing the administrator-only dashboard. |

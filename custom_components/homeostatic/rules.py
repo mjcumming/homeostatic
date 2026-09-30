@@ -54,6 +54,7 @@ class CatalogRule:
     id: str
     action: str
     match: Mapping[str, tuple[str, ...]]
+    checks: tuple[str, ...] = ("availability",)
     enabled: bool = True
     overridable: bool = False
 
@@ -93,8 +94,13 @@ def parse_rules(value: Any) -> tuple[CatalogRule, ...]:
         action = row.get("action")
         if action not in ("attach", "exclude"):
             raise ValueError("Rule action must be attach or exclude")
-        if row.get("checks", ["availability"]) != ["availability"]:
-            raise ValueError("The passive catalog supports only availability")
+        checks = row.get("checks", ["availability"])
+        if (
+            not isinstance(checks, list)
+            or len(checks) != 1
+            or checks[0] not in {"availability", "battery"}
+        ):
+            raise ValueError("Choose one supported catalog check")
         enabled = row.get("enabled", True)
         if type(enabled) is not bool:
             raise ValueError("Rule enabled must be boolean")
@@ -114,6 +120,7 @@ def parse_rules(value: Any) -> tuple[CatalogRule, ...]:
                 id=rule_id,
                 action=action,
                 match=attributes(row.get("match", {})),
+                checks=tuple(checks),
                 enabled=enabled,
                 overridable=overridable,
             )
@@ -135,9 +142,13 @@ class Decision:
         return bool(self.attached_by) and not self.excluded_by
 
 
-def decide(rules: tuple[CatalogRule, ...], metadata: Attributes) -> Decision:
+def decide(
+    rules: tuple[CatalogRule, ...], metadata: Attributes, check_id: str = "availability"
+) -> Decision:
     """Evaluate a source without rule-order precedence or side effects."""
-    matching = [rule for rule in rules if rule.matches(metadata)]
+    matching = [
+        rule for rule in rules if check_id in rule.checks and rule.matches(metadata)
+    ]
     explicit_device_watch = "device" in metadata.get("kind", ()) and any(
         rule.action == "attach"
         and rule.match.get("kind") == ("device",)

@@ -35,9 +35,30 @@ class Source:
     alert_profile: str | None = None
     automation_url: str | None = None
     alert_reporting_status: str | None = None
+    check_id: str = "availability"
+    battery_level_entity: str | None = None
+    battery_warning_entity: str | None = None
+    battery_charging_entity: str | None = None
 
     def node(self, settings: Settings) -> Node:
         """Declare a check for the observed HA control-path capability."""
+        if self.kind == "battery":
+            return Node(
+                node_id=self.node_id,
+                kind=self.kind,
+                importance=self.importance,
+                labels={"name": self.name, "category": "maintenance"},
+                checks=(
+                    Check(
+                        check_id="battery",
+                        raise_hold=timedelta(0),
+                        clear_hold=timedelta(0),
+                        ttl=None,
+                        unknown_hold=settings.duration("unknown_hold"),
+                        labels={"category": "maintenance"},
+                    ),
+                ),
+            )
         if self.kind == "function":
             return Node(
                 node_id=self.node_id,

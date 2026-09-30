@@ -1,4 +1,4 @@
-import {inventoryRows} from "./model.mjs?v=44";
+import {inventoryRows} from "./model.mjs?v=46";
 
 export const MATCH_FIELDS = ["kind", "domain", "device_class", "integration", "integration_domain", "device", "entity", "area", "floor", "label"];
 
@@ -14,10 +14,10 @@ export function ruleSummary(rule) {
   const target = match.device?.length ? `${match.device.length} selected ${match.device.length === 1 ? "device" : "devices"}`
     : match.entity?.length ? `${match.entity.length} selected ${match.entity.length === 1 ? "entity" : "entities"}`
       : kind === "device" ? "device summaries" : kind === "integration" ? "integration connections"
-        : kind === "entity" ? "entities" : "matching sources";
+        : kind === "entity" ? "entities" : kind === "battery" ? "battery sources" : "matching sources";
   const location = match.integration?.length ? ` in ${match.integration.length} integration ${match.integration.length === 1 ? "instance" : "instances"}` : "";
   const other = ["integration_domain","domain","device_class","area","floor","label"].filter((field) => match[field]?.length);
-  return `${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${target}${location}${other.length ? ` matching ${other.map((field) => MATCH_LABELS[field].toLowerCase()).join(", ")}` : ""}${rule.enabled === false ? " · paused" : ""}`;
+  return `${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${target}${rule.checks?.[0] === "battery" ? " for battery condition" : ""}${location}${other.length ? ` matching ${other.map((field) => MATCH_LABELS[field].toLowerCase()).join(", ")}` : ""}${rule.enabled === false ? " · paused" : ""}`;
 }
 
 export function editCatalogRule(rule, field, value) {
@@ -26,7 +26,8 @@ export function editCatalogRule(rule, field, value) {
     const values = value.split(",").map((item) => item.trim()).filter(Boolean);
     if (values.length) rule.match[key] = values;
     else delete rule.match[key];
-  } else rule[field] = value;
+  } else if (field === "checks") rule.checks = [value];
+  else rule[field] = value;
   if (rule.overridable && (rule.action !== "exclude" ||
     !["integration,kind","integration_domain,kind"].includes(Object.keys(rule.match).sort().join(",")) ||
     rule.match.kind?.length !== 1 || rule.match.kind[0] !== "device")) delete rule.overridable;
@@ -44,7 +45,7 @@ const byName = (left, right) => left.name.localeCompare(right.name) || left.id.l
 export function monitoringTree(data, query = "") {
   const names = new Map((data.devices ?? []).map((device) => [device.id, device.name]));
   const groups = new Map();
-  const rows = inventoryRows(data).filter((source) => ["integration", "entity", "device"].includes(source.kind));
+  const rows = inventoryRows(data).filter((source) => ["integration", "entity", "device", "battery"].includes(source.kind));
   const entries = new Set(rows.filter((source) => source.kind === "integration").map((source) => source.entry_id ?? source.node_id.slice(6)));
   const groupFor = (id) => {
     const key = entries.has(id) ? id : "";
@@ -58,7 +59,7 @@ export function monitoringTree(data, query = "") {
     group.name = source.name;
     group.entry = source;
   }
-  for (const source of rows.filter((item) => item.kind === "entity")) {
+  for (const source of rows.filter((item) => ["entity", "battery"].includes(item.kind))) {
     const group = groupFor(source.owner_id ?? source.attributes?.integration?.[0]);
     group.entities.push(source);
     const deviceId = source.attributes?.device?.[0];
@@ -107,6 +108,10 @@ export function monitoringScope(kind, id, source = null) {
   if (kind === "integration_devices") return {kind,id,match:{integration:[id],kind:["device"]}};
   if (kind === "device") return {kind,id,match:{device:[id]}};
   if (kind === "device_availability") return {kind,id,match:{kind:["device"],device:[id]}};
+  if (kind === "battery") {
+    const reference = source?.attributes?.entity?.[0];
+    return reference ? {kind,id,match:{kind:["battery"],entity:[reference]}} : null;
+  }
   const reference = source?.attributes?.entity?.[0] ??
     (source?.node_id?.startsWith("entity:") ? source.node_id.slice(7) : null);
   return reference ? {kind:"entity",id,match:{entity:[reference]}} : null;
@@ -119,9 +124,14 @@ function sameMatch(left, right) {
     [...left[key]].sort().every((value,index) => value === [...right[key]].sort()[index]));
 }
 
+function sameScope(rule,scope) {
+  return sameMatch(rule.match ?? {},scope.match) &&
+    (rule.checks?.[0] ?? "availability") === (scope.kind === "battery" ? "battery" : "availability");
+}
+
 /** Explain one direct choice; broader overlapping rules stay visible in the preview. */
 export function scopeChoice(rules, scope) {
-  const matches = rules.filter((rule) => sameMatch(rule.match ?? {},scope.match));
+  const matches = rules.filter((rule) => sameScope(rule,scope));
   if (matches.length > 1) return "multiple";
   if (!matches.length || matches[0].enabled === false) return "inherit";
   return matches[0].action;
@@ -129,7 +139,7 @@ export function scopeChoice(rules, scope) {
 
 /** Edit only a rule matching the chosen scope; preserve all unrelated catalog rules. */
 export function setScopeChoice(rules, scope, choice) {
-  const indices = rules.flatMap((rule,index) => sameMatch(rule.match ?? {},scope.match) ? [index] : []);
+  const indices = rules.flatMap((rule,index) => sameScope(rule,scope) ? [index] : []);
   if (indices.length > 1) return false;
   if (choice === "inherit") {
     if (indices.length) rules.splice(indices[0],1);
@@ -144,6 +154,7 @@ export function setScopeChoice(rules, scope, choice) {
       else delete rules[indices[0]].overridable;
     }
   } else rules.push({...newCatalogRule(rules),action:choice,match:scope.match,
+    ...(scope.kind === "battery" ? {checks:["battery"]} : {}),
     ...(scope.kind === "integration_devices" && choice === "exclude" ? {overridable:true} : {})});
   return true;
 }

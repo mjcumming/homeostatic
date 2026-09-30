@@ -98,6 +98,28 @@ export function deviceProblem(source, status, openProblem = true) {
     needsAction:false,currentReason:reason};
 }
 
+export function batteryProblem(source, status, openProblem = true) {
+  if (source?.kind !== "battery") return null;
+  const reason = source.disabled ? "disabled" : status?.current?.reason ?? "battery_evidence_missing";
+  const definitions = {
+    battery_low:["Battery low", "Home Assistant reports a low battery. Conflicting battery signals, if present, are shown in Technical details.",
+      "Check the battery and its device. Charge or replace it as appropriate for that device.", "uncertain", "Needs battery attention"],
+    charging:["Battery charging", "Home Assistant reports that this battery is charging. Its low condition has cleared for now.",
+      "Check that the level rises if you need assurance of recovery.", "recovering", "Charging"],
+    battery_ok:[openProblem ? "Battery condition clearing" : "No low battery reported",
+      "Current battery readings do not report low charge.", "No action is needed right now.", "recovering", "Normal reading"],
+    battery_evidence_missing:["Battery condition unknown", "A battery reading is missing, unavailable, invalid or restored from storage.",
+      "Review the battery entities in Home Assistant and wait for a current reading.", "uncertain", "Waiting for evidence"],
+    disabled:["Battery source disabled", "Home Assistant is not using this battery source.",
+      "Review the device in Home Assistant if this was not intentional.", "neutral", "Disabled"],
+  };
+  const [headline,summary,nextStep,tone,progress] = definitions[reason] ?? definitions.battery_evidence_missing;
+  const device = source.attributes?.device?.[0];
+  return {context:"Battery maintenance",headline,summary,nextStep,tone,progress,currentReason:reason,
+    deviceUrl:device ? `/config/devices/device/${encodeURIComponent(device)}` : null,
+    entityLabel:"View battery reading"};
+}
+
 export function entityProblem(source, status, owner = null, areas = [], localize = () => null, openProblem = true) {
   if (source?.kind !== "entity") return null;
   const domain = source.attributes?.domain?.[0] ?? source.entity_id?.split(".")[0];

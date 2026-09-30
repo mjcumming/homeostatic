@@ -1,24 +1,24 @@
-import {monitoringPolicies} from "./monitoring-policies.mjs?v=44";
-import {sourceSettingsAction} from "./source-settings.mjs?v=44";
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=44";
+import {monitoringPolicies} from "./monitoring-policies.mjs?v=46";
+import {sourceSettingsAction} from "./source-settings.mjs?v=46";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=46";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
-  sourceMap} from "./model\.mjs?v=44";
-import {deviceAvailability, deviceAvailabilityStamp} from "./device-availability.mjs?v=44";
-import {deviceProblem, entityProblem, integrationProblem} from "./problem\.mjs?v=44";
-import {DashboardTools, controlsPanel} from "./history-controls\.mjs?v=44";
-import {diagnosticOverview} from "./evidence\.mjs?v=44";
+  sourceMap} from "./model.mjs?v=46";
+import {deviceAvailability, deviceAvailabilityStamp} from "./device-availability.mjs?v=46";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=46";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=46";
+import {diagnosticOverview} from "./evidence.mjs?v=46";
 import {editCatalogRule, monitoringScope,
-  newCatalogRule, scopeChoice, setScopeChoice} from "./configuration\.mjs?v=44";
-import {styles} from "./styles\.mjs?v=44";
-import {locationBranch, setBranchExpanded} from "./tree\.mjs?v=44";
+  newCatalogRule, scopeChoice, setScopeChoice} from "./configuration.mjs?v=46";
+import {styles} from "./styles.mjs?v=46";
+import {locationBranch, setBranchExpanded} from "./tree.mjs?v=46";
 
-import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser\.mjs?v=44";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace\.mjs?v=44";
+import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=46";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=46";
 
-import {installationSettings, editInstallation} from "./installation-settings\.mjs?v=44";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=46";
 
-import {applyNotificationRoute} from "./notification-navigation.mjs?v=44";
+import {applyNotificationRoute} from "./notification-navigation.mjs?v=46";
 
 const VIEWS = ["overview", "sources", "house", "coverage", "functions", "problems", "history", "notifications", "configuration"];
 const homeostaticOptionsUrl = (entryId) => `/config/integrations/integration/homeostatic#config_entry=${encodeURIComponent(entryId)}`;
@@ -117,7 +117,7 @@ class HomeostaticCard extends HTMLElement {
     this.current = {status: "loading", data: null, error: null};
     this.detail = null;
     this.detailSequence = 0;
-    this.shadowRoot.innerHTML = `<style>${styles}</style><div class="shell"><header class="header"><div class="brand">${icon("home-heart")}Homeostatic</div><nav class="nav" aria-label="Homeostatic pages"><button type="button" data-page="overview">Overview</button><button type="button" data-page="problems">Issues</button><button type="button" data-page="sources">Sources</button><button type="button" data-page="history">History</button><button type="button" data-page="notifications">Notifications</button><button type="button" data-page="configuration">Settings</button></nav><button type="button" class="button" data-action="back" hidden>Back</button></header><main aria-live="polite"></main></div><dialog aria-labelledby="detail-title"><header class="dialog-head"><div><p class="small" id="detail-label"></p><h2 id="detail-title"></h2></div><button type="button" class="button" data-action="close" aria-label="Close detail">Close</button></header><div class="dialog-body"></div></dialog>`;
+    this.shadowRoot.innerHTML = `<style>${styles}</style><div class="shell"><header class="header"><div class="brand">${icon("home-heart")}Homeostatic</div><nav class="nav" aria-label="Homeostatic pages"><button type="button" data-page="overview">Overview</button><button type="button" data-page="problems">Issues</button><button type="button" data-page="sources">Sources</button><button type="button" data-page="notifications">Notifications</button><button type="button" data-page="configuration">Settings</button><button type="button" data-page="history">History</button></nav><button type="button" class="button" data-action="back" hidden>Back</button></header><main aria-live="polite"></main></div><dialog aria-labelledby="detail-title"><header class="dialog-head"><div><p class="small" id="detail-label"></p><h2 id="detail-title"></h2></div><button type="button" class="button" data-action="close" aria-label="Close detail">Close</button></header><div class="dialog-body"></div></dialog>`;
     this.main = this.shadowRoot.querySelector("main");
     this.dialog = this.shadowRoot.querySelector("dialog");
     this.shadowRoot.addEventListener("click", (event) => this.clicked(event));
@@ -239,7 +239,8 @@ class HomeostaticCard extends HTMLElement {
     this.store = dashboardStore(this._hass.connection);
     this.loadTopomation();
     this.removeListener = this.store.listen((value) => {
-      const catalogArrived = value.data?.catalog_loaded && !this.current.data?.catalog_loaded;
+      const catalogArrived = value.data?.catalog_loaded &&
+        (!this.current.data?.catalog_loaded || this.current.data?.catalog_stale && !value.data?.catalog_stale);
       this.current = value;
       if (catalogArrived) {
         this.revealSourcesSelection();
@@ -379,7 +380,8 @@ class HomeostaticCard extends HTMLElement {
       return;
     }
     const data = this.current.data;
-    if (["sources","coverage","house","configuration","functions"].includes(this.page) && data.schema_version === 3 && !data.catalog_loaded) {
+    if (this.page === "sources" && data.catalog_stale) this.store?.ensureCatalog();
+    if (["sources","coverage","house","functions"].includes(this.page) && data.schema_version === 3 && !data.catalog_loaded) {
       this.main.innerHTML = `<div class="banner" role="status"><h2>${this.current.catalogError ? "Sources unavailable" : "Loading sources"}</h2><p>${esc(this.current.catalogError || "Loading the complete source catalog for browsing and search.")}</p>${this.current.catalogError ? '<button class="link" type="button" data-action="retry-catalog">Retry loading sources</button>' : ""}</div>`;
       this.renderedCurrent = false;
       this.store?.ensureCatalog();
@@ -442,11 +444,14 @@ class HomeostaticCard extends HTMLElement {
 
   sourcesPage() {
     const intro = '<div class="intro"><div><h1>Sources</h1></div></div>';
+    const catalogStatus = this.current.data.catalog_stale
+      ? `<p class="note" role="status">${this.current.catalogError ? `Source list update failed: ${esc(this.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry updating sources</button>` : "Updating sources. You can keep browsing the previous complete list; results may be out of date until the update finishes."}</p>`
+      : "";
     this.configScopes = [];
     this.sourcesSettingsPanel = this.sourcesView === "settings"
       ? this.configuration ? this.monitoringEditor()
         : `<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading monitoring choices…")}</p><button type="button" class="button" data-action="load-configuration">Reload choices</button></div></section>` : "";
-    return intro + sourcesBrowser(this);
+    return intro + catalogStatus + sourcesBrowser(this);
   }
 
   revealSourcesSelection() {
@@ -748,7 +753,8 @@ class HomeostaticCard extends HTMLElement {
     const source = nodes.get(episode.anchor);
     const situation = source?.kind === "situation";
     const affected = affectedFunctions(data, episode);
-    const problem = deviceProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
+    const problem = batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
+      deviceProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       integrationProblem(source, episode.reasons, (key) => this._hass.localize?.(key), data.inventory.integration_evidence?.[episode.anchor]) ??
       entityProblem(source, data.inventory.entity_status?.[episode.anchor], nodes.get(`entry:${source?.owner_id}`), data.areas, (key) => this._hass.localize?.(key));
     const tone = situation ? "situation" : problem?.tone ?? "uncertain";
@@ -801,7 +807,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   history(data) {
-    return `<div class="intro"><div><h1>History</h1><p class="sub">Ended problems and what happened to them.</p></div></div>${this.tools.historyPanel(data)}`;
+    return `<div class="intro"><div><h1>History</h1></div></div>${this.tools.historyPanel(data)}`;
   }
 
   houseSource(registered, source, coverage) {
@@ -933,7 +939,8 @@ class HomeostaticCard extends HTMLElement {
     const functions = related.length ? `${this.functionsPanel(data,related,`Home functions involving ${selected.name}`)}<p class="small house-functions-note">These functions use a device or entity assigned to this location; the work may happen elsewhere.</p>` : "";
     const problems = episodes.length ? `<section class="panel house-findings"><div class="panel-head"><h2>Open problems linked to this location</h2></div>${episodes.map((episode) => {
       const source = registered.get(episode.anchor);
-      const problem = integrationProblem(source,episode.reasons,(key) => this._hass.localize?.(key),data.inventory.integration_evidence?.[episode.anchor]) ??
+      const problem = batteryProblem(source,data.inventory.entity_status?.[episode.anchor]) ??
+        integrationProblem(source,episode.reasons,(key) => this._hass.localize?.(key),data.inventory.integration_evidence?.[episode.anchor]) ??
         entityProblem(source,data.inventory.entity_status?.[episode.anchor],registered.get(`entry:${source?.owner_id}`),data.areas,(key) => this._hass.localize?.(key));
       const impact = affectedFunctions(data,episode).map((item) => `${item.name}: ${ownerStatus(item.readiness.answer).toLowerCase()}`);
       return `<div class="house-finding"><div><strong>${esc(source?.name ?? "Monitored source")}</strong><p class="small">${esc(problem?.summary ?? "An open problem is linked to this location. Review its current evidence.")}</p>${impact.length ? `<p class="small">${esc(impact.join("; "))}</p>` : ""}</div><button type="button" class="link" data-episode="${esc(episode.episode_id)}">View problem</button></div>`;
@@ -1250,12 +1257,14 @@ class HomeostaticCard extends HTMLElement {
       if (sequence !== this.detailSequence || !this.detail) return;
       const source = result.source;
       const nodes = sourceMap(data);
-      this.shadowRoot.querySelector("#detail-title").textContent = this.displaySourceName(source);
+      const detailTitle = this.displaySourceName(source);
+      this.shadowRoot.querySelector("#detail-title").textContent = detailTitle;
       this.shadowRoot.querySelector("#detail-label").textContent = source.kind === "situation" ? "Situation" : episode ? "Open problem" : "Capability";
       const currentFunctions = episode ? affectedFunctions(data, episode) : [];
       const diagnostic = episode ? null : diagnosticOverview(source, result, currentFunctions);
       const findings = result.explanation.findings;
-      const problem = deviceProblem(source, result.entity_status, Boolean(episode)) ??
+      const problem = batteryProblem(source, result.entity_status, Boolean(episode)) ??
+        deviceProblem(source, result.entity_status, Boolean(episode)) ??
         integrationProblem(source, findings, (key) => this._hass.localize?.(key), result.integration_evidence, Boolean(episode)) ??
         entityProblem(source, result.entity_status, nodes.get(`entry:${source.owner_id}`), data.areas, (key) => this._hass.localize?.(key), Boolean(episode));
       const memberEvidence = result.device_evidence?.total ? result.device_evidence : null;
@@ -1264,7 +1273,7 @@ class HomeostaticCard extends HTMLElement {
       const disclosure = (key) => `data-disclosure="${key}"${expanded.has(key) ? " open" : ""}`;
       const integrationDomains = source.attributes?.integration_domain ?? [];
       const deviceIntegrations = [...new Set(integrationDomains.map((domain) => integrationProblem({kind:"integration",attributes:{domain:[domain]}},[],(key) => this._hass.localize?.(key)).integration))];
-      const availabilityChoices = memberEvidence ? `<details ${disclosure("selected-readings")}><summary>${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"} and monitoring choices</summary><ul>${memberEvidence.members.map((member) => `<li><strong>${esc(member.name)}</strong> · ${esc(member.restored ? "Restored; current value unknown" : member.state)} <button class="link" type="button" data-ignore-availability="${esc(member.node_id)}">Ignore availability…</button></li>`).join("")}</ul>${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} selected entities.</p>` : ""}<p class="small">Changes to monitoring are previewed before saving.</p><div class="actions"><button class="link" type="button" data-config-source="${esc(source.node_id)}">Review monitoring choices</button><button class="link" type="button" data-source-link="${esc(source.node_id)}">View in Sources</button></div></details>` : source.kind === "entity" ? `<section class="detail"><button class="button" type="button" data-ignore-availability="${esc(source.node_id)}">Ignore this availability check…</button><p class="small">Opens a draft monitoring change for preview and save. Home Assistant state stays unchanged.</p></section>` : "";
+      const availabilityChoices = memberEvidence ? `<details ${disclosure("selected-readings")}><summary>Monitoring choices (${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"})</summary><ul>${memberEvidence.members.map((member) => `<li><strong>${esc(member.name)}</strong> · ${esc(member.restored ? "Restored; current value unknown" : member.state)} <button class="link" type="button" data-ignore-availability="${esc(member.node_id)}">Ignore availability…</button></li>`).join("")}</ul>${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} selected entities.</p>` : ""}<p class="small">Changes to monitoring are previewed before saving.</p><div class="actions"><button class="link" type="button" data-config-source="${esc(source.node_id)}">Review monitoring choices</button><button class="link" type="button" data-source-link="${esc(source.node_id)}">View in Sources</button></div></details>` : source.kind === "entity" ? `<section class="detail"><button class="button" type="button" data-ignore-availability="${esc(source.node_id)}">Ignore this availability check…</button><p class="small">Opens a draft monitoring change for preview and save. Home Assistant state stays unchanged.</p></section>` : "";
       const dependencies = result.explanation.nodes.filter((node) => node.node_id !== nodeId);
       const unwatched = result.readiness?.nodes.filter((node) => !node.watched) ?? [];
       const nativeLink = source.kind === "device" ? "" : source.kind === "integration" && problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : "") : source.entity_id
@@ -1275,18 +1284,18 @@ class HomeostaticCard extends HTMLElement {
       const diagnosticData = {evidence:result,policy:explanation,notifications_enabled:data.policy.notifications_enabled,controls};
       const genericSummary = source.kind === "situation" ? (episode ? "This reported condition remains open. Check its current state." : "No open problem is reported for this condition.")
         : result.readiness ? `${ownerStatus(result.readiness.answer)} in Home Assistant.` : "Current status has not been confirmed.";
-      body.innerHTML = `${deviceAvailability(result.device_availability)}<section class="detail problem-brief">${memberEvidence ? `<h3 class="problem-integration">${deviceIntegrations.length ? `<span>Integration</span> ${esc(deviceIntegrations.join(", "))}` : "Home Assistant device"}</h3>${uncertainMembers.length === 1 ? `<p><strong>${esc(uncertainMembers[0].name)}</strong> · ${esc(uncertainMembers[0].restored ? "restored; current value unknown" : uncertainMembers[0].state)} in Home Assistant</p>` : uncertainMembers.length ? `<p>Entities needing review:</p><ul>${uncertainMembers.map((member) => `<li><strong>${esc(member.name)}</strong> · ${esc(member.restored ? "restored; current value unknown" : member.state)}</li>`).join("")}</ul>` : `<p>All selected entities have current Home Assistant states.</p>`}${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing the first 50 selected entities. More may need review.</p>` : ""}` : problem ? `${source.kind === "integration" ? "" : `<p class="small">${esc(problem.context ?? problem.integration)}</p>`}<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}
-         <div class="next-action"><p>${memberEvidence ? "Check the affected entities on the device page; review monitoring if this state is expected." : esc(problem?.nextStep ?? (nativeLink ? "Check the current state in Home Assistant." : "Check the listed requirements to find what needs attention."))}</p>${nativeLink || problem?.deviceUrl ? `<div class="actions">${nativeLink}${problem?.deviceUrl ? `<a class="button${memberEvidence ? " primary" : ""}" href="${esc(problem.deviceUrl)}">Open device page</a>` : ""}</div>` : ""}</div>
-         ${episode ? `<p class="small problem-progress">Open since ${esc(date(episode.opened_at))}</p><p class="small">${esc(reportingStatus(data,episode))}</p>` : ""}</section>
+      body.innerHTML = `${episode && memberEvidence ? "" : deviceAvailability(result.device_availability)}<section class="detail problem-brief">${memberEvidence ? `<h3 class="problem-integration">${deviceIntegrations.length ? `<span>Integration</span> ${esc(deviceIntegrations.join(", "))}` : "Home Assistant device"}</h3>${uncertainMembers.length === 1 ? `<p><strong>${esc(uncertainMembers[0].name === detailTitle ? "Selected entity" : uncertainMembers[0].name)}</strong> · ${esc(uncertainMembers[0].restored ? "restored; current value unknown" : uncertainMembers[0].state)} in Home Assistant</p>` : uncertainMembers.length ? `<p>Entities needing review:</p><ul>${uncertainMembers.map((member) => `<li><strong>${esc(member.name)}</strong> · ${esc(member.restored ? "restored; current value unknown" : member.state)}</li>`).join("")}</ul>` : `<p>All selected entities have current Home Assistant states.</p>`}${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing the first 50 selected entities. More may need review.</p>` : ""}${episode ? deviceAvailability(result.device_availability,true) : ""}` : problem ? `${source.kind === "integration" ? "" : `<p class="small">${esc(problem.context ?? problem.integration)}</p>`}<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}
+         <div class="next-action"><p>${memberEvidence ? "Check the entity on the device page. If this state is expected, review monitoring choices." : esc(problem?.nextStep ?? (nativeLink ? "Check the current state in Home Assistant." : "Check the listed requirements to find what needs attention."))}</p>${nativeLink || problem?.deviceUrl ? `<div class="actions">${nativeLink}${problem?.deviceUrl ? `<a class="button${memberEvidence ? " primary" : ""}" href="${esc(problem.deviceUrl)}">Open device page</a>` : ""}</div>` : ""}</div>
+         ${episode ? `<p class="small problem-progress">Open since ${esc(date(episode.opened_at))} · ${esc(reportingStatus(data,episode))}</p>` : ""}</section>
          ${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}
          ${problem?.connectionNote ? `<section class="detail"><p>${esc(problem.connectionNote)}</p><button class="link" data-node="${esc(problem.connectionNode)}">${esc(problem.connectionLabel)}</button></section>` : ""}
-         ${availabilityChoices}
          ${diagnostic ? source.kind === "device" ? `<section class="detail evidence-overview" aria-label="Household impact"><h3>What this means at home</h3><p>${esc(diagnostic.impact)}</p></section>` : `<section class="detail evidence-overview" aria-label="Evidence summary"><h3>What Homeostatic knows</h3><dl><dt>Monitoring</dt><dd>${esc(diagnostic.monitoring)}</dd><dt>What is checked</dt><dd>${esc(diagnostic.checks)}</dd><dt>Current assessment</dt><dd>${esc(diagnostic.assessment)}</dd><dt>Household impact</dt><dd>${esc(diagnostic.impact)}</dd></dl></section>` : ""}
-          ${["integration","entity"].includes(source.kind) ? `<button type="button" class="button" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}
+          ${["integration","entity","battery"].includes(source.kind) ? `<button type="button" class="button" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}
          ${controls.map((control) => `<p class="control-notice">${control.action === "shelve" ? "Alerts paused" : "Working on equipment"} until ${esc(date(control.until))}.</p>`).join("")}
         ${this.tools.detailButtons(source, episode, data)}
+         ${availabilityChoices}
         <details ${disclosure("technical")}><summary>Technical details</summary>
-           ${memberEvidence ? `<h3>Assessment rule</h3><p>Unavailable entities are monitoring findings. Missing and restored states lack current evidence; an unknown entity value alone is not an availability issue. Device availability uses all enabled entities, independently of this selection, and does not verify physical device health.</p>` : ""}
+           ${memberEvidence ? `<h3>Assessment rule</h3><p>Monitoring uses selected entities; device availability uses all enabled entities. Missing and restored states lack current evidence, and an unknown entity value alone is not an availability issue. An unavailable Home Assistant state does not establish physical device health.</p>` : ""}
           ${problem?.reported ? `<div class="reported-error"><h3>${problem.historical ? "Last reported error" : "Reported error"}</h3>${problem.reportedAt ? `<p class="small">${esc(date(problem.reportedAt))}</p>` : ""}${problem.historical ? '<p class="small">From an earlier attempt; the current activity is shown above.</p>' : ""}<pre>${esc(problem.reported)}</pre></div>` : problem?.missingDetail ? "<p>Home Assistant did not report a specific cause.</p>" : ""}
           ${problem?.logsUrl ? `<p><a class="button" href="${esc(problem.logsUrl)}">View integration logs</a></p>` : ""}
           ${dependencies.length || unwatched.length ? `<h3>Reported requirements</h3><ul>${dependencies.map((node) => `<li>${esc(nodes.get(node.node_id)?.name ?? node.node_id)} · ${esc(node.own)} · ${list(node.reasons)}</li>`).join("")}${unwatched.map((node) => `<li>${esc(nodes.get(node.node_id)?.name ?? node.node_id)} · Not monitored</li>`).join("")}</ul>` : ""}
@@ -1344,9 +1353,9 @@ class HomeostaticStrategy {
       {title:"Home",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"overview",navigation:false}]},
       {title:"Issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"problems",navigation:false}]},
       {title:"Sources",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"sources",navigation:false}]},
-      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"history",navigation:false}]},
       {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"notifications",navigation:false}]},
       {title:"Settings",path:"configuration",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"configuration",navigation:false}]},
+      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"history",navigation:false}]},
     ]};
   }
 }

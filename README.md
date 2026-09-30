@@ -35,7 +35,7 @@ Home Assistant has the inventory: integrations, devices, entities, areas, automa
 
 ## What you get
 
-**A Homeostatic panel in the sidebar.** *Overview* shows what is open and what is watched, with the most recent issues. *Issues* lists every open problem. *Sources* is your whole install, grouped by integration or by floor and area, showing what is watched, what is excluded, what evidence Home Assistant is supplying, and letting you change any of it in place with a preview before you save. *History* keeps ended problems for thirty days. *Notifications* is where people, phones, and schedules live. Any of these pages is also a card you can drop on your own dashboard.
+**A Homeostatic panel in the sidebar.** *Overview* shows what is open and what is watched, with the most recent issues. *Issues* lists every open problem. *Sources* is your whole install, grouped by integration or by floor and area, showing what is watched, what is excluded, what evidence Home Assistant is supplying, and letting you change any of it in place with a preview before you save. *Notifications* is where people, phones, and schedules live. *Settings* holds installation-wide choices. *History*, at the far right, keeps ended problems for thirty days. Any of these pages is also a card you can drop on your own dashboard.
 
 **Issues that explain themselves.** An issue names the integration and the instance, quotes what Home Assistant reported (setup failed, needs sign-in, retrying), lists the affected entities, names the functions it takes down, suggests the next step, and shows recovery as it happens. When it is over, it resolves once and moves to History.
 
@@ -100,14 +100,14 @@ One honest limit. A passing availability check means Home Assistant currently ha
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with type **Integration**.
-3. Find **Homeostatic** and select version **1.0.0**. If you previously selected **main** or enabled beta versions, choose the 1.0.0 release explicitly.
+3. Find **Homeostatic** and select version **1.1.0**. If you previously selected **main** or enabled beta versions, choose the 1.1.0 release explicitly.
 4. Restart Home Assistant.
 
 [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mjcumming&repository=homeostatic&category=integration)
 
 ### Manual
 
-1. Download `homeostatic-1.0.0.zip` and its checksum file from the [1.0.0 GitHub release](https://github.com/mjcumming/homeostatic/releases/tag/v1.0.0).
+1. Download `homeostatic-1.1.0.zip` and its checksum file from the [1.1.0 GitHub release](https://github.com/mjcumming/homeostatic/releases/tag/v1.1.0).
 2. Copy its `custom_components/homeostatic` folder into your Home Assistant configuration directory, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy in full.
 3. Restart Home Assistant.
 
@@ -157,7 +157,7 @@ Use any of Home Assistant's AND/OR, time, state, and numeric conditions, and lis
 
 ## Dashboard and cards
 
-Administrators get the **Homeostatic** sidebar panel with **Overview**, **Issues**, **Sources**, **History**, **Notifications**, and **Settings**. Any view is also a card:
+Administrators get the **Homeostatic** sidebar panel with **Overview**, **Issues**, **Sources**, **Notifications**, **Settings**, and **History**. Any view is also a card:
 
 ```yaml
 type: custom:homeostatic-card
@@ -192,7 +192,7 @@ A **Homeostatic** dashboard strategy is available in Home Assistant's new-dashbo
 
 ## Project status
 
-**Version 1.0.0** is available as a GitHub release and has been exercised in a real-house pilot with 129 integration instances. The dashboard, availability monitoring, functions, alerts, reporting preferences, phone delivery with acknowledgment, and operator controls are included. The release scope is Home Assistant evidence and selected monitoring; the limits below still apply.
+**Version 1.1.0** adds opt-in battery maintenance to the real-house pilot. Battery sources are discovered from Home Assistant metadata, warn at 20% or on an explicit low report, and clear when charging is confirmed. The dashboard, availability monitoring, functions, alerts, reporting preferences, phone delivery with acknowledgment, and operator controls remain included. The release scope is Home Assistant evidence and selected monitoring; the limits below still apply.
 
 How it is built: behavior is written down in a [specification](docs/spec.md) before it changes, every behavior change ships with an executable scenario, and the integration tests run against an isolated Home Assistant instance with 95 percent statement and branch coverage floors. Every product decision that would be easy to reverse by mistake is an [architecture decision record](docs/adr/README.md), thirty-some so far. Notifications are never sent through a live install during tests.
 

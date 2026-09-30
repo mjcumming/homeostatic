@@ -60,6 +60,7 @@ from homeassistant.util import dt as dt_util
 from . import reporting
 from .attention import build_policy, explanations, supports_attention_controls
 from .automation_alerts import AutomationAlerts, automation_owner, identity
+from .battery import observe as battery_observation
 from .catalog import (
     Source,
     device_observation,
@@ -310,11 +311,14 @@ class Runtime:
             or new is None
             or old.name != new.name
             or old.attributes.get("device_class") != new.attributes.get("device_class")
+            or old.attributes.get("unit_of_measurement")
+            != new.attributes.get("unit_of_measurement")
         )
         if metadata_changed:
             self._inventory_dirty = True
         if sources and (
             any(source.kind == "situation" for source in sources)
+            or any(source.kind == "battery" for source in sources)
             or entity_state_signature(event.data["old_state"])
             != entity_state_signature(event.data["new_state"])
         ):
@@ -324,6 +328,14 @@ class Runtime:
                 observation = (
                     self._observe_device(source, now)
                     if source.kind == "device"
+                    else battery_observation(
+                        self.hass,
+                        source,
+                        now,
+                        changed_entity_id=entity_id,
+                        changed_state=new,
+                    )
+                    if source.kind == "battery"
                     else entity_observation(source, event.data["new_state"], now)
                 )
                 if source.kind == "device":
@@ -501,7 +513,7 @@ class Runtime:
         self.enrolled = {
             node_id: source.attributes
             for node_id, source in sources.items()
-            if source.kind in {"entity", "integration", "device"}
+            if source.kind in {"entity", "integration", "device", "battery"}
         }
         return sources
 
@@ -941,6 +953,8 @@ class Runtime:
         first = self.engine is None
         discover = reconcile or self._inventory_dirty or first
         previous_candidates = self.candidates
+        previous_targets = self.targets
+        previous_changes = tuple(self.enrollment_changes)
         sources = self._discover() if discover else self.sources
         events: list[HealthEvent] = []
         if first:
@@ -959,10 +973,11 @@ class Runtime:
             events.extend(self.engine.remove(node_id, now))
         if discover:
             if (
-                self._inventory_dirty
-                or first
+                first
                 or sources != self.sources
                 or self.candidates != previous_candidates
+                or self.targets != previous_targets
+                or tuple(self.enrollment_changes) != previous_changes
             ):
                 self.inventory_revision += 1
                 self.inventory_static = {
@@ -991,6 +1006,17 @@ class Runtime:
                     self._entity_sources.setdefault(source.entity_id, []).append(source)
                 elif source.kind == "device" and source.watched:
                     for entity_id in self._device_members.get(source.node_id[7:], ()):
+                        self._entity_sources.setdefault(entity_id, []).append(source)
+                if source.kind == "battery" and source.watched:
+                    for entity_id in dict.fromkeys(
+                        entity_id
+                        for entity_id in (
+                            source.battery_level_entity,
+                            source.battery_warning_entity,
+                            source.battery_charging_entity,
+                        )
+                        if entity_id and entity_id != source.entity_id
+                    ):
                         self._entity_sources.setdefault(entity_id, []).append(source)
         self.sources = sources
         self.entity_evidence = {
@@ -1065,7 +1091,9 @@ class Runtime:
                 if first:
                     observations.append(report_observation(source, "unknown", now))
                 continue
-            if source.kind in {"entity", "situation"} and discover:
+            if source.kind == "battery" and discover:
+                observations.append(battery_observation(self.hass, source, now))
+            elif source.kind in {"entity", "situation"} and discover:
                 state = (
                     self.hass.states.get(source.entity_id) if source.entity_id else None
                 )
@@ -1086,7 +1114,7 @@ class Runtime:
             source = self.sources[observation.node_id]
             if source.kind == "integration":
                 self.integration_evidence.observe(observation, source.name)
-            elif source.kind in {"entity", "device"}:
+            elif source.kind in {"entity", "device", "battery"}:
                 self.entity_evidence[source.node_id] = ReportedCondition(
                     reason=observation.reason,
                     message=observation.message or "",
@@ -1634,7 +1662,9 @@ class Runtime:
         if source.kind != "device":
             return None
         candidates = {
-            item.entity_id: item for item in self.candidates.values() if item.entity_id
+            item.entity_id: item
+            for item in self.candidates.values()
+            if item.kind == "entity" and item.entity_id
         }
         members: list[dict[str, JSONValue]] = []
         for entity_id in source.availability_entities:
@@ -1696,7 +1726,8 @@ class Runtime:
             "entity_status": {
                 str(episode["anchor"]): self.entity_status(str(episode["anchor"]))
                 for episode in self.episodes.values()
-                if self.sources[str(episode["anchor"])].kind in {"entity", "device"}
+                if self.sources[str(episode["anchor"])].kind
+                in {"entity", "device", "battery"}
             },
             "resolved_history": self.history.view(dt_util.utcnow()),
             "operator_controls": [json_object(control) for control in self.controls],

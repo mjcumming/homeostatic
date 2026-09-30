@@ -34,6 +34,7 @@ def main() -> None:
         (
             "node",
             "--test",
+            "tests/frontend/battery.test.mjs",
             "tests/frontend/model.test.mjs",
             "tests/frontend/reporting.test.mjs",
             "tests/frontend/source-settings.test.mjs",

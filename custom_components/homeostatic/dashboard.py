@@ -21,13 +21,16 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import floor_registry as fr
+from homeassistant.helpers import label_registry as lr
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
     async_dispatcher_send,
 )
+from homeassistant.util import dt as dt_util
 from homeassistant.util.hass_dict import HassKey
 
 from . import reporting
+from .battery import observe as battery_observation
 from .config import Settings, normalize_rules, rule_data
 from .const import DEFAULTS, DOMAIN, NAME
 from .device_availability import device_availability
@@ -39,7 +42,7 @@ from .simple_notifications import available_people, generate_policy, simple_choi
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=44"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=46"
 PANEL_ELEMENT = "homeostatic-panel-v22"
 
 
@@ -148,12 +151,14 @@ class Dashboard:
         """Cache one consistent evaluated view for all active subscriptions."""
         self.value = snapshot(self.runtime)
         if self.runtime is not None and self.runtime.available:
-            if self._catalog is not self.runtime.inventory_static:
+            locations = {key: self.value[key] for key in ("areas", "devices", "floors")}
+            if (
+                self._catalog is not self.runtime.inventory_static
+                or self._locations != locations
+            ):
                 self._catalog = self.runtime.inventory_static
                 self.catalog_revision += 1
-                self._locations = {
-                    key: self.value[key] for key in ("areas", "devices", "floors")
-                }
+                self._locations = locations
                 catalog = cast(dict[str, JSONValue], self._catalog["catalog"])
                 self.catalog_sections = {
                     key: cast(list[JSONValue], self._catalog[key])
@@ -410,10 +415,24 @@ def websocket_source(
     entity_ids = (
         source.availability_entities
         if source.kind == "device"
+        else tuple(
+            dict.fromkeys(
+                entity_id
+                for entity_id in (
+                    source.battery_level_entity,
+                    source.battery_warning_entity,
+                    source.battery_charging_entity,
+                )
+                if entity_id
+            )
+        )
+        if source.kind == "battery"
         else ((source.entity_id,) if source.entity_id else ())
     )
     candidates = {
-        item.entity_id: item for item in runtime.candidates.values() if item.entity_id
+        item.entity_id: item
+        for item in runtime.candidates.values()
+        if item.kind == "entity" and item.entity_id
     }
     members = []
     for entity_id in entity_ids:
@@ -444,6 +463,11 @@ def websocket_source(
     connection.send_result(
         msg["id"],
         {
+            "battery_condition": json_object(
+                battery_observation(hass, source, dt_util.utcnow())
+            )
+            if source.kind == "battery"
+            else None,
             "device_availability": device_availability(
                 hass, source.attributes["device"][0]
             )
@@ -493,6 +517,18 @@ async def _async_configuration(
         {
             "revision": revision,
             "rules": rule_data(hass, settings),
+            "areas": [
+                {"id": area.id, "name": area.name}
+                for area in ar.async_get(hass).areas.values()
+            ],
+            "floors": [
+                {"id": floor.floor_id, "name": floor.name}
+                for floor in fr.async_get(hass).floors.values()
+            ],
+            "labels": [
+                {"id": label.label_id, "name": label.name}
+                for label in lr.async_get(hass).labels.values()
+            ],
             "settings": _editable_settings(settings),
             "notification_people": await available_people(hass),
             "notification_destinations": [

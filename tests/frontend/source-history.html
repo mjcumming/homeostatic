@@ -15,7 +15,7 @@ document.querySelector("#run").onclick=()=>{
   const root=card.shadowRoot;
   root.querySelector('[data-history="cleared"]').click();
   expect(card.tools.dialog.open,"History details must open");
-  expect(card.tools.body.textContent.includes("Last recorded evidence"),"Retained evidence must be available");
+  expect(card.tools.body.textContent.includes("Recorded finding"),"Retained evidence must be available");
   card.tools.close();
   root.querySelector('[data-history="absorbed"]').click();
   expect(card.tools.body.textContent.includes("Recovery was not established"),"Absorption must not claim recovery");

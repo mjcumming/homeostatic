@@ -85,7 +85,7 @@ A partial-unavailability finding does not prove that the remaining members are a
 
 **Ignore availability** creates an ordinary catalog exclusion using the entity's stable registry identity where available. It stages a draft, previews the existing catalog rules, and requires Save. It survives entity renaming and reload, applies to both individual and summary checks, and can be removed in What to monitor. It changes neither HA entity state nor another situation check. When exclusions change an open summary's evidence set, retire that episode as `removed` using the public engine API and evaluate the remaining expectation anew. Do not report recovery based on removal of evidence. Persist the adapter's excluded-member identities beside opaque engine persistence so reload preserves this distinction. Acknowledgment means awareness; temporary shelving means postponing attention; neither changes monitoring expectations.
 
-An entity without an HA device remains an independent candidate. A device source uses its stable registry id and introduces no causal edge to each member. Device issue cards lead with the affected entity and observed condition when one selected member identifies the problem; they omit the generic availability label. Device problem details lead with the HA device name, its integration type as a prominent heading when known, and the named entities needing review immediately below it. Working entities and reporting counts stay out of the problem brief and remain available in the collapsed selection. The device page is the primary action. Complete selected-entity counts remain available in the collapsed selection. The full selected list and monitoring choices start collapsed. Technical details explain the assessment rule without repeating the list. Device details list up to 50 current selected entity names and HA states, unavailable first, with the total and a route to all monitoring choices. This on-demand list is current evidence, not historical proof of the episode's cause.
+An entity without an HA device remains an independent candidate. A device source uses its stable registry id and introduces no causal edge to each member. Device issue cards lead with the affected entity and observed condition when one selected member identifies the problem; they omit the generic availability label. Device problem details lead with the HA device name, its integration type as a prominent heading when known, and the named entities needing review immediately below it. When the device and sole affected entity share a name, the header supplies that name and the brief says Selected entity. A compact device-availability status follows the selected-entity finding; its all-enabled-entity scope and health limitation remain in Technical details. Working entities and reporting counts stay out of the problem brief and remain available in the collapsed selection. The device page is the primary action. Acknowledge and Pause alerts precede optional monitoring choices. Complete selected-entity counts remain available in the collapsed selection. The full selected list and monitoring choices start collapsed. Technical details explain the assessment rule without repeating the list. Device details list up to 50 current selected entity names and HA states, unavailable first, with the total and a route to all monitoring choices. This on-demand list is current evidence, not historical proof of the episode's cause.
 
 The runtime indexes each eligible entity to its watched device source, captures
 every change in the device summary's status or reason in order, and reuses the
@@ -134,12 +134,24 @@ complete. Stale revisions return `stale_catalog`; unavailable monitoring returns
 
 One shared client fetches pages sequentially and installs the completed catalog
 atomically, merging the latest dynamic evidence. Partial pages never imply a
-complete search or empty healthy inventory. Loading and retry states replace the
-Sources tree until complete. New catalog revisions, unavailability, disconnect
-and final unsubscribe discard in-flight results. Revision changes coalesce into
-one replacement fetch; errors require explicit retry. Search still covers every
-source and the tree gains no visible pagination. Existing full and compact
-subscriptions retain their contracts. See ADR 0029.
+complete search or empty healthy inventory. The first Sources visit waits for a
+complete catalog. Once loaded, a new revision keeps the previous complete tree
+available with an updating notice while replacement pages arrive; the notice
+identifies results as potentially out of date and offers retry if loading fails.
+No partial new catalog is shown. Unavailability, disconnect and final unsubscribe
+discard in-flight results. Revision changes coalesce into one replacement fetch;
+errors require explicit retry. Once the replacement finishes, search again
+covers every source in the current revision; the tree has no visible pagination. Settings and
+Notifications render from the administrator configuration response without
+waiting for the full source catalog; monitoring policy area and floor names are
+supplied with that response. Existing full and compact subscriptions retain
+their contracts. See ADR 0029.
+
+An inventory signal starts rediscovery but advances the catalog revision only
+when source metadata, candidates, targets, enrollment history, or browsing
+locations actually change. Unchanged rediscovery keeps the loaded Sources tree
+and does not repeat the catalog download. Area, floor, and device browsing-name
+changes still advance the revision even if monitored sources are unchanged.
 
 Coverage and house source rows show monitoring status and evidence without displaying catalog rule ids. Rule ids remain available in administrator inventory and configuration previews for tracing enrollment decisions.
 
@@ -147,7 +159,7 @@ Coverage and house source rows show monitoring status and evidence without displ
 
 Accepted 2026-09-27 in [ADR 0017](adr/0017-one-sources-workspace.md). This section replaces the separate Explore, Monitoring, and per-source Settings navigation. The older page responsibilities below are retained as design history. This is a presentation change, not an enrollment or notification migration.
 
-The target navigation is **Overview, Issues, Sources, History, Notifications, Settings**. Sources combines discovery, current evidence, and source-specific monitoring choices in one workspace. A persistent source selection drives one detail panel with **Source**, **Settings**, and **History** views. Source summarizes identity and current evidence; Settings shows saved monitoring and its guarded editor; History shows retained events linked to the selected source. Switching views retains tree selection and any monitoring draft. Overview and Issues retain their existing responsibilities. The top-level Notifications page owns guided delivery choices and activation; Settings holds Timing and Problem grouping. This navigation updates the earlier five-page proposal under [ADR 0022](adr/0022-top-level-notifications-page.md).
+The target navigation is **Overview, Issues, Sources, Notifications, Settings, History**, with History at the far right in both the Homeostatic header and generated Home Assistant dashboard. Sources combines discovery, current evidence, and source-specific monitoring choices in one workspace. A persistent source selection drives one detail panel with **Source**, **Settings**, and **History** views. Source summarizes identity and current evidence; Settings shows saved monitoring and its guarded editor; History shows retained events linked to the selected source. Switching views retains tree selection and any monitoring draft. Overview and Issues retain their existing responsibilities. The top-level Notifications page owns guided delivery choices and activation; Settings holds Timing and Problem grouping. ADR 0022 established the six destinations and page ownership; this presentation order was set later.
 
 Sources provides **By integration**, **By Home Assistant location**, and, when its read-only tree is available, **By Topomation** views. Integration is the initial default; remember the owner's grouping thereafter. Home Assistant location uses HA floors/areas and device/entity associations. A grouping switch preserves the selected source by stable identity and reveals its new path. Unlocated sources, floorless areas, entities without devices, and sources without a known integration remain explicitly reachable. Integration entries and other non-location sources have a suitable Other sources fallback rather than a fabricated area or device. Registry membership never creates a causal edge.
 
@@ -205,7 +217,43 @@ Modal details and operator forms scroll within their dialog. Scrolling past eith
 
 Previously enrolled identities and their last match attributes are persisted independently of the opaque engine snapshot. A registered entity with missing state remains monitored with unknown evidence. An exact entity-id attach rule, a legacy explicit entity selection, or a function requirement retains its entity expectation even after registry deletion; an exact device-id attach rule retains a saved device choice without an availability check until eligible members exist. Explicitly required config entries likewise remain unknown when absent. A config entry that remains registered but is not loaded is unknown. When HA removes an automatically selected registry entity, the last eligible member of an automatically selected device summary, or an automatically selected config entry, Homeostatic removes that source, resolves any active episode as `removed`, and retains the resolution in history. The removal event does not identify user intent and never establishes recovery. Ordinary live metadata replaces retained metadata when a selected identity is present again. A state-derived device class is retained while state evidence is missing, unknown, restored or unavailable. State-only identities are retained while state evidence is absent, but do not promise continuity across entity-id changes.
 
-The first catalog checks config-entry state and entity availability. Disabled, temporarily not loaded, explicitly required but missing, startup, or restored sources are unknown evidence. An HA entity state of `unknown` has an unknown value but passes the passive availability check; it is not an issue or stale evidence by itself. A loaded config entry passes; setup retry warns for a configurable retry hold, then fails; setup/migration errors and failed unload fail. Pending reauthentication fails with `auth_required`. Confirmed deletion of an automatically selected registry source is a scope removal, not unknown evidence. An entity reporting `unavailable` warns. A valid state value does not prove physical freshness or the correctness of that value. Device freshness, Frigate liveness, command completion, battery/update catalogs, and external probes require separate producer contracts and real traces.
+The first catalog checks config-entry state and entity availability. Disabled, temporarily not loaded, explicitly required but missing, startup, or restored sources are unknown evidence. An HA entity state of `unknown` has an unknown value but passes the passive availability check; it is not an issue or stale evidence by itself. A loaded config entry passes; setup retry warns for a configurable retry hold, then fails; setup/migration errors and failed unload fail. Pending reauthentication fails with `auth_required`. Confirmed deletion of an automatically selected registry source is a scope removal, not unknown evidence. An entity reporting `unavailable` warns. A valid state value does not prove physical freshness or the correctness of that value. Device freshness, Frigate liveness, command completion, update catalogs, and external probes require separate producer contracts and real traces. The battery producer below has its own bounded contract.
+
+### Battery maintenance producer
+
+Homeostatic discovers battery percentage (`sensor` or `number` with battery device
+class), explicit low-battery (`binary_sensor` with battery device class), and
+charging (`binary_sensor` with battery-charging device class) from HA metadata.
+Charging alone is context, not a monitored battery. Battery candidates appear in
+Sources and remain unmonitored until a reviewed catalog rule selects their
+`battery` check. Rules select one check, `availability` or `battery`; an existing
+availability rule never enrolls battery monitoring. The battery candidate is an
+edgeless maintenance node, separate from HA availability and function readiness.
+
+One percentage and one explicit warning on the same HA device are offered as one
+reviewable battery candidate. When several percentage or warning entities belong
+to one device, each is offered separately; charging is associated automatically
+only when there is one battery candidate and one charging entity. An entity
+without an HA device remains its own candidate. The source uses its primary
+entity's registry identity where available. A changed source grouping retires
+the old monitoring identity as removed, never as physical recovery. The review
+shows all paired entity ids so an owner can leave a mistaken pairing unmonitored.
+
+A current percentage at or below **20%** or an explicit low warning is `warn` /
+`battery_low`; contradictory low and normal reports remain a warning with a
+conflict marker. A current, confirmed charging report for that battery is
+`pass` / `charging` even while a low report remains. A current percentage above
+20% and an explicit normal warning clear the low condition when all configured
+low signals are current and normal. Missing, unavailable, invalid, or restored
+low evidence is `unknown` unless another current signal reports low or charging
+is confirmed. Missing charging evidence cannot itself clear a low condition.
+If charging stops while low evidence remains, the warning can open again. Battery
+checks have zero raise and clear hold and no physical-freshness TTL; HA state
+updates do not establish a device-originated heartbeat. A charging clearance
+means this monitored condition ended, not that the battery was replaced or is
+fully charged. Current readings, entity ids and conflicts remain available as
+evidence; replacement type remains unknown without verified metadata. Existing
+reporting preferences and attention rules govern delivery.
 
 ## Time and lifecycle
 
@@ -255,7 +303,7 @@ Overview is a compact, global dashboard. It shows the total number of open episo
 
 Coverage leads with watched, evidence-gap, excluded and other-discovered counts. Its evidence-review preview renders at most 20 sources and directs the owner to search when more exist. It groups the current model by integration, Home Assistant device and capability; groups containing gaps open automatically while healthy groups remain collapsed. A registry device is only a Home Assistant grouping and is not presented as proof of physical hardware. Disabled, no-check, never-observed and stale evidence each receive specific guidance and any current function-readiness impact. Area references are secondary location detail and create no monitoring or dependency meaning. Technical attach/exclude provenance remains collapsed. Search evaluates the complete discovered inventory but renders at most the first 50 matches, so unselected candidates remain available without creating unbounded DOM work. Excluded and other-discovered sources are summarized outside the current model rather than listed by default. The Coverage view has no self-link and does not expose notification routes or operator-control JSON.
 
-History presents persisted resolved problems with twenty per page. Search matches the stored source name, identity and last findings; filtering distinguishes recovery, removal from monitoring and absorption. Details show stored evidence and observed resolution time, never current readiness. Absorbed entries link to an open or retained absorbing episode only when available. An absent history field is explicitly unavailable; an empty history states when collection began and its retention limits. No earlier history is reconstructed. The last-50 runtime enrollment log remains diagnostic data and is not displayed on History.
+History presents persisted ended problems with twenty per page. Search matches the stored source name, identity and last findings; filtering distinguishes clearing, removal from monitoring and absorption. The page uses one History heading and an Ended problems list. Details lead with the recorded finding and the rule that ended the episode. For a device availability finding, a clear means the selected entities later had current, non-unavailable HA states through the clearance period; the retained record does not identify the individual entities or the cause of their state changes. An HA availability change does not prove a physical repair. The last raw finding stays under a disclosure. Details show opening and observed ending times, never current readiness or a claimed physical recovery time. Absorbed entries link to an open or retained absorbing episode only when available. An absent history field is explicitly unavailable; an empty history states when collection began and its retention limits. No earlier history is reconstructed. The last-50 runtime enrollment log remains diagnostic data and is not displayed on History.
 
 Client disconnect/error replaces any current-status claim with an explicit unavailable/stale message. Reconnection waits for a fresh subscribed snapshot. An open detail view refreshes against updates, and removed/resolved selections are identified rather than left as current problems. Frontend content treats names, findings and reasons as text, including when creating links to native HA configuration. Cards share one subscription per HA connection while mounted and release it when the last card is removed. When embedded with navigation tabs hidden, a drill-down to another page offers a return button to the card's configured view; selecting an already-active HA dashboard tab is not required to reset the card.
 
@@ -289,7 +337,7 @@ Homeostatic publishes `homeostatic_episode` and `homeostatic_control` events for
 
 ## Recently resolved problems
 
-Sources History explains each related open or retained ended problem with its source name, recorded finding, outcome, opening time, and (for ended problems) observed resolution time and recorded duration. Entries sort newest first by opening or observed resolution time. It uses the shared recovery, monitoring-ended, and absorption labels; removal and absorption never imply recovery. Retained names and findings remain historical even when current source names or states change. Missing findings and unavailable history are explicit. The view states the retention limits and observation-time boundary and opens the existing problem or history details.
+Sources History explains each related open or retained ended problem with its source name, recorded finding, outcome, opening time, and (for ended problems) observed resolution time and recorded duration. Entries sort newest first by opening or observed resolution time. It uses the shared clearing, monitoring-ended, and absorption labels without repeating the clearing outcome in a second sentence; removal and absorption never imply recovery. Retained names and findings remain historical even when current source names or states change. Missing findings and unavailable history are explicit. The view states the retention limits and observation-time boundary and opens the existing problem or history details.
 
 The read-only `resolved_history` action and additive `inventory.resolved_history` field return `{started_at, retention, episodes}`. `retention` contains `max_episodes: 100` and `max_age_days: 30`. Entries are newest resolution first. The adapter keeps only the latest 100 terminal episodes whose resolution was observed less than 30 days ago; expiry is applied to queries immediately and to persistence at reconciliation. This is bounded terminal history, not a full transition, configuration, operator-action or delivery journal.
 
@@ -357,7 +405,7 @@ This section supersedes the earlier Sources layout and native-only timing editor
 - Source Settings shows monitoring choices immediately. Integration connection monitoring and device defaults are separate. Defaults apply to current and future devices, including devices belonging to subsequently added connections of that family. Device overrides and ordinary exclusions retain their precedence. Existing enrollment is unchanged until an administrator reviews and saves a change; no Eero-specific exception or automatic migration is introduced.
 - An integration-wide off choice precedes those narrower controls. It excludes current and future connection, device-summary, and separately monitored entity checks across the integration family, including exact device watches. Narrower choices remain saved and resume when the owner removes the off choice. Review shows the current affected sources before save ([ADR 0020](adr/0020-integration-monitoring-master-control.md)).
 - Catalog rules accept `integration_domain` alongside the existing stable instance matcher. Sources expose their associated integration domains. An overridable exclusion is permitted only for device defaults matched by `integration` or `integration_domain` plus `kind: device`. Exact device attachment can defeat that default; every ordinary exclusion still wins.
-- The main navigation is Overview, Issues, Sources, History, Notifications, and Settings ([ADR 0022](adr/0022-top-level-notifications-page.md)). Settings contains Timing and Problem grouping. Household function definitions remain supported in stored options and runtime queries, but have no dashboard Settings section until there is a useful guided workflow. All ten existing timing values are editable with units and plain explanations, including notification delay in Timing. The top-level Notifications page guides person destinations and activation, with policy time zone beside quiet hours. The Overview notification status opens Notifications. Saved consumer automations and arbitrary matching/routing rules, digests, function definitions, and unrelated options are preserved. The guided page does not offer automation selection or detailed routing and digest editing ([ADR 0021](adr/0021-defer-automation-notification-routing-ui.md)).
+- The main navigation is Overview, Issues, Sources, Notifications, Settings, and History, in that order. Settings contains Timing and Problem grouping. Household function definitions remain supported in stored options and runtime queries, but have no dashboard Settings section until there is a useful guided workflow. All ten existing timing values are editable with units and plain explanations, including notification delay in Timing. The top-level Notifications page guides person destinations and activation, with policy time zone beside quiet hours. The Overview notification status opens Notifications. Saved consumer automations and arbitrary matching/routing rules, digests, function definitions, and unrelated options are preserved. The guided page does not offer automation selection or detailed routing and digest editing ([ADR 0021](adr/0021-defer-automation-notification-routing-ui.md)).
 - Administrator-only `homeostatic/source` reads a discovered source without enrolling it. It returns current HA readings (up to 50, with complete availability counts), captured monitoring context when present, and the observation timestamp. Missing observations remain explicit; browsing cannot create checks, episodes, or delivery.
 - A previously selected notification automation remains saved. The guided page identifies it and links to native Homeostatic options to clear it before person delivery is saved. It does not offer a new automation selection.
 

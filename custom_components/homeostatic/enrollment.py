@@ -9,6 +9,7 @@ from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
+from .battery import candidates as battery_candidates
 from .catalog import Source
 from .config import Settings, resolve_entity, rule_data
 from .const import DOMAIN
@@ -23,7 +24,7 @@ def restore_enrollment(value: Any) -> dict[str, Attributes]:
     result = {}
     for node_id, metadata in value.items():
         if not isinstance(node_id, str) or not node_id.startswith(
-            ("entry:", "entity:registry:", "entity:entity_id:", "device:")
+            ("entry:", "entity:registry:", "entity:entity_id:", "device:", "battery:")
         ):
             raise ValueError("Invalid enrolled identity")
         result[node_id] = attributes(metadata)
@@ -180,6 +181,7 @@ def inventory(
             ),
             attributes=metadata,
         )
+    sources.update(battery_candidates(hass, sources))
     members = device_members(hass)
     device_ids = set(members)
     device_ids.update(
@@ -282,7 +284,7 @@ def evaluate(
     """Attach provenance and effective checks without mutating inventory."""
     result = {}
     for node_id, source in sources.items():
-        decision = decide(rules, source.attributes)
+        decision = decide(rules, source.attributes, source.check_id)
         result[node_id] = replace(
             source,
             watched=decision.watched

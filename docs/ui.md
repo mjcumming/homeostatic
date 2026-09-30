@@ -1147,6 +1147,8 @@ The owner subsequently deferred the automation routing editor. The guided Notifi
 
 The owner then moved Notifications out of Settings and into the main navigation. The six destinations are Overview, Issues, Sources, History, Notifications, and Settings. The existing recipient editor and guarded save flow remain on Notifications; Settings retains Timing and Problem grouping ([ADR 0022](adr/0022-top-level-notifications-page.md)).
 
+The owner subsequently placed History at the far right of the top bar. The current order is Overview, Issues, Sources, Notifications, Settings, History; the generated Home Assistant dashboard follows it.
+
 
 ### Local pilot verification, 2026-09-27
 
