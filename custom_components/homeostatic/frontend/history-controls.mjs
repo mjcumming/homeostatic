@@ -1,6 +1,21 @@
 import {escapeHtml as esc} from "./model.mjs?v=46";
 
 const date = (value) => value ? new Date(value).toLocaleString() : "Unknown";
+export function observedRange(start, end) {
+  const opened = new Date(start), resolved = new Date(end);
+  if (!Number.isFinite(opened.getTime()) || !Number.isFinite(resolved.getTime())) return "Time not recorded";
+  const day = value => value.toLocaleDateString(undefined, {year:"numeric", month:"short", day:"numeric"});
+  const time = value => value.toLocaleTimeString(undefined, {hour:"numeric", minute:"2-digit"});
+  const range = day(opened) === day(resolved)
+    ? `${day(opened)}, ${time(opened)}–${time(resolved)}`
+    : `${day(opened)}, ${time(opened)} – ${day(resolved)}, ${time(resolved)}`;
+  const minutes = Math.round((resolved - opened) / 60000);
+  if (minutes < 0) return range;
+  const duration = minutes === 0 ? "under 1 min"
+    : minutes < 60 ? `${minutes} min`
+      : `${Math.floor(minutes / 60)} hr${minutes % 60 ? ` ${minutes % 60} min` : ""}`;
+  return `${range} (${duration})`;
+}
 export const RESOLUTIONS = {
   cleared: ["Cleared", ""],
   removed: ["Monitoring ended", "This source left monitoring. Recovery was not established."],
@@ -67,9 +82,7 @@ export function historyAccount(item) {
       "This record does not identify the cause of the change."];
   }
   if (item.resolution === "cleared" && item.source?.kind === "device" && ["some_unavailable", "all_unavailable"].includes(finding?.reason)) {
-    return [finding.reason === "all_unavailable" ? "All selected entities were unavailable in Home Assistant." : "Some selected entities were unavailable in Home Assistant.",
-      "Later, the selected entities had current, non-unavailable Home Assistant states long enough for the check to clear.",
-      "This record does not identify which entities changed or why their availability changed."];
+    return [`Home Assistant reported an availability problem with ${historyName(item)}.`, "", ""];
   }
   if (item.resolution === "cleared" && finding?.reason === "unavailable" && item.source?.kind === "entity") {
     return ["Home Assistant reported this entity as unavailable.",
@@ -222,8 +235,7 @@ export class DashboardTools {
         const open = current.data.inventory.episodes.some((row) => row.episode_id === item.absorbed_into);
         const retained = history.episodes.some((row) => row.episode.episode_id === item.absorbed_into);
         const outcome = item.resolution === "cleared" ? "Issue cleared" : label;
-        const endedAt = item.resolution === "cleared" ? "Issue cleared at" : item.resolution === "removed" ? "Monitoring ended at" : "Joined another problem at";
-        this.body.innerHTML = `<section><h3>${esc(outcome)}</h3><p>${esc(reported)}</p><p>${esc(ending)}</p>${limit ? `<p class="small">${esc(limit)}</p>` : ""}<dl class="history-times"><div><dt>Issue first observed</dt><dd>${esc(date(item.episode.opened_at))}</dd></div><div><dt>${esc(endedAt)}</dt><dd>${esc(date(item.resolved_at))}</dd></div></dl></section><details><summary>Original finding</summary>${(item.episode.reasons ?? []).map((reason) => `<p>${esc(reason.message || reason.reason)}</p>`).join("") || "<p>No finding was retained.</p>"}</details>${item.absorbed_into ? open || retained ? `<button type="button" class="button" ${open ? "data-open-episode" : "data-history"}="${esc(item.absorbed_into)}">View related problem</button>` : '<p class="sub">The related problem is no longer available in open or retained history.</p>' : ""}`;
+        this.body.innerHTML = `<section><h3>${esc(outcome)}</h3><p>${esc(reported)}</p>${ending ? `<p>${esc(ending)}</p>` : ""}${limit ? `<p class="small">${esc(limit)}</p>` : ""}<dl class="history-times"><div><dt>Observed</dt><dd>${esc(observedRange(item.episode.opened_at, item.resolved_at))}</dd></div></dl></section>${item.absorbed_into ? open || retained ? `<button type="button" class="button" ${open ? "data-open-episode" : "data-history"}="${esc(item.absorbed_into)}">View related problem</button>` : '<p class="sub">The related problem is no longer available in open or retained history.</p>' : ""}`;
       }
     }
     if (!this.dialog.open) this.dialog.showModal();

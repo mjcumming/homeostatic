@@ -97,7 +97,7 @@ async def exercise(config: Path, port: int) -> None:
         assert runtime.query("readiness", {})["answer"] == "ready"
         async with ClientSession() as client:
             for asset in (
-                "homeostatic.js?v=54",
+                "homeostatic.js?v=55",
                 "sources-workspace.mjs?v=53",
                 "source-settings.mjs?v=53",
                 "model.mjs?v=22",

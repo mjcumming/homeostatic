@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-09-30
+
+### Changed
+
+- Simplify cleared device History details to an availability summary and compact
+  observed time range. Remove the redundant original finding dropdown.
+
 ## [1.1.2] - 2026-09-30
 
 ### Changed

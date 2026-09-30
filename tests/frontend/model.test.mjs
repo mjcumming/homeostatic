@@ -5,7 +5,7 @@ import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
 import {monitoringPolicyRules} from "./monitoring-policies-fixture.mjs";
 import {groupPolicyScope, isGroupPolicy, monitoringPolicies} from "../../custom_components/homeostatic/frontend/monitoring-policies.mjs";
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
-import {historyAccount, historyName, historyPage, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
+import {historyAccount, historyName, historyPage, observedRange, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
@@ -1531,12 +1531,19 @@ test("Sources explains default monitoring without opening the tree",()=>{
 });
 
 test("cleared device history explains HA evidence without claiming a physical repair", () => {
-  const item={resolution:"cleared",source:{kind:"device"},episode:{form:"root",reasons:[{check_id:"availability",reason:"some_unavailable",message:"Family Room Frigate: some unavailable"}]}};
+  const item={resolution:"cleared",source:{kind:"device",name:"Family Room Frigate"},episode:{form:"root",reasons:[{check_id:"availability",reason:"some_unavailable",message:"Family Room Frigate: some unavailable"}]}};
   const [reported,ending,limit]=historyAccount(item);
-  assert.match(reported,/Some selected entities were unavailable in Home Assistant/);
-  assert.match(ending,/current, non-unavailable Home Assistant states long enough/);
-  assert.match(limit,/does not identify which entities changed or why/);
+  assert.equal(reported,"Home Assistant reported an availability problem with Family Room Frigate.");
+  assert.equal(ending,"");
+  assert.equal(limit,"");
   assert.doesNotMatch([reported,ending,limit].join(" "),/physical repair|confirmed recovery/);
+});
+
+test("history observation range shows the elapsed time without seconds", () => {
+  const observed=observedRange("2026-09-30T19:39:49Z","2026-09-30T19:48:53Z");
+  assert.match(observed,/9 min/);
+  assert.doesNotMatch(observed,/39:49|48:53/);
+  assert.equal(observedRange("", ""),"Time not recorded");
 });
 
 test("selected device access can be available beside an unavailable monitored entity",()=>{
