@@ -18,7 +18,9 @@ def main() -> None:
     """Package tracked integration assets, documentation and build identity."""
     root = Path(__file__).resolve().parents[1]
     if git(root, "status", "--porcelain").strip():
-        raise SystemExit("Commit or isolate pending changes before building the pilot.")
+        raise SystemExit(
+            "Commit or isolate pending changes before building the release."
+        )
     commit = git(root, "rev-parse", "HEAD").decode().strip()
     manifest = json.loads(
         git(root, "show", "HEAD:custom_components/homeostatic/manifest.json")
@@ -47,7 +49,7 @@ def main() -> None:
     )
     contents = {name: git(root, "show", f"HEAD:{name}") for name in files}
     contents["INSTALL.md"] = (
-        b"# Homeostatic installation\n\nRead [the installation guide](docs/pilot.md) before installing.\n"
+        b"# Homeostatic installation\n\nRead [the installation guide](docs/install.md) before installing.\n"
     )
     contents["BUILD_INFO.json"] = (
         json.dumps(

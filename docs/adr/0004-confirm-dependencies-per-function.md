@@ -6,7 +6,7 @@
 
 ## Context
 
-An automation can reference conditions, optional actions, notifications, and runtime templates. A reference does not prove that a household function fails when that entity fails. A false dependency edge can hide an independent failure and inflate impact. The owner settled per-function review, without a global suggestion queue, in `docs/ui.md` section 16.
+An automation can reference conditions, optional actions, notifications, and runtime templates. A reference does not prove that a household function fails when that entity fails. A false dependency edge can hide an independent failure and inflate impact. The owner settled per-function review, without a global suggestion queue.
 
 ## Decision
 

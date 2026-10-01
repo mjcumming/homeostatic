@@ -18,7 +18,7 @@ Offer integration and location groupings of the same source identities. The inte
 
 Retain Overview, Issues, History, and installation-wide Settings. Settings owns alert/delivery options, functions, situations, and general configuration. Links concerning one source open that source in Sources. Monitoring edits retain the existing catalog, administrator boundary, exact preview, revision check, save/reload, and failure behavior.
 
-The target contract and acceptance criteria are in [the specification](../spec.md#sources-workspace-target). The owner walkthrough is in [UI section 30](../ui.md#30-one-sources-workspace--2026-09-27).
+The target contract and acceptance criteria are in [the specification](../spec.md#sources-workspace-target).
 
 ## Alternatives
 

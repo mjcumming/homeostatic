@@ -49,13 +49,13 @@ jobs:
           if-no-files-found: ignore
       - name: Build release archive
         working-directory: homeostatic
-        run: uv run python script/build_pilot.py
+        run: uv run python script/build_release.py
       - name: Verify clean package installation
         working-directory: homeostatic
         run: |
-          uv venv --python 3.14 "$RUNNER_TEMP/pilot-venv"
-          uv pip install --python "$RUNNER_TEMP/pilot-venv/bin/python" homeassistant==2026.9.3
-          "$RUNNER_TEMP/pilot-venv/bin/python" script/smoke_pilot.py dist/homeostatic-*.zip
+          uv venv --python 3.14 "$RUNNER_TEMP/release-venv"
+          uv pip install --python "$RUNNER_TEMP/release-venv/bin/python" homeassistant==2026.9.3
+          "$RUNNER_TEMP/release-venv/bin/python" script/smoke_release.py dist/homeostatic-*.zip
       - name: Upload release archive
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -74,3 +74,13 @@ jobs:
           persist-credentials: false
       - name: Validate integration
         uses: home-assistant/actions/hassfest@58bff37c8947f690ace498be413a9b78d6f30f93
+  hacs:
+    name: HACS validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Validate HACS requirements
+        uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa # main
+        with:
+          category: integration

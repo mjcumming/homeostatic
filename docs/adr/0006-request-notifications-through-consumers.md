@@ -1,12 +1,12 @@
 # ADR 0006: Request notifications through consumer automations
 
-**Status:** Accepted. [ADR 0015](0015-deliver-notifications-to-people.md) (proposed) would partially supersede it.
+**Status:** Accepted; partially superseded by [ADR 0015](0015-deliver-notifications-to-people.md).
 **Date:** 2026-09-26
 **Decider:** Michael Cumming
 
 ## Context
 
-HealthTree owns episode attention and timing. Homeostatic must expose actionable messages without becoming tied to Companion app, TTS, or another transport. The owner settled the content/timing versus transport boundary in `docs/ui.md` section 16.
+HealthTree owns episode attention and timing. Homeostatic must expose actionable messages without becoming tied to Companion app, TTS, or another transport. The owner settled the content/timing versus transport boundary.
 
 ## Decision
 

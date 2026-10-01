@@ -8,7 +8,7 @@
 
 ## Context
 
-The owner needs to browse a recognizable house without constructing a second location registry first. Home Assistant already has floors, areas, devices, and entities, but its device registry can include bridges, services, and virtual groupings. Location or device membership does not establish that one capability depends on another. The owner agreed to HA-first browsing with optional later TopoMation enrichment in `docs/ui.md` section 17.
+The owner needs to browse a recognizable house without constructing a second location registry first. Home Assistant already has floors, areas, devices, and entities, but its device registry can include bridges, services, and virtual groupings. Location or device membership does not establish that one capability depends on another. The owner agreed to HA-first browsing with optional later TopoMation enrichment.
 
 ## Decision
 

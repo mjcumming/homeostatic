@@ -6,7 +6,7 @@
 
 ## Context
 
-Home Assistant discovers many entries and entities, including new ones after setup. A fixed entity list would miss arrivals; separate per-entity overrides would create a second selection system. The owner settled a single attribute-matching rule model and passive default in the first-release decision worksheet (`docs/ui.md`, section 16).
+Home Assistant discovers many entries and entities, including new ones after setup. A fixed entity list would miss arrivals; separate per-entity overrides would create a second selection system. The owner settled a single attribute-matching rule model and passive default in the first-release decision.
 
 ## Decision
 
