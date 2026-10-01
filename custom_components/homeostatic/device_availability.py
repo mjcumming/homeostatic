@@ -16,6 +16,7 @@ def summarize_device_availability(
     reports: Mapping[str, str] | None = None,
     attached_entries: frozenset[str] = frozenset(),
     loaded_entries: frozenset[str] = frozenset(),
+    connectivity_entities: frozenset[str] = frozenset(),
 ) -> dict[str, JSONValue]:
     """Apply discussion 1400 to a current snapshot, without retaining reports.
 
@@ -43,6 +44,18 @@ def summarize_device_availability(
             unavailable += 1
         else:
             available += 1
+    disconnected = sorted(
+        entity_id
+        for entity_id in connectivity_entities & states.keys()
+        if (state := states[entity_id]) is not None
+        and not state.attributes.get("restored")
+        and state.state == "off"
+    )
+    connectivity_values: list[JSONValue] = [
+        entity_id for entity_id in sorted(connectivity_entities & states.keys())
+    ]
+    disconnected_values: list[JSONValue] = [entity_id for entity_id in disconnected]
+    available -= len(disconnected)
     basis = "integration_reports" if current_reports else "entities"
     if disabled:
         status, reason, basis = "disabled", "disabled", "device_registry"
@@ -50,6 +63,8 @@ def summarize_device_availability(
         values = set(current_reports.values())
         status = "partially_available" if len(values) > 1 else next(iter(values))
         reason = "integration_reports"
+    elif disconnected:
+        status, reason = "unavailable", "connectivity_disconnected"
     elif available:
         status, reason = "available", "entity_available"
     elif states and unavailable == len(states):
@@ -69,8 +84,11 @@ def summarize_device_availability(
         "reason": reason,
         "integration_statuses": dict(current_reports),
         "entity_ids": [entity_id for entity_id in sorted(states)],
+        "connectivity_entity_ids": connectivity_values,
+        "disconnected_entity_ids": disconnected_values,
         "entity_count": len(states),
         "available_count": available,
+        "disconnected_count": len(disconnected),
         "unavailable_count": unavailable,
         "missing_count": missing,
         "restored_count": restored,
@@ -85,7 +103,19 @@ def device_availability(hass: HomeAssistant, device_id: str) -> dict[str, JSONVa
     entities = er.async_entries_for_device(
         er.async_get(hass), device_id, include_disabled_entities=False
     )
+    states = {
+        entity.entity_id: hass.states.get(entity.entity_id) for entity in entities
+    }
+    connectivity_entities: set[str] = set()
+    for entity in entities:
+        state = states[entity.entity_id]
+        device_class = entity.device_class or entity.original_device_class
+        if device_class is None and state is not None:
+            device_class = state.attributes.get("device_class")
+        if entity.domain == "binary_sensor" and device_class == "connectivity":
+            connectivity_entities.add(entity.entity_id)
     return summarize_device_availability(
-        {entity.entity_id: hass.states.get(entity.entity_id) for entity in entities},
+        states,
         disabled=device.disabled_by is not None,
+        connectivity_entities=frozenset(connectivity_entities),
     )

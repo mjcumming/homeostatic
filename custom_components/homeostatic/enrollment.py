@@ -247,6 +247,22 @@ def inventory(
             node_id=node_id,
             kind="device",
             availability_entities=members.get(device_id, ()),
+            connectivity_entities=tuple(
+                entity_id
+                for entity_id in members.get(device_id, ())
+                if (registered := registry.async_get(entity_id)) is not None
+                and registered.domain == "binary_sensor"
+                and (
+                    registered.device_class
+                    or registered.original_device_class
+                    or (
+                        state.attributes.get("device_class")
+                        if (state := hass.states.get(entity_id)) is not None
+                        else None
+                    )
+                )
+                == "connectivity"
+            ),
             name=(device.name_by_user or device.name or device_id)
             if device
             else device_id,
@@ -317,6 +333,11 @@ def evaluate(
         result[node_id] = replace(
             source,
             availability_entities=selected,
+            connectivity_entities=tuple(
+                entity_id
+                for entity_id in source.connectivity_entities
+                if entity_id in selected
+            ),
             ignored_availability=tuple(sorted(member.node_id for member in excluded)),
             watched=source.watched and not empty_by_choice,
             excluded_by=tuple(

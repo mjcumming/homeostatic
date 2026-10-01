@@ -99,13 +99,14 @@
     }
     let savedAlerts={notifications:false,consumer:null};
     let deviceMemberName="Front Porch Review Status";
+    let connectivityCase=false;
     const hass={connection,localize(key){return key==="component.matter.title"?"Matter":key==="component.nuheat.title"?"NuHeat":key==="component.frigate.title"?"Frigate":key==="component.denonavr.title"?"Denon AVR":null;},user:{id:"demo",is_admin:true},async callWS({node_id,type,notifications,consumer}){
       if(type==="homeostatic/configuration")return{revision:1,rules:[],alerts:{...savedAlerts,consumer_state:savedAlerts.consumer?"on":null,policy:{timezone:"America/Chicago",recipients:{owner:{channels:["event"]}},digests:{},rules:[{loudness:"notify"}]}},consumers:[{entity_id:"automation.homeostatic_alerts",name:"Homeostatic alerts",state:"on"}]};
       if(type==="homeostatic/preview_alerts")return{preview_token:"demo-preview",notifications,consumer,activating:notifications&&!savedAlerts.notifications,open_problems:data().inventory.episodes.length,requests_now:notifications?1:0,next_deadline:null};
       if(type==="homeostatic/save_alerts"){savedAlerts={notifications,consumer};return{saved:true};}
        const current=data(),source=current.inventory?.nodes.find(item=>item.node_id===node_id);
        if(!source)throw{message:"This capability is no longer monitored"};
-       if(source.kind==="device")return{source,device_availability:{status:"available",basis:"entities",entity_ids:["sensor.porch_status","sensor.porch_temperature"]},entity_status:current.inventory.entity_status[node_id],device_evidence:{total:2,reporting_count:1,members:[{node_id:"entity:porch_status",name:deviceMemberName,state:"unknown",restored:true},{node_id:"entity:porch_temperature",name:"Front Porch Temperature",state:"72",restored:false}]},explanation:{findings:[],nodes:[]},readiness:current.readiness,impact:{nodes:[]}};
+       if(source.kind==="device")return{source,device_availability:connectivityCase?{status:"unavailable",basis:"entities",reason:"connectivity_disconnected",entity_ids:["binary_sensor.porch_connectivity","binary_sensor.porch_motion"],connectivity_entity_ids:["binary_sensor.porch_connectivity"]}:{status:"available",basis:"entities",entity_ids:["sensor.porch_status","sensor.porch_temperature"]},entity_status:current.inventory.entity_status[node_id],device_evidence:connectivityCase?{total:2,reporting_count:2,members:[{node_id:"entity:porch_connectivity",name:"Front Porch Connectivity",state:"off",restored:false,connectivity:true},{node_id:"entity:porch_motion",name:"Front Porch Motion",state:"unavailable",restored:false,connectivity:false}]}:{total:2,reporting_count:1,members:[{node_id:"entity:porch_status",name:deviceMemberName,state:"unknown",restored:true},{node_id:"entity:porch_temperature",name:"Front Porch Temperature",state:"72",restored:false}]},explanation:{findings:[],nodes:[]},readiness:current.readiness,impact:{nodes:[]}};
       if(current.inventory.entity_status?.[node_id])return{source,entity_status:current.inventory.entity_status[node_id],...current.inventory.entity_status[node_id],impact:{nodes:[]},updated_at:current.updated_at};
       return{source,integration_evidence:current.inventory.integration_evidence[node_id],readiness:current.readiness,updated_at:current.updated_at,
         explanation:{findings:current.inventory.episodes[0]?.reasons??[],nodes:source.kind==="function"?current.readiness.nodes:[]},
@@ -370,16 +371,16 @@
       expect(!card.main.querySelector(".issue-row").innerText.includes("Monitored entity availability"),"Device card omits the generic label");
       change();card.openDetail({episodeId:"device-episode"});await card.loadDetail();
       expect(card.shadowRoot.querySelector("#detail-title").textContent==="Front Porch","Device name leads the detail");
-      expect(body.querySelector(".device-availability").textContent.includes("Device availability: Available"),"Device availability is separate from the selected restored entity");
-      expect(body.querySelector(".problem-brief .device-availability"),"Device availability follows the affected entity in a compact row");
+      expect(body.querySelector('[data-disclosure="assessment"]').textContent.includes("Why does Home Assistant say Available?"),"Conflicting status has a plain-language explanation");
+      expect(!body.querySelector(".problem-brief .device-availability"),"Conflicting status does not crowd the main finding");
       expect(!body.innerText.includes("Availability does not establish overall device health"),"Repeated caveat stays out of the problem brief");
-      const integrationHeading=body.querySelector(".problem-integration");
-      expect(integrationHeading.textContent==="Integration Matter","Known integration has a prominent heading under the device name");
-      expect(parseFloat(getComputedStyle(integrationHeading).fontSize)>=20,"Integration name is easy to read");
-      expect(integrationHeading.nextElementSibling.textContent.includes("Front Porch Review Status"),"Affected entity immediately follows integration");
+      const integrationLabel=body.querySelector(".problem-origin");
+      expect(integrationLabel.textContent==="Matter","Integration appears once as quiet context");
+      expect(parseFloat(getComputedStyle(integrationLabel).fontSize)<=13,"Integration does not compete with the finding");
+      expect(integrationLabel.nextElementSibling.textContent.includes("Review Status current state unknown"),"Affected entity immediately follows integration without repeated device name");
       expect(!body.querySelector(".problem-brief").innerText.includes("Front Porch Temperature"),"Working entities stay out of the problem brief");
       expect(body.querySelector('[data-disclosure="selected-readings"]').textContent.includes("Monitoring choices (2 selected entities)"),"Complete selected count stays in the disclosure");
-      expect(body.querySelector(".problem-brief").innerText.includes("Front Porch Review Status · restored; current value unknown in Home Assistant"),"Entity needing review is named with its state");
+      expect(body.querySelector(".problem-brief").innerText.includes("Review Status current state unknown"),"Entity needing review is named once with its state");
       expect(!body.querySelector(".problem-brief").innerText.includes("Reporting in Home Assistant:"),"Device brief omits the redundant count");
       expect(!body.querySelector(".problem-brief").innerText.includes("Device availability isn't confirmed"),"Conclusion does not crowd out readings");
       expect(body.querySelector('.next-action a.primary[href="/config/devices/device/porch"]'),"Device page is the primary action");
@@ -387,14 +388,23 @@
       expect(!body.querySelector('[data-disclosure="selected-readings"]').open&&!body.querySelector('[data-disclosure="technical"]').open,"Other readings and technical details start collapsed");
       deviceMemberName="Front Porch";
       await card.loadDetail();
-      expect(body.querySelector(".problem-brief").innerText.includes("Selected entity · restored; current value unknown"),"Matching device and entity names appear once");
+      expect(body.querySelector(".problem-brief").innerText.includes("Selected entity current state unknown"),"Matching device and entity names appear once");
       deviceMemberName="Front Porch Review Status";
+      connectivityCase=true;
+      await card.loadDetail();
+      expect(body.querySelector(".problem-status").textContent==="Device unavailable","Disconnected connectivity sensor leads the device card");
+      expect(body.querySelector(".problem-brief").innerText.includes("Connectivity reports disconnected."),"Connection evidence is explicit");
+      expect(body.querySelector(".problem-brief").innerText.includes("Motion · unavailable in Home Assistant"),"Other affected entity is named without the device prefix");
+      expect(!body.querySelector('[data-disclosure="assessment"]'),"No conflicting available label is shown for disconnected device");
+      expect(!body.querySelector('[data-disclosure="selected-readings"]').open&&!body.querySelector('[data-disclosure="technical"]').open,"Monitoring and technical details remain collapsed");
+      expect(!body.querySelector('[data-disclosure="technical"]').textContent.includes("Assessment rule"),"Technical details omit the standing rule essay");
+      connectivityCase=false;
     }
     document.querySelector("#device-check").addEventListener("click",async()=>{
       const feedback=document.querySelector("#feedback");
       try {
         await checkDeviceProblem((condition,message)=>{if(!condition)throw new Error(message);});
-        feedback.textContent="PASS: prominent integration, affected entity first, working entities collapsed";
+        feedback.textContent="PASS: disconnected device leads, affected entity follows, optional details collapsed";
       } catch(error) {feedback.textContent="FAIL: "+error.message;}
     });
     document.querySelector("#problem-check").addEventListener("click",async()=>{

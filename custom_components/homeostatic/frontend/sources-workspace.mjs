@@ -1,11 +1,11 @@
 import {sourceReporting} from "./reporting.mjs?v=46";
 import {integrationSettings} from "./source-settings.mjs?v=53";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=51";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=52";
 import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=46";
 import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=46";
-import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=46";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=47";
 
-import {deviceAvailability} from "./device-availability.mjs?v=46";
+import {deviceAvailability} from "./device-availability.mjs?v=47";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -265,10 +265,11 @@ function sourceReport(card,node,episodes) {
   }
   if(source.kind==="device"){
     const selected=evidence.total??members.length;
-    const headline=source.disabled?"Disabled in Home Assistant":!source.watched?"Device availability monitoring is off":!selected?"No entities selected for this check":badCount?`${badCount} of ${selected} selected ${selected===1?"entity is":"entities are"} unavailable`:unknownCount?`${unknownCount} of ${selected} selected ${selected===1?"entity needs":"entities need"} a current state`:linked.length?"Confirming recovery":"Selected entities available";
-    const review=members.filter(item=>item.state==="unavailable"||item.state==="missing"||item.restored);
+    const disconnected=members.filter(item=>item.connectivity&&item.state==="off"&&!item.restored);
+    const headline=source.disabled?"Disabled in Home Assistant":!source.watched?"Device availability monitoring is off":!selected?"No entities selected for this check":disconnected.length?"Connection reports disconnected":badCount?`${badCount} of ${selected} selected ${selected===1?"entity is":"entities are"} unavailable`:unknownCount?`${unknownCount} of ${selected} selected ${selected===1?"entity needs":"entities need"} a current state`:linked.length?"Confirming recovery":"Selected entities available";
+    const review=members.filter(item=>item.state==="unavailable"||item.state==="missing"||item.restored||(item.connectivity&&item.state==="off"));
     const other=members.filter(item=>!review.includes(item));
-    const rows=items=>`<table class="source-readings"><tbody>${items.map(item=>`<tr><td><button type="button" class="link" data-source-link="${esc(item.node_id)}">${esc(item.name)}</button></td><td>${esc(item.restored?"Restored state":item.state)}</td></tr>`).join("")}</tbody></table>`;
+    const rows=items=>`<table class="source-readings"><tbody>${items.map(item=>`<tr><td><button type="button" class="link" data-source-link="${esc(item.node_id)}">${esc(item.name)}</button></td><td>${esc(item.restored?"Restored state":item.connectivity&&item.state==="off"?"Disconnected":item.state)}</td></tr>`).join("")}</tbody></table>`;
     const href=source.attributes?.device?.[0]?`/config/devices/device/${encodeURIComponent(source.attributes.device[0])}`:null;
     const actions=`<div class="source-actions"><button type="button" class="link" data-sources-view="settings">Change monitored entities</button>${href?`<a class="link" href="${esc(href)}">Open device in Home Assistant</a>`:''}</div>`;
     const list=review.length?`<section class="source-section"><h3>Entities needing review</h3>${rows(review)}</section>`:"";

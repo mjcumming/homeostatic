@@ -72,6 +72,10 @@ const historyRows = (rows) => rows.map((item) => `<button type="button" class="r
 
 export function historyAccount(item) {
   const finding = item.episode.reasons?.find((reason) => reason.check_id !== null) ?? item.episode.reasons?.[0];
+  if (item.resolution === "removed" && finding?.reason === "connectivity_disconnected") {
+    return ["A selected connectivity sensor reported the device disconnected.",
+      "Monitoring ended without an observed reconnection.", ""];
+  }
   if (item.resolution === "removed" && ["some_unavailable", "all_unavailable"].includes(finding?.reason)) {
     return [finding.reason === "all_unavailable" ? "Home Assistant reported every monitored entity on this device as unavailable." : "Home Assistant reported some monitored entities on this device as unavailable.",
       "Monitoring ended without an observed recovery.", ""];
@@ -80,6 +84,11 @@ export function historyAccount(item) {
     return ["Several related sources had a shared problem.",
       "Fewer sources met the group rule, so this grouped problem ended. An individual problem may still be open.",
       "This record does not identify the cause of the change."];
+  }
+  if (item.resolution === "cleared" && finding?.reason === "connectivity_disconnected" && item.source?.kind === "device") {
+    return ["A selected connectivity sensor reported the device disconnected.",
+      "It later stopped reporting disconnection long enough for the check to clear.",
+      "This record does not establish the physical cause or repair."];
   }
   if (item.resolution === "cleared" && item.source?.kind === "device" && ["some_unavailable", "all_unavailable"].includes(finding?.reason)) {
     return [`Home Assistant reported an availability problem with ${historyName(item)}.`, "", ""];

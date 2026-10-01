@@ -72,6 +72,9 @@ export function deviceProblem(source, status, openProblem = true) {
   if (source?.kind !== "device") return null;
   const reason = source.disabled ? "disabled" : status?.current?.reason ?? "source_missing";
   const definitions = {
+    connectivity_disconnected:["Device unavailable",
+      "A selected connectivity sensor reports this device disconnected.",
+      "Check the device connection in Home Assistant.","uncertain","Connection reported disconnected"],
     all_unavailable:["All monitored entities unavailable",
       "Home Assistant reports every entity selected for this availability check as unavailable. Monitoring expects them to be available; this does not establish whether the physical device has failed.",
       "Review the listed entities. Check their connection if this is unexpected, or ignore availability checks that are not needed.","uncertain","Expected availability missing"],

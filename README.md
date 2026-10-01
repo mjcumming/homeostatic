@@ -57,9 +57,6 @@ Equipment faults and household conditions often end up scattered across entity s
 
 In this fictional home, Home Assistant reports that the Zigbee connection could not start. Homeostatic groups the unavailable hall and kitchen entities under that connection and shows that hall motion lighting and the kitchen leak alert are unavailable. The earlier, unrelated availability episodes in History cleared after Home Assistant reported those entities available again. These images come from the [repeatable demo fixture](docs/testing/readme-demo.md), rendered with Homeostatic's production frontend.
 
-<details>
-<summary>Open issue, Sources, History, and Notifications screenshots</summary>
-
 ### One issue and its impact
 
 <img src="docs/images/issue.png" alt="Zigbee issue detail with connection next step, affected functions, and notification request status" width="720"/>
@@ -68,15 +65,13 @@ In this fictional home, Home Assistant reports that the Zigbee connection could 
 
 <img src="docs/images/sources.png" alt="Sources tree with monitored Zigbee devices and the failed connection" width="720"/>
 
-### Resolved history
-
-<img src="docs/images/history.png" alt="History with three fictional availability problems recorded as recovered" width="720"/>
-
 ### Reporting choices
 
 <img src="docs/images/notifications.png" alt="Notifications page with Alex's fictional phone and reporting schedules" width="600"/>
 
-</details>
+### Resolved history
+
+<img src="docs/images/history.png" alt="History with three fictional availability problems recorded as recovered" width="720"/>
 
 ## How it works
 
@@ -102,14 +97,14 @@ There is a limit to what Homeostatic can know. If Home Assistant reports a senso
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with type **Integration**.
-3. Find **Homeostatic** and select version **1.1.4**. If you previously selected **main** or enabled beta versions, choose the 1.1.4 release explicitly.
+3. Find **Homeostatic** and select version **1.1.5**. If you previously selected **main** or enabled beta versions, choose the 1.1.5 release explicitly.
 4. Restart Home Assistant.
 
 [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mjcumming&repository=homeostatic&category=integration)
 
 ### Manual
 
-1. Download `homeostatic-1.1.4.zip` and its checksum file from the [1.1.4 GitHub release](https://github.com/mjcumming/homeostatic/releases/tag/v1.1.4).
+1. Download `homeostatic-1.1.5.zip` and its checksum file from the [1.1.5 GitHub release](https://github.com/mjcumming/homeostatic/releases/tag/v1.1.5).
 2. Copy its `custom_components/homeostatic` folder into your Home Assistant configuration directory, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy in full.
 3. Restart Home Assistant.
 
@@ -196,7 +191,7 @@ A **Homeostatic** dashboard strategy is available in Home Assistant's new-dashbo
 
 ## Project status
 
-**Version 1.1.4** makes TopoMation's optional house tree easier to discover in Sources and explains how Homeostatic brings equipment issues, household situations, and reporting together. It retains the 1.1.3 History improvements, opt-in battery maintenance, availability monitoring, functions, alerts, reporting preferences, phone delivery with acknowledgment, and operator controls. Homeostatic still reports Home Assistant evidence rather than claiming physical-device health; the limits below still apply.
+**Version 1.1.5** recognizes current connectivity sensor disconnection reports in device availability and selected monitoring, puts the finding and affected entities first in device problem details, and shows all five demo screenshots directly. It retains 1.1.4's TopoMation tree promotion, plus History, battery maintenance, functions, alerts, reporting preferences, and operator controls. Homeostatic reports Home Assistant evidence rather than claiming physical-device health; the limits below still apply.
 
 How it is built: behavior is written down in a [specification](docs/spec.md) before it changes, every behavior change ships with an executable scenario, and the integration tests run against an isolated Home Assistant instance with 95 percent statement and branch coverage floors. Every product decision that would be easy to reverse by mistake is an [architecture decision record](docs/adr/README.md), thirty-some so far. Notifications are never sent through a live install during tests.
 

@@ -319,6 +319,14 @@ class Runtime:
         if sources and (
             any(source.kind == "situation" for source in sources)
             or any(source.kind == "battery" for source in sources)
+            or any(
+                source.kind == "device"
+                and entity_id in source.connectivity_entities
+                and old is not None
+                and new is not None
+                and old.state != new.state
+                for source in sources
+            )
             or entity_state_signature(event.data["old_state"])
             != entity_state_signature(event.data["new_state"])
         ):
@@ -1677,10 +1685,15 @@ class Runtime:
                     "name": member.name,
                     "state": state.state if state is not None else "missing",
                     "restored": bool(state and state.attributes.get("restored")),
+                    "connectivity": entity_id in source.connectivity_entities,
                 }
             )
         members.sort(
-            key=lambda item: (item["state"] != "unavailable", str(item["name"]))
+            key=lambda item: (
+                not (item["connectivity"] and item["state"] == "off"),
+                item["state"] != "unavailable",
+                str(item["name"]),
+            )
         )
         return json_object(
             {

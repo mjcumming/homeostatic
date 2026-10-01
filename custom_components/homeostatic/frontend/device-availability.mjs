@@ -9,6 +9,7 @@ export function deviceAvailability(value, compact=false) {
   if(compact)return `<p class="device-availability small" aria-label="Device availability">Device availability: ${esc(label)}</p>`;
   const summary=value.status==="disabled"?"This device is disabled in Home Assistant.":
     value.basis==="integration_reports"?value.status==="partially_available"?"Some integrations report this device available; others report it unavailable.":`Reporting integrations agree that this device is ${value.status==="available"?"available":"unavailable"}.`:
+    value.reason==="connectivity_disconnected"?"A connectivity sensor reports this device disconnected.":
     value.status==="available"?"At least one enabled entity is available through Home Assistant. Other entities may still have issues.":
     value.status==="unavailable"?"Every enabled entity is unavailable through Home Assistant.":
     value.reason==="device_missing"?"This device is no longer in the Home Assistant registry.":
@@ -21,6 +22,12 @@ export function deviceAvailability(value, compact=false) {
 export function deviceAvailabilityStamp(value, states) {
   return JSON.stringify((value?.entity_ids||[]).map(id=>{
     const state=states?.[id];
-    return [id,!state?"missing":state.attributes?.restored?"restored":state.state==="unavailable"?"unavailable":"available"];
+    return [id,!state?"missing":state.attributes?.restored?"restored":state.state==="unavailable"?"unavailable":value?.connectivity_entity_ids?.includes(id)&&state.state==="off"?"disconnected":"available"];
   }));
+}
+
+/** Keep a device title from repeating in each affected entity label. */
+export function deviceEntityName(name, deviceName) {
+  if(name===deviceName)return "Selected entity";
+  return name.startsWith(`${deviceName} `)?name.slice(deviceName.length+1):name;
 }

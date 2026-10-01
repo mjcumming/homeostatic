@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-10-01
+
+### Changed
+
+- Show all five Homeostatic demo screenshots directly in the README.
+- Treat a current `off` report from a device's connectivity-class binary sensor
+  as disconnection evidence in device availability and selected monitoring.
+  Show the reported condition and affected entities prominently in device
+  problem details, with repeated names shortened and diagnostics collapsed.
+
 ## [1.1.4] - 2026-10-01
 
 ### Changed

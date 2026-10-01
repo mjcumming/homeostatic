@@ -91,6 +91,84 @@ def test_entity_fallback_scenarios(
 
 
 @pytest.mark.parametrize(
+    ("connection_state", "disabled", "reports", "expected", "reason"),
+    [
+        pytest.param(
+            "off",
+            False,
+            {},
+            "unavailable",
+            "connectivity_disconnected",
+            id="disconnected-overrides-other-state",
+        ),
+        pytest.param("on", False, {}, "available", "entity_available", id="connected"),
+        pytest.param(
+            "unknown",
+            False,
+            {},
+            "available",
+            "entity_available",
+            id="unknown-value-is-not-disconnected",
+        ),
+        pytest.param(
+            "off",
+            True,
+            {},
+            "disabled",
+            "disabled",
+            id="disabled-precedes-disconnection",
+        ),
+        pytest.param(
+            "off",
+            False,
+            {"owner": "available"},
+            "available",
+            "integration_reports",
+            id="native-report-precedes-fallback",
+        ),
+    ],
+)
+def test_connectivity_report_precedes_generic_entity_fallback(
+    connection_state: str,
+    disabled: bool,
+    reports: dict[str, str],
+    expected: str,
+    reason: str,
+) -> None:
+    """A typed connection report has meaning beyond an ordinary on/off value."""
+    result = summarize_device_availability(
+        {
+            "binary_sensor.connection": State(
+                "binary_sensor.connection", connection_state
+            ),
+            "sensor.temperature": State("sensor.temperature", "72"),
+        },
+        disabled=disabled,
+        reports=reports,
+        attached_entries=frozenset({"owner"}),
+        loaded_entries=frozenset({"owner"}),
+        connectivity_entities=frozenset({"binary_sensor.connection"}),
+    )
+    assert result["status"] == expected
+    assert result["reason"] == reason
+    assert result["disconnected_count"] == (1 if connection_state == "off" else 0)
+
+
+def test_restored_connectivity_off_is_not_disconnection_evidence() -> None:
+    """A restored value cannot create a current connection finding."""
+    result = summarize_device_availability(
+        {
+            "binary_sensor.connection": State(
+                "binary_sensor.connection", "off", {"restored": True}
+            )
+        },
+        connectivity_entities=frozenset({"binary_sensor.connection"}),
+    )
+    assert result["status"] == "unknown"
+    assert result["disconnected_entity_ids"] == []
+
+
+@pytest.mark.parametrize(
     ("reports", "attached", "loaded", "disabled", "expected", "retained"),
     [
         pytest.param(
@@ -300,6 +378,69 @@ async def test_device_display_preserves_monitoring_issue(
     assert set(runtime.episodes) == episode_ids
     assert not runtime.delivery.messages
     await client.close()
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_watched_connectivity_report_keeps_device_issue_open(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """A disconnected selected sensor opens and sustains one device issue."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "connected-device")}
+    )
+    registry = er.async_get(hass)
+    connection = registry.async_get_or_create(
+        "binary_sensor",
+        "test",
+        "connection",
+        config_entry=owner,
+        device_id=device.id,
+        original_device_class="connectivity",
+    )
+    motion = registry.async_get_or_create(
+        "binary_sensor",
+        "test",
+        "motion",
+        config_entry=owner,
+        device_id=device.id,
+        original_device_class="motion",
+    )
+    hass.states.async_set(connection.entity_id, "on")
+    hass.states.async_set(motion.entity_id, "off")
+    config_data.update(
+        entities=[],
+        config_entries=[],
+        notifications=False,
+        rules=[{"id": "devices", "action": "attach", "match": {"kind": "device"}}],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    node_id = f"device:{device.id}"
+    assert not runtime.episodes
+
+    hass.states.async_set(connection.entity_id, "off")
+    await hass.async_block_till_done()
+    assert device_availability(hass, device.id)["status"] == "unavailable"
+    assert (
+        runtime.entity_status(node_id)["current"]["reason"]
+        == "connectivity_disconnected"
+    )
+    assert runtime.device_evidence(node_id)["members"][0]["connectivity"] is True
+    episode_id = next(iter(runtime.episodes))
+
+    hass.states.async_set(motion.entity_id, "unavailable")
+    await hass.async_block_till_done()
+    assert list(runtime.episodes) == [episode_id]
+    hass.states.async_set(motion.entity_id, "on")
+    await hass.async_block_till_done()
+    assert list(runtime.episodes) == [episode_id]
+
+    hass.states.async_set(connection.entity_id, "on")
+    await hass.async_block_till_done()
+    assert device_availability(hass, device.id)["status"] == "available"
+    assert not runtime.episodes
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

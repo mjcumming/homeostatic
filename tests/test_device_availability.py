@@ -91,6 +91,34 @@ def test_generic_summary_reports_selected_availability_expectations(
     assert observation.reason == reason
 
 
+@pytest.mark.parametrize(
+    ("selected_connection", "expected", "reason"),
+    [
+        pytest.param(
+            True, Status.WARN, "connectivity_disconnected", id="selected-connection"
+        ),
+        pytest.param(False, Status.PASS, "available", id="excluded-connection"),
+    ],
+)
+def test_device_summary_respects_connectivity_selection(
+    selected_connection: bool, expected: Status, reason: str
+) -> None:
+    """An excluded connectivity entity does not affect the selected check."""
+    state = State("binary_sensor.connection", "off")
+    observation = device_observation(
+        Source(
+            node_id="device:generic",
+            name="Generic",
+            kind="device",
+            connectivity_entities=(state.entity_id,) if selected_connection else (),
+        ),
+        (state,),
+        datetime(2026, 9, 30, tzinfo=UTC),
+    )
+    assert observation.status == expected
+    assert observation.reason == reason
+
+
 def test_disabled_device_summary_does_not_warn_on_unavailable_member() -> None:
     """A disabled summary remains outside active availability monitoring."""
     observation = device_observation(

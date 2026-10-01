@@ -1480,7 +1480,7 @@ for(const [name,error,expected] of [
 });
 
 
-import {deviceAvailability, deviceAvailabilityStamp} from "../../custom_components/homeostatic/frontend/device-availability.mjs";
+import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "../../custom_components/homeostatic/frontend/device-availability.mjs";
 
 for (const [status,label] of Object.entries({available:"Available",partially_available:"Partially available",unavailable:"Unavailable",unknown:"Unknown",disabled:"Disabled"})) {
   test(`device availability shows ${label} separately from monitoring`,()=>{
@@ -1494,6 +1494,14 @@ test("compact device availability keeps the status without repeating its explana
   const html=deviceAvailability({status:"unavailable",basis:"entities"},true);
   assert.match(html,/Device availability: Unavailable/);
   assert.doesNotMatch(html,/Every enabled entity|overall device health|monitoring choices/);
+});
+
+test("connectivity evidence explains unavailable without claiming every entity is unavailable",()=>{
+  const html=deviceAvailability({status:"unavailable",basis:"entities",reason:"connectivity_disconnected"});
+  assert.match(html,/connectivity sensor reports this device disconnected/);
+  assert.doesNotMatch(html,/Every enabled entity is unavailable/);
+  assert.equal(deviceEntityName("ESP Presence Kitchen Fridge Motion","ESP Presence Kitchen Fridge"),"Motion");
+  assert.equal(deviceEntityName("ESP Presence Kitchen Fridge","ESP Presence Kitchen Fridge"),"Selected entity");
 });
 
 test("Sources starts collapsed and puts scope and issue counts beside names",()=>{
@@ -1563,6 +1571,17 @@ test("selected device access can be available beside an unavailable monitored en
   assert.doesNotMatch(html,/Home Assistant cannot currently report|Next step:/);
 });
 
+test("Sources shows a selected connectivity report as disconnected",()=>{
+  const data=monitoringExample(),id="device:camera-0";
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${id}`,sourcesView:"source",
+    sourceDetail:{nodeId:id,device_availability:{status:"unavailable",basis:"entities",reason:"connectivity_disconnected"},members:[{name:"Camera Connectivity",node_id:"binary_sensor.camera_connectivity",state:"off",connectivity:true}],total:1,unavailable_count:0,unknown_count:0}};
+  const html=sourcesBrowser(card);
+  assert.match(html,/Connection reports disconnected/);
+  assert.match(html,/Device availability: Unavailable/);
+  assert.match(html,/Entities needing review[\s\S]*Disconnected/);
+  assert.doesNotMatch(html,/Selected entities available|Confirming recovery/);
+});
+
 test("entity detail shows HA state and monitoring once; device rows navigate",()=>{
   const data=monitoringExample(),entityId="entity:registry:camera-1-1",deviceId="device:camera-1";
   const member={node_id:entityId,name:"Back Porch signal 001",state:"unavailable"};
@@ -1630,6 +1649,13 @@ test("availability refresh follows excluded entities without reacting to value c
   assert.equal(deviceAvailabilityStamp(value,state("unknown")),deviceAvailabilityStamp(value,state("off")));
   assert.notEqual(deviceAvailabilityStamp(value,state("off")),deviceAvailabilityStamp(value,state("unavailable")));
   assert.notEqual(deviceAvailabilityStamp(value,state("unavailable")),deviceAvailabilityStamp(value,{}));
+});
+
+test("selected device refreshes when a connectivity sensor changes between on and off",()=>{
+  const id="binary_sensor.connection";
+  const value={entity_ids:[id],connectivity_entity_ids:[id]};
+  const state=(value)=>({[id]:{state:value,attributes:{}}});
+  assert.notEqual(deviceAvailabilityStamp(value,state("on")),deviceAvailabilityStamp(value,state("off")));
 });
 
 
