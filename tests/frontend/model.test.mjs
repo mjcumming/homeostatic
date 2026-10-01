@@ -1180,9 +1180,15 @@ test("Sources uses Topomation nesting and keeps unplaced sources reachable",()=>
   ]})[0]?.type,"location");
   const card={current:{data},topomation,sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(),sourcesSelection:null};
-  assert.match(sourcesBrowser(card),/<option value="topomation">Topomation<\/option>/);
+  assert.match(sourcesBrowser(card),/<option value="topomation">TopoMation<\/option>/);
+  assert.match(sourcesBrowser(card),/TopoMation's deeper house tree is available in Group by/);
+  assert.match(sourcesBrowser(card),/href="https:\/\/github.com\/mjcumming\/topomation"/);
+  card.sourcesGrouping="topomation";
+  assert.match(sourcesBrowser(card),/Viewing TopoMation's deeper house tree/);
+  card.sourcesGrouping="integration";
   card.topomation=null;
   assert.doesNotMatch(sourcesBrowser(card),/<option value="topomation"/);
+  assert.match(sourcesBrowser(card),/Want a deeper house tree\?/);
 });
 
 test("Sources review filtering retains grouped ancestors and does not auto-expand them",()=>{

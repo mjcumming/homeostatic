@@ -38,7 +38,7 @@ A **monitoring policy** is a saved rule that selects or excludes checks. It can 
 
 A passing availability check shows that HA currently reports an available control path. It does not verify physical-device freshness, detector progress, command completion, or phone receipt. Those require their own evidence producers and real traces.
 
-Richer evidence checks, specific Repairs links, optional TopoMation enrichment, and the external watchdog are tracked in the [build roadmap](roadmap.md). Structured YAML for functions, situations, and advanced notification policy remains in native options.
+Richer evidence checks, specific Repairs links, further TopoMation enrichment, and the external watchdog are tracked in the [build roadmap](roadmap.md). The existing TopoMation location grouping is described below. Structured YAML for functions, situations, and advanced notification policy remains in native options.
 
 ## Install and configure
 
@@ -47,6 +47,8 @@ Follow the [pilot installation guide](pilot.md): confirm a usable HA backup, kee
 Review the current monitoring choices in **Sources**. New installations watch integration setup state; device summaries and individual entity checks require a choice. A device shows selected entities needing review first, with other entities collapsed. An entity shows whether it is included through its device, monitored separately, excluded, or unselected. Its Settings normally offer following the device or excluding the entity; a separate check remains available when needed. Existing saved rules retain their scope until edited. Notifications remain off until activated.
 
 Sources uses Home Assistant's configuration entry and device registry links to group connections, devices, and entities. When one connection owns one device, they share one tree row with separately labeled connection and device availability status; each keeps its own detail and monitoring choice. A connection that owns several devices stays above them. A connection without a device can still have entities. Names alone never establish a link.
+
+The **Group by** control also offers [TopoMation](https://github.com/mjcumming/topomation) when its location tree is available. TopoMation adds a deeper house hierarchy, including property, buildings, grounds, and subareas, beyond Home Assistant floors and areas. Homeostatic uses that hierarchy to browse the same sources; monitoring choices and health decisions stay in Homeostatic. Sources links to TopoMation even when it is not installed so you can explore that optional view.
 
 An enabled device summary uses ordinary entities, including buttons, or diagnostic entities when there are no ordinary ones. Hidden but enabled entities can supply evidence, while disabled devices and entities do not. An HA `unknown` value does not create an availability issue; `unavailable` creates a warning, even when all selected entities are unavailable. Missing entity evidence and explicitly required sources remain separate coverage questions across restarts. When Home Assistant confirms that an automatically enrolled config entry was deleted, Homeostatic removes it from scope and resolves its episode as removed. Startup grace and recovery confirmation default to two minutes; ordinary notification batching defaults to thirty seconds. See the [specification](spec.md) for every timing and its meaning.
 

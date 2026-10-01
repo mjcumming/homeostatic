@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-10-01
+
+### Changed
+
+- Explain equipment issues, household situations, and reporting choices through concrete examples in the README.
+- Make TopoMation's optional house tree discoverable beside the Sources grouping control, with a direct link to the integration.
+
 ## [1.1.3] - 2026-09-30
 
 ### Changed

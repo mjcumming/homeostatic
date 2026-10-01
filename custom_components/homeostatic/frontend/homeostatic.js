@@ -10,11 +10,11 @@ import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=55";
 import {diagnosticOverview} from "./evidence.mjs?v=46";
 import {editCatalogRule, monitoringScope,
   newCatalogRule, scopeChoice, setScopeChoice} from "./configuration.mjs?v=46";
-import {styles} from "./styles.mjs?v=52";
+import {styles} from "./styles.mjs?v=53";
 import {locationBranch, setBranchExpanded} from "./tree.mjs?v=46";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=46";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=53";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=54";
 
 import {installationSettings, editInstallation} from "./installation-settings.mjs?v=49";
 

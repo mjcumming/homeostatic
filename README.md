@@ -2,7 +2,7 @@
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="custom_components/homeostatic/brand/dark_icon.png"><img src="custom_components/homeostatic/brand/icon.png" alt="Homeostatic: a home with connected health signals" width="88"></picture></p>
 
-**When the Zigbee coordinator drops at 2 a.m., forty entities go `unavailable`. Homeostatic opens one issue, on the coordinator, says the hall motion lighting is what you just lost, and decides whether that is worth your sleep. One flaky sensor waits for the morning summary.**
+**At 2 a.m., the garage door is still open: you can get an immediate alert. A low battery can wait for the morning summary. A Wi-Fi device goes unavailable: you have an issue to investigate. Homeostatic brings equipment problems and household situations into one place, then reports them to the people you choose on the schedule you choose.**
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
 [![Installations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fanalytics.home-assistant.io%2Fcustom_integrations.json&query=%24.homeostatic.total&label=installs&color=41BDF5&logo=home-assistant&cacheSeconds=3600)](https://analytics.home-assistant.io/custom_integrations.json)
@@ -17,7 +17,9 @@
 [![License](https://img.shields.io/github/license/mjcumming/homeostatic.svg)](LICENSE)
 [![GitHub Issues](https://img.shields.io/github/issues/mjcumming/homeostatic.svg)](https://github.com/mjcumming/homeostatic/issues)
 
-Homeostatic is a Home Assistant integration that watches the health of your home. It knows which integrations are up, which devices Home Assistant can still reach, whether the things your home *does* are ready, and whether a situation you asked about is happening right now. When something goes wrong it groups the symptoms under their cause, keeps one issue per problem from onset to recovery, and tells the right people at the right time.
+Homeostatic is a Home Assistant integration for the health of your whole home: the equipment it relies on and the situations happening inside it. Choose which integrations, devices, entities, and batteries to watch. Use ordinary Home Assistant automations to define conditions such as a garage door left open too long, water on the floor, or a freezer getting warm. Homeostatic keeps each issue visible, records what happened, and shows when the evidence changes.
+
+Set household defaults, then make monitoring and reporting choices for a particular integration, device, or entity. Choose immediate alerts or scheduled summaries, the people who receive them, and their phone destinations. A problem stays an issue whether you ask Homeostatic to notify someone now, later, or only show it on the dashboard.
 
 > ⭐ **Using Homeostatic?** Please [star the repo](https://github.com/mjcumming/homeostatic). It takes 25 stars to get into the HACS default store, and it helps other Home Assistant users find the project.
 
@@ -29,13 +31,15 @@ Homeostatic is a Home Assistant integration that watches the health of your home
 
 ## The problem
 
-A growing Home Assistant install fails in quiet, confusing ways. The lights stop following motion: is it the light, the motion sensor, or the Zigbee integration behind both? A cloud integration needs you to sign in again, and you find out when the music will not play with guests over. A dozen entities go unavailable at once and you get a dozen alerts for one problem, or none, because you gave up on availability notifications a long time ago.
+Home Assistant can show that a device is unavailable or a door is open. As a home grows, it gets harder to answer the next questions: Is this one problem or several? What does it affect? Has it cleared? Who needs a phone message tonight, and what can wait until morning?
 
-Home Assistant has the inventory: integrations, devices, entities, areas, automations. What it does not have is a health layer that can tell a root failure from its symptoms, say what the failure takes down, and decide who hears about it and when. That is what Homeostatic adds.
+Equipment faults and household conditions often end up scattered across entity states and one-off automations. Homeostatic brings them into one place, keeps a history for each issue, and lets you decide how each kind of problem should be reported.
 
 ## What you get
 
 **A Homeostatic panel in the sidebar.** *Overview* shows what is open and what is watched, with the most recent issues. *Issues* lists every open problem. *Sources* is your whole install, grouped by integration or by floor and area, showing what is watched, what is excluded, what evidence Home Assistant is supplying, and letting you change any of it in place with a preview before you save. *Notifications* is where people, phones, and schedules live. *Settings* holds installation-wide choices. *History*, at the far right, keeps ended problems for thirty days. Any of these pages is also a card you can drop on your own dashboard.
+
+**A richer house tree with [TopoMation](https://github.com/mjcumming/topomation).** Sources can also show the location hierarchy you build in TopoMation: property, buildings, grounds, floors, rooms, and subareas. Choose **Group by → TopoMation** when TopoMation provides a location tree to browse your discovered devices and entities within it. TopoMation brings occupancy and location-based automations of its own; Homeostatic reads its locations for browsing and keeps monitoring choices and health decisions in Homeostatic.
 
 **Issues that explain themselves.** An issue names the integration and the instance, quotes what Home Assistant reported (setup failed, needs sign-in, retrying), lists the affected entities, names the functions it takes down, suggests the next step, and shows recovery as it happens. When it is over, it resolves once and moves to History.
 
@@ -43,7 +47,7 @@ Home Assistant has the inventory: integrations, devices, entities, areas, automa
 
 **Alerts you write in the normal automation editor.** Water on the basement floor, the garage open after dark, the freezer above temperature: define the condition with Home Assistant's own triggers and conditions, pick a reporting preference, and Homeostatic gives it an issue, a history, and an Acknowledge button on the phone. A situation like this stays independent of equipment health: a Z-Wave outage makes it `unknown`, not resolved.
 
-**Notifications to people, not to `notify.` services.** Pick the people in your household and the phones they carry. Each source gets one of six reporting preferences: *Immediate*, *Immediate with acknowledgement* (reminds every thirty minutes until someone taps Acknowledge), *Morning*, *Evening*, *Weekly*, or *Dashboard only*. Tapping a notification opens the issue. Notifications are off until you turn them on, and Homeostatic holds everything while Home Assistant restarts so you get one summary instead of a burst.
+**Notifications to people, with choices from household-wide to individual sources.** Set household defaults, then choose a different reporting preference for an integration, device, or entity when it matters. The six choices are *Immediate*, *Immediate with acknowledgement* (reminds every thirty minutes until someone taps Acknowledge), *Morning*, *Evening*, *Weekly*, and *Dashboard only*. Choose the people and their phone destinations for each reporting type. Tapping a notification opens the issue. Requests stay off until you enable them, and Homeostatic holds them while Home Assistant restarts so you get one summary instead of a burst.
 
 **Controls for real life.** *Acknowledge* records that someone has seen a problem. *Pause alerts* shelves one problem for up to a week. *Working on this equipment* declares a maintenance window and previews what it affects before you start.
 
@@ -76,17 +80,15 @@ In this fictional home, Home Assistant reports that the Zigbee connection could 
 
 ## How it works
 
-Homeostatic builds a dependency graph from watched entities and their providing integrations, plus the requirements of the functions you define. Device-level selected-entity checks remain separate; a shared inventory parent alone does not establish a dependency. It feeds Home Assistant's own signals into that graph, chiefly integration setup state and entity availability, plus the reports your alert automations send. Three things then happen that Home Assistant cannot do on its own.
+Start with the equipment you care about. Homeostatic can watch whether selected integrations load, whether selected devices and entities remain available in Home Assistant, and whether a selected battery reports low. For a household situation, make a normal Home Assistant automation—for example, one that reports when the garage door has stayed open too long. Homeostatic then helps you answer three practical questions:
 
-*One cause, one issue.* When a watched integration fails and watched entities that depend on it go unavailable with it, one issue opens on the integration and those entity failures are recorded on it as symptoms. Grouping follows the declared dependencies and timing rules; it does not infer a physical cause from simultaneous device failures alone.
+- **What happened?** It keeps an issue for the unavailable device or low battery, and a separate issue for the open garage door. If a known integration failure also explains unavailable entities, it shows them together. It does not declare a shared cause just because several things failed at once.
+- **What does it affect?** You can define a *function* such as *Front-door view* and tell Homeostatic which equipment it needs. If that equipment becomes unavailable, Homeostatic shows the effect on the function. You can rate the function's importance so its equipment problems receive the right priority.
+- **Who needs to hear about it, and when?** Send a garage-door alert immediately to the people you choose, while a low battery waits for a morning summary. That schedule controls notification requests; it does not change whether either issue is open.
 
-*Importance flows up.* A hub is just a box. But *Garage access* depends on it and *Garage access* is `high`, so the hub's issue is `high`. You rate the things you care about, and the equipment inherits it.
+[Health Tree](https://github.com/mjcumming/health-tree) is the small library that makes these decisions. Homeostatic connects it to Home Assistant, remembers issues, displays the results, and handles notification requests.
 
-*Attention is policy, not status.* A reporting preference decides who hears about a problem and when. Nothing about a problem's health changes because someone was or was not told, and nothing gets quieter because of where it sits in a tree, only because a known cause explains it.
-
-The reasoning lives in [Health Tree](https://github.com/mjcumming/health-tree), a separate Python library with no Home Assistant code and no dependencies, specified by eleven stories drawn from failures in one real house and run as its test suite. Homeostatic is everything Home Assistant-specific: discovery, the monitoring catalog, storage, the dashboard, and delivery.
-
-One honest limit. A passing availability check means Home Assistant currently has a control path to the entity. It does not prove the sensor is sending fresh readings or that a command did what it was told; those need evidence Home Assistant does not yet supply. Homeostatic keeps that distinction visible, so silence never passes for health. The [user guide](docs/guide.md#what-an-availability-problem-means) spells out exactly which entity states produce a warning.
+There is a limit to what Homeostatic can know. If Home Assistant reports a sensor as available, that does not prove its reading is fresh or that a command succeeded. You can check whether a garage door is still open after a close automation runs, but that does not reveal why it stayed open. Homeostatic reports the evidence it has without claiming a physical device is healthy. The [user guide](docs/guide.md#what-an-availability-problem-means) explains what an availability warning means.
 
 ## Requirements
 
@@ -100,14 +102,14 @@ One honest limit. A passing availability check means Home Assistant currently ha
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with type **Integration**.
-3. Find **Homeostatic** and select version **1.1.3**. If you previously selected **main** or enabled beta versions, choose the 1.1.3 release explicitly.
+3. Find **Homeostatic** and select version **1.1.4**. If you previously selected **main** or enabled beta versions, choose the 1.1.4 release explicitly.
 4. Restart Home Assistant.
 
 [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mjcumming&repository=homeostatic&category=integration)
 
 ### Manual
 
-1. Download `homeostatic-1.1.3.zip` and its checksum file from the [1.1.3 GitHub release](https://github.com/mjcumming/homeostatic/releases/tag/v1.1.3).
+1. Download `homeostatic-1.1.4.zip` and its checksum file from the [1.1.4 GitHub release](https://github.com/mjcumming/homeostatic/releases/tag/v1.1.4).
 2. Copy its `custom_components/homeostatic` folder into your Home Assistant configuration directory, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy in full.
 3. Restart Home Assistant.
 
@@ -194,7 +196,7 @@ A **Homeostatic** dashboard strategy is available in Home Assistant's new-dashbo
 
 ## Project status
 
-**Version 1.1.3** simplifies cleared device History details to a short availability summary and observed time range, and removes the duplicate saved-finding dropdown. It retains the Sources and monitoring improvements from 1.1.1, the saved device name in History from 1.1.2, and the health-tree 0.5.1 dependency. Opt-in battery maintenance, the dashboard, availability monitoring, functions, alerts, reporting preferences, phone delivery with acknowledgment, and operator controls remain included. The release scope is Home Assistant evidence and selected monitoring; the limits below still apply.
+**Version 1.1.4** makes TopoMation's optional house tree easier to discover in Sources and explains how Homeostatic brings equipment issues, household situations, and reporting together. It retains the 1.1.3 History improvements, opt-in battery maintenance, availability monitoring, functions, alerts, reporting preferences, phone delivery with acknowledgment, and operator controls. Homeostatic still reports Home Assistant evidence rather than claiming physical-device health; the limits below still apply.
 
 How it is built: behavior is written down in a [specification](docs/spec.md) before it changes, every behavior change ships with an executable scenario, and the integration tests run against an isolated Home Assistant instance with 95 percent statement and branch coverage floors. Every product decision that would be easy to reverse by mistake is an [architecture decision record](docs/adr/README.md), thirty-some so far. Notifications are never sent through a live install during tests.
 
