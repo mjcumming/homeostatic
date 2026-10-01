@@ -1,62 +1,49 @@
-# Build roadmap
+# Roadmap
 
-Updated 2026-09-29. This file tracks delivery; [spec.md](spec.md) controls implemented behavior. The owner decisions in [ui.md](ui.md) sections 16 and 17 remain the target. The library owns health and attention semantics.
+What Homeostatic does today, what's being worked on next, and what's further out. Last updated October 1, 2026, for version 1.2.0.
 
-| Increment | Status | Acceptance |
-| --- | --- | --- |
-| Reliable HA adapter | Complete | Ordered observations, retry continuity, policy-controlled content, consistent unload; regression scenarios |
-| First function and situation | Complete | Stable bindings, function readiness entity, edgeless situation, unknown preserves episode, named delivery content |
-| Consumer delivery foundation | Complete | Notifications off initially; activation summary; versioned events and durable outbox; consumer blueprint and tests |
-| Detected facts for automations | Implemented; notification context parenting follows ADR 0015 | Episode and control fact events independent of notifications; function event entities; enum readiness; example blueprints ([ADR 0014](adr/0014-publish-detected-facts-for-owner-automations.md)) |
-| HA-aligned device availability | Entity fallback and device display implemented locally; native report ingestion pending upstream ([ADR 0035](adr/0035-align-device-availability-with-ha-proposal.md)) | Follow discussion 1400 vocabulary, explicit-report precedence and entity fallback; preserve provenance and independent entity monitoring. Confirm usable upstream API and unspecified evidence combinations; add lifecycle and fallback scenarios. |
-| Rule catalog and enrollment | Complete for availability | All stable match fields: domain, device class, integration, device, entity, area, floor, label; additive attach, exclude wins; passive enrollment of future sources; match preview and provenance |
-| Function configuration | Complete for declared capabilities and static suggestions | Entity/integration/function/external requirements; cycle validation; per-function accept/reject decisions; watched/excluded/missing previews; external evidence producers remain a release gate |
-| Owner YAML policy | Complete for static recipients | Validated rules and routes; recipient quiet hours and reminders; escalation and grouped digests; read-only explanations/activation preview; activation resets escalation without rewriting episode history |
-| People and built-in delivery | In progress locally ([ADR 0015](adr/0015-deliver-notifications-to-people.md)) | Person and phone selection, simple levels, quiet hours, built-in phone and notify-entity requests, route test, and preview-before-save are implemented in the working tree. Isolated policy, save, route and restart-deduplication tests pass; synthetic desktop and phone layout reviewed. Live pilot review remains. Household announcements and phone Got it/Snooze buttons remain open; [proposal](proposals/notification-settings.md) |
-| Fixed reporting preferences | Implemented ([ADR 0027](adr/0027-reporting-defaults-and-delivery.md)) | Six choices, per-profile recipients, weekly default, open-problem summaries, Sources assignments, guarded migration, and Overview reporting forecasts. |
-| Operator controls | Implemented, including acknowledgment and early cancellation | Administrator actions and dashboard forms; scope preview; seven-day maximum and explicit expiry; durable control records; existing alerts and situations stay active during equipment maintenance; shared acknowledgment and early cancellation have library, administrator-service, dashboard and restart scenarios; HealthTree 0.4.0 supplies the shared state; phone acknowledgment wiring remains |
-| Resolution history backend | Complete for terminal episodes | Last 100 observed resolutions within 30 days; durable findings/identity, distinct removal/absorption, read-only inventory/action contract; dashboard overview, searchable history pages and retained detail implemented; full journal remains planned |
-| Product presentation | Live dashboard, resolved history and bounded controls implemented; remaining presentation planned | Review story notification texts first; then auto-populated dashboard and reusable cards: needs attention, home functions, house browsing, visible coverage, recent changes; problem detail, maintenance, remedies, native Repair links, recently resolved history; walkthroughs in UI section 17; first prototype and draft story messages described in section 18; sidebar, cards, strategy, live read transport, a bounded diagnostic runtime activity log and native HA floor-to-area browsing implemented, with separate floorless-area and unassigned-source groups; [isolated HA walkthrough](testing/dashboard-walkthrough.md) passed, including a corrected embedded return path; resolved-history browsing and shelving/maintenance forms implemented; specific remedies/Repairs, notification links and remaining wording remain |
-| Unified Sources workspace | Implemented locally for review ([ADR 0017](adr/0017-one-sources-workspace.md)) | Validate the one-tree navigation and contextual editor against the owner's live HA pilot after the controlled release path; refine labels and spacing from that review. [Sources acceptance checks](spec.md#sources-workspace-target) remain the test contract. |
-| Optional TopoMation connection | Planned enrichment; not a release gate | HA areas/floors work independently; optional richer location navigation, then occupancy/automation context; later per-function suggestions require review; location membership never creates causal edges; monitoring survives loss of TopoMation |
-| Evidence producers | Gate for physical-freshness and command-completion claims | Real healthy/failure/recovery traces for detector progress, device-originated freshness and command completion, replayed as fixtures |
-| Watchdog | Gate for HA-outage coverage | External observer and alert route verified independently of HA |
-| Large-installation responsiveness | Ordered processing slices implemented; broad enrollment and target hardware remain unqualified | [Runtime assessment](testing/runtime-scaling.md#2026-09-26-ordered-processing-slices): ten actual-storage synthetic device-summary cycles settled each outage in 0.358–0.502 s with one save and no scan. Nine cycles stayed below 49 ms loop gaps; one reached 186 ms, still above the proposed 100 ms target. Initial transfer was 3.91 MB. All 6,000 individual entity checks still took 3.77 s with a 0.79 s maximum gap. Sustained household load, hardware measurements and catalog paging remain. |
-| Distribution | GitHub 1.0.0 release for selected monitoring | Published health-tree 0.5.0 pin, reproducible ZIP, isolated package-install smoke and metadata checks; native live setup and dashboard verified with 129 integration instances. Extended observation and large-installation qualification remain. |
+## What works now
 
-The structured YAML rule/function/situation forms are development interfaces. Legacy entity selections migrate to catalog rules; there is one attach/exclude model. The current catalog contains availability checks only. Check-specific parameters and additional evidence producers will arrive with their own contracts and traces. The dashboard now includes guided monitoring rule editing with preview and guarded save. Configuration-health suggestions for excessive one-entity rules remain presentation work. Do not add a competing per-entity override system or a native condition builder. No phone receipt, physical-device freshness, or production readiness is inferred from passing synthetic tests.
+- Watching integrations, devices, entities and batteries. A new install watches integrations only. You add more in Sources, one at a time or with rules that cover a whole integration, area, floor, label or device class, including sources added later. An exclusion always wins over a rule.
+- Device availability that follows what Home Assistant reports. When a device has a connectivity sensor and it reports disconnected, Homeostatic treats the device as disconnected.
+- Battery checks. A battery at 20% or less, or one that reports a low warning, raises an issue. A charging report clears it.
+- One issue per failure. When an integration fails, the devices and entities you watch on it are listed on that one issue.
+- Alerts made from Home Assistant automations with the alert blueprint, with required evidence and an Acknowledge button on the phone.
+- Notifications to people's phones through the Companion app, with the six reporting choices, summary times you set, a test notification, and taps that open the issue.
+- The controls Acknowledge, Pause alerts and Working on this equipment. Pauses and maintenance last up to seven days.
+- History of ended issues: the last 100, from the past 30 days.
+- Events for your own automations, a card for each panel page, and a ready-made dashboard.
+- Optional grouping of Sources by TopoMation locations.
 
-The automation-first situation handoff is implemented locally: native report action,
-expiring evidence, condition-editor blueprint, restart and delivery scenarios.
-Guided Homeostatic situation menus and one-shot event reporting remain future work.
+The [user guide](guide.md) and the [alert guide](automation-situations.md) cover all of this. What Homeostatic can't detect is listed under [known limitations](troubleshooting.md#known-limitations).
 
-[ADR 0034](adr/0034-create-alerts-from-ha-automations.md) is implemented: configure
-an alert once in the HA automation editor, with automatic registration and a shared
-Companion acknowledgment handler. Native device validation remains a separate
-owner-authorized pilot; ADR 0032's explicit declarations remain supported.
+## Next
 
-## Maintenance and health product direction
+- Clearer next steps on each issue. An issue should say what to do and link to where you do it, including Home Assistant's Repairs page when that's the right place. It may also list supplies, like the battery a device takes.
+- Battery checks tested against real devices. The checks are released. The next step is to compare them with real battery and charging reports and refine what a battery issue tells you to do.
+- Counts that agree. Overview, Issues and Sources should show the same numbers, and you should be able to open a count and see what's behind it, with open issues, affected devices and missing information kept apart.
+- A panel that stays put during live updates. Your selection, your place on the page and any unsaved edits should survive new information arriving.
+- A view for household members who aren't administrators. The panel is administrator-only today, and the permissions design comes before any change.
 
-[Scope and acceptance](proposals/maintenance-and-health.md) define the increments
-below, building on the existing health-tree architecture. This table owns their
-delivery status; Planned
-means intended work, and Consider means an option without a delivery commitment.
-No item here is a claim of implementation or authorization to release or deploy.
+## Later
 
-| Item | Status | Next milestone |
-| --- | --- | --- |
-| MH-1: Contextual battery maintenance | Implemented in the development tree; real-device traces pending | Review battery candidates, validate percentage/binary and charging behavior against real devices, then verify served UI and reporting before release. |
-| MH-2: Practical action details and native repair handoff | Planned extension of existing problem details | Add supported action destinations and optional verified supplies metadata; preserve provenance and observation-based recovery. |
-| MH-3: Consistent summaries and drill-down | Planned verification/refinement of existing views | Audit shared result scopes and distinguish episodes, affected devices and evidence gaps; cover live resolution and removal. |
-| MH-4: Household visibility | Planned; access architecture first | Propose the scoped read/permission contract and test direct access before changing the administrator-only dashboard. |
-| MH-5: Stable views during live updates | Planned verification/refinement of existing handling | Separate layout/evidence updates; preserve selection, focus and drafts while retaining revision-bound previews. |
-| MH-6: Consumables and scheduled maintenance | Consider | Select one evidence-backed producer after the battery increment. |
-| MH-7: Supplies and task grouping | Consider | Establish trustworthy quantities and preserve each task's underlying episode. |
-| MH-8: Native maintenance surface integration | Consider | Verify a supported extension contract and compare user benefit and maintenance cost. |
-| MH-9: Structured third-party and host evidence | Consider | Select sources with stable identity and explicit opening/clearing evidence. |
-| MH-10: Optional supplies metadata integration | Consider | Evaluate supported providers, provenance and behavior when metadata is absent. |
+- Device availability reported by integrations themselves. Home Assistant has a proposal for integrations to report device availability directly. Homeostatic already follows that model and will read those reports once Home Assistant ships them.
+- Checks beyond what Home Assistant reports: readings that have gone stale, a detector that has hung, and a command that didn't complete. Each one needs recordings from real devices of normal running, a failure and the recovery before Homeostatic reports it.
+- A watchdog that runs outside Home Assistant, so you hear about it when Home Assistant itself stops.
+- Watching every entity on very large installs, 6,000 or more. This needs testing under real household load on the hardware people actually run.
+- Reconsidering household functions if a clear use case and a useful setup workflow emerge. Their stored definitions are dormant.
+- Spoken announcements of alerts on speakers, and a Snooze button on phone notifications.
+- More ways to set up alerts: a guided menu of common alerts in Homeostatic, and alerts for one-off events that have no start and end. The condition itself stays in a Home Assistant automation.
+- More from TopoMation, such as occupancy and automation context.
+- A full history that records every setting change, control and notification, beyond the ended issues History keeps now.
+- Suggestions for tidying up settings when you've built up many single-entity rules.
 
-Start with MH-1 and the action details it requires; verify MH-3 and MH-5 alongside
-that increment. Design MH-4 independently before exposing data. Existing evidence
-producer and external-watchdog gates remain in force for claims of physical freshness,
-command completion, or Home Assistant outage coverage.
+These are ideas under consideration, with no commitment yet:
+
+- Consumables and scheduled maintenance, starting with one kind that has reliable data.
+- Grouping maintenance into tasks with a list of supplies, once quantities can be trusted.
+- Showing maintenance in Home Assistant's own screens, if Home Assistant offers a supported way to do it.
+- Problems reported by other tools and by the machine Home Assistant runs on, where they say clearly when a problem starts and ends.
+- Looking up supplies information, like which battery a device takes, from an outside source.
+
+Maintainers: the reasons behind current behavior and these plans are in the [decision records](adr/README.md).

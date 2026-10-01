@@ -1,15 +1,24 @@
-# How to alert on a device diagnostic that Homeostatic does not interpret
+# Alert on a device's own diagnostic sensor
 
-Some integrations expose a fault as the **value** of a diagnostic entity while leaving the device and entity available. Homeostatic's current equipment catalog checks availability, so it does not interpret that value. You can translate a documented, current fault state into a Home Assistant (HA) binary sensor and bind it to a Homeostatic situation alert.
+Some integrations report a fault through the value of a diagnostic entity while the device itself stays available. The ISY integration's **Device Communication Errors** sensor for an Insteon device is one. It reads `1` while the ISY reports a communication error with the device and `0` when it doesn't, and Home Assistant shows the light as available the whole time. Homeostatic's availability check sees an available device, so it never raises this on its own.
 
-Use this recipe only when you know both the fault value and the value that proves it cleared. A historical error count, a log entry, or a value with no defined recovery cannot use the `off` mapping below. The resulting alert is a situation; it does not change the equipment node's status or a function's readiness.
+You can turn a value like that into an alert in two parts. A template binary sensor turns the raw value into on for the fault, off once it has cleared, and unavailable for anything else. Then an alert made from the Homeostatic alert blueprint watches that binary sensor.
 
-## Example: ISY device communication error
+## Before you start
 
-The ISY integration exposes **Device Communication Errors** for an Insteon load device. Despite the plural name, the underlying `ERR` value is a status: `1` means the ISY reports a communication error for that node, and `0` means no error. The [ISY developer's explanation](https://forum.universal-devices.com/topic/21043-control-err-in-event-stream/) describes both values. Home Assistant [classifies this as a diagnostic entity and disables it by default](https://github.com/home-assistant/core/blob/2026.9.3/homeassistant/components/isy994/sensor.py), so enable it in HA if necessary. An entity marked **Hidden** is still usable if it is enabled and has a state.
+You need to know two values: the one that means the fault is happening now, and the one that means it has cleared. An error count, a log entry, or a value that stays set after the fault ends can't tell you the fault is over, so it can't drive an alert this way.
 
-1. Find the exact entity ID and its raw `0` or `1` state in **Developer tools → States**. Replace the example source ID below with yours. Confirm that this entity belongs to the affected device.
-2. Copy [diagnostic_state.yaml](../blueprints/template/homeostatic/diagnostic_state.yaml) to `<HA config>/blueprints/template/homeostatic/diagnostic_state.yaml`. Add this entry under the `template:` key in HA's `configuration.yaml` (or append it to an existing `template:` list):
+The alert stays separate from the device's health. It doesn't mark the light as failed. [How it works](how-it-works.md) explains why alerts and equipment are kept apart.
+
+You also need the Homeostatic alert blueprint imported, and Notifications set up unless the alert uses Dashboard only. The alert guide's [Before you start](automation-situations.md#before-you-start) covers both.
+
+## Example: an ISY communication error
+
+Despite the plural name, the ISY's `ERR` value behind this sensor is a current status rather than a count. The [ISY developer's explanation](https://forum.universal-devices.com/topic/21043-control-err-in-event-stream/) describes both values. Home Assistant [marks the entity as diagnostic and disables it by default](https://github.com/home-assistant/core/blob/2026.9.3/homeassistant/components/isy994/sensor.py).
+
+1. Find the source entity. In **Settings → Devices & services → Entities**, search for "communication errors" and open the one for your device. If it's disabled, open its settings, turn on **Enabled** and wait for it to get a state. A hidden entity works, as long as it isn't disabled. Note its entity ID, and check in **Developer tools → States** that it reads `0` or `1`.
+
+2. Add the template binary sensor. Copy [diagnostic_state.yaml](../blueprints/template/homeostatic/diagnostic_state.yaml) to `<config>/blueprints/template/homeostatic/diagnostic_state.yaml`. Then add this to `configuration.yaml`, using your entity ID:
 
    ```yaml
    template:
@@ -23,27 +32,50 @@ The ISY integration exposes **Device Communication Errors** for an Insteon load 
        unique_id: north_bedroom_ceiling_light_communication_error
    ```
 
-   Quote the values so HA passes them as strings. Use a different `unique_id` for every device. The blueprint accepts only the two distinct documented values from a non-restored source. A missing, restored, `unknown`, `unavailable`, or unexpected source value makes the new binary sensor unavailable instead of falsely clearing the fault. HA [documents template blueprints](https://www.home-assistant.io/integrations/template/#using-blueprints) under `blueprints/template/`.
-3. Reload template entities or restart HA, then find the new binary sensor in **Developer tools → States**. HA normally creates `binary_sensor.north_bedroom_ceiling_light_communication_error` from the name, but use the actual entity ID shown there if it differs. Check that source `1` yields `on`, source `0` yields `off`, and source loss yields `unavailable`. Confirm recovery from the ISY's own state; an acknowledgement in Homeostatic is not recovery.
-4. In Homeostatic's **Situation alerts (YAML list)**, add:
+   If `configuration.yaml` already has a `template:` key, add the entry to that list. Quote the two values so they're compared as text, and give each device its own `unique_id`. Home Assistant's [template documentation](https://www.home-assistant.io/integrations/template/#using-blueprints) explains template blueprints.
 
-   ```yaml
-   - id: north_bedroom_light_communication
-     name: North Bedroom Ceiling Light communication error
-     importance: normal
-     entity: binary_sensor.north_bedroom_ceiling_light_communication_error
-   ```
+   The result is a binary sensor with the Problem device class:
 
-   Use the actual binary sensor ID from step 3 and keep any existing situation rows in the list. Homeostatic opens one episode while the binary sensor is `on`, clears it when it is `off`, and treats `unavailable` as unknown evidence. Review the alert and notification policy before enabling delivery. The ordinary availability check for the light or diagnostic entity may still pass while this situation is active; it answers a different question.
+   | Source value | Binary sensor |
+   | --- | --- |
+   | The fault value (`1`) | On (Problem) |
+   | The clear value (`0`) | Off (OK) |
+   | Anything else: missing, `unknown`, `unavailable`, restored at startup, or an unexpected value | Unavailable |
 
-For one device, you can also create the same state-based binary sensor directly as a [Template helper](https://www.home-assistant.io/integrations/template/#creating-a-template-helper-from-the-user-interface). Set its state template to `{{ is_state('sensor.YOUR_ENTITY_ID', '1') }}` and its availability template to `{{ states('sensor.YOUR_ENTITY_ID') in ['0', '1'] and not state_attr('sensor.YOUR_ENTITY_ID', 'restored') }}`. Replace the source ID and values with ones you have verified; then bind the helper's actual entity ID in step 4.
+   Losing the source makes the binary sensor unavailable, so it can never look like the fault clearing.
 
-## Adapt the recipe to another entity
+3. Reload template entities under **Developer tools → YAML**, or restart Home Assistant. Find the new binary sensor in **Developer tools → States**. Home Assistant usually names it `binary_sensor.north_bedroom_ceiling_light_communication_error`, but use the ID it actually shows. To test it, set the source entity's state to `1`, then `0`, then `unavailable` in **Developer tools → States** and check that the binary sensor shows on, off and unavailable. The integration overwrites your test value on its next update.
 
-- If the integration already provides a binary sensor with documented `on` = fault, `off` = clear, and suitable unavailable behavior, bind that entity directly as a situation. No template is needed.
-- Identify the specific source entity and verify what each value means in that integration's documentation or observed device behavior. A diagnostic label alone is not a rule.
-- Define an active value and an independently reported clear value. Check whether the value is a current condition, a counter, or a latched history. If clearing is not proven, do not map a guess to `off`.
-- Make missing, restored, unknown, unavailable, and unexpected source values unavailable in the derived entity. Test that losing the source cannot clear an open alert.
-- Check the derived entity after HA restart and after a real source transition. A local template can only report the evidence its source supplies; it cannot prove that a physical device has recovered.
+4. Create the alert. In **Settings → Automations & scenes → Blueprints**, select **Homeostatic alert** and fill it in:
 
-See [Bind a situation](guide.md#bind-a-situation) for the Homeostatic binding contract and [HA's template documentation](https://www.home-assistant.io/integrations/template/) for template setup and reload instructions.
+   | Field | Value |
+   | --- | --- |
+   | Alert name | North Bedroom Ceiling Light communication error |
+   | Notification message | The ISY reports a communication error with the north bedroom ceiling light. |
+   | Reporting preference | Morning summary |
+   | Required evidence | The binary sensor from step 3 |
+   | Active when | State: that binary sensor is Problem |
+
+   Save the automation and leave it on. Homeostatic opens an issue while the binary sensor is on and closes it when the sensor turns off. While the sensor is unavailable the alert is unknown, which keeps an open issue open. Only the ISY reporting `0` closes it. Acknowledge in Homeostatic doesn't.
+
+[Alerts from automations](automation-situations.md) explains the blueprint's fields, evidence expiry and timing.
+
+## Without the template blueprint
+
+For a single device, a Template helper does the same job without editing `configuration.yaml`. Go to **Settings → Devices & services → Helpers → Create helper → Template → Template a binary sensor** and set:
+
+- State template: `{{ is_state('sensor.YOUR_ENTITY_ID', '1') }}`
+- Availability template: `{{ states('sensor.YOUR_ENTITY_ID') in ['0', '1'] and not state_attr('sensor.YOUR_ENTITY_ID', 'restored') }}`
+- Device class: Problem
+
+Replace the entity ID and the two values with ones you've checked. Then use the helper's entity ID for **Required evidence** and **Active when** in step 4. Home Assistant documents [template helpers](https://www.home-assistant.io/integrations/template/#creating-a-template-helper-from-the-user-interface).
+
+## Use another diagnostic entity
+
+The same steps work for other integrations once you've checked a few things:
+
+- If the integration already provides a binary sensor that's on for the fault, off when it clears, and unavailable when it can't tell, skip the template. Use that binary sensor as the evidence, with a State condition for on.
+- Find out what each value means from the integration's documentation, or by watching the device fail and recover. An entity called "error" doesn't tell you which values mean what.
+- Make sure the clear value is something the device reports when the fault is over, and not just the absence of news. If you can't confirm a clear value, don't map anything to off.
+- Every other value of the source, including missing, `unknown`, `unavailable` and restored, has to come out as unavailable. Test that losing the source can't clear an open alert.
+- Check the binary sensor again after a Home Assistant restart, and after a real fault and recovery. A template can only pass on what its source reports. It can't tell you whether the device has physically recovered.

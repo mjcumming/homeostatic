@@ -1,197 +1,184 @@
-# Create an alert in a Home Assistant automation
+# Alerts from automations
 
-The **Homeostatic alert** blueprint is the recommended workflow. Follow the
-[README walkthrough](../README.md#create-your-own-alert): configure name, message,
-condition, required evidence and reporting preference in one HA form. The first
-valid report registers its source automatically, even if it is currently clear.
-Profiles require household people/destinations to be configured once in Notifications.
-Requests remain off until explicitly enabled. Missing destinations are shown in
-Sources; there is no silent fallback. Automated alerts follow their own selected
-profile rather than the household default or a separately saved Sources assignment.
+An alert tells you about something happening in the house: water on the basement floor, the garage door open after dark, the freezer warming up. Home Assistant decides whether the condition holds. Homeostatic keeps one issue open while it does, notifies people according to the alert's reporting choice, handles Acknowledge, and closes the issue when the condition clears.
 
-## Evidence and timing
+Alerts suit conditions that start and later end. A one-off event like "motion detected" has nothing to clear, so it doesn't make a good alert.
 
-The one-minute refresh bounds time-only reevaluation unless you add exact time
-triggers under Advanced. Evidence timeout defaults to 300 seconds and means report
-age, not notification delay. Every required entity must have usable, non-restored
-evidence. False conditions report clear; missing evidence and condition errors
-report unknown. A message template that fails to render stops that report, so its
-last accepted evidence expires to unknown. Neither case invents recovery.
+The normal way to make an alert is the **Homeostatic alert** blueprint. Writing the automation yourself with the `homeostatic.report_alert` action is the advanced path, for conditions the blueprint can't express.
 
-For a door-open condition restricted to a time window, leaving the window ends the
-condition; it does not prove the door physically closed. Use suitable message text.
-HA owns duration and template semantics, including restart limitations.
+## Before you start
 
-## Advanced native actions
+- Save the people and schedules in **Notifications** once, unless every alert you make uses Dashboard only. You can save them with notifications still off. Until you do, any other reporting preference fails with the error "Configure shared reporting profiles in Homeostatic Notifications first". See [Activate notifications](guide.md#activate-notifications).
+- Import the [Homeostatic alert blueprint](https://github.com/mjcumming/homeostatic/blob/main/blueprints/automation/homeostatic/alert.yaml) under **Settings → Automations & scenes → Blueprints**. Or copy `alert.yaml` from the release zip into `blueprints/automation/homeostatic/` in your config folder and reload automations.
 
-`homeostatic.report_alert` accepts `automation`, `name`, rendered `message`,
-`profile`, and `state` (active, clear, unknown). It also accepts `alert_key`
-(default `default`) and `report_timeout` (default 300). Use the saved owning
-automation's entity ID. Multiple conditions in one automation need distinct stable
-keys. The integration derives durable identity from HA's automation unique ID.
+## Create an alert with the blueprint
 
-```yaml
-action: homeostatic.report_alert
-data:
-  automation: "{{ this.entity_id }}"
-  alert_key: basement_water
-  name: Basement water leak
-  message: Water detected near the basement water heater.
-  profile: acknowledge
-  state: active
-```
+This example opens an issue when the basement leak sensor detects water.
 
-Custom automations must report clear on observed recovery, unknown for evidence
-loss, and refresh before the timeout. One owner reports each key; serialize its
-runs. Do not use changing messages or automation-run IDs as alert keys. These
-actions retain administrator authorization; HA-owned automations use HA's normal
-service permissions. They cannot create recipients or enable notification requests.
+1. Go to **Settings → Automations & scenes → Blueprints** and select **Homeostatic alert**. Home Assistant opens a new automation based on it.
+2. Fill in the form:
 
-## Retirement and existing declarations
+   | Field | Example | What it's for |
+   | --- | --- | --- |
+   | Alert name | Basement water leak | The issue's title and the notification title |
+   | Notification message | Water detected near the basement water heater. | The notification text while the alert is active. Plain text or a template. |
+   | Reporting preference | Immediate with acknowledgment | Who hears about it and when, using the people and schedules in Notifications |
+   | Required evidence | Basement water sensor | Every entity the condition or the message reads |
+   | Active when | Basement water sensor is Wet | Home Assistant conditions. All of them must hold. Use And/Or blocks for alternatives. |
 
-To remove an alert from monitoring, use **Homeostatic: Manage automation alert**
-with its owning automation, alert key, and **Retire**. This records removal from
-monitoring, not recovery, and rejects further reports until **Resume** is explicitly
-called. Disable its reporting automation too to avoid repeated rejected calls.
-Disabling or deleting an automation by itself only lets its evidence expire.
-Retire before deleting the owner automation. Registrations and retained retirement
-records are capped at 1000; there is no automatic eviction of issue identity.
+   Dashboard only is a good first choice while you check that the condition behaves.
 
-Existing entity-bound and explicitly declared situations still work. To transfer
-a declared report-only situation, stop its old reporter and use `report_alert`
-with `adopt_situation_id` set to the declared ID. Keep supplying this optional
-field or omit it after the first accepted conversion. The node and open episode
-are preserved, its old declaration is shadowed, and `report_situation` can no longer
-overwrite it. Entity-bound situations cannot be adopted by this action.
+3. Save the automation and leave it on.
+4. Within a minute, the alert shows up in **Sources** under **Configured situations**, with its reporting preference and an **Edit alert automation** link. If the condition already holds, an issue opens on **Issues**, and a notification goes out if notifications are on and the preference isn't Dashboard only.
 
-## Phone acknowledgment
+To see what the automation reported, open its traces. Each run makes one `homeostatic.report_alert` call with `state` set to `active`, `clear` or `unknown`.
 
-Built-in person/phone delivery includes **Acknowledge** for an active individual
-issue. It uses the authenticated recipient's HA identity without granting admin
-configuration access. Main taps open details; summaries open Issues and have no
-bulk acknowledgment. Legacy consumer blueprints retain delivery/clear behavior
-without these authenticated buttons.
+Homeostatic identifies the alert by the automation's saved ID. Renaming the automation, or changing the alert name, message or reporting preference, keeps the same alert and its open issue. Duplicating the automation makes a separate alert. You edit an alert in its automation; Sources shows the settings but doesn't change them.
 
-Callbacks survive restart, expire after 30 days, and are capped at 2000 outstanding
-references. Old or expired buttons cannot acknowledge a later occurrence. Android
-dismissal callbacks and iPhone notification removal are not acknowledgment or
-proof of recovery. Urgent resolution messages are quiet; phone removal remains
-subject to Companion/iOS limitations.
+### Choose the evidence and conditions
 
-## Legacy explicitly declared situations
+Put every entity that the conditions and the message read into **Required evidence**. Before evaluating anything, the blueprint checks each of them. If one is unavailable, unknown, missing, or still showing a value restored at startup, it reports unknown. An entity you leave out gets no such check: a State condition on a dead sensor is simply false, and the alert would report clear.
 
-The following existing workflow remains supported for installations already using
-it; new automation alerts should use the one-form blueprint above.
+Use conditions about the current state: State, Numeric state, Sun, Time, Zone or Template. The **Triggered by** condition doesn't work here, because the blueprint runs on its own triggers.
 
+A condition that fails to evaluate, such as Numeric state on a sensor reading `low`, makes the blueprint report unknown. It tests the condition and its opposite separately, so an error never falls through to clear.
 
-Home Assistant decides whether your condition holds. Homeostatic keeps one issue
-open, routes notifications, manages acknowledgment and reminders, and resolves
-the issue when your automation reports that it has cleared.
+## How an alert reports
 
-This supports continuing conditions, such as water present or a freezer too warm.
-It does not send a separate informational notification for every motion event.
+The blueprint runs when any Required evidence entity changes, when Home Assistant starts, once a minute, and on any extra triggers you add under **Advanced**. Each run sends one report:
 
-## 1. Declare the situation
-
-In the Homeostatic integration's native options, add to **Situation alerts (YAML
-list)** and save:
-
-```yaml
-- id: basement_water
-  name: Water detected in basement
-  importance: critical
-  report_timeout: 300
-```
-
-Keep the id stable. Do not include `entity` for an automation-reported situation.
-The timeout is the maximum age of a report, in seconds (60 to 86400). Use 300 or
-more with the supplied blueprint, which refreshes every minute. This is not a
-delay before alerting. Ordinary startup grace and notification policy still apply.
-
-## 2. Create the reporting automation
-
-Copy [the reporting blueprint](../blueprints/automation/homeostatic/report_situation.yaml)
-to your HA configuration at `blueprints/automation/homeostatic/report_situation.yaml`.
-In **Settings -> Automations & scenes -> Blueprints**, reload blueprints if needed,
-then create an automation from **Report a situation to Homeostatic**.
-
-Fill in the native HA form:
-
-- **Situation ID:** `basement_water`.
-- **Required evidence:** select your basement water binary sensor.
-- **Situation is active when:** add a State condition for that sensor, state `on`
-  (HA may display this as Wet or Detected).
-- **Additional reevaluation triggers:** optional; leave empty for the water case.
-
-Save and enable the automation. Use **Run actions** once to evaluate its current
-condition immediately. Subsequent state changes and the one-minute refresh keep
-the report current. Inspect the automation trace and Homeostatic Issues to verify
-the result before activating notifications.
-
-The blueprint reports Active when all conditions hold, Cleared when they do not,
-and Cannot determine when any required evidence is missing, unknown, unavailable
-or marked restored. Include every entity your condition depends on. Do not add
-top-level automation conditions that skip clearing or refresh reports.
-
-## 3. Configure notification delivery
-
-In **Homeostatic -> Notifications**, configure recipients and their destinations,
-review the reporting settings, and explicitly enable notification requests when
-ready. Existing legacy policies/consumer automations remain supported; see the
-[notification guide](guide.md#activate-notifications) if your installation uses
-that route. A situation can open while notifications are off. Activation may
-report an already-open issue. A successful report action confirms processing,
-not phone receipt; testing on a live installation may send real notifications.
-
-## More conditions, using the same HA editor
-
-| Situation | Required evidence | Active conditions |
+| Report | Sent when | What Homeostatic does |
 | --- | --- | --- |
-| Freezer too warm | Freezer temperature | Numeric state above your chosen threshold |
-| Nighttime motion during a full moon | Motion sensor and moon-phase entity | Motion on AND time between 01:00 and 02:00 AND moon phase full_moon |
-| Window open while away | Window sensor and relevant person entities | Window open AND everyone away |
+| Active | All evidence is usable and the Active when conditions hold | Opens an issue, or keeps the open one. Repeated active reports never open a second issue. |
+| Clear | All evidence is usable and the conditions don't hold | Closes the issue at once |
+| Unknown | Some evidence isn't usable, or a condition failed to evaluate | Keeps an open issue open. Unknown never closes an issue. |
 
-The moon entity must already exist in your HA installation; use its actual id and
-state. Add time triggers at 01:00 and 02:00 for exact boundary reevaluation,
-otherwise the next minute tick handles time-only changes. An already-active
-motion sensor is evaluated when the window begins; this describes current
-nighttime activity, not a history of individual motion events.
+Only a clear report closes the issue. Acknowledge doesn't, and turning the automation off doesn't.
 
-For hysteresis, elaborate delays, or logic based on event history, use a stateful
-HA helper/template that correctly reports unknown evidence, and bind that entity
-or include it in the blueprint. HA duration conditions do not prove continuity
-through a restart. The blueprint has no extra notification or condition engine.
+If an alert stays unknown for longer than **Wait for unknown evidence** in **Settings** (15 minutes by default), Homeostatic raises that as well: an issue opens for the alert with an unknown status, or the open issue is marked stale. A broken alert doesn't go quiet.
 
-## Use the action in an existing automation
+### Evidence expiry
 
-Under **Then do -> Add action**, choose **Homeostatic: Report situation**. Supply
-the configured id and choose Active, Cleared, or Cannot determine. YAML example:
+Each report stays current for the time set in **Evidence expires after**, under **Advanced** (300 seconds by default, which is also the minimum). If no new report arrives in that time, because the automation was turned off, deleted or broken, the alert turns unknown. This is the maximum age of a report. It doesn't delay alerting: an active report opens the issue immediately, and a clear report closes it immediately.
+
+The blueprint reports every minute, so the default allows for a few missed runs.
+
+### Time windows and restarts
+
+- The once-a-minute run picks up changes that depend only on the time, so a condition like "between 01:00 and 02:00" can start or end up to a minute late. For exact boundaries, add Time triggers at 01:00 and 02:00 under **Exact reevaluation times or other triggers**.
+- Leaving a time window clears the alert even if nothing else changed. An alert for the garage door open after dark closes at sunrise whether or not the door is still open. Word the message to say what was true when it fired, and make a second alert without the time window if you need to know the door is still open.
+- After Home Assistant restarts, Homeostatic waits for a fresh report. An open issue stays open and shows unknown until the automation reports again, which the blueprint does at startup. Home Assistant's own `for` durations start over after a restart, and Homeostatic can't change that.
+
+The reasons for this design are in [ADR 0034](adr/0034-create-alerts-from-ha-automations.md).
+
+## More examples
+
+| Alert | Required evidence | Active when |
+| --- | --- | --- |
+| Freezer too warm | Freezer temperature sensor | Numeric state: freezer temperature above -10 |
+| Garage open after dark | Garage door, Sun | State: garage door is Open. State: Sun is Below horizon. |
+| Window open while everyone's away | Window sensor, each person | State: window is Open. State: each person is Away. |
+
+The blueprint compares current states only. For hysteresis (warm above -10, cool again only below -15) or anything that depends on what happened earlier, build a helper first, such as a Threshold helper or a template binary sensor, and use the helper as the evidence. The helper has to go unavailable or unknown when its source does. [Alert on a device's own diagnostic sensor](how-to-local-health-signals.md) shows a template that does this.
+
+## Write the automation yourself
+
+Use the `homeostatic.report_alert` action directly when the blueprint can't express the condition, when an automation you already have works the condition out, or when one automation reports several conditions. In the automation editor it's **Homeostatic: Report alert**.
+
+Your automation takes on the work the blueprint does:
+
+- It must be saved with an ID. Automations made in the UI always are. A YAML automation needs an `id:`.
+- It reports when Home Assistant starts, whenever the condition may have changed, and again before the last report expires.
+- It reports `clear` only when it has seen the condition end, and `unknown` whenever it can't tell.
+- It's the only automation reporting that alert, and its runs don't overlap. Use `mode: queued` or `mode: single`.
+
+This automation reports the freezer alert from the examples above:
 
 ```yaml
-action: homeostatic.report_situation
-data:
-  situation_id: basement_water
-  state: active
+alias: Freezer too warm
+id: freezer_too_warm
+mode: queued
+triggers:
+  - trigger: state
+    entity_id: sensor.freezer_temperature
+  - trigger: homeassistant
+    event: start
+  - trigger: time_pattern
+    minutes: "*"
+actions:
+  - variables:
+      reading: "{{ states('sensor.freezer_temperature') }}"
+      report: >-
+        {{ 'unknown' if not is_number(reading)
+             or state_attr('sensor.freezer_temperature', 'restored')
+           else 'active' if reading | float > -10
+           else 'clear' }}
+  - action: homeostatic.report_alert
+    data:
+      automation: "{{ this.entity_id }}"
+      alert_key: freezer_warm
+      name: Freezer too warm
+      message: "The garage freezer is at {{ reading }} °C."
+      profile: acknowledge
+      state: "{{ report }}"
 ```
 
-Your automation must also report `clear` on observed recovery and `unknown` when
-it cannot evaluate the condition. Reevaluate at startup and more often than the
-configured timeout. Use one owner automation per id and serialize its runs.
-Avoid replaying a captured old condition after a delay; evaluate current evidence
-when reporting. Homeostatic orders calls by arrival and supplies acceptance time.
+| Field | Required | What to put |
+| --- | --- | --- |
+| `automation` | Yes | The automation that owns the alert. Use `{{ this.entity_id }}`. |
+| `alert_key` | No | A stable name for the condition. Defaults to `default`. Give each condition its own key when one automation reports several. Don't use the message or anything else that changes. |
+| `name` | Yes | The alert name |
+| `message` | Yes | The notification text. Homeostatic uses it only with `active`, so it can be empty for the other states. |
+| `profile` | Yes | The reporting preference: `immediate`, `acknowledge` (Immediate with acknowledgment), `morning`, `evening`, `weekly` or `dashboard` (Dashboard only) |
+| `state` | Yes | `active`, `clear` or `unknown` |
+| `report_timeout` | No | Seconds before the report expires. Defaults to 300. Make it longer than the gap between your reports. |
+| `adopt_situation_id` | No | Only for converting an older alert. See [Convert and keep the open issue](#convert-and-keep-the-open-issue). |
 
-Repeated active reports retain the same issue. Acknowledgment does not clear it.
-If the reporter stops, its report expires to unknown; after the configured
-unknown hold, existing policy may alert about stale evidence. Restart/reload
-preserves open issue identity but requires a fresh report. Neither expiry nor
-restart means recovery. Only an explicit clear report resolves the issue.
+The action returns the alert's `reporting_status`: `configured`, `dashboard_only`, `requests_disabled` (notifications are off) or `missing_destinations` (nobody is set up for that preference in Notifications). An alert with missing destinations still opens issues; it just doesn't notify anyone. The [reference](reference.md#homeostaticreport_alert) has the field limits and the rest of the response.
 
-The action is administrator-protected; HA-owned automations can call it using
-HA's normal service authorization. Entity-bound situations reject this action.
-It cannot enroll arbitrary ids, enable notifications or override recipients.
-If storage fails, inspect Homeostatic state after recovery before retrying an
-ambiguous action. The existing durable notification outbox controls replay.
+### If a report fails
 
-Condition evaluation errors (such as nonnumeric temperature values) report unknown.
-The blueprint checks both the positive condition and its explicit negation;
-falling through an errored condition does not report clear.
+A rejected report stops that automation run, and the error appears in its trace:
+
+| Error | What to do |
+| --- | --- |
+| Choose a saved HA automation with a stable ID | Save the automation, or add an `id:` to a YAML automation |
+| Configure shared reporting profiles in Homeostatic Notifications first | Save the people and schedules in Notifications, or use Dashboard only |
+| This alert is retired; explicitly resume it before reporting | Resume the alert, or turn the automation off. See [Retire an alert](#retire-an-alert). |
+| Automation alert capacity reached | The installation has 1000 active automation alerts. Retired ones don't count. |
+
+## Retire an alert
+
+Retiring an alert tells Homeostatic to stop watching it while you keep its automation. If you delete the automation instead, Homeostatic removes the alert on its next refresh, and you don't need to retire it.
+
+1. Go to **Developer tools → Actions** and choose **Homeostatic: Manage automation alert**.
+2. Pick the alert's automation and set **Operation** to `retire`. Leave **Alert key** out for a blueprint alert, which uses `default`. Select **Perform action**.
+3. Turn off or delete the automation. A retired alert rejects new reports, so an automation left running fails every minute.
+
+An open issue for the alert ends, and History shows it as **Monitoring ended**. It doesn't count as the condition clearing.
+
+Turning the automation off without retiring the alert does something different. Its last report expires, the alert turns unknown, and after **Wait for unknown evidence** Homeostatic raises it as an issue. Deleting the automation ends its open issue as **Monitoring ended**.
+
+To bring a retired alert back, run the same action with `resume`, then turn the automation back on. The alert stays unknown until its next report.
+
+Retired alerts don't count toward the limit of 1000 active alerts. Homeostatic keeps a record of each one until you resume it or delete its automation, so an automation left running can't quietly bring a retired alert back. The action's fields are in the [reference](reference.md#homeostaticmanage_alert).
+
+## Acknowledge from a phone
+
+When Homeostatic sends an alert to a phone itself, the notification has an **Acknowledge** button. [When a notification arrives](guide.md#when-a-notification-arrives) in the user guide explains tapping, acknowledging and dismissing. For alerts, a few points matter:
+
+- Acknowledge stops the 30-minute repeats of Immediate with acknowledgment. The issue stays open until the automation reports clear.
+- A button works for 30 days, and only for the occurrence it was sent about. If the alert clears and later fires again, an old button can't acknowledge the new issue.
+- When an alert on one of the two immediate choices clears, its notification isn't removed. Homeostatic replaces it with a quiet "Problem cleared." message. On iPhone, the earlier critical alert can stay on screen anyway.
+
+## Alerts declared the older way
+
+Alerts declared in the integration's options keep working. One bound to an entity follows that entity, and one with a `report_timeout` keeps taking reports through `homeostatic.report_situation` or the **Report a situation** blueprint. Homeostatic no longer has a form for editing these declarations.
+
+### Convert and keep the open issue
+
+A declaration with a `report_timeout` can be taken over by an automation like the ones on this page, keeping its open issue and its history. The alert blueprint has no field for this, so write the automation yourself.
+
+1. Turn off the old reporting automation.
+2. Write the new automation as described in [Write the automation yourself](#write-the-automation-yourself), with `adopt_situation_id` set to the declaration's ID in its `homeostatic.report_alert` data. Save it.
+3. Its first report takes over the declaration. From then on the alert follows the reporting preference in the automation, and `homeostatic.report_situation` calls for that ID are rejected.
