@@ -1,5 +1,6 @@
 """Person routing scenarios in an isolated Home Assistant instance."""
 
+from dataclasses import replace
 from datetime import timedelta
 from hashlib import sha256
 from typing import Any
@@ -86,6 +87,48 @@ def test_other_users_phone_is_rejected(
                 }
             ],
         )
+
+
+async def test_disabling_requests_still_clears_phone_tag(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A withdrawn phone request is cleared after outgoing requests turn off."""
+    route = Destination(
+        channel="phone:admin", name="Admin phone", user_id="a", available=True
+    )
+    monkeypatch.setattr(simple_notifications, "destinations", lambda _hass: [route])
+    policy = simple_notifications.generate_policy(
+        hass,
+        {
+            "timezone": "UTC",
+            "people": {"admin": {"level": "Important", "channels": ["phone:admin"]}},
+        },
+        [{"id": "admin", "name": "Admin", "user_id": "a", "administrator": True}],
+    )
+    config_data.update(policy=policy, consumer=None)
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    send = AsyncMock()
+    monkeypatch.setattr(runtime_module, "async_send", send)
+    runtime.settings = replace(runtime.settings, notifications=False)
+    payload = {
+        "episode_id": "episode",
+        "delivery_id": f"{entry.entry_id}:withdrawal",
+        "channels": ["phone:admin"],
+        "recipient": "person:admin",
+        "tag": "homeostatic_test",
+        "loudness": "urgent",
+        "action": "resolve",
+        "resolution": "notifications_disabled",
+    }
+    await runtime.async_send_notification({**payload, "action": "open"})
+    send.assert_not_awaited()
+    await runtime.async_send_notification(payload)
+    send.assert_awaited_once()
+    assert send.call_args.kwargs["clear"] is True
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 @pytest.mark.parametrize(

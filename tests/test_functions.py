@@ -1,16 +1,13 @@
-"""Function capabilities, reviewed automation candidates and configuration previews."""
+"""Dormant function model and its retained internal behavior."""
 
-from copy import deepcopy
+from collections.abc import Mapping
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 import voluptuous as vol
-from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -26,6 +23,22 @@ from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.function_model import preview
 from custom_components.homeostatic.rules import DEFAULT_RULES
 from tests.test_lifecycle import start_monitor
+
+
+@pytest.fixture(autouse=True)
+def activate_function_model_for_internal_tests(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the dormant implementation under test without exposing it in production."""
+    original = Settings.from_data
+
+    def enabled(
+        cls: type[Settings],
+        data: Mapping[str, Any],
+        *,
+        functions_enabled: bool = True,
+    ) -> Settings:
+        return original(data, functions_enabled=True)
+
+    monkeypatch.setattr(Settings, "from_data", classmethod(enabled))
 
 
 def function(identity: str = "lighting", **fields: Any) -> dict[str, Any]:
@@ -151,7 +164,7 @@ async def test_full_function_graph(
         "function:lighting",
         "function:room",
     ]
-    assert hass.states.get("sensor.homeostatic_room").state == "blocked"
+    assert hass.states.get("sensor.homeostatic_room") is None
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -417,74 +430,14 @@ async def test_missing_automation_preserves_confirmation(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_preview_functions_is_read_only(
+async def test_preview_functions_service_is_not_registered(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """Preview exposes changed edges and coverage without changing live state."""
-    hass.states.async_set("sensor.observed", "unavailable")
-    config_data.update(
-        functions=[function(requires=["entity:entity_id:sensor.observed"])]
-    )
+    """The dormant preview has no public service entry point."""
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    runtime = await start_monitor(hass, entry)
-    before = deepcopy(runtime.snapshot())
-    proposed = {
-        "functions": [function(requires=["external:network"])],
-        "external_capabilities": [{"id": "network", "name": "Network"}],
-        "rules": [],
-    }
-    result = await hass.services.async_call(
-        DOMAIN, "preview_functions", proposed, blocking=True, return_response=True
-    )
-    assert result["functions"][0]["readiness"]["answer"] == "unknown"
-    assert result["edges_added"] == [
-        {"from": "function:lighting", "to": "external:network"}
-    ]
-    assert result["edges_removed"] == [
-        {"from": "function:lighting", "to": "entity:entity_id:sensor.observed"}
-    ]
-    assert result["preview_kind"] == "current_evidence_without_history"
-    assert runtime.snapshot() == before
-    with pytest.raises(ServiceValidationError, match="cycle"):
-        await hass.services.async_call(
-            DOMAIN,
-            "preview_functions",
-            {
-                "functions": [
-                    function("a", requires=["function:b"]),
-                    function("b", requires=["function:a"]),
-                ]
-            },
-            blocking=True,
-            return_response=True,
-        )
-    assert runtime.snapshot() == before
+    await start_monitor(hass, entry)
+    assert not hass.services.has_service(DOMAIN, "preview_functions")
     assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-async def test_native_function_preview_and_cycle_error(hass: HomeAssistant) -> None:
-    """Native previews explain gaps and graph errors before creating an entry."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {
-            "functions": [function(requires=["external:network"])],
-            "external_capabilities": [{"id": "network", "name": "Network"}],
-            "preview": True,
-        },
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert "Lighting: unknown" in result["description_placeholders"]["preview"]
-    assert "external:network" in result["description_placeholders"]["preview"]
-    assert not hass.config_entries.async_entries(DOMAIN)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"functions": [function(requires=["function:lighting"])]}
-    )
-    assert result["errors"] == {"base": "invalid_config"}
-    assert "Lighting" in result["description_placeholders"]["error_detail"]
-    assert not hass.config_entries.async_entries(DOMAIN)
 
 
 async def test_reject_own_integration_requirement(hass: HomeAssistant) -> None:
@@ -573,35 +526,6 @@ async def test_own_health_suggestion_is_filtered(
     candidates = runtime.query("functions", {})["functions"][0]["candidates"]
     assert len(candidates) == 2
     assert {item["decision"] for item in candidates} == {"required", "suggested"}
-    assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-async def test_options_cycle_keeps_live_configuration(
-    hass: HomeAssistant, config_data: dict[str, Any]
-) -> None:
-    """Rejecting a cyclic options edit preserves monitoring and stored decisions."""
-    config_data.update(
-        functions=[function(requires=["entity:entity_id:sensor.observed"])]
-    )
-    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    runtime = await start_monitor(hass, entry)
-    before = deepcopy(runtime.snapshot())
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        {
-            "functions": [
-                function("a", requires=["function:b"]),
-                function("b", requires=["function:a"]),
-            ],
-            "notifications": False,
-        },
-    )
-    assert result["errors"] == {"base": "invalid_config"}
-    assert "cycle" in result["description_placeholders"]["error_detail"]
-    assert not entry.options
-    assert runtime.snapshot() == before
-    assert runtime.available
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

@@ -10,12 +10,14 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import CoreState, HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )
 
+from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.runtime import Runtime
 
 SCENARIOS = yaml.safe_load(
@@ -91,6 +93,25 @@ async def test_startup_deferral(
     assert runtime.engine is None
 
 
+async def test_full_start_keeps_startup_grace(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """A failure present at HA startup waits for the configured grace."""
+    config_entry.data["timings"]["startup_grace"] = 120
+    hass.set_state(CoreState.not_running)
+    hass.states.async_set("sensor.observed", "unavailable")
+    runtime = await start_monitor(hass, config_entry)
+    assert runtime.fresh_start
+    assert not runtime.episodes
+    freezer.tick(timedelta(seconds=121))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    assert len(runtime.episodes) == 1
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+
+
 async def test_restart_preserves_episode(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
@@ -141,3 +162,47 @@ async def test_recovery_before_delayed_delivery(
     assert not runtime.episodes
     assert not runtime.desired_notifications
     assert await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+@pytest.mark.parametrize(
+    ("functions", "disabled"),
+    [
+        pytest.param(
+            [{"id": "garage", "name": "Garage"}],
+            er.RegistryEntryDisabler.INTEGRATION,
+            id="saved-function",
+        ),
+        pytest.param({"garage": "not a list"}, None, id="malformed-definitions"),
+    ],
+)
+async def test_dormant_function_entities_are_disabled(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    functions: Any,
+    disabled: er.RegistryEntryDisabler | None,
+) -> None:
+    """ADR 0039: saved function entities are disabled and nothing else changes."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, unique_id=DOMAIN, data={**config_data, "functions": functions}
+    )
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    function_entities = [
+        registry.async_get_or_create(
+            platform,
+            DOMAIN,
+            f"{entry.entry_id}_function_garage{suffix}",
+            config_entry=entry,
+        ).entity_id
+        for platform, suffix in (("sensor", ""), ("event", "_problems"))
+    ]
+    other = registry.async_get_or_create(
+        "sensor", DOMAIN, f"{entry.entry_id}_unrelated", config_entry=entry
+    ).entity_id
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert [
+        registry.async_get(entity_id).disabled_by for entity_id in function_entities
+    ] == [disabled, disabled]
+    assert registry.async_get(other).disabled_by is None
+    assert await hass.config_entries.async_unload(entry.entry_id)

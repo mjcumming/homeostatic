@@ -45,6 +45,24 @@ def configured(hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch) -> dict[str
     return value
 
 
+def test_battery_condition_exception_compiles(
+    hass: HomeAssistant, configured: dict[str, Any]
+) -> None:
+    """A battery exception selected in Sources survives policy validation."""
+    configured["assignments"] = {
+        "battery:registry:cell": {
+            "default": "weekly",
+            "checks": {"battery": "immediate"},
+        }
+    }
+    policy = reporting.generate(hass, configured, PEOPLE)
+    assert any(
+        rule["match"] == {"nodes": ["battery:registry:cell"], "checks": ["battery"]}
+        for rule in policy["rules"]
+    )
+    assert reporting.choices(policy) == configured
+
+
 @pytest.mark.parametrize(
     ("profile", "loudness", "ack", "digest"),
     [

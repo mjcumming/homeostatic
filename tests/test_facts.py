@@ -28,29 +28,15 @@ from tests.test_controls import NODE, action, end
 from tests.test_lifecycle import start_monitor
 from tests.test_startup_quiet import fresh_start, slow_integration
 
-FUNCTION = "function:lighting"
-
 
 @pytest.fixture
 def lighting(config_data: dict[str, Any]) -> dict[str, Any]:
-    """One function over the observed sensor, with notifications off."""
+    """A saved dormant function must not alter detected facts."""
     config_data["notifications"] = False
     config_data["functions"] = [
         {"id": "lighting", "name": "Lighting", "entities": [NODE[7:]]}
     ]
     return config_data
-
-
-def event_entity(hass: HomeAssistant) -> str:
-    """Find the function's event entity by its stable unique id."""
-    registry = er.async_get(hass)
-    entity_id = next(
-        entry.entity_id
-        for entry in registry.entities.values()
-        if entry.platform == DOMAIN and entry.unique_id.endswith("_lighting_problems")
-    )
-    assert entity_id.startswith("event.")
-    return entity_id
 
 
 async def test_episode_facts_without_notifications(
@@ -84,8 +70,8 @@ async def test_episode_facts_without_notifications(
         "status": "warn",
         "importance": "normal",
         "reasons": None,
-        "function_ids": [FUNCTION],
-        "functions": ["Lighting"],
+        "function_ids": [],
+        "functions": [],
         "opened_at": None,
         "shelved": False,
         "maintenance": False,
@@ -93,21 +79,17 @@ async def test_episode_facts_without_notifications(
     }
     assert opened.data["episode_id"] in runtime.episodes
     assert opened.data["reasons"][0]["node_id"] == NODE
-    state = hass.states.get(event_entity(hass))
-    assert state is not None
-    assert state.attributes["event_type"] == "problem_opened"
-    assert state.attributes["episode_id"] == opened.data["episode_id"]
+    assert not any(
+        item.platform == DOMAIN and item.unique_id.endswith("_lighting_problems")
+        for item in er.async_get(hass).entities.values()
+    )
     hass.states.async_set("sensor.observed", "42")
     await hass.async_block_till_done()
     resolved = facts[-1]
     assert resolved.data["change"] == "resolved"
     assert resolved.data["resolution"] == "cleared"
     assert resolved.data["absorbed_into"] is None
-    assert resolved.data["function_ids"] == [FUNCTION]
-    state = hass.states.get(event_entity(hass))
-    assert state is not None
-    assert state.attributes["event_type"] == "problem_resolved"
-    assert state.attributes["resolution"] == "cleared"
+    assert resolved.data["function_ids"] == []
     assert not requests
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -144,21 +126,18 @@ async def test_unknown_value_resolves_availability_warning(
     assert [(fact.data["change"], fact.data["status"]) for fact in facts] == [
         ("resolved", "warn")
     ]
-    state = hass.states.get(event_entity(hass))
-    assert state is not None
-    assert state.attributes["event_type"] == "problem_resolved"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_readiness_sensors_are_enums(
     hass: HomeAssistant, lighting: dict[str, Any]
 ) -> None:
-    """The automation editor can offer readiness states."""
+    """The integration readiness sensor keeps its enum state."""
     hass.states.async_set("sensor.observed", "42")
     entry = MockConfigEntry(domain=DOMAIN, data=lighting)
     await start_monitor(hass, entry)
     registry = er.async_get(hass)
-    for suffix in ("_readiness", "_function_lighting"):
+    for suffix in ("_readiness",):
         entity_id = next(
             item.entity_id
             for item in registry.entities.values()

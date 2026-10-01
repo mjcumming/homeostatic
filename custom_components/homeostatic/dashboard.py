@@ -16,11 +16,12 @@ from homeassistant.components.websocket_api.decorators import (
     require_admin,
     websocket_command,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import floor_registry as fr
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers import label_registry as lr
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
@@ -30,6 +31,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.hass_dict import HassKey
 
 from . import reporting
+from .automation_failures import reported_automation_failures
 from .battery import observe as battery_observation
 from .config import Settings, normalize_rules, rule_data
 from .const import DEFAULTS, DOMAIN, NAME
@@ -42,8 +44,8 @@ from .simple_notifications import available_people, generate_policy, simple_choi
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=56"
-PANEL_ELEMENT = "homeostatic-panel-v22"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=59"
+PANEL_ELEMENT = "homeostatic-panel-v23"
 
 
 def _digest(value: dict[str, Any]) -> str:
@@ -84,18 +86,11 @@ def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
         "inventory": {**runtime.inventory_static, **runtime.inventory_updates()},
         "coverage": runtime.query("coverage", {}),
         "evidence_gaps": runtime.evidence_gaps,
+        "automation_failures": cast(
+            JSONValue, reported_automation_failures(runtime.hass)
+        ),
         "policy": runtime.query("policy", {}),
-        "functions": [
-            {
-                "node_id": source.node_id,
-                "name": source.name,
-                "importance": source.importance.value,
-                "requirements": list(source.requirements),
-                "readiness": json_object(runtime.engine.readiness([source.node_id])),
-            }
-            for source in runtime.sources.values()
-            if source.kind == "function"
-        ],
+        "functions": [],
         "areas": [
             {"id": area.id, "name": area.name, "floor_id": area.floor_id}
             for area in areas.areas.values()
@@ -132,7 +127,16 @@ class Dashboard:
         self._node_rows: dict[str, JSONValue] = {}
         self.summary = self.update
         self._cancel: Callable[[], None] | None = None
+        self._cancel_repairs = hass.bus.async_listen(
+            ir.EVENT_REPAIRS_ISSUE_REGISTRY_UPDATED, self._repairs_updated
+        )
         self.save_lock = asyncio.Lock()
+
+    @callback
+    def _repairs_updated(self, event: Event[ir.EventIssueRegistryUpdatedData]) -> None:
+        """Refresh the issue list when HA reports or clears an automation error."""
+        if event.data["domain"] == "automation" and self.runtime is not None:
+            self.publish()
 
     @callback
     def attach(self, runtime: Runtime | None) -> None:
@@ -194,11 +198,6 @@ class Dashboard:
             names = {
                 str(episode["anchor"]) for episode in self.runtime.episodes.values()
             }
-            names.update(
-                source.node_id
-                for source in self.runtime.sources.values()
-                if source.kind == "function"
-            )
             names.update(
                 str(control["target"])
                 for control in cast(
@@ -1023,9 +1022,6 @@ def _monitoring_preview(
 ) -> dict[str, Any]:
     """Describe proposed enrollment without mutating live monitoring."""
     result = cast(dict[str, Any], runtime.query("preview_rules", {"rules": rules}))
-    functions = cast(
-        dict[str, Any], runtime.query("preview_functions", {"rules": rules})
-    )["functions"]
     inventory = cast(dict[str, Any], runtime.query("inventory", {}))
     before = {item["node_id"]: item for item in inventory["catalog"]["candidates"]}
     added = []
@@ -1043,7 +1039,7 @@ def _monitoring_preview(
         "removed_count": len(removed),
         "added": added[:50],
         "removed": removed[:50],
-        "functions": functions,
+        "functions": [],
         "current_evidence_only": True,
     }
 

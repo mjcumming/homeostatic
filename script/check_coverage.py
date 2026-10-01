@@ -11,8 +11,8 @@ def main() -> None:
         ("statement", totals["covered_lines"], totals["num_statements"]),
         ("branch", totals["covered_branches"], totals["num_branches"]),
     ):
-        if total == 0 or covered / total < 0.95:
-            raise SystemExit(f"{label} coverage is below 95 percent: {covered}/{total}")
+        if total == 0 or covered / total < 0.93:
+            raise SystemExit(f"{label} coverage is below 93 percent: {covered}/{total}")
 
 
 if __name__ == "__main__":

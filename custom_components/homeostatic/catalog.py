@@ -73,9 +73,13 @@ class Source:
             node_id=self.node_id,
             kind=self.kind,
             importance=self.importance,
-            depends_on=(Edge(to=f"entry:{self.owner_id}"),)
-            if self.owner_id and self.watched
-            else (),
+            depends_on=(
+                tuple(Edge(to=target) for target in self.requirements)
+                if self.kind == "device" and self.watched
+                else (Edge(to=f"entry:{self.owner_id}"),)
+                if self.owner_id and self.watched
+                else ()
+            ),
             labels={
                 "name": self.name,
                 **(

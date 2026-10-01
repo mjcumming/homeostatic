@@ -9,7 +9,7 @@ import pytest
 import voluptuous as vol
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.auth.models import User
-from homeassistant.core import Context, Event, EventOrigin, HomeAssistant
+from homeassistant.core import Context, CoreState, Event, EventOrigin, HomeAssistant
 from homeassistant.exceptions import (
     HomeAssistantError,
     ServiceValidationError,
@@ -123,6 +123,45 @@ async def test_identity_refresh_recovery_restart_retirement(
     assert not runtime.episodes
     await report(hass, renamed.entity_id)
     assert len(runtime.episodes) == 1
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+async def test_retired_alert_blocks_reports_without_using_active_capacity(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    owner: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A retired declaration remains blocked while its automation exists."""
+    runtime = await start_monitor(hass, config_entry)
+    await report(hass, owner, "clear")
+    await manage(hass, owner, "retire")
+    key = identity("owner-a", "default")
+    assert runtime.automation_alerts.records[key]["retired"]
+    monkeypatch.setattr(automation_alerts, "MAX_ALERTS", 1)
+    await report(hass, owner, "clear", alert_key="new")
+    assert len(runtime.automation_alerts.records) == 2
+    with pytest.raises(ServiceValidationError, match="retired"):
+        await report(hass, owner, alert_key="default")
+    monkeypatch.setattr(runtime_module, "MAX_ALERTS", 1)
+    with pytest.raises(ServiceValidationError, match="capacity"):
+        await manage(hass, owner, "resume")
+    assert runtime.automation_alerts.records[key]["retired"]
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+async def test_deleted_automation_removes_its_alert_definition(
+    hass: HomeAssistant, config_entry: MockConfigEntry, owner: str
+) -> None:
+    """Deleting the HA automation retires its issue as removed and frees storage."""
+    runtime = await start_monitor(hass, config_entry)
+    result = await report(hass, owner)
+    assert runtime.episodes
+    er.async_get(hass).async_remove(owner)
+    await runtime.async_refresh()
+    assert not runtime.automation_alerts.records
+    assert result["node_id"] not in runtime.sources
+    assert not runtime.episodes
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
@@ -484,6 +523,10 @@ def test_registry_roundtrip_and_caps(
         registry.prepare(
             hass, Settings.from_data({}), {**payload, "alert_key": "other"}
         )
+    hass.set_state(CoreState.not_running)
+    assert not registry.prune_removed_owners(hass)
+    assert registry.records == {key: row}
+    hass.set_state(CoreState.running)
 
 
 def test_phone_references_bounded_and_expiring(

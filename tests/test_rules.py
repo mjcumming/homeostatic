@@ -1,16 +1,13 @@
-"""Rule catalog scenarios: enrollment, exclusion, provenance, and native previews."""
+"""Rule catalog scenarios: enrollment, exclusion, and provenance."""
 
 from copy import deepcopy
 from datetime import timedelta
 from typing import Any
-from unittest.mock import AsyncMock, patch
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
-from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -267,7 +264,7 @@ async def test_switch_conversion_is_not_a_separate_monitoring_source(
 async def test_future_sources_and_excluded_function(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """Passive enrollment includes future arrivals; exclusions cannot green a function."""
+    """Passive enrollment includes future arrivals while saved functions stay dormant."""
     config_data.update(
         entities=[],
         notifications=False,
@@ -291,19 +288,18 @@ async def test_future_sources_and_excluded_function(
     hass.states.async_set("binary_sensor.alert", "off")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
-    assert runtime.readiness == "unknown"
+    assert runtime.readiness == "ready"
+    assert not runtime.settings.functions
     assert len(runtime.enrollment_changes) == 1
     initial = runtime.enrollment_changes[0]
     assert initial["reason"] == "initial_scope"
     assert initial["total"] == sum(
         source.watched for source in runtime.candidates.values()
     )
-    required = runtime.sources["entity:entity_id:sensor.required"]
+    required = runtime.candidates["entity:entity_id:sensor.required"]
     assert not required.watched
     assert required.excluded_by == ("exclude_required",)
-    assert (
-        "entity:entity_id:sensor.required" in runtime.query("coverage", {})["no_checks"]
-    )
+    assert "entity:entity_id:sensor.required" not in runtime.sources
     hass.states.async_set("sensor.new_arrival", "unavailable")
     hass.states.async_set("binary_sensor.alert", "on")
     await hass.async_block_till_done()
@@ -440,50 +436,6 @@ async def test_preview_service_is_read_only(
             return_response=True,
         )
     assert await hass.config_entries.async_unload(config_entry.entry_id)
-
-
-async def test_native_preview_edit_save(hass: HomeAssistant) -> None:
-    """Native setup previews its default connection policy before saving."""
-    owner = MockConfigEntry(domain="test", title="Observed source")
-    owner.add_to_hass(hass)
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"preview": True}
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert (
-        "integration_availability: 1 matches"
-        in result["description_placeholders"]["preview"]
-    )
-    assert not hass.config_entries.async_entries(DOMAIN)
-    with patch("custom_components.homeostatic.async_setup_entry", return_value=True):
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {"preview": False}
-        )
-        await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["rules"][0]["match"]["kind"] == ["integration"]
-    assert result["data"]["notifications"] is False
-
-
-async def test_options_preview_no_reload(
-    hass: HomeAssistant, config_entry: MockConfigEntry
-) -> None:
-    """Native options preview leaves saved monitoring and runtime untouched."""
-    config_entry.add_to_hass(hass)
-    before = dict(config_entry.data)
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
-    with patch.object(hass.config_entries, "async_reload", new=AsyncMock()) as reload:
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"], {"preview": True, "notifications": False}
-        )
-        await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.FORM
-    assert "watched" in result["description_placeholders"]["preview"]
-    assert dict(config_entry.data) == before
-    reload.assert_not_called()
 
 
 async def test_future_entry_reconciles(

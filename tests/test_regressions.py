@@ -57,17 +57,29 @@ async def test_unchanged_problem_does_not_republish(
 
 
 async def test_notification_options_reload(
-    hass: HomeAssistant, config_entry: MockConfigEntry
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
 ) -> None:
     """Turning messages off clears the existing message but preserves the problem."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
     episode_id = next(iter(runtime.episodes))
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
-    await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        {"notifications": False},
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    change = {"revision": current["revision"], "notifications": False, "consumer": None}
+    await client.send_json({"id": 2, "type": "homeostatic/preview_alerts", **change})
+    preview = (await client.receive_json())["result"]
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "homeostatic/save_alerts",
+            "preview_token": preview["preview_token"],
+            **change,
+        }
     )
+    assert (await client.receive_json())["result"] == {"saved": True}
     await hass.async_block_till_done()
     restored = config_entry.runtime_data
     assert restored is not runtime
@@ -79,6 +91,43 @@ async def test_notification_options_reload(
     )
     assert restored.readiness == "degraded"
     assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
+
+
+async def test_panel_save_does_not_restart_startup_grace(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """A new failure after a panel save opens without another startup wait."""
+    config_entry.data["timings"]["startup_grace"] = 120
+    hass.states.async_set("sensor.observed", "42")
+    runtime = await start_monitor(hass, config_entry)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
+    current = (await client.receive_json())["result"]
+    change = {"revision": current["revision"], "notifications": False, "consumer": None}
+    await client.send_json({"id": 2, "type": "homeostatic/preview_alerts", **change})
+    preview = (await client.receive_json())["result"]
+    await client.send_json(
+        {
+            "id": 3,
+            "type": "homeostatic/save_alerts",
+            "preview_token": preview["preview_token"],
+            **change,
+        }
+    )
+    assert (await client.receive_json())["result"] == {"saved": True}
+    await hass.async_block_till_done()
+    restored = config_entry.runtime_data
+    assert restored is not runtime
+    assert not restored.fresh_start
+    hass.states.async_set("sensor.observed", "unavailable")
+    await hass.async_block_till_done()
+    assert len(restored.episodes) == 1
+    assert restored.readiness == "degraded"
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
 
 
 async def test_unenrollment_options_reload(

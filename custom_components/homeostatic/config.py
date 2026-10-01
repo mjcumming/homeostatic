@@ -32,7 +32,7 @@ from .rules import DEFAULT_RULES, CatalogRule, parse_rules
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Settings:
-    """Adapter settings after a config or options flow."""
+    """Validated adapter settings stored by setup or the dashboard."""
 
     policy: dict[str, Any] = dataclass_field(default_factory=policy_data)
     entities: tuple[str, ...]
@@ -46,8 +46,10 @@ class Settings:
     external_capabilities: tuple[ExternalCapability, ...] = ()
 
     @classmethod
-    def from_data(cls, data: Mapping[str, Any]) -> Settings:
-        """Validate stored data, including data created before defaults changed."""
+    def from_data(
+        cls, data: Mapping[str, Any], *, functions_enabled: bool = True
+    ) -> Settings:
+        """Validate stored data, optionally leaving dormant functions inactive."""
         timings = {**DEFAULTS, **data.get("timings", {})}
         for key, value in timings.items():
             if key not in DEFAULTS or type(value) is not int or value < 0:
@@ -67,7 +69,9 @@ class Settings:
         enabled = data.get("notifications", False)
         if type(enabled) is not bool:
             raise ValueError("notifications must be boolean")
-        functions, situations = definitions(data)
+        functions, situations = definitions(
+            data if functions_enabled else {**data, "functions": []}
+        )
         consumer = data.get("consumer")
         if consumer is not None and (
             not isinstance(consumer, str) or not consumer.startswith("automation.")
@@ -83,7 +87,9 @@ class Settings:
             situations=situations,
             consumer=consumer,
             rules=parse_rules(data["rules"]) if "rules" in data else None,
-            external_capabilities=external_capabilities(data),
+            external_capabilities=external_capabilities(
+                data if functions_enabled else {**data, "external_capabilities": []}
+            ),
         )
         nodes = []
         for function in functions:

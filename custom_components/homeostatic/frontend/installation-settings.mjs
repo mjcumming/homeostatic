@@ -1,18 +1,18 @@
 import {escapeHtml as esc} from "./model.mjs?v=46";
 
-import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=46";
+import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=47";
 
 export const TIMINGS = [
   ["Recovery", "settle", "Wait for related failures", "Allow dependencies that are still uncertain to settle before opening a separate problem."],
-  ["Detection", "unknown_hold", "Wait for unknown entities", "Allow unknown or missing entity states this long before reporting them."],
-  ["Detection", "retry_hold", "Allow connection retries", "Give an integration time to reconnect before reporting its retry state."],
+  ["Detection", "unknown_hold", "Wait for unknown evidence", "Wait this long before a check treats missing or uncertain evidence as stale."],
+  ["Detection", "retry_hold", "Wait before reporting setup retries", "Wait this long before reporting an integration that is retrying setup."],
   ["Recovery", "clear_hold", "Confirm recovery", "Require passing availability evidence for this long before clearing its check."],
   ["Recovery", "rejoin_grace", "Allow reconnecting devices", "Give a dependent source time to recover when its dependency returns."],
-  ["Startup", "startup_grace", "Wait after startup", "Allow Home Assistant to start before evaluating startup health."],
+  ["Startup", "startup_grace", "Wait after startup", "After Home Assistant starts, open no new issues and hold notifications for at least this long. Saving a change here doesn't start it."],
   ["Startup", "startup_quiet_max", "Maximum startup wait", "Stop extending startup quiet time after this limit."],
   ["Grouping", "coalesce_count", "Group related problems", "Minimum number of related problems to combine."],
   ["Grouping", "coalesce_window", "Grouping window", "Look for related problems opened within this time."],
-  ["Notifications", "batch", "Notification delay", "Collect requests briefly before handing them to a destination."],
+  ["Notifications", "batch", "Standard alert batching", "Only custom notify rules use this wait. The six reporting choices do not."],
 ];
 
 export function durationSeconds(value) {
@@ -61,7 +61,7 @@ export function installationSettings(card) {
   if(section==="policies")return `${intro}<div class="installation-layout">${nav}<section class="panel installation-content"><h2>Monitoring policies</h2><p class="sub">Choose which Home Assistant reports become checks for groups of current and future sources. For one source, use its Settings in Sources. Reporting times and recipients are in Notifications.</p>${card.monitoringEditor(true)}</section></div>`;
   let body="";
   if(section==="timing"||section==="grouping") {
-    const rows=TIMINGS.filter(row=>section==="grouping"?row[0]==="Grouping":row[0]!=="Grouping");
+    const rows=TIMINGS.filter(([category,key])=>section==="grouping"?category==="Grouping":category!=="Grouping"&&(key!=="batch"||!draft.reporting));
     body=`<h2>${section==="grouping"?"Problem grouping":"Timing"}</h2><p class="sub">${section==="grouping"?"Combine related failures when they share a dependency.":"Set the waits used for detection, recovery, startup, and notification requests. Zero removes a wait."}</p>`+[...new Set(rows.map(row=>row[0]))].map(group=>`<section class="installation-group"><h3>${group}</h3>${rows.filter(row=>row[0]===group).map(([,key,label,help])=>timingField(`timings.${key}`,label,draft.timings[key],help,key==="coalesce_count")).join("")}</section>`).join("");
   }
   if(section==="notifications") {

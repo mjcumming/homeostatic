@@ -1,52 +1,16 @@
-"""Native enrollment and timing options for Homeostatic."""
+"""One-step Homeostatic enrollment; settings live in the dashboard."""
 
 from typing import Any
 
-import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import selector
+from homeassistant.core import HomeAssistant
 
 from .config import Settings, data_from_input, rule_data
 from .const import DOMAIN, NAME
 from .enrollment import inventory, report
 from .function_model import preview as preview_functions
 from .rules import DEFAULT_RULES, Attributes, parse_rules
-
-
-def form_schema(data: dict[str, Any]) -> vol.Schema:
-    """Offer native setup and options without catalog-rule editing."""
-    settings = Settings.from_data(data)
-    fields: dict[Any, Any] = {
-        vol.Optional("policy", default=settings.policy): selector.ObjectSelector(),
-        vol.Optional("preview", default=False): selector.BooleanSelector(),
-        vol.Optional(
-            "functions", default=data.get("functions", [])
-        ): selector.ObjectSelector(),
-        vol.Optional(
-            "external_capabilities", default=data.get("external_capabilities", [])
-        ): selector.ObjectSelector(),
-        vol.Optional(
-            "situations", default=data.get("situations", [])
-        ): selector.ObjectSelector(),
-        vol.Optional(
-            "consumer", description={"suggested_value": settings.consumer}
-        ): selector.EntitySelector(selector.EntitySelectorConfig(domain="automation")),
-        vol.Required(
-            "notifications", default=settings.notifications
-        ): selector.BooleanSelector(),
-    }
-    fields.update(
-        {
-            vol.Required(key, default=value): vol.All(
-                vol.Coerce(int),
-                vol.Range(min=2 if key == "coalesce_count" else 0, max=86400),
-            )
-            for key, value in settings.timings.items()
-        }
-    )
-    return vol.Schema(fields)
 
 
 class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -60,85 +24,10 @@ class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Start with the default integration-availability policy."""
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
-        errors: dict[str, str] = {}
-        preview = ""
-        error_detail = ""
-        form_data: dict[str, Any] = {}
-        if user_input is not None:
-            try:
-                data = data_from_input(
-                    self.hass, {**user_input, "rules": DEFAULT_RULES}
-                )
-            except (ValueError, vol.Invalid) as err:
-                errors["base"] = "invalid_config"
-                error_detail = str(err)
-            else:
-                if user_input.get("preview"):
-                    preview = preview_summary(self.hass, data)
-                    form_data = data
-                else:
-                    await self.async_set_unique_id(DOMAIN)
-                    self._abort_if_unique_id_configured()
-                    return self.async_create_entry(title=NAME, data=data)
-        return self.async_show_form(
-            step_id="user",
-            data_schema=self.add_suggested_values_to_schema(
-                form_schema(form_data), user_input if errors else None
-            ),
-            errors=errors,
-            description_placeholders={"preview": preview, "error_detail": error_detail},
-        )
-
-    @staticmethod
-    @callback
-    def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
-    ) -> HomeostaticOptionsFlow:
-        """Open native options and reload after valid changes."""
-        return HomeostaticOptionsFlow()
-
-
-class HomeostaticOptionsFlow(config_entries.OptionsFlowWithReload):
-    """Update native options while retaining the saved monitoring catalog."""
-
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Validate the replacement settings and retain missing selections."""
-        current = dict(self.config_entry.options or self.config_entry.data)
-        preview = ""
-        error_detail = ""
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            try:
-                saved_rules = rule_data(self.hass, Settings.from_data(current))
-                data = data_from_input(self.hass, {**user_input, "rules": saved_rules})
-            except (ValueError, vol.Invalid) as err:
-                errors["base"] = "invalid_config"
-                error_detail = str(err)
-            else:
-                if user_input.get("preview"):
-                    runtime = getattr(self.config_entry, "runtime_data", None)
-                    preview = preview_summary(
-                        self.hass, data, runtime.enrolled if runtime else {}
-                    )
-                    if runtime is not None and runtime.available:
-                        decisions = runtime.preview_policy(data["policy"])["episodes"]
-                        preview += "\n" + "\n".join(
-                            f"{item['episode_id']}: {item['loudness']}, recipients {item['recipients']}, pending {item['pending']}"
-                            for item in decisions
-                        )
-                    current = data
-                else:
-                    return self.async_create_entry(title="", data=data)
-        return self.async_show_form(
-            step_id="init",
-            data_schema=self.add_suggested_values_to_schema(
-                form_schema(current), user_input if errors else None
-            ),
-            errors=errors,
-            description_placeholders={"preview": preview, "error_detail": error_detail},
-        )
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured()
+        data = data_from_input(self.hass, {"rules": DEFAULT_RULES})
+        return self.async_create_entry(title=NAME, data=data)
 
 
 def preview_summary(

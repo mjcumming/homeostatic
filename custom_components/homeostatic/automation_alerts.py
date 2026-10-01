@@ -92,7 +92,7 @@ class AutomationAlerts:
         """Reject malformed adapter-owned state rather than silently losing identity."""
         records = vol.Schema({str: RECORD})(value)
         if (
-            len(records) > MAX_ALERTS
+            sum(not row["retired"] for row in records.values()) > MAX_ALERTS
             or any(
                 key != identity(row["owner"], row["key"])
                 or not row["node_id"].startswith("situation:")
@@ -102,6 +102,21 @@ class AutomationAlerts:
         ):
             raise ValueError("Invalid stored automation alerts")
         self.records = deepcopy(records)
+
+    def prune_removed_owners(self, hass: HomeAssistant) -> bool:
+        """Drop declarations whose owning automation HA has removed."""
+        if not hass.is_running:
+            return False
+        owners = {
+            entry.unique_id
+            for entry in er.async_get(hass).entities.values()
+            if entry.platform == "automation" and entry.unique_id
+        }
+        before = len(self.records)
+        self.records = {
+            key: row for key, row in self.records.items() if row["owner"] in owners
+        }
+        return len(self.records) != before
 
     def prepare(
         self, hass: HomeAssistant, settings: Settings, data: dict[str, Any]
@@ -115,7 +130,10 @@ class AutomationAlerts:
             raise ValueError(
                 "This alert is retired; explicitly resume it before reporting"
             )
-        if previous is None and len(self.records) >= MAX_ALERTS:
+        if (
+            previous is None
+            and sum(not row["retired"] for row in self.records.values()) >= MAX_ALERTS
+        ):
             raise ValueError("Automation alert capacity reached")
         if not data["name"].strip():
             raise ValueError("Provide an alert name")

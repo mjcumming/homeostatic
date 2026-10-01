@@ -1,3 +1,9 @@
+const PAGE_FOR_VIEW = {issues:"problems", settings:"configuration", functions:"overview"};
+
+export function cardView(view = "overview") {
+  return PAGE_FOR_VIEW[view] ?? view;
+}
+
 export function notificationRoute(path) {
   const pages = {"":"overview", "/":"overview", "/issues":"problems", "/history":"history", "/notifications":"notifications"};
   if (Object.hasOwn(pages, path)) return {page:pages[path], episodeId:null};

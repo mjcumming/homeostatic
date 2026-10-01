@@ -19,6 +19,10 @@ export function newAllBatteryPolicy(rules) {
   return rule;
 }
 
+export function newGroupPolicy(rules) {
+  return {...newCatalogRule(rules),enabled:false,match:{kind:["device"]}};
+}
+
 const sourceTypes = {integration:"integration connections", device:"device availability", entity:"entity availability",battery:"battery condition"};
 
 /** Explain every condition without treating a rule count as an inventory count. */
@@ -53,9 +57,10 @@ export function monitoringPolicies(card) {
   const renderPolicy = ({rule, index}) => {
     const {subject, conditions} = groupPolicyScope(rule, card.configuration ?? card.current.data);
     const newDraft = card.configuration?.rules && !card.configuration.rules.some(saved => saved.id === rule.id);
-    const status = newDraft ? "Draft — no effect until reviewed and saved."
+    const status = newDraft && rule.enabled === false ? "Draft — choose a scope and enable it before saving."
+      : newDraft ? "Draft — no effect until reviewed and saved."
       : rule.enabled === false ? "Paused — this rule has no effect." : "Enabled — applies to current and future matching sources.";
-    return `<article class="monitoring-policy" data-ui-key="policy:${esc(rule.id)}"><h3>${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${esc(subject)}</h3><p class="small">${status}</p>${conditions.length ? `<ul class="policy-conditions">${conditions.map(condition => `<li>${esc(condition)}</li>`).join("")}</ul>` : '<p class="sub">No additional conditions.</p>'}<details class="config-rule policy-edit"${card.configEditingRule === rule.id ? " open" : ""}><summary>Edit group policy</summary>${ruleControls(rule,index,"group")}${ruleFields(rule,index,broadFields,"group")}</details></article>`;
+    return `<article class="monitoring-policy" data-ui-key="policy:${esc(rule.id)}"><h3>${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${esc(subject)}</h3><p class="small">${status}</p>${conditions.length ? `<ul class="policy-conditions">${conditions.map(condition => `<li>${esc(condition)}</li>`).join("")}</ul>` : '<p class="sub">All current and future sources of this type match.</p>'}<details class="config-rule policy-edit"${card.configEditingRule === rule.id ? " open" : ""}><summary>Edit group policy</summary>${ruleControls(rule,index,"group")}${ruleFields(rule,index,broadFields,"group")}</details></article>`;
   };
   const watched = groups.filter(({rule}) => rule.action !== "exclude").map(renderPolicy).join("");
   const excluded = groups.filter(({rule}) => rule.action === "exclude").map(renderPolicy).join("");

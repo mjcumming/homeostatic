@@ -1,67 +1,9 @@
 {
   "title": "Homeostatic",
   "config": {
-    "step": {
-      "user": {
-        "title": "Monitor your home",
-        "description": "Set up Homeostatic with integration availability monitoring. Use Homeostatic Settings → Monitoring policies and Sources → Settings to choose what else to watch after setup. Preview shows current scope and function requirements without saving. Policy controls recipients, channels, quiet hours, reminders, escalation and digests. Notifications need an enabled consumer automation. Situation sources must report evidence loss as unavailable. Timing values are seconds except coalescing count.\n\n{preview}\n{error_detail}",
-        "data": {
-          "notifications": "Activate notification events",
-          "settle": "Dependency settle time",
-          "rejoin_grace": "Dependency recovery grace",
-          "startup_grace": "Startup grace",
-          "startup_quiet_max": "Longest startup wait for integrations",
-          "coalesce_count": "Failures needed to group a problem",
-          "coalesce_window": "Failure grouping window",
-          "batch": "Notification delay",
-          "clear_hold": "Recovery confirmation time",
-          "unknown_hold": "Unknown evidence grace",
-          "retry_hold": "Setup retry warning period",
-          "functions": "Functions (YAML list)",
-          "situations": "Situation alerts (YAML list)",
-          "consumer": "Notification consumer automation",
-          "preview": "Preview without saving",
-          "external_capabilities": "External capabilities (YAML list)",
-          "policy": "Notification policy (YAML mapping)"
-        }
-      }
-    },
-    "error": {
-      "invalid_config": "Check sources, definitions, policy, and timings. Notifications require an enabled consumer automation. Homeostatic cannot monitor itself."
-    },
     "abort": {
-      "single_instance_allowed": "Homeostatic is already configured. Use its options to change monitoring.",
+      "single_instance_allowed": "Homeostatic is already configured. Open Homeostatic in the sidebar to change monitoring.",
       "already_configured": "Homeostatic is already configured."
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Monitoring options",
-        "description": "Edit functions, situations and timing here. Choose what to watch in Homeostatic Settings → Monitoring policies or Sources → Settings; these choices remain saved when native options change. Preview shows current scope and function requirements without saving. Policy controls recipients, channels, quiet hours, reminders, escalation and digests. Notifications need an enabled consumer automation. Situation sources must report evidence loss as unavailable. Timing values are seconds except coalescing count.\n\n{preview}\n{error_detail}",
-        "data": {
-          "notifications": "Activate notification events",
-          "settle": "Dependency settle time",
-          "rejoin_grace": "Dependency recovery grace",
-          "startup_grace": "Startup grace",
-          "startup_quiet_max": "Longest startup wait for integrations",
-          "coalesce_count": "Failures needed to group a problem",
-          "coalesce_window": "Failure grouping window",
-          "batch": "Notification delay",
-          "clear_hold": "Recovery confirmation time",
-          "unknown_hold": "Unknown evidence grace",
-          "retry_hold": "Setup retry warning period",
-          "functions": "Functions (YAML list)",
-          "situations": "Situation alerts (YAML list)",
-          "consumer": "Notification consumer automation",
-          "preview": "Preview without saving",
-          "external_capabilities": "External capabilities (YAML list)",
-          "policy": "Notification policy (YAML mapping)"
-        }
-      }
-    },
-    "error": {
-      "invalid_config": "Check sources, definitions, policy, and timings. Notifications require an enabled consumer automation. Homeostatic cannot monitor itself."
     }
   },
   "entity": {

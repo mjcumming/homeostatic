@@ -82,6 +82,7 @@ document.querySelector("#run").onclick=async()=>{
     expect(card.sourcesSelection==="source:entity:registry:orphan-124","Grouping lost source identity");
     change(root.querySelector("[data-sources-group]"),"integration");
     search("Frigate");clickName("Frigate");
+    expect(root.querySelector('[data-maintenance="entry:frigate"]'),"Sources must offer maintenance for an integration connection");
     root.querySelector("[data-integration-master]").click();
     expect(card.configDraft.some(rule=>rule.match.integration_domain?.[0]==="frigate"&&rule.match.kind?.length===3&&rule.action==="exclude"),"Integration-wide off did not stage");
     expect(!root.querySelector('[data-scope-index="2"]'),"Narrower choices remain active while integration is off");

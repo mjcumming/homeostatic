@@ -5,6 +5,7 @@ import logging
 from collections import deque
 from collections.abc import Callable
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime, timedelta
 from functools import partial
 from time import perf_counter
@@ -59,7 +60,7 @@ from homeassistant.util import dt as dt_util
 
 from . import reporting
 from .attention import build_policy, explanations, supports_attention_controls
-from .automation_alerts import AutomationAlerts, automation_owner, identity
+from .automation_alerts import MAX_ALERTS, AutomationAlerts, automation_owner, identity
 from .battery import observe as battery_observation
 from .catalog import (
     Source,
@@ -554,6 +555,8 @@ class Runtime:
                 if self.engine is not None:
                     await self._drain_pending()
                     now = dt_util.utcnow()
+                    if self.automation_alerts.prune_removed_owners(self.hass):
+                        self._inventory_dirty = True
                 events = self._evaluate(now, reconcile=reconcile)
                 self._handle(events, now)
                 await self._complete(now)
@@ -857,12 +860,25 @@ class Runtime:
             )
             if key not in self.automation_alerts.records:
                 raise ValueError("Choose an existing automation alert")
+            previous = self.automation_alerts.records[key]
+            if (
+                data["operation"] == "resume"
+                and previous["retired"]
+                and sum(
+                    not item["retired"]
+                    for item in self.automation_alerts.records.values()
+                )
+                >= MAX_ALERTS
+            ):
+                raise ValueError("Automation alert capacity reached")
             row = {
-                **self.automation_alerts.records[key],
+                **previous,
                 "retired": data["operation"] == "retire",
             }
         changed = self.automation_alerts.records.get(key) != row
         self.automation_alerts.records[key] = row
+        if self.automation_alerts.prune_removed_owners(self.hass):
+            changed = True
         if first:
             previous = self.policy.snapshot()
             self.policy = Policy(self._policy_config())
@@ -966,7 +982,10 @@ class Runtime:
         sources = self._discover() if discover else self.sources
         events: list[HealthEvent] = []
         if first:
-            self.engine = Engine(self.settings.engine_settings())
+            engine_settings = self.settings.engine_settings()
+            if not self.fresh_start:
+                engine_settings = replace(engine_settings, startup_grace=timedelta(0))
+            self.engine = Engine(engine_settings)
             self.policy = Policy(self._policy_config())
         assert self.engine is not None
         assert self.policy is not None
@@ -1413,7 +1432,7 @@ class Runtime:
 
     async def async_send_notification(self, payload: dict[str, Any]) -> None:
         """Attempt selected built-in routes once per durable delivery id."""
-        if not self.settings.notifications:
+        if not self.settings.notifications and payload.get("action") != "resolve":
             return
         delivery_id = payload.get("delivery_id")
         channels = payload.get("channels")
@@ -1478,7 +1497,10 @@ class Runtime:
                     and payload.get("action") != "resolve",
                     silent=payload.get("silent") is True,
                     clear=payload.get("action") == "resolve"
-                    and payload.get("loudness") != "urgent",
+                    and (
+                        not self.settings.notifications
+                        or payload.get("loudness") != "urgent"
+                    ),
                 )
             except HomeAssistantError as err:
                 self.delivery_failures.append(

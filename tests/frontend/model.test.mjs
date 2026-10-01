@@ -3,18 +3,26 @@ import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonit
 import {filterSources, sourceMonitoringChoices, sourcePaths, sourcesBrowser, sourcesTree} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
 import {monitoringPolicyRules} from "./monitoring-policies-fixture.mjs";
-import {groupPolicyScope, isGroupPolicy, monitoringPolicies} from "../../custom_components/homeostatic/frontend/monitoring-policies.mjs";
+import {groupPolicyScope, isGroupPolicy, monitoringPolicies, newGroupPolicy} from "../../custom_components/homeostatic/frontend/monitoring-policies.mjs";
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import {historyAccount, historyName, historyPage, observedRange, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
+
 import {DashboardStore, affectedFunctions, browseHighlights, coverageInventory, dashboardStore, deviceRegistryCoverage, recentEpisodes,
   escapeHtml, inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel,
   recentActivity, sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
 import {locationBranch, setBranchExpanded} from "../../custom_components/homeostatic/frontend/tree.mjs";
 import {editCatalogRule, monitoringScope, monitoringTree, newCatalogRule, ruleSummary,
   scopeChoice, setScopeChoice} from "../../custom_components/homeostatic/frontend/configuration.mjs";
+
+test("new group policy starts paused and scoped to device availability",()=>{
+  const rule=newGroupPolicy([{id:"rule_1"}]);
+  assert.equal(rule.enabled,false);
+  assert.deepEqual(rule.match,{kind:["device"]});
+  assert.deepEqual(rule.checks,["availability"]);
+});
 
 test("adding a linked person stages a route without sending or saving", () => {
   let rendered=0;
@@ -55,7 +63,7 @@ test("notification settings expose reporting directly for older saved policies",
   card.page="configuration";
   const timing=installationSettings(card);
   assert.match(timing,/<h1>Settings<\/h1>/);
-  assert.match(timing,/Notification delay/);
+  assert.match(timing,/Standard alert batching/);
   assert.match(timing,/data-setting-path="timings.batch"/);
   assert.doesNotMatch(timing,/data-setting-path="notifications"|data-notification-add|data-settings-section="notifications"/);
   card.page="notifications";
@@ -125,7 +133,8 @@ test("active consequences stay separate from potential impact",()=>{
 });
 test("inventory retains excluded candidates and uses current registered metadata",()=>{
   const data=example();
-  assert.equal(inventoryRows(data).length,3);
+  assert.equal(inventoryRows(data).length,2);
+  assert.equal(inventoryRows(data).some(x=>x.kind==="function"),false);
   assert.deepEqual(inventoryRows(data).find(x=>x.node_id==="sensor.a").attributes,{area:["garage"]});
   assert.equal(monitoringLabel(source("x",{watched:false,excluded_by:["ignore"]})),"Excluded");
   assert.equal(monitoringLabel(source("x",{kind:"function",requirements:["sensor.a"],watched:false})),"Composite function");
@@ -760,15 +769,14 @@ test("diagnostic summary states monitoring limits and configured impact", () => 
   const ready=diagnosticOverview(entry,{readiness:{answer:"ready"}});
   assert.match(ready.checks,/connection state/);
   assert.match(ready.checks,/not physically verified/);
-  assert.match(ready.impact,/outside configured functions are not assessed/);
+  assert.match(ready.impact,/selected Home Assistant evidence/);
   const open=diagnosticOverview(entry,{readiness:{answer:"ready"}},[{name:"Movie night"}],true);
   assert.match(open.assessment,/still awaiting confirmed recovery/);
-  assert.match(open.impact,/Movie night/);
+  assert.match(open.impact,/selected Home Assistant evidence/);
   const disabled=diagnosticOverview({...entry,disabled:true},{readiness:{answer:"unknown"}});
   assert.match(disabled.monitoring,/cannot assess its health/);
   assert.match(disabled.assessment,/cannot establish readiness/);
-  assert.match(diagnosticOverview({...entry,kind:"function"},{readiness:{answer:"blocked"}}).impact,/declared requirements/);
-  assert.match(diagnosticOverview({...entry,kind:"situation"},{readiness:null},[],true).impact,/separate from equipment/);
+  assert.match(diagnosticOverview({...entry,kind:"situation"},{readiness:null},[],true).impact,/selected Home Assistant evidence/);
 });
 
 test("controls require current admin access and an eligible live target", () => {

@@ -132,7 +132,7 @@ def save_profile(output: Path, scope: str, results: dict[str, Any]) -> None:
 
 @pytest.mark.skipif(
     os.environ.get("HOMEOSTATIC_RUNTIME_PROFILE") != "1",
-    reason="Opt-in burst profiling; see docs/testing/runtime-scaling.md",
+    reason="Opt-in burst profiling for large installations",
 )
 @pytest.mark.parametrize("scope", ["device_group", "all_entities"])
 async def test_registered_inventory_runtime_load(
@@ -218,7 +218,7 @@ async def test_registered_inventory_runtime_load(
 
 @pytest.mark.skipif(
     os.environ.get("HOMEOSTATIC_RUNTIME_PROFILE") != "1",
-    reason="Opt-in burst profiling; see docs/testing/runtime-scaling.md",
+    reason="Opt-in burst profiling for large installations",
 )
 async def test_one_capability_per_device_runtime_load(
     hass: HomeAssistant,

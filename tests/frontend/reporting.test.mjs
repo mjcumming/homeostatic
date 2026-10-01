@@ -88,9 +88,9 @@ test("Overview distinguishes off, unready, pending and empty reporting",()=>{
   data.policy.reports=[{name:"weekly",next_at:"2026-10-04T14:00:00Z",episodes:["a","b"]}];
   assert.match(reportingOverview(data),/2 open problems currently eligible/);
 });
-test("acknowledgement is awareness and status never claims receipt",()=>{
+test("acknowledgment is awareness and status never claims receipt",()=>{
   const data={policy:{notifications_enabled:true,episodes:[{episode_id:"a",sent_to:["mike"],require_acknowledgment:true}]}};
-  assert.match(reportingStatus(data,{episode_id:"a"}),/awaiting acknowledgement/);
+  assert.match(reportingStatus(data,{episode_id:"a"}),/awaiting acknowledgment/);
   data.policy.episodes[0].acknowledgment={at:"2026-09-28"};
   assert.match(reportingStatus(data,{episode_id:"a"}),/problem remains open/);
 });
@@ -144,7 +144,7 @@ test("initial reporting review names the selected source preference",()=>{
 for(const [status,warning] of [["requests_disabled","Outgoing requests are disabled"],["missing_destinations","no configured destination"],["configured","Shared recipients"]])test(`automation alert reporting is owned by HA with ${status} status`,()=>{
   const c=card();c.settingsDraft=null;
   const html=sourceReporting(c,{source:{node_id:"situation:leak",automation_url:"/config/automation/edit/owner",alert_profile:"acknowledge",alert_reporting_status:status}});
-  assert.match(html,/Immediate.*acknowledgement required/);
+  assert.match(html,/Immediate with acknowledgment/);
   assert.match(html,/href="\/config\/automation\/edit\/owner"/);
   assert.ok(html.includes(warning));
   assert.doesNotMatch(html,/<select|data-reporting-node/);

@@ -45,26 +45,6 @@ preview_rules:
       description: A list of attach or exclude catalog rules. Entity names are resolved to stable references for this preview.
       selector:
         object:
-functions:
-  name: Functions
-  description: Explain requirements, missing evidence and scoped automation suggestions for each function.
-preview_functions:
-  name: Preview functions
-  description: Preview unsaved function requirements using current evidence without history, saving, or notification delivery.
-  fields:
-    functions:
-      required: true
-      description: Replacement function definitions with requirements and candidate decisions.
-      selector:
-        object:
-    external_capabilities:
-      description: Replacement external capability declarations. Omit to retain current declarations.
-      selector:
-        object:
-    rules:
-      description: Optional replacement catalog rules for this preview only.
-      selector:
-        object:
 policy:
   name: Notification policy
   description: Explain the last evaluated attention decision and pending delivery times for each current episode.
@@ -110,7 +90,7 @@ start_maintenance:
         text:
     include_dependents:
       default: false
-      description: Include equipment and functions that depend on this capability. Scope follows later graph changes.
+      description: Include dependent equipment. Scope follows later graph changes.
       selector:
         boolean:
     until:
@@ -215,12 +195,18 @@ report_alert:
       selector:
         select:
           options:
-          - immediate
-          - acknowledge
-          - morning
-          - evening
-          - weekly
-          - dashboard
+          - label: Immediate
+            value: immediate
+          - label: Immediate with acknowledgment
+            value: acknowledge
+          - label: Morning summary
+            value: morning
+          - label: Evening summary
+            value: evening
+          - label: Weekly summary
+            value: weekly
+          - label: Dashboard only
+            value: dashboard
     state:
       required: true
       selector:
@@ -257,5 +243,7 @@ manage_alert:
       selector:
         select:
           options:
-          - retire
-          - resume
+          - label: Retire alert
+            value: retire
+          - label: Resume alert
+            value: resume

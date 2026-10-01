@@ -50,23 +50,7 @@ async def async_setup_entry(
     """Expose one overall health answer and two diagnostic counts."""
     runtime = entry.runtime_data
     async_add_entities(
-        [
-            *(HealthSensor(runtime, description) for description in DESCRIPTIONS),
-            *(
-                HealthSensor(
-                    runtime,
-                    SensorEntityDescription(
-                        key=f"function_{function.id}",
-                        name=function.name,
-                        icon="mdi:check-network-outline",
-                        device_class=SensorDeviceClass.ENUM,
-                        options=READINESS,
-                    ),
-                    function_node=f"function:{function.id}",
-                )
-                for function in runtime.settings.functions
-            ),
-        ]
+        HealthSensor(runtime, description) for description in DESCRIPTIONS
     )
 
 
@@ -117,7 +101,6 @@ class HealthSensor(SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Expose scope and observation limits alongside the answer."""
         return {
-            "function_node": self.function_node,
             "notification_consumer_missing": self.runtime.consumer_missing,
             "monitored_nodes": len(self.runtime.sources),
             "selected_capabilities": len(self.runtime.targets),

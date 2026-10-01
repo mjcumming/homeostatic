@@ -64,6 +64,9 @@ export async function runMonitoringPolicyScenario(card) {
   expect(JSON.stringify(saved[0]) === JSON.stringify(original[0]),"Saving must preserve unrelated rules");
   root.querySelector('[data-action="add-rule"]').click();
   expect(card.configDraft.length === 20,"Adding a group policy must preserve source rules");
+  expect(card.configDraft.at(-1).enabled === false &&
+    JSON.stringify(card.configDraft.at(-1).match) === JSON.stringify({kind:["device"]}),
+    "A new group policy must not watch every source if saved without review");
   expect(root.querySelectorAll(".policy-edit[open]").length > 0,"The new group's editor opens");
   root.querySelector('[data-remove-rule="19"]').click();
   expect(card.configDraft.length === 19,"Removing the new policy must preserve the catalog");

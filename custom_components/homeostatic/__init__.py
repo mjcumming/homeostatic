@@ -8,6 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
 
@@ -26,7 +27,11 @@ PLATFORMS = [Platform.EVENT, Platform.SENSOR]
 async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) -> bool:
     """Load presentation now and start monitoring after Home Assistant starts."""
     try:
-        runtime = Runtime(hass, entry, Settings.from_data(entry.options or entry.data))
+        runtime = Runtime(
+            hass,
+            entry,
+            Settings.from_data(entry.options or entry.data, functions_enabled=False),
+        )
         # A reload while HA is running needs no startup hold.
         runtime.fresh_start = not hass.is_running
         await runtime.async_load()
@@ -35,6 +40,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
             f"Invalid Homeostatic configuration or snapshot: {err}"
         ) from err
     entry.runtime_data = runtime
+    registry = er.async_get(hass)
+    stored = entry.options or entry.data
+    definitions = stored.get("functions", [])
+    if isinstance(definitions, list):
+        ids = {
+            row["id"]
+            for row in definitions
+            if isinstance(row, dict) and isinstance(row.get("id"), str)
+        }
+        unique_ids = {
+            f"{entry.entry_id}_function_{function_id}{suffix}"
+            for function_id in ids
+            for suffix in ("", "_problems")
+        }
+        for entity in tuple(registry.entities.values()):
+            if (
+                entity.config_entry_id == entry.entry_id
+                and entity.platform == DOMAIN
+                and entity.unique_id in unique_ids
+                and entity.disabled_by is None
+            ):
+                registry.async_update_entity(
+                    entity.entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION
+                )
 
     @callback
     def handle_notification(event: Event) -> None:

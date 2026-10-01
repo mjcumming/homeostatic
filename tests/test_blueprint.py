@@ -219,24 +219,6 @@ async def load_example(
     return {**inputs.async_substitute(), "id": name, "alias": name}
 
 
-async def test_status_light_follows_readiness(hass: HomeAssistant) -> None:
-    """The light example acts on function readiness, not notifications."""
-    automation = await load_example(
-        hass,
-        "function_status_light.yaml",
-        {"function": "sensor.homeostatic_lighting", "light": "light.hall"},
-    )
-    on = async_mock_service(hass, "light", "turn_on")
-    off = async_mock_service(hass, "light", "turn_off")
-    assert await async_setup_component(hass, "automation", {"automation": [automation]})
-    await hass.async_block_till_done()
-    for state in ("blocked", "unavailable", "ready"):
-        hass.states.async_set("sensor.homeostatic_lighting", state)
-        await hass.async_block_till_done()
-    assert [call.data["rgb_color"] for call in on] == [[255, 80, 0]]
-    assert [call.data["entity_id"] for call in off] == [["light.hall"]]
-
-
 async def test_logbook_records_selected_changes(hass: HomeAssistant) -> None:
     """The logbook example reads the episode fact contract."""
     automation = await load_example(

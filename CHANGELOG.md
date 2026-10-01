@@ -1,6 +1,29 @@
 # Changelog
 
-## [Unreleased]
+## [1.2.0] - 2026-10-01
+
+### Removed
+
+- Remove the native Configure form and its YAML settings. Adding Homeostatic is one step, and the panel is the only settings editor. Saved notification policies, consumer automations and situation declarations keep working but can no longer be edited there.
+- Set household functions aside. Saved definitions are kept but inactive. Function readiness sensors and event entities are disabled, so automations that use them stop updating, and the function card view now opens Overview. The function services, previews and the Function status light blueprint are gone.
+
+### Changed
+
+- Show Home Assistant automation validation and missing-action Repair errors in Overview and Issues, with a link back to Home Assistant.
+- Group watched device availability findings under a failed watched integration when both report problems.
+- Remove deleted automations' alert definitions and stop counting retired definitions toward the 1000 active-alert limit.
+- Apply the two-minute issue grace only after a full Home Assistant start, not after a panel save or another integration reload while Home Assistant is running.
+- Show readable choices in Homeostatic's actions, rename timing labels in the panel, and hide custom notification batching while the six reporting choices are in use.
+- Draft new group policies paused, expose supported maintenance controls in Sources, and generate current dashboard page paths.
+- Call the acknowledgment reporting choice "Immediate with acknowledgment" in the panel, matching the alert blueprint.
+- Name the card's `view` values after the pages they show: `issues` and `settings`. The earlier `problems` and `configuration` still work.
+- Rewrite the README around what Homeostatic watches and what you get, with removal steps, the card `view` names and a plain writing style.
+- Rewrite the user documentation: a step-by-step install tutorial, a task-based user guide, new reference, how-it-works and troubleshooting pages, and plain-language alert, events and roadmap pages.
+- Rename the installation guide and release packaging commands, remove obsolete pilot results, proposals, prototype, and superseded UI notes, and correct current alert, acknowledgment, and release guidance.
+
+### Fixed
+
+- Clear built-in phone notifications when requests turn off and accept battery condition reporting exceptions.
 
 ## [1.1.5] - 2026-10-01
 
@@ -385,7 +408,7 @@
 
 ### Known limitations
 
-- Runtime burst qualification found repeated full inventory scans, saves and dashboard publications after simultaneous availability changes. Whole-house enrollment remains unqualified despite fast initial construction. Added isolated inventory-shape, two-device pilot and opt-in runtime profiling scenarios; measurements and proposed rollout gates are in `docs/testing/runtime-scaling.md`. No live enrollment or integration behavior changed.
+- Runtime burst qualification found repeated full inventory scans, saves and dashboard publications after simultaneous availability changes. Whole-house enrollment remains unqualified despite fast initial construction. Added isolated inventory-shape, two-device pilot and opt-in runtime profiling scenarios; measurements and proposed rollout gates were recorded for that release. No live enrollment or integration behavior changed.
 
 ## [0.1.0b3] - 2026-09-25
 
@@ -447,7 +470,7 @@
 
 - Activation uses the public library API, preserves episode history, starts escalation afresh and respects delivery holds. Policy edits withdraw old routes before activation.
 
-- Owner-facing working notes now live in `docs/ui.md`. They are proposals, not implemented behavior.
+- Owner-facing working notes were added as proposals; they were later retired after decisions moved into the specification and ADRs.
 - Empty functions are explicit unwatched drafts; missing function/external declarations remain unknown requirements.
 - Native setup/options preview now includes function requirements and candidate decisions, with readable graph validation errors.
 

@@ -349,6 +349,18 @@ def evaluate(
             if empty_by_choice
             else source.excluded_by,
         )
+    for node_id, source in tuple(result.items()):
+        if source.kind != "device" or not source.watched:
+            continue
+        result[node_id] = replace(
+            source,
+            requirements=tuple(
+                f"entry:{entry_id}"
+                for entry_id in source.attributes.get("integration", ())
+                if (owner := result.get(f"entry:{entry_id}")) is not None
+                and owner.watched
+            ),
+        )
     return result
 
 

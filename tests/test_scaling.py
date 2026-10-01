@@ -69,7 +69,7 @@ async def test_large_graph_setup_reconcile_and_failure(
     config_data: dict[str, Any],
     record_property: Callable[[str, object], None],
 ) -> None:
-    """Ten thousand healthy monitors retain failure detection and required gaps."""
+    """Ten thousand healthy monitors retain failure detection with dormant functions."""
     for index in range(10000):
         hass.states.async_set(f"light.scale_{index}", "off")
     hass.states.async_set("sensor.unwatched", "available")
@@ -95,14 +95,15 @@ async def test_large_graph_setup_reconcile_and_failure(
         started = perf_counter()
         runtime = await start_monitor(hass, entry)
         record_property("setup_seconds", perf_counter() - started)
-        assert len(runtime.sources) == 10002
+        assert len(runtime.sources) == 10000
         assert runtime.sources["entity:entity_id:light.scale_0"].watched
-        assert not runtime.sources["entity:entity_id:sensor.unwatched"].watched
+        assert not runtime.candidates["entity:entity_id:sensor.unwatched"].watched
+        assert "entity:entity_id:sensor.unwatched" not in runtime.sources
         assert (
             "entity:entity_id:automation.homeostatic_test_consumer"
             not in runtime.sources
         )
-        assert runtime.readiness == "unknown"
+        assert runtime.readiness == "ready"
         before = deepcopy(runtime.episodes)
         with patch(
             "health_tree.engine.Engine.register_many",

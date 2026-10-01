@@ -1,27 +1,26 @@
-import {isAllBatteryPolicy, monitoringPolicies, newAllBatteryPolicy} from "./monitoring-policies.mjs?v=50";
-import {sourceSettingsAction} from "./source-settings.mjs?v=53";
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=46";
+import {isAllBatteryPolicy, monitoringPolicies, newAllBatteryPolicy, newGroupPolicy} from "./monitoring-policies.mjs?v=51";
+import {sourceSettingsAction} from "./source-settings.mjs?v=54";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=47";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
-  sourceMap} from "./model.mjs?v=46";
+  sourceMap} from "./model.mjs?v=59";
 import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=47";
 import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=47";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=56";
-import {diagnosticOverview} from "./evidence.mjs?v=46";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=59";
+import {diagnosticOverview} from "./evidence.mjs?v=59";
 import {editCatalogRule, monitoringScope,
-  newCatalogRule, scopeChoice, setScopeChoice} from "./configuration.mjs?v=46";
+  scopeChoice, setScopeChoice} from "./configuration.mjs?v=46";
 import {styles} from "./styles.mjs?v=54";
 import {locationBranch, setBranchExpanded} from "./tree.mjs?v=46";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=46";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=55";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=57";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=49";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=51";
 
-import {applyNotificationRoute} from "./notification-navigation.mjs?v=46";
+import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=59";
 
-const VIEWS = ["overview", "sources", "house", "coverage", "functions", "problems", "history", "notifications", "configuration"];
-const homeostaticOptionsUrl = (entryId) => `/config/integrations/integration/homeostatic#config_entry=${encodeURIComponent(entryId)}`;
+const VIEWS = ["overview", "sources", "house", "coverage", "problems", "history", "notifications", "configuration"];
 const status = (value) => {
   const safe = ["ready", "blocked", "unknown", "degraded", "pass", "warn", "fail"].includes(value) ? value : "unknown";
   return `<span class="tag ${safe}">${safe[0].toUpperCase() + safe.slice(1)}</span>`;
@@ -181,13 +180,14 @@ class HomeostaticCard extends HTMLElement {
   }
 
   static getStubConfig() { return {view: "overview"}; }
-  getCardSize() { return this.config.view === "functions" ? 4 : 8; }
+  getCardSize() { return 8; }
 
   setConfig(config) {
-    if (config.view !== undefined && !VIEWS.includes(config.view)) {
-      throw new Error("Homeostatic view must be overview, sources, history, notifications, configuration, functions, problems, house, or coverage.");
+    const view = cardView(config.view);
+    if (!VIEWS.includes(view)) {
+      throw new Error("Homeostatic view must be overview, issues, sources, notifications, settings, or history.");
     }
-    this.config = {...config, view: config.view ?? "overview"};
+    this.config = {...config, view};
     this.page = ["house","coverage"].includes(this.config.view) ? "sources" : this.config.view;
     if (this.config.view === "house") {
       this.sourcesGrouping = "location";
@@ -357,13 +357,13 @@ class HomeostaticCard extends HTMLElement {
     const view = this.viewIdentity();
     if (view !== this.renderedView) this.savedPageState = this.page === "house" && this.exploreState?.location === this.location ? this.exploreState.state : null;
     else if (this.renderedCurrent) this.savedPageState = this.capturePageState();
-    const minimal = ["functions", "problems"].includes(this.config.view);
+    const minimal = this.config.view === "problems";
     this.shadowRoot.querySelector(".nav").hidden = minimal || this.config.navigation === false;
     const back = this.shadowRoot.querySelector('[data-action="back"]');
     back.hidden = this.config.navigation !== false || this.page === this.config.view;
     back.textContent = this.config.view === "house" && this.locationName
       ? `← Back to ${this.locationName} in Explore`
-      : `← Back to ${{overview:"Overview",house:"Sources",coverage:"Sources",sources:"Sources",functions:"Functions",problems:"Issues",history:"History",notifications:"Notifications",configuration:"Settings"}[this.config.view]}`;
+      : `← Back to ${{overview:"Overview",house:"Sources",coverage:"Sources",sources:"Sources",problems:"Issues",history:"History",notifications:"Notifications",configuration:"Settings"}[this.config.view]}`;
     this.shadowRoot.querySelectorAll("[data-page]").forEach((button) => {
       if (button.closest(".nav")) {
         if (button.dataset.page === this.page) button.setAttribute("aria-current", "page");
@@ -385,7 +385,7 @@ class HomeostaticCard extends HTMLElement {
     }
     const data = this.current.data;
     if (this.page === "sources" && data.catalog_stale) this.store?.ensureCatalog();
-    if (["sources","coverage","house","functions"].includes(this.page) && data.schema_version === 3 && !data.catalog_loaded) {
+    if (["sources","coverage","house"].includes(this.page) && data.schema_version === 3 && !data.catalog_loaded) {
       this.main.innerHTML = `<div class="banner" role="status"><h2>${this.current.catalogError ? "Sources unavailable" : "Loading sources"}</h2><p>${esc(this.current.catalogError || "Loading the complete source catalog for browsing and search.")}</p>${this.current.catalogError ? '<button class="link" type="button" data-action="retry-catalog">Retry loading sources</button>' : ""}</div>`;
       this.renderedCurrent = false;
       this.store?.ensureCatalog();
@@ -394,7 +394,6 @@ class HomeostaticCard extends HTMLElement {
     if (["configuration","notifications"].includes(this.page)) this.main.innerHTML = installationSettings(this);
     else if (this.page === "sources") this.main.innerHTML = this.sourcesPage();
     else if (this.page === "history") this.main.innerHTML = this.history(data);
-    else if (this.page === "functions") this.main.innerHTML = this.functionsPanel(data);
     else if (this.page === "problems") this.main.innerHTML = this.issuesPage(data);
     else if (this.page === "coverage") this.main.innerHTML = this.coverage(data);
     else if (this.page === "house") this.main.innerHTML = this.house(data);
@@ -439,7 +438,7 @@ class HomeostaticCard extends HTMLElement {
     const entityChoice = entity ? scopeChoice(this.configDraft,monitoringScope("entity",entity.node_id,entity)) : null;
     const subject = entity ? `<p><strong>${esc(selected.name)}</strong><br><small>${esc(entity.entity_id)}</small></p><p>Selected choice: ${entityChoice === "exclude" ? "Exclude this entity" : entityChoice === "attach" ? "Monitor this entity separately" : "Use device and integration choices"}.</p>` : "";
     const noCountChange = !preview?.added_count && !preview?.removed_count ? `<p>No sources are newly watched or stopped by this draft.${entityChoice === "exclude" ? " This exclusion can still change which entities a device availability check uses, or keep this entity out of future device monitoring." : ""}</p>` : "";
-    const result = preview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Review monitoring choices</h2></div><div class="body">${subject}<p><strong>${preview.watched}</strong> watched sources after this change.</p>${noCountChange}<div class="config-change-list">${changes(preview.added,preview.added_count,"newly watched")}${changes(preview.removed,preview.removed_count,"no longer watched")}</div>${preview.functions.length ? `<details><summary>Function readiness from current evidence</summary><ul>${preview.functions.map((item) => `<li>${esc(item.name)}: ${esc(item.readiness.answer)}${item.requirements.some((source) => source.monitoring === "excluded" || source.monitoring === "unwatched") ? " · has an unwatched requirement" : ""}</li>`).join("")}</ul><p class="small">This preview does not replay existing holds or episode history.</p></details>` : ""}<p class="small">This preview uses current Home Assistant evidence. New devices may match these rules later.</p></div></section>` : "";
+    const result = preview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Review monitoring choices</h2></div><div class="body">${subject}<p><strong>${preview.watched}</strong> watched sources after this change.</p>${noCountChange}<div class="config-change-list">${changes(preview.added,preview.added_count,"newly watched")}${changes(preview.removed,preview.removed_count,"no longer watched")}</div><p class="small">This preview uses current Home Assistant evidence. New devices may match these rules later.</p></div></section>` : "";
     const policies = global ? monitoringPolicies(this) : "";
     const changed=JSON.stringify(this.configDraft)!==JSON.stringify(this.configuration.rules);
     const actions = `<section class="config-review">${changed?`<div class="config-actions"><span class="small">Unsaved monitoring choices</span><button type="button" class="button primary" data-action="${preview?'save-configuration':'preview-configuration'}"${this.configBusy?' disabled':''}>${preview?'Save choices':'Review changes'}</button><button type="button" class="link" data-action="discard-monitoring"${this.configBusy?' disabled':''}>Discard</button></div>`:'<p class="small">Changes are reviewed before saving.</p>'}${this.configError?`<p class="config-error" role="alert">${esc(this.configError)}</p>`:''}</section>`;
@@ -509,8 +508,7 @@ class HomeostaticCard extends HTMLElement {
         ? "Requests stay on. Changing the consumer affects future requests; existing problems stay open."
         : "With requests off, Homeostatic will not request new alert messages. Open problems remain visible.";
     const preview = this.alertPreview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Preview</h2></div><div class="body"><p>${previewCopy}</p>${this.alertPreview.next_deadline ? `<p>Next policy decision: ${esc(date(this.alertPreview.next_deadline))}.</p>` : ""}<p class="small">This preview uses current problems and does not send messages. Future changes may produce different requests.</p></div></section>` : "";
-    const link = homeostaticOptionsUrl(data.entry_id);
-    return `${intro}${sections}<section class="panel"><div class="panel-head"><h2>Alert requests</h2></div><div class="body"><p><strong>Requests are currently ${saved.notifications ? "on" : "off"}.</strong> Open problems remain visible in Homeostatic. ${consumer}</p><fieldset class="alert-editor"${this.alertBusy ? " disabled" : ""}><label class="alert-toggle"><input type="checkbox" data-alert-field="notifications"${draft.notifications ? " checked" : ""}> Request alerts for open problems</label><label class="alert-consumer"><span>Consumer automation</span><select data-alert-field="consumer">${options}</select></label></fieldset><p class="sub">The selected Home Assistant automation receives Homeostatic requests and handles delivery. Turning requests on can alert you about problems already open.</p><div class="config-actions"><button type="button" class="button" data-action="preview-alerts"${this.alertBusy || unchanged ? " disabled" : ""}>Preview changes</button><button type="button" class="button primary" data-action="save-alerts"${this.alertBusy || !this.alertPreview ? " disabled" : ""}>Save alert settings</button><button type="button" class="link" data-action="load-configuration"${this.alertBusy ? " disabled" : ""}>Discard edits and reload</button></div>${this.alertError ? `<p class="config-error" role="alert">${esc(this.alertError)}</p>` : ""}</div></section>${preview}<section class="panel settings-following"><div class="panel-head"><h2>Current routing policy</h2></div><div class="body"><p>${policy.rules.length} ${policy.rules.length === 1 ? "rule" : "rules"} · ${routes.length} recipient/channel ${routes.length === 1 ? "route" : "routes"} · ${Object.keys(policy.digests ?? {}).length} ${Object.keys(policy.digests ?? {}).length === 1 ? "digest" : "digests"} · Time zone: ${esc(policy.timezone)}</p>${routingDetails}<p class="sub">Homeostatic records requests, not proof that a phone received or displayed a message.</p><p>Detailed routing, functions, situations, and timing are still edited in Home Assistant's Homeostatic options.</p><a class="button" href="${esc(link)}">Open Homeostatic in Home Assistant</a></div></section>`;
+    return `${intro}${sections}<section class="panel"><div class="panel-head"><h2>Alert requests</h2></div><div class="body"><p><strong>Requests are currently ${saved.notifications ? "on" : "off"}.</strong> Open problems remain visible in Homeostatic. ${consumer}</p><fieldset class="alert-editor"${this.alertBusy ? " disabled" : ""}><label class="alert-toggle"><input type="checkbox" data-alert-field="notifications"${draft.notifications ? " checked" : ""}> Request alerts for open problems</label><label class="alert-consumer"><span>Consumer automation</span><select data-alert-field="consumer">${options}</select></label></fieldset><p class="sub">The selected Home Assistant automation receives Homeostatic requests and handles delivery. Turning requests on can alert you about problems already open.</p><div class="config-actions"><button type="button" class="button" data-action="preview-alerts"${this.alertBusy || unchanged ? " disabled" : ""}>Preview changes</button><button type="button" class="button primary" data-action="save-alerts"${this.alertBusy || !this.alertPreview ? " disabled" : ""}>Save alert settings</button><button type="button" class="link" data-action="load-configuration"${this.alertBusy ? " disabled" : ""}>Discard edits and reload</button></div>${this.alertError ? `<p class="config-error" role="alert">${esc(this.alertError)}</p>` : ""}</div></section>${preview}<section class="panel settings-following"><div class="panel-head"><h2>Current routing policy</h2></div><div class="body"><p>${policy.rules.length} ${policy.rules.length === 1 ? "rule" : "rules"} · ${routes.length} recipient/channel ${routes.length === 1 ? "route" : "routes"} · ${Object.keys(policy.digests ?? {}).length} ${Object.keys(policy.digests ?? {}).length === 1 ? "digest" : "digests"} · Time zone: ${esc(policy.timezone)}</p>${routingDetails}<p class="sub">Homeostatic records requests, not proof that a phone received or displayed a message.</p></div></section>`;
   }
 
   expandConfigurationMatches(query) {
@@ -783,9 +781,11 @@ class HomeostaticCard extends HTMLElement {
   }
 
   issuesPanel(data, episodes, recent = false) {
-    const total = data.inventory.episodes.length;
+    const failures = data.automation_failures ?? [];
+    const total = data.inventory.episodes.length + failures.length;
     const rows = episodes.map(episode => this.issueRow(data,episode)).join("");
-    return `<section class="panel issues-panel">${recent?'<div class="panel-head"><h2>Recent issues</h2></div>':''}${rows||'<div class="body"><p>No open issues.</p></div>'}${recent&&total?'<div class="body issues-footer"><button type="button" class="link" data-page="problems">View all issues →</button></div>':''}</section>`;
+    const automationRows = failures.map((failure) => `<article class="issue-row neutral"><div class="issue-copy"><p class="small">Home Assistant automation</p><h3>${esc(failure.name)}</h3><p>${esc(failure.reason)}</p></div><div class="actions"><a class="button" href="${esc(failure.url)}">Review in Home Assistant</a></div></article>`).join("");
+    return `<section class="panel issues-panel">${recent?'<div class="panel-head"><h2>Recent issues</h2></div>':''}${automationRows}${rows||(!automationRows?'<div class="body"><p>No open issues.</p></div>':'')}${recent&&total?'<div class="body issues-footer"><button type="button" class="link" data-page="problems">View all issues →</button></div>':''}</section>`;
   }
 
   issuesPage(data) {
@@ -793,7 +793,7 @@ class HomeostaticCard extends HTMLElement {
     if(this.issueSort==="newest") episodes=episodes.sort((a,b)=>b.opened_at.localeCompare(a.opened_at));
     else if(this.issueSort==="name") {const nodes=sourceMap(data);episodes=episodes.sort((a,b)=>this.displaySourceName(nodes.get(a.anchor)).localeCompare(this.displaySourceName(nodes.get(b.anchor))));}
     else if(this.issueSort==="oldest") episodes=episodes.sort((a,b)=>a.opened_at.localeCompare(b.opened_at));
-    return `<div class="intro"><h1>Issues</h1></div><div class="issues-toolbar"><span>${episodes.length} open</span><label>Sort by <select data-issue-sort>${[["oldest","Longest open"],["newest","Newest first"],["name","Device name"],["importance","Importance, then longest open"]].map(([id,label])=>`<option value="${id}"${this.issueSort===id?' selected':''}>${label}</option>`).join('')}</select></label></div>${this.issueSort==="importance"?'<p class="small">Uses each source’s configured importance: critical, high, normal, then low. Sources default to normal.</p>':''}${this.issuesPanel(data,episodes)}`;
+    return `<div class="intro"><h1>Issues</h1></div><div class="issues-toolbar"><span>${episodes.length + (data.automation_failures?.length ?? 0)} open</span><label>Sort by <select data-issue-sort>${[["oldest","Longest open"],["newest","Newest first"],["name","Device name"],["importance","Importance, then longest open"]].map(([id,label])=>`<option value="${id}"${this.issueSort===id?' selected':''}>${label}</option>`).join('')}</select></label></div>${this.issueSort==="importance"?'<p class="small">Uses each source’s configured importance: critical, high, normal, then low. Sources default to normal.</p>':''}${this.issuesPanel(data,episodes)}`;
   }
 
 
@@ -802,11 +802,11 @@ class HomeostaticCard extends HTMLElement {
     return `<section class="panel"><div class="panel-head"><h2>${esc(heading)}</h2><span class="small">${selected.length} defined</span></div>${selected.length ? selected.map((item) => {
       const causes = item.readiness.nodes.map((node) => nodes.get(node.node_id)?.name ?? node.node_id);
       return `<button type="button" class="row" data-node="${esc(item.node_id)}">${icon("check-network-outline")}<span class="row-main">${esc(item.name)}<small>${esc(causes.join(", ") || "Declared requirements pass their current checks")}</small></span>${status(item.readiness.answer)}</button>`;
-    }).join("") : `<div class="body"><p class="sub">Define the important jobs your house should perform and the sources they require.</p><a href="${esc(homeostaticOptionsUrl(data.entry_id))}">Define home functions in Home Assistant →</a></div>`}</section>`;
+    }).join("") : `<div class="body"><p class="sub">No functions are displayed.</p></div>`}</section>`;
   }
 
   overview(data) {
-    const total = data.inventory.episodes.length;
+    const total = data.inventory.episodes.length + (data.automation_failures?.length ?? 0);
     const activeControls = (data.inventory.operator_controls ?? []).length;
     return `<div class="intro"><h1>Overview</h1><span class="small">Updated ${esc(date(data.updated_at))}</span></div><div class="overview-stats"><button type="button" class="overview-stat" data-page="problems"><span>Open issues</span><strong>${total}</strong><small>${total?'Review what needs attention':'No open problems reported'}</small></button></div>${reportingOverview(data)}${this.issuesPanel(data,recentEpisodes(data),true)}${activeControls?controlsPanel(data):''}`;
   }
@@ -862,7 +862,7 @@ class HomeostaticCard extends HTMLElement {
       ? `<a href="/config/devices/device/${esc(source.attributes.device[0])}">Open device in Home Assistant</a>`
       : ["integration","entity"].includes(source.kind)
         ? `<button type="button" class="link" data-config-source="${esc(source.name)}">Change monitoring</button>`
-        : `<a href="${esc(homeostaticOptionsUrl(this.current.data.entry_id))}">Review definitions in Home Assistant</a>`;
+        : "";
     const native = source.kind === "integration" && item.reasons.length
       ? `<a href="${esc(integrationProblem(source,[],(key) => this._hass.localize?.(key)).integrationUrl)}">Open in Home Assistant</a>` : "";
     return `<div class="coverage-source${item.reasons.length && !source.disabled ? " has-gap" : ""}${source.disabled ? " is-disabled" : ""}" data-ui-key="source:${esc(source.node_id)}"><div>${name}<span class="small">${esc(check)}</span>${areas}</div><div class="coverage-evidence">${evidence}<span class="small">${esc(limit)}</span>${native}${item.reasons.length || !source.watched ? change : ""}</div>${rules.length ? `<details class="rule-details"><summary>Technical details</summary><span class="mono">${list(rules)}</span></details>` : ""}</div>`;
@@ -922,7 +922,6 @@ class HomeostaticCard extends HTMLElement {
     }
     this.locationName = selected.name;
     try { window.sessionStorage.setItem(EXPLORE_LOCATION_KEY,selected.id); } catch { /* Session storage can be unavailable. */ }
-    const related = selected.functions;
     const registered = sourceMap(data);
     const coverage = new Map(coverageInventory(data,"",50,new Set(selected.sources.map((source) => source.node_id))).groups.flatMap((group) =>
       group.devices.flatMap((device) => device.sources.map((item) => [item.source.node_id, item]))));
@@ -932,16 +931,14 @@ class HomeostaticCard extends HTMLElement {
     const count = (value, label) => `${value} ${label}${value === 1 ? "" : "s"}`;
     const findings = [episodes.length ? count(episodes.length,"linked open problem") : null,
       gaps.length ? count(gaps.length,"monitoring evidence gap") : null,
-      related.length ? count(related.length,"defined home function") : null].filter(Boolean);
-    const noAssessment = !watched && !related.length;
+      ].filter(Boolean);
+    const noAssessment = !watched;
     const summary = `<div class="house-summary">${findings.length ? `<div><strong>${findings.map(esc).join(" · ")}</strong></div>` : ""}`
-      + `<p>${esc(noAssessment ? `Homeostatic has no monitoring or defined home functions for ${selected.name} yet.`
+      + `<p>${esc(noAssessment ? `Homeostatic has no monitoring for ${selected.name} yet.`
         : `${count(watched,"monitored source")}${watched && !episodes.length && !gaps.length && !requiredUnselected.length ? " · No linked problems or evidence gaps reported by current monitoring." : ""}`)}</p>`
-      + `${!related.length && !noAssessment ? `<p>No defined home functions use sources in ${esc(selected.name)}.</p>` : ""}`
       + `${unselected ? `<p class="small">${esc(count(unselected,"item"))} listed below ${unselected === 1 ? "is" : "are"} not selected for monitoring. This does not mean ${unselected === 1 ? "it is" : "they are"} broken or need individual checks.</p>` : ""}`
       + `${excluded ? `<p class="small">${esc(count(excluded,"excluded source"))}.</p>` : ""}`
       + `<div class="house-summary-actions">${watched || gaps.length || requiredUnselected.length ? '<button type="button" class="link" data-location-coverage>Review this location in Monitoring →</button>' : ""}${requiredUnselected.length ? '<button type="button" class="link" data-settings-section="monitoring">Review monitoring choices in Settings →</button>' : ""}</div></div>`;
-    const functions = related.length ? `${this.functionsPanel(data,related,`Home functions involving ${selected.name}`)}<p class="small house-functions-note">These functions use a device or entity assigned to this location; the work may happen elsewhere.</p>` : "";
     const problems = episodes.length ? `<section class="panel house-findings"><div class="panel-head"><h2>Open problems linked to this location</h2></div>${episodes.map((episode) => {
       const source = registered.get(episode.anchor);
       const problem = batteryProblem(source,data.inventory.entity_status?.[episode.anchor]) ??
@@ -967,7 +964,7 @@ class HomeostaticCard extends HTMLElement {
       ? `<details class="house-group house-signals"><summary>Entities without a Home Assistant device <span class="small">${selected.signals.length} entit${selected.signals.length === 1 ? "y" : "ies"}</span></summary><p class="sub">Home Assistant associates these entities with the location but not with a device.</p>${selected.signals.map((source) => this.houseSource(registered,source,coverage.get(source.node_id))).join("")}</details>`
       : "";
     const inventory = `<section class="panel"><details class="house-inventory"><summary>Discovered Home Assistant entities <span class="small">${esc(count(sourceRows.length,"entity"))}</span></summary><p class="sub">Device and location associations organize this list. They do not establish physical hardware or health dependencies.</p>${devices}${signals || (!devices ? '<p class="sub">No entities are associated with this location.</p>' : "")}</details></section>`;
-    return `<div class="intro"><div><h1>Explore</h1><p class="sub">Choose a location to see its defined functions, monitoring, and problems.</p></div></div><div class="house" style="--house-rail-width:${this.railWidth}px"><section class="panel locations" aria-label="Locations"><div class="location-tree" role="tree">${tree.map((location) => locationBranch(location, selected.id, this.collapsedLocations)).join("")}</div></section><div class="rail-resizer" role="separator" tabindex="0" aria-label="Resize locations panel" aria-orientation="vertical" aria-valuemin="${RAIL_MIN}" aria-valuemax="${RAIL_MAX}" aria-valuenow="${this.railWidth}" aria-valuetext="${this.railWidth} pixels" title="Drag or use arrow keys to resize locations"></div><div class="stack"><section class="panel"><div class="panel-head"><div><p class="small">${esc(selected.parent_name)}</p><h2>${esc(selected.name)}</h2></div><span class="small">${esc(selected.kind === "area" ? "Area" : selected.kind === "floor" ? "Floor" : "Location group")}</span></div>${summary}</section>${functions}${problems}${evidence}${inventory}</div></div>`;
+    return `<div class="intro"><div><h1>Explore</h1><p class="sub">Choose a location to see monitoring and problems.</p></div></div><div class="house" style="--house-rail-width:${this.railWidth}px"><section class="panel locations" aria-label="Locations"><div class="location-tree" role="tree">${tree.map((location) => locationBranch(location, selected.id, this.collapsedLocations)).join("")}</div></section><div class="rail-resizer" role="separator" tabindex="0" aria-label="Resize locations panel" aria-orientation="vertical" aria-valuemin="${RAIL_MIN}" aria-valuemax="${RAIL_MAX}" aria-valuenow="${this.railWidth}" aria-valuetext="${this.railWidth} pixels" title="Drag or use arrow keys to resize locations"></div><div class="stack"><section class="panel"><div class="panel-head"><div><p class="small">${esc(selected.parent_name)}</p><h2>${esc(selected.name)}</h2></div><span class="small">${esc(selected.kind === "area" ? "Area" : selected.kind === "floor" ? "Floor" : "Location group")}</span></div>${summary}</section>${problems}${evidence}${inventory}</div></div>`;
   }
 
   setRailWidth(width, save = true) {
@@ -1152,7 +1149,7 @@ class HomeostaticCard extends HTMLElement {
     else if (button.dataset.action === "close") this.dialog.close();
     else if (button.dataset.action === "retry") this.store?.retry();
     else if (button.dataset.action === "retry-catalog") { this.store?.ensureCatalog(true); this.render(); }
-    else if (button.dataset.action === "add-rule") {const rule = newCatalogRule(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
+    else if (button.dataset.action === "add-rule") {const rule = newGroupPolicy(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
     else if (button.dataset.action === "add-battery-rule") {const rule = newAllBatteryPolicy(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
     else if (button.dataset.action === "edit-battery-rule") {this.configEditingRule = this.configDraft.find(isAllBatteryPolicy)?.id ?? null; this.render(); this.shadowRoot.querySelector(".policy-edit[open]")?.scrollIntoView({block:"nearest"});}
     else if (button.dataset.action === "load-configuration") this.loadConfiguration();
@@ -1366,17 +1363,18 @@ class HomeostaticStrategy {
   static async generate() {
     return {title:"Homeostatic",views:[
       {title:"Overview",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"overview",navigation:false}]},
-      {title:"Issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"problems",navigation:false}]},
+      {title:"Issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"issues",navigation:false}]},
       {title:"Sources",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"sources",navigation:false}]},
       {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"notifications",navigation:false}]},
-      {title:"Settings",path:"configuration",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"configuration",navigation:false}]},
+      {title:"Settings",path:"settings",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"settings",navigation:false}]},
       {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"history",navigation:false}]},
     ]};
   }
 }
 
 if (!customElements.get("homeostatic-card-v21")) customElements.define("homeostatic-card-v21", HomeostaticCard);
-if (!customElements.get("homeostatic-panel-v22")) customElements.define("homeostatic-panel-v22", HomeostaticPanel);
+if (!customElements.get("homeostatic-panel-v23")) customElements.define("homeostatic-panel-v23", HomeostaticPanel);
+if (!customElements.get("homeostatic-panel-v22")) customElements.define("homeostatic-panel-v22", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-panel-v21")) customElements.define("homeostatic-panel-v21", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v15")) customElements.define("homeostatic-card-v15", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-panel-v15")) customElements.define("homeostatic-panel-v15", class extends HomeostaticPanel {});
@@ -1392,7 +1390,7 @@ if (!customElements.get("ll-strategy-dashboard-homeostatic")) customElements.def
 });
 window.customCards = window.customCards || [];
 if (!window.customCards.some((item) => item.type === "homeostatic-card")) window.customCards.push({
-  type:"homeostatic-card",name:"Homeostatic",description:"Live problems, functions, locations and monitoring coverage.",
+  type:"homeostatic-card",name:"Homeostatic",description:"Live problems, locations and monitoring coverage.",
 });
 window.customStrategies = window.customStrategies || [];
 if (!window.customStrategies.some((item) => item.type === "homeostatic")) window.customStrategies.push({

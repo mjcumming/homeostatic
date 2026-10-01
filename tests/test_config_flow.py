@@ -1,7 +1,7 @@
 """Native setup and options contract, including stable source identities."""
 
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 import voluptuous as vol
@@ -22,27 +22,17 @@ from custom_components.homeostatic.const import DOMAIN
 
 
 async def test_user_flow(hass: HomeAssistant) -> None:
-    """Setup starts with integration monitoring and no raw catalog field."""
+    """Setup creates the default integration monitor without a form."""
     source = MockConfigEntry(domain="test", title="Controller")
     source.add_to_hass(hass)
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert all(
-        getattr(key, "schema", key) != "rules" for key in result["data_schema"].schema
-    )
     with patch("custom_components.homeostatic.async_setup_entry", return_value=True):
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"],
-            {
-                "notifications": True,
-                "consumer": "automation.homeostatic_test_consumer",
-            },
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"]["rules"][0]["match"]["kind"] == ["integration"]
+    assert result["data"]["notifications"] is False
 
 
 def test_preview_describes_ha_groupings(hass: HomeAssistant) -> None:
@@ -108,88 +98,23 @@ async def test_reject_self_monitoring(
         data_from_input(hass, selection)
 
 
-async def test_invalid_input_keeps_form(hass: HomeAssistant) -> None:
-    """Invalid remaining settings are rejected with a useful form error."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {"policy": {"invalid": True}},
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {"base": "invalid_config"}
+def test_native_options_flow_is_absent(config_entry: MockConfigEntry) -> None:
+    """All edits now belong to the Homeostatic panel."""
+    from custom_components.homeostatic.config_flow import HomeostaticConfigFlow
+
+    assert not HomeostaticConfigFlow.async_supports_options_flow(config_entry)
 
 
-async def test_options_missing_selection(hass: HomeAssistant) -> None:
-    """Legacy missing requirements become editable rules on options save."""
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={"entities": ["registry:missing"], "config_entries": ["missing_entry"]},
-    )
-    entry.add_to_hass(hass)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["type"] is FlowResultType.FORM
-    with patch.object(
-        hass.config_entries, "async_reload", new=AsyncMock(return_value=True)
-    ):
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"], {"notifications": False}
-        )
-        await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["rules"][0]["match"]["entity"] == ["registry:missing"]
-    assert result["data"]["rules"][1]["match"]["integration"] == ["missing_entry"]
-    assert result["data"]["entities"] == []
-
-
-async def test_options_invalid(
-    hass: HomeAssistant, config_entry: MockConfigEntry
-) -> None:
-    """Invalid options do not replace valid settings."""
-    config_entry.add_to_hass(hass)
-    result = await hass.config_entries.options.async_init(config_entry.entry_id)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        {"policy": {"invalid": True}},
-    )
-    assert result["errors"] == {"base": "invalid_config"}
-
-
-async def test_options_keep_monitoring_rules_when_other_settings_change(
-    hass: HomeAssistant, config_entry: MockConfigEntry
-) -> None:
-    """Native options preserve catalog choices made in Homeostatic."""
-    custom_rules = [
-        {
-            "id": "selected_device",
-            "action": "attach",
-            "match": {"kind": "device", "device": "device-1"},
-            "checks": ["availability"],
-        }
-    ]
-    entry = MockConfigEntry(
-        domain=DOMAIN, data={**config_entry.data, "rules": custom_rules}
-    )
-    entry.add_to_hass(hass)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["type"] is FlowResultType.FORM
-    assert all(
-        getattr(key, "schema", key) != "rules" for key in result["data_schema"].schema
-    )
-    with patch.object(
-        hass.config_entries, "async_reload", new=AsyncMock(return_value=True)
-    ):
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"], {"notifications": False}
-        )
-        await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["rules"][0]["id"] == "selected_device"
-    assert result["data"]["rules"][0]["match"] == {
-        "kind": ["device"],
-        "device": ["device-1"],
+def test_stored_functions_are_dormant() -> None:
+    """Stored definitions survive while production ignores their effects."""
+    data = {
+        "functions": [
+            {"id": "lighting", "name": "Lighting", "entities": ["entity_id:light.room"]}
+        ]
     }
+    assert len(Settings.from_data(data).functions) == 1
+    assert Settings.from_data(data, functions_enabled=False).functions == ()
+    assert data["functions"][0]["id"] == "lighting"
 
 
 @pytest.mark.parametrize(
@@ -227,36 +152,3 @@ def test_invalid_reference(hass: HomeAssistant) -> None:
     """An unrecognized source reference cannot silently drop monitoring."""
     with pytest.raises(ValueError, match="source reference"):
         resolve_entity(hass, "invented")
-
-
-async def test_native_flow_accepts_function_and_situation_yaml(
-    hass: HomeAssistant,
-) -> None:
-    """Native object selectors accept the documented YAML-list shapes."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    with patch("custom_components.homeostatic.async_setup_entry", return_value=True):
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"],
-            {
-                "functions": [
-                    {"id": "garage", "name": "Garage", "entities": ["cover.garage"]}
-                ],
-                "situations": [
-                    {
-                        "id": "open_at_night",
-                        "name": "Garage open at night",
-                        "entity": "binary_sensor.garage_open_at_night",
-                    }
-                ],
-            },
-        )
-        await hass.async_block_till_done()
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["functions"][0]["entities"] == ["entity_id:cover.garage"]
-    assert (
-        result["data"]["situations"][0]["entity"]
-        == "entity_id:binary_sensor.garage_open_at_night"
-    )
-    assert result["data"]["notifications"] is False

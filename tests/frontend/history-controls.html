@@ -68,7 +68,8 @@ document.querySelector("#run").addEventListener("click",async()=>{
     fail=false;hold=null;card.tools.close();card.tools.query="";card.tools.resolution="";card.tools.page=0;reset();publish(data);card.setConfig({view:"overview",navigation:false});await flush();
     expect([...root.querySelectorAll('.nav button')].map(button=>button.textContent).join('|')==="Overview|Issues|Sources|Notifications|Settings|History","History must be the rightmost Homeostatic tab");
     const generated=await customElements.get('ll-strategy-dashboard-homeostatic').generate();
-    expect(generated.views.map(view=>view.path).join('|')==="overview|issues|sources|notifications|configuration|history","History must be the last generated HA dashboard view");
+    expect(generated.views.map(view=>view.path).join('|')==="overview|issues|sources|notifications|settings|history","History must be the last generated HA dashboard view");
+    expect(generated.views[1].cards[0].view==="issues"&&generated.views[4].cards[0].view==="settings","Generated cards use current page names");
     card.page="history";card.render();
     expect(root.querySelectorAll('main [data-history]').length===20,"History must render at most 20 rows");
     root.querySelector('[data-tool="next"]').click();root.querySelector('[data-tool="next"]').click();

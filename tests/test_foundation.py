@@ -140,10 +140,10 @@ async def test_final_save_failure_completes_cleanup(
     )
 
 
-async def test_function_readiness_and_named_delivery(
+async def test_saved_function_does_not_enroll_sources(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """A function enrolls its requirement and leads the notification text."""
+    """Dormant definitions neither create checks nor publish entities."""
     registered = er.async_get(hass).async_get_or_create("sensor", "test", "controller")
     config_data["entities"] = []
     config_data["functions"] = [
@@ -155,25 +155,11 @@ async def test_function_readiness_and_named_delivery(
         }
     ]
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    events = async_capture_events(hass, EVENT_NOTIFICATION)
-    hass.states.async_set(registered.entity_id, "42")
-    runtime = await start_monitor(hass, entry)
-    assert runtime.readiness == "ready"
-    assert runtime.evidence_gaps == 0
-    assert hass.states.get("sensor.homeostatic_garage_access").state == "ready"
     hass.states.async_set(registered.entity_id, "unavailable")
-    await hass.async_block_till_done()
-    assert hass.states.get("sensor.homeostatic_garage_access").state == "degraded"
-    assert events[-1].data["title"] == "Garage access: degraded"
-    assert events[-1].data["loudness"] == "urgent"
-    assert events[-1].data["functions"] == ["Garage access"]
-    old_id = next(iter(runtime.episodes))
-    er.async_get(hass).async_update_entity(
-        registered.entity_id, new_entity_id="sensor.renamed_requirement"
-    )
-    hass.states.async_set("sensor.renamed_requirement", "unavailable")
-    await hass.async_block_till_done()
-    assert list(runtime.episodes) == [old_id]
+    runtime = await start_monitor(hass, entry)
+    assert "function:garage" not in runtime.sources
+    assert hass.states.get("sensor.homeostatic_garage_access") is None
+    assert not runtime.episodes
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

@@ -151,24 +151,10 @@ def test_all_match_fields_and_detached_settings() -> None:
     assert len(config.rules[0].match.status or ()) == 2
 
 
-async def test_policy_flow_preserves_owner_data(hass: HomeAssistant) -> None:
-    """The native setup preview retains unsaved policy and validates errors."""
+async def test_policy_data_preserves_owner_data(hass: HomeAssistant) -> None:
+    """Stored policy keeps the choices made in the panel."""
     data = owner_policy()
     assert data_from_input(hass, {"policy": data})["policy"] == data
-    flow = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-    preview = await hass.config_entries.flow.async_configure(
-        flow["flow_id"], {"policy": data, "preview": True}
-    )
-    assert preview["type"] == "form"
-    assert "Policy: 1 rules" in preview["description_placeholders"]["preview"]
-    invalid = await hass.config_entries.flow.async_configure(
-        flow["flow_id"], {"policy": {"unexpected": True}}
-    )
-    assert invalid["errors"] == {"base": "invalid_config"}
-    saved = await hass.config_entries.flow.async_configure(
-        flow["flow_id"], {"policy": data}
-    )
-    assert saved["data"]["policy"] == data
 
 
 async def test_reminder_quiet_escalation_and_restart(
@@ -234,12 +220,6 @@ async def test_activation_rebases_and_preview_does_not_mutate(
     assert result["episodes"][0]["loudness"] == "notify"
     assert result["episodes"][0]["opened_at"] == episode["opened_at"]
     assert runtime.snapshot() == before
-    flow = await hass.config_entries.options.async_init(entry.entry_id)
-    preview = await hass.config_entries.options.async_configure(
-        flow["flow_id"],
-        {"policy": owner_policy(), "preview": True, "notifications": False},
-    )
-    assert "notify, recipients" in preview["description_placeholders"]["preview"]
     assert runtime.snapshot() == before
     assert not events
     with pytest.raises(ServiceValidationError):

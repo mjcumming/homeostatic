@@ -39,8 +39,8 @@ export function inventoryRows(data) {
   const key = data.inventory.catalog;
   const cached = [2,3].includes(data.schema_version) ? rowCache.get(key) : null;
   if (cached?.nodes === data.inventory.nodes) return cached.rows;
-  const rows = new Map(data.inventory.catalog.candidates.map((row) => [row.node_id, row]));
-  for (const row of data.inventory.nodes) rows.set(row.node_id, row);
+  const rows = new Map(data.inventory.catalog.candidates.filter((row) => row.kind !== "function").map((row) => [row.node_id, row]));
+  for (const row of data.inventory.nodes) if (row.kind !== "function") rows.set(row.node_id, row);
   const sorted = [...rows.values()].sort((a, b) =>
     a.name.localeCompare(b.name) || a.node_id.localeCompare(b.node_id));
   if ([2,3].includes(data.schema_version)) rowCache.set(key, {nodes:data.inventory.nodes, rows:sorted});

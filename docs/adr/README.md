@@ -7,7 +7,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0001](0001-omit-switch-conversion-helper-entries.md) | Omit switch conversion helper entries from monitoring inventory | Accepted |
 | [0002](0002-retain-group-sources-as-limited-aggregate-evidence.md) | Retain Group sources as limited aggregate evidence | Proposed |
 | [0003](0003-one-rule-catalog-for-passive-enrollment.md) | Use one rule catalog for passive enrollment and exclusions | Accepted |
-| [0004](0004-confirm-dependencies-per-function.md) | Confirm automation-derived dependencies per function | Accepted |
+| [0004](0004-confirm-dependencies-per-function.md) | Confirm automation-derived dependencies per function | Accepted; function setup path superseded by 0039 |
 | [0005](0005-ha-availability-is-control-path-evidence.md) | Treat HA availability as control-path evidence | Accepted |
 | [0006](0006-request-notifications-through-consumers.md) | Request notifications through consumer automations | Accepted; partially superseded by 0015 if accepted |
 | [0007](0007-separate-resolved-history-from-runtime-activity.md) | Separate resolved-problem history from runtime monitoring activity | Proposed |
@@ -22,9 +22,9 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0016](0016-guided-integration-availability-defaults.md) | Guide availability enrollment by integration | Accepted; navigation scope extended by 0017 |
 | [0017](0017-one-sources-workspace.md) | Use one Sources workspace | Accepted; implemented locally for review |
 | [0018](0018-source-panel-views.md) | Use source-specific views beside one tree | Accepted |
-| [0019](0019-accepted-dashboard-baseline.md) | Implement the accepted task-focused dashboard baseline | Accepted; automation picker superseded by 0021 and navigation by 0022 |
+| [0019](0019-accepted-dashboard-baseline.md) | Implement the accepted task-focused dashboard baseline | Accepted; automation picker superseded by 0021, navigation by 0022 and native options by 0039 |
 | [0020](0020-integration-monitoring-master-control.md) | Stop monitoring an integration as one scope | Accepted |
-| [0021](0021-defer-automation-notification-routing-ui.md) | Defer automation notification routing in Settings | Accepted; guided digest deferral partially superseded by 0026 |
+| [0021](0021-defer-automation-notification-routing-ui.md) | Defer automation notification routing in Settings | Accepted; guided digest deferral partially superseded by 0026 and native options by 0039 |
 | [0022](0022-top-level-notifications-page.md) | Give Notifications its own dashboard page | Accepted |
 | [0023](0023-optional-topomation-location-tree.md) | Use Topomation as an optional location tree | Superseded by 0024 |
 | [0024](0024-explicit-topomation-grouping.md) | Offer Topomation as its own Sources grouping | Accepted |
@@ -37,12 +37,17 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0031](0031-review-source-settings-together.md) | Review integration monitoring and reporting together | Accepted |
 | [0032](0032-automation-reported-situations.md) | Receive expiring situation reports from HA automations | Accepted; setup and registration partially superseded by 0034 |
 | [0033](0033-notification-tap-destinations.md) | Open issue context from notification taps | Accepted |
-| [0034](0034-create-alerts-from-ha-automations.md) | Configure an alert once in its HA automation, with automatic registration and phone acknowledgment | Accepted; implemented |
-| [0035](0035-align-device-availability-with-ha-proposal.md) | Align device availability with the Home Assistant proposal | Accepted; connectivity-class fallback and selected-check treatment superseded by 0038; native report ingestion pending upstream |
+| [0034](0034-create-alerts-from-ha-automations.md) | Configure an alert once in its HA automation, with automatic registration and phone acknowledgment | Accepted; implemented; no-eviction rule superseded by 0042 |
+| [0035](0035-align-device-availability-with-ha-proposal.md) | Align device availability with the Home Assistant proposal | Accepted; connectivity-class fallback and selected-check treatment superseded by 0038, no-edge rule by 0041; native report ingestion pending upstream |
 | [0036](0036-compact-sources-evidence-and-choices.md) | Keep Sources focused on status, scope, and action | Accepted; connection-row placement superseded by 0037 |
-| [0037](0037-group-connections-with-registry-owned-devices.md) | Group connections with their registry-owned devices | Accepted; supersedes 0036 connection-row placement |
+| [0037](0037-group-connections-with-registry-owned-devices.md) | Group connections with their registry-owned devices | Accepted; supersedes 0036 connection-row placement; no-edge statement superseded by 0041 |
 | [0038](0038-connectivity-evidence-and-device-problem-card.md) | Treat reported disconnection as device evidence | Accepted; supersedes 0035 fallback and 0025 selected-check treatment for connectivity-class sensors |
+| [0039](0039-mothball-functions-and-native-options.md) | Mothball functions and remove native options | Accepted; supersedes native option and function setup paths |
+| [0040](0040-display-home-assistant-automation-repairs.md) | Display Home Assistant automation failures | Accepted |
+| [0041](0041-group-watched-devices-under-failed-integrations.md) | Group watched devices under failed integrations | Accepted; supersedes 0035 no-dependency-from-device-membership rule |
+| [0042](0042-clean-up-deleted-automation-alerts.md) | Clean up deleted automation alerts | Accepted; supersedes 0034 no-eviction rule |
+| [0043](0043-skip-startup-grace-on-integration-reload.md) | Skip startup grace on integration reload | Accepted |
 
-Records 0003–0008 document choices from the owner worksheet and pilot specification. Their dates are the dates recorded here, not claimed dates of the original decisions. Accepted records settled owner direction, not production readiness. An accepted decision is superseded by a new record, not silently rewritten. A proposed decision records the current pilot approach and its unresolved tradeoffs; it does not claim owner approval.
+These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision, not production readiness. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 
 Write an ADR when an adapter boundary, source eligibility, graph-confirmation rule, delivery or persistence contract, or enduring UI model has real alternatives and would be easy to reverse without its rationale. Keep ordinary bug fixes, wording adjustments, and release validation in the spec, changelog, and tests.

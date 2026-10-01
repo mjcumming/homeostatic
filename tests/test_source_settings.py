@@ -68,7 +68,7 @@ async def test_combined_review_save_and_stale_revision(
     assert "result" in response, response
     preview = response["result"]
     assert preview["monitoring"]["removed_count"] == 1
-    assert preview["monitoring"]["functions"][0]["name"] == "Reading"
+    assert preview["monitoring"]["functions"] == []
     assert preview["requests_now"] == 0
     assert runtime.snapshot() == before
     assert not entry.options

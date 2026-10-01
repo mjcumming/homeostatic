@@ -2,7 +2,7 @@ import {escapeHtml as esc, sourceMap} from "./model.mjs?v=46";
 
 export const REPORTING = [
   ["immediate","Immediate","Notify once, including overnight."],
-  ["acknowledge","Immediate — acknowledgement required","Notify including overnight. Repeat every 30 minutes until acknowledged or resolved."],
+  ["acknowledge","Immediate with acknowledgment","Notify including overnight. Repeat every 30 minutes until acknowledged or resolved."],
   ["morning","Morning summary","Include open problems in the next morning report."],
   ["evening","Evening summary","Include open problems in the next evening report."],
   ["weekly","Weekly summary","Include open problems on the chosen weekday."],
@@ -167,7 +167,7 @@ export function reportingStatus(data,episode) {
   const decision=data.policy.episodes?.find(item=>item.episode_id===episode.episode_id);
   if(!decision)return "";
   if(decision.acknowledgment)return "Acknowledged · problem remains open";
-  if(decision.require_acknowledgment&&decision.sent_to?.length)return "Notification requested · awaiting acknowledgement";
+  if(decision.require_acknowledgment&&decision.sent_to?.length)return "Notification requested · awaiting acknowledgment";
   if(decision.loudness==="digest")return label(decision.digest);
   if(decision.sent_to?.length)return "Notification requested";
   return decision.loudness==="record"?"Dashboard only":"Awaiting notification";

@@ -154,7 +154,7 @@ async def test_equipment_scope_preserves_situation_and_readiness(
     preview = await action(hass, "preview_maintenance", data)
     assert runtime.snapshot() == before
     assert (child in preview["node_ids"]) is include_dependents
-    assert ("function:lighting" in preview["functions"]) is include_dependents
+    assert preview["functions"] == []
     result = await action(hass, "start_maintenance", data)
     assert result["node_ids"] == preview["node_ids"]
     assert result["control"]["user_id"] is None

@@ -1,4 +1,4 @@
-"""One event entity per function, mirroring episode facts that affect it."""
+"""Dormant event entity implementation for the retained function model."""
 
 from homeassistant.components.event import EventEntity
 from homeassistant.core import HomeAssistant, callback
@@ -27,12 +27,7 @@ async def async_setup_entry(
     entry: HomeostaticConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Expose function problems where the automation editor can find them."""
-    runtime = entry.runtime_data
-    async_add_entities(
-        FunctionProblems(runtime, function.id, function.name)
-        for function in runtime.settings.functions
-    )
+    """Keep the event platform available without exposing dormant functions."""
 
 
 class FunctionProblems(EventEntity):

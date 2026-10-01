@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {notificationRoute,applyNotificationRoute} from "../../custom_components/homeostatic/frontend/notification-navigation.mjs";
+import {cardView,notificationRoute,applyNotificationRoute} from "../../custom_components/homeostatic/frontend/notification-navigation.mjs";
+
+for (const [view,page] of [[undefined,"overview"], ["issues","problems"], ["settings","configuration"], ["problems","problems"], ["configuration","configuration"], ["sources","sources"], ["house","house"], ["functions","overview"]]) {
+  test(`card view ${view} opens ${page}`,()=>assert.equal(cardView(view),page));
+}
 
 for (const [path,expected] of [["/issues",{page:"problems",episodeId:null}], ["/notifications",{page:"notifications",episodeId:null}], ["/history",{page:"history",episodeId:null}], ["/episode/a%2Fb%20%23%C3%A9",{page:"problems",episodeId:"a/b #é"}], ["/episode/%ZZ",{page:"problems",episodeId:null}], ["/episode/",{page:"problems",episodeId:null}]]) {
   test(`notification route ${path}`,()=>assert.deepEqual(notificationRoute(path),expected));

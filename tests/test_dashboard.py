@@ -1,6 +1,7 @@
 """Dashboard scenarios through real Home Assistant WebSocket connections."""
 
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -145,13 +146,15 @@ async def test_stream_tracks_enrollment_failure_unload_and_reload(
     await client.send_json({"id": 1, "type": "homeostatic/subscribe"})
     await client.receive_json()
     initial = (await client.receive_json())["event"]
-    assert initial["functions"][0]["readiness"]["answer"] == "ready"
+    assert initial["functions"] == []
     assert frontend.DATA_PANELS in hass.data
     assert hass.data[frontend.DATA_PANELS][DOMAIN].require_admin
     assert (
         hass.data[frontend.DATA_PANELS][DOMAIN].config["_panel_custom"]["name"]
         == PANEL_ELEMENT
     )
+    module = Path(dashboard_module.__file__).parent / "frontend" / "homeostatic.js"
+    assert f'customElements.define("{PANEL_ELEMENT}"' in module.read_text()
     assert MODULE_URL in hass.data[frontend.DATA_EXTRA_MODULE_URL].urls
     hass.states.async_set("sensor.added", "unknown")
     await hass.async_block_till_done()
@@ -162,7 +165,7 @@ async def test_stream_tracks_enrollment_failure_unload_and_reload(
     hass.states.async_set("sensor.observed", "unavailable")
     await hass.async_block_till_done()
     failed = (await client.receive_json())["event"]
-    assert failed["functions"][0]["readiness"]["answer"] == "degraded"
+    assert failed["functions"] == []
     assert failed["inventory"]["episodes"]
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert not (await client.receive_json())["event"]["available"]
@@ -828,12 +831,12 @@ async def test_monitoring_page_restores_options_if_reload_fails(
     await client.close()
 
 
-async def test_monitoring_preview_keeps_excluded_function_requirement_unknown(
+async def test_monitoring_preview_hides_dormant_function_effects(
     hass: HomeAssistant,
     config_data: dict[str, Any],
     hass_ws_client: WebSocketGenerator,
 ) -> None:
-    """Removing a check cannot make a required function appear ready."""
+    """A saved function does not appear in the panel's monitoring preview."""
     config_data["functions"] = [
         {
             "id": "lighting",
@@ -855,9 +858,7 @@ async def test_monitoring_preview_keeps_excluded_function_requirement_unknown(
             "rules": [],
         }
     )
-    function = (await client.receive_json())["result"]["functions"][0]
-    assert function["readiness"]["answer"] == "unknown"
-    assert function["requirements"][0]["monitoring"] == "unwatched"
+    assert (await client.receive_json())["result"]["functions"] == []
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()
 
