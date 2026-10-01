@@ -51,26 +51,8 @@ async def exercise(config: Path, port: int) -> None:
     try:
         await hass.async_start()
         hass.states.async_set("sensor.pilot_source", "42")
-        flow = await hass.config_entries.flow.async_init(
+        result = await hass.config_entries.flow.async_init(
             "homeostatic", context={"source": "user"}
-        )
-        assert flow["type"] == "form", flow
-        result = await hass.config_entries.flow.async_configure(
-            flow["flow_id"],
-            {
-                "notifications": False,
-                "functions": [
-                    {
-                        "id": "pilot_function",
-                        "name": "Pilot function",
-                        "requires": ["sensor.pilot_source"],
-                    }
-                ],
-                "startup_grace": 0,
-                "settle": 0,
-                "rejoin_grace": 0,
-                "clear_hold": 0,
-            },
         )
         assert result["type"] == "create_entry", result
         await hass.async_block_till_done()
@@ -80,6 +62,13 @@ async def exercise(config: Path, port: int) -> None:
             entry,
             options={
                 **entry.data,
+                "timings": {
+                    **entry.data["timings"],
+                    "startup_grace": 0,
+                    "settle": 0,
+                    "rejoin_grace": 0,
+                    "clear_hold": 0,
+                },
                 "rules": [
                     {
                         "id": "pilot",
@@ -156,8 +145,13 @@ async def exercise(config: Path, port: int) -> None:
         hass.states.async_set("sensor.pilot_source", "42")
         await hass.async_block_till_done()
         history = runtime.query("resolved_history", {})
-        assert len(history["episodes"]) == 1
-        assert history["episodes"][0]["resolution"] == "cleared"
+        # Integration problems from the isolated HA install can also end here.
+        pilot = [
+            row
+            for row in history["episodes"]
+            if row["episode"]["anchor"] == "entity:entity_id:sensor.pilot_source"
+        ]
+        assert [row["resolution"] for row in pilot] == ["cleared"], history
         assert await hass.config_entries.async_reload(entry.entry_id)
         await hass.async_block_till_done()
         assert entry.runtime_data.available

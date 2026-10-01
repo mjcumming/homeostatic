@@ -1,6 +1,12 @@
 {
   "title": "Homeostatic",
   "config": {
+    "step": {
+      "user": {
+        "title": "Homeostatic",
+        "description": "Add Homeostatic. Choose what to watch and set up notifications in the Homeostatic panel."
+      }
+    },
     "abort": {
       "single_instance_allowed": "Homeostatic is already configured. Open Homeostatic in the sidebar to change monitoring.",
       "already_configured": "Homeostatic is already configured."
