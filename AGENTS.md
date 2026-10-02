@@ -5,6 +5,7 @@ Homeostatic is the Home Assistant adapter and catalog for health-tree. The libra
 - Keep dependency, episode, readiness, and attention decisions in health-tree. Use public APIs only. Snapshots are opaque persistence data, not a query interface.
 - Home Assistant owns I/O, timers, configuration, entities, and storage. Read the clock at adapter boundaries and pass UTC times into the library.
 - A reported HA state is evidence about HA's control path. It does not prove physical-device freshness or successful command completion.
+- Read `docs/home-assistant-states.md` before changing how Homeostatic reads entity, device or integration state. Check Home Assistant behavior against its documentation and Core source, never against one integration's implementation.
 - Use Python 3.14, type annotations, and Google-style docstrings. Records are frozen, slotted, keyword-only dataclasses. No future annotations import. No prints in integration code.
 - Never sleep in tests. Use time fixtures and real Home Assistant test helpers.
 - Follow [the two development workflows](docs/development-workflows.md). Run `uv run python script/check.py --quick` (also `make quick`) and focused tests for a local UI trial. The commit hook uses quick checks. CI runs `uv run python script/check.py` (also `make check`) for strict types, the full suite and both coverage floors, then packages and smoke-tests the release candidate. Use Linux or WSL for Home Assistant. Validate metadata with official hassfest after manifest, services, or translation changes.

@@ -101,7 +101,7 @@ Home Assistant has no single health status that runs from an integration down to
 Watching a source tells Homeostatic you expect it to stay available. It opens an issue when:
 
 - a watched integration fails to set up, is retrying setup, or needs you to sign in again
-- a watched entity, or any selected entity in a watched device, is unavailable
+- a watched entity is unavailable, or every selected entity in a watched device is unavailable
 - a watched device's connectivity sensor (a binary sensor with the `connectivity` device class) reports `off`
 - a watched source has lacked usable evidence for longer than **Wait for unknown evidence**
 
@@ -116,9 +116,9 @@ Device details in Sources also show Home Assistant's own view of the whole devic
 | Unknown | No enabled entity has a current state and they aren't all unavailable, for example while states are still restoring after a restart |
 | Disabled | The device is disabled in Home Assistant |
 
-This status counts every enabled entity on the device, including ones you've excluded, while an issue only looks at the entities you selected. A device can therefore show Available while an issue for one of its entities is open. The issue details explain the difference under **Why does Home Assistant say Available?**
+A device issue uses the same rule, but only over the entities you selected, so an entity you've excluded never counts. The status and the issue can only differ when you've excluded something, and the issue details then explain the difference under **Why does Home Assistant say Available?** A device can also read Available while an entity on it that you watch separately has an issue of its own.
 
-If an unavailable feature is normal in your house, exclude it (see [Exclude something](#exclude-something)). To quiet an issue without changing what's watched, use the [operator controls](#operator-controls). The reasoning behind these rules is in the decision record on [following Home Assistant's availability rules](adr/0025-follow-home-assistant-availability-semantics.md).
+If an unavailable feature is normal in your house, exclude it (see [Exclude something](#exclude-something)). To quiet an issue without changing what's watched, use the [operator controls](#operator-controls). [Home Assistant states](home-assistant-states.md) explains how Home Assistant reports these signals and why Homeostatic reads them this way.
 
 ## Home Assistant Repairs
 

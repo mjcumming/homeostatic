@@ -76,7 +76,7 @@ Homeostatic waits in a few places so that brief blips and slow starts don't beco
 
 Opening an issue:
 
-- A device or entity that Home Assistant reports unavailable gets an issue straight away. The one exception is a device or entity whose integration is still loading or unknown: it waits up to two minutes for the integration to settle (**Wait for related failures**). The same two minutes decide whether its issue folds into the integration's.
+- An entity that Home Assistant reports unavailable, or a device whose selected entities are all unavailable, gets an issue straight away. The one exception is a device or entity whose integration is still loading or unknown: it waits up to two minutes for the integration to settle (**Wait for related failures**). The same two minutes decide whether its issue folds into the integration's.
 - An integration that's retrying gets an issue straight away, as a warning. If it's still retrying after two minutes (**Wait before reporting setup retries**), the warning becomes a failure.
 - A watched source with no current reading, such as an entity Home Assistant still lists but isn't providing, gets an issue after 15 minutes (**Wait for unknown evidence**). An entity whose state is `unknown` is different: Home Assistant can reach it but has no value yet, so it gets no issue.
 - A battery gets an issue as soon as it reads 20% or less, or the device reports a low warning.
@@ -105,4 +105,4 @@ Homeostatic also reloads when you save a change in its panel. That save takes ef
 
 Everything Homeostatic knows comes from Home Assistant: whether each integration loaded, whether each entity is available, battery readings, and the reports your alert automations send. It has no other way to reach your devices, so it can never know more about a device than Home Assistant does.
 
-[Known limitations](troubleshooting.md#known-limitations) lists what that leaves out, along with the rest of what Homeostatic doesn't do yet. Two decision records explain how Homeostatic reads what Home Assistant reports: [what Home Assistant availability shows](adr/0005-ha-availability-is-control-path-evidence.md) and [following Home Assistant's availability states](adr/0025-follow-home-assistant-availability-semantics.md).
+[Known limitations](troubleshooting.md#known-limitations) lists what that leaves out, along with the rest of what Homeostatic doesn't do yet. [Home Assistant states](home-assistant-states.md) explains how Home Assistant reports these signals and how Homeostatic reads them.
