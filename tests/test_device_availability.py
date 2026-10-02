@@ -55,9 +55,15 @@ from tests.test_lifecycle import start_monitor
         ),
         pytest.param(
             (State("sensor.a", "unavailable"), State("sensor.b", "unknown")),
-            Status.WARN,
-            "some_unavailable",
-            id="no-usable-evidence",
+            Status.PASS,
+            "available",
+            id="unknown-value-is-a-current-state",
+        ),
+        pytest.param(
+            (State("sensor.a", "unavailable"), State("sensor.b", "on")),
+            Status.PASS,
+            "available",
+            id="one-unavailable-member-does-not-warn",
         ),
         pytest.param(
             (State("sensor.a", "unavailable"), State("sensor.b", "unavailable")),
@@ -70,8 +76,8 @@ from tests.test_lifecycle import start_monitor
                 State("sensor.a", "off", {"restored": True}),
                 State("sensor.b", "unavailable"),
             ),
-            Status.WARN,
-            "some_unavailable",
+            Status.UNKNOWN,
+            "incomplete_evidence",
             id="restored-is-not-recovery",
         ),
     ],
@@ -81,7 +87,7 @@ def test_generic_summary_reports_selected_availability_expectations(
     status: Status,
     reason: str,
 ) -> None:
-    """Only HA unavailability warns in a device availability summary."""
+    """A device summary warns only when every selected member is unavailable."""
     observation = device_observation(
         Source(node_id="device:generic", name="Generic", kind="device"),
         states,
@@ -184,10 +190,10 @@ def test_existing_broad_rules_do_not_enroll_device_summaries() -> None:
     assert selected[0].matches(device)
 
 
-async def test_device_summary_tracks_partial_total_unknown_and_recovery(
+async def test_device_summary_ignores_partial_and_tracks_total_outage(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """One watched device retains one episode across an OmniLink-sized outage."""
+    """One unavailable member is not an outage; losing every member is one issue."""
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     owner.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(
@@ -227,9 +233,8 @@ async def test_device_summary_tracks_partial_total_unknown_and_recovery(
 
     hass.states.async_set(entities[0], "unavailable")
     await hass.async_block_till_done()
-    assert runtime.engine.readiness([node_id]).answer == "degraded"
-    assert len(runtime.episodes) == 1
-    partial_episode_id = next(iter(runtime.episodes))
+    assert runtime.engine.readiness([node_id]).answer == "ready"
+    assert not runtime.episodes
 
     for entity_id in entities[1:]:
         hass.states.async_set(entity_id, "unavailable")
@@ -237,7 +242,6 @@ async def test_device_summary_tracks_partial_total_unknown_and_recovery(
     assert runtime.engine.readiness([node_id]).answer == "degraded"
     assert len(runtime.episodes) == 1
     episode_id = next(iter(runtime.episodes))
-    assert episode_id == partial_episode_id
     assert runtime.episodes[episode_id]["reasons"][0]["reason"] == "all_unavailable"
 
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -430,7 +434,7 @@ async def test_persistent_ignore_changes_expectation_without_claiming_recovery(
         device_id=device.id,
         entity_category=EntityCategory.DIAGNOSTIC,
     )
-    hass.states.async_set(primary.entity_id, "off")
+    hass.states.async_set(primary.entity_id, "unavailable")
     hass.states.async_set(group.entity_id, "unavailable")
     hass.states.async_set(diagnostic.entity_id, "unavailable")
     rules = [{"id": "devices", "action": "attach", "match": {"kind": "device"}}]
@@ -441,12 +445,11 @@ async def test_persistent_ignore_changes_expectation_without_claiming_recovery(
     assert runtime.engine is not None
     assert runtime.engine.readiness([node_id]).answer == "degraded"
     episode_id = next(iter(runtime.episodes))
+    assert runtime.episodes[episode_id]["reasons"][0]["reason"] == "all_unavailable"
     evidence = runtime.device_evidence(node_id)
     assert evidence is not None
     assert evidence["total"] == 2
-    assert evidence["reporting_count"] == 1
-    assert evidence["members"][0]["entity_id"] == group.entity_id
-    assert evidence["members"][0]["state"] == "unavailable"
+    assert evidence["reporting_count"] == 0
     excluded = [
         *rules,
         {
@@ -467,11 +470,17 @@ async def test_persistent_ignore_changes_expectation_without_claiming_recovery(
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data
-    assert runtime.engine.readiness([node_id]).answer == "ready"
-    assert not runtime.episodes
+    # A narrower expectation ends the old issue as a scope change, not a
+    # recovery, and the remaining member's outage stays visible.
     history = await action(hass, "resolved_history", {})
     assert history["episodes"][0]["episode"]["episode_id"] == episode_id
     assert history["episodes"][0]["resolution"] == "removed"
+    assert runtime.engine.readiness([node_id]).answer == "degraded"
+    assert episode_id not in runtime.episodes
+    hass.states.async_set(primary.entity_id, "off")
+    await hass.async_block_till_done()
+    assert runtime.engine.readiness([node_id]).answer == "ready"
+    assert not runtime.episodes
     assert hass.states.get(group.entity_id).state == "unavailable"
 
     renamed = registry.async_update_entity(
@@ -689,10 +698,10 @@ async def test_unpressed_identify_button_is_not_device_availability_evidence(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_losing_last_reporting_entity_retires_device_issue(
+async def test_unknown_button_value_keeps_device_available(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """An unknown button value cannot keep an availability issue open."""
+    """A button's unknown last-pressed value counts as a current state."""
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     owner.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(
@@ -726,13 +735,13 @@ async def test_losing_last_reporting_entity_retires_device_issue(
     assert runtime.sources[node_id].availability_entities == tuple(
         sorted((reporting.entity_id, identify.entity_id))
     )
-    assert runtime.episodes
+    assert not runtime.episodes
 
-    registry.async_update_entity(
-        reporting.entity_id, disabled_by=er.RegistryEntryDisabler.USER
-    )
+    hass.states.async_set(identify.entity_id, "unavailable")
     await hass.async_block_till_done()
-    assert runtime.sources[node_id].watched
+    assert runtime.episodes
+    hass.states.async_set(identify.entity_id, "unknown")
+    await hass.async_block_till_done()
     assert not runtime.episodes
     history = await action(hass, "resolved_history", {})
     assert history["episodes"][0]["resolution"] == "cleared"

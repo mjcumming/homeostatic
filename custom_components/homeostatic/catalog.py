@@ -172,7 +172,13 @@ def entity_observation(
 def device_observation(
     source: Source, states: tuple[State | None, ...], now: datetime
 ) -> Observation:
-    """Summarize HA availability across one device's eligible entities."""
+    """Summarize HA availability across one device's selected entities.
+
+    The device counts as unavailable only when every selected entity is
+    unavailable or a selected connectivity sensor reports disconnected. Any
+    selected entity with a current state, including an HA `unknown` value, makes
+    the device available (ADR 0045, following HA architecture discussion 1400).
+    """
     signatures = tuple(entity_state_signature(state)[0] for state in states)
     value_unknown = sum(
         state is not None
@@ -191,22 +197,20 @@ def device_observation(
     available = signatures.count(Status.PASS) - value_unknown - len(disconnected)
     unavailable = signatures.count(Status.WARN)
     unknown = len(signatures) - available - unavailable - len(disconnected)
-    evidence_missing = signatures.count(Status.UNKNOWN)
     if source.disabled:
         status, reason = Status.UNKNOWN, "disabled"
     elif not signatures:
         status, reason = Status.UNKNOWN, "source_missing"
     elif disconnected:
         status, reason = Status.WARN, "connectivity_disconnected"
-    elif unavailable:
-        status, reason = (
-            Status.WARN,
-            "all_unavailable" if unavailable == len(signatures) else "some_unavailable",
-        )
-    elif evidence_missing:
-        status, reason = Status.UNKNOWN, "incomplete_evidence"
-    else:
+    elif signatures.count(Status.PASS):
         status, reason = Status.PASS, "available"
+    elif unavailable == len(signatures):
+        status, reason = Status.WARN, "all_unavailable"
+    else:
+        # Unavailable members alongside missing or restored ones: no member has
+        # a current state, but not every member is known to be unavailable.
+        status, reason = Status.UNKNOWN, "incomplete_evidence"
     return Observation(
         node_id=source.node_id,
         check_id="availability",

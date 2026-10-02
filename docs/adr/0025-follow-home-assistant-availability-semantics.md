@@ -1,6 +1,6 @@
 # ADR 0025: Follow Home Assistant entity availability semantics
 
-**Status:** Accepted
+**Status:** Accepted; the partial-device warning is superseded by [ADR 0045](0045-device-issue-requires-every-selected-entity-unavailable.md)
 **Date:** 2026-09-28
 **Decider:** Michael Cumming
 **Supersedes:** ADR 0012's device-member eligibility and its treatment of `unknown` and total unavailability.

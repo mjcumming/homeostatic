@@ -28,7 +28,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0022](0022-top-level-notifications-page.md) | Give Notifications its own dashboard page | Accepted |
 | [0023](0023-optional-topomation-location-tree.md) | Use Topomation as an optional location tree | Superseded by 0024 |
 | [0024](0024-explicit-topomation-grouping.md) | Offer Topomation as its own Sources grouping | Accepted |
-| [0025](0025-follow-home-assistant-availability-semantics.md) | Follow Home Assistant entity availability semantics | Accepted; supersedes 0012 source eligibility and status mapping |
+| [0025](0025-follow-home-assistant-availability-semantics.md) | Follow Home Assistant entity availability semantics | Accepted; supersedes 0012 source eligibility and status mapping; partial-device warning superseded by 0045 |
 | [0026](0026-fixed-reporting-preferences.md) | Use five fixed reporting preferences | Accepted product direction; contract and implementation pending |
 | [0027](0027-reporting-defaults-and-delivery.md) | Fixed reporting defaults and delivery semantics | Accepted |
 | [0028](0028-settings-scope-and-visible-reporting.md) | Keep global policies in Settings and expose reporting directly | Accepted; catalog presentation superseded by 0030 |
@@ -48,6 +48,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0042](0042-clean-up-deleted-automation-alerts.md) | Clean up deleted automation alerts | Accepted; supersedes 0034 no-eviction rule |
 | [0043](0043-skip-startup-grace-on-integration-reload.md) | Skip startup grace on integration reload | Accepted |
 | [0044](0044-report-home-assistant-repairs-as-issues.md) | Report Home Assistant Repairs as issues | Accepted; supersedes 0040 |
+| [0045](0045-device-issue-requires-every-selected-entity-unavailable.md) | Open a device issue only when every selected entity is unavailable | Accepted; supersedes 0025's partial-device warning |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision, not production readiness. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 
