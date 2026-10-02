@@ -43,7 +43,7 @@ Since Core doesn't model device availability, the only written design is [archit
 - **Available** when any enabled entity has a state other than `unavailable`.
 - **Unavailable** when every enabled entity is `unavailable`.
 
-"Partially available" comes only from integration reports that disagree, never from entity states. Homeostatic follows this rule for the device status in Sources (ADR 0035, with ADR 0038 adding connectivity sensors) and, over the owner's selected entities, for device issues (ADR 0045).
+"Partially available" comes only from integration reports that disagree, never from entity states. Homeostatic follows this rule for the device status in Sources (ADR 0035, with ADR 0038 adding connectivity sensors) and, over each device's selected entities, for device issues (ADR 0045).
 
 ## How integrations use it
 
@@ -52,7 +52,7 @@ The documented meaning of `unavailable` is "can't reach it". In practice it also
 - **Mode-dependent controls marked unavailable.** Some integrations mark a control `unavailable` when the device's current mode or program doesn't support it. The frontend then greys it out, which is the only way the standard toggle can be disabled. To anything reading states, that control looks the same as lost contact.
 - **Mode-dependent controls kept available.** Other integrations keep the state and refuse an invalid change with `ServiceValidationError`. The SmartThings Samsung dishwasher wash-option switches (`homeassistant/components/smartthings/switch.py`, `_validate_before_execute`) refuse when remote control is off, when the dishwasher isn't stopped, or when the selected cycle doesn't support the option. Their availability follows only the device's online status. The NeoPool filtration switch (`homeassistant/components/neopool/switch.py`) reports on or off and refuses a change outside manual mode or during boost.
 
-Both patterns are in Core, so Homeostatic can't assume either. An unavailable entity on a device that otherwise has current states is usually a feature switched off by mode, not lost contact.
+Both patterns are in Core, so Homeostatic can't assume either. An unavailable entity on a device that otherwise has current states can be a feature switched off by mode rather than lost contact. Discussion 1400 itself treats entity availability as imperfect evidence of device availability.
 
 ## How Homeostatic reads each signal
 
@@ -66,7 +66,7 @@ Both patterns are in Core, so Homeostatic can't assume either. An unavailable en
 | `unavailable` with `restored: true` | Missing information while the integration loads | An issue only if it lasts past **Wait for unknown evidence** |
 | No state at all | Missing information | Same as restored |
 
-**Devices.** A watched device's check uses only the entities the owner selected. It passes when any selected entity has a current state, warns when every selected entity is unavailable or a selected connectivity sensor reports `off`, and is unknown when no selected entity has a current state and they aren't all unavailable. Excluded entities don't count. ADR 0045 records the decision.
+**Devices.** A watched device's check uses its selected entities: enabled ordinary entities, including buttons and hidden ones, or diagnostic entities when the device has no ordinary ones, less any the owner excluded. Configuration entities are never selected. The check warns when a selected connectivity sensor reports `off` or every selected entity is unavailable, passes when any selected entity has a current state, and is unknown when no selected entity has a current state and they aren't all unavailable. The device status in Sources counts every enabled entity, so the two can differ without any exclusion. The status reads Available while the issue is open when only a configuration entity or an unselected diagnostic entity still reports, and Unavailable with no issue when an unselected connectivity sensor reports `off`. ADR 0045 records the decision.
 
 **Integrations.** A loaded config entry passes. Setup retry is a warning that becomes a failure after **Wait before reporting setup retries**. Setup errors, migration errors, failed unloads and a pending sign-in are failures. Disabled, not-yet-loaded and loading entries are missing information.
 

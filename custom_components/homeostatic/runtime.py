@@ -1088,6 +1088,7 @@ class Runtime:
             }
         )
         self._listen_entries()
+        legacy_partial: set[str] = set()
         if first and self.saved is not None:
             self.episodes = self.saved["episodes"].copy()
             self._legacy_notifications = (
@@ -1113,6 +1114,19 @@ class Runtime:
             self.policy.restore(self.saved["policy"], now)
             events.extend(self.engine.restore(self.saved["engine"], now))
             self.saved = None
+            # ADR 0045 stopped raising some_unavailable. A rule change can't
+            # prove recovery, so those issues end as removed, not cleared.
+            for episode in self.episodes.values():
+                findings = episode["reasons"]
+                assert isinstance(findings, list)
+                if any(
+                    isinstance(finding, dict)
+                    and finding.get("node_id") == episode["anchor"]
+                    and finding.get("check_id") == "availability"
+                    and finding.get("reason") == "some_unavailable"
+                    for finding in findings
+                ):
+                    legacy_partial.add(str(episode["anchor"]))
         for node_id, source in sources.items():
             if source.kind != "device":
                 continue
@@ -1123,7 +1137,7 @@ class Runtime:
                 else bool(source.ignored_availability)
             )
             if (
-                scope_changed
+                (scope_changed or node_id in legacy_partial)
                 and source.availability_entities
                 and any(
                     episode["anchor"] == node_id for episode in self.episodes.values()

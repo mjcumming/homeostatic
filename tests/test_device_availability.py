@@ -1,5 +1,6 @@
 """One HA device check summarizes entity availability without a hardware claim."""
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -793,6 +794,116 @@ async def test_restore_retires_issue_when_only_identify_button_remains(
     assert not restored.episodes
     history = await action(hass, "resolved_history", {})
     assert history["episodes"][0]["resolution"] == "cleared"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize(
+    ("second_state", "still_open"),
+    [("off", False), ("unavailable", True)],
+)
+async def test_restore_removes_issue_saved_under_partial_rule(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_storage: dict[str, Any],
+    second_state: str,
+    still_open: bool,
+) -> None:
+    """A saved some_unavailable issue ends as removed, never as a recovery."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id,
+        identifiers={("test", "partial")},
+        name="Partial device",
+    )
+    registry = er.async_get(hass)
+    members = [
+        registry.async_get_or_create(
+            "sensor", "test", name, config_entry=owner, device_id=device.id
+        ).entity_id
+        for name in ("first", "second")
+    ]
+    for entity_id in members:
+        hass.states.async_set(entity_id, "unavailable")
+    config_data.update(
+        entities=[],
+        config_entries=[],
+        notifications=False,
+        rules=[
+            {
+                "id": "partial",
+                "action": "attach",
+                "match": {"kind": "device", "device": device.id},
+            }
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    saved_id = next(iter(runtime.episodes))
+    assert runtime.episodes[saved_id]["reasons"][0]["reason"] == "all_unavailable"
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+    # Rewrite the store as a release before ADR 0045 would have left it.
+    key = f"{DOMAIN}.{entry.entry_id}"
+    hass_storage[key]["data"] = json.loads(
+        json.dumps(hass_storage[key]["data"]).replace(
+            '"all_unavailable"', '"some_unavailable"'
+        )
+    )
+    hass.states.async_set(members[1], second_state)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    restored = entry.runtime_data
+
+    assert saved_id not in restored.episodes
+    history = await action(hass, "resolved_history", {})
+    assert [item["resolution"] for item in history["episodes"]] == ["removed"]
+    assert history["episodes"][0]["episode"]["episode_id"] == saved_id
+    if still_open:
+        (episode,) = restored.episodes.values()
+        assert episode["reasons"][0]["reason"] == "all_unavailable"
+    else:
+        assert not restored.episodes
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_restore_keeps_current_issue_open(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """Only the retired partial reason is removed; an all_unavailable issue carries on."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id,
+        identifiers={("test", "outage")},
+        name="Outage device",
+    )
+    sensor = er.async_get(hass).async_get_or_create(
+        "sensor", "test", "only", config_entry=owner, device_id=device.id
+    )
+    hass.states.async_set(sensor.entity_id, "unavailable")
+    config_data.update(
+        entities=[],
+        config_entries=[],
+        notifications=False,
+        rules=[
+            {
+                "id": "outage",
+                "action": "attach",
+                "match": {"kind": "device", "device": device.id},
+            }
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    saved_id = next(iter(runtime.episodes))
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert list(entry.runtime_data.episodes) == [saved_id]
+    history = await action(hass, "resolved_history", {})
+    assert not history["episodes"]
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

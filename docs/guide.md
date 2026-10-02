@@ -28,7 +28,7 @@ Every monitoring change goes through a review. Make your choices, select **Revie
 3. Under **Device availability**, choose **Always monitor this device**.
 4. Select **Review changes**, check the result, then select **Save changes**.
 
-A watched device gets one check across its enabled entities. Homeostatic uses the device's ordinary entities, including buttons and hidden entities, and falls back to its diagnostic entities only when it has no ordinary ones. Configuration entities and disabled entities are left out. Expand the device in the tree to see which entities its check covers.
+A watched device gets one check across its selected entities. Homeostatic selects the device's ordinary entities, including buttons and hidden entities, and falls back to its diagnostic entities only when it has no ordinary ones. Configuration entities and disabled entities are left out, and so is anything you [exclude](#exclude-something). Expand the device in the tree to see which entities its check covers.
 
 To watch a single entity, select it in the tree and open **Settings**. **Follow device monitoring** includes the entity in its device's check whenever the device is watched. **Monitor this entity** gives it a check of its own. If its device already includes it, that choice is under **More monitoring choices** as **Monitor this entity separately**.
 
@@ -102,7 +102,7 @@ Watching a source tells Homeostatic you expect it to stay available. It opens an
 
 - a watched integration fails to set up, is retrying setup, or needs you to sign in again
 - a watched entity is unavailable, or every selected entity in a watched device is unavailable
-- a watched device's connectivity sensor (a binary sensor with the `connectivity` device class) reports `off`
+- a selected connectivity sensor on a watched device (a binary sensor with the `connectivity` device class) reports `off`
 - a watched source has lacked usable evidence for longer than **Wait for unknown evidence**
 
 The issue quotes what Home Assistant reported and lists the entities involved. It doesn't name a physical cause, because Home Assistant doesn't report one. [Known limitations](troubleshooting.md#known-limitations) lists what Homeostatic can't see.
@@ -116,7 +116,7 @@ Device details in Sources also show Home Assistant's own view of the whole devic
 | Unknown | No enabled entity has a current state and they aren't all unavailable, for example while states are still restoring after a restart |
 | Disabled | The device is disabled in Home Assistant |
 
-A device issue uses the same rule, but only over the entities you selected, so an entity you've excluded never counts. The status and the issue can only differ when you've excluded something, and the issue details then explain the difference under **Why does Home Assistant say Available?** A device can also read Available while an entity on it that you watch separately has an issue of its own.
+A device issue uses the same rule, but only over the device's [selected entities](#watch-a-device-or-an-entity). The status counts every enabled entity, so the two can differ even when you haven't excluded anything. A device reads Available while its issue is open when the only entities still reporting are ones the check leaves out, such as a configuration entity, and the issue details explain this under **Why does Home Assistant say Available?** It reads Unavailable with no issue when a connectivity sensor that isn't selected reports `off`. A device can also read Available while an entity on it that you watch separately has an issue of its own.
 
 If an unavailable feature is normal in your house, exclude it (see [Exclude something](#exclude-something)). To quiet an issue without changing what's watched, use the [operator controls](#operator-controls). [Home Assistant states](home-assistant-states.md) explains how Home Assistant reports these signals and why Homeostatic reads them this way.
 

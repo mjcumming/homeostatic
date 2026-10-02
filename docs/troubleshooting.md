@@ -80,7 +80,7 @@ A new install watches only your integrations. A long list of issues usually come
 
 - An integration you don't care about keeps failing or retrying, such as one for a TV that's switched off at the wall. Open it in **Sources**, go to **Settings** and turn off **Allow monitoring for this integration**.
 - An entity is watched separately and also as part of its device, so one failure gives two issues. Keep one of them: choose **Follow device monitoring** in the entity's **Settings**.
-- An entity you watch on its own is unavailable for a normal reason, such as a feature that only exists in some modes. Open its issue and use **Stop checking this entity…**, then review and save the draft in Sources. A device check isn't affected unless every entity you selected on the device is unavailable.
+- An entity you watch on its own is unavailable for a normal reason, such as a feature that only exists in some modes. Open its issue and use **Stop checking this entity…**, then review and save the draft in Sources. A device check isn't affected unless every selected entity on the device is unavailable.
 - A source you chose by hand no longer exists in Home Assistant, so it has had no reading for 15 minutes. Remove its monitoring choice in **Sources**.
 - You used **Monitor all batteries**, and it found many low batteries at once. Each one stays open until its reading rises above 20% or it reports charging.
 
@@ -122,13 +122,13 @@ The **Acknowledge** button appears only on notifications about a single open iss
 
 Homeostatic shows what Home Assistant reports. First check the device in Home Assistant under **Settings → Devices & services**. If Home Assistant shows the same entities as unavailable, the cause is in the integration or the device, and Homeostatic is passing it on.
 
-If the device works but its selected entities are all unavailable:
+If the device works but Homeostatic reports it unavailable:
 
-- Some integrations make an entity unavailable when a feature isn't in use, such as a receiver's second zone while it's in standby. If those are the only entities you selected on the device, the device's issue opens whenever the feature is off. Select an entity that always reports, like the main power switch, or use **Stop checking…** on the ones that come and go.
+- Some integrations make an entity unavailable when a feature isn't in use, such as a receiver's second zone while it's in standby. That opens a device issue only when every selected entity on the device does it. Use **Stop checking…** on the ones that come and go, and give an entity that always reports, like the main power switch, a check of its own.
 - Battery devices that sleep can show as unavailable between check-ins, depending on the integration. Exclude the entities that do this.
-- An enabled connectivity sensor on the device reports *off*, for example a cloud-connection sensor while the device works locally. Homeostatic treats that as the device reporting itself disconnected. Excluding the sensor stops the issue. The device's availability in **Sources** still reads unavailable, because it uses every enabled entity, so disable the sensor in Home Assistant if you don't need it.
+- A selected connectivity sensor on the device reports *off*, for example a cloud-connection sensor while the device works locally. Homeostatic treats that as the device reporting itself disconnected. Excluding the sensor stops the issue. The device's availability in **Sources** still reads unavailable, because it uses every enabled entity, so disable the sensor in Home Assistant if you don't need it.
 
-The opposite also happens: a device's availability reads **Available** while its issue stays open. Both use the same rule, but the availability counts every enabled entity on the device and the issue counts only the ones you selected. If an entity you excluded still reports, the availability reads Available while every selected entity is unavailable. The issue explains this under **Why does Home Assistant say Available?**
+The device's availability in **Sources** and its issue can also disagree. Both use the same rule, but the availability counts every enabled entity on the device and the issue counts only the [selected ones](guide.md#watch-a-device-or-an-entity), which leave out configuration entities, diagnostic entities when the device has others, and anything you've excluded. When only a left-out entity still reports, the availability reads **Available** while the issue stays open, and the issue explains this under **Why does Home Assistant say Available?** When a connectivity sensor that isn't selected reports *off*, the availability reads **Unavailable** and there's no issue.
 
 The [user guide](guide.md#what-an-availability-problem-means) explains what an availability problem means in detail.
 
@@ -137,7 +137,7 @@ The [user guide](guide.md#what-an-availability-problem-means) explains what an a
 - Homeostatic only knows what Home Assistant reports. Home Assistant reporting a sensor available doesn't prove the reading is fresh or that a command worked, and Homeostatic can't tell whether a detector has stopped processing. Checks for these are on the [roadmap](roadmap.md).
 - It can't tell you Home Assistant itself has stopped, because it runs inside Home Assistant. You need a monitor outside Home Assistant for that.
 - Some integrations mark a control unavailable when the device's current mode doesn't support it. Homeostatic can't tell that from lost contact.
-- A device issue opens only when every entity you selected on the device is unavailable, or its connectivity sensor reports disconnected. One failed entity on a device whose other entities still report doesn't open one. Watch that entity on its own if it matters.
+- A device issue opens only when every selected entity on the device is unavailable, or its connectivity sensor reports disconnected. One failed entity on a device whose other entities still report doesn't open one. Watch that entity on its own if it matters.
 - A notification request isn't proof of delivery. Homeostatic hands each message to Home Assistant's notify action, which can't confirm the phone received it, and some delivery errors appear only in the Home Assistant log.
 - When an integration fails, everything watched on it is grouped under its issue, including a device that happens to have a fault of its own at the same moment. Check anything still failing once the integration recovers.
 - Automation failures come only from Home Assistant's Repairs. An automation that never runs, or an error that appears only in its trace, doesn't show up in Homeostatic.

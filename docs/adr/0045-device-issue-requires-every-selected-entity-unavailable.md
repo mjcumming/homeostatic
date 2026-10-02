@@ -14,26 +14,30 @@ Home Assistant itself has no device availability today. The only written design 
 
 ## Decision
 
-A watched device's availability check follows the discussion 1400 entity rule, applied to the entities the owner has selected for that device:
+A watched device's availability check follows the discussion 1400 entity rule, applied to the device's selected entities. The first matching row wins:
 
 | Selected entities | Result |
 | --- | --- |
+| A selected connectivity sensor reports `off` | `warn/connectivity_disconnected` (ADR 0038, unchanged) |
 | At least one has a current state, including an HA `unknown` value | `pass/available` |
 | Every one is `unavailable` | `warn/all_unavailable` |
-| A selected connectivity sensor reports `off` | `warn/connectivity_disconnected` (ADR 0038, unchanged) |
 | None has a current state and not every one is `unavailable` (missing or restored states) | `unknown/incomplete_evidence` |
 | None selected | No check (ADR 0025, unchanged) |
 
-Excluded entities play no part in the check. Exclusions exist to drop features that are unavailable by design, so the check follows the owner's selection rather than every enabled entity. The device status in Sources keeps ADR 0035's rule over all enabled entities. The two only differ when the owner has excluded something.
+The selected entities are the device's enabled ordinary entities, including buttons and hidden entities, or its diagnostic entities when it has no ordinary ones, less any the owner has excluded. Configuration entities are never selected. Excluded entities play no part in the check, because exclusions exist to drop features that are unavailable by design.
+
+The device status in Sources keeps ADR 0035's rule over all enabled entities, so the two can differ even without exclusions. The status reads Available while the issue is open when only a configuration entity, or a diagnostic entity on a device that has ordinary ones, still reports. It reads Unavailable with no issue when a connectivity sensor outside the selection reports `off`. The issue details explain the first case under "Why does Home Assistant say Available?"
 
 An entity the owner watches on its own still gets its own availability issue. `warn/some_unavailable` is no longer produced. History keeps showing it for issues recorded before this change.
 
 ## Alternatives
 
 - **Keep warning on any unavailable entity.** Catches one dead sensor on a working device, but raises false issues whenever an integration greys out a control, and contradicts the device status beside it.
-- **Treat partial unavailability as a separate, quieter warning.** Discussion 1400 reserves "partially available" for conflicting integration reports, not entity states, and a quieter warning still needs a notification policy, a label and an explanation for something that usually isn't a fault.
-- **Use every enabled entity, ignoring exclusions.** Would match the Sources status exactly, but would make exclusions pointless for the issue.
+- **Treat partial unavailability as a separate, quieter warning.** Discussion 1400 reserves "partially available" for conflicting integration reports, not entity states, and a quieter warning still needs a notification policy, a label and an explanation for something that isn't necessarily a fault.
+- **Use every enabled entity, ignoring the selection and exclusions.** Would match the Sources status, but would let a configuration entity keep a dead device looking available, and would make exclusions pointless for the issue.
 
 ## Consequences
 
-A device issue now means Home Assistant can't reach any of the device's selected features, or its connectivity sensor says it's disconnected. One failed entity on an otherwise working device no longer opens a device issue; the owner watches that entity on its own if it matters. Open issues recorded as `some_unavailable` end at the next evaluation because the device now passes, and History records them as cleared, as happened when ADR 0025 changed the meaning of `unknown`. When Home Assistant ships native device availability reports, ADR 0035's precedence rules still apply.
+A device issue now means Home Assistant can't reach any of the device's selected features, or its connectivity sensor says it's disconnected. One failed entity on an otherwise working device no longer opens a device issue; the owner watches that entity on its own if it matters. When Home Assistant ships native device availability reports, ADR 0035's precedence rules still apply.
+
+Letting issues still open as `some_unavailable` run on under the new rule would be unpredictable: one ends as cleared only once a selected entity reports a current state and the clear hold passes, while one whose remaining entities are missing or restored reads `unknown` and stays open. Neither outcome would mean the device recovered. So when this version first starts, it retires each of those issues as `removed`, the same way an exclusion change retires a device issue, and History lists them under Monitoring ended. If every selected entity is unavailable at that point, the check opens a new `all_unavailable` issue as usual.

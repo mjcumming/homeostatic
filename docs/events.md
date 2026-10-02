@@ -44,7 +44,7 @@ The `change` field says what happened:
 | `shelved` | Whether Pause alerts was on for the issue |
 | `maintenance` | Whether the source was covered by Working on this equipment |
 | `acknowledged` | Whether someone had acknowledged the issue |
-| `resolution` | Only on `resolved`. `cleared` means the problem ended. `removed` means Homeostatic stopped watching the source, which says nothing about the problem. `absorbed` means the issue became part of another issue. History shows these as **Cleared**, **Monitoring ended** and **Joined another problem**. |
+| `resolution` | Only on `resolved`. `cleared` means the problem ended. `removed` means Homeostatic stopped watching the source or changed what it checks, which says nothing about the problem. `absorbed` means the issue became part of another issue. History shows these as **Cleared**, **Monitoring ended** and **Joined another problem**. |
 | `absorbed_into` | Only on `resolved`: the ID of the issue that absorbed this one, or `null` |
 
 ### `homeostatic_control`
