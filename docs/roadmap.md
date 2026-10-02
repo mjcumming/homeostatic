@@ -1,13 +1,14 @@
 # Roadmap
 
-What Homeostatic does today, what's being worked on next, and what's further out. Last updated October 1, 2026, for version 1.2.0.
+What Homeostatic does today, what's being worked on next, and what's further out. Last updated October 1, 2026, for version 1.3.0.
 
 ## What works now
 
-- Watching integrations, devices, entities and batteries. A new install watches integrations only. You add more in Sources, one at a time or with rules that cover a whole integration, area, floor, label or device class, including sources added later. An exclusion always wins over a rule.
+- Watching integrations, devices, entities and batteries. A new install watches integrations and Home Assistant's Repairs. You add more in Sources, one at a time or with rules that cover a whole integration, area, floor, label or device class, including sources added later. An exclusion always wins over a rule.
 - Device availability that follows what Home Assistant reports. When a device has a connectivity sensor and it reports disconnected, Homeostatic treats the device as disconnected.
 - Battery checks. A battery at 20% or less, or one that reports a low warning, raises an issue. A charging report clears it.
 - One issue per failure. When an integration fails, the devices and entities you watch on it are listed on that one issue.
+- Every Home Assistant Repair as an issue, in the morning summary unless you choose otherwise.
 - Alerts made from Home Assistant automations with the alert blueprint, with required evidence and an Acknowledge button on the phone.
 - Notifications to people's phones through the Companion app, with the six reporting choices, summary times you set, a test notification, and taps that open the issue.
 - The controls Acknowledge, Pause alerts and Working on this equipment. Pauses and maintenance last up to seven days.
@@ -19,7 +20,7 @@ The [user guide](guide.md) and the [alert guide](automation-situations.md) cover
 
 ## Next
 
-- Clearer next steps on each issue. An issue should say what to do and link to where you do it, including Home Assistant's Repairs page when that's the right place. It may also list supplies, like the battery a device takes.
+- Clearer next steps on each issue. An issue should say what to do and link to where you do it. It may also list supplies, like the battery a device takes.
 - Battery checks tested against real devices. The checks are released. The next step is to compare them with real battery and charging reports and refine what a battery issue tells you to do.
 - Counts that agree. Overview, Issues and Sources should show the same numbers, and you should be able to open a count and see what's behind it, with open issues, affected devices and missing information kept apart.
 - A panel that stays put during live updates. Your selection, your place on the page and any unsaved edits should survive new information arriving.

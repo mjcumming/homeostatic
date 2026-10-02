@@ -138,14 +138,15 @@ The [user guide](guide.md#what-an-availability-problem-means) explains what an a
 - It can't tell you Home Assistant itself has stopped, because it runs inside Home Assistant. You need a monitor outside Home Assistant for that.
 - A notification request isn't proof of delivery. Homeostatic hands each message to Home Assistant's notify action, which can't confirm the phone received it, and some delivery errors appear only in the Home Assistant log.
 - When an integration fails, everything watched on it is grouped under its issue, including a device that happens to have a fault of its own at the same moment. Check anything still failing once the integration recovers.
-- Automation failures come only from Home Assistant's Repairs: validation errors and missing actions. An automation that never runs, or an error that appears only in its trace, doesn't show up in Homeostatic.
+- Automation failures come only from Home Assistant's Repairs. An automation that never runs, or an error that appears only in its trace, doesn't show up in Homeostatic.
+- All Repairs share one reporting choice. You can't send one Repair immediately and another in the weekly summary.
 - A device's availability never reads **Partially available**. Home Assistant doesn't yet let integrations report device availability directly, so Homeostatic works it out from entity states.
 - A light or binary sensor group can stay available while some of its members are unavailable. Watch the members that matter directly.
 - The low-battery level is fixed at 20%. Homeostatic can't tell whether a battery was replaced or recharged, and doesn't know what type of battery a device takes.
 - Alerts describe continuing conditions. A one-off event, like a doorbell press, doesn't fit unless something in Home Assistant holds it as a state. Homeostatic can't check that **Required evidence** lists every entity your condition uses.
 - The panel and cards are for administrators only. Other people can receive notifications and tap **Acknowledge**, but can't open the panel.
 - Notifications can't go to whoever is home, be spoken on a speaker, or be snoozed from the phone.
-- Homeostatic never fixes anything itself. It doesn't retry integrations, turn anything back on or send commands to devices. It shows automation failures that Home Assistant reports in Repairs; its own issues stay in Homeostatic.
+- Homeostatic never fixes anything itself. It doesn't retry integrations, turn anything back on or send commands to devices. It shows the Repairs Home Assistant raises, but fixing or ignoring them happens in Home Assistant.
 - The History page keeps up to 100 ended issues from the last 30 days. Its times are when Homeostatic saw a change, so after Home Assistant has been down, an end time can be later than the actual recovery.
 - Timings apply to the whole installation. You can't give one source a different wait.
 - Watching every entity on a very large install (6,000 or more) is still too slow. Start with your integrations and the devices that matter.

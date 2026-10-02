@@ -25,4 +25,5 @@ Docs are for people, not for the next agent.
 - Cut the AI tells: "X, not Y" contrasts, a bold label on every bullet, lists of three for rhythm, noun piles, passive voice that hides who does what, and stock words like robust, seamless, comprehensive, leverage and ensure.
 - When behavior changes, edit the section that owns it rather than bolting a new section on wherever is handy.
 - Don't invent facts. If something needs the maintainer's knowledge, ask before writing it.
-- User docs use the words in the UI: issue, source, function, problem. Keep node, episode, observation and adapter out of them.
+- User docs use the words in the UI: issue, source, problem, Repair. Keep node, episode, observation and adapter out of them. Functions are set aside, so leave them out of user docs.
+- Frame Homeostatic as a tool for running Home Assistant: it tracks what goes wrong (integrations, devices and entities, batteries, Repairs) plus the house situations the owner asks it to watch, and tells people on their schedule. Home Assistant usually already knows about the failure; it just doesn't tell anyone.

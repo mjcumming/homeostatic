@@ -1,6 +1,6 @@
 # How Homeostatic works
 
-Homeostatic answers two questions about your home. Is equipment available through Home Assistant? And what is the house telling you: water on the basement floor, the garage open after dark?
+Homeostatic tracks what goes wrong in Home Assistant: integrations, devices and entities, batteries and Repairs, plus the alerts you define about the house, like water on the basement floor or the garage open after dark.
 
 This page explains how Homeostatic reaches its answers and when it tells you. For setup, see [Install and first run](install.md). For individual tasks, see the [user guide](guide.md).
 
@@ -42,7 +42,7 @@ An entity can be part of a watched device and have its own check as well. The tw
 
 ## Alerts stay separate from equipment
 
-The leak sensor in the basement shows why Homeostatic keeps the two levels apart.
+The leak sensor in the basement shows why Homeostatic keeps equipment and alerts apart.
 
 As equipment, the leak sensor is a source. If you watch it, Homeostatic reports when Home Assistant says it's unavailable. If you watch its battery too, that's a separate issue when the battery runs low.
 
@@ -61,6 +61,14 @@ Alerts have no place in the dependency map, for three reasons:
 - Starting **Working on this equipment** holds off new issues for the equipment you're working on. It never holds off alerts.
 
 The [alert guide](automation-situations.md) covers writing alerts, and the decision record on [alerts from automations](adr/0034-create-alerts-from-ha-automations.md) explains why the condition lives in a Home Assistant automation.
+
+## Repairs
+
+Home Assistant raises a Repair when it needs you to do something: an automation calls an action that no longer exists, a setting is going away, an integration needs attention before an upgrade. Homeostatic turns each Repair into an issue, named with the Repair's own title. The issue ends when Home Assistant stops reporting the Repair, or when you ignore it in Home Assistant.
+
+Like alerts, Repairs stay out of the dependency map. A failed integration doesn't fold its Repairs into its own issue, and **Working on this equipment** never holds them off.
+
+Home Assistant keeps only some Repairs across a restart, and integrations raise the rest again while they load. So after a restart, Homeostatic keeps a Repair's issue open until your watched integrations have finished loading, and ends it only if the Repair still hasn't come back by then. The decision record on [Repairs as issues](adr/0044-report-home-assistant-repairs-as-issues.md) explains the choices.
 
 ## Timing
 

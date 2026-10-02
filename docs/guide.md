@@ -7,7 +7,7 @@ This guide covers the jobs you do in Homeostatic once it's installed.
 - [Choose what to watch](#choose-what-to-watch)
 - [Watch batteries](#watch-batteries)
 - [What an availability problem means](#what-an-availability-problem-means)
-- [Automation failures](#automation-failures)
+- [Home Assistant Repairs](#home-assistant-repairs)
 - [Activate notifications](#activate-notifications)
 - [Operator controls](#operator-controls)
 - [Find ended problems in History](#find-ended-problems-in-history)
@@ -120,9 +120,13 @@ This status counts every enabled entity on the device, including ones you've exc
 
 If an unavailable feature is normal in your house, exclude it (see [Exclude something](#exclude-something)). To quiet an issue without changing what's watched, use the [operator controls](#operator-controls). The reasoning behind these rules is in the decision record on [following Home Assistant's availability rules](adr/0025-follow-home-assistant-availability-semantics.md).
 
-## Automation failures
+## Home Assistant Repairs
 
-When Home Assistant reports in Repairs that an automation failed validation or calls an action that doesn't exist, Homeostatic shows it on **Overview** and **Issues**, with the reason Home Assistant gave and a link to the automation. The card goes away when Home Assistant clears the Repair. These cards don't send notifications and don't go into History.
+Every Repair Home Assistant raises becomes an issue, whichever integration raised it. That includes an automation that fails to set up or calls an action that doesn't exist, a YAML setting that's going away, and an integration asking you to do something before an upgrade. The issue uses the Repair's own title and says which integration raised it and how serious Home Assistant considers it. **Fix in Home Assistant** opens the automation when Home Assistant links one, and the Repairs page otherwise.
+
+The issue ends when Home Assistant stops reporting the Repair, or when you select **Ignore** on it in Home Assistant. Ended Repairs go into History like any other issue, and Acknowledge and Pause alerts work on them. **Working on this equipment** doesn't apply, because a Repair isn't equipment.
+
+All Repairs share one reporting choice, which starts at **Morning summary**. Change it under **Notifications → Household default → Home Assistant Repairs**. If nobody receives the choice you pick, Repairs show only in the panel.
 
 Homeostatic only shows what Home Assistant reports. It doesn't read your automations to guess whether they'll work, so an automation that never runs, or an error that shows up only in its trace, won't appear here. Check those in the automation's traces.
 
@@ -161,7 +165,7 @@ Both immediate choices are sent as urgent notifications. On an iPhone they're se
 
 ### Choose when each source reports
 
-Under **Household default**, **Newly monitored sources** sets the choice for every source that hasn't got one of its own. It starts at **Weekly summary**.
+Under **Household default**, **Newly monitored sources** sets the choice for every source that hasn't got one of its own. It starts at **Weekly summary**. **Home Assistant Repairs** sets the choice for every Repair, and starts at **Morning summary**.
 
 To give one source its own choice, open it in **Sources**, open **Settings**, and pick a **Source preference** under **Reporting**. **Condition exceptions** sets a different choice for one kind of check on that source. For a whole integration, use **When to notify** in its **Settings**: **Device default** applies one choice to all its current devices, and devices it adds later use the household default.
 

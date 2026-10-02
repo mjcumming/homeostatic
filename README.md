@@ -2,15 +2,19 @@
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="custom_components/homeostatic/brand/dark_icon.png"><img src="custom_components/homeostatic/brand/icon.png" alt="Homeostatic icon" width="88"></picture></p>
 
-Homeostatic is a Home Assistant integration that watches your home on two levels: whether your Home Assistant setup is working, and what that setup is telling you about the house.
+Most Home Assistant failures are silent. An integration fails after an update, a switch drops off the network, a battery dies, an automation breaks when an entity is renamed. You find out when friends are over and "Alexa, turn on the back deck lights" does nothing.
 
-| Question | Example |
-| --- | --- |
-| Is the equipment working? | The Zigbee integration failed to start. A motion sensor's battery is down to 15%. |
-| What does that affect? | Every watched Zigbee device and entity goes with it, and the kitchen leak alert can't tell whether the floor is wet. |
-| What's happening in the house? | There's water on the basement floor. The garage door is open after dark. |
+Home Assistant knew. It marked the deck switch unavailable on Tuesday and didn't tell anyone.
 
-Each answer becomes an issue in one panel, and you choose who hears about it and when. The two levels stay separate on purpose. If a leak sensor goes offline, that's an equipment issue, and the leak alert it feeds shows *unknown* until the sensor is back. Homeostatic never reads a dead sensor as a dry floor.
+Homeostatic makes Home Assistant easier to run. It tracks what's broken, failing or misbehaving and tells you on your terms: right away, in a morning or evening summary, or once a week. With the deck switch on the morning summary, you'd have known on Wednesday. When a whole integration goes down, you get one issue listing everything behind it, instead of forty alerts.
+
+It covers:
+
+- Integrations that won't start, keep retrying, or need you to sign in again
+- Devices and entities that go unavailable
+- Batteries running low
+- Repairs Home Assistant raises, like an automation calling an action that no longer exists
+- Situations in the house you ask it to watch, like water on the basement floor or the garage left open after dark
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
 [![Installations](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fanalytics.home-assistant.io%2Fcustom_integrations.json&query=%24.homeostatic.total&label=installs&color=41BDF5&logo=home-assistant&cacheSeconds=3600)](https://analytics.home-assistant.io/custom_integrations.json)
@@ -29,28 +33,25 @@ Each answer becomes an issue in one panel, and you choose who hears about it and
 
 ## What it watches
 
-You choose what Homeostatic watches. A new install starts with integrations only, and you add the rest in the panel.
+A new install watches your integrations and Home Assistant's Repairs. You add devices, entities, batteries and alerts in the panel, one at a time or with rules that cover a whole integration, area, floor or label.
 
-- **Integrations.** Whether each one loads, is retrying, or needs you to sign in again.
-- **Devices and entities.** Whether Home Assistant still has them, or reports them unavailable.
-- **Batteries.** Whether a battery is at 20% or less, or the device reports a low warning. A battery is tracked on its own, apart from whether its device is available.
-- **Alerts you define.** Conditions in the house, like water on the floor, the garage open after dark or the freezer warming up. You write these as ordinary Home Assistant automations using a blueprint, so you get the full automation editor for the condition.
+- A battery issue opens at 20% or less, or when the device reports a low warning. It's tracked apart from whether the device is available.
+- A Repair's issue ends when Home Assistant stops reporting the Repair, or when you ignore it in Home Assistant.
+- Alerts are ordinary Home Assistant automations made from a blueprint, so you get the full automation editor for the condition. If a sensor an alert needs goes offline, the alert shows *unknown*, so a dead leak sensor never reads as a dry floor.
 
 ## What you get when something goes wrong
 
 An issue for each problem. It quotes what Home Assistant reported (setup failed, needs sign-in, retrying), lists the entities affected, suggests what to try, and shows recovery as it happens. When an integration fails, the devices and entities you watch on it are listed on that one issue instead of each raising its own.
 
-Home Assistant automation errors. If Home Assistant reports in Repairs that an automation failed validation or calls a missing action, Homeostatic shows it on **Overview** and **Issues** with a link to the automation.
-
-Notifications on your schedule. Every source and alert has one of six reporting choices:
+Notifications on your schedule. Everything you watch has one of six reporting choices, and all Repairs share one:
 
 | Choice | What happens |
 | --- | --- |
 | Immediate | Sent right away, overnight included |
 | Immediate with acknowledgment | Sent right away and repeated every 30 minutes until someone taps Acknowledge or the problem clears |
-| Morning summary | In the 8:00 summary |
+| Morning summary | In the 8:00 summary. Repairs start here. |
 | Evening summary | In the 18:00 summary |
-| Weekly summary | In the Sunday 9:00 summary. New sources start here. |
+| Weekly summary | In the Sunday 9:00 summary. Integrations, devices, entities and batteries start here. |
 | Dashboard only | Never sent. It shows in the panel. |
 
 You can change the summary times and choose which people get each kind. Notifications go to their phones through the Home Assistant Companion app, and they don't need to be admins to tap Acknowledge. Notifications stay off until you turn them on. After a Home Assistant restart, Homeostatic waits for your integrations to finish loading, then sends one summary instead of a burst.
@@ -106,13 +107,13 @@ The full list is in [Known limitations](docs/troubleshooting.md#known-limitation
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with the type **Integration**.
-3. Find **Homeostatic**, download version **1.2.0**, and restart Home Assistant.
+3. Find **Homeostatic**, download version **1.3.0**, and restart Home Assistant.
 
 [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mjcumming&repository=homeostatic&category=integration)
 
 ### Manual
 
-1. Download `homeostatic-1.2.0.zip` and its checksum from the [1.2.0 release](https://github.com/mjcumming/homeostatic/releases/tag/v1.2.0).
+1. Download `homeostatic-1.3.0.zip` and its checksum from the [1.3.0 release](https://github.com/mjcumming/homeostatic/releases/tag/v1.3.0).
 2. Copy its `custom_components/homeostatic` folder into your Home Assistant config folder, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy completely.
 3. Restart Home Assistant.
 
@@ -124,7 +125,7 @@ The full list is in [Known limitations](docs/troubleshooting.md#known-limitation
 
    [![Open your Home Assistant instance and start setting up Homeostatic.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeostatic)
 
-2. Open **Homeostatic** in the sidebar. It's watching your integrations and nothing else yet.
+2. Open **Homeostatic** in the sidebar. It's watching your integrations and Home Assistant's Repairs, and nothing else yet.
 3. Open **Sources**, pick an integration or device you know well, and choose what to watch in its **Settings**. You'll see what the change does before you save it. Start with a few things that matter and widen from there.
 4. Leave notifications off for a day or two and see what turns up. When it looks right, open **Notifications**, pick the people and their phones, check the schedules and turn notifications on. Homeostatic sends to the Companion app itself.
 

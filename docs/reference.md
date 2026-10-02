@@ -64,7 +64,7 @@ The `profile` value is what the [`report_alert`](#homeostaticreport_alert) actio
 | --- | --- | --- |
 | Immediate | `immediate` | Right away, overnight included |
 | Immediate with acknowledgment | `acknowledge` | Right away, repeated every 30 minutes |
-| Morning summary | `morning` | Daily at 08:00 |
+| Morning summary | `morning` | Daily at 08:00. The default for Home Assistant Repairs. |
 | Evening summary | `evening` | Daily at 18:00 |
 | Weekly summary | `weekly` | Sunday at 09:00. The household default for new sources. |
 | Dashboard only | `dashboard` | Never sent |
