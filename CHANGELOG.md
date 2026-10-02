@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-10-02
+
 ### Changed
 
 - Open a device issue only when every entity you selected on the device is unavailable, or its connectivity sensor reports disconnected, following Home Assistant's device availability proposal. One unavailable entity on a device whose other entities still report no longer opens a device issue. Issues still open for a partly unavailable device end when Homeostatic first starts after the update, and History lists them as **Monitoring ended** rather than **Cleared**.
