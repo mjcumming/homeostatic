@@ -1,9 +1,9 @@
-import {sourceReporting} from "./reporting.mjs?v=47";
-import {integrationSettings} from "./source-settings.mjs?v=54";
+import {sourceReporting} from "./reporting.mjs?v=60";
+import {integrationSettings} from "./source-settings.mjs?v=60";
 import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=52";
 import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=46";
 import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=46";
-import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=47";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=60";
 
 import {deviceAvailability} from "./device-availability.mjs?v=47";
 

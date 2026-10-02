@@ -1,6 +1,6 @@
 import {escapeHtml as esc} from "./model.mjs?v=46";
 
-import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=47";
+import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=60";
 
 export const TIMINGS = [
   ["Recovery", "settle", "Wait for related failures", "Allow dependencies that are still uncertain to settle before opening a separate problem."],

@@ -156,3 +156,12 @@ test("automation settings never offer a competing local save flow",()=>{
   assert.match(html,/Edit alert automation/);
   assert.doesNotMatch(html,/Changes are reviewed|Loading monitoring choices/);
 });
+test("Repairs have one reporting choice that defaults to the morning summary",()=>{
+  const c=card();
+  assert.match(reportingSettings(c),/Home Assistant Repairs<\/span><select data-reporting-repairs><option value="immediate">Immediate<\/option><option value="acknowledge">Immediate with acknowledgment<\/option><option value="morning" selected>/);
+  const element=target({reportingRepairs:""});element.value="weekly";
+  assert.equal(editReporting(c,{type:"change",target:element}),true);
+  assert.equal(c.settingsDraft.reporting.repairs,"weekly");
+  assert.deepEqual(reportingChanges(c.configuration.settings.reporting,c.settingsDraft.reporting).find(row=>row[0]==="Home Assistant Repairs"),["Home Assistant Repairs","Morning summary","Weekly summary"]);
+  assert.equal(reportingChoices({settingsDraft:{policy:{timezone:"UTC"}},_hass:null}).repairs,"morning");
+});

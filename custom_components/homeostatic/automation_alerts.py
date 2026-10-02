@@ -199,12 +199,16 @@ class AutomationAlerts:
         }
 
     def policy(self, settings: Settings) -> dict[str, Any]:
-        """Compile generic profile rules once; source labels carry each selection."""
+        """Compile generic profile rules once; source labels carry each selection.
+
+        Alerts and Repairs both carry the profile label, and Repairs can appear
+        at any time, so the label rules are always present. They match nothing
+        until a labelled source exists.
+        """
         policy = deepcopy(settings.policy)
-        if self.records:
-            policy["rules"] = [
-                profile_rule(policy, p) for p in reporting.PROFILES
-            ] + policy["rules"]
+        policy["rules"] = [
+            profile_rule(policy, p) for p in reporting.PROFILES
+        ] + policy["rules"]
         return policy
 
     def status(self, settings: Settings, row: dict[str, Any]) -> str:

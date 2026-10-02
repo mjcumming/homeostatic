@@ -16,12 +16,11 @@ from homeassistant.components.websocket_api.decorators import (
     require_admin,
     websocket_command,
 )
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import floor_registry as fr
-from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers import label_registry as lr
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
@@ -31,7 +30,6 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.hass_dict import HassKey
 
 from . import reporting
-from .automation_failures import reported_automation_failures
 from .battery import observe as battery_observation
 from .config import Settings, normalize_rules, rule_data
 from .const import DEFAULTS, DOMAIN, NAME
@@ -44,7 +42,7 @@ from .simple_notifications import available_people, generate_policy, simple_choi
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=59"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=60"
 PANEL_ELEMENT = "homeostatic-panel-v23"
 
 
@@ -86,9 +84,6 @@ def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
         "inventory": {**runtime.inventory_static, **runtime.inventory_updates()},
         "coverage": runtime.query("coverage", {}),
         "evidence_gaps": runtime.evidence_gaps,
-        "automation_failures": cast(
-            JSONValue, reported_automation_failures(runtime.hass)
-        ),
         "policy": runtime.query("policy", {}),
         "functions": [],
         "areas": [
@@ -127,16 +122,7 @@ class Dashboard:
         self._node_rows: dict[str, JSONValue] = {}
         self.summary = self.update
         self._cancel: Callable[[], None] | None = None
-        self._cancel_repairs = hass.bus.async_listen(
-            ir.EVENT_REPAIRS_ISSUE_REGISTRY_UPDATED, self._repairs_updated
-        )
         self.save_lock = asyncio.Lock()
-
-    @callback
-    def _repairs_updated(self, event: Event[ir.EventIssueRegistryUpdatedData]) -> None:
-        """Refresh the issue list when HA reports or clears an automation error."""
-        if event.data["domain"] == "automation" and self.runtime is not None:
-            self.publish()
 
     @callback
     def attach(self, runtime: Runtime | None) -> None:

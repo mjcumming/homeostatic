@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {monitoringExample,baseSource} from "./monitoring-fixture.mjs";
 import {monitoringScope,monitoringTree,scopeChoice,setScopeChoice} from "../../custom_components/homeostatic/frontend/configuration.mjs";
-import {batteryProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
+import {batteryProblem, repairProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import {sourceReporting} from "../../custom_components/homeostatic/frontend/reporting.mjs";
 
 test("battery is a reviewable source with an independent check choice",()=>{
@@ -38,4 +38,15 @@ test("battery reporting offers its own condition exception",()=>{
   const html=sourceReporting(card,{source:{kind:"battery",node_id:"battery:registry:battery"}});
   assert.match(html,/data-reporting-check="battery"/);
   assert.match(html,/Battery condition/);
+});
+
+test("a Home Assistant Repair is described from its recorded finding",()=>{
+  assert.equal(repairProblem({kind:"battery"},[]),null);
+  const open=repairProblem({kind:"repair"},[{status:"fail",message:"Automation reported this in Home Assistant Repairs (error)."}]);
+  assert.equal(open.context,"Home Assistant Repair");
+  assert.equal(open.headline,"Automation reported this in Home Assistant Repairs (error).");
+  assert.match(open.nextStep,/Fix it in Home Assistant/);
+  const ended=repairProblem({kind:"repair"},[{status:"pass",message:"Home Assistant no longer reports this Repair."}]);
+  assert.equal(ended.nextStep,"No action needed.");
+  assert.equal(repairProblem({kind:"repair"},null).headline,"Home Assistant reports this Repair.");
 });

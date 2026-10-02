@@ -43,10 +43,11 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0037](0037-group-connections-with-registry-owned-devices.md) | Group connections with their registry-owned devices | Accepted; supersedes 0036 connection-row placement; no-edge statement superseded by 0041 |
 | [0038](0038-connectivity-evidence-and-device-problem-card.md) | Treat reported disconnection as device evidence | Accepted; supersedes 0035 fallback and 0025 selected-check treatment for connectivity-class sensors |
 | [0039](0039-mothball-functions-and-native-options.md) | Mothball functions and remove native options | Accepted; supersedes native option and function setup paths |
-| [0040](0040-display-home-assistant-automation-repairs.md) | Display Home Assistant automation failures | Accepted |
+| [0040](0040-display-home-assistant-automation-repairs.md) | Display Home Assistant automation failures | Superseded by 0044 |
 | [0041](0041-group-watched-devices-under-failed-integrations.md) | Group watched devices under failed integrations | Accepted; supersedes 0035 no-dependency-from-device-membership rule |
 | [0042](0042-clean-up-deleted-automation-alerts.md) | Clean up deleted automation alerts | Accepted; supersedes 0034 no-eviction rule |
 | [0043](0043-skip-startup-grace-on-integration-reload.md) | Skip startup grace on integration reload | Accepted |
+| [0044](0044-report-home-assistant-repairs-as-issues.md) | Report Home Assistant Repairs as issues | Accepted; supersedes 0040 |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision, not production readiness. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 

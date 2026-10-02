@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0] - 2026-10-01
+
+### Added
+
+- Turn every Home Assistant Repair into an issue, whichever integration raised it. The issue uses the Repair's title, names the integration and severity, and links to the automation or the Repairs page. It ends when Home Assistant stops reporting the Repair or you ignore it there, and goes into History like any other issue.
+- Add one reporting choice for all Repairs under **Notifications → Household default**. It starts at **Morning summary**.
+
+### Changed
+
+- Replace the separate automation failure cards with ordinary Repair issues. Repairs now support Acknowledge, Pause alerts, History and notifications.
+- Open the README with what goes wrong in a Home Assistant install and how Homeostatic tells you about it.
+
 ## [1.2.0] - 2026-10-01
 
 ### Removed

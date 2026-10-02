@@ -101,6 +101,20 @@ export function deviceProblem(source, status, openProblem = true) {
     needsAction:false,currentReason:reason};
 }
 
+/** Describe a Home Assistant Repair from the finding Homeostatic recorded for it. */
+export function repairProblem(source, findings = []) {
+  if (source?.kind !== "repair") return null;
+  const finding = (findings ?? []).find((item) => item?.message) ?? null;
+  const active = !finding || finding.status === "fail";
+  return {
+    context:"Home Assistant Repair",
+    headline:finding?.message ?? "Home Assistant reports this Repair.",
+    summary:active ? "The issue ends when Home Assistant stops reporting the Repair, or when you ignore it in Home Assistant." : "Home Assistant no longer reports this Repair.",
+    nextStep:active ? "Fix it in Home Assistant, or ignore it there if it doesn't apply." : "No action needed.",
+    tone:"neutral",
+  };
+}
+
 export function batteryProblem(source, status, openProblem = true) {
   if (source?.kind !== "battery") return null;
   const reason = source.disabled ? "disabled" : status?.current?.reason ?? "battery_evidence_missing";

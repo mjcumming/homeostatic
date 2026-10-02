@@ -46,6 +46,7 @@ from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import floor_registry as fr
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers import label_registry as lr
 from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
@@ -101,6 +102,7 @@ from .function_model import compose, describe, preview
 from .history import ResolvedHistory
 from .notification_routes import async_send, notification_url
 from .phone_actions import PhoneActions
+from .repairs import Repairs
 from .rules import Attributes, parse_rules
 from .serialization import json_object, to_json
 from .situation_reports import report_observation
@@ -139,6 +141,8 @@ class Runtime:
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
         self.automation_alerts = AutomationAlerts()
+        self.repairs = Repairs()
+        self._repairs_dirty = True
         self.phone_actions = PhoneActions()
         self.delivery_failures: deque[dict[str, str]] = deque(maxlen=50)
         self._legacy_notifications: set[str] = set()
@@ -237,6 +241,7 @@ class Runtime:
             if type(self.saved.get("notifications_enabled")) is not bool:
                 raise ValueError("Invalid notification activation state")
         self.automation_alerts.restore(self.saved.get("automation_alerts", {}))
+        self.repairs.restore(self.saved.get("repairs", {}))
         self.phone_actions.restore(self.saved.get("phone_actions", {}))
         if "resolved_history" in self.saved:
             self.history.restore(self.saved["resolved_history"])
@@ -291,6 +296,11 @@ class Runtime:
                 ar.EVENT_AREA_REGISTRY_UPDATED,
                 fr.EVENT_FLOOR_REGISTRY_UPDATED,
                 lr.EVENT_LABEL_REGISTRY_UPDATED,
+            )
+        )
+        self._subscriptions.append(
+            hass.bus.async_listen(
+                ir.EVENT_REPAIRS_ISSUE_REGISTRY_UPDATED, self._repairs_changed
             )
         )
         if self.fresh_start:
@@ -395,6 +405,13 @@ class Runtime:
     def _registry_changed(self, event: Event[Any]) -> None:
         self._inventory_dirty = True
         self._request_refresh()
+
+    @callback
+    def _repairs_changed(self, event: Event[ir.EventIssueRegistryUpdatedData]) -> None:
+        if event.data["domain"] != DOMAIN:
+            self._repairs_dirty = True
+            self._inventory_dirty = True
+            self._request_refresh()
 
     @callback
     def _config_entry_changed(
@@ -519,6 +536,13 @@ class Runtime:
             self.hass, self.automation_alerts.compose(self.settings), candidates
         )
         sources.update(self.automation_alerts.sources(self.settings))
+        open_episodes = (
+            self.saved["episodes"] if self.saved is not None else self.episodes
+        )
+        self.repairs.prune(
+            {str(episode["anchor"]) for episode in open_episodes.values()}
+        )
+        sources.update(self.repairs.sources(self.settings.policy))
         self.enrolled = {
             node_id: source.attributes
             for node_id, source in sources.items()
@@ -557,6 +581,11 @@ class Runtime:
                     now = dt_util.utcnow()
                     if self.automation_alerts.prune_removed_owners(self.hass):
                         self._inventory_dirty = True
+                if reconcile or self._repairs_dirty:
+                    self._repairs_dirty = False
+                    if await self.repairs.async_read(self.hass):
+                        self._inventory_dirty = True
+                    now = dt_util.utcnow()
                 events = self._evaluate(now, reconcile=reconcile)
                 self._handle(events, now)
                 await self._complete(now)
@@ -1114,6 +1143,14 @@ class Runtime:
         for source in sources.values():
             if not source.watched:
                 continue
+            if source.kind == "repair":
+                if discover and (
+                    observation := self.repairs.observation(
+                        source.node_id, now, holding=self.startup_quiet
+                    )
+                ):
+                    observations.append(observation)
+                continue
             if source.report_timeout is not None:
                 if first:
                     observations.append(report_observation(source, "unknown", now))
@@ -1545,6 +1582,7 @@ class Runtime:
         return {
             "schema_version": 2,
             "automation_alerts": deepcopy(self.automation_alerts.records),
+            "repairs": self.repairs.snapshot(),
             "phone_actions": deepcopy(self.phone_actions.records),
             "device_exclusions": {
                 key: list(members) for key, members in self.device_exclusions.items()

@@ -1,11 +1,11 @@
 import {isAllBatteryPolicy, monitoringPolicies, newAllBatteryPolicy, newGroupPolicy} from "./monitoring-policies.mjs?v=51";
-import {sourceSettingsAction} from "./source-settings.mjs?v=54";
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=47";
+import {sourceSettingsAction} from "./source-settings.mjs?v=60";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=60";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
   sourceMap} from "./model.mjs?v=59";
 import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=47";
-import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=47";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem, repairProblem} from "./problem.mjs?v=60";
 import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=59";
 import {diagnosticOverview} from "./evidence.mjs?v=59";
 import {editCatalogRule, monitoringScope,
@@ -14,9 +14,9 @@ import {styles} from "./styles.mjs?v=54";
 import {locationBranch, setBranchExpanded} from "./tree.mjs?v=46";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=46";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=57";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=60";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=51";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=60";
 
 import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=59";
 
@@ -754,8 +754,9 @@ class HomeostaticCard extends HTMLElement {
     const nodes = sourceMap(data);
     const source = nodes.get(episode.anchor);
     const situation = source?.kind === "situation";
+    const repair = source?.kind === "repair";
     const affected = affectedFunctions(data, episode);
-    const problem = batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
+    const problem = repairProblem(source, episode.reasons) ?? batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       deviceProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       integrationProblem(source, episode.reasons, (key) => this._hass.localize?.(key), data.inventory.integration_evidence?.[episode.anchor]) ??
       entityProblem(source, data.inventory.entity_status?.[episode.anchor], nodes.get(`entry:${source?.owner_id}`), data.areas, (key) => this._hass.localize?.(key));
@@ -777,15 +778,13 @@ class HomeostaticCard extends HTMLElement {
       connectivity_disconnected:"Connection reports disconnected",
     }[problem?.currentReason] : null;
     const impact = affected.map((item) => `${item.name}: ${ownerStatus(item.readiness.answer).toLowerCase()}`).join("; ");
-    return `<article class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}"><div class="issue-copy">${eyebrow ? `<p class="small">${esc(eyebrow)}</p>` : ""}<h3>${esc(sourceName)}</h3><p>${esc(deviceCondition ?? problem?.headline ?? "Current condition needs review")}</p>${impact ? `<p class="impact-line">Function status: ${esc(impact)}</p>` : ""}<p class="small">Open since ${esc(date(episode.opened_at))}</p><p class="small">${esc(reportingStatus(data,episode))}</p></div><div class="actions"><button type="button" class="button" data-episode="${esc(episode.episode_id)}">View details</button>${source && !situation ? `<button type="button" class="link" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}</div></article>`;
+    return `<article class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}"><div class="issue-copy">${eyebrow ? `<p class="small">${esc(eyebrow)}</p>` : ""}<h3>${esc(sourceName)}</h3><p>${esc(deviceCondition ?? problem?.headline ?? "Current condition needs review")}</p>${impact ? `<p class="impact-line">Function status: ${esc(impact)}</p>` : ""}<p class="small">Open since ${esc(date(episode.opened_at))}</p><p class="small">${esc(reportingStatus(data,episode))}</p></div><div class="actions"><button type="button" class="button" data-episode="${esc(episode.episode_id)}">View details</button>${repair ? `<a class="link" href="${esc(source.fix_url)}">Fix in Home Assistant</a>` : source && !situation ? `<button type="button" class="link" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}</div></article>`;
   }
 
   issuesPanel(data, episodes, recent = false) {
-    const failures = data.automation_failures ?? [];
-    const total = data.inventory.episodes.length + failures.length;
+    const total = data.inventory.episodes.length;
     const rows = episodes.map(episode => this.issueRow(data,episode)).join("");
-    const automationRows = failures.map((failure) => `<article class="issue-row neutral"><div class="issue-copy"><p class="small">Home Assistant automation</p><h3>${esc(failure.name)}</h3><p>${esc(failure.reason)}</p></div><div class="actions"><a class="button" href="${esc(failure.url)}">Review in Home Assistant</a></div></article>`).join("");
-    return `<section class="panel issues-panel">${recent?'<div class="panel-head"><h2>Recent issues</h2></div>':''}${automationRows}${rows||(!automationRows?'<div class="body"><p>No open issues.</p></div>':'')}${recent&&total?'<div class="body issues-footer"><button type="button" class="link" data-page="problems">View all issues →</button></div>':''}</section>`;
+    return `<section class="panel issues-panel">${recent?'<div class="panel-head"><h2>Recent issues</h2></div>':''}${rows||'<div class="body"><p>No open issues.</p></div>'}${recent&&total?'<div class="body issues-footer"><button type="button" class="link" data-page="problems">View all issues →</button></div>':''}</section>`;
   }
 
   issuesPage(data) {
@@ -793,7 +792,7 @@ class HomeostaticCard extends HTMLElement {
     if(this.issueSort==="newest") episodes=episodes.sort((a,b)=>b.opened_at.localeCompare(a.opened_at));
     else if(this.issueSort==="name") {const nodes=sourceMap(data);episodes=episodes.sort((a,b)=>this.displaySourceName(nodes.get(a.anchor)).localeCompare(this.displaySourceName(nodes.get(b.anchor))));}
     else if(this.issueSort==="oldest") episodes=episodes.sort((a,b)=>a.opened_at.localeCompare(b.opened_at));
-    return `<div class="intro"><h1>Issues</h1></div><div class="issues-toolbar"><span>${episodes.length + (data.automation_failures?.length ?? 0)} open</span><label>Sort by <select data-issue-sort>${[["oldest","Longest open"],["newest","Newest first"],["name","Device name"],["importance","Importance, then longest open"]].map(([id,label])=>`<option value="${id}"${this.issueSort===id?' selected':''}>${label}</option>`).join('')}</select></label></div>${this.issueSort==="importance"?'<p class="small">Uses each source’s configured importance: critical, high, normal, then low. Sources default to normal.</p>':''}${this.issuesPanel(data,episodes)}`;
+    return `<div class="intro"><h1>Issues</h1></div><div class="issues-toolbar"><span>${episodes.length} open</span><label>Sort by <select data-issue-sort>${[["oldest","Longest open"],["newest","Newest first"],["name","Device name"],["importance","Importance, then longest open"]].map(([id,label])=>`<option value="${id}"${this.issueSort===id?' selected':''}>${label}</option>`).join('')}</select></label></div>${this.issueSort==="importance"?'<p class="small">Uses each source’s configured importance: critical, high, normal, then low. Sources default to normal.</p>':''}${this.issuesPanel(data,episodes)}`;
   }
 
 
@@ -806,7 +805,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   overview(data) {
-    const total = data.inventory.episodes.length + (data.automation_failures?.length ?? 0);
+    const total = data.inventory.episodes.length;
     const activeControls = (data.inventory.operator_controls ?? []).length;
     return `<div class="intro"><h1>Overview</h1><span class="small">Updated ${esc(date(data.updated_at))}</span></div><div class="overview-stats"><button type="button" class="overview-stat" data-page="problems"><span>Open issues</span><strong>${total}</strong><small>${total?'Review what needs attention':'No open problems reported'}</small></button></div>${reportingOverview(data)}${this.issuesPanel(data,recentEpisodes(data),true)}${activeControls?controlsPanel(data):''}`;
   }
@@ -1263,11 +1262,11 @@ class HomeostaticCard extends HTMLElement {
       const nodes = sourceMap(data);
       const detailTitle = this.displaySourceName(source);
       this.shadowRoot.querySelector("#detail-title").textContent = detailTitle;
-      this.shadowRoot.querySelector("#detail-label").textContent = source.kind === "situation" ? "Situation" : episode ? "Open problem" : "Capability";
+      this.shadowRoot.querySelector("#detail-label").textContent = source.kind === "situation" ? "Situation" : source.kind === "repair" ? "Home Assistant Repair" : episode ? "Open problem" : "Capability";
       const currentFunctions = episode ? affectedFunctions(data, episode) : [];
       const diagnostic = episode ? null : diagnosticOverview(source, result, currentFunctions);
       const findings = result.explanation.findings;
-      const problem = batteryProblem(source, result.entity_status, Boolean(episode)) ??
+      const problem = repairProblem(source, findings) ?? batteryProblem(source, result.entity_status, Boolean(episode)) ??
         deviceProblem(source, result.entity_status, Boolean(episode)) ??
         integrationProblem(source, findings, (key) => this._hass.localize?.(key), result.integration_evidence, Boolean(episode)) ??
         entityProblem(source, result.entity_status, nodes.get(`entry:${source.owner_id}`), data.areas, (key) => this._hass.localize?.(key), Boolean(episode));
@@ -1288,7 +1287,7 @@ class HomeostaticCard extends HTMLElement {
       const availabilityExplanation = memberEvidence && uncertainMembers.length && result.device_availability?.status === "available" ? `<details ${disclosure("assessment")}><summary>Why does Home Assistant say Available?</summary><p>Device availability uses all enabled entities. This problem checks the ${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"}; ${uncertainMembers.length === 1 ? "one needs" : "some need"} attention. An available entity state does not confirm the whole device is working.</p></details>` : "";
       const dependencies = result.explanation.nodes.filter((node) => node.node_id !== nodeId);
       const unwatched = result.readiness?.nodes.filter((node) => !node.watched) ?? [];
-      const nativeLink = source.kind === "device" ? "" : source.kind === "integration" && problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : "") : source.entity_id
+      const nativeLink = source.kind === "repair" ? `<a class="button primary" href="${esc(source.fix_url)}">Fix in Home Assistant</a>` : source.kind === "device" ? "" : source.kind === "integration" && problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : "") : source.entity_id
         ? `<button class="button primary" type="button" data-entity="${esc(source.entity_id)}">${esc(problem?.entityLabel ?? "View in Home Assistant")}</button>`
         : source.entry_id || source.owner_id ? '<a class="button primary" href="/config/integrations">Review connection</a>' : "";
       const explanation = episode ? data.policy.episodes.find((item) => item.episode_id === episode.episode_id) : null;

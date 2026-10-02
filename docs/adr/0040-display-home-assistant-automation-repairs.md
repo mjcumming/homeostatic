@@ -1,6 +1,6 @@
 # ADR 0040: Display Home Assistant automation failures
 
-**Status:** Accepted
+**Status:** Superseded by [ADR 0044](0044-report-home-assistant-repairs-as-issues.md)
 **Date:** 2026-10-01
 
 ## Context

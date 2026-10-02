@@ -34,7 +34,7 @@ The `change` field says what happened:
 | `form` | `root` for an issue about one source. `group` when Homeostatic has grouped several related sources that failed together into one issue. |
 | `anchor` | Homeostatic's ID for the source the issue is about, such as `entry:<config entry id>` for an integration or `device:<device id>` for a device. Treat it as opaque. |
 | `anchor_name` | The source's current display name |
-| `anchor_kind` | `integration`, `device`, `entity`, `battery` or `situation` (an alert). `null` when the source no longer exists. |
+| `anchor_kind` | `integration`, `device`, `entity`, `battery`, `situation` (an alert) or `repair` (a Home Assistant Repair). `null` when the source no longer exists. |
 | `entity_ids` | The source's entity, or a device's watched entities. Empty for an integration or an alert from an automation. |
 | `device_id`, `area_id`, `floor_id` | The source's Home Assistant device, area and floor IDs, or `null` |
 | `status` | `warn`, `fail` or `unknown` |

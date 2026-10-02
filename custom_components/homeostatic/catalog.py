@@ -35,6 +35,7 @@ class Source:
     report_timeout: int | None = None
     alert_profile: str | None = None
     automation_url: str | None = None
+    fix_url: str | None = None
     alert_reporting_status: str | None = None
     check_id: str = "availability"
     battery_level_entity: str | None = None
@@ -57,6 +58,31 @@ class Source:
                         ttl=None,
                         unknown_hold=settings.duration("unknown_hold"),
                         labels={"category": "maintenance"},
+                    ),
+                ),
+            )
+        if self.kind == "repair":
+            return Node(
+                node_id=self.node_id,
+                kind=self.kind,
+                importance=self.importance,
+                labels={
+                    "name": self.name,
+                    **(
+                        {"homeostatic_alert_profile": self.alert_profile}
+                        if self.alert_profile
+                        else {}
+                    ),
+                    "source": "home_assistant",
+                },
+                checks=(
+                    Check(
+                        check_id="repair",
+                        raise_hold=timedelta(0),
+                        clear_hold=timedelta(0),
+                        ttl=None,
+                        unknown_hold=settings.duration("unknown_hold"),
+                        labels={"category": "repair"},
                     ),
                 ),
             )
