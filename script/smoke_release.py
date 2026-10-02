@@ -105,9 +105,21 @@ async def exercise(config: Path, port: int) -> None:
         hass.states.async_set("sensor.pilot_source", "unavailable")
         await hass.async_block_till_done()
         assert runtime.query("readiness", {})["answer"] == "degraded"
-        assert len(runtime.query("inventory", {})["episodes"]) == 1
-        assert runtime.query("inventory", {})["attention_controls_supported"]
-        episode = runtime.query("inventory", {})["episodes"][0]["episode_id"]
+        inventory = runtime.query("inventory", {})
+        pilot = [
+            row
+            for row in inventory["episodes"]
+            if row["anchor"] == "entity:entity_id:sensor.pilot_source"
+        ]
+        # A fresh Home Assistant can raise its own Repairs, which are issues too.
+        assert len(pilot) == 1, inventory["episodes"]
+        assert all(
+            row["anchor"].startswith("repair:")
+            for row in inventory["episodes"]
+            if row not in pilot
+        ), inventory["episodes"]
+        assert inventory["attention_controls_supported"]
+        episode = pilot[0]["episode_id"]
         acknowledgment = await hass.services.async_call(
             "homeostatic",
             "acknowledge",
@@ -136,10 +148,12 @@ async def exercise(config: Path, port: int) -> None:
         assert await hass.config_entries.async_reload(entry.entry_id)
         await hass.async_block_till_done()
         runtime = entry.runtime_data
-        assert (
-            runtime.query("policy", {})["episodes"][0]["acknowledgment"]
-            == acknowledgment["acknowledgment"]
+        decision = next(
+            row
+            for row in runtime.query("policy", {})["episodes"]
+            if row["episode_id"] == episode
         )
+        assert decision["acknowledgment"] == acknowledgment["acknowledgment"]
         assert not runtime.query("operator_controls", {})["controls"]
         assert runtime.query("readiness", {})["answer"] == "degraded"
         hass.states.async_set("sensor.pilot_source", "42")
