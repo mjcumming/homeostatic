@@ -190,6 +190,7 @@ export function sourceMonitoringChoices(card,node) {
   if(!card.configuration)return `<p class="sub">${esc(card.configError||"Loading monitoring choices…")}</p><button type="button" class="button" data-action="load-configuration">Reload choices</button>`;
   if(node.family)return integrationSettings(card,node);
   const source=node.source;
+  const actionError=card.sourcesActionError?`<p class="config-error" role="alert">${esc(card.sourcesActionError)}</p>`:"";
   const choice=(label,scope,options,advanced=false)=>{
     if(!scope)return "";
     const index=card.configScopes.push(scope)-1;
@@ -217,7 +218,7 @@ export function sourceMonitoringChoices(card,node) {
   if(source?.kind==="situation")controls='<p class="sub">This situation uses its configured condition. Reporting does not change what detects it.</p>';
   if(!controls)controls='<p class="sub">Select an integration, device, or entity to change monitoring.</p>';
   if(source?.excluded_by?.length)controls+='<p class="note">A saved exclusion applies. Review changes to see the effective result; an individual watch does not override ordinary exclusions.</p>';
-  return controls+(card.sourcesSettingsPanel||"")+sourceReporting(card,node);
+  return actionError+controls+(card.sourcesSettingsPanel||"")+sourceReporting(card,node);
 }
 
 function sourceReport(card,node,episodes) {

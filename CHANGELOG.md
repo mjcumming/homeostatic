@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1] - 2026-10-01
+
+### Changed
+
+- Make the device issue's monitoring choices easier to scan on a phone, keep the expanded list within the dialog, and explain that stopping a check opens a draft to review and save in Sources.
+- Show why an entity exclusion could not be staged when several direct monitoring rules apply.
+
 ## [1.3.0] - 2026-10-01
 
 ### Added

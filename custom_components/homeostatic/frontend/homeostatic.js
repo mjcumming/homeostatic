@@ -10,7 +10,7 @@ import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=59";
 import {diagnosticOverview} from "./evidence.mjs?v=59";
 import {editCatalogRule, monitoringScope,
   scopeChoice, setScopeChoice} from "./configuration.mjs?v=46";
-import {styles} from "./styles.mjs?v=54";
+import {styles} from "./styles.mjs?v=55";
 import {locationBranch, setBranchExpanded} from "./tree.mjs?v=46";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=46";
@@ -90,7 +90,7 @@ class HomeostaticCard extends HTMLElement {
     this.sourcesView = "source";
     this.sourcesSettingsPanel = "";
     this.sourceSettingsReview = null;
-    this.sourceSettingsError = null;
+    this.sourcesActionError = null;
     this.sourceSettingsNotice = null;
     this.settingsSection = "timing";
     this.settingsDraft = null;
@@ -1043,6 +1043,7 @@ class HomeostaticCard extends HTMLElement {
       return;
     }
     if (button.dataset.sourcesSelect !== undefined) {
+      this.sourcesActionError = null;
       this.sourcesSelection = button.dataset.sourcesSelect;
       this.sourcesMobileDetail = true;
       this.resetSourceScroll = true;
@@ -1208,13 +1209,14 @@ class HomeostaticCard extends HTMLElement {
     this.sourcesEdit = true;
     this.sourcesView = "settings";
     this.page = "sources";
+    this.sourcesActionError = null;
     if (!this.configuration) await this.loadConfiguration();
     if (!this.configuration || this.current.status !== "current") return;
     const scope = monitoringScope("entity",nodeId,source);
     if (!scope || !setScopeChoice(this.configDraft,scope,"exclude")) {
-      this.configError = "Multiple direct choices apply. Review this entity in the advanced rules before ignoring availability.";
+      this.sourcesActionError = "Several direct rules apply to this entity. Review its monitoring rules before changing this choice.";
     } else {
-      this.configError = null;
+      this.sourcesActionError = null;
     }
     this.sourcesSelection = `source:${source.node_id}`;
     this.revealSourcesSelection();
@@ -1283,7 +1285,7 @@ class HomeostaticCard extends HTMLElement {
       const issueTitle = connectionReported ? result.device_availability?.status === "unavailable" ? "Device unavailable" : "Connection reports disconnected" : otherIssues.length === 1 ? `${memberName(otherIssues[0])} ${memberState(otherIssues[0])}` : otherIssues.length ? "Selected entities need review" : episode ? "Confirming recovery" : "Selected entities available";
       const issueList = otherIssues.length && (connectionReported || otherIssues.length > 1) ? `<ul class="problem-evidence">${otherIssues.map((member) => `<li><strong>${esc(memberName(member))}</strong> · ${esc(memberState(member))}</li>`).join("")}</ul>` : "";
       const deviceBrief = memberEvidence ? `<p class="problem-origin">${esc(deviceIntegrations.join(", ") || "Home Assistant device")}</p><h3 class="problem-status">${esc(issueTitle)}</h3>${connectionReported ? "<p>Connectivity reports disconnected.</p>" : ""}${issueList}${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing the first 50 selected entities. More may need review.</p>` : ""}` : "";
-      const availabilityChoices = memberEvidence ? `<details ${disclosure("selected-readings")}><summary>Monitoring choices (${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"})</summary><ul>${memberEvidence.members.map((member) => `<li class="monitoring-choice"><span><strong>${esc(memberName(member))}</strong> · ${esc(memberState(member))}</span><button class="link" type="button" data-ignore-availability="${esc(member.node_id)}">Ignore availability…</button></li>`).join("")}</ul>${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} selected entities.</p>` : ""}<p class="small">Changes to monitoring are previewed before saving.</p><div class="actions"><button class="link" type="button" data-config-source="${esc(source.node_id)}">Review monitoring choices</button><button class="link" type="button" data-source-link="${esc(source.node_id)}">View in Sources</button></div></details>` : source.kind === "entity" ? `<section class="detail"><button class="button" type="button" data-ignore-availability="${esc(source.node_id)}">Ignore this availability check…</button><p class="small">Opens a draft monitoring change for preview and save. Home Assistant state stays unchanged.</p></section>` : "";
+      const availabilityChoices = memberEvidence ? `<details ${disclosure("selected-readings")}><summary>Monitoring choices (${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"})</summary><ul class="monitoring-choice-list">${memberEvidence.members.map((member) => `<li class="monitoring-choice"><span><strong>${esc(memberName(member))}</strong> · ${esc(memberState(member))}</span><button class="link" type="button" data-ignore-availability="${esc(member.node_id)}" aria-label="Stop checking ${esc(memberName(member))}">Stop checking…</button></li>`).join("")}</ul>${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} selected entities.</p>` : ""}<p class="small">Stop checking opens a draft in Sources. Review and save it there.</p><div class="actions"><button class="link" type="button" data-config-source="${esc(source.node_id)}">Review monitoring choices</button><button class="link" type="button" data-source-link="${esc(source.node_id)}">View in Sources</button></div></details>` : source.kind === "entity" ? `<section class="detail"><button class="button" type="button" data-ignore-availability="${esc(source.node_id)}">Stop checking this entity…</button><p class="small">Opens a draft monitoring change in Sources. Review and save it there.</p></section>` : "";
       const availabilityExplanation = memberEvidence && uncertainMembers.length && result.device_availability?.status === "available" ? `<details ${disclosure("assessment")}><summary>Why does Home Assistant say Available?</summary><p>Device availability uses all enabled entities. This problem checks the ${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"}; ${uncertainMembers.length === 1 ? "one needs" : "some need"} attention. An available entity state does not confirm the whole device is working.</p></details>` : "";
       const dependencies = result.explanation.nodes.filter((node) => node.node_id !== nodeId);
       const unwatched = result.readiness?.nodes.filter((node) => !node.watched) ?? [];

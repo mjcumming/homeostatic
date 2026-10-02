@@ -62,7 +62,7 @@ Some sources go unavailable as a matter of course: a TV's media player while the
 
 - For an entity, choose **Exclude this entity** in its **Settings**. This also removes it from its device's check.
 - For a device, choose **Do not monitor this device**.
-- From an open device issue, select **Ignore availability…** next to the entity under the issue's monitoring choices. An entity's own issue offers **Ignore this availability check…**.
+- From an open device issue, select **Stop checking…** beside the entity under **Monitoring choices**. An entity's own issue offers **Stop checking this entity…**. Both open a draft in Sources; review and save the change there.
 
 Then review and save. An exclusion wins over any rule that would watch the source, and it follows the entity through renames. If an issue was open for it, the issue ends in History as **Monitoring ended**, which records that you stopped watching rather than that the problem cleared. To watch the source again, open its **Settings** and pick a watch choice.
 

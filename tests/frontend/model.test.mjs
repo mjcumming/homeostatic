@@ -1050,6 +1050,13 @@ test("ignore availability stages a stable exclusion without saving or discarding
   assert.equal(card.configDraft.length,3);
   assert.equal(card.configDraft[2].id,"unfinished");
   assert.deepEqual(calls,["homeostatic/configuration"]);
+  const direct={id:"direct-one",action:"attach",match:{entity:["registry:optional"]}};
+  card.configuration={rules:[direct,{...direct,id:"direct-two"}],revision:"two"};
+  card.configDraft=structuredClone(card.configuration.rules);
+  await card.ignoreAvailability(entity.node_id);
+  assert.match(card.sourcesActionError,/Several direct rules apply/);
+  const node=sourcePaths(sourcesTree(data)).get(`source:${entity.node_id}`);
+  assert.match(sourceMonitoringChoices({current:{data},configuration:card.configuration,configDraft:card.configDraft,configScopes:[],sourcesActionError:card.sourcesActionError},node),/role="alert">Several direct rules apply/);
   card.current={status:"disconnected",data:null};
   await card.ignoreAvailability(entity.node_id);
   assert.deepEqual(calls,["homeostatic/configuration"]);
