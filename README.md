@@ -109,13 +109,13 @@ The full list is in [Known limitations](docs/troubleshooting.md#known-limitation
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with the type **Integration**.
-3. Find **Homeostatic**, download version **1.3.0**, and restart Home Assistant.
+3. Find **Homeostatic**, download version **1.4.0**, and restart Home Assistant.
 
 [![Open your Home Assistant instance and open a repository inside HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mjcumming&repository=homeostatic&category=integration)
 
 ### Manual
 
-1. Download `homeostatic-1.3.0.zip` and its checksum from the [1.3.0 release](https://github.com/mjcumming/homeostatic/releases/tag/v1.3.0).
+1. Download `homeostatic-1.4.0.zip` and its checksum from the [1.4.0 release](https://github.com/mjcumming/homeostatic/releases/tag/v1.4.0).
 2. Copy its `custom_components/homeostatic` folder into your Home Assistant config folder, so you end up with `<config>/custom_components/homeostatic/manifest.json`. Replace any older copy completely.
 3. Restart Home Assistant.
 

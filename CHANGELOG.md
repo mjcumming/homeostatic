@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-03
+
 ### Added
 
 - Watch a vacuum for the error activity. Cleaning, docked, idle, paused, and returning end the issue. The notice is Immediate unless you set a source preference for that vacuum, and it names the Home Assistant area assigned to the vacuum when there is one.

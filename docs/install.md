@@ -23,22 +23,22 @@ Use HACS or install by hand. Both end with the same files in the same place.
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with the type **Integration**.
-3. Find **Homeostatic**, select **Download**, choose version **1.3.0** and download it.
+3. Find **Homeostatic**, select **Download**, choose version **1.4.0** and download it.
 4. Restart Home Assistant (**Settings → System**, then the power button at the top right).
 
 ### By hand
 
 You'll need access to your Home Assistant config folder, through the Samba share, SSH or a file editor add-on.
 
-1. From the [1.3.0 release](https://github.com/mjcumming/homeostatic/releases/tag/v1.3.0), download `homeostatic-1.3.0.zip` and `homeostatic-1.3.0.zip.sha256` into the same folder on your computer.
+1. From the [1.4.0 release](https://github.com/mjcumming/homeostatic/releases/tag/v1.4.0), download `homeostatic-1.4.0.zip` and `homeostatic-1.4.0.zip.sha256` into the same folder on your computer.
 2. Check the download against its checksum before you unpack it. In that folder, run the command for your system:
 
    ```bash
-   sha256sum -c homeostatic-1.3.0.zip.sha256        # Linux
-   shasum -a 256 -c homeostatic-1.3.0.zip.sha256    # macOS
+   sha256sum -c homeostatic-1.4.0.zip.sha256        # Linux
+   shasum -a 256 -c homeostatic-1.4.0.zip.sha256    # macOS
    ```
 
-   Both should print `homeostatic-1.3.0.zip: OK`. On Windows, run `Get-FileHash .\homeostatic-1.3.0.zip -Algorithm SHA256` in PowerShell and compare the hash with the first value in the `.sha256` file. If the check fails, download the zip again and don't install it.
+   Both should print `homeostatic-1.4.0.zip: OK`. On Windows, run `Get-FileHash .\homeostatic-1.4.0.zip -Algorithm SHA256` in PowerShell and compare the hash with the first value in the `.sha256` file. If the check fails, download the zip again and don't install it.
 3. Unzip it. Copy its `custom_components/homeostatic` folder into your config folder, so you end up with `<config>/custom_components/homeostatic/manifest.json`. If an older copy is already there, delete that folder first. Copying over it leaves old files behind.
 4. Optionally, copy the zip's `blueprints/automation/homeostatic` folder to `<config>/blueprints/automation/homeostatic`. Then you won't need to import the alert blueprint in step 6.
 5. Restart Home Assistant.
