@@ -1,12 +1,13 @@
 # Roadmap
 
-What Homeostatic does today, what's being worked on next, and what's further out. Last updated October 1, 2026, for version 1.3.0.
+What Homeostatic does today, what's being worked on next, and what's further out. Last updated October 3, 2026.
 
 ## What works now
 
 - Watching integrations, devices, entities and batteries. A new install watches integrations and Home Assistant's Repairs. You add more in Sources, one at a time or with rules that cover a whole integration, area, floor, label or device class, including sources added later. An exclusion always wins over a rule.
 - Device availability that follows what Home Assistant reports. When a device has a connectivity sensor and it reports disconnected, Homeostatic treats the device as disconnected.
 - Battery checks. A battery at 20% or less, or one that reports a low warning, raises an issue. A charging report clears it.
+- Vacuum errors. When Home Assistant reports a vacuum's activity as error, that opens an issue. Cleaning, docked, idle, paused, or returning ends it. The notice is Immediate unless you choose otherwise for that vacuum.
 - One issue per failure. When an integration fails, the devices and entities you watch on it are listed on that one issue.
 - Every Home Assistant Repair as an issue, in the morning summary unless you choose otherwise.
 - Alerts made from Home Assistant automations with the alert blueprint, with required evidence and an Acknowledge button on the phone.
@@ -28,6 +29,10 @@ The [user guide](guide.md) and the [alert guide](automation-situations.md) cover
 
 ## Later
 
+- Lawn mower errors. When Home Assistant reports a lawn mower's activity as error, that opens an issue the way a vacuum error does. Mowing, docked, paused, returning, and idle end it.
+- Problem and tamper sensors. A problem sensor or a tamper sensor opens an issue while it is on. Off ends the issue.
+- Triggered alarms. An alarm panel opens an issue while Home Assistant reports it as triggered. Disarmed, armed, and the panel's other states end it.
+- Jammed locks. A lock opens an issue while Home Assistant reports it as jammed. Locked, unlocked, and the lock's other states end it.
 - Device availability reported by integrations themselves. Home Assistant has a proposal for integrations to report device availability directly. Homeostatic already follows that model and will read those reports once Home Assistant ships them.
 - Checks beyond what Home Assistant reports: readings that have gone stale, a detector that has hung, and a command that didn't complete. Each one needs recordings from real devices of normal running, a failure and the recovery before Homeostatic reports it.
 - A watchdog that runs outside Home Assistant, so you hear about it when Home Assistant itself stops.

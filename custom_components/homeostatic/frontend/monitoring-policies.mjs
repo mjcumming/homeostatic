@@ -1,5 +1,5 @@
 import {escapeHtml as esc} from "./model.mjs?v=46";
-import {MATCH_FIELDS, MATCH_LABELS, newCatalogRule, ruleSummary} from "./configuration.mjs?v=46";
+import {MATCH_FIELDS, MATCH_LABELS, newCatalogRule, ruleSummary} from "./configuration.mjs?v=47";
 
 /** Keep exact source choices in Sources, including mixed and multi-source rules. */
 export function isGroupPolicy(rule) {
@@ -19,11 +19,24 @@ export function newAllBatteryPolicy(rules) {
   return rule;
 }
 
+export function isAllVacuumPolicy(rule) {
+  return rule.action === "attach" && rule.checks?.[0] === "vacuum" &&
+    rule.match?.kind?.length === 1 && rule.match.kind[0] === "vacuum" &&
+    Object.entries(rule.match).every(([field, values]) => field === "kind" || !values.length);
+}
+
+export function newAllVacuumPolicy(rules) {
+  const rule = newCatalogRule(rules);
+  rule.match = {kind:["vacuum"]};
+  rule.checks = ["vacuum"];
+  return rule;
+}
+
 export function newGroupPolicy(rules) {
   return {...newCatalogRule(rules),enabled:false,match:{kind:["device"]}};
 }
 
-const sourceTypes = {integration:"integration connections", device:"device availability", entity:"entity availability",battery:"battery condition"};
+const sourceTypes = {integration:"integration connections", device:"device availability", entity:"entity availability",battery:"battery condition",vacuum:"vacuum error"};
 
 /** Explain every condition without treating a rule count as an inventory count. */
 export function groupPolicyScope(rule, data = {}) {
@@ -40,7 +53,9 @@ export function groupPolicyScope(rule, data = {}) {
 }
 
 function ruleControls(rule, index, view) {
-  return `<div class="config-rule-head"><label><span>Action</span><select data-rule-view="${view}" data-rule-index="${index}" data-rule-field="action"><option value="attach"${rule.action === "attach" ? " selected" : ""}>Watch</option><option value="exclude"${rule.action === "exclude" ? " selected" : ""}>Leave unmonitored</option></select></label><label><span>Check</span><select data-rule-view="${view}" data-rule-index="${index}" data-rule-field="checks"><option value="availability"${rule.checks?.[0] !== "battery" ? " selected" : ""}>HA availability</option><option value="battery"${rule.checks?.[0] === "battery" ? " selected" : ""}>Battery condition</option></select></label><label class="config-enabled"><input type="checkbox" data-rule-view="${view}" data-rule-index="${index}" data-rule-field="enabled"${rule.enabled !== false ? " checked" : ""}> Enabled</label><button type="button" class="link" data-remove-rule="${index}">Remove rule</button></div>`;
+  const check = rule.checks?.[0] ?? "availability";
+  const checkOption = (value, name) => `<option value="${value}"${check === value ? " selected" : ""}>${name}</option>`;
+  return `<div class="config-rule-head"><label><span>Action</span><select data-rule-view="${view}" data-rule-index="${index}" data-rule-field="action"><option value="attach"${rule.action === "attach" ? " selected" : ""}>Watch</option><option value="exclude"${rule.action === "exclude" ? " selected" : ""}>Leave unmonitored</option></select></label><label><span>Check</span><select data-rule-view="${view}" data-rule-index="${index}" data-rule-field="checks">${checkOption("availability","HA availability")}${checkOption("battery","Battery condition")}${checkOption("vacuum","Vacuum error")}</select></label><label class="config-enabled"><input type="checkbox" data-rule-view="${view}" data-rule-index="${index}" data-rule-field="enabled"${rule.enabled !== false ? " checked" : ""}> Enabled</label><button type="button" class="link" data-remove-rule="${index}">Remove rule</button></div>`;
 }
 
 function ruleFields(rule, index, fields, view) {
@@ -52,6 +67,7 @@ export function monitoringPolicies(card) {
   const rules = card.configDraft;
   const groups = rules.map((rule, index) => ({rule, index})).filter(({rule}) => isGroupPolicy(rule));
   const battery = groups.find(({rule}) => isAllBatteryPolicy(rule));
+  const vacuum = groups.find(({rule}) => isAllVacuumPolicy(rule));
   const disabled = card.configBusy ? " disabled" : "";
   const broadFields = MATCH_FIELDS.filter(field => !["integration", "device", "entity"].includes(field));
   const renderPolicy = ({rule, index}) => {
@@ -73,5 +89,12 @@ export function monitoringPolicies(card) {
   const batteryAction = battery
     ? `<p>${batteryStatus} Individual exclusions can still leave batteries unmonitored.</p><button type="button" class="button" data-action="edit-battery-rule"${disabled}>Review battery policy</button>`
     : `<p>Watch current and future battery candidates for a low condition. Review the affected sources before saving.</p><button type="button" class="button" data-action="add-battery-rule"${disabled}>Monitor all batteries</button>`;
-  return `<div class="monitoring-policies"><section class="monitoring-policy"><h3>Battery conditions</h3>${batteryAction}</section><h3>Group policies (${groups.length})</h3><p class="sub">Watch policies choose checks for matching sources, including sources added later. Leave unmonitored policies exclude matching sources. Open a source in Sources to see its effective choice.</p><fieldset class="config-editor"${disabled}>${watched || (groups.length ? '<p class="sub">No watch policies in this group.</p>' : '<p class="sub">No group policies. Choose individual sources in Sources, or add a policy for a whole group.</p>')}${excludedCount ? `<details class="policy-exceptions"${groups.some(({rule}) => rule.action === "exclude" && rule.id === card.configEditingRule) ? " open" : ""}><summary>Leave unmonitored policies (${excludedCount})</summary><div>${excluded}</div></details>` : ""}<button type="button" class="button" data-action="add-rule"${disabled}>Add group policy</button></fieldset><div class="policy-sources"><h3>Individual source choices</h3><p class="sub">Choose a specific connection, device, entity, or battery by name in Sources.</p><button type="button" class="button" data-page="sources">Open Sources</button></div><details class="config-advanced"${card.configAdvancedOpen ? " open" : ""}><summary>Advanced rule details</summary><div class="body"><p class="sub">All ${rules.length} rules, including individual source choices. Use this editor to inspect exact conditions or resolve overlapping rules. Changes still require review and save.</p><fieldset class="config-editor"${disabled}>${advanced || '<p>No rules configured.</p>'}</fieldset></div></details></div>`;
+  const savedVacuum = vacuum && card.configuration?.rules.find(rule => rule.id === vacuum.rule.id && isAllVacuumPolicy(rule));
+  const vacuumStatus = vacuum?.rule.enabled === false ? "The all-vacuum policy is paused."
+    : savedVacuum?.enabled !== false && savedVacuum ? "An all-vacuum policy is enabled."
+      : "An all-vacuum policy is drafted. Review and save to enable it.";
+  const vacuumAction = vacuum
+    ? `<p>${vacuumStatus} Individual exclusions can still leave vacuums unmonitored.</p><button type="button" class="button" data-action="edit-vacuum-rule"${disabled}>Review vacuum policy</button>`
+    : `<p>Watch current and future vacuums for an error activity. Review the affected sources before saving.</p><button type="button" class="button" data-action="add-vacuum-rule"${disabled}>Monitor all vacuums</button>`;
+  return `<div class="monitoring-policies"><section class="monitoring-policy"><h3>Battery conditions</h3>${batteryAction}</section><section class="monitoring-policy"><h3>Vacuum errors</h3>${vacuumAction}</section><h3>Group policies (${groups.length})</h3><p class="sub">Watch policies choose checks for matching sources, including sources added later. Leave unmonitored policies exclude matching sources. Open a source in Sources to see its effective choice.</p><fieldset class="config-editor"${disabled}>${watched || (groups.length ? '<p class="sub">No watch policies in this group.</p>' : '<p class="sub">No group policies. Choose individual sources in Sources, or add a policy for a whole group.</p>')}${excludedCount ? `<details class="policy-exceptions"${groups.some(({rule}) => rule.action === "exclude" && rule.id === card.configEditingRule) ? " open" : ""}><summary>Leave unmonitored policies (${excludedCount})</summary><div>${excluded}</div></details>` : ""}<button type="button" class="button" data-action="add-rule"${disabled}>Add group policy</button></fieldset><div class="policy-sources"><h3>Individual source choices</h3><p class="sub">Choose a specific connection, device, entity, battery, or vacuum by name in Sources.</p><button type="button" class="button" data-page="sources">Open Sources</button></div><details class="config-advanced"${card.configAdvancedOpen ? " open" : ""}><summary>Advanced rule details</summary><div class="body"><p class="sub">All ${rules.length} rules, including individual source choices. Use this editor to inspect exact conditions or resolve overlapping rules. Changes still require review and save.</p><fieldset class="config-editor"${disabled}>${advanced || '<p>No rules configured.</p>'}</fieldset></div></details></div>`;
 }

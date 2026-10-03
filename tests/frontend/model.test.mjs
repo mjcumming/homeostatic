@@ -1420,7 +1420,7 @@ test("monitoring policy scenario keeps 18 direct choices out of the normal group
   const [normal,advanced]=html.split('<details class="config-advanced"');
   assert.match(normal,/Group policies \(1\)/);
   assert.match(normal,/Watch integration connections/);
-  assert.match(normal,/Choose a specific connection, device, entity, or battery by name in Sources/);
+  assert.match(normal,/Choose a specific connection, device, entity, battery, or vacuum by name in Sources/);
   assert.doesNotMatch(normal,/Watch 1 selected device|Watch 2 selected entities|data-rule-index="0"|data-rule-index="2"/);
   assert.match(normal,/data-rule-index="1"/);
   assert.match(normal,/data-page="sources"/);

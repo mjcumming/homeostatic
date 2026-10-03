@@ -106,6 +106,7 @@ from .repairs import Repairs
 from .rules import Attributes, parse_rules
 from .serialization import json_object, to_json
 from .situation_reports import report_observation
+from .vacuum import observe as vacuum_observation
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -329,7 +330,7 @@ class Runtime:
             self._inventory_dirty = True
         if sources and (
             any(source.kind == "situation" for source in sources)
-            or any(source.kind == "battery" for source in sources)
+            or any(source.kind in {"battery", "vacuum"} for source in sources)
             or any(
                 source.kind == "device"
                 and entity_id in source.connectivity_entities
@@ -355,6 +356,14 @@ class Runtime:
                         changed_state=new,
                     )
                     if source.kind == "battery"
+                    else vacuum_observation(
+                        self.hass,
+                        source,
+                        now,
+                        changed_entity_id=entity_id,
+                        changed_state=new,
+                    )
+                    if source.kind == "vacuum"
                     else entity_observation(source, event.data["new_state"], now)
                 )
                 if source.kind == "device":
@@ -546,7 +555,7 @@ class Runtime:
         self.enrolled = {
             node_id: source.attributes
             for node_id, source in sources.items()
-            if source.kind in {"entity", "integration", "device", "battery"}
+            if source.kind in {"entity", "integration", "device", "battery", "vacuum"}
         }
         return sources
 
@@ -1171,6 +1180,8 @@ class Runtime:
                 continue
             if source.kind == "battery" and discover:
                 observations.append(battery_observation(self.hass, source, now))
+            elif source.kind == "vacuum" and discover:
+                observations.append(vacuum_observation(self.hass, source, now))
             elif source.kind in {"entity", "situation"} and discover:
                 state = (
                     self.hass.states.get(source.entity_id) if source.entity_id else None
@@ -1192,7 +1203,7 @@ class Runtime:
             source = self.sources[observation.node_id]
             if source.kind == "integration":
                 self.integration_evidence.observe(observation, source.name)
-            elif source.kind in {"entity", "device", "battery"}:
+            elif source.kind in {"entity", "device", "battery", "vacuum"}:
                 self.entity_evidence[source.node_id] = ReportedCondition(
                     reason=observation.reason,
                     message=observation.message or "",
@@ -1814,7 +1825,7 @@ class Runtime:
                 str(episode["anchor"]): self.entity_status(str(episode["anchor"]))
                 for episode in self.episodes.values()
                 if self.sources[str(episode["anchor"])].kind
-                in {"entity", "device", "battery"}
+                in {"entity", "device", "battery", "vacuum"}
             },
             "resolved_history": self.history.view(dt_util.utcnow()),
             "operator_controls": [json_object(control) for control in self.controls],

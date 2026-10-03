@@ -6,6 +6,7 @@ This guide covers the jobs you do in Homeostatic once it's installed.
 
 - [Choose what to watch](#choose-what-to-watch)
 - [Watch batteries](#watch-batteries)
+- [Watch vacuums](#watch-vacuums)
 - [What an availability problem means](#what-an-availability-problem-means)
 - [Home Assistant Repairs](#home-assistant-repairs)
 - [Activate notifications](#activate-notifications)
@@ -88,6 +89,20 @@ To watch every battery, now and in future, open **Settings → Monitoring polici
 
 A watched battery opens an issue when its level is at or below 20%, or when its low-battery sensor reports low. A current charging report clears the issue even if the level is still low, and the issue comes back if charging stops before the level recovers. Homeostatic can't tell whether a battery was replaced or recharged.
 
+## Watch vacuums
+
+A vacuum is watched separately from whether Home Assistant can reach it. Homeostatic lists each vacuum entity in **Sources**. None are watched until you choose them.
+
+To watch one vacuum, select it in **Sources**, open **Settings**, choose **Monitor this vacuum**, then review and save.
+
+To watch every vacuum, now and in future, open **Settings → Monitoring policies**, select **Monitor all vacuums**, review the result and select **Save choices**. Vacuums you've excluded one by one stay excluded.
+
+A watched vacuum opens an issue when Home Assistant reports its activity as error. Cleaning, docked, idle, paused, or returning ends the issue. Unavailable, unknown, missing, and restored states leave an open issue open.
+
+The notice uses Immediate, including overnight, unless you set a **Source preference** for that vacuum. Immediate sends once. The message names the vacuum and, when Home Assistant has an area assigned to it, that area. The area is often the room where the vacuum docks.
+
+A fault that never becomes the error activity stays an alert you write yourself.
+
 ## What an availability problem means
 
 Home Assistant has no single health status that runs from an integration down to its devices and entities. It has separate signals, and Homeostatic reads each one for what it says:
@@ -165,7 +180,7 @@ Both immediate choices are sent as urgent notifications. On an iPhone they're se
 
 ### Choose when each source reports
 
-Under **Household default**, **Newly monitored sources** sets the choice for every source that hasn't got one of its own. It starts at **Weekly summary**. **Home Assistant Repairs** sets the choice for every Repair, and starts at **Morning summary**.
+Under **Household default**, **Newly monitored sources** sets the choice for every source that hasn't got one of its own. It starts at **Weekly summary**. **Home Assistant Repairs** sets the choice for every Repair, and starts at **Morning summary**. A vacuum error uses Immediate until you set a source preference for that vacuum. When Immediate has no recipients, the issue stays in the panel.
 
 To give one source its own choice, open it in **Sources**, open **Settings**, and pick a **Source preference** under **Reporting**. **Condition exceptions** sets a different choice for one kind of check on that source. For a whole integration, use **When to notify** in its **Settings**: **Device default** applies one choice to all its current devices, and devices it adds later use the household default.
 

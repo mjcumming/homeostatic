@@ -72,6 +72,18 @@ Both patterns are in Core, so Homeostatic can't assume either. An unavailable en
 
 **Severity.** `unavailable` is a warning because it says Home Assistant can't reach something, not why: the device, its battery, the network, a hub, a cloud service or a reload. Integration setup failures are failures because Home Assistant reports them as errors.
 
+**Vacuums.** The vacuum entity's state is an activity. Core's `VacuumActivity` lists six: `cleaning`, `docked`, `idle`, `paused`, `returning`, and `error` (`homeassistant/components/vacuum/const.py`). The entity state is that activity (`homeassistant/components/vacuum/__init__.py`). The state translation describes `error` as the vacuum encountering an error. Homeostatic fails on `error` and passes on the other five. `unavailable`, `unknown`, a missing state, a restored state, and any other value are unknown, so they leave an open vacuum issue open. An integration that maps a vendor status such as offline onto `error` produces the issue while the entity state is `error`. A fault that stays on some other entity never becomes this check.
+
+**Lawn mowers.** `LawnMowerActivity` is the other core activity enum with an `error` value (`homeassistant/components/lawn_mower/const.py`). On the 2026.9.3 tag the activities are `mowing`, `docked`, `paused`, `returning`, and `error`. The dev branch, for Core 2026.10, adds `idle` for a mower that is stopped and neither docked nor paused. Developer docs describe `error` as the mower encountering an error while active and needing assistance. Homeostatic does not read this activity yet. The [roadmap](roadmap.md) tracks that check. Rechecked October 3, 2026.
+
+**Problem and tamper sensors.** A binary sensor with device class `problem` or `tamper` is `on` or `off` (`homeassistant/components/binary_sensor/const.py`). Core describes `problem` as problem detected or OK, and `tamper` as tampering detected or clear. Homeostatic does not read these yet. The [roadmap](roadmap.md) tracks an issue while the sensor is on.
+
+**Alarm panels.** `AlarmControlPanelState` is `disarmed`, `armed_home`, `armed_away`, `armed_night`, `armed_vacation`, `armed_custom_bypass`, `pending`, `arming`, `disarming`, and `triggered` (`homeassistant/components/alarm_control_panel/const.py`). `triggered` means the alarm is going off. The [roadmap](roadmap.md) tracks an issue while the panel is `triggered`. The arming states are ordinary operation.
+
+**Locks.** `LockState` is `jammed`, `locked`, `unlocked`, `locking`, `unlocking`, `open`, and `opening` (`homeassistant/components/lock/const.py`). `jammed` means the lock tried to move and got stuck before it finished. The [roadmap](roadmap.md) tracks an issue while the lock is `jammed`.
+
+**Other entity states.** An update entity is `on` or `off`, with install progress in attributes (`homeassistant/components/update/const.py`). Valve and cover states are `open`, `opening`, `closed`, and `closing`. Speech-to-text uses `error` as the result of one recognition (`SpeechResultState` in `homeassistant/components/stt/const.py`).
+
 ## Limits that follow
 
 - A watched entity that an integration marks unavailable by mode looks like lost contact. Exclude it, or don't watch it on its own.

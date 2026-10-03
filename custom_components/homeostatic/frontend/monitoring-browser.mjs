@@ -1,5 +1,5 @@
 import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=46";
-import {monitoringScope, monitoringTree} from "./configuration.mjs?v=46";
+import {monitoringScope, monitoringTree} from "./configuration.mjs?v=47";
 
 const keyFor = (...parts) => JSON.stringify(parts);
 const named = (left,right) => left.name.localeCompare(right.name) || left.key.localeCompare(right.key);
@@ -62,7 +62,9 @@ export function configurationBrowser(card) {
   const summaries = rows.filter((source) => source.kind === "device" && source.watched);
   const included = new Set(summaries.flatMap((source) => source.availability_entities ?? []));
   const state = (source) => source.excluded_by?.length ? "Not monitored" : source.watched ? "Monitored" : "Not monitored";
-  const entityState = (source) => source.kind === "battery" ? source.watched ? "Battery monitored" : "Battery not monitored" : source.excluded_by?.length ? "Availability ignored" :
+  const entityState = (source) => source.kind === "battery" ? source.watched ? "Battery monitored" : "Battery not monitored"
+    : source.kind === "vacuum" ? source.watched ? "Vacuum monitored" : "Vacuum not monitored"
+    : source.excluded_by?.length ? "Availability ignored" :
     [included.has(source.entity_id) ? "In device summary" : "",source.watched ? "Separate check" : ""].filter(Boolean).join(" · ") || "Not monitored";
   const label = (node) => node.type === "integration" && node.group.entry ? card.displaySourceName(node.group.entry) : node.name;
   const choose = (node,detail = "") => `<button type="button" class="config-pick" data-config-select="${esc(node.key)}"${card.configSelection === node.key ? ' aria-current="true"' : ""}><span>${esc(label(node))}</span>${detail ? `<small>${esc(detail)}</small>` : ""}</button>`;
@@ -98,10 +100,12 @@ export function configurationBrowser(card) {
       const source = selected.source;
       content = `<p class="config-counts">${esc(entityState(source))}</p><p class="small">${esc(source.entity_id ?? source.node_id)}</p>` + (source.kind === "battery"
         ? choice("Battery condition",monitoringScope("battery",source.node_id,source),entityState(source),"Warn at 20% or on an explicit low report. Confirmed charging clears the low condition.")
+        : source.kind === "vacuum"
+        ? choice("Vacuum error",monitoringScope("vacuum",source.node_id,source),entityState(source),"Report when Home Assistant says this vacuum is in error. Cleaning, docked, idle, paused, or returning ends the issue.")
         : choice("Entity availability",monitoringScope("entity",source.node_id,source),entityState(source),"Watch creates a separate check. Ignore also removes it from a device summary."));
     }
     detail = heading + content;
   }
   const watched = (kind) => rows.filter((source) => source.kind === kind && source.watched).length;
-  return `<section class="panel config-workspace"><div class="config-workspace-head"><h2>Choose what to monitor</h2><p class="sub">${count(watched("integration"),"integration check")} · ${count(watched("device"),"device summary","device summaries")} · ${count(watched("entity"),"separate entity check")} · ${count(watched("battery"),"battery condition")}</p></div><div class="config-layout"><nav class="config-rail" aria-label="Monitoring sources"><label class="coverage-search"><span>Find a source</span><input type="search" data-config-search value="${esc(card.configQuery)}" placeholder="Integration, device, or entity"></label><div class="config-rail-actions"><button type="button" class="link" data-action="collapse-config">Collapse all</button>${card.configQuery ? '<button type="button" class="link" data-action="clear-config-search">Clear search</button>' : ""}</div><ul class="config-tree">${tree.map(branch).join("") || '<li class="sub">No sources match this search.</li>'}</ul></nav><section class="config-detail" aria-labelledby="config-detail-title">${detail}</section></div></section>`;
+  return `<section class="panel config-workspace"><div class="config-workspace-head"><h2>Choose what to monitor</h2><p class="sub">${count(watched("integration"),"integration check")} · ${count(watched("device"),"device summary","device summaries")} · ${count(watched("entity"),"separate entity check")} · ${count(watched("battery"),"battery condition")} · ${count(watched("vacuum"),"vacuum error")}</p></div><div class="config-layout"><nav class="config-rail" aria-label="Monitoring sources"><label class="coverage-search"><span>Find a source</span><input type="search" data-config-search value="${esc(card.configQuery)}" placeholder="Integration, device, or entity"></label><div class="config-rail-actions"><button type="button" class="link" data-action="collapse-config">Collapse all</button>${card.configQuery ? '<button type="button" class="link" data-action="clear-config-search">Clear search</button>' : ""}</div><ul class="config-tree">${tree.map(branch).join("") || '<li class="sub">No sources match this search.</li>'}</ul></nav><section class="config-detail" aria-labelledby="config-detail-title">${detail}</section></div></section>`;
 }

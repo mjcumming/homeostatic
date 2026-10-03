@@ -15,6 +15,7 @@ from .config import Settings, resolve_entity, rule_data
 from .const import DOMAIN
 from .rules import Attributes, CatalogRule, attributes, decide, parse_rules
 from .serialization import json_object
+from .vacuum import candidates as vacuum_candidates
 
 
 def restore_enrollment(value: Any) -> dict[str, Attributes]:
@@ -24,7 +25,14 @@ def restore_enrollment(value: Any) -> dict[str, Attributes]:
     result = {}
     for node_id, metadata in value.items():
         if not isinstance(node_id, str) or not node_id.startswith(
-            ("entry:", "entity:registry:", "entity:entity_id:", "device:", "battery:")
+            (
+                "entry:",
+                "entity:registry:",
+                "entity:entity_id:",
+                "device:",
+                "battery:",
+                "vacuum:",
+            )
         ):
             raise ValueError("Invalid enrolled identity")
         result[node_id] = attributes(metadata)
@@ -182,6 +190,7 @@ def inventory(
             attributes=metadata,
         )
     sources.update(battery_candidates(hass, sources))
+    sources.update(vacuum_candidates(sources))
     members = device_members(hass)
     device_ids = set(members)
     device_ids.update(

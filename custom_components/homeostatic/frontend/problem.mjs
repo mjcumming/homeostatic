@@ -115,6 +115,33 @@ export function repairProblem(source, findings = []) {
   };
 }
 
+export function vacuumProblem(source, status, areas = [], openProblem = true) {
+  if (source?.kind !== "vacuum") return null;
+  const reason = source.disabled ? "disabled" : status?.current?.reason ?? "vacuum_unknown";
+  const area = (areas ?? []).find((item) => item.id === source.attributes?.area?.[0])?.name;
+  const where = area ? ` in ${area}` : "";
+  const reported = status?.current?.message;
+  const definitions = {
+    vacuum_error:[`Vacuum error${where}`, reported || `Home Assistant reports this vacuum in error${where}.`,
+      "Check the vacuum in Home Assistant.", "failure", "Needs attention"],
+    cleaning:["Vacuum cleaning", `${source.name} is cleaning.`, "No action is needed right now.", "recovering", "Cleaning"],
+    docked:["Vacuum docked", `${source.name} is docked.`, "No action is needed right now.", "recovering", "Docked"],
+    idle:["Vacuum idle", `${source.name} is idle.`, "No action is needed right now.", "recovering", "Idle"],
+    paused:["Vacuum paused", `${source.name} is paused.`, "No action is needed right now.", "recovering", "Paused"],
+    returning:["Vacuum returning", `${source.name} is returning.`, "No action is needed right now.", "recovering", "Returning"],
+    vacuum_unknown:["Vacuum activity unknown", "Home Assistant has no current activity for this vacuum.",
+      "Wait for a current activity. A missing activity keeps an open issue open.", "uncertain", "Waiting for activity"],
+    disabled:["Vacuum disabled", "Home Assistant is not using this vacuum.",
+      "Review the vacuum in Home Assistant if this was not intentional.", "neutral", "Disabled"],
+  };
+  const [headline,summary,nextStep,tone,progress] = definitions[reason] ?? definitions.vacuum_unknown;
+  const clearing = openProblem && ["cleaning","docked","idle","paused","returning"].includes(reason);
+  const device = source.attributes?.device?.[0];
+  return {context:"Vacuum",headline:clearing ? "Vacuum error clearing" : headline,summary,nextStep,tone,progress,currentReason:reason,
+    deviceUrl:device ? `/config/devices/device/${encodeURIComponent(device)}` : null,
+    entityLabel:"View vacuum"};
+}
+
 export function batteryProblem(source, status, openProblem = true) {
   if (source?.kind !== "battery") return null;
   const reason = source.disabled ? "disabled" : status?.current?.reason ?? "battery_evidence_missing";

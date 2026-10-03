@@ -61,6 +61,23 @@ class Source:
                     ),
                 ),
             )
+        if self.kind == "vacuum":
+            return Node(
+                node_id=self.node_id,
+                kind=self.kind,
+                importance=self.importance,
+                labels={"name": self.name, "category": "operation"},
+                checks=(
+                    Check(
+                        check_id="vacuum",
+                        raise_hold=timedelta(0),
+                        clear_hold=timedelta(0),
+                        ttl=None,
+                        unknown_hold=settings.duration("unknown_hold"),
+                        labels={"category": "operation"},
+                    ),
+                ),
+            )
         if self.kind == "repair":
             return Node(
                 node_id=self.node_id,

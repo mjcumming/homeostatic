@@ -18,6 +18,8 @@ from homeassistant.core import HomeAssistant
 
 from custom_components.homeostatic import reporting
 from custom_components.homeostatic.attention import DEFAULT_POLICY, build_policy
+from custom_components.homeostatic.automation_alerts import AutomationAlerts
+from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.notification_routes import Destination
 
 PEOPLE = [{"id": "owner", "name": "Owner", "user_id": "owner", "administrator": False}]
@@ -206,6 +208,70 @@ def test_invalid_choices(
     target[path[-1]] = value
     with pytest.raises(ValueError, match=message):
         reporting.generate(hass, configured, PEOPLE)
+
+
+def _composed_rules(
+    hass: HomeAssistant, choices: dict[str, Any]
+) -> list[dict[str, Any]]:
+    policy = reporting.generate(hass, choices, PEOPLE)
+    return AutomationAlerts().policy(Settings.from_data({"policy": policy}))["rules"]
+
+
+def test_vacuum_error_defaults_to_immediate(
+    hass: HomeAssistant, configured: dict[str, Any]
+) -> None:
+    """Generated policies send a vacuum error immediately, ahead of the weekly rule."""
+    stored = reporting.generate(hass, configured, PEOPLE)
+    assert not any(
+        rule["match"].get("checks") == ["vacuum"] for rule in stored["rules"]
+    )
+    rules = AutomationAlerts().policy(Settings.from_data({"policy": stored}))["rules"]
+    vacuum = next(
+        rule
+        for rule in rules
+        if rule["match"].get("checks") == ["vacuum"] and "nodes" not in rule["match"]
+    )
+    household = next(rule for rule in rules if rule["match"] == {})
+    assert rules.index(vacuum) < rules.index(household)
+    assert vacuum["loudness"] == "urgent"
+    assert "remind_every" not in vacuum
+    quiet = deepcopy(configured)
+    quiet["profiles"]["immediate"]["people"] = []
+    recorded = next(
+        rule
+        for rule in _composed_rules(hass, quiet)
+        if rule["match"].get("checks") == ["vacuum"]
+    )
+    assert recorded["loudness"] == "record"
+
+
+def test_vacuum_source_preference_overrides_immediate(
+    hass: HomeAssistant, configured: dict[str, Any]
+) -> None:
+    """A weekly choice for one vacuum stays ahead of the Immediate fallback."""
+    configured["assignments"] = {"vacuum:registry:robot": {"default": "weekly"}}
+    rules = _composed_rules(hass, configured)
+    node = next(
+        rule
+        for rule in rules
+        if rule["match"].get("nodes") == ["vacuum:registry:robot"]
+    )
+    vacuum = next(
+        rule
+        for rule in rules
+        if rule["match"].get("checks") == ["vacuum"] and "nodes" not in rule["match"]
+    )
+    assert rules.index(node) < rules.index(vacuum)
+    assert (node["loudness"], node["digest"]) == ("digest", "weekly")
+
+
+def test_custom_policy_does_not_gain_a_vacuum_rule() -> None:
+    """A policy the owner wrote is left unchanged."""
+    rules = AutomationAlerts().policy(Settings.from_data({"policy": DEFAULT_POLICY}))[
+        "rules"
+    ]
+    assert not any(rule.get("match", {}).get("checks") == ["vacuum"] for rule in rules)
+    assert rules[-2:] == DEFAULT_POLICY["rules"]
 
 
 def test_missing_recipient_remains_a_draft(hass: HomeAssistant) -> None:

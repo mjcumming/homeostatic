@@ -80,11 +80,13 @@ Opening an issue:
 - An integration that's retrying gets an issue straight away, as a warning. If it's still retrying after two minutes (**Wait before reporting setup retries**), the warning becomes a failure.
 - A watched source with no current reading, such as an entity Home Assistant still lists but isn't providing, gets an issue after 15 minutes (**Wait for unknown evidence**). An entity whose state is `unknown` is different: Home Assistant can reach it but has no value yet, so it gets no issue.
 - A battery gets an issue as soon as it reads 20% or less, or the device reports a low warning.
+- A vacuum gets an issue as soon as Home Assistant reports its activity as error.
 
 Ending an issue:
 
 - An availability issue ends after the source has been working for two minutes (**Confirm recovery**). Until then, the issue says it's confirming recovery.
 - Alerts and batteries end as soon as the condition clears. A charging report clears a low battery, even while the reading is still low.
+- A vacuum error ends as soon as the activity is cleaning, docked, idle, paused, or returning. Unavailable, unknown, and restored states leave it open.
 - When an integration recovers, devices and entities that are still reconnecting get a minute (**Allow reconnecting devices**) before they count as failures of their own.
 
 Sending notifications: Immediate choices go out as soon as the issue opens. Summaries go out at their scheduled times and include only issues that are still open. **Standard alert batching** applies only to custom notification policies.
@@ -103,6 +105,6 @@ Homeostatic also reloads when you save a change in its panel. That save takes ef
 
 ## What Homeostatic can and can't know
 
-Everything Homeostatic knows comes from Home Assistant: whether each integration loaded, whether each entity is available, battery readings, and the reports your alert automations send. It has no other way to reach your devices, so it can never know more about a device than Home Assistant does.
+Everything Homeostatic knows comes from Home Assistant: whether each integration loaded, whether each entity is available, battery readings, vacuum activity, and the reports your alert automations send. It has no other way to reach your devices, so it can never know more about a device than Home Assistant does.
 
 [Known limitations](troubleshooting.md#known-limitations) lists what that leaves out, along with the rest of what Homeostatic doesn't do yet. [Home Assistant states](home-assistant-states.md) explains how Home Assistant reports these signals and how Homeostatic reads them.

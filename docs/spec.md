@@ -53,7 +53,7 @@ exclusion being collapsed does not change its effect. Disabled rules remain
 visible as paused when their section is opened.
 Adding a group policy drafts a paused device-availability rule. It has no effect
 until the owner chooses its scope, enables it, reviews the affected sources, and
-saves. The separate Monitor all batteries action drafts its stated broad scope.
+saves. The separate Monitor all batteries and Monitor all vacuums actions draft their stated broad scopes.
 
 The page presents a direct **Monitor all batteries** action before the group
 rule list when no broad battery policy exists. It drafts one enabled `attach`
@@ -61,6 +61,10 @@ rule with `kind: battery` and the `battery` check, covering current and future
 battery candidates. The action does not save or enable notification requests;
 the owner reviews the effective scope and saves through the normal guarded path.
 An existing broad battery policy is shown instead of offering a duplicate.
+
+**Monitor all vacuums** does the same for vacuum entities: one enabled `attach`
+rule with `kind: vacuum` and the `vacuum` check. An existing broad vacuum policy
+is shown instead of offering a duplicate.
 
 Group policy editing is explicitly disclosed. The complete technical catalog
 editor remains under a collapsed Advanced rule details section, including source
@@ -188,7 +192,7 @@ Search stays above the tree and covers the complete inventory. **Needs review** 
 
 Integration rows place device counts beside their names. Device rows place included/total entity counts beside their names. Open issue counts follow the source name on the same line; scope counts stay secondary and may wrap on narrow screens. Entity rows distinguish a separate check, inclusion in a device check, an explicit exclusion, and an unselected source. These labels do not change monitoring enrollment or imply that an unselected entity has a problem. When an integration has multiple HA config entries, show its devices first and its labeled integration connections as direct children; do not insert a Connections tier. The integration panel lists its connections in a collapsed section and explains that they are HA registrations rather than devices. A connection with its own issue remains reachable directly in the tree.
 
-A collapsed explanation above the Sources tree tells owners what a new installation monitors, how an enabled device check selects eligible Home Assistant entities, and why battery conditions and separate entity checks need their own choices. It links the explanation to source Settings without changing saved choices. Opening it stays open through live evidence updates and search rerenders.
+A collapsed explanation above the Sources tree tells owners what a new installation monitors, how an enabled device check selects eligible Home Assistant entities, and why battery conditions, vacuum errors, and separate entity checks need their own choices. It links the explanation to source Settings without changing saved choices. Opening it stays open through live evidence updates and search rerenders.
 
 The selected panel answers what/where, what HA currently reports, what is monitored, and the available next action. Group selection shows compact counts and shared explanations. Device details lead with a selected connectivity-class sensor reporting disconnected, then selected entities unavailable or lacking a current state. They list those entities first and collapse the other selected entities. They offer direct routes to device settings in HA and monitoring choices without generic next-step paragraphs. The independent HA device availability status stays visible in a compact line and is never relabeled as a selected-entity issue. An entity detail shows its HA availability, current value when present, and effective monitoring relationship once; it does not repeat its own name in a one-row list or turn that name into a self-link. HA `unknown` is an available entity with an unknown value. An entity that is unavailable in HA but not monitored is presented as a state, not an open Homeostatic issue. Preserve the distinctions among integration connection, device-summary membership, separate entity checks, excluded/unselected sources, evidence gaps and open issues. An unselected source alone is not a problem; an unavailable HA entity alone is not proof of physical failure. Internal ids and raw rule/evidence data remain in Technical details.
 
@@ -218,7 +222,7 @@ Modal details and operator forms scroll within their dialog. Scrolling past eith
 
 Previously enrolled identities and their last match attributes are persisted independently of the opaque engine snapshot. A registered entity with missing state remains monitored with unknown evidence. An exact entity-id attach rule, a legacy explicit entity selection, or a function requirement retains its entity expectation even after registry deletion; an exact device-id attach rule retains a saved device choice without an availability check until eligible members exist. Explicitly required config entries likewise remain unknown when absent. A config entry that remains registered but is not loaded is unknown. When HA removes an automatically selected registry entity, the last eligible member of an automatically selected device summary, or an automatically selected config entry, Homeostatic removes that source, resolves any active episode as `removed`, and retains the resolution in history. The removal event does not identify user intent and never establishes recovery. Ordinary live metadata replaces retained metadata when a selected identity is present again. A state-derived device class is retained while state evidence is missing, unknown, restored or unavailable. State-only identities are retained while state evidence is absent, but do not promise continuity across entity-id changes.
 
-The first catalog checks config-entry state and entity availability. Disabled, temporarily not loaded, explicitly required but missing, startup, or restored sources are unknown evidence. An HA entity state of `unknown` has an unknown value but passes the passive availability check; it is not an issue or stale evidence by itself. A loaded config entry passes; setup retry warns for a configurable retry hold, then fails; setup/migration errors and failed unload fail. Pending reauthentication fails with `auth_required`. Confirmed deletion of an automatically selected registry source is a scope removal, not unknown evidence. An entity reporting `unavailable` warns. A valid state value does not prove physical freshness or the correctness of that value. Device freshness, Frigate liveness, command completion, update catalogs, and external probes require separate producer contracts and real traces. The battery producer below has its own bounded contract.
+The first catalog checks config-entry state and entity availability. Disabled, temporarily not loaded, explicitly required but missing, startup, or restored sources are unknown evidence. An HA entity state of `unknown` has an unknown value but passes the passive availability check; it is not an issue or stale evidence by itself. A loaded config entry passes; setup retry warns for a configurable retry hold, then fails; setup/migration errors and failed unload fail. Pending reauthentication fails with `auth_required`. Confirmed deletion of an automatically selected registry source is a scope removal, not unknown evidence. An entity reporting `unavailable` warns. A valid state value does not prove physical freshness or the correctness of that value. Device freshness, Frigate liveness, command completion, update catalogs, and external probes require separate producer contracts and real traces. The battery and vacuum producers below have their own bounded contracts.
 
 ### Battery maintenance producer
 
@@ -227,8 +231,8 @@ class), explicit low-battery (`binary_sensor` with battery device class), and
 charging (`binary_sensor` with battery-charging device class) from HA metadata.
 Charging alone is context, not a monitored battery. Battery candidates appear in
 Sources and remain unmonitored until a reviewed catalog rule selects their
-`battery` check. Rules select one check, `availability` or `battery`; an existing
-availability rule never enrolls battery monitoring. The battery candidate is an
+`battery` check. Each rule selects one check: `availability`, `battery`, or
+`vacuum`. A rule enrolls only the check it names. The battery candidate is an
 edgeless maintenance node, separate from HA availability.
 
 One percentage and one explicit warning on the same HA device are offered as one
@@ -256,6 +260,35 @@ fully charged. Current readings, entity ids and conflicts remain available as
 evidence; replacement type remains unknown without verified metadata. Existing
 reporting preferences and attention rules govern delivery.
 
+### Vacuum error producer
+
+Homeostatic offers every `vacuum` entity as its own candidate
+([ADR 0046](adr/0046-report-vacuum-error-activity.md)). Candidates stay
+unmonitored until a reviewed catalog rule selects the `vacuum` check. An
+availability rule leaves that check off, and a vacuum rule leaves availability
+off. A broad rule may cover current and future vacuums. An exclusion wins.
+
+The check reads the entity's current activity. `cleaning`, `docked`, `idle`,
+`paused`, and `returning` pass. `error` fails with reason `vacuum_error`.
+`unavailable`, `unknown`, a missing state, a restored state, and any other
+value are `unknown`. Unknown keeps an open issue open. The check has no raise
+hold and no clear hold. The finding says Home Assistant reports the vacuum in
+error. When Home Assistant has an area for that vacuum, the notification names
+it. That area is the device's assignment in Home Assistant.
+
+The source is its own node and has no dependency edges, so a failed integration
+does not absorb it. Availability of the same entity, when watched, stays a
+separate issue. A change from one ordinary activity to another, including
+`cleaning` to `error`, is observed even though both are available states.
+
+On a generated reporting policy, a vacuum error uses Immediate unless that
+vacuum has its own source preference. The fallback matches check `vacuum` and
+sits immediately ahead of the empty household rule, so a source preference
+still wins. Immediate sends once, including overnight. When Immediate has no
+recipients, the issue is recorded in the panel. Custom policies are left as
+written. Discovering a vacuum sends nothing. Homeostatic does not command the
+vacuum.
+
 ## Time and lifecycle
 
 Create or restore the engine only after HA has started. Load listeners and entities earlier, reporting unavailable until startup completes. One adapter owns calls into engine and policy on the HA event loop. Observations arriving together are ingested atomically. State and entry callbacks capture observations with their receipt time before queuing work. Every captured transition is applied in order, even if storage is busy. Each transition is its own observation batch; reconciliation must not erase it. Registry changes trigger an inventory refresh; a 60-second reconciliation interval catches missed lifecycle changes and pending reauthentication. A deadline timer uses the earlier engine/policy deadline, independently of reconciliation. No delay is added to batch unrelated observations. One queued refresh worker drains captured transitions in receipt order; redundant wakeups share that worker. New observations during persistence request another pass. A failed pass is retried by subsequent evidence or reconciliation, without a busy retry loop. Shutdown drains captured evidence under the same serialization lock and cannot rearm work.
@@ -268,7 +301,7 @@ Initial settings: settle 120 seconds, rejoin grace 60 seconds, startup grace 120
 
 Reconciliation reads all enrolled sources into one observation batch. It registers new or changed nodes together through `Engine.register_many` before ingesting observations, preserving existing check state and validating the final topology. Initial setup likewise registers its graph in one batch; unchanged reconciliation does not register nodes again. It keeps missing selected nodes as unknown. Explicit unenrollment removes their nodes; a removal notice is not presented as physical recovery.
 
-Ordinary available-value changes do not trigger a new availability observation or snapshot write. Changes between available, unavailable, unknown, missing, and restored evidence do. Periodic reconciliation still refreshes the available HA evidence.
+Ordinary available-value changes do not trigger a new availability observation or snapshot write. Changes between available, unavailable, unknown, missing, and restored evidence do. A vacuum activity change is observed even when that availability signature stays the same. Periodic reconciliation still refreshes the available HA evidence.
 
 ## Presentation and queries
 
@@ -442,6 +475,9 @@ Generated reporting-v1 policies provide Immediate, Immediate with acknowledgment
 Morning, Evening, Weekly and Dashboard only. Both immediate profiles bypass quiet
 hours. Acknowledgment repeats every 30 minutes until acknowledged or resolved.
 Weekly is the household default, Sunday 09:00; morning is 08:00 and evening 18:00.
+A vacuum error on a generated policy uses Immediate unless that source has its
+own preference; the fallback is applied when the policy is compiled and is not
+stored in the generated rules. Custom policies are unchanged.
 Requests stay off until reviewed and enabled. Profiles select people explicitly.
 Reports include new and ongoing open problems only, no empty or resolved messages.
 Device assignments and supported-check exceptions use affected-node matching;

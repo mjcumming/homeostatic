@@ -1,15 +1,15 @@
-import {sourceReporting} from "./reporting.mjs?v=60";
-import {integrationSettings} from "./source-settings.mjs?v=60";
+import {sourceReporting} from "./reporting.mjs?v=61";
+import {integrationSettings} from "./source-settings.mjs?v=61";
 import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=52";
-import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=46";
-import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=46";
-import {batteryProblem, deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=60";
+import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=60";
+import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=47";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=61";
 
 import {deviceAvailability} from "./device-availability.mjs?v=47";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
-const sourceName = source => source.name?.trim() || (source.kind === "integration" ? "Unnamed connection" : source.kind === "device" ? "Unnamed device" : source.kind === "battery" ? "Battery" : "Unnamed entity");
+const sourceName = source => source.name?.trim() || (source.kind === "integration" ? "Unnamed connection" : source.kind === "device" ? "Unnamed device" : source.kind === "battery" ? "Battery" : source.kind === "vacuum" ? "Vacuum" : "Unnamed entity");
 const sourceNode = source => ({key:`source:${source.node_id}`,name:sourceName(source),type:source.kind,source,children:[]});
 const unique = (items, identity = item => item.key) => [...new Map(items.map(item => [identity(item),item])).values()];
 const displayDate = value => value ? new Date(value).toLocaleString() : "Time not reported";
@@ -87,7 +87,7 @@ export function topomationTree(data,topomation) {
     for(const id of Array.isArray(node.location.entity_ids)?node.location.entity_ids:[])if(typeof id==="string"&&!entityLocations.has(id))entityLocations.set(id,node);
   }
   const assigned=new Map(),unassigned=[];
-  for(const source of inventoryRows(data).filter(item=>["entity","device","battery"].includes(item.kind))) {
+  for(const source of inventoryRows(data).filter(item=>["entity","device","battery","vacuum"].includes(item.kind))) {
     const location=entityLocations.get(source.entity_id)||
       (source.attributes?.area||[]).map(id=>areaLocations.get(id)).find(Boolean);
     if(location) {
@@ -135,8 +135,8 @@ function groupedSources(data,grouping,localize,topomation) {
   const convert = location => ({key:`location:${location.id}`,name:location.name,type:"location",location,
     children:[...location.children.map(convert),...location.devices.map(device=>{
       const summary=device.sources.find(source=>source.kind==="device");
-      return {key:summary?`source:${summary.node_id}`:`device:${device.id}`,name:device.name?.trim()||"Unnamed device",type:"device",source:summary,device,children:device.sources.filter(source=>["entity","battery"].includes(source.kind)).map(sourceNode).sort(byName)};
-    }),...location.signals.filter(source=>["entity","battery"].includes(source.kind)).map(sourceNode)].sort(byName)});
+      return {key:summary?`source:${summary.node_id}`:`device:${device.id}`,name:device.name?.trim()||"Unnamed device",type:"device",source:summary,device,children:device.sources.filter(source=>["entity","battery","vacuum"].includes(source.kind)).map(sourceNode).sort(byName)};
+    }),...location.signals.filter(source=>["entity","battery","vacuum"].includes(source.kind)).map(sourceNode)].sort(byName)});
   const roots=locationTree(data).map(convert);
   const entries=inventoryRows(data).filter(source=>source.kind==="integration").map(source=>({...sourceNode(source),name:integrationProblem(source,[],localize).integration+" / "+sourceName(source)})).sort(byName);
   if(entries.length) roots.push({key:"location:other-sources",name:"Integration connections",type:"location",children:entries});
@@ -209,6 +209,7 @@ export function sourceMonitoringChoices(card,node) {
     controls+=choice("Entity availability",monitoringScope("entity",source.node_id,source),[["inherit","Follow device monitoring","Include this entity when its device selects it."],["attach",included.has(source.entity_id)?"Monitor this entity separately":"Monitor this entity","Give this entity its own availability check."],["exclude","Exclude this entity","Remove it from device monitoring and separate checks."]],included.has(source.entity_id));
   }
   else if(source?.kind==="battery")controls+=choice("Battery condition",monitoringScope("battery",source.node_id,source),[["inherit","Use battery monitoring policies",`Currently ${source.watched?"monitored":"not monitored"}.`],["attach","Monitor this battery","Report a current low-battery condition."],["exclude","Do not monitor this battery","Keep its readings available for review without an issue."]]);
+  else if(source?.kind==="vacuum")controls+=choice("Vacuum error",monitoringScope("vacuum",source.node_id,source),[["inherit","Use vacuum monitoring policies",`Currently ${source.watched?"monitored":"not monitored"}.`],["attach","Monitor this vacuum","Report when Home Assistant says this vacuum is in error."],["exclude","Do not monitor this vacuum","Keep it in Sources without a vacuum-error issue."]]);
   if(source?.kind==="device"){
     controls+=`<p class="small">${source.availability_entities?.length||0} entities included. Open an entity in the tree to change its inclusion.</p>`;
     if(node.connection)controls+=`<button type="button" class="link" data-sources-select="source:${esc(node.connection.node_id)}">Change this connection's monitoring</button>`;
@@ -246,6 +247,13 @@ function sourceReport(card,node,episodes) {
     const deviceId=source.attributes?.device?.[0];
     const href=deviceId?`/config/devices/device/${encodeURIComponent(deviceId)}`:source.entity_id?`/developer-tools/state?entity_id=${encodeURIComponent(source.entity_id)}`:null;
     return `<section class="source-condition${condition?.status==="warn"?' needs-attention':''}"><h3>${esc(problem.headline)}</h3><p>${esc(condition?.message||problem.summary)}</p><p><strong>Next step:</strong> ${esc(problem.nextStep)}</p></section>${!source.watched?'<p class="small">Battery monitoring is off. Review the choice in Settings before saving.</p>':''}<section class="source-section"><h3>Battery evidence</h3><table class="source-readings"><tbody>${rows.map(item=>`<tr><td>${esc(item.name)}</td><td>${esc(item.restored?'Restored state':item.state)}</td></tr>`).join('')}</tbody></table><p class="small">Home Assistant values do not prove physical freshness. Charging clears this low condition; it does not prove a full charge or replacement.</p></section>${linked.map(item=>`<button type="button" class="button" data-episode="${esc(item.episode_id)}">Problem actions</button>`).join('')}${href?`<a class="link" href="${esc(href)}">Open in Home Assistant</a>`:''}`;
+  }
+  if(source.kind==="vacuum"){
+    const activity=evidence.vacuum_activity;
+    const problem=vacuumProblem(source,{current:activity},data.areas,Boolean(linked.length));
+    const deviceId=source.attributes?.device?.[0];
+    const href=deviceId?`/config/devices/device/${encodeURIComponent(deviceId)}`:source.entity_id?`/developer-tools/state?entity_id=${encodeURIComponent(source.entity_id)}`:null;
+    return `<section class="source-condition${activity?.status==="fail"?' needs-attention':''}"><h3>${esc(problem.headline)}</h3><p>${esc(activity?.message||problem.summary)}</p><p><strong>Next step:</strong> ${esc(problem.nextStep)}</p></section>${!source.watched?'<p class="small">Vacuum monitoring is off. Review the choice in Settings before saving.</p>':''}<p class="small">A notification names the area Home Assistant has assigned to this vacuum, when it has one.</p>${linked.map(item=>`<button type="button" class="button" data-episode="${esc(item.episode_id)}">Problem actions</button>`).join('')}${href?`<a class="link" href="${esc(href)}">Open in Home Assistant</a>`:''}`;
   }
   const status=evidence?.entity_status||data.inventory.entity_status?.[source.node_id];
   const current=evidence?.integration_evidence||data.inventory.integration_evidence?.[source.node_id];
@@ -328,7 +336,7 @@ export function sourcesBrowser(card) {
   const tabs=`<nav class="sources-views" aria-label="Selected source views">${[["source","Source"],["settings","Settings"],["history","History"]].map(([id,label])=>`<button type="button" data-sources-view="${id}" aria-current="${view===id?'page':'false'}">${label}${id==="settings"&&card.configuration&&JSON.stringify(card.configDraft)!==JSON.stringify(card.configuration.rules)?" •":""}</button>`).join("")}</nav>`;
   const context=selected?.parents.map(parent=>parent.name).join(" / ")|| (node?.family?"Integration":node?.type==="location"?"Location":"");
   const detail=node?`<header class="source-heading"><button type="button" class="link sources-back" data-action="back-sources">← Back to sources</button><p class="config-path">${esc(context)}</p><h2 id="sources-detail-title" tabindex="-1">${esc(node.name)}</h2>${node.source?.entity_id?`<p class="source-entity-id">${esc(node.source.entity_id)}</p>`:""}${tabs}</header><div class="source-body">${view==="settings"?sourceMonitoringChoices(card,node):view==="history"?sourceHistory(card,node):sourceReport(card,node,episodes)}${view==="source"&&["entity","integration"].includes(node.source?.kind)?`<section class="source-section"><button type="button" class="button" data-maintenance="${esc(node.source.node_id)}">Working on this equipment…</button></section>`:""}</div>`:'<div class="sources-empty"><h2>Choose an integration or device</h2><p class="sub">See its status, change monitoring, or review its history.</p></div>';
-  const guidance=`<details class="sources-explainer" data-sources-explainer${card.sourcesHelpOpen?' open':''}><summary>How monitoring is chosen</summary><p>New installations monitor integration connections. Device availability, separate entity checks, and battery conditions need a saved choice.</p><p>For a monitored device, Homeostatic checks enabled ordinary Home Assistant entities. It uses diagnostic entities only when there are no enabled ordinary ones. Configuration and disabled entities are left out. An entity exclusion removes it from the device check.</p><p>This checks availability in Home Assistant, not physical device health. Open a source’s Settings to review or change its choice.</p></details>`;
+  const guidance=`<details class="sources-explainer" data-sources-explainer${card.sourcesHelpOpen?' open':''}><summary>How monitoring is chosen</summary><p>New installations monitor integration connections. Device availability, separate entity checks, battery conditions, and vacuum errors need a saved choice.</p><p>For a monitored device, Homeostatic checks enabled ordinary Home Assistant entities. It uses diagnostic entities only when there are no enabled ordinary ones. Configuration and disabled entities are left out. An entity exclusion removes it from the device check.</p><p>This checks availability in Home Assistant, not physical device health. Open a source’s Settings to review or change its choice.</p></details>`;
   const topoNote=topomationAvailable?card.sourcesGrouping==="topomation"?"Viewing TopoMation's deeper house tree.":"TopoMation's deeper house tree is available in Group by.":"Want a deeper house tree? TopoMation adds property, buildings, grounds, rooms, and subareas to Home Assistant's locations. Its tree appears here when available.";
   return `<section class="panel sources-workspace" data-mobile-detail="${Boolean(card.sourcesMobileDetail&&node)}"><div class="sources-tools"><label>Group by<select data-sources-group><option value="integration"${card.sourcesGrouping==="integration"?' selected':''}>Integration</option><option value="location"${card.sourcesGrouping==="location"?' selected':''}>Home Assistant location</option>${topomationAvailable||card.sourcesGrouping==="topomation"?`<option value="topomation"${card.sourcesGrouping==="topomation"?' selected':''}${topomationAvailable?'':' disabled'}>TopoMation${topomationAvailable?'':' (loading)'}</option>`:''}</select></label><label class="coverage-search">Find a source<input type="search" data-sources-search value="${esc(card.sourcesQuery)}" placeholder="Search devices and integrations"></label>${card.sourcesExpanded.size?'<button type="button" class="link sources-collapse" data-action="collapse-sources">Collapse all</button>':''}${card.sourcesNeedsReview?'<button type="button" class="link" data-action="all-sources">Show all sources</button>':''}</div><p class="sources-topomation-note">${topoNote} <a href="https://github.com/mjcumming/topomation" target="_blank" rel="noopener noreferrer">Explore TopoMation</a></p><div class="config-layout"><nav class="config-rail" aria-label="Sources tree">${guidance}<ul class="config-tree">${visible.map(branch).join("")||'<li class="sub">No matching sources.</li>'}</ul></nav><section class="config-detail" aria-label="Selected source">${detail}</section></div></section>`;
 }

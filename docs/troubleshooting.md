@@ -145,6 +145,7 @@ The [user guide](guide.md#what-an-availability-problem-means) explains what an a
 - A device's availability never reads **Partially available**. Home Assistant doesn't yet let integrations report device availability directly, so Homeostatic works it out from entity states.
 - A light or binary sensor group can stay available while some of its members are unavailable. Watch the members that matter directly.
 - The low-battery level is fixed at 20%. Homeostatic can't tell whether a battery was replaced or recharged, and doesn't know what type of battery a device takes.
+- A vacuum issue follows the vacuum entity's error activity. A fault that never becomes that activity stays an alert you write yourself. The notice names the area Home Assistant has assigned to the vacuum, which is often the room where it docks.
 - Alerts describe continuing conditions. A one-off event, like a doorbell press, doesn't fit unless something in Home Assistant holds it as a state. Homeostatic can't check that **Required evidence** lists every entity your condition uses.
 - The panel and cards are for administrators only. Other people can receive notifications and tap **Acknowledge**, but can't open the panel.
 - Notifications can't go to whoever is home, be spoken on a speaker, or be snoozed from the phone.

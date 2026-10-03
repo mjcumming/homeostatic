@@ -56,6 +56,31 @@ def identity(owner: str, key: str) -> str:
     return "automation_" + sha256(f"{owner}\0{key}".encode()).hexdigest()
 
 
+def _with_vacuum_default(policy: dict[str, Any]) -> list[dict[str, Any]]:
+    """Keep a vacuum error on Immediate unless the owner chose otherwise.
+
+    A source preference is already a node rule ahead of the household rule.
+    Custom policies stay as written.
+    """
+    rules = list(policy["rules"])
+    if reporting.choices(policy) is None:
+        return rules
+    if any(
+        rule.get("match", {}).get("checks") == ["vacuum"]
+        and "nodes" not in rule.get("match", {})
+        for rule in rules
+    ):
+        return rules
+    fallback = profile_rule(policy, "immediate")
+    fallback["match"] = {"checks": ["vacuum"]}
+    for index, rule in enumerate(rules):
+        if rule.get("match") == {}:
+            rules.insert(index, fallback)
+            return rules
+    rules.append(fallback)
+    return rules
+
+
 def profile_rule(policy: dict[str, Any], profile: str) -> dict[str, Any]:
     """Reuse configured profiles without creating recipients or fallback routes."""
     value = reporting.choices(policy)
@@ -208,7 +233,7 @@ class AutomationAlerts:
         policy = deepcopy(settings.policy)
         policy["rules"] = [
             profile_rule(policy, p) for p in reporting.PROFILES
-        ] + policy["rules"]
+        ] + _with_vacuum_default(policy)
         return policy
 
     def status(self, settings: Settings, row: dict[str, Any]) -> str:

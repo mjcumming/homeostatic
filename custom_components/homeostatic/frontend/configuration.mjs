@@ -14,10 +14,11 @@ export function ruleSummary(rule) {
   const target = match.device?.length ? `${match.device.length} selected ${match.device.length === 1 ? "device" : "devices"}`
     : match.entity?.length ? `${match.entity.length} selected ${match.entity.length === 1 ? "entity" : "entities"}`
       : kind === "device" ? "device summaries" : kind === "integration" ? "integration connections"
-        : kind === "entity" ? "entities" : kind === "battery" ? "battery sources" : "matching sources";
+        : kind === "entity" ? "entities" : kind === "battery" ? "battery sources" : kind === "vacuum" ? "vacuum sources" : "matching sources";
   const location = match.integration?.length ? ` in ${match.integration.length} integration ${match.integration.length === 1 ? "instance" : "instances"}` : "";
   const other = ["integration_domain","domain","device_class","area","floor","label"].filter((field) => match[field]?.length);
-  return `${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${target}${rule.checks?.[0] === "battery" ? " for battery condition" : ""}${location}${other.length ? ` matching ${other.map((field) => MATCH_LABELS[field].toLowerCase()).join(", ")}` : ""}${rule.enabled === false ? " · paused" : ""}`;
+  const check = rule.checks?.[0] === "battery" ? " for battery condition" : rule.checks?.[0] === "vacuum" ? " for vacuum error" : "";
+  return `${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${target}${check}${location}${other.length ? ` matching ${other.map((field) => MATCH_LABELS[field].toLowerCase()).join(", ")}` : ""}${rule.enabled === false ? " · paused" : ""}`;
 }
 
 export function editCatalogRule(rule, field, value) {
@@ -45,7 +46,7 @@ const byName = (left, right) => left.name.localeCompare(right.name) || left.id.l
 export function monitoringTree(data, query = "") {
   const names = new Map((data.devices ?? []).map((device) => [device.id, device.name]));
   const groups = new Map();
-  const rows = inventoryRows(data).filter((source) => ["integration", "entity", "device", "battery"].includes(source.kind));
+  const rows = inventoryRows(data).filter((source) => ["integration", "entity", "device", "battery", "vacuum"].includes(source.kind));
   const entries = new Set(rows.filter((source) => source.kind === "integration").map((source) => source.entry_id ?? source.node_id.slice(6)));
   const groupFor = (id) => {
     const key = entries.has(id) ? id : "";
@@ -59,7 +60,7 @@ export function monitoringTree(data, query = "") {
     group.name = source.name;
     group.entry = source;
   }
-  for (const source of rows.filter((item) => ["entity", "battery"].includes(item.kind))) {
+  for (const source of rows.filter((item) => ["entity", "battery", "vacuum"].includes(item.kind))) {
     const group = groupFor(source.owner_id ?? source.attributes?.integration?.[0]);
     group.entities.push(source);
     const deviceId = source.attributes?.device?.[0];
@@ -108,9 +109,9 @@ export function monitoringScope(kind, id, source = null) {
   if (kind === "integration_devices") return {kind,id,match:{integration:[id],kind:["device"]}};
   if (kind === "device") return {kind,id,match:{device:[id]}};
   if (kind === "device_availability") return {kind,id,match:{kind:["device"],device:[id]}};
-  if (kind === "battery") {
+  if (kind === "battery" || kind === "vacuum") {
     const reference = source?.attributes?.entity?.[0];
-    return reference ? {kind,id,match:{kind:["battery"],entity:[reference]}} : null;
+    return reference ? {kind,id,match:{kind:[kind],entity:[reference]}} : null;
   }
   const reference = source?.attributes?.entity?.[0] ??
     (source?.node_id?.startsWith("entity:") ? source.node_id.slice(7) : null);
@@ -126,7 +127,7 @@ function sameMatch(left, right) {
 
 function sameScope(rule,scope) {
   return sameMatch(rule.match ?? {},scope.match) &&
-    (rule.checks?.[0] ?? "availability") === (scope.kind === "battery" ? "battery" : "availability");
+    (rule.checks?.[0] ?? "availability") === (scope.kind === "battery" ? "battery" : scope.kind === "vacuum" ? "vacuum" : "availability");
 }
 
 /** Explain one direct choice; broader overlapping rules stay visible in the preview. */
@@ -154,7 +155,7 @@ export function setScopeChoice(rules, scope, choice) {
       else delete rules[indices[0]].overridable;
     }
   } else rules.push({...newCatalogRule(rules),action:choice,match:scope.match,
-    ...(scope.kind === "battery" ? {checks:["battery"]} : {}),
+    ...(scope.kind === "battery" ? {checks:["battery"]} : scope.kind === "vacuum" ? {checks:["vacuum"]} : {}),
     ...(scope.kind === "integration_devices" && choice === "exclude" ? {overridable:true} : {})});
   return true;
 }

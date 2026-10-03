@@ -38,11 +38,12 @@ from .notification_routes import async_send, destinations
 from .runtime import Runtime
 from .serialization import json_object
 from .simple_notifications import available_people, generate_policy, simple_choices
+from .vacuum import observe as vacuum_observation
 
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=62"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=63"
 PANEL_ELEMENT = "homeostatic-panel-v23"
 
 
@@ -456,6 +457,11 @@ def websocket_source(
                 battery_observation(hass, source, dt_util.utcnow())
             )
             if source.kind == "battery"
+            else None,
+            "vacuum_activity": json_object(
+                vacuum_observation(hass, source, dt_util.utcnow())
+            )
+            if source.kind == "vacuum"
             else None,
             "device_availability": device_availability(
                 hass, source.attributes["device"][0]

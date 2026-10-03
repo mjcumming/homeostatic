@@ -77,14 +77,14 @@ What Homeostatic watches is saved as rules. Sources writes them for you; **Setti
 | --- | --- | --- |
 | `id` | Yes | Unique: lowercase letters, digits and `_`, starting with a letter |
 | `action` | Yes | `attach` (**Watch**) or `exclude` (**Leave unmonitored**) |
-| `checks` | No | `[availability]` (default) or `[battery]`. One check per rule. |
+| `checks` | No | `[availability]` (default), `[battery]`, or `[vacuum]`. One check per rule. |
 | `enabled` | No | `true` (default) or `false` to pause the rule |
 | `match` | Yes | Conditions, below |
 | `overridable` | No | Set by Sources on an integration's **Only devices I choose** choice, so a single device can still be watched |
 
 | Match field | Label in the panel | Value |
 | --- | --- | --- |
-| `kind` | Source type | `integration`, `device`, `entity` or `battery` |
+| `kind` | Source type | `integration`, `device`, `entity`, `battery` or `vacuum` |
 | `domain` | Domain | An entity domain such as `light`, or the integration's domain for an integration |
 | `device_class` | Device class | The entity's device class, such as `temperature` |
 | `integration` | Integration instance ID | A config entry id |
@@ -107,6 +107,7 @@ Actions and events refer to sources by node id. `homeostatic.inventory` lists th
 | Device | `device:<device registry id>` |
 | Entity | `entity:registry:<entity registry id>`, or `entity:entity_id:<entity id>` for an entity that isn't in the registry |
 | Battery | `battery:registry:<entity registry id>` of its main battery entity, or `battery:entity_id:<entity id>` |
+| Vacuum | `vacuum:registry:<entity registry id>`, or `vacuum:entity_id:<entity id>` for a vacuum that isn't in the registry |
 | Alert | `situation:<id>` |
 
 ## Entities

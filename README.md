@@ -13,6 +13,7 @@ It covers:
 - Integrations that won't start, keep retrying, or need you to sign in again
 - Devices and entities that go unavailable
 - Batteries running low
+- Vacuums that report an error
 - Repairs Home Assistant raises, like an automation calling an action that no longer exists
 - Situations in the house you ask it to watch, like water on the basement floor or the garage left open after dark
 
@@ -33,9 +34,10 @@ It covers:
 
 ## What it watches
 
-A new install watches your integrations and Home Assistant's Repairs. You add devices, entities, batteries and alerts in the panel, one at a time or with rules that cover a whole integration, area, floor or label.
+A new install watches your integrations and Home Assistant's Repairs. You add devices, entities, batteries, vacuums and alerts in the panel, one at a time or with rules that cover a whole integration, area, floor or label.
 
 - A battery issue opens at 20% or less, or when the device reports a low warning. It's tracked apart from whether the device is available.
+- A vacuum issue opens when Home Assistant reports the vacuum's activity as error. Cleaning, docked, idle, paused, or returning ends it. The notice is Immediate unless you choose otherwise for that vacuum, and it names the area Home Assistant assigned when there is one.
 - A Repair's issue ends when Home Assistant stops reporting the Repair, or when you ignore it in Home Assistant.
 - Alerts are ordinary Home Assistant automations made from a blueprint, so you get the full automation editor for the condition. If a sensor an alert needs goes offline, the alert shows *unknown*, so a dead leak sensor never reads as a dry floor.
 
@@ -47,7 +49,7 @@ Notifications on your schedule. Everything you watch has one of six reporting ch
 
 | Choice | What happens |
 | --- | --- |
-| Immediate | Sent right away, overnight included |
+| Immediate | Sent right away, overnight included. A vacuum error starts here. |
 | Immediate with acknowledgment | Sent right away and repeated every 30 minutes until someone taps Acknowledge or the problem clears |
 | Morning summary | In the 8:00 summary. Repairs start here. |
 | Evening summary | In the 18:00 summary |
@@ -72,7 +74,7 @@ Homeostatic adds a sidebar panel for administrators:
 | --- | --- |
 | Overview | What's open and what's being watched |
 | Issues | Every open problem, with its details and controls |
-| Sources | Every integration, device, entity and battery Home Assistant knows about. This is where you choose what to watch. |
+| Sources | Every integration, device, entity, battery and vacuum Home Assistant knows about. This is where you choose what to watch. |
 | Notifications | People, phones, schedules, and the switch that turns notifications on |
 | Settings | Timing, problem grouping and rules that cover whole groups of sources |
 | History | Ended issues from the last 30 days |
@@ -129,7 +131,7 @@ The full list is in [Known limitations](docs/troubleshooting.md#known-limitation
 3. Open **Sources**, pick an integration or device you know well, and choose what to watch in its **Settings**. You'll see what the change does before you save it. Start with a few things that matter and widen from there.
 4. Leave notifications off for a day or two and see what turns up. When it looks right, open **Notifications**, pick the people and their phones, check the schedules and turn notifications on. Homeostatic sends to the Companion app itself.
 
-The [user guide](docs/guide.md) covers the rest: rules for a whole integration, batteries, notifications and the controls.
+The [user guide](docs/guide.md) covers the rest: rules for a whole integration, batteries, vacuums, notifications and the controls.
 
 ## Create your own alert
 
@@ -208,7 +210,7 @@ Alerts you made from the blueprint are ordinary automations, so delete or disabl
 | Guide | What's in it |
 | --- | --- |
 | [Install and first run](docs/install.md) | A guided first setup, from install to a test notification, plus upgrading and rolling back |
-| [User guide](docs/guide.md) | Choosing what to watch, batteries, notifications, the controls and removal |
+| [User guide](docs/guide.md) | Choosing what to watch, batteries, vacuums, notifications, the controls and removal |
 | [Alerts from automations](docs/automation-situations.md) | Making alerts for conditions in the house |
 | [How it works](docs/how-it-works.md) | How failures become issues and when they are reported |
 | [Troubleshooting](docs/troubleshooting.md) | Common problems, and the full list of known limitations |

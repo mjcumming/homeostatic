@@ -169,7 +169,7 @@ def generate(
         if not isinstance(exceptions, dict):
             raise ValueError("Condition preferences must be a mapping")
         for check_id, profile in exceptions.items():
-            if check_id not in {"availability", "battery", "condition"}:
+            if check_id not in {"availability", "battery", "condition", "vacuum"}:
                 raise ValueError("Choose a supported monitored condition")
             scoped.append(
                 (_profile(profile), {"nodes": [node_id], "checks": [check_id]})

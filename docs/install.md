@@ -56,13 +56,13 @@ Homeostatic appears in the sidebar. If it isn't in the integration list, or setu
 
 Open **Homeostatic** in the sidebar. You land on **Overview**.
 
-A new install watches one thing: whether each of your integrations is working. That covers integrations that fail to load, keep retrying, or need you to sign in again. It doesn't watch devices, entities or batteries until you choose them.
+A new install watches one thing: whether each of your integrations is working. That covers integrations that fail to load, keep retrying, or need you to sign in again. It doesn't watch devices, entities, batteries or vacuums until you choose them.
 
 Homeostatic reads the current state straight away. Any integration that's failing shows up under **Open issues**. Select one to see what Home Assistant reported, what to try, and a link to the integration. You don't need to act on it now.
 
 Overview also says **Reporting is off**. Issues appear in the panel, but nothing is sent anywhere until step 6.
 
-Now open **Sources**. This lists every integration, device, entity and battery Home Assistant knows about, grouped by integration. The counts beside each name show how many devices it has and how many open issues. This is where you choose what to watch.
+Now open **Sources**. This lists every integration, device, entity, battery, and vacuum Home Assistant knows about, grouped by integration. The counts beside each name show how many devices it has and how many open issues. This is where you choose what to watch.
 
 ## 4. Watch one device
 

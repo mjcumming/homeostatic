@@ -414,7 +414,7 @@ export function locationTree(data) {
   const cached = treeCache.get(inventory);
   if (cached && cached.areas === data.areas && cached.floors === data.floors &&
       cached.devices === data.devices && cached.functions === data.functions) return cached.tree;
-  const rows = inventory.filter((source) => ["entity","device","battery"].includes(source.kind));
+  const rows = inventory.filter((source) => ["entity","device","battery","vacuum"].includes(source.kind));
   const deviceNames = new Map((data.devices ?? []).map((device) => [device.id, device.name]));
   const describe = (location) => {
     const devices = new Map();

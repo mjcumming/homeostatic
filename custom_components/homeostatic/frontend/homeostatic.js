@@ -1,22 +1,22 @@
-import {isAllBatteryPolicy, monitoringPolicies, newAllBatteryPolicy, newGroupPolicy} from "./monitoring-policies.mjs?v=51";
-import {sourceSettingsAction} from "./source-settings.mjs?v=60";
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=60";
+import {isAllBatteryPolicy, isAllVacuumPolicy, monitoringPolicies, newAllBatteryPolicy, newAllVacuumPolicy, newGroupPolicy} from "./monitoring-policies.mjs?v=52";
+import {sourceSettingsAction} from "./source-settings.mjs?v=61";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=61";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
-  sourceMap} from "./model.mjs?v=59";
+  sourceMap} from "./model.mjs?v=60";
 import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=47";
-import {batteryProblem, deviceProblem, entityProblem, integrationProblem, repairProblem} from "./problem.mjs?v=60";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=61";
 import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=59";
-import {diagnosticOverview} from "./evidence.mjs?v=59";
+import {diagnosticOverview} from "./evidence.mjs?v=60";
 import {editCatalogRule, monitoringScope,
-  scopeChoice, setScopeChoice} from "./configuration.mjs?v=46";
+  scopeChoice, setScopeChoice} from "./configuration.mjs?v=47";
 import {styles} from "./styles.mjs?v=55";
 import {locationBranch, setBranchExpanded} from "./tree.mjs?v=46";
 
-import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=46";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=60";
+import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=47";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=61";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=60";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=61";
 
 import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=59";
 
@@ -756,7 +756,7 @@ class HomeostaticCard extends HTMLElement {
     const situation = source?.kind === "situation";
     const repair = source?.kind === "repair";
     const affected = affectedFunctions(data, episode);
-    const problem = repairProblem(source, episode.reasons) ?? batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
+    const problem = repairProblem(source, episode.reasons) ?? vacuumProblem(source, data.inventory.entity_status?.[episode.anchor], data.areas) ?? batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       deviceProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       integrationProblem(source, episode.reasons, (key) => this._hass.localize?.(key), data.inventory.integration_evidence?.[episode.anchor]) ??
       entityProblem(source, data.inventory.entity_status?.[episode.anchor], nodes.get(`entry:${source?.owner_id}`), data.areas, (key) => this._hass.localize?.(key));
@@ -940,7 +940,7 @@ class HomeostaticCard extends HTMLElement {
       + `<div class="house-summary-actions">${watched || gaps.length || requiredUnselected.length ? '<button type="button" class="link" data-location-coverage>Review this location in Monitoring →</button>' : ""}${requiredUnselected.length ? '<button type="button" class="link" data-settings-section="monitoring">Review monitoring choices in Settings →</button>' : ""}</div></div>`;
     const problems = episodes.length ? `<section class="panel house-findings"><div class="panel-head"><h2>Open problems linked to this location</h2></div>${episodes.map((episode) => {
       const source = registered.get(episode.anchor);
-      const problem = batteryProblem(source,data.inventory.entity_status?.[episode.anchor]) ??
+      const problem = vacuumProblem(source,data.inventory.entity_status?.[episode.anchor],data.areas) ?? batteryProblem(source,data.inventory.entity_status?.[episode.anchor]) ??
         integrationProblem(source,episode.reasons,(key) => this._hass.localize?.(key),data.inventory.integration_evidence?.[episode.anchor]) ??
         entityProblem(source,data.inventory.entity_status?.[episode.anchor],registered.get(`entry:${source?.owner_id}`),data.areas,(key) => this._hass.localize?.(key));
       const impact = affectedFunctions(data,episode).map((item) => `${item.name}: ${ownerStatus(item.readiness.answer).toLowerCase()}`);
@@ -1152,6 +1152,8 @@ class HomeostaticCard extends HTMLElement {
     else if (button.dataset.action === "add-rule") {const rule = newGroupPolicy(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
     else if (button.dataset.action === "add-battery-rule") {const rule = newAllBatteryPolicy(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
     else if (button.dataset.action === "edit-battery-rule") {this.configEditingRule = this.configDraft.find(isAllBatteryPolicy)?.id ?? null; this.render(); this.shadowRoot.querySelector(".policy-edit[open]")?.scrollIntoView({block:"nearest"});}
+    else if (button.dataset.action === "add-vacuum-rule") {const rule = newAllVacuumPolicy(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
+    else if (button.dataset.action === "edit-vacuum-rule") {this.configEditingRule = this.configDraft.find(isAllVacuumPolicy)?.id ?? null; this.render(); this.shadowRoot.querySelector(".policy-edit[open]")?.scrollIntoView({block:"nearest"});}
     else if (button.dataset.action === "load-configuration") this.loadConfiguration();
     else if (button.dataset.action === "preview-alerts") this.previewAlerts();
     else if (button.dataset.action === "save-alerts") this.saveAlerts();
@@ -1268,7 +1270,7 @@ class HomeostaticCard extends HTMLElement {
       const currentFunctions = episode ? affectedFunctions(data, episode) : [];
       const diagnostic = episode ? null : diagnosticOverview(source, result, currentFunctions);
       const findings = result.explanation.findings;
-      const problem = repairProblem(source, findings) ?? batteryProblem(source, result.entity_status, Boolean(episode)) ??
+      const problem = repairProblem(source, findings) ?? vacuumProblem(source, result.entity_status, data.areas, Boolean(episode)) ?? batteryProblem(source, result.entity_status, Boolean(episode)) ??
         deviceProblem(source, result.entity_status, Boolean(episode)) ??
         integrationProblem(source, findings, (key) => this._hass.localize?.(key), result.integration_evidence, Boolean(episode)) ??
         entityProblem(source, result.entity_status, nodes.get(`entry:${source.owner_id}`), data.areas, (key) => this._hass.localize?.(key), Boolean(episode));
@@ -1303,7 +1305,7 @@ class HomeostaticCard extends HTMLElement {
          ${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}
          ${problem?.connectionNote ? `<section class="detail"><p>${esc(problem.connectionNote)}</p><button class="link" data-node="${esc(problem.connectionNode)}">${esc(problem.connectionLabel)}</button></section>` : ""}
          ${diagnostic ? source.kind === "device" ? `<section class="detail evidence-overview" aria-label="Household impact"><h3>What this means at home</h3><p>${esc(diagnostic.impact)}</p></section>` : `<section class="detail evidence-overview" aria-label="Evidence summary"><h3>What Homeostatic knows</h3><dl><dt>Monitoring</dt><dd>${esc(diagnostic.monitoring)}</dd><dt>What is checked</dt><dd>${esc(diagnostic.checks)}</dd><dt>Current assessment</dt><dd>${esc(diagnostic.assessment)}</dd><dt>Household impact</dt><dd>${esc(diagnostic.impact)}</dd></dl></section>` : ""}
-          ${["integration","entity","battery"].includes(source.kind) ? `<button type="button" class="button" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}
+          ${["integration","entity","battery","vacuum"].includes(source.kind) ? `<button type="button" class="button" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}
          ${controls.map((control) => `<p class="control-notice">${control.action === "shelve" ? "Alerts paused" : "Working on equipment"} until ${esc(date(control.until))}.</p>`).join("")}
         ${this.tools.detailButtons(source, episode, data)}
          ${availabilityExplanation}
