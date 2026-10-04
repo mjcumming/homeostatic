@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {cardView,notificationRoute,applyNotificationRoute} from "../../custom_components/homeostatic/frontend/notification-navigation.mjs";
 
-for (const [view,page] of [[undefined,"overview"], ["issues","problems"], ["settings","configuration"], ["problems","problems"], ["configuration","configuration"], ["sources","sources"], ["house","house"], ["functions","overview"]]) {
+for (const [view,page] of [[undefined,"overview"], ["issues","problems"], ["settings","configuration"], ["problems","problems"], ["configuration","configuration"], ["sources","sources"], ["policies","policies"], ["house","house"], ["functions","overview"]]) {
   test(`card view ${view} opens ${page}`,()=>assert.equal(cardView(view),page));
 }
 

@@ -31,9 +31,9 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0025](0025-follow-home-assistant-availability-semantics.md) | Follow Home Assistant entity availability semantics | Accepted; supersedes 0012 source eligibility and status mapping; partial-device warning superseded by 0045 |
 | [0026](0026-fixed-reporting-preferences.md) | Use five fixed reporting preferences | Accepted product direction; contract and implementation pending |
 | [0027](0027-reporting-defaults-and-delivery.md) | Fixed reporting defaults and delivery semantics | Accepted |
-| [0028](0028-settings-scope-and-visible-reporting.md) | Keep global policies in Settings and expose reporting directly | Accepted; catalog presentation superseded by 0030 |
+| [0028](0028-settings-scope-and-visible-reporting.md) | Keep global policies in Settings and expose reporting directly | Accepted; catalog presentation superseded by 0030; page placement superseded by 0047 |
 | [0029](0029-load-catalog-pages-on-demand.md) | Load revision-bound catalog pages on demand | Proposed; implemented locally for review |
-| [0030](0030-separate-group-policies-from-source-choices.md) | Show group policies separately from individual source choices | Accepted; partially supersedes 0028 |
+| [0030](0030-separate-group-policies-from-source-choices.md) | Show group policies separately from individual source choices | Accepted; partially supersedes 0028; page placement superseded by 0047; catalog editor superseded by 0048 |
 | [0031](0031-review-source-settings-together.md) | Review integration monitoring and reporting together | Accepted |
 | [0032](0032-automation-reported-situations.md) | Receive expiring situation reports from HA automations | Accepted; setup and registration partially superseded by 0034 |
 | [0033](0033-notification-tap-destinations.md) | Open issue context from notification taps | Accepted |
@@ -50,6 +50,8 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0044](0044-report-home-assistant-repairs-as-issues.md) | Report Home Assistant Repairs as issues | Accepted; supersedes 0040 |
 | [0045](0045-device-issue-requires-every-selected-entity-unavailable.md) | Open a device issue only when every selected entity is unavailable | Accepted; supersedes 0025's partial-device warning |
 | [0046](0046-report-vacuum-error-activity.md) | Report a vacuum's error activity as an issue | Accepted |
+| [0047](0047-policies-page.md) | Give Policies its own dashboard page | Accepted; check presentation superseded by 0048 |
+| [0048](0048-policy-checks.md) | Show Integrations, Devices, Batteries, and Vacuums as on or off, and Repairs as always on | Accepted |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision, not production readiness. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 

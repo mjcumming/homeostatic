@@ -1,11 +1,11 @@
 import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=46";
 import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=47";
 import {REPORTING, reportingChoices} from "./reporting.mjs?v=61";
-import {settingsChanges} from "./installation-settings.mjs?v=61";
+import {settingsChanges} from "./installation-settings.mjs?v=62";
 
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const reportingLabel = id => REPORTING.find(row=>row[0]===id)?.[1] || id;
-const policyLink = '<button type="button" class="link" data-settings-section="policies">Review monitoring policies</button>';
+const policyLink = '<button type="button" class="link" data-page="policies">Review policies</button>';
 const choiceLabel = value => ({inherit:"Following monitoring policies",attach:"Explicitly monitored",exclude:"Not monitored by default",multiple:"Several direct policies apply"}[value]);
 const familyDevices = node => node.children.flatMap(child=>child.source?.kind==="device"?[child]:child.children?child.children.filter(item=>item.source?.kind==="device"):[]);
 

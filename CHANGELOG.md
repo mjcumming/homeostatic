@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Give monitoring policies their own **Policies** page. It lists Integrations, Devices, Batteries, and Vacuums as on or off, and Repairs as always on. Settings keeps Timing and Problem grouping. A narrower match, such as an area or a label, is added under **Other policies**.
+
 ## [1.4.0] - 2026-10-03
 
 ### Added

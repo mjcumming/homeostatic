@@ -1,5 +1,5 @@
-import {isAllBatteryPolicy, isAllVacuumPolicy, monitoringPolicies, newAllBatteryPolicy, newAllVacuumPolicy, newGroupPolicy} from "./monitoring-policies.mjs?v=52";
-import {sourceSettingsAction} from "./source-settings.mjs?v=61";
+import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newGroupPolicy} from "./monitoring-policies.mjs?v=64";
+import {sourceSettingsAction} from "./source-settings.mjs?v=62";
 import {reportingOverview, reportingStatus} from "./reporting.mjs?v=61";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
@@ -10,17 +10,17 @@ import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=59";
 import {diagnosticOverview} from "./evidence.mjs?v=60";
 import {editCatalogRule, monitoringScope,
   scopeChoice, setScopeChoice} from "./configuration.mjs?v=47";
-import {styles} from "./styles.mjs?v=55";
+import {styles} from "./styles.mjs?v=63";
 import {locationBranch, setBranchExpanded} from "./tree.mjs?v=46";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=47";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=61";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=64";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=61";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=62";
 
 import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=59";
 
-const VIEWS = ["overview", "sources", "house", "coverage", "problems", "history", "notifications", "configuration"];
+const VIEWS = ["overview", "sources", "house", "coverage", "problems", "history", "notifications", "policies", "configuration"];
 const status = (value) => {
   const safe = ["ready", "blocked", "unknown", "degraded", "pass", "warn", "fail"].includes(value) ? value : "unknown";
   return `<span class="tag ${safe}">${safe[0].toUpperCase() + safe.slice(1)}</span>`;
@@ -103,7 +103,6 @@ class HomeostaticCard extends HTMLElement {
     this.sourceDetail = null;
     this.sourceSequence = 0;
     this.issueSort = "oldest";
-    this.configAdvancedOpen = false;
     this.configScopes = [];
     this.alertDraft = null;
     this.alertPreview = null;
@@ -117,7 +116,7 @@ class HomeostaticCard extends HTMLElement {
     this.current = {status: "loading", data: null, error: null};
     this.detail = null;
     this.detailSequence = 0;
-    this.shadowRoot.innerHTML = `<style>${styles}</style><div class="shell"><header class="header"><div class="brand">${icon("home-heart")}Homeostatic</div><nav class="nav" aria-label="Homeostatic pages"><button type="button" data-page="overview">Overview</button><button type="button" data-page="problems">Issues</button><button type="button" data-page="sources">Sources</button><button type="button" data-page="notifications">Notifications</button><button type="button" data-page="configuration">Settings</button><button type="button" data-page="history">History</button></nav><button type="button" class="button" data-action="back" hidden>Back</button></header><main aria-live="polite"></main></div><dialog aria-labelledby="detail-title"><header class="dialog-head"><div><p class="small" id="detail-label"></p><h2 id="detail-title"></h2></div><button type="button" class="button" data-action="close" aria-label="Close detail">Close</button></header><div class="dialog-body"></div></dialog>`;
+    this.shadowRoot.innerHTML = `<style>${styles}</style><div class="shell"><header class="header"><div class="brand">${icon("home-heart")}Homeostatic</div><nav class="nav" aria-label="Homeostatic pages"><button type="button" data-page="overview">Overview</button><button type="button" data-page="problems">Issues</button><button type="button" data-page="sources">Sources</button><button type="button" data-page="policies">Policies</button><button type="button" data-page="notifications">Notifications</button><button type="button" data-page="configuration">Settings</button><button type="button" data-page="history">History</button></nav><button type="button" class="button" data-action="back" hidden>Back</button></header><main aria-live="polite"></main></div><dialog aria-labelledby="detail-title"><header class="dialog-head"><div><p class="small" id="detail-label"></p><h2 id="detail-title"></h2></div><button type="button" class="button" data-action="close" aria-label="Close detail">Close</button></header><div class="dialog-body"></div></dialog>`;
     this.main = this.shadowRoot.querySelector("main");
     this.dialog = this.shadowRoot.querySelector("dialog");
     this.shadowRoot.addEventListener("click", (event) => this.clicked(event));
@@ -185,7 +184,7 @@ class HomeostaticCard extends HTMLElement {
   setConfig(config) {
     const view = cardView(config.view);
     if (!VIEWS.includes(view)) {
-      throw new Error("Homeostatic view must be overview, issues, sources, notifications, settings, or history.");
+      throw new Error("Homeostatic view must be overview, issues, sources, policies, notifications, settings, or history.");
     }
     this.config = {...config, view};
     this.page = ["house","coverage"].includes(this.config.view) ? "sources" : this.config.view;
@@ -257,7 +256,7 @@ class HomeostaticCard extends HTMLElement {
       }
       this.tools.update(value);
       this.render();
-      if ((["configuration","notifications"].includes(this.page) || this.page === "sources" && this.sourcesView === "settings") && value.status === "current" && !this.configuration && !this.configBusy) this.loadConfiguration();
+      if ((["configuration","notifications","policies"].includes(this.page) || this.page === "sources" && this.sourcesView === "settings") && value.status === "current" && !this.configuration && !this.configBusy) this.loadConfiguration();
       if (this.pendingEpisode && value.status === "current") {
         const episodeId = this.pendingEpisode;
         this.pendingEpisode = null;
@@ -363,7 +362,7 @@ class HomeostaticCard extends HTMLElement {
     back.hidden = this.config.navigation !== false || this.page === this.config.view;
     back.textContent = this.config.view === "house" && this.locationName
       ? `← Back to ${this.locationName} in Explore`
-      : `← Back to ${{overview:"Overview",house:"Sources",coverage:"Sources",sources:"Sources",problems:"Issues",history:"History",notifications:"Notifications",configuration:"Settings"}[this.config.view]}`;
+      : `← Back to ${{overview:"Overview",house:"Sources",coverage:"Sources",sources:"Sources",problems:"Issues",history:"History",notifications:"Notifications",policies:"Policies",configuration:"Settings"}[this.config.view]}`;
     this.shadowRoot.querySelectorAll("[data-page]").forEach((button) => {
       if (button.closest(".nav")) {
         if (button.dataset.page === this.page) button.setAttribute("aria-current", "page");
@@ -391,7 +390,8 @@ class HomeostaticCard extends HTMLElement {
       this.store?.ensureCatalog();
       return;
     }
-    if (["configuration","notifications"].includes(this.page)) this.main.innerHTML = installationSettings(this);
+    if (this.page === "policies") this.main.innerHTML = this.policiesPage();
+    else if (["configuration","notifications"].includes(this.page)) this.main.innerHTML = installationSettings(this);
     else if (this.page === "sources") this.main.innerHTML = this.sourcesPage();
     else if (this.page === "history") this.main.innerHTML = this.history(data);
     else if (this.page === "problems") this.main.innerHTML = this.issuesPage(data);
@@ -417,20 +417,23 @@ class HomeostaticCard extends HTMLElement {
     const option = (value, name) => `<option value="${value}"${choice === value ? " selected" : ""}>${name}</option>`;
     const devices = scope.kind === "integration_devices";
     const choices = choice === "multiple"
-      ? '<option selected>Multiple direct policies; review in Settings</option>'
+      ? '<option selected>Multiple direct policies; review in Policies</option>'
       : `${option("inherit","Follow broader choice")}${option("attach",devices ? "Watch these devices" : "Watch")}${option("exclude",devices ? "Leave these devices unmonitored" : "Do not monitor")}`;
     const original = scopeChoice(this.configuration.rules,scope);
     const pending = original !== choice ? " · Unsaved choice" : "";
     return `<label class="config-choice"><span>${esc(label)}${detail ? `<small>${esc(detail)}</small>` : ""}<small>Currently: ${esc(current)}${pending}</small></span><select data-scope-index="${index}" aria-label="${esc(label)} monitoring choice"${this.configBusy || choice === "multiple" ? " disabled" : ""}>${choices}</select></label>`;
   }
 
+  policiesPage() {
+    const intro = `<div class="intro"><div><h1>Policies</h1><p class="sub">Choose which Home Assistant reports become checks for current and future sources. Change one source in Sources. Reporting times and recipients are in Notifications.</p></div></div>`;
+    if (!this.configuration) return `${intro}<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading monitoring rules…")}</p><button type="button" class="button" data-action="load-configuration">Reload configuration</button></div></section>`;
+    return `${intro}<section class="panel"><div class="body">${this.monitoringEditor(true)}</div></section>`;
+  }
+
   monitoringEditor(global = false) {
     const data = this.current.data;
     const intro = '<div class="intro"><div><h1>Settings</h1><p class="sub">Choose what Homeostatic watches and how it responds.</p></div></div>';
     if (!this.configuration) return `${intro}<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading monitoring rules…")}</p><button type="button" class="button" data-action="load-configuration">Reload configuration</button></div></section>`;
-    if (this.main.querySelector(".config-advanced")) {
-      this.configAdvancedOpen = this.main.querySelector(".config-advanced")?.open ?? false;
-    }
     const preview = this.configPreview;
     const changes = (items, count, label) => count ? `<div><strong>${count} ${label}</strong><ul>${items.map((item) => `<li>${esc(item.name)}</li>`).join("")}</ul>${count > items.length ? `<p class="small">Showing the first ${items.length}.</p>` : ""}</div>` : "";
     const selected = !global ? sourcePaths(sourcesTree(data,this.sourcesGrouping,null,this.topomation)).get(this.sourcesSelection)?.node : null;
@@ -561,7 +564,7 @@ class HomeostaticCard extends HTMLElement {
       this.configError = error?.message ?? "Could not load configuration.";
     } finally {
       this.configBusy = false;
-      if (["configuration","notifications","sources"].includes(this.page)) this.render();
+      if (["configuration","notifications","policies","sources"].includes(this.page)) this.render();
     }
   }
 
@@ -1112,7 +1115,7 @@ class HomeostaticCard extends HTMLElement {
       if (button.dataset.page === "coverage") this.sourcesNeedsReview = true;
       if (button.dataset.page === "house") this.sourcesGrouping = "location";
       this.render();
-      if (["configuration","notifications"].includes(this.page) && !this.configuration) this.loadConfiguration();
+      if (["configuration","notifications","policies"].includes(this.page) && !this.configuration) this.loadConfiguration();
     }
     else if (button.dataset.settingsSection === "monitoring") {
       this.page = "sources";
@@ -1123,7 +1126,7 @@ class HomeostaticCard extends HTMLElement {
     }
     else if (button.dataset.settingsSection) {
       this.rememberExploreState();
-      this.page = button.dataset.settingsSection==="notifications"||button.dataset.settingsSection==="alerts"?"notifications":"configuration";
+      this.page = button.dataset.settingsSection==="notifications"||button.dataset.settingsSection==="alerts"?"notifications":button.dataset.settingsSection==="policies"?"policies":"configuration";
       if (this.page==="configuration") this.settingsSection = button.dataset.settingsSection;
       this.render();
       if (!this.configuration) this.loadConfiguration();
@@ -1150,10 +1153,18 @@ class HomeostaticCard extends HTMLElement {
     else if (button.dataset.action === "retry") this.store?.retry();
     else if (button.dataset.action === "retry-catalog") { this.store?.ensureCatalog(true); this.render(); }
     else if (button.dataset.action === "add-rule") {const rule = newGroupPolicy(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
-    else if (button.dataset.action === "add-battery-rule") {const rule = newAllBatteryPolicy(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
-    else if (button.dataset.action === "edit-battery-rule") {this.configEditingRule = this.configDraft.find(isAllBatteryPolicy)?.id ?? null; this.render(); this.shadowRoot.querySelector(".policy-edit[open]")?.scrollIntoView({block:"nearest"});}
-    else if (button.dataset.action === "add-vacuum-rule") {const rule = newAllVacuumPolicy(this.configDraft); this.configDraft.push(rule); this.configEditingRule = rule.id; this.configPreview = null; this.render();}
-    else if (button.dataset.action === "edit-vacuum-rule") {this.configEditingRule = this.configDraft.find(isAllVacuumPolicy)?.id ?? null; this.render(); this.shadowRoot.querySelector(".policy-edit[open]")?.scrollIntoView({block:"nearest"});}
+    else if (/^(add|clear|enable)-(integration|device|battery|vacuum)-rule$/.test(button.dataset.action)) {
+      const [, verb, scope] = button.dataset.action.match(/^(add|clear|enable)-(integration|device|battery|vacuum)-rule$/);
+      const match = {integration:isAllIntegrationPolicy, device:isAllDevicePolicy, battery:isAllBatteryPolicy, vacuum:isAllVacuumPolicy}[scope];
+      const create = {integration:newAllIntegrationPolicy, device:newAllDevicePolicy, battery:newAllBatteryPolicy, vacuum:newAllVacuumPolicy}[scope];
+      const savedBroad = (rule) => Boolean(this.configuration?.rules?.some(saved => saved.id === rule.id));
+      const index = this.configDraft.findIndex(rule => match(rule) && (savedBroad(rule) || rule.enabled !== false));
+      if (verb === "add" && index < 0) this.configDraft.push(create(this.configDraft));
+      else if (verb === "clear" && index >= 0) this.configDraft.splice(index, 1);
+      else if (verb === "enable" && index >= 0) this.configDraft[index].enabled = true;
+      this.configPreview = null;
+      this.render();
+    }
     else if (button.dataset.action === "load-configuration") this.loadConfiguration();
     else if (button.dataset.action === "preview-alerts") this.previewAlerts();
     else if (button.dataset.action === "save-alerts") this.saveAlerts();
@@ -1368,6 +1379,7 @@ class HomeostaticStrategy {
       {title:"Overview",path:"overview",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"overview",navigation:false}]},
       {title:"Issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"issues",navigation:false}]},
       {title:"Sources",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"sources",navigation:false}]},
+      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"policies",navigation:false}]},
       {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"notifications",navigation:false}]},
       {title:"Settings",path:"settings",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"settings",navigation:false}]},
       {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v21",view:"history",navigation:false}]},
@@ -1376,7 +1388,9 @@ class HomeostaticStrategy {
 }
 
 if (!customElements.get("homeostatic-card-v21")) customElements.define("homeostatic-card-v21", HomeostaticCard);
-if (!customElements.get("homeostatic-panel-v23")) customElements.define("homeostatic-panel-v23", HomeostaticPanel);
+if (!customElements.get("homeostatic-panel-v25")) customElements.define("homeostatic-panel-v25", HomeostaticPanel);
+if (!customElements.get("homeostatic-panel-v24")) customElements.define("homeostatic-panel-v24", class extends HomeostaticPanel {});
+if (!customElements.get("homeostatic-panel-v23")) customElements.define("homeostatic-panel-v23", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-panel-v22")) customElements.define("homeostatic-panel-v22", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-panel-v21")) customElements.define("homeostatic-panel-v21", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v15")) customElements.define("homeostatic-card-v15", class extends HomeostaticCard {});

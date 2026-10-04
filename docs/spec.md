@@ -40,40 +40,13 @@ The panel's monitoring review summarizes watched integration instances, device a
 
 ### Monitoring policy presentation
 
-Home Assistant creates the integration entry in one step with integration availability monitoring and notification requests off. It exposes no Configure flow or integration YAML fields. Settings → Monitoring policies and Sources → Settings are the editable monitoring surfaces. Their review and guarded save path remains authoritative. The structured catalog remains in storage and in read-only inventory and preview actions.
+Home Assistant creates the integration entry in one step with integration availability monitoring and notification requests off. It exposes no Configure flow or integration YAML fields. Policies and Sources → Settings are the editable monitoring surfaces. Their review and guarded save path remains authoritative. The structured catalog remains in storage and in read-only inventory and preview actions.
 
-Settings → Monitoring policies shows group rules without explicit `integration`,
-`device`, or `entity` selectors. Summaries show the source types and all filled
-conditions; these rules can match current and future sources. Any rule with an
-explicit source selector, including multi-source and mixed-condition rules,
-remains a source choice managed in Sources. Counts are rule counts, not inventory
-or watched-source counts. Watch rules appear first; group exclusion rules start
-collapsed under **Leave unmonitored policies** and remain editable there. An
-exclusion being collapsed does not change its effect. Disabled rules remain
-visible as paused when their section is opened.
-Adding a group policy drafts a paused device-availability rule. It has no effect
-until the owner chooses its scope, enables it, reviews the affected sources, and
-saves. The separate Monitor all batteries and Monitor all vacuums actions draft their stated broad scopes.
+Policies shows Integrations, Devices, Batteries, and Vacuums, then Repairs. Each of the first four shows whether it is on or off. On is a saved enabled broad attach rule for that kind and check. Off, when no such rule is saved, offers **Monitor all integrations**, **Monitor all devices**, **Monitor all batteries**, or **Monitor all vacuums**. That action drafts one enabled attach rule covering current and future matches. **Turn off** removes that rule from the draft. A paused broad rule shows Off and offers **Turn on**, which enables it, and **Turn off**, which removes it. None of these actions save or enable notification requests. The owner reviews the effective scope and saves through the normal guarded path. These four checks do not open the match-field editor. Devices watches device summaries through each device's selected entities. A separate entity check stays a choice in Sources. Repairs is always on: every Home Assistant Repair becomes an issue, and the row links to the reporting choice in Notifications. Repairs is not a catalog rule and has no off switch.
 
-The page presents a direct **Monitor all batteries** action before the group
-rule list when no broad battery policy exists. It drafts one enabled `attach`
-rule with `kind: battery` and the `battery` check, covering current and future
-battery candidates. The action does not save or enable notification requests;
-the owner reviews the effective scope and saves through the normal guarded path.
-An existing broad battery policy is shown instead of offering a duplicate.
+**Other policies** lists the remaining rules without explicit `integration`, `device`, or `entity` selectors. Summaries show the source types and all filled conditions; these rules can match current and future sources. Any rule with an explicit source selector, including multi-source and mixed-condition rules, remains a source choice managed in Sources. Exclusion rules start collapsed under **Leave unmonitored policies** and remain editable there. An exclusion being collapsed does not change its effect. Disabled rules remain visible as paused when their section is opened. **Add policy** drafts a paused device-availability rule. It has no effect until the owner chooses its scope, enables it, reviews the affected sources, and saves. Its editor is the match-field form. The page does not list individual source rules or stored rule JSON.
 
-**Monitor all vacuums** does the same for vacuum entities: one enabled `attach`
-rule with `kind: vacuum` and the `vacuum` check. An existing broad vacuum policy
-is shown instead of offering a duplicate.
-
-Group policy editing is explicitly disclosed. The complete technical catalog
-editor remains under a collapsed Advanced rule details section, including source
-rules that need overlap correction. Rendering never edits, filters, reorders or
-replaces the stored catalog. Edits retain original rule indices and submit the
-complete draft through the existing preview and guarded save path. Changing or
-removing a rule invalidates its preview. Opening Sources preserves pending edits.
-This presentation supersedes older descriptions of a raw catalog as the normal
-Settings view ([ADR 0030](adr/0030-separate-group-policies-from-source-choices.md)).
+Rendering never edits, filters, reorders or replaces the stored catalog. Edits retain original rule indices and submit the complete draft through the existing preview and guarded save path. Changing or removing a rule invalidates its preview. Opening Sources preserves pending edits. This presentation supersedes older descriptions of a raw catalog as the normal Settings view ([ADR 0030](adr/0030-separate-group-policies-from-source-choices.md), [ADR 0047](adr/0047-policies-page.md), [ADR 0048](adr/0048-policy-checks.md)).
 
 ### Home Assistant device availability
 
@@ -133,11 +106,11 @@ An overall readiness sensor preserves `ready`, `unknown`, `degraded`, and `block
 
 ### Live dashboard
 
-The integration registers a Homeostatic sidebar dashboard at `/homeostatic`, a reusable `custom:homeostatic-card`, and a `custom:homeostatic` dashboard strategy. The strategy creates Overview, Issues, Sources, Notifications, Settings and History views. The card's `view` accepts those page names; `functions` opens Overview for older cards. Existing user dashboards are not rewritten.
+The integration registers a Homeostatic sidebar dashboard at `/homeostatic`, a reusable `custom:homeostatic-card`, and a `custom:homeostatic` dashboard strategy. The strategy creates Overview, Issues, Sources, Policies, Notifications, Settings and History views. The card's `view` accepts those page names; `functions` opens Overview for older cards. Existing user dashboards are not rewritten.
 
 Every active Home Assistant Repair, except those Homeostatic raises, is a `repair` source with its own episode. Its name is the Repair's translated title, its finding names the raising integration and severity, and its link is the automation editor when the Repair carries one and the Repairs page otherwise. The episode ends when Home Assistant deletes the Repair or the owner ignores it. During the startup hold, a stored Repair that its integration hasn't raised again keeps its episode open. Repairs share the `repairs` reporting choice, which defaults to `morning` and routes through the profile label rules. Up to 500 Repairs are tracked. Rule-reference scans and trace-only run errors are outside this contract ([ADR 0044](adr/0044-report-home-assistant-repairs-as-issues.md)).
 
-Home, History and problem detail are read-only. Sources and Settings provide guarded monitoring, timing and notification edits in the panel. All dashboard WebSocket commands enforce administrator access. The integration exposes no native Configure form.
+Home, History and problem detail are read-only. Sources, Policies and Settings provide guarded monitoring, timing and notification edits in the panel. All dashboard WebSocket commands enforce administrator access. The integration exposes no native Configure form.
 
 Without `compact: true` or `paged: true`, `homeostatic/subscribe` sends a schema-version-1 snapshot after subscription acknowledgement and on runtime publication. It contains availability, current equipment readiness, inventory, active episodes, operator controls, coverage, policy explanations, and HA location names. It never reads engine snapshot internals or advances time. Startup, storage error and unload publish `available: false`. Subscriptions survive entry reload and end on client unsubscribe or disconnect.
 
@@ -180,7 +153,7 @@ Coverage and house source rows show monitoring status and evidence without displ
 
 Sources combines the former source browsing and monitoring views under [ADR 0017](adr/0017-one-sources-workspace.md). Grouping changes presentation only; they do not change enrollment or notification state.
 
-The target navigation is **Overview, Issues, Sources, Notifications, Settings, History**, with History at the far right in both the Homeostatic header and generated Home Assistant dashboard. Sources combines discovery, current evidence, and source-specific monitoring choices in one workspace. A persistent source selection drives one detail panel with **Source**, **Settings**, and **History** views. Source summarizes identity and current evidence; Settings shows saved monitoring and its guarded editor; History shows retained events linked to the selected source. Switching views retains tree selection and any monitoring draft. Overview and Issues retain their existing responsibilities. The top-level Notifications page owns guided delivery choices and activation; Settings holds Timing and Problem grouping. ADR 0022 established the six destinations and page ownership; this presentation order was set later.
+The target navigation is **Overview, Issues, Sources, Policies, Notifications, Settings, History**, with History at the far right in both the Homeostatic header and generated Home Assistant dashboard. Sources combines discovery, current evidence, and source-specific monitoring choices in one workspace. A persistent source selection drives one detail panel with **Source**, **Settings**, and **History** views. Source summarizes identity and current evidence; Settings shows saved monitoring and its guarded editor; History shows retained events linked to the selected source. Switching views retains tree selection and any monitoring draft. Overview and Issues retain their existing responsibilities. Policies owns the installation-wide monitoring catalog. The top-level Notifications page owns guided delivery choices and activation; Settings holds Timing and Problem grouping. ADR 0022 established the earlier destinations and page ownership; ADR 0047 gives Policies its own page.
 
 Sources provides **By integration**, **By Home Assistant location**, and, when its read-only tree is available, **By Topomation** views. Integration is the initial default; remember the owner's grouping thereafter. Home Assistant location uses HA floors/areas and device/entity associations. A grouping switch preserves the selected source by stable identity and reveals its new path. Unlocated sources, floorless areas, entities without devices, and sources without a known integration remain explicitly reachable. Integration entries and other non-location sources have a suitable Other sources fallback rather than a fabricated area or device. Location grouping creates no dependency. The watched device-to-integration edge follows the HA entry association described above.
 
@@ -311,7 +284,7 @@ An overall readiness sensor preserves `ready`, `unknown`, `degraded`, and `block
 
 ### Live dashboard
 
-The integration registers a Homeostatic sidebar dashboard at `/homeostatic`, a reusable `custom:homeostatic-card`, and a `custom:homeostatic` dashboard strategy. The strategy creates Overview, Issues, Sources, Notifications, Settings and History views. The card's `view` accepts those page names; `functions` opens Overview for older cards. Existing user dashboards are not rewritten.
+The integration registers a Homeostatic sidebar dashboard at `/homeostatic`, a reusable `custom:homeostatic-card`, and a `custom:homeostatic` dashboard strategy. The strategy creates Overview, Issues, Sources, Policies, Notifications, Settings and History views. The card's `view` accepts those page names; `functions` opens Overview for older cards. Existing user dashboards are not rewritten.
 
 The dashboard is administrator-only because the aggregate view includes installation-wide inventory, configuration and notification routing. Read and configuration WebSocket commands enforce administrator access; hiding the sidebar is not the authorization boundary. Operator forms call the existing HA administrator services, which enforce authorization independently. Non-administrators get an explicit access message. Existing readiness entities remain available through HA's entity access controls.
 
@@ -427,7 +400,7 @@ The dashboard follows [ADR 0019](adr/0019-accepted-dashboard-baseline.md) and th
 - Source Settings shows monitoring choices immediately. Integration connection monitoring and device defaults are separate. Defaults apply to current and future devices, including devices belonging to subsequently added connections of that family. Device overrides and ordinary exclusions retain their precedence. Existing enrollment is unchanged until an administrator reviews and saves a change; no Eero-specific exception or automatic migration is introduced.
 - An integration-wide off choice precedes those narrower controls. It excludes current and future connection, device-summary, and separately monitored entity checks across the integration family, including exact device watches. Narrower choices remain saved and resume when the owner removes the off choice. Review shows the current affected sources before save ([ADR 0020](adr/0020-integration-monitoring-master-control.md)).
 - Catalog rules accept `integration_domain` alongside the existing stable instance matcher. Sources expose their associated integration domains. An overridable exclusion is permitted only for device defaults matched by `integration` or `integration_domain` plus `kind: device`. Exact device attachment can defeat that default; every ordinary exclusion still wins.
-- The main navigation is Overview, Issues, Sources, Notifications, Settings and History. Settings contains Timing, Problem grouping and Monitoring policies. The Notifications page guides person destinations and activation. Saved consumer automations remain in stored options; reviewing and saving built-in person delivery clears that route.
+- The main navigation is Overview, Issues, Sources, Policies, Notifications, Settings and History. Policies holds the installation-wide monitoring catalog. Settings contains Timing and Problem grouping. The Notifications page guides person destinations and activation. Saved consumer automations remain in stored options; reviewing and saving built-in person delivery clears that route.
 - Administrator-only `homeostatic/source` reads a discovered source without enrolling it. It returns current HA readings (up to 50, with complete availability counts), captured monitoring context when present, and the observation timestamp. Missing observations remain explicit; browsing cannot create checks, episodes, or delivery.
 - A previously selected notification automation remains saved until a reviewed built-in delivery setup replaces it. The native Configure path is unavailable.
 
@@ -490,9 +463,9 @@ preview/save revision checks. Bulk device defaults preserve condition exceptions
 ### Settings scope and initial reporting setup (ADR 0028)
 
 Source Settings shows scoped monitoring choices and reporting assignments. It
-does not embed the installation-wide catalog editor. Settings → Monitoring
-policies holds that editor and its existing preview/save controls; multiple
-direct source policies link there. Timing and Problem grouping remain separate.
+does not embed the installation-wide catalog editor. Policies holds that
+editor and its existing preview/save controls; multiple direct source policies
+link there. Timing and Problem grouping remain in Settings.
 
 Notifications always shows fixed reporting types, schedules, people, destinations,
 household defaults, and activation. When reporting choices have not been saved,

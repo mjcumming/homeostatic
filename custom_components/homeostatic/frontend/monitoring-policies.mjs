@@ -1,42 +1,61 @@
 import {escapeHtml as esc} from "./model.mjs?v=46";
-import {MATCH_FIELDS, MATCH_LABELS, newCatalogRule, ruleSummary} from "./configuration.mjs?v=47";
+import {MATCH_FIELDS, MATCH_LABELS, newCatalogRule} from "./configuration.mjs?v=47";
 
 /** Keep exact source choices in Sources, including mixed and multi-source rules. */
 export function isGroupPolicy(rule) {
   return !["integration", "device", "entity"].some(field => rule.match?.[field]?.length);
 }
 
-export function isAllBatteryPolicy(rule) {
-  return rule.action === "attach" && rule.checks?.[0] === "battery" &&
-    rule.match?.kind?.length === 1 && rule.match.kind[0] === "battery" &&
+function isBroadPolicy(rule, kind, check) {
+  return rule.action === "attach" && rule.checks?.[0] === check &&
+    rule.match?.kind?.length === 1 && rule.match.kind[0] === kind &&
     Object.entries(rule.match).every(([field, values]) => field === "kind" || !values.length);
+}
+
+function newBroadPolicy(rules, kind, check) {
+  const rule = newCatalogRule(rules);
+  rule.match = {kind:[kind]};
+  rule.checks = [check];
+  return rule;
+}
+
+export function isAllIntegrationPolicy(rule) {
+  return isBroadPolicy(rule, "integration", "availability");
+}
+
+export function newAllIntegrationPolicy(rules) {
+  return newBroadPolicy(rules, "integration", "availability");
+}
+
+export function isAllDevicePolicy(rule) {
+  return isBroadPolicy(rule, "device", "availability");
+}
+
+export function newAllDevicePolicy(rules) {
+  return newBroadPolicy(rules, "device", "availability");
+}
+
+export function isAllBatteryPolicy(rule) {
+  return isBroadPolicy(rule, "battery", "battery");
 }
 
 export function newAllBatteryPolicy(rules) {
-  const rule = newCatalogRule(rules);
-  rule.match = {kind:["battery"]};
-  rule.checks = ["battery"];
-  return rule;
+  return newBroadPolicy(rules, "battery", "battery");
 }
 
 export function isAllVacuumPolicy(rule) {
-  return rule.action === "attach" && rule.checks?.[0] === "vacuum" &&
-    rule.match?.kind?.length === 1 && rule.match.kind[0] === "vacuum" &&
-    Object.entries(rule.match).every(([field, values]) => field === "kind" || !values.length);
+  return isBroadPolicy(rule, "vacuum", "vacuum");
 }
 
 export function newAllVacuumPolicy(rules) {
-  const rule = newCatalogRule(rules);
-  rule.match = {kind:["vacuum"]};
-  rule.checks = ["vacuum"];
-  return rule;
+  return newBroadPolicy(rules, "vacuum", "vacuum");
 }
 
 export function newGroupPolicy(rules) {
   return {...newCatalogRule(rules),enabled:false,match:{kind:["device"]}};
 }
 
-const sourceTypes = {integration:"integration connections", device:"device availability", entity:"entity availability",battery:"battery condition",vacuum:"vacuum error"};
+const sourceTypes = {integration:"integrations", device:"devices", entity:"entities", battery:"batteries", vacuum:"vacuums"};
 
 /** Explain every condition without treating a rule count as an inventory count. */
 export function groupPolicyScope(rule, data = {}) {
@@ -45,8 +64,7 @@ export function groupPolicyScope(rule, data = {}) {
   const subject = kinds.map(kind => sourceTypes[kind] ?? kind).join(" or ");
   const conditions = Object.entries(match).filter(([field, values]) => field !== "kind" && values.length).map(([field, values]) => {
     const registry = {area:data.areas, floor:data.floors, label:data.labels}[field];
-    const names = values.map(value => registry?.find(item => item.id === value)?.name ??
-      (["area", "floor", "label"].includes(field) ? `Selected ${field} (see rule details)` : value));
+    const names = values.map(value => registry?.find(item => item.id === value)?.name ?? value);
     return `${({area:"Area",floor:"Floor",label:"Label"})[field] ?? MATCH_LABELS[field] ?? field}: ${names.join(" or ")}`;
   });
   return {subject, conditions};
@@ -62,12 +80,18 @@ function ruleFields(rule, index, fields, view) {
   return `<div class="config-fields">${fields.map(field => `<label><span>${esc(MATCH_LABELS[field])}</span><input type="text" data-rule-view="${view}" data-rule-index="${index}" data-rule-field="match:${field}" value="${esc((rule.match?.[field] ?? []).join(", "))}" placeholder="Any" autocomplete="off"></label>`).join("")}</div><p class="small">All filled conditions must match. Separate alternative values within a condition with commas.</p>`;
 }
 
-/** Render group policies first; retain the complete unchanged catalog in Advanced. */
+/** Render the four checks as on/off choices, and narrower rules under Other policies. */
 export function monitoringPolicies(card) {
   const rules = card.configDraft;
   const groups = rules.map((rule, index) => ({rule, index})).filter(({rule}) => isGroupPolicy(rule));
-  const battery = groups.find(({rule}) => isAllBatteryPolicy(rule));
-  const vacuum = groups.find(({rule}) => isAllVacuumPolicy(rule));
+  const savedBroad = (rule) => Boolean(card.configuration?.rules?.some(saved => saved.id === rule.id));
+  const claimed = (rule, predicate) => predicate(rule) && (savedBroad(rule) || rule.enabled !== false);
+  const integration = groups.find(({rule}) => claimed(rule, isAllIntegrationPolicy));
+  const device = groups.find(({rule}) => claimed(rule, isAllDevicePolicy));
+  const battery = groups.find(({rule}) => claimed(rule, isAllBatteryPolicy));
+  const vacuum = groups.find(({rule}) => claimed(rule, isAllVacuumPolicy));
+  const claimedIds = new Set([integration, device, battery, vacuum].filter(Boolean).map(({rule}) => rule.id));
+  const others = groups.filter(({rule}) => !claimedIds.has(rule.id));
   const disabled = card.configBusy ? " disabled" : "";
   const broadFields = MATCH_FIELDS.filter(field => !["integration", "device", "entity"].includes(field));
   const renderPolicy = ({rule, index}) => {
@@ -76,25 +100,35 @@ export function monitoringPolicies(card) {
     const status = newDraft && rule.enabled === false ? "Draft — choose a scope and enable it before saving."
       : newDraft ? "Draft — no effect until reviewed and saved."
       : rule.enabled === false ? "Paused — this rule has no effect." : "Enabled — applies to current and future matching sources.";
-    return `<article class="monitoring-policy" data-ui-key="policy:${esc(rule.id)}"><h3>${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${esc(subject)}</h3><p class="small">${status}</p>${conditions.length ? `<ul class="policy-conditions">${conditions.map(condition => `<li>${esc(condition)}</li>`).join("")}</ul>` : '<p class="sub">All current and future sources of this type match.</p>'}<details class="config-rule policy-edit"${card.configEditingRule === rule.id ? " open" : ""}><summary>Edit group policy</summary>${ruleControls(rule,index,"group")}${ruleFields(rule,index,broadFields,"group")}</details></article>`;
+    return `<article class="monitoring-policy" data-ui-key="policy:${esc(rule.id)}"><h3>${rule.action === "exclude" ? "Leave unmonitored" : "Watch"} ${esc(subject)}</h3><p class="small">${status}</p>${conditions.length ? `<ul class="policy-conditions">${conditions.map(condition => `<li>${esc(condition)}</li>`).join("")}</ul>` : '<p class="sub">All current and future sources of this type match.</p>'}<details class="config-rule policy-edit"${card.configEditingRule === rule.id ? " open" : ""}><summary>Edit policy</summary>${ruleControls(rule,index,"group")}${ruleFields(rule,index,broadFields,"group")}</details></article>`;
   };
-  const watched = groups.filter(({rule}) => rule.action !== "exclude").map(renderPolicy).join("");
-  const excluded = groups.filter(({rule}) => rule.action === "exclude").map(renderPolicy).join("");
-  const excludedCount = groups.filter(({rule}) => rule.action === "exclude").length;
-  const advanced = rules.map((rule, index) => `<details class="config-rule" data-ui-key="advanced-policy:${esc(rule.id)}"><summary>${esc(ruleSummary(rule))}</summary>${ruleControls(rule,index,"advanced")}${ruleFields(rule,index,MATCH_FIELDS,"advanced")}<details><summary>Stored rule details</summary><pre>${esc(JSON.stringify(rule,null,2))}</pre></details></details>`).join("");
-  const savedBattery = battery && card.configuration?.rules.find(rule => rule.id === battery.rule.id && isAllBatteryPolicy(rule));
-  const batteryStatus = battery?.rule.enabled === false ? "The all-battery policy is paused."
-    : savedBattery?.enabled !== false && savedBattery ? "An all-battery policy is enabled."
-      : "An all-battery policy is drafted. Review and save to enable it.";
-  const batteryAction = battery
-    ? `<p>${batteryStatus} Individual exclusions can still leave batteries unmonitored.</p><button type="button" class="button" data-action="edit-battery-rule"${disabled}>Review battery policy</button>`
-    : `<p>Watch current and future battery candidates for a low condition. Review the affected sources before saving.</p><button type="button" class="button" data-action="add-battery-rule"${disabled}>Monitor all batteries</button>`;
-  const savedVacuum = vacuum && card.configuration?.rules.find(rule => rule.id === vacuum.rule.id && isAllVacuumPolicy(rule));
-  const vacuumStatus = vacuum?.rule.enabled === false ? "The all-vacuum policy is paused."
-    : savedVacuum?.enabled !== false && savedVacuum ? "An all-vacuum policy is enabled."
-      : "An all-vacuum policy is drafted. Review and save to enable it.";
-  const vacuumAction = vacuum
-    ? `<p>${vacuumStatus} Individual exclusions can still leave vacuums unmonitored.</p><button type="button" class="button" data-action="edit-vacuum-rule"${disabled}>Review vacuum policy</button>`
-    : `<p>Watch current and future vacuums for an error activity. Review the affected sources before saving.</p><button type="button" class="button" data-action="add-vacuum-rule"${disabled}>Monitor all vacuums</button>`;
-  return `<div class="monitoring-policies"><section class="monitoring-policy"><h3>Battery conditions</h3>${batteryAction}</section><section class="monitoring-policy"><h3>Vacuum errors</h3>${vacuumAction}</section><h3>Group policies (${groups.length})</h3><p class="sub">Watch policies choose checks for matching sources, including sources added later. Leave unmonitored policies exclude matching sources. Open a source in Sources to see its effective choice.</p><fieldset class="config-editor"${disabled}>${watched || (groups.length ? '<p class="sub">No watch policies in this group.</p>' : '<p class="sub">No group policies. Choose individual sources in Sources, or add a policy for a whole group.</p>')}${excludedCount ? `<details class="policy-exceptions"${groups.some(({rule}) => rule.action === "exclude" && rule.id === card.configEditingRule) ? " open" : ""}><summary>Leave unmonitored policies (${excludedCount})</summary><div>${excluded}</div></details>` : ""}<button type="button" class="button" data-action="add-rule"${disabled}>Add group policy</button></fieldset><div class="policy-sources"><h3>Individual source choices</h3><p class="sub">Choose a specific connection, device, entity, battery, or vacuum by name in Sources.</p><button type="button" class="button" data-page="sources">Open Sources</button></div><details class="config-advanced"${card.configAdvancedOpen ? " open" : ""}><summary>Advanced rule details</summary><div class="body"><p class="sub">All ${rules.length} rules, including individual source choices. Use this editor to inspect exact conditions or resolve overlapping rules. Changes still require review and save.</p><fieldset class="config-editor"${disabled}>${advanced || '<p>No rules configured.</p>'}</fieldset></div></details></div>`;
+  const watched = others.filter(({rule}) => rule.action !== "exclude").map(renderPolicy).join("");
+  const excluded = others.filter(({rule}) => rule.action === "exclude").map(renderPolicy).join("");
+  const excludedCount = others.filter(({rule}) => rule.action === "exclude").length;
+  const broadSection = (title, detail, entry, addAction, addLabel, clearAction, enableAction) => {
+    const draft = entry && card.configuration?.rules && !card.configuration.rules.some(rule => rule.id === entry.rule.id);
+    const paused = entry?.rule.enabled === false;
+    const state = entry && !paused ? "On" : "Off";
+    const note = paused ? " This check is paused." : draft ? " Review and save before this takes effect." : "";
+    const actions = !entry
+      ? `<button type="button" class="button" data-action="${addAction}"${disabled}>${addLabel}</button>`
+      : paused
+        ? `<button type="button" class="button" data-action="${enableAction}"${disabled}>Turn on</button><button type="button" class="link" data-action="${clearAction}"${disabled}>Turn off</button>`
+        : `<button type="button" class="link" data-action="${clearAction}"${disabled}>Turn off</button>`;
+    return `<section class="policy-check"><div class="policy-check-head"><h2>${esc(title)}</h2><strong class="policy-state${state === "Off" ? " is-off" : ""}">${state}</strong></div><p>${esc(detail)}${note}</p><div class="policy-check-actions">${actions}</div></section>`;
+  };
+  const checks = [
+    broadSection("Integrations", "Watches whether current and future integrations are loaded in Home Assistant. A failed setup, a retry that keeps failing, a migration problem, or a sign-in request opens an issue.", integration,
+      "add-integration-rule", "Monitor all integrations", "clear-integration-rule", "enable-integration-rule"),
+    broadSection("Devices", "Watches current and future devices through the entities selected on each device.", device,
+      "add-device-rule", "Monitor all devices", "clear-device-rule", "enable-device-rule"),
+    broadSection("Batteries", "Watches current and future batteries for a low reading.", battery,
+      "add-battery-rule", "Monitor all batteries", "clear-battery-rule", "enable-battery-rule"),
+    broadSection("Vacuums", "Watches current and future vacuums for an error.", vacuum,
+      "add-vacuum-rule", "Monitor all vacuums", "clear-vacuum-rule", "enable-vacuum-rule"),
+  ].join("");
+  const repairs = `<section class="policy-check"><div class="policy-check-head"><h2>Repairs</h2><strong class="policy-state">On</strong></div><p>Every Repair Home Assistant raises becomes an issue.</p><div class="policy-check-actions"><button type="button" class="link" data-page="notifications">When to report them</button></div></section>`;
+  const editingOther = others.some(({rule}) => rule.action === "exclude" && rule.id === card.configEditingRule);
+  const empty = !watched && !excludedCount ? '<p class="sub">No other policies.</p>' : "";
+  return `<div class="monitoring-policies">${checks}${repairs}<h2>Other policies</h2><p class="sub">Match current and future sources by area, label, or another condition.</p><fieldset class="config-editor"${disabled}>${empty}${watched}${excludedCount ? `<details class="policy-exceptions"${editingOther ? " open" : ""}><summary>Leave unmonitored policies (${excludedCount})</summary><div>${excluded}</div></details>` : ""}<button type="button" class="button" data-action="add-rule"${disabled}>Add policy</button></fieldset></div>`;
 }

@@ -71,7 +71,7 @@ The `profile` value is what the [`report_alert`](#homeostaticreport_alert) actio
 
 ## Monitoring rules
 
-What Homeostatic watches is saved as rules. Sources writes them for you; **Settings → Monitoring policies → Advanced rule details** shows them all, and [`preview_rules`](#homeostaticpreview_rules) accepts them.
+What Homeostatic watches is saved as rules. Sources writes a rule for one source. Policies saves the four checks and any other policy. [`preview_rules`](#homeostaticpreview_rules) accepts the stored rules.
 
 | Field | Required | Value |
 | --- | --- | --- |

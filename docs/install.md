@@ -62,7 +62,7 @@ Homeostatic reads the current state straight away. Any integration that's failin
 
 Overview also says **Reporting is off**. Issues appear in the panel, but nothing is sent anywhere until step 6.
 
-Now open **Sources**. This lists every integration, device, entity, battery, and vacuum Home Assistant knows about, grouped by integration. The counts beside each name show how many devices it has and how many open issues. This is where you choose what to watch.
+Now open **Sources**. This lists every integration, device, entity, battery, and vacuum Home Assistant knows about, grouped by integration. The counts beside each name show how many devices it has and how many open issues. This is where you choose what to watch. To watch every current and future device, battery, or vacuum, open **Policies**.
 
 ## 4. Watch one device
 

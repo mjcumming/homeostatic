@@ -44,18 +44,16 @@ A choice on one device wins over the integration's device default, so you can ch
 
 **When to notify**, on the same page, sets the reporting choice for all the integration's current devices at once. See [Choose when each source reports](#choose-when-each-source-reports).
 
-### Rules for groups and future sources
+### Other policies
 
-Some choices work better as a rule, such as watching every device in the garage area or leaving everything with a `test` label alone. A rule like this is a group policy, and it applies to current sources and to any that appear later.
+Some choices work better as a policy, such as watching every device in the garage area or leaving everything with a `test` label alone. A policy like this applies to current sources and to any that appear later. Turn Integrations, Devices, Batteries, and Vacuums on or off from the top of Policies. Repairs stay on.
 
-1. Open **Settings → Monitoring policies** and select **Add group policy**.
-2. Under **Edit group policy**, set **Action** to **Watch** or **Leave unmonitored**, and **Check** to **HA availability** or **Battery condition**.
-3. Fill in the conditions you need: source type, domain, device class, integration type, area ID, floor ID or label ID. A new policy starts with none, which would watch every integration and entity, so fill these in before you review. Every filled condition has to match. Separate alternative values within one condition with commas. To cover devices, set the source type to `device`; a policy without a source type matches integrations and entities only.
+1. Open **Policies** and select **Add policy**.
+2. Under **Edit policy**, set **Action** to **Watch** or **Leave unmonitored**, and **Check** to **HA availability**, **Battery condition**, or **Vacuum error**.
+3. Fill in the conditions you need: source type, domain, device class, integration type, area ID, floor ID or label ID. A new policy starts paused and limited to devices, so set the conditions and enable it before you review. Every filled condition has to match. Separate alternative values within one condition with commas. To cover devices, set the source type to `device`; a policy without a source type matches integrations and entities only.
 4. Select **Review changes** to see which sources the policy picks up, then **Save choices**.
 
-**Leave unmonitored** policies are listed under **Leave unmonitored policies**.
-
-**Advanced rule details**, at the bottom of the page, shows every saved rule with its exact conditions, including the rules Sources creates for individual choices. Use it when two rules overlap. The fields are listed in the [reference](reference.md#monitoring-rules).
+**Leave unmonitored** policies are listed under **Leave unmonitored policies**. One source is changed in Sources. The fields are listed in the [reference](reference.md#monitoring-rules).
 
 ### Exclude something
 
@@ -85,7 +83,7 @@ Homeostatic finds battery level sensors, low-battery binary sensors and charging
 
 To watch one battery, select it in **Sources**, open **Settings**, choose **Monitor this battery**, then review and save. Check the entities paired with it first. When a device has more than one battery signal, Homeostatic lists them as separate batteries.
 
-To watch every battery, now and in future, open **Settings → Monitoring policies**, select **Monitor all batteries**, review the result and select **Save choices**. Batteries you've excluded one by one stay excluded.
+To watch every battery, now and in future, open **Policies**, select **Monitor all batteries**, review the result and select **Save choices**. Batteries you've excluded one by one stay excluded.
 
 A watched battery opens an issue when its level is at or below 20%, or when its low-battery sensor reports low. A current charging report clears the issue even if the level is still low, and the issue comes back if charging stops before the level recovers. Homeostatic can't tell whether a battery was replaced or recharged.
 
@@ -95,7 +93,7 @@ A vacuum is watched separately from whether Home Assistant can reach it. Homeost
 
 To watch one vacuum, select it in **Sources**, open **Settings**, choose **Monitor this vacuum**, then review and save.
 
-To watch every vacuum, now and in future, open **Settings → Monitoring policies**, select **Monitor all vacuums**, review the result and select **Save choices**. Vacuums you've excluded one by one stay excluded.
+To watch every vacuum, now and in future, open **Policies**, select **Monitor all vacuums**, review the result and select **Save choices**. Vacuums you've excluded one by one stay excluded.
 
 A watched vacuum opens an issue when Home Assistant reports its activity as error. Cleaning, docked, idle, paused, or returning ends the issue. Unavailable, unknown, missing, and restored states leave an open issue open.
 

@@ -43,8 +43,8 @@ from .vacuum import observe as vacuum_observation
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=63"
-PANEL_ELEMENT = "homeostatic-panel-v23"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=65"
+PANEL_ELEMENT = "homeostatic-panel-v25"
 
 
 def _digest(value: dict[str, Any]) -> str:

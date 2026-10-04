@@ -1417,16 +1417,31 @@ test("Timing preview describes edits while preserving unrelated policy structure
 test("monitoring policy scenario keeps 18 direct choices out of the normal group view", () => {
   const rules=monitoringPolicyRules(), before=structuredClone(rules);
   const html=monitoringPolicies({configDraft:rules,current:{data:{}}});
-  const [normal,advanced]=html.split('<details class="config-advanced"');
-  assert.match(normal,/Group policies \(1\)/);
-  assert.match(normal,/Watch integration connections/);
-  assert.match(normal,/Choose a specific connection, device, entity, battery, or vacuum by name in Sources/);
-  assert.doesNotMatch(normal,/Watch 1 selected device|Watch 2 selected entities|data-rule-index="0"|data-rule-index="2"/);
-  assert.match(normal,/data-rule-index="1"/);
-  assert.match(normal,/data-page="sources"/);
-  assert.match(advanced,/^><summary>Advanced rule details/);
-  assert.match(advanced,/data-rule-index="18"/);
+  assert.match(html,/Integrations/);
+  assert.match(html,/class="policy-state">On</);
+  assert.match(html,/Vacuums/);
+  assert.match(html,/Repairs/);
+  assert.match(html,/Monitor all vacuums/);
+  assert.match(html,/No other policies/);
+  assert.match(html,/Add policy/);
+  assert.doesNotMatch(html,/What to watch|Advanced rule details|Edit policy|Individual source choices|Group policies|Source type|Remove rule|data-rule-index|config-advanced|policy-sources/);
   assert.deepEqual(rules,before);
+});
+
+test("a broad check is on, off, paused, or an unsaved draft", () => {
+  const paused={id:"vacuums",action:"attach",enabled:false,match:{kind:["vacuum"]},checks:["vacuum"]};
+  const html=monitoringPolicies({configDraft:[paused],configuration:{rules:[paused]},current:{data:{}}});
+  assert.match(html,/Vacuums/);
+  assert.match(html,/class="policy-state is-off">Off</);
+  assert.match(html,/This check is paused/);
+  assert.match(html,/data-action="enable-vacuum-rule"/);
+  assert.match(html,/data-action="clear-vacuum-rule"/);
+  assert.doesNotMatch(html,/Edit policy|Remove rule|Source type/);
+  const draft={id:"batteries",action:"attach",enabled:true,match:{kind:["battery"]},checks:["battery"]};
+  const drafted=monitoringPolicies({configDraft:[draft],configuration:{rules:[]},current:{data:{}}});
+  assert.match(drafted,/Review and save before this takes effect/);
+  assert.match(drafted,/data-action="clear-battery-rule"/);
+  assert.doesNotMatch(drafted,/data-action="add-battery-rule"/);
 });
 
 for(const [name,match,expected] of [
@@ -1444,15 +1459,15 @@ test("group policy summaries retain every condition, paused state and escaping",
   const rule={id:"scoped",action:"exclude",enabled:false,match:{kind:["device","entity"],
     domain:["light","switch"],device_class:["outlet"],area:["porch"],label:["missing"]}};
   const data={areas:[{id:"porch",name:"<Porch>"}]};
-  assert.deepEqual(groupPolicyScope(rule,data),{subject:"device availability or entity availability",conditions:[
-    "Domain: light or switch","Device class: outlet","Area: <Porch>","Label: Selected label (see rule details)"]});
+  assert.deepEqual(groupPolicyScope(rule,data),{subject:"devices or entities",conditions:[
+    "Domain: light or switch","Device class: outlet","Area: <Porch>","Label: missing"]});
   const html=monitoringPolicies({configDraft:[rule],configBusy:true,configuration:data,current:{data:{areas:[]}}});
-  assert.match(html,/Leave unmonitored device availability or entity availability/);
+  assert.match(html,/Leave unmonitored devices or entities/);
   assert.match(html,/Paused — this rule has no effect/);
   assert.match(html,/&lt;Porch&gt;/);
   assert.doesNotMatch(html,/<Porch>/);
   assert.match(html,/<fieldset class="config-editor" disabled>/);
-  assert.deepEqual(groupPolicyScope({match:{}}).subject,"integration connections or entity availability");
+  assert.deepEqual(groupPolicyScope({match:{}}).subject,"integrations or entities");
 });
 
 test("group exclusions start collapsed while watch policies remain visible",()=>{
@@ -1461,7 +1476,8 @@ test("group exclusions start collapsed while watch policies remain visible",()=>
     {id:"skip",action:"exclude",enabled:true,match:{kind:["integration"],integration_domain:["alexa_media"]},checks:["availability"]},
   ];
   const html=monitoringPolicies({configDraft:rules,current:{data:{}}});
-  assert.match(html,/Watch integration connections/);
+  assert.match(html,/Integrations/);
+  assert.match(html,/class="policy-state">On</);
   assert.match(html,/<details class="policy-exceptions"><summary>Leave unmonitored policies \(1\)<\/summary>/);
   assert.match(html,/Integration type: alexa_media/);
   assert.match(html,/data-rule-index="1"/);
@@ -1471,10 +1487,18 @@ test("group exclusions start collapsed while watch policies remain visible",()=>
   assert.deepEqual(rules[1].match,{kind:["integration"],integration_domain:["alexa_media"]});
 });
 
-test("no group policies directs owners to Sources without inventing defaults",()=>{
+test("settings navigation keeps timing and grouping",()=>{
+  const settings={timings:{settle:0,unknown_hold:0,retry_hold:0,clear_hold:0,rejoin_grace:0,startup_grace:0,startup_quiet_max:0,coalesce_count:3,coalesce_window:0,batch:0},notifications:false,consumer:null,policy:{timezone:"UTC",recipients:{},rules:[]},simple_notifications:{people:{}}};
+  const html=installationSettings({page:"configuration",settingsSection:"timing",configuration:{settings,consumers:[]},settingsDraft:structuredClone(settings),settingsBusy:false,settingsPreview:null,settingsError:null,settingsNotice:null});
+  assert.match(html,/Problem grouping/);
+  assert.doesNotMatch(html,/Monitoring policies/);
+  assert.doesNotMatch(html,/data-settings-section="policies"/);
+});
+
+test("no other policies stays empty without inventing defaults",()=>{
   const rules=monitoringPolicyRules().filter(rule=>!isGroupPolicy(rule));
   const html=monitoringPolicies({configDraft:rules,current:{data:{}}});
-  assert.match(html,/No group policies/);
+  assert.match(html,/No other policies/);
   assert.equal(rules.length,18);
   assert.doesNotMatch(html,/<article class="monitoring-policy"/);
 });
@@ -1551,9 +1575,10 @@ test("Sources explains default monitoring without opening the tree",()=>{
     sourcesExpanded:new Set(),sourcesSelection:null,sourcesView:"source",sourcesHelpOpen:false};
   const closed=sourcesBrowser(card);
   assert.match(closed,/<details class="sources-explainer" data-sources-explainer><summary>How monitoring is chosen<\/summary>/);
-  assert.match(closed,/New installations monitor integration connections/);
+  assert.match(closed,/New installations monitor integrations/);
   assert.match(closed,/diagnostic entities only when there are no enabled ordinary ones/);
   assert.match(closed,/An entity exclusion removes it from the device check/);
+  assert.match(closed,/Open Policies for a choice that covers current and future sources/);
   assert.match(closed,/<\/details><ul class="config-tree">/);
   card.sourcesHelpOpen=true;
   assert.match(sourcesBrowser(card),/<details class="sources-explainer" data-sources-explainer open>/);
