@@ -32,6 +32,12 @@ export async function runMonitoringPolicyScenario(card) {
   expect(!visible().includes("Watch 1 selected device"),"Individual rules must start hidden");
   expect(!visible().includes("Source type"),"Raw match fields must start hidden");
   expect(!root.querySelector(".config-advanced"),"The raw catalog editor is not on Policies");
+  expect(visible().includes("Turn off") && !visible().includes("When to report them"),"Repairs uses the same on or off control");
+  root.querySelector('[data-action="turn-off-repairs"]').click();
+  expect(visible().includes("Monitor all repairs") && visible().includes("Review and save before this takes effect"),"Turning Repairs off stays a draft");
+  expect(!root.querySelector(".policy-edit"),"The Repairs switch does not open the match-field editor");
+  root.querySelector('[data-action="monitor-repairs"]').click();
+  expect(!card.configDraft.some(rule => rule.checks?.[0] === "repair") && visible().includes("Turn off"),"Monitor all repairs removes that draft");
   expect(requests.length === 0,"Reading the page must not preview or save");
   root.querySelector('[data-action="clear-integration-rule"]').click();
   expect(card.configDraft.length === 18 && !card.configDraft.some(rule => rule.id === "connections"),"Turn off removes only the broad check");

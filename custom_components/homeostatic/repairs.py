@@ -16,6 +16,7 @@ from homeassistant.loader import IntegrationNotFound, async_get_integration
 from . import reporting
 from .catalog import Source
 from .const import DOMAIN
+from .rules import CatalogRule
 
 MAX_REPAIRS = 500
 DEFAULT_PROFILE = "morning"
@@ -36,6 +37,17 @@ RECORD = vol.Schema(
 def node_id(domain: str, issue_id: str) -> str:
     """Name a Repair by its registry key, which HA keeps while it is reported."""
     return "repair:" + sha256(f"{domain}\0{issue_id}".encode()).hexdigest()
+
+
+def suppressed(rules: tuple[CatalogRule, ...]) -> bool:
+    """Whether a broad exclusion turns every Repair off."""
+    return any(
+        rule.enabled
+        and rule.action == "exclude"
+        and rule.checks == ("repair",)
+        and dict(rule.match) == {"kind": ("repair",)}
+        for rule in rules
+    )
 
 
 def profile(policy: dict[str, Any]) -> str | None:
@@ -138,8 +150,12 @@ class Repairs:
         self.records = kept
         return changed
 
-    def sources(self, policy: dict[str, Any]) -> dict[str, Source]:
+    def sources(
+        self, policy: dict[str, Any], rules: tuple[CatalogRule, ...] = ()
+    ) -> dict[str, Source]:
         """Present each known Repair as a source outside the dependency map."""
+        if suppressed(rules):
+            return {}
         chosen = profile(policy)
         return {
             key: Source(

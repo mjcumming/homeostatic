@@ -46,7 +46,7 @@ A choice on one device wins over the integration's device default, so you can ch
 
 ### Other policies
 
-Some choices work better as a policy, such as watching every device in the garage area or leaving everything with a `test` label alone. A policy like this applies to current sources and to any that appear later. Turn Integrations, Devices, Batteries, and Vacuums on or off from the top of Policies. Repairs stay on.
+Some choices work better as a policy, such as watching every device in the garage area or leaving everything with a `test` label alone. A policy like this applies to current sources and to any that appear later. Turn Integrations, Devices, Batteries, Vacuums, and Repairs on or off from the top of Policies. Repairs stay on until you turn them off.
 
 1. Open **Policies** and select **Add policy**.
 2. Under **Edit policy**, set **Action** to **Watch** or **Leave unmonitored**, and **Check** to **HA availability**, **Battery condition**, or **Vacuum error**.

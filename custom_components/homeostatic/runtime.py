@@ -551,7 +551,11 @@ class Runtime:
         self.repairs.prune(
             {str(episode["anchor"]) for episode in open_episodes.values()}
         )
-        sources.update(self.repairs.sources(self.settings.policy))
+        sources.update(
+            self.repairs.sources(
+                self.settings.policy, parse_rules(rule_data(self.hass, self.settings))
+            )
+        )
         self.enrolled = {
             node_id: source.attributes
             for node_id, source in sources.items()

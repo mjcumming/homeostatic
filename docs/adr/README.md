@@ -51,7 +51,8 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0045](0045-device-issue-requires-every-selected-entity-unavailable.md) | Open a device issue only when every selected entity is unavailable | Accepted; supersedes 0025's partial-device warning |
 | [0046](0046-report-vacuum-error-activity.md) | Report a vacuum's error activity as an issue | Accepted |
 | [0047](0047-policies-page.md) | Give Policies its own dashboard page | Accepted; check presentation superseded by 0048 |
-| [0048](0048-policy-checks.md) | Show Integrations, Devices, Batteries, and Vacuums as on or off, and Repairs as always on | Accepted |
+| [0048](0048-policy-checks.md) | Show Integrations, Devices, Batteries, and Vacuums as on or off, and Repairs as always on | Accepted; Repairs row superseded by 0049 |
+| [0049](0049-repairs-check.md) | Turn Repairs on or off like the other checks | Accepted |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision, not production readiness. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 

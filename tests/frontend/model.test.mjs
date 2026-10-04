@@ -1162,15 +1162,23 @@ test("Sources keeps device and entity identities across integration and location
   data.areas=[{id:"porch",name:"Porch",floor_id:"first"}];
   const entity=data.inventory.nodes.find((row)=>row.node_id==="entity:registry:camera-1-1");
   entity.attributes.area=["porch"];
+  const lock=baseSource("entity:registry:porch-lock","Porch lock","entity",{entity_id:"lock.porch",attributes:{area:["porch"],entity:["registry:porch-lock"]}});
+  data.inventory.nodes.push(lock);
+  data.inventory.catalog.candidates.push(lock);
   const integration=sourcePaths(sourcesTree(data,"integration"));
-  const location=sourcePaths(sourcesTree(data,"location"));
+  const grouped=sourcesTree(data,"location");
+  const location=sourcePaths(grouped);
   assert.ok(integration.has("source:entity:registry:camera-1-1"));
   assert.ok(location.has("source:entity:registry:camera-1-1"));
   assert.ok(integration.has("source:device:camera-1"));
   assert.ok(location.has("source:device:camera-1"));
   assert.ok(location.has("source:entity:registry:orphan-124"));
   assert.ok(location.has("source:entry:frigate"));
-  assert.equal(location.get("source:entity:registry:camera-1-1").parents[0].name,"First floor");
+  assert.deepEqual(location.get("source:entity:registry:camera-1-1").parents.map((item)=>item.name),["First floor","Porch","Back Porch"]);
+  assert.deepEqual(location.get("source:entity:registry:porch-lock").parents.map((item)=>item.name),["First floor","Porch"]);
+  const floor=grouped.find((node)=>node.name==="First floor");
+  assert.deepEqual(floor.children.map((node)=>node.name),["Porch"]);
+  assert.deepEqual(floor.children[0].children.map((node)=>node.name),["Back Porch","Porch lock"]);
 });
 
 test("Sources uses Topomation nesting and keeps unplaced sources reachable",()=>{
@@ -1421,7 +1429,9 @@ test("monitoring policy scenario keeps 18 direct choices out of the normal group
   assert.match(html,/class="policy-state">On</);
   assert.match(html,/Vacuums/);
   assert.match(html,/Repairs/);
+  assert.match(html,/data-action="turn-off-repairs"/);
   assert.match(html,/Monitor all vacuums/);
+  assert.doesNotMatch(html,/When to report them/);
   assert.match(html,/No other policies/);
   assert.match(html,/Add policy/);
   assert.doesNotMatch(html,/What to watch|Advanced rule details|Edit policy|Individual source choices|Group policies|Source type|Remove rule|data-rule-index|config-advanced|policy-sources/);
@@ -1442,6 +1452,11 @@ test("a broad check is on, off, paused, or an unsaved draft", () => {
   assert.match(drafted,/Review and save before this takes effect/);
   assert.match(drafted,/data-action="clear-battery-rule"/);
   assert.doesNotMatch(drafted,/data-action="add-battery-rule"/);
+  const off={id:"repairs_off",action:"exclude",enabled:true,match:{kind:["repair"]},checks:["repair"]};
+  const stopped=monitoringPolicies({configDraft:[off],configuration:{rules:[]},current:{data:{}}});
+  assert.match(stopped,/Monitor all repairs/);
+  assert.match(stopped,/Review and save before this takes effect/);
+  assert.doesNotMatch(stopped,/Edit policy|When to report them/);
 });
 
 for(const [name,match,expected] of [

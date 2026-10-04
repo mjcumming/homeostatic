@@ -2,9 +2,12 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-04
+
 ### Changed
 
-- Give monitoring policies their own **Policies** page. It lists Integrations, Devices, Batteries, and Vacuums as on or off, and Repairs as always on. Settings keeps Timing and Problem grouping. A narrower match, such as an area or a label, is added under **Other policies**.
+- In Sources grouped by Home Assistant location, a floor lists its areas. Devices and entities appear under the area they belong to.
+- Give monitoring policies their own **Policies** page. It lists Integrations, Devices, Batteries, Vacuums, and Repairs as on or off. Repairs stay on until turned off. Settings keeps Timing and Problem grouping. A narrower match, such as an area or a label, is added under **Other policies**.
 
 ## [1.4.0] - 2026-10-03
 

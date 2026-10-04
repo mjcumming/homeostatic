@@ -26,6 +26,7 @@ from custom_components.homeostatic.automation_alerts import AutomationAlerts
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.repairs import Repairs, node_id, profile
+from custom_components.homeostatic.rules import parse_rules
 from tests.test_lifecycle import start_monitor
 from tests.test_reporting import PEOPLE
 from tests.test_reporting import configured as configured
@@ -266,6 +267,22 @@ async def test_repairs_share_one_reporting_choice(hass: HomeAssistant) -> None:
         }
     )
     [source] = repairs.sources(weekly).values()
+    assert (
+        repairs.sources(
+            weekly,
+            parse_rules(
+                [
+                    {
+                        "id": "repairs_off",
+                        "action": "exclude",
+                        "match": {"kind": "repair"},
+                        "checks": ["repair"],
+                    }
+                ]
+            ),
+        )
+        == {}
+    )
     assert source.alert_profile == "weekly"
     assert (
         source.node(Settings.from_data({})).labels["homeostatic_alert_profile"]

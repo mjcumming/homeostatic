@@ -51,6 +51,20 @@ export function newAllVacuumPolicy(rules) {
   return newBroadPolicy(rules, "vacuum", "vacuum");
 }
 
+export function isRepairsOffPolicy(rule) {
+  return rule.action === "exclude" && rule.checks?.[0] === "repair" &&
+    rule.match?.kind?.length === 1 && rule.match.kind[0] === "repair" &&
+    Object.entries(rule.match).every(([field, values]) => field === "kind" || !values.length);
+}
+
+export function newRepairsOffPolicy(rules) {
+  const rule = newCatalogRule(rules);
+  rule.action = "exclude";
+  rule.match = {kind:["repair"]};
+  rule.checks = ["repair"];
+  return rule;
+}
+
 export function newGroupPolicy(rules) {
   return {...newCatalogRule(rules),enabled:false,match:{kind:["device"]}};
 }
@@ -90,7 +104,8 @@ export function monitoringPolicies(card) {
   const device = groups.find(({rule}) => claimed(rule, isAllDevicePolicy));
   const battery = groups.find(({rule}) => claimed(rule, isAllBatteryPolicy));
   const vacuum = groups.find(({rule}) => claimed(rule, isAllVacuumPolicy));
-  const claimedIds = new Set([integration, device, battery, vacuum].filter(Boolean).map(({rule}) => rule.id));
+  const repairsOff = groups.find(({rule}) => claimed(rule, isRepairsOffPolicy));
+  const claimedIds = new Set([integration, device, battery, vacuum, repairsOff].filter(Boolean).map(({rule}) => rule.id));
   const others = groups.filter(({rule}) => !claimedIds.has(rule.id));
   const disabled = card.configBusy ? " disabled" : "";
   const broadFields = MATCH_FIELDS.filter(field => !["integration", "device", "entity"].includes(field));
@@ -105,6 +120,8 @@ export function monitoringPolicies(card) {
   const watched = others.filter(({rule}) => rule.action !== "exclude").map(renderPolicy).join("");
   const excluded = others.filter(({rule}) => rule.action === "exclude").map(renderPolicy).join("");
   const excludedCount = others.filter(({rule}) => rule.action === "exclude").length;
+  const policyCheck = (title, detail, state, note, actions) =>
+    `<section class="policy-check"><div class="policy-check-head"><h2>${esc(title)}</h2><strong class="policy-state${state === "Off" ? " is-off" : ""}">${state}</strong></div><p>${esc(detail)}${note}</p><div class="policy-check-actions">${actions}</div></section>`;
   const broadSection = (title, detail, entry, addAction, addLabel, clearAction, enableAction) => {
     const draft = entry && card.configuration?.rules && !card.configuration.rules.some(rule => rule.id === entry.rule.id);
     const paused = entry?.rule.enabled === false;
@@ -115,7 +132,7 @@ export function monitoringPolicies(card) {
       : paused
         ? `<button type="button" class="button" data-action="${enableAction}"${disabled}>Turn on</button><button type="button" class="link" data-action="${clearAction}"${disabled}>Turn off</button>`
         : `<button type="button" class="link" data-action="${clearAction}"${disabled}>Turn off</button>`;
-    return `<section class="policy-check"><div class="policy-check-head"><h2>${esc(title)}</h2><strong class="policy-state${state === "Off" ? " is-off" : ""}">${state}</strong></div><p>${esc(detail)}${note}</p><div class="policy-check-actions">${actions}</div></section>`;
+    return policyCheck(title, detail, state, note, actions);
   };
   const checks = [
     broadSection("Integrations", "Watches whether current and future integrations are loaded in Home Assistant. A failed setup, a retry that keeps failing, a migration problem, or a sign-in request opens an issue.", integration,
@@ -127,7 +144,17 @@ export function monitoringPolicies(card) {
     broadSection("Vacuums", "Watches current and future vacuums for an error.", vacuum,
       "add-vacuum-rule", "Monitor all vacuums", "clear-vacuum-rule", "enable-vacuum-rule"),
   ].join("");
-  const repairs = `<section class="policy-check"><div class="policy-check-head"><h2>Repairs</h2><strong class="policy-state">On</strong></div><p>Every Repair Home Assistant raises becomes an issue.</p><div class="policy-check-actions"><button type="button" class="link" data-page="notifications">When to report them</button></div></section>`;
+  const offDraft = repairsOff && card.configuration?.rules && !card.configuration.rules.some(rule => rule.id === repairsOff.rule.id);
+  const repairsStopped = Boolean(repairsOff) && repairsOff.rule.enabled !== false;
+  const repairs = policyCheck(
+    "Repairs",
+    "Watches current and future Home Assistant Repairs.",
+    repairsStopped ? "Off" : "On",
+    repairsStopped && offDraft ? " Review and save before this takes effect." : "",
+    repairsStopped
+      ? `<button type="button" class="button" data-action="monitor-repairs"${disabled}>Monitor all repairs</button>`
+      : `<button type="button" class="link" data-action="turn-off-repairs"${disabled}>Turn off</button>`,
+  );
   const editingOther = others.some(({rule}) => rule.action === "exclude" && rule.id === card.configEditingRule);
   const empty = !watched && !excludedCount ? '<p class="sub">No other policies.</p>' : "";
   return `<div class="monitoring-policies">${checks}${repairs}<h2>Other policies</h2><p class="sub">Match current and future sources by area, label, or another condition.</p><fieldset class="config-editor"${disabled}>${empty}${watched}${excludedCount ? `<details class="policy-exceptions"${editingOther ? " open" : ""}><summary>Leave unmonitored policies (${excludedCount})</summary><div>${excluded}</div></details>` : ""}<button type="button" class="button" data-action="add-rule"${disabled}>Add policy</button></fieldset></div>`;

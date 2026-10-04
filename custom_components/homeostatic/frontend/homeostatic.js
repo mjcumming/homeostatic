@@ -1,4 +1,4 @@
-import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newGroupPolicy} from "./monitoring-policies.mjs?v=64";
+import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, isRepairsOffPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newGroupPolicy, newRepairsOffPolicy} from "./monitoring-policies.mjs?v=65";
 import {sourceSettingsAction} from "./source-settings.mjs?v=62";
 import {reportingOverview, reportingStatus} from "./reporting.mjs?v=61";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
@@ -14,7 +14,7 @@ import {styles} from "./styles.mjs?v=63";
 import {locationBranch, setBranchExpanded} from "./tree.mjs?v=46";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=47";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=64";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=66";
 
 import {installationSettings, editInstallation} from "./installation-settings.mjs?v=62";
 
@@ -441,7 +441,10 @@ class HomeostaticCard extends HTMLElement {
     const entityChoice = entity ? scopeChoice(this.configDraft,monitoringScope("entity",entity.node_id,entity)) : null;
     const subject = entity ? `<p><strong>${esc(selected.name)}</strong><br><small>${esc(entity.entity_id)}</small></p><p>Selected choice: ${entityChoice === "exclude" ? "Exclude this entity" : entityChoice === "attach" ? "Monitor this entity separately" : "Use device and integration choices"}.</p>` : "";
     const noCountChange = !preview?.added_count && !preview?.removed_count ? `<p>No sources are newly watched or stopped by this draft.${entityChoice === "exclude" ? " This exclusion can still change which entities a device availability check uses, or keep this entity out of future device monitoring." : ""}</p>` : "";
-    const result = preview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Review monitoring choices</h2></div><div class="body">${subject}<p><strong>${preview.watched}</strong> watched sources after this change.</p>${noCountChange}<div class="config-change-list">${changes(preview.added,preview.added_count,"newly watched")}${changes(preview.removed,preview.removed_count,"no longer watched")}</div><p class="small">This preview uses current Home Assistant evidence. New devices may match these rules later.</p></div></section>` : "";
+    const repairsWereOff = this.configuration?.rules?.some(rule => isRepairsOffPolicy(rule) && rule.enabled !== false);
+    const repairsAreOff = this.configDraft?.some(rule => isRepairsOffPolicy(rule) && rule.enabled !== false);
+    const repairsChange = preview && repairsWereOff !== repairsAreOff ? `<p>${repairsAreOff ? "Home Assistant Repairs will no longer open issues." : "Home Assistant Repairs will open issues again."}</p>` : "";
+    const result = preview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Review monitoring choices</h2></div><div class="body">${subject}<p><strong>${preview.watched}</strong> watched sources after this change.</p>${noCountChange}${repairsChange}<div class="config-change-list">${changes(preview.added,preview.added_count,"newly watched")}${changes(preview.removed,preview.removed_count,"no longer watched")}</div><p class="small">This preview uses current Home Assistant evidence. New devices may match these rules later.</p></div></section>` : "";
     const policies = global ? monitoringPolicies(this) : "";
     const changed=JSON.stringify(this.configDraft)!==JSON.stringify(this.configuration.rules);
     const actions = `<section class="config-review">${changed?`<div class="config-actions"><span class="small">Unsaved monitoring choices</span><button type="button" class="button primary" data-action="${preview?'save-configuration':'preview-configuration'}"${this.configBusy?' disabled':''}>${preview?'Save choices':'Review changes'}</button><button type="button" class="link" data-action="discard-monitoring"${this.configBusy?' disabled':''}>Discard</button></div>`:'<p class="small">Changes are reviewed before saving.</p>'}${this.configError?`<p class="config-error" role="alert">${esc(this.configError)}</p>`:''}</section>`;
@@ -1162,6 +1165,16 @@ class HomeostaticCard extends HTMLElement {
       if (verb === "add" && index < 0) this.configDraft.push(create(this.configDraft));
       else if (verb === "clear" && index >= 0) this.configDraft.splice(index, 1);
       else if (verb === "enable" && index >= 0) this.configDraft[index].enabled = true;
+      this.configPreview = null;
+      this.render();
+    }
+    else if (button.dataset.action === "turn-off-repairs" || button.dataset.action === "monitor-repairs") {
+      const savedBroad = (rule) => Boolean(this.configuration?.rules?.some(saved => saved.id === rule.id));
+      const index = this.configDraft.findIndex(rule => isRepairsOffPolicy(rule) && (savedBroad(rule) || rule.enabled !== false));
+      if (button.dataset.action === "turn-off-repairs") {
+        if (index < 0) this.configDraft.push(newRepairsOffPolicy(this.configDraft));
+        else this.configDraft[index].enabled = true;
+      } else if (index >= 0) this.configDraft.splice(index, 1);
       this.configPreview = null;
       this.render();
     }

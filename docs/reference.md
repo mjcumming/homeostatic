@@ -71,20 +71,20 @@ The `profile` value is what the [`report_alert`](#homeostaticreport_alert) actio
 
 ## Monitoring rules
 
-What Homeostatic watches is saved as rules. Sources writes a rule for one source. Policies saves the four checks and any other policy. [`preview_rules`](#homeostaticpreview_rules) accepts the stored rules.
+What Homeostatic watches is saved as rules. Sources writes a rule for one source. Policies saves the checks and any other policy. [`preview_rules`](#homeostaticpreview_rules) accepts the stored rules.
 
 | Field | Required | Value |
 | --- | --- | --- |
 | `id` | Yes | Unique: lowercase letters, digits and `_`, starting with a letter |
 | `action` | Yes | `attach` (**Watch**) or `exclude` (**Leave unmonitored**) |
-| `checks` | No | `[availability]` (default), `[battery]`, or `[vacuum]`. One check per rule. |
+| `checks` | No | `[availability]` (default), `[battery]`, `[vacuum]`, or `[repair]`. One check per rule. `[repair]` is the broad exclusion that turns Repairs off. |
 | `enabled` | No | `true` (default) or `false` to pause the rule |
 | `match` | Yes | Conditions, below |
 | `overridable` | No | Set by Sources on an integration's **Only devices I choose** choice, so a single device can still be watched |
 
 | Match field | Label in the panel | Value |
 | --- | --- | --- |
-| `kind` | Source type | `integration`, `device`, `entity`, `battery` or `vacuum` |
+| `kind` | Source type | `integration`, `device`, `entity`, `battery`, `vacuum`, or `repair` |
 | `domain` | Domain | An entity domain such as `light`, or the integration's domain for an integration |
 | `device_class` | Device class | The entity's device class, such as `temperature` |
 | `integration` | Integration instance ID | A config entry id |
@@ -480,6 +480,7 @@ navigation: false
 | `overview` | Overview |
 | `issues` | Issues, without page tabs |
 | `sources` | Sources |
+| `policies` | Policies |
 | `notifications` | Notifications |
 | `settings` | Settings |
 | `history` | History |
@@ -490,16 +491,19 @@ The older view names `problems`, `configuration`, `house` and `coverage` still l
 
 Homeostatic registers a dashboard strategy named **Homeostatic**. Choose it under **Settings → Dashboards → Add dashboard**.
 
-It builds six panel views, each one card with `navigation: false`:
+It builds seven panel views, each one card with `navigation: false`:
 
 | View | Path | Card `view` |
 | --- | --- | --- |
 | Overview | `overview` | `overview` |
 | Issues | `issues` | `issues` |
 | Sources | `sources` | `sources` |
+| Policies | `policies` | `policies` |
 | Notifications | `notifications` | `notifications` |
 | Settings | `settings` | `settings` |
 | History | `history` | `history` |
+
+A Homeostatic dashboard you already added keeps the views it was created with. Add it again to include Policies. The sidebar panel includes Policies.
 
 ## Panel addresses
 
