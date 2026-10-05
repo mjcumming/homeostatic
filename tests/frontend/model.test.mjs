@@ -1429,7 +1429,9 @@ test("monitoring policy scenario keeps 18 direct choices out of the normal group
   assert.match(html,/class="policy-state">On</);
   assert.match(html,/Vacuums/);
   assert.match(html,/Repairs/);
+  assert.match(html,/Broken automations/);
   assert.match(html,/data-action="turn-off-repairs"/);
+  assert.match(html,/data-action="turn-off-broken"/);
   assert.match(html,/Monitor all vacuums/);
   assert.doesNotMatch(html,/When to report them/);
   assert.match(html,/No other policies/);
@@ -1457,6 +1459,10 @@ test("a broad check is on, off, paused, or an unsaved draft", () => {
   assert.match(stopped,/Monitor all repairs/);
   assert.match(stopped,/Review and save before this takes effect/);
   assert.doesNotMatch(stopped,/Edit policy|When to report them/);
+  const broken={id:"broken_off",action:"exclude",enabled:true,match:{kind:["broken_automation"]},checks:["broken_automation"]};
+  const brokenStopped=monitoringPolicies({configDraft:[broken],configuration:{rules:[]},current:{data:{}}});
+  assert.match(brokenStopped,/Monitor all automations/);
+  assert.doesNotMatch(brokenStopped,/Edit policy/);
 });
 
 for(const [name,match,expected] of [

@@ -164,4 +164,6 @@ test("Repairs have one reporting choice that defaults to the morning summary",()
   assert.equal(c.settingsDraft.reporting.repairs,"weekly");
   assert.deepEqual(reportingChanges(c.configuration.settings.reporting,c.settingsDraft.reporting).find(row=>row[0]==="Home Assistant Repairs"),["Home Assistant Repairs","Morning summary","Weekly summary"]);
   assert.equal(reportingChoices({settingsDraft:{policy:{timezone:"UTC"}},_hass:null}).repairs,"morning");
+  assert.match(reportingSettings(c),/Broken automations<\/span><select data-reporting-broken>/);
+  assert.equal(reportingChoices({settingsDraft:{policy:{timezone:"UTC"}},_hass:null}).broken_automations,"morning");
 });

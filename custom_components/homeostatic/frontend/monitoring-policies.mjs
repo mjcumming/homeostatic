@@ -65,6 +65,20 @@ export function newRepairsOffPolicy(rules) {
   return rule;
 }
 
+export function isBrokenOffPolicy(rule) {
+  return rule.action === "exclude" && rule.checks?.[0] === "broken_automation" &&
+    rule.match?.kind?.length === 1 && rule.match.kind[0] === "broken_automation" &&
+    Object.entries(rule.match).every(([field, values]) => field === "kind" || !values.length);
+}
+
+export function newBrokenOffPolicy(rules) {
+  const rule = newCatalogRule(rules);
+  rule.action = "exclude";
+  rule.match = {kind:["broken_automation"]};
+  rule.checks = ["broken_automation"];
+  return rule;
+}
+
 export function newGroupPolicy(rules) {
   return {...newCatalogRule(rules),enabled:false,match:{kind:["device"]}};
 }
@@ -105,7 +119,8 @@ export function monitoringPolicies(card) {
   const battery = groups.find(({rule}) => claimed(rule, isAllBatteryPolicy));
   const vacuum = groups.find(({rule}) => claimed(rule, isAllVacuumPolicy));
   const repairsOff = groups.find(({rule}) => claimed(rule, isRepairsOffPolicy));
-  const claimedIds = new Set([integration, device, battery, vacuum, repairsOff].filter(Boolean).map(({rule}) => rule.id));
+  const brokenOff = groups.find(({rule}) => claimed(rule, isBrokenOffPolicy));
+  const claimedIds = new Set([integration, device, battery, vacuum, repairsOff, brokenOff].filter(Boolean).map(({rule}) => rule.id));
   const others = groups.filter(({rule}) => !claimedIds.has(rule.id));
   const disabled = card.configBusy ? " disabled" : "";
   const broadFields = MATCH_FIELDS.filter(field => !["integration", "device", "entity"].includes(field));
@@ -144,18 +159,22 @@ export function monitoringPolicies(card) {
     broadSection("Vacuums", "Watches current and future vacuums for an error.", vacuum,
       "add-vacuum-rule", "Monitor all vacuums", "clear-vacuum-rule", "enable-vacuum-rule"),
   ].join("");
-  const offDraft = repairsOff && card.configuration?.rules && !card.configuration.rules.some(rule => rule.id === repairsOff.rule.id);
-  const repairsStopped = Boolean(repairsOff) && repairsOff.rule.enabled !== false;
-  const repairs = policyCheck(
-    "Repairs",
-    "Watches current and future Home Assistant Repairs.",
-    repairsStopped ? "Off" : "On",
-    repairsStopped && offDraft ? " Review and save before this takes effect." : "",
-    repairsStopped
-      ? `<button type="button" class="button" data-action="monitor-repairs"${disabled}>Monitor all repairs</button>`
-      : `<button type="button" class="link" data-action="turn-off-repairs"${disabled}>Turn off</button>`,
-  );
+  const exclusionRow = (title, detail, entry, monitorAction, monitorLabel, turnOffAction) => {
+    const draft = entry && card.configuration?.rules && !card.configuration.rules.some(rule => rule.id === entry.rule.id);
+    const stopped = Boolean(entry) && entry.rule.enabled !== false;
+    return policyCheck(
+      title,
+      detail,
+      stopped ? "Off" : "On",
+      stopped && draft ? " Review and save before this takes effect." : "",
+      stopped
+        ? `<button type="button" class="button" data-action="${monitorAction}"${disabled}>${monitorLabel}</button>`
+        : `<button type="button" class="link" data-action="${turnOffAction}"${disabled}>Turn off</button>`,
+    );
+  };
+  const repairs = exclusionRow("Repairs", "Watches current and future Home Assistant Repairs.", repairsOff, "monitor-repairs", "Monitor all repairs", "turn-off-repairs");
+  const broken = exclusionRow("Broken automations", "Opens an issue when an automation names an entity that no longer exists.", brokenOff, "monitor-broken", "Monitor all automations", "turn-off-broken");
   const editingOther = others.some(({rule}) => rule.action === "exclude" && rule.id === card.configEditingRule);
   const empty = !watched && !excludedCount ? '<p class="sub">No other policies.</p>' : "";
-  return `<div class="monitoring-policies">${checks}${repairs}<h2>Other policies</h2><p class="sub">Match current and future sources by area, label, or another condition.</p><fieldset class="config-editor"${disabled}>${empty}${watched}${excludedCount ? `<details class="policy-exceptions"${editingOther ? " open" : ""}><summary>Leave unmonitored policies (${excludedCount})</summary><div>${excluded}</div></details>` : ""}<button type="button" class="button" data-action="add-rule"${disabled}>Add policy</button></fieldset></div>`;
+  return `<div class="monitoring-policies">${checks}${repairs}${broken}<h2>Other policies</h2><p class="sub">Match current and future sources by area, label, or another condition.</p><fieldset class="config-editor"${disabled}>${empty}${watched}${excludedCount ? `<details class="policy-exceptions"${editingOther ? " open" : ""}><summary>Leave unmonitored policies (${excludedCount})</summary><div>${excluded}</div></details>` : ""}<button type="button" class="button" data-action="add-rule"${disabled}>Add policy</button></fieldset></div>`;
 }

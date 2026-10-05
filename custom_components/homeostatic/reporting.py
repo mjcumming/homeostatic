@@ -19,6 +19,7 @@ def defaults(timezone: str = "UTC") -> dict[str, Any]:
         "timezone": timezone,
         "default": "weekly",
         "repairs": "morning",
+        "broken_automations": "morning",
         "people": {},
         "profiles": {
             "acknowledge": {"people": []},
@@ -87,15 +88,16 @@ def generate(
     """Validate destinations and compile an integrity-protected policy."""
     data = deepcopy(value)
     required = {"timezone", "default", "people", "profiles", "assignments"}
-    if not required <= set(data) <= required | {"repairs"}:
+    if not required <= set(data) <= required | {"repairs", "broken_automations"}:
         raise ValueError("Provide the complete reporting choices")
     if not all(
         isinstance(data[key], dict) for key in ("people", "profiles", "assignments")
     ):
         raise ValueError("Reporting choices must be mappings")
     household = _profile(data["default"])
-    # Repairs are routed by label at runtime; the choice only needs to be valid.
+    # Repairs and broken automations are routed by label at runtime.
     _profile(data.setdefault("repairs", "morning"))
+    _profile(data.setdefault("broken_automations", "morning"))
     if set(data["profiles"]) != set(PROFILES[:-1]):
         raise ValueError("Provide all five reporting profiles")
     recipients = _recipients(hass, data["people"], people)

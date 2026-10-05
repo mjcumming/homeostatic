@@ -70,6 +70,14 @@ Like alerts, Repairs stay out of the dependency map. A failed integration doesn'
 
 Home Assistant keeps only some Repairs across a restart, and integrations raise the rest again while they load. So after a restart, Homeostatic keeps a Repair's issue open until your watched integrations have finished loading, and ends it only if the Repair still hasn't come back by then. The decision record on [Repairs as issues](adr/0044-report-home-assistant-repairs-as-issues.md) explains the choices.
 
+## Broken automations
+
+An automation can name an entity that has been deleted or renamed. Home Assistant still loads the automation, and the part that names the missing entity never runs. Home Assistant does not raise a Repair for that.
+
+After startup, and again when automations reload, Homeostatic reads the entity ids saved in each automation's triggers, conditions, and actions. An id that is in neither the entity registry nor the state machine opens one issue for that automation. Removing an entity, or changing its id, checks the automations that still name it. Creating the entity again checks the open issues that named it.
+
+The issue stays out of the dependency map. **Working on this equipment** does not apply. Acknowledge and Pause alerts do. The decision record on [automations that name a missing entity](adr/0050-flag-automations-that-name-missing-entities.md) explains the choices.
+
 ## Timing
 
 Homeostatic waits in a few places so that brief blips and slow starts don't become issues. You can change each wait under **Settings → Timing**. The [reference](reference.md) lists every setting with its default.

@@ -98,7 +98,8 @@ def parse_rules(value: Any) -> tuple[CatalogRule, ...]:
         if (
             not isinstance(checks, list)
             or len(checks) != 1
-            or checks[0] not in {"availability", "battery", "vacuum", "repair"}
+            or checks[0]
+            not in {"availability", "battery", "vacuum", "repair", "broken_automation"}
         ):
             raise ValueError("Choose one supported catalog check")
         enabled = row.get("enabled", True)

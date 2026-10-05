@@ -38,6 +38,11 @@ export async function runMonitoringPolicyScenario(card) {
   expect(!root.querySelector(".policy-edit"),"The Repairs switch does not open the match-field editor");
   root.querySelector('[data-action="monitor-repairs"]').click();
   expect(!card.configDraft.some(rule => rule.checks?.[0] === "repair") && visible().includes("Turn off"),"Monitor all repairs removes that draft");
+  expect(visible().includes("Broken automations"),"Broken automations sits with the other checks");
+  root.querySelector('[data-action="turn-off-broken"]').click();
+  expect(visible().includes("Monitor all automations") && !root.querySelector(".policy-edit"),"Turning broken automations off stays a draft and does not open the match-field editor");
+  root.querySelector('[data-action="monitor-broken"]').click();
+  expect(!card.configDraft.some(rule => rule.checks?.[0] === "broken_automation"),"Monitor all automations removes that draft");
   expect(requests.length === 0,"Reading the page must not preview or save");
   root.querySelector('[data-action="clear-integration-rule"]').click();
   expect(card.configDraft.length === 18 && !card.configDraft.some(rule => rule.id === "connections"),"Turn off removes only the broad check");

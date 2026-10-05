@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 import {monitoringExample,baseSource} from "./monitoring-fixture.mjs";
 import {monitoringScope,monitoringTree,scopeChoice,setScopeChoice} from "../../custom_components/homeostatic/frontend/configuration.mjs";
-import {batteryProblem, repairProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
+import {batteryProblem, brokenAutomationProblem, repairProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import {sourceReporting} from "../../custom_components/homeostatic/frontend/reporting.mjs";
 
 test("battery is a reviewable source with an independent check choice",()=>{
@@ -49,4 +49,14 @@ test("a Home Assistant Repair is described from its recorded finding",()=>{
   const ended=repairProblem({kind:"repair"},[{status:"pass",message:"Home Assistant no longer reports this Repair."}]);
   assert.equal(ended.nextStep,"No action needed.");
   assert.equal(repairProblem({kind:"repair"},null).headline,"Home Assistant reports this Repair.");
+});
+
+test("a broken automation is described from its recorded finding",()=>{
+  assert.equal(brokenAutomationProblem({kind:"repair"},[]),null);
+  const open=brokenAutomationProblem({kind:"broken_automation"},[{status:"fail",message:"This automation names light.missing, which no longer exists."}]);
+  assert.equal(open.context,"Broken automation");
+  assert.equal(open.headline,"This automation names light.missing, which no longer exists.");
+  assert.match(open.nextStep,/Open the automation/);
+  const ended=brokenAutomationProblem({kind:"broken_automation"},[{status:"pass",message:"This automation no longer names a missing entity."}]);
+  assert.equal(ended.nextStep,"No action needed.");
 });

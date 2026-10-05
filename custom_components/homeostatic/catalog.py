@@ -78,7 +78,7 @@ class Source:
                     ),
                 ),
             )
-        if self.kind == "repair":
+        if self.kind in {"repair", "broken_automation"}:
             return Node(
                 node_id=self.node_id,
                 kind=self.kind,
@@ -94,12 +94,12 @@ class Source:
                 },
                 checks=(
                     Check(
-                        check_id="repair",
+                        check_id=self.kind,
                         raise_hold=timedelta(0),
                         clear_hold=timedelta(0),
                         ttl=None,
                         unknown_hold=settings.duration("unknown_hold"),
-                        labels={"category": "repair"},
+                        labels={"category": self.kind},
                     ),
                 ),
             )

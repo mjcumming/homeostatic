@@ -101,6 +101,20 @@ export function deviceProblem(source, status, openProblem = true) {
     needsAction:false,currentReason:reason};
 }
 
+/** Describe an automation that names an entity which no longer exists. */
+export function brokenAutomationProblem(source, findings = []) {
+  if (source?.kind !== "broken_automation") return null;
+  const finding = (findings ?? []).find((item) => item?.message) ?? null;
+  const active = !finding || finding.status === "fail";
+  return {
+    context:"Broken automation",
+    headline:finding?.message ?? "This automation names an entity that no longer exists.",
+    summary:active ? "The part that names the missing entity does not run. The automation's other parts can still run." : "This automation no longer names a missing entity.",
+    nextStep:active ? "Open the automation and remove or replace the missing entity." : "No action needed.",
+    tone:"neutral",
+  };
+}
+
 /** Describe a Home Assistant Repair from the finding Homeostatic recorded for it. */
 export function repairProblem(source, findings = []) {
   if (source?.kind !== "repair") return null;

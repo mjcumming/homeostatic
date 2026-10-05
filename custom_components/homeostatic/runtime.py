@@ -33,6 +33,7 @@ from health_tree.types import (
     Event as HealthEvent,
 )
 from homeassistant.components import persistent_notification
+from homeassistant.components.automation import EVENT_AUTOMATION_RELOADED
 from homeassistant.config_entries import (
     SIGNAL_CONFIG_ENTRY_CHANGED,
     ConfigEntry,
@@ -63,6 +64,7 @@ from . import reporting
 from .attention import build_policy, explanations, supports_attention_controls
 from .automation_alerts import MAX_ALERTS, AutomationAlerts, automation_owner, identity
 from .battery import observe as battery_observation
+from .broken_automations import BrokenAutomations
 from .catalog import (
     Source,
     device_observation,
@@ -144,6 +146,10 @@ class Runtime:
         self.automation_alerts = AutomationAlerts()
         self.repairs = Repairs()
         self._repairs_dirty = True
+        self.broken = BrokenAutomations()
+        self._broken_full = True
+        self._broken_named: set[str] = set()
+        self._broken_created: set[str] = set()
         self.phone_actions = PhoneActions()
         self.delivery_failures: deque[dict[str, str]] = deque(maxlen=50)
         self._legacy_notifications: set[str] = set()
@@ -243,6 +249,7 @@ class Runtime:
                 raise ValueError("Invalid notification activation state")
         self.automation_alerts.restore(self.saved.get("automation_alerts", {}))
         self.repairs.restore(self.saved.get("repairs", {}))
+        self.broken.restore(self.saved.get("broken_automations", {}))
         self.phone_actions.restore(self.saved.get("phone_actions", {}))
         if "resolved_history" in self.saved:
             self.history.restore(self.saved["resolved_history"])
@@ -278,6 +285,9 @@ class Runtime:
         self._subscriptions.extend(
             (
                 hass.bus.async_listen(EVENT_STATE_CHANGED, self._state_changed),
+                hass.bus.async_listen(
+                    EVENT_AUTOMATION_RELOADED, self._automations_reloaded
+                ),
                 hass.bus.async_listen(EVENT_HOMEASSISTANT_STOP, self._stop_event),
                 hass.bus.async_listen(
                     er.EVENT_ENTITY_REGISTRY_UPDATED, self._registry_changed
@@ -413,6 +423,19 @@ class Runtime:
     @callback
     def _registry_changed(self, event: Event[Any]) -> None:
         self._inventory_dirty = True
+        if event.event_type == er.EVENT_ENTITY_REGISTRY_UPDATED:
+            action = event.data["action"]
+            if action == "remove":
+                self._broken_named.add(event.data["entity_id"])
+            elif action == "create":
+                self._broken_created.add(event.data["entity_id"])
+            elif action == "update" and "old_entity_id" in event.data:
+                self._broken_named.add(event.data["old_entity_id"])
+        self._request_refresh()
+
+    @callback
+    def _automations_reloaded(self, event: Event[Any]) -> None:
+        self._broken_full = True
         self._request_refresh()
 
     @callback
@@ -548,14 +571,11 @@ class Runtime:
         open_episodes = (
             self.saved["episodes"] if self.saved is not None else self.episodes
         )
-        self.repairs.prune(
-            {str(episode["anchor"]) for episode in open_episodes.values()}
-        )
-        sources.update(
-            self.repairs.sources(
-                self.settings.policy, parse_rules(rule_data(self.hass, self.settings))
-            )
-        )
+        open_anchors = {str(episode["anchor"]) for episode in open_episodes.values()}
+        self.repairs.prune(open_anchors)
+        self.broken.prune(open_anchors)
+        sources.update(self.repairs.sources(self.settings.policy, rules))
+        sources.update(self.broken.sources(self.settings.policy, rules))
         self.enrolled = {
             node_id: source.attributes
             for node_id, source in sources.items()
@@ -599,6 +619,17 @@ class Runtime:
                     if await self.repairs.async_read(self.hass):
                         self._inventory_dirty = True
                     now = dt_util.utcnow()
+                if self._broken_full or self._broken_named or self._broken_created:
+                    full = self._broken_full
+                    named = set(self._broken_named)
+                    created = set(self._broken_created)
+                    self._broken_full = False
+                    self._broken_named.clear()
+                    self._broken_created.clear()
+                    if self.broken.scan(
+                        self.hass, full=full, named=named, created=created
+                    ):
+                        self._inventory_dirty = True
                 events = self._evaluate(now, reconcile=reconcile)
                 self._handle(events, now)
                 await self._complete(now)
@@ -1178,6 +1209,10 @@ class Runtime:
                 ):
                     observations.append(observation)
                 continue
+            if source.kind == "broken_automation":
+                if discover:
+                    observations.append(self.broken.observation(source.node_id, now))
+                continue
             if source.report_timeout is not None:
                 if first:
                     observations.append(report_observation(source, "unknown", now))
@@ -1612,6 +1647,7 @@ class Runtime:
             "schema_version": 2,
             "automation_alerts": deepcopy(self.automation_alerts.records),
             "repairs": self.repairs.snapshot(),
+            "broken_automations": self.broken.snapshot(),
             "phone_actions": deepcopy(self.phone_actions.records),
             "device_exclusions": {
                 key: list(members) for key, members in self.device_exclusions.items()

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-04
+
+### Added
+
+- Flag an automation that names an entity that no longer exists. The issue uses the automation's name, lists the missing entity ids, and opens that automation in the editor. It ends when the entity exists again, the automation no longer names it, or the automation is removed.
+- Add **Broken automations** on Policies, on until you turn it off. **Notifications → Household default → Broken automations** chooses when to report them, and starts at **Morning summary**.
+
 ## [1.5.0] - 2026-10-04
 
 ### Changed

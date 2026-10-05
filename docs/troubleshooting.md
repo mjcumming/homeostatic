@@ -76,7 +76,7 @@ Other reasons you hear nothing:
 
 ## Too many issues
 
-A new install watches only your integrations. A long list of issues usually comes from watching more than you need:
+A new install watches your integrations, Home Assistant's Repairs, and automations that name a missing entity. A long list of issues usually comes from watching more than you need:
 
 - An integration you don't care about keeps failing or retrying, such as one for a TV that's switched off at the wall. Open it in **Sources**, go to **Settings** and turn off **Allow monitoring for this integration**.
 - An entity is watched separately and also as part of its device, so one failure gives two issues. Keep one of them: choose **Follow device monitoring** in the entity's **Settings**.
@@ -140,8 +140,8 @@ The [user guide](guide.md#what-an-availability-problem-means) explains what an a
 - A device issue opens only when every selected entity on the device is unavailable, or its connectivity sensor reports disconnected. One failed entity on a device whose other entities still report doesn't open one. Watch that entity on its own if it matters.
 - A notification request isn't proof of delivery. Homeostatic hands each message to Home Assistant's notify action, which can't confirm the phone received it, and some delivery errors appear only in the Home Assistant log.
 - When an integration fails, everything watched on it is grouped under its issue, including a device that happens to have a fault of its own at the same moment. Check anything still failing once the integration recovers.
-- Automation failures come only from Home Assistant's Repairs. An automation that never runs, or an error that appears only in its trace, doesn't show up in Homeostatic.
-- All Repairs share one reporting choice. You can't send one Repair immediately and another in the weekly summary.
+- An automation that names an entity that no longer exists opens an issue. An automation that never runs, or an error that appears only in its trace, doesn't show up in Homeostatic. An entity id written only inside a template is not seen, and scripts are not checked.
+- All Repairs share one reporting choice, and all broken automations share another. You can't send one of those issues immediately and another in the weekly summary.
 - A device's availability never reads **Partially available**. Home Assistant doesn't yet let integrations report device availability directly, so Homeostatic works it out from entity states.
 - A light or binary sensor group can stay available while some of its members are unavailable. Watch the members that matter directly.
 - The low-battery level is fixed at 20%. Homeostatic can't tell whether a battery was replaced or recharged, and doesn't know what type of battery a device takes.

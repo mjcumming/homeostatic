@@ -9,6 +9,7 @@ This guide covers the jobs you do in Homeostatic once it's installed.
 - [Watch vacuums](#watch-vacuums)
 - [What an availability problem means](#what-an-availability-problem-means)
 - [Home Assistant Repairs](#home-assistant-repairs)
+- [Broken automations](#broken-automations)
 - [Activate notifications](#activate-notifications)
 - [Operator controls](#operator-controls)
 - [Find ended problems in History](#find-ended-problems-in-history)
@@ -18,7 +19,7 @@ If you haven't installed Homeostatic yet, start with [Install and first run](ins
 
 ## Choose what to watch
 
-A new install watches the connection of every integration and nothing else. Everything Home Assistant knows about is listed in **Sources**, but a source is only checked once you choose to watch it. Start with a few things that matter, like the Zigbee integration and the devices on it you rely on, and widen from there.
+A new install watches the connection of every integration, Home Assistant's Repairs, and automations that name an entity that no longer exists. Devices, entities, batteries, and vacuums stay off until you choose them in **Sources** or turn that check on under **Policies**. Start with a few things that matter, like the Zigbee integration and the devices on it you rely on, and widen from there.
 
 Every monitoring change goes through a review. Make your choices, select **Review changes** to see which sources start or stop being watched, then save. Nothing changes until you save.
 
@@ -46,7 +47,7 @@ A choice on one device wins over the integration's device default, so you can ch
 
 ### Other policies
 
-Some choices work better as a policy, such as watching every device in the garage area or leaving everything with a `test` label alone. A policy like this applies to current sources and to any that appear later. Turn Integrations, Devices, Batteries, Vacuums, and Repairs on or off from the top of Policies. Repairs stay on until you turn them off.
+Some choices work better as a policy, such as watching every device in the garage area or leaving everything with a `test` label alone. A policy like this applies to current sources and to any that appear later. Turn Integrations, Devices, Batteries, Vacuums, Repairs, and Broken automations on or off from the top of Policies. Repairs and broken automations stay on until you turn them off. Turning one off leaves the other on.
 
 1. Open **Policies** and select **Add policy**.
 2. Under **Edit policy**, set **Action** to **Watch** or **Leave unmonitored**, and **Check** to **HA availability**, **Battery condition**, or **Vacuum error**.
@@ -141,7 +142,19 @@ The issue ends when Home Assistant stops reporting the Repair, or when you selec
 
 All Repairs share one reporting choice, which starts at **Morning summary**. Change it under **Notifications → Household default → Home Assistant Repairs**. If nobody receives the choice you pick, Repairs show only in the panel.
 
-Homeostatic only shows what Home Assistant reports. It doesn't read your automations to guess whether they'll work, so an automation that never runs, or an error that shows up only in its trace, won't appear here. Check those in the automation's traces.
+An error that shows up only in an automation's trace still won't appear as a Repair. Check those in the automation's traces. An automation that names an entity that no longer exists is a [broken automation](#broken-automations).
+
+## Broken automations
+
+An automation stays on when a trigger, condition, or action names an entity that no longer exists. That part never runs, and Home Assistant does not raise a Repair for it.
+
+Homeostatic opens one issue for that automation. The issue uses the automation's name, lists the missing entity ids, and **Fix in Home Assistant** opens the automation in the editor. The issue ends when the automation no longer names a missing entity, the automation is removed, or the entity exists again. If the automation has other triggers, those can still run.
+
+The check is on until you turn it off under **Policies → Broken automations**. **Turn off** opens a draft you review and save, and **Monitor all automations** turns the check back on. Turning Repairs off leaves this check on.
+
+All of these issues share one reporting choice, **Broken automations**, which starts at **Morning summary**. Change it under **Notifications → Household default → Broken automations**. If nobody receives the choice you pick, the issue shows only in the panel.
+
+An entity that is unavailable, unknown, or disabled is still an entity, so it does not open this issue. An entity id written only inside a template is not seen. Scripts are not checked.
 
 ## Activate notifications
 
@@ -178,7 +191,7 @@ Both immediate choices are sent as urgent notifications. On an iPhone they're se
 
 ### Choose when each source reports
 
-Under **Household default**, **Newly monitored sources** sets the choice for every source that hasn't got one of its own. It starts at **Weekly summary**. **Home Assistant Repairs** sets the choice for every Repair, and starts at **Morning summary**. A vacuum error uses Immediate until you set a source preference for that vacuum. When Immediate has no recipients, the issue stays in the panel.
+Under **Household default**, **Newly monitored sources** sets the choice for every source that hasn't got one of its own. It starts at **Weekly summary**. **Home Assistant Repairs** sets the choice for every Repair, and **Broken automations** sets the choice for every automation that names a missing entity. Both start at **Morning summary**. A vacuum error uses Immediate until you set a source preference for that vacuum. When Immediate has no recipients, the issue stays in the panel.
 
 To give one source its own choice, open it in **Sources**, open **Settings**, and pick a **Source preference** under **Reporting**. **Condition exceptions** sets a different choice for one kind of check on that source. For a whole integration, use **When to notify** in its **Settings**: **Device default** applies one choice to all its current devices, and devices it adds later use the household default.
 

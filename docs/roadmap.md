@@ -1,15 +1,16 @@
 # Roadmap
 
-What Homeostatic does today, what's being worked on next, and what's further out. Last updated October 3, 2026.
+What Homeostatic does today, what's being worked on next, and what's further out. Last updated October 4, 2026.
 
 ## What works now
 
-- Watching integrations, devices, entities and batteries. A new install watches integrations and Home Assistant's Repairs. You add more in Sources, one at a time or with rules that cover a whole integration, area, floor, label or device class, including sources added later. An exclusion always wins over a rule.
+- Watching integrations, devices, entities and batteries. A new install watches integrations, Home Assistant's Repairs, and automations that name a missing entity. You add more in Sources, one at a time or with rules that cover a whole integration, area, floor, label or device class, including sources added later. An exclusion always wins over a rule.
 - Device availability that follows what Home Assistant reports. When a device has a connectivity sensor and it reports disconnected, Homeostatic treats the device as disconnected.
 - Battery checks. A battery at 20% or less, or one that reports a low warning, raises an issue. A charging report clears it.
 - Vacuum errors. When Home Assistant reports a vacuum's activity as error, that opens an issue. Cleaning, docked, idle, paused, or returning ends it. The notice is Immediate unless you choose otherwise for that vacuum.
 - One issue per failure. When an integration fails, the devices and entities you watch on it are listed on that one issue.
 - Every Home Assistant Repair as an issue, in the morning summary unless you choose otherwise.
+- Automations that name an entity that no longer exists. The issue uses the automation's name, lists the missing entity ids, and opens the automation in the editor. It starts in the morning summary. An entity that is only unavailable stays out, and so does an entity id written only inside a template. Scripts are left out.
 - Alerts made from Home Assistant automations with the alert blueprint, with required evidence and an Acknowledge button on the phone.
 - Notifications to people's phones through the Companion app, with the six reporting choices, summary times you set, a test notification, and taps that open the issue.
 - The controls Acknowledge, Pause alerts and Working on this equipment. Pauses and maintenance last up to seven days.

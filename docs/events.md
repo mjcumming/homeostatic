@@ -34,12 +34,12 @@ The `change` field says what happened:
 | `form` | `root` for an issue about one source. `group` when Homeostatic has grouped several related sources that failed together into one issue. |
 | `anchor` | Homeostatic's ID for the source the issue is about, such as `entry:<config entry id>` for an integration or `device:<device id>` for a device. Treat it as opaque. |
 | `anchor_name` | The source's current display name |
-| `anchor_kind` | `integration`, `device`, `entity`, `battery`, `vacuum`, `situation` (an alert) or `repair` (a Home Assistant Repair). `null` when the source no longer exists. |
+| `anchor_kind` | `integration`, `device`, `entity`, `battery`, `vacuum`, `situation` (an alert), `repair` (a Home Assistant Repair), or `broken_automation` (an automation that names a missing entity). `null` when the source no longer exists. |
 | `entity_ids` | The source's entity, or a device's watched entities. Empty for an integration or an alert from an automation. |
 | `device_id`, `area_id`, `floor_id` | The source's Home Assistant device, area and floor IDs, or `null` |
 | `status` | `warn`, `fail` or `unknown` |
 | `importance` | `low`, `normal`, `high` or `critical`. |
-| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `battery`, `vacuum`, `condition`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
+| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `battery`, `vacuum`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
 | `opened_at` | When the issue opened, as an ISO 8601 timestamp |
 | `shelved` | Whether Pause alerts was on for the issue |
 | `maintenance` | Whether the source was covered by Working on this equipment |

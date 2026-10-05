@@ -1,11 +1,11 @@
-import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, isRepairsOffPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newGroupPolicy, newRepairsOffPolicy} from "./monitoring-policies.mjs?v=65";
-import {sourceSettingsAction} from "./source-settings.mjs?v=62";
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=61";
+import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, isBrokenOffPolicy, isRepairsOffPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newBrokenOffPolicy, newGroupPolicy, newRepairsOffPolicy} from "./monitoring-policies.mjs?v=66";
+import {sourceSettingsAction} from "./source-settings.mjs?v=63";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=62";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
   sourceMap} from "./model.mjs?v=60";
 import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=47";
-import {batteryProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=61";
+import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=62";
 import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=59";
 import {diagnosticOverview} from "./evidence.mjs?v=60";
 import {editCatalogRule, monitoringScope,
@@ -14,9 +14,9 @@ import {styles} from "./styles.mjs?v=63";
 import {locationBranch, setBranchExpanded} from "./tree.mjs?v=46";
 
 import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=47";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=66";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=67";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=62";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=63";
 
 import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=59";
 
@@ -444,7 +444,10 @@ class HomeostaticCard extends HTMLElement {
     const repairsWereOff = this.configuration?.rules?.some(rule => isRepairsOffPolicy(rule) && rule.enabled !== false);
     const repairsAreOff = this.configDraft?.some(rule => isRepairsOffPolicy(rule) && rule.enabled !== false);
     const repairsChange = preview && repairsWereOff !== repairsAreOff ? `<p>${repairsAreOff ? "Home Assistant Repairs will no longer open issues." : "Home Assistant Repairs will open issues again."}</p>` : "";
-    const result = preview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Review monitoring choices</h2></div><div class="body">${subject}<p><strong>${preview.watched}</strong> watched sources after this change.</p>${noCountChange}${repairsChange}<div class="config-change-list">${changes(preview.added,preview.added_count,"newly watched")}${changes(preview.removed,preview.removed_count,"no longer watched")}</div><p class="small">This preview uses current Home Assistant evidence. New devices may match these rules later.</p></div></section>` : "";
+    const brokenWereOff = this.configuration?.rules?.some(rule => isBrokenOffPolicy(rule) && rule.enabled !== false);
+    const brokenAreOff = this.configDraft?.some(rule => isBrokenOffPolicy(rule) && rule.enabled !== false);
+    const brokenChange = preview && brokenWereOff !== brokenAreOff ? `<p>${brokenAreOff ? "Broken automations will no longer open issues." : "Broken automations will open issues again."}</p>` : "";
+    const result = preview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Review monitoring choices</h2></div><div class="body">${subject}<p><strong>${preview.watched}</strong> watched sources after this change.</p>${noCountChange}${repairsChange}${brokenChange}<div class="config-change-list">${changes(preview.added,preview.added_count,"newly watched")}${changes(preview.removed,preview.removed_count,"no longer watched")}</div><p class="small">This preview uses current Home Assistant evidence. New devices may match these rules later.</p></div></section>` : "";
     const policies = global ? monitoringPolicies(this) : "";
     const changed=JSON.stringify(this.configDraft)!==JSON.stringify(this.configuration.rules);
     const actions = `<section class="config-review">${changed?`<div class="config-actions"><span class="small">Unsaved monitoring choices</span><button type="button" class="button primary" data-action="${preview?'save-configuration':'preview-configuration'}"${this.configBusy?' disabled':''}>${preview?'Save choices':'Review changes'}</button><button type="button" class="link" data-action="discard-monitoring"${this.configBusy?' disabled':''}>Discard</button></div>`:'<p class="small">Changes are reviewed before saving.</p>'}${this.configError?`<p class="config-error" role="alert">${esc(this.configError)}</p>`:''}</section>`;
@@ -760,9 +763,9 @@ class HomeostaticCard extends HTMLElement {
     const nodes = sourceMap(data);
     const source = nodes.get(episode.anchor);
     const situation = source?.kind === "situation";
-    const repair = source?.kind === "repair";
+    const repair = source?.kind === "repair" || source?.kind === "broken_automation";
     const affected = affectedFunctions(data, episode);
-    const problem = repairProblem(source, episode.reasons) ?? vacuumProblem(source, data.inventory.entity_status?.[episode.anchor], data.areas) ?? batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
+    const problem = repairProblem(source, episode.reasons) ?? brokenAutomationProblem(source, episode.reasons) ?? vacuumProblem(source, data.inventory.entity_status?.[episode.anchor], data.areas) ?? batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       deviceProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       integrationProblem(source, episode.reasons, (key) => this._hass.localize?.(key), data.inventory.integration_evidence?.[episode.anchor]) ??
       entityProblem(source, data.inventory.entity_status?.[episode.anchor], nodes.get(`entry:${source?.owner_id}`), data.areas, (key) => this._hass.localize?.(key));
@@ -1168,11 +1171,14 @@ class HomeostaticCard extends HTMLElement {
       this.configPreview = null;
       this.render();
     }
-    else if (button.dataset.action === "turn-off-repairs" || button.dataset.action === "monitor-repairs") {
+    else if (["turn-off-repairs", "monitor-repairs", "turn-off-broken", "monitor-broken"].includes(button.dataset.action)) {
       const savedBroad = (rule) => Boolean(this.configuration?.rules?.some(saved => saved.id === rule.id));
-      const index = this.configDraft.findIndex(rule => isRepairsOffPolicy(rule) && (savedBroad(rule) || rule.enabled !== false));
-      if (button.dataset.action === "turn-off-repairs") {
-        if (index < 0) this.configDraft.push(newRepairsOffPolicy(this.configDraft));
+      const turningOff = button.dataset.action.startsWith("turn-off");
+      const match = button.dataset.action.endsWith("repairs") ? isRepairsOffPolicy : isBrokenOffPolicy;
+      const create = button.dataset.action.endsWith("repairs") ? newRepairsOffPolicy : newBrokenOffPolicy;
+      const index = this.configDraft.findIndex(rule => match(rule) && (savedBroad(rule) || rule.enabled !== false));
+      if (turningOff) {
+        if (index < 0) this.configDraft.push(create(this.configDraft));
         else this.configDraft[index].enabled = true;
       } else if (index >= 0) this.configDraft.splice(index, 1);
       this.configPreview = null;
@@ -1290,11 +1296,11 @@ class HomeostaticCard extends HTMLElement {
       const nodes = sourceMap(data);
       const detailTitle = this.displaySourceName(source);
       this.shadowRoot.querySelector("#detail-title").textContent = detailTitle;
-      this.shadowRoot.querySelector("#detail-label").textContent = source.kind === "situation" ? "Situation" : source.kind === "repair" ? "Home Assistant Repair" : episode ? "Open problem" : "Capability";
+      this.shadowRoot.querySelector("#detail-label").textContent = source.kind === "situation" ? "Situation" : source.kind === "repair" ? "Home Assistant Repair" : source.kind === "broken_automation" ? "Broken automation" : episode ? "Open problem" : "Capability";
       const currentFunctions = episode ? affectedFunctions(data, episode) : [];
       const diagnostic = episode ? null : diagnosticOverview(source, result, currentFunctions);
       const findings = result.explanation.findings;
-      const problem = repairProblem(source, findings) ?? vacuumProblem(source, result.entity_status, data.areas, Boolean(episode)) ?? batteryProblem(source, result.entity_status, Boolean(episode)) ??
+      const problem = repairProblem(source, findings) ?? brokenAutomationProblem(source, findings) ?? vacuumProblem(source, result.entity_status, data.areas, Boolean(episode)) ?? batteryProblem(source, result.entity_status, Boolean(episode)) ??
         deviceProblem(source, result.entity_status, Boolean(episode)) ??
         integrationProblem(source, findings, (key) => this._hass.localize?.(key), result.integration_evidence, Boolean(episode)) ??
         entityProblem(source, result.entity_status, nodes.get(`entry:${source.owner_id}`), data.areas, (key) => this._hass.localize?.(key), Boolean(episode));
@@ -1315,7 +1321,7 @@ class HomeostaticCard extends HTMLElement {
       const availabilityExplanation = episode && memberEvidence && uncertainMembers.length && result.device_availability?.status === "available" ? `<details ${disclosure("assessment")}><summary>Why does Home Assistant say Available?</summary><p>Device availability uses all enabled entities. This problem checks the ${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"}; ${uncertainMembers.length === 1 ? "one needs" : "some need"} attention. An available entity state does not confirm the whole device is working.</p></details>` : "";
       const dependencies = result.explanation.nodes.filter((node) => node.node_id !== nodeId);
       const unwatched = result.readiness?.nodes.filter((node) => !node.watched) ?? [];
-      const nativeLink = source.kind === "repair" ? `<a class="button primary" href="${esc(source.fix_url)}">Fix in Home Assistant</a>` : source.kind === "device" ? "" : source.kind === "integration" && problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : "") : source.entity_id
+      const nativeLink = source.kind === "repair" || source.kind === "broken_automation" ? `<a class="button primary" href="${esc(source.fix_url)}">Fix in Home Assistant</a>` : source.kind === "device" ? "" : source.kind === "integration" && problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : "") : source.entity_id
         ? `<button class="button primary" type="button" data-entity="${esc(source.entity_id)}">${esc(problem?.entityLabel ?? "View in Home Assistant")}</button>`
         : source.entry_id || source.owner_id ? '<a class="button primary" href="/config/integrations">Review connection</a>' : "";
       const explanation = episode ? data.policy.episodes.find((item) => item.episode_id === episode.episode_id) : null;

@@ -64,7 +64,7 @@ The `profile` value is what the [`report_alert`](#homeostaticreport_alert) actio
 | --- | --- | --- |
 | Immediate | `immediate` | Right away, overnight included |
 | Immediate with acknowledgment | `acknowledge` | Right away, repeated every 30 minutes |
-| Morning summary | `morning` | Daily at 08:00. The default for Home Assistant Repairs. |
+| Morning summary | `morning` | Daily at 08:00. The default for Home Assistant Repairs and broken automations. |
 | Evening summary | `evening` | Daily at 18:00 |
 | Weekly summary | `weekly` | Sunday at 09:00. The household default for new sources. |
 | Dashboard only | `dashboard` | Never sent |
@@ -77,14 +77,14 @@ What Homeostatic watches is saved as rules. Sources writes a rule for one source
 | --- | --- | --- |
 | `id` | Yes | Unique: lowercase letters, digits and `_`, starting with a letter |
 | `action` | Yes | `attach` (**Watch**) or `exclude` (**Leave unmonitored**) |
-| `checks` | No | `[availability]` (default), `[battery]`, `[vacuum]`, or `[repair]`. One check per rule. `[repair]` is the broad exclusion that turns Repairs off. |
+| `checks` | No | `[availability]` (default), `[battery]`, `[vacuum]`, `[repair]`, or `[broken_automation]`. One check per rule. `[repair]` is the broad exclusion that turns Repairs off. `[broken_automation]` is the broad exclusion that turns Broken automations off. |
 | `enabled` | No | `true` (default) or `false` to pause the rule |
 | `match` | Yes | Conditions, below |
 | `overridable` | No | Set by Sources on an integration's **Only devices I choose** choice, so a single device can still be watched |
 
 | Match field | Label in the panel | Value |
 | --- | --- | --- |
-| `kind` | Source type | `integration`, `device`, `entity`, `battery`, `vacuum`, or `repair` |
+| `kind` | Source type | `integration`, `device`, `entity`, `battery`, `vacuum`, `repair`, or `broken_automation` |
 | `domain` | Domain | An entity domain such as `light`, or the integration's domain for an integration |
 | `device_class` | Device class | The entity's device class, such as `temperature` |
 | `integration` | Integration instance ID | A config entry id |
