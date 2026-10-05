@@ -96,8 +96,6 @@ Homeostatic only knows what Home Assistant reports. If Home Assistant says a sen
 
 It can't tell you Home Assistant itself has stopped, because it runs inside it. You need something outside Home Assistant for that.
 
-Watching every entity on a very large install (6,000 or more) is still too slow. Start with your integrations and the devices that matter.
-
 The full list is in [Known limitations](docs/troubleshooting.md#known-limitations).
 
 ## Requirements
