@@ -6,7 +6,10 @@ This guide covers the jobs you do in Homeostatic once it's installed.
 
 - [Choose what to watch](#choose-what-to-watch)
 - [Watch batteries](#watch-batteries)
+- [Watch UPS conditions](#watch-ups-conditions)
 - [Watch vacuums](#watch-vacuums)
+- [Watch temperature limits](#watch-temperature-limits)
+- [Watch thermostat progress](#watch-thermostat-progress)
 - [What an availability problem means](#what-an-availability-problem-means)
 - [Home Assistant Repairs](#home-assistant-repairs)
 - [Broken automations](#broken-automations)
@@ -44,6 +47,14 @@ Open the integration in **Sources** and open **Settings**. **What to monitor** s
 A choice on one device wins over the integration's device default, so you can choose **Only devices I choose** and still watch the two devices that matter.
 
 **When to notify**, on the same page, sets the reporting choice for all the integration's current devices at once. See [Choose when each source reports](#choose-when-each-source-reports).
+
+### Named monitoring policies
+
+Use a named policy for a reusable check with its own source selection and notifications. On **Policies**, choose a **Starting template** under **Named monitoring policies**, then select **Add monitoring policy**. Give it a name, choose its sources under **Sources and groups**, set any detection parameters, and select **Enable monitoring**. Each filled source condition must match; comma-separated values within one condition are alternatives. Area, label and integration groups include future matching sources.
+
+The **Notifications** rows pair schedules with delivery methods. Leaving the rows empty means Dashboard only. Review changes and save when the complete policy is ready. Sources shows the named policies that apply and links back to their editors.
+
+**Duplicate** makes an independent disabled copy. Rename keeps its current issues. Changing its check, sources or detection parameters ends its current issues as **Monitoring ended** and begins fresh evaluation. Disable or Delete ends its monitoring. Copies can overlap, so two temperature policies can produce separate issues for the same sensor. Pending edits remain available when you move between Policies and Notifications.
 
 ### Other policies
 
@@ -88,6 +99,18 @@ To watch every battery, now and in future, open **Policies**, select **Monitor a
 
 A watched battery opens an issue when its level is at or below 20%, or when its low-battery sensor reports low. A current charging report clears the issue even if the level is still low, and the issue comes back if charging stops before the level recovers. Homeostatic can't tell whether a battery was replaced or recharged.
 
+## Watch UPS conditions
+
+Homeostatic can watch UPS devices supplied by Home Assistant's NUT or APC UPS Daemon integrations. In **Policies**, add a UPS starting template, choose its sources and enable it. Backup power, low reserve, battery replacement and faults have separate checks and notification choices. Groups can include UPS devices added later.
+
+For low reserve, choose both power modes together: a morning report while mains power is confirmed, and immediate notification with acknowledgment while running on backup power. Select the delivery methods for each row. Optional charge and runtime thresholds have separate raise and clear values. A current UPS low warning remains authoritative even if another measurement appears adequate.
+
+If the same battery is already monitored, choose **Transfer overlapping battery monitoring to this reserve policy** and review which checks will end. Disabling the reserve policy keeps that transfer. Clearing the transfer choice or deleting its policy shows any original battery checks that would resume in the review.
+
+Issues groups open conditions under the UPS, with the most urgent first. Open **View issues** to acknowledge or pause one condition. Mains restoration can leave reserve low; charging does not clear a replacement warning or fault. If reserve becomes critical on backup power after an earlier acknowledgment, Homeostatic requests acknowledgment again and keeps any existing alert pause.
+
+Runtime is an estimate supplied by the UPS. Missing readings remain visible, and a disabled diagnostic entity must be enabled in Home Assistant before it can supply evidence. Homeostatic does not shut down equipment or control UPS outlets. UPS availability and physical power wiring remain separate from these reported conditions.
+
 ## Watch vacuums
 
 A vacuum is watched separately from whether Home Assistant can reach it. Homeostatic lists each vacuum entity in **Sources**. None are watched until you choose them.
@@ -101,6 +124,28 @@ A watched vacuum opens an issue when Home Assistant reports its activity as erro
 The notice uses Immediate, including overnight, unless you set a **Source preference** for that vacuum. Immediate sends once. The message names the vacuum and, when Home Assistant has an area assigned to it, that area. The area is often the room where the vacuum docks.
 
 A fault that never becomes the error activity stays an alert you write yourself.
+
+## Watch temperature limits
+
+Choose the **Temperature limits** starting template in Policies and select **Add monitoring policy**. Select a temperature sensor or a group of temperature sensors, then enter a **Minimum**, a **Maximum**, or both, with the **Temperature unit**. Enter **Must persist for (seconds)** before enabling the policy. Zero means an immediate issue; no duration or temperature limit is selected for you.
+
+A reading below the minimum or above the maximum must stay outside the range for the chosen duration before opening an issue. Equality is allowed. A reading back within the range clears the issue. A direct jump from below the minimum to above the maximum keeps the same issue because no in-range reading was seen. To monitor cold and warm conditions separately, create two policies with separate notification rows.
+
+For example, a garage policy could watch a chosen sensor below an owner-selected minimum for ten minutes. Duplicate that policy to watch another space, then change the sensor and settings before enabling the copy. Sensor placement and the limits you choose determine what the check means.
+
+## Watch thermostat progress
+
+Choose the **Thermostat progress** starting template in Policies and select **Add monitoring policy**. Select the thermostat, review its temperature differences and **Progress window (seconds)**, then choose notification rows and enable the policy. An immediate schedule is useful when you want to hear about worsening conditions as they qualify.
+
+The starting policy allows 2 °F of deviation from the thermostat's target. Outside that margin, it expects at least 2 °F of progress toward the target within an hour. Useful progress starts another hour. Moving 2 °F away from the best temperature reached opens an issue immediately. Repeatedly moving back and forth over the same temperatures doesn't count as new progress. You can change these settings for the system being watched.
+
+Heating uses the heating target; cooling uses the cooling target. A thermostat set to Heat/Cool uses the applicable end of its target range. With a heating target of 70 °F and the starting margin, 68 °F is within range. Once an issue opens, progress alone doesn't clear it; the reading must enter the permitted margin. Changing the target to an already-satisfied value can end the condition. Turning conditioning off ends monitoring until a supported heating or cooling mode returns.
+
+### Temperature monitoring limits
+
+Both temperature checks use Home Assistant's reported readings. They do not establish physical freshness, equipment damage, freeze risk or food safety. Thermostat checks use the thermostat's own temperature and do not interpret Auto mode, which can mean different things on different systems. Temperature-limit policies remain independent of thermostat modes and targets.
+
+Missing or invalid readings leave an existing issue open. They interrupt an uncompleted qualification period; monitoring starts a new period when usable evidence returns. Restart also starts a new period for a condition that had not yet qualified, while preserving an already-open issue until current readings establish recovery. Acknowledgment affects notifications and never changes the temperature finding.
 
 ## What an availability problem means
 
@@ -140,7 +185,7 @@ Every Repair Home Assistant raises becomes an issue, whichever integration raise
 
 The issue ends when Home Assistant stops reporting the Repair, or when you select **Ignore** on it in Home Assistant. Ended Repairs go into History like any other issue, and Acknowledge and Pause alerts work on them. **Working on this equipment** doesn't apply, because a Repair isn't equipment.
 
-All Repairs share one reporting choice, which starts at **Morning summary**. Change it under **Notifications → Household default → Home Assistant Repairs**. If nobody receives the choice you pick, Repairs show only in the panel.
+Repairs use the rows under **Notifications → Default notification rows → Repairs**. Existing Morning summary assignments are retained when settings are converted. With no notification rows, Repairs show only in the panel.
 
 An error that shows up only in an automation's trace still won't appear as a Repair. Check those in the automation's traces. An automation that names an entity that no longer exists is a [broken automation](#broken-automations).
 
@@ -152,7 +197,7 @@ Homeostatic opens one issue for that automation. The issue uses the automation's
 
 The check is on until you turn it off under **Policies → Broken automations**. **Turn off** opens a draft you review and save, and **Monitor all automations** turns the check back on. Turning Repairs off leaves this check on.
 
-All of these issues share one reporting choice, **Broken automations**, which starts at **Morning summary**. Change it under **Notifications → Household default → Broken automations**. If nobody receives the choice you pick, the issue shows only in the panel.
+These issues use **Notifications → Default notification rows → Broken automations**. Existing Morning summary assignments are retained when settings are converted. With no notification rows, the issue shows only in the panel.
 
 An entity that is unavailable, unknown, or disabled is still an entity, so it does not open this issue. An entity id written only inside a template is not seen. Scripts are not checked.
 
@@ -160,66 +205,69 @@ An entity that is unavailable, unknown, or disabled is still an entity, so it do
 
 Notifications are off on a new install, and issues still appear in the panel. Leave them off for a day or two while you settle what to watch, then set up who hears about what and turn them on.
 
-Homeostatic sends to phones through the Home Assistant Companion app by itself, so you don't need a notification automation.
+Homeostatic requests delivery through configured Home Assistant destinations. A notification automation is optional.
 
-All of this happens on the **Notifications** page, and changes there wait for review too. When you're done, select **Review changes**, check the list, then select **Save settings**. Until you've saved reporting choices once, the page shows the defaults, the button reads **Review reporting setup**, and the existing notification policy stays in effect.
+Use **Notifications → Schedules** to decide when to report and **Delivery methods** to choose destinations. Changes wait for **Review changes** and **Save settings**. Opening the page doesn't change reporting or enable requests. Existing generated reporting choices are converted for editing with their destinations and assignments intact. A custom notification policy stays active until you explicitly start, review and save its replacement.
 
-### Add people and their phones
+### Choose delivery methods
 
-Under **People and destinations**, use **Add person** to pick someone. The list shows Home Assistant people who are linked to a user account. Their Companion app phones appear under their name: tick the ones to use. Other `notify` entities, such as an email or messaging integration, are listed as destinations too.
+Select **Add delivery method**, give it a name and choose its destinations. A method can combine Companion app phones, configured notification entities such as email, Assist satellite announcements, a TTS provider with a media player, and a named notification action with an SMS recipient. Home Assistant owns the provider accounts and credentials. An unavailable saved target remains visible until you replace or remove it.
 
-A person doesn't need to be an administrator to receive notifications or to acknowledge one from their phone.
+Fixed methods always use the selected destinations. Presence methods can choose separate home and away destinations, or the destinations of selected people currently home. Choose fallback destinations or explicitly choose to skip when nobody qualifies or presence is unknown. A current home report qualifies; a named zone counts as away. Missing, restored, unknown and unavailable person states use the fallback when nobody is known to be home. Presence changes alone send nothing. Each new request or reminder uses the evidence available at that time.
 
-### Set up the reporting choices
+Home Assistant's generic notification listings don't identify every provider's delivery medium. Select a configured email or SMS provider appropriate to the field; a generic notification entity or action alone doesn't establish email or SMS support. Voice requires a satellite that supports announcements or a media player that supports playback with the chosen TTS provider.
 
-Every source and alert has one of six reporting choices:
+### Set up schedules
 
-| Choice | What happens |
+Select **Add schedule** or edit one of the starting definitions:
+
+| Schedule | What happens |
 | --- | --- |
 | Immediate | Sent right away, overnight included |
-| Immediate with acknowledgment | Sent right away, then repeated every 30 minutes until someone acknowledges it or the problem clears |
+| Immediate with acknowledgment | Sent right away, then repeated at your chosen interval until someone acknowledges it or the problem clears; the starting interval is 30 minutes |
 | Morning summary | Listed in the morning summary, 08:00 by default |
 | Evening summary | Listed in the evening summary, 18:00 by default |
 | Weekly summary | Listed in the weekly summary, Sunday 09:00 by default |
-| Dashboard only | Never sent. It shows in the panel. |
 
-Under **Reporting profiles**, open each of the five sending choices and tick the people who should get it. The summaries also have a **Report time**, and **Weekly summary** has a **Weekday**. Report times use the **Time zone** under **Household default**.
+Scheduled reports use one local time on the weekdays you select, in the displayed time zone. A schedule contains no destinations. Rename preserves every assignment, while Duplicate creates a new definition without assignments. Editing a shared definition affects its listed uses. Deleting one in use requires a replacement or explicit removal of its notification rows.
 
 A summary lists new problems and those still open, with how long each has been open. Problems that have already cleared aren't listed, and an empty summary isn't sent.
 
-Both immediate choices are sent as urgent notifications. On an iPhone they're sent as critical alerts, and on Android they use the **Homeostatic urgent** notification channel. If a choice is in use but nobody picked for it has a destination, problems with that choice are recorded without being sent, and the Overview shows **Reporting needs attention**.
+Both immediate schedules include overnight delivery. Companion app requests use critical alerts on iPhone and the **Homeostatic urgent** notification channel on Android. Voice follows the schedule too, including reminders and overnight delivery.
 
 ### Choose when each source reports
 
-Under **Household default**, **Newly monitored sources** sets the choice for every source that hasn't got one of its own. It starts at **Weekly summary**. **Home Assistant Repairs** sets the choice for every Repair, and **Broken automations** sets the choice for every automation that names a missing entity. Both start at **Morning summary**. A vacuum error uses Immediate until you set a source preference for that vacuum. When Immediate has no recipients, the issue stays in the panel.
+Open a named monitoring policy in **Policies**. Its **Notifications** rows each pair one schedule with one or more delivery methods. Add an immediate row for phones and a morning row for email to report the same problem both ways. Reuse a method across schedules or a schedule across methods. With no rows, the policy monitors for the dashboard only.
 
-To give one source its own choice, open it in **Sources**, open **Settings**, and pick a **Source preference** under **Reporting**. **Condition exceptions** sets a different choice for one kind of check on that source. For a whole integration, use **When to notify** in its **Settings**: **Device default** applies one choice to all its current devices, and devices it adds later use the household default.
+**Notifications → Default notification rows** sets the rows for existing monitoring without a source override, Repairs and broken automations. Converted settings preserve existing source and condition choices: the household starting choice is Weekly summary, Repairs and broken automations start at Morning summary, and vacuum errors start at Immediate unless overridden. Conversion doesn't add destinations to an unconfigured choice.
 
-When one issue covers several sources with different choices, the most urgent choice wins: Immediate with acknowledgment, then Immediate, Morning summary, Evening summary, Weekly summary and Dashboard only.
+Independent notification rows remain independent when issues are grouped. Acknowledgment applies to the issue across its rows: it stops acknowledgment reminders while scheduled reports continue to include eligible open problems.
 
 Alerts made from automations carry their reporting choice in the automation; see [Alerts from automations](automation-situations.md).
 
 ### Send a test notification
 
-Next to each available destination, **Send test** sends a fixed test message straight to it. It doesn't create an issue, and it works while notifications are off. Tapping the test notification opens the Notifications page. If nothing arrives, see [Troubleshooting](troubleshooting.md).
+Under **Test a destination**, **Send test** requests a fixed message for the displayed destination. It doesn't create an issue, and works while notifications are off. Previewing or editing a method sends nothing. The result records a request, not confirmed receipt or speech heard. If nothing arrives, see [Troubleshooting](troubleshooting.md).
+
+For a saved method, select **Preview delivery method** to see its exact current targets and presence evidence. Then select **Send test to these destinations** to request a message through that set, including configured SMS recipient numbers. Save an edited method before testing it. A change to its settings, presence evidence or target availability requires a new preview. An explicit Skip fallback requests nothing; a provider failure is reported for that destination.
 
 ### Turn notifications on
 
-1. Under **Outgoing requests**, tick **Enable notification requests**. It stays greyed out until at least one person has a destination.
+1. Under **Outgoing requests**, tick **Enable notification requests** after configuring the methods and rows you want.
 2. Select **Review changes**. The review says how many notifications the problems open right now would produce.
 3. Select **Save settings**.
 
-Problems that are already open are reported by their reporting choice as soon as you save. Those set to an immediate choice go out straight away, combined into one summary per person, and the rest wait for their next scheduled summary. Problems that have already cleared are left out.
+Problems already open follow their notification rows when you save. Immediate rows can request new messages, combined into summaries per row and method, while report rows wait for their next occurrence. Problems already cleared are left out. A reporting edit cancels superseded pending requests and withdraws replaceable messages without clearing the issue. A name-only edit doesn't restart reporting.
 
-After a Home Assistant restart, Homeostatic holds notifications until your integrations have finished loading, for at least **Wait after startup** and at most **Maximum startup wait**. Then it sends one summary per person instead of a burst. [Restart and activation](events.md#restart-and-activation) has the details.
+After a Home Assistant restart, Homeostatic holds notifications until your integrations have finished loading, for at least **Wait after startup** and at most **Maximum startup wait**. Alerting requests join summaries per row and method. Pending requests keep their already selected destinations even if presence changes during the restart. [Restart and activation](events.md#restart-and-activation) has the details.
 
 ### When a notification arrives
 
 Tapping a notification about one issue opens that issue in the panel. If the issue has ended by then, you see its entry in History. Tapping a summary opens **Issues**. You need to be signed in to the Home Assistant server that sent it, and the panel is for administrators only.
 
-A notification about a single open issue has an **Acknowledge** button. Tapping it records that someone has seen the issue, the same as **Acknowledge** in the panel, and stops the 30-minute repeats. The issue stays open until the problem clears. On an iPhone, the phone asks to be unlocked first. Only the person the notification was sent to can acknowledge with it. Dismissing a notification doesn't acknowledge it.
+A Companion app notification about a single open issue has an **Acknowledge** button where supported. Tapping it records that someone has seen the issue, the same as **Acknowledge** in the panel, and stops its acknowledgment reminders. The issue stays open until the problem clears. On an iPhone, the phone asks to be unlocked first. Only the phone's linked user can acknowledge with it. Dismissing a notification doesn't acknowledge it.
 
-When an issue clears, Homeostatic replaces its phone notification with a quiet *Problem cleared* message. Destinations other than Companion phones get each new message and reminder, but no silent updates, no **Acknowledge** button and nothing when the problem clears.
+When an issue clears, Homeostatic updates or withdraws its phone notification using the destinations of previous requests, even when people have since left home. Voice, email and SMS receive new messages and reminders, with no silent updates, cleanup sends or implied reply-based acknowledgment. The panel's acknowledgment control remains available.
 
 ## Operator controls
 

@@ -1,4 +1,4 @@
-import {inventoryRows} from "./model.mjs?v=46";
+import {inventoryRows} from "./model.mjs?v=69";
 
 export const MATCH_FIELDS = ["kind", "domain", "device_class", "integration", "integration_domain", "device", "entity", "area", "floor", "label"];
 
@@ -46,7 +46,13 @@ const byName = (left, right) => left.name.localeCompare(right.name) || left.id.l
 export function monitoringTree(data, query = "") {
   const names = new Map((data.devices ?? []).map((device) => [device.id, device.name]));
   const groups = new Map();
-  const rows = inventoryRows(data).filter((source) => ["integration", "entity", "device", "battery", "vacuum"].includes(source.kind));
+  const allRows = inventoryRows(data).filter((source) => ["integration", "entity", "device", "battery", "vacuum", "ups"].includes(source.kind));
+  const upsRows=new Map();
+  for(const source of allRows.filter(item=>item.kind==="ups")) {
+    const id=JSON.stringify([source.attributes?.device?.[0],source.check_id]);
+    if(!upsRows.has(id)||source.watched)upsRows.set(id,source);
+  }
+  const rows=[...allRows.filter(item=>item.kind!=="ups"),...upsRows.values()];
   const entries = new Set(rows.filter((source) => source.kind === "integration").map((source) => source.entry_id ?? source.node_id.slice(6)));
   const groupFor = (id) => {
     const key = entries.has(id) ? id : "";
@@ -60,7 +66,7 @@ export function monitoringTree(data, query = "") {
     group.name = source.name;
     group.entry = source;
   }
-  for (const source of rows.filter((item) => ["entity", "battery", "vacuum"].includes(item.kind))) {
+  for (const source of rows.filter((item) => ["entity", "battery", "vacuum", "ups"].includes(item.kind))) {
     const group = groupFor(source.owner_id ?? source.attributes?.integration?.[0]);
     group.entities.push(source);
     const deviceId = source.attributes?.device?.[0];

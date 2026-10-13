@@ -1,7 +1,7 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=46";
-import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=47";
-import {REPORTING, reportingChoices} from "./reporting.mjs?v=62";
-import {settingsChanges} from "./installation-settings.mjs?v=63";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=69";
+import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=69";
+import {REPORTING, reportingChoices} from "./reporting.mjs?v=69";
+import {settingsChanges} from "./installation-settings.mjs?v=69";
 
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const reportingLabel = id => REPORTING.find(row=>row[0]===id)?.[1] || id;
@@ -52,6 +52,11 @@ export function integrationSettings(card,node) {
 /** Summarize assigned preferences without treating unsaved setup as active. */
 export function integrationReporting(card,devices) {
   if(!card.settingsDraft||!devices.length)return "";
+  if(card.settingsDraft.notification_definitions) {
+    const definitions=card.settingsDraft.notification_definitions;
+    const describe=rows=>rows.length?rows.map(row=>`${definitions.schedules[row.schedule]?.name||row.schedule} → ${row.methods.map(id=>definitions.methods[id]?.name||id).join(", ")}`).join("; "):"Dashboard only";
+    return `<section class="source-setting-section"><h3>When to notify</h3><p>Household notifications are ${card.configuration.settings.notifications?"on":"off"}.</p><p class="small">Default notification rows apply to future devices. Each source can override them; named policies keep their own notification rows.</p><details><summary>Reporting for ${devices.length} devices</summary>${devices.map(child=>{const assignment=definitions.assignments[child.source.node_id]||{};return `<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}</span><small>${esc(describe(assignment.checks?.availability||assignment.default||definitions.default))}</small></button>`;}).join("")}</details><button type="button" class="link" data-page="notifications">Manage schedules and delivery methods</button></section>`;
+  }
   const choices=reportingChoices(card),saved=card.configuration.settings;
   const counts=new Map(),exceptions=[];
   for(const child of devices) {
@@ -91,20 +96,21 @@ function monitoringChanges(card) {
   });
 }
 
-function sourceSettingsFooter(card) {
+export function sourceSettingsFooter(card) {
   if(!card.settingsDraft)return "";
   const monitoringDirty=!same(card.configuration.rules,card.configDraft),settingsDirty=!same(card.configuration.settings,card.settingsDraft);
   const dirty=monitoringDirty||settingsDirty,review=sourceSettingsReviewed(card),busy=card.configBusy||card.settingsBusy;
   const changes=[...monitoringChanges(card),...settingsChanges(card.configuration.settings,card.settingsDraft,card)];
   const affected=(items,count,label)=>count?`<p><strong>${count} ${label}</strong></p><ul>${items.map(item=>`<li>${esc(item.name)}</li>`).join("")}</ul>${count>items.length?`<p class="small">Showing ${items.length} of ${count}.</p>`:""}`:"";
   const preview=review?.result,monitoring=preview?.monitoring;
-  const result=review?`<section class="settings-preview source-settings-preview" aria-live="polite"><h3>Review changes</h3><p>All pending monitoring and settings changes are included, including choices made on other pages.</p><ul>${changes.map(([name,from,to])=>`<li><strong>${esc(name)}</strong>: ${esc(from)} → ${esc(to)}</li>`).join("")}</ul>${monitoring?`<p>${monitoring.watched} sources monitored after saving.</p>${affected(monitoring.added,monitoring.added_count,"newly monitored")}${affected(monitoring.removed,monitoring.removed_count,"no longer monitored")}${!monitoring.added_count&&!monitoring.removed_count?'<p>No current sources start or stop monitoring. Entity inclusion or future matching sources may still change.</p>':""}${monitoring.functions.length?`<details><summary>Function readiness from current evidence</summary><ul>${monitoring.functions.map(item=>`<li>${esc(item.name)}: ${esc(item.readiness.answer)}</li>`).join("")}</ul></details>`:""}`:""}<p>Household notifications ${card.settingsDraft.notifications?'will be on':'will be off'}.</p><p class="small">${preview.open_problems} existing open problems would produce ${preview.requests_now} requests under this policy. This does not simulate problems after monitoring changes. Preview sends nothing. Saving reloads Homeostatic.</p></section>`:"";
+  const result=review?`<section class="settings-preview source-settings-preview" aria-live="polite"><h3>Review changes</h3><p>All pending monitoring and settings changes are included, including choices made on other pages.</p><ul>${changes.map(([name,from,to])=>`<li><strong>${esc(name)}</strong>: ${esc(from)} → ${esc(to)}</li>`).join("")}</ul>${monitoring?`<p>${monitoring.watched} sources monitored after saving.</p>${affected(monitoring.added,monitoring.added_count,"newly monitored")}${affected(monitoring.removed,monitoring.removed_count,"no longer monitored")}${!monitoring.added_count&&!monitoring.removed_count?'<p>No current sources start or stop monitoring. Entity inclusion or future matching sources may still change.</p>':""}${monitoring.functions.length?`<details><summary>Function readiness from current evidence</summary><ul>${monitoring.functions.map(item=>`<li>${esc(item.name)}: ${esc(item.readiness.answer)}</li>`).join("")}</ul></details>`:""}`:""}<p>${monitoring?.ended_issues?.length?`Monitoring ends for ${monitoring.ended_issues.length} existing issues. New evidence will be evaluated under the saved definitions.`:""}</p><p>Household notifications ${card.settingsDraft.notifications?'will be on':'will be off'}.</p><p class="small">${preview.open_problems} existing open problems would produce ${preview.requests_now} requests under this policy. This does not simulate problems after monitoring changes. Preview sends nothing. Saving reloads Homeostatic.</p></section>`:"";
   return `${result}<footer class="source-settings-footer"><p class="small" role="status">${busy?'Checking settings…':dirty?'Unsaved changes':'No unsaved changes'}</p>${card.sourceSettingsError?`<p role="alert" class="config-error">${esc(card.sourceSettingsError)}</p>`:""}${card.sourceSettingsNotice?`<p role="status">${esc(card.sourceSettingsNotice)}</p>`:""}<div class="actions"><button type="button" class="button primary" data-action="${review?'save-source-settings':'preview-source-settings'}"${busy||!dirty?' disabled':''}>${review?'Save changes':'Review changes'}</button>${dirty?`<button type="button" class="link" data-action="discard-source-settings"${busy?' disabled':''}>Discard changes</button>`:""}</div></footer>`;
 }
 
 /** Review the complete proposal without sending notifications or saving. */
 export async function previewSourceSettings(card) {
   if(card.settingsBusy||card.configBusy||card.current.status!=="current")return;
+  if([...(card.main.querySelectorAll?.(".installation-editor input, .installation-editor select")||[])].some(input=>!input.reportValidity()))return;
   const proposal=sourceSettingsProposal(card),revision=card.configuration.revision;
   card.sourceSettingsReview=null;card.sourceSettingsError=null;card.sourceSettingsNotice=null;
   card.settingsBusy=true;card.render();

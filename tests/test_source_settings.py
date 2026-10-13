@@ -9,9 +9,27 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
-from custom_components.homeostatic import reporting
+from custom_components.homeostatic import dashboard, reporting
+from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
 from tests.test_lifecycle import start_monitor
+
+
+async def test_legacy_library_settings_keep_editable_reporting(
+    hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Old public dependencies can save ordinary edits without route conversion."""
+    policy = reporting.generate(hass, reporting.defaults(), [])
+    current = {"policy": policy, "notifications": False}
+    monkeypatch.setattr(dashboard, "Rule", object)
+    draft = dashboard._editable_settings(Settings.from_data(current))
+    assert "notification_definitions" not in draft
+    assert draft["reporting"] == reporting.choices(policy)
+    draft["timings"]["settle"] += 1
+    candidate = await dashboard._settings_candidate(hass, current, draft)
+    assert candidate["policy"] == policy
+    assert candidate["timings"] == draft["timings"]
+    assert "notification_definitions" not in candidate
 
 
 def combined_proposal(current: dict[str, Any]) -> dict[str, Any]:

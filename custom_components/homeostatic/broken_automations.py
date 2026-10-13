@@ -207,6 +207,7 @@ class BrokenAutomations:
                 node_id=key,
                 name=row["name"],
                 kind=CHECK,
+                attributes={"kind": (CHECK,), "domain": ("automation",)},
                 alert_profile=chosen,
                 fix_url=row["url"],
                 check_id=CHECK,

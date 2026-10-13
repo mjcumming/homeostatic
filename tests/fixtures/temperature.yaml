@@ -1,0 +1,155 @@
+- id: limits-duration-and-equality
+  kind: limit
+  parameters: {unit: °F, minimum: 40, maximum: 80, duration_seconds: 600}
+  steps:
+    - {at: 0, value: 39, status: pass, reason: temperature_qualifying, deadline: 600}
+    - {at: 599, value: 39, status: pass, reason: temperature_qualifying, deadline: 600}
+    - {at: 600, value: 39, status: warn, reason: temperature_low}
+    - {at: 601, value: 40, status: pass, reason: temperature_in_range}
+    - {at: 602, value: 80, status: pass, reason: temperature_in_range}
+- id: limits-cross-range-without-recovery
+  kind: limit
+  parameters: {unit: °F, minimum: 40, maximum: 80, duration_seconds: 10}
+  steps:
+    - {at: 0, value: 39, status: pass, reason: temperature_qualifying, deadline: 10}
+    - {at: 10, value: 81, status: warn, reason: temperature_high}
+    - {at: 20, value: 39, status: warn, reason: temperature_low}
+- id: limits-gap-and-restart
+  kind: limit
+  parameters: {unit: °F, minimum: 40, duration_seconds: 10}
+  steps:
+    - {at: 0, value: 39, status: pass, reason: temperature_qualifying, deadline: 10}
+    - {at: 9, value: unavailable, status: unknown, reason: temperature_evidence_missing}
+    - {at: 10, value: 39, status: pass, reason: temperature_qualifying, deadline: 20}
+    - {at: 20, value: 39, status: warn, reason: temperature_low}
+    - {at: 100, restart: true, value: unknown, status: unknown, reason: temperature_evidence_missing}
+    - {at: 101, value: 39, status: warn, reason: temperature_low}
+    - {at: 102, value: 41, status: pass, reason: temperature_in_range}
+- id: limits-pending-restart
+  kind: limit
+  parameters: {unit: °C, maximum: 10, duration_seconds: 10}
+  steps:
+    - {at: 0, value: 11, unit: °C, status: pass, reason: temperature_qualifying, deadline: 10}
+    - {at: 100, restart: true, value: 11, unit: °C, status: pass, reason: temperature_qualifying, deadline: 110}
+- id: limits-conversion-immediate
+  kind: limit
+  parameters: {unit: °C, maximum: 0, duration_seconds: 0}
+  steps:
+    - {at: 0, value: 32, status: pass, reason: temperature_in_range}
+    - {at: 1, value: 33, status: warn, reason: temperature_high}
+    - {at: 2, value: 273.15, unit: K, status: pass, reason: temperature_in_range}
+- id: thermostat-progress-stall-and-recovery
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, value: 60, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 1800, value: 61, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 3600, value: 62, status: pass, reason: thermostat_qualifying, deadline: 7200}
+    - {at: 7200, value: 62, status: warn, reason: thermostat_stalled}
+    - {at: 7201, value: 64, status: warn, reason: thermostat_stalled}
+    - {at: 7202, value: 68, status: pass, reason: thermostat_in_margin}
+- id: thermostat-worsening-and-oscillation
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, value: 60, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 100, value: 62, status: pass, reason: thermostat_qualifying, deadline: 3700}
+    - {at: 200, value: 60, status: warn, reason: thermostat_worsening}
+    - {at: 300, value: 62, status: warn, reason: thermostat_worsening}
+    - {at: 400, value: 68, status: pass, reason: thermostat_in_margin}
+- id: thermostat-stalled-then-worsens
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, value: 65, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 3600, value: 65, status: warn, reason: thermostat_stalled}
+    - {at: 3601, value: 63, status: warn, reason: thermostat_worsening}
+- id: thermostat-target-and-action-changes
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, value: 65, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 100, value: 65, target: 72, status: pass, reason: thermostat_qualifying, deadline: 3700}
+    - {at: 200, value: 65, target: 72, action: idle, status: pass, reason: thermostat_qualifying, deadline: 3700}
+    - {at: 3700, value: 65, target: 72, status: warn, reason: thermostat_stalled}
+    - {at: 3701, value: 65, target: 67, status: pass, reason: thermostat_target_satisfied}
+    - {at: 3702, mode: off, value: 65, removed: true}
+    - {at: 3703, mode: auto, value: 65, removed: true}
+- id: thermostat-gap-does-not-credit-unobserved-time
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, value: 65, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 3500, mode: unavailable, value: 65, status: unknown, reason: temperature_evidence_missing}
+    - {at: 3600, value: 63, status: pass, reason: thermostat_qualifying, deadline: 7200}
+    - {at: 7200, value: 63, status: warn, reason: thermostat_stalled}
+    - {at: 8000, restart: true, value: 64, status: warn, reason: thermostat_stalled}
+    - {at: 8001, value: 68, status: pass, reason: thermostat_in_margin}
+- id: thermostat-cooling-and-range
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, mode: cool, value: 75, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 1, mode: cool, value: 77, status: warn, reason: thermostat_worsening}
+    - {at: 2, mode: cool, value: 72, status: pass, reason: thermostat_in_margin}
+    - {at: 3, mode: heat_cool, value: 65, low: 68, high: 74, status: pass, reason: thermostat_qualifying, deadline: 3603}
+    - {at: 4, mode: heat_cool, value: 76, low: 68, high: 74, status: pass, reason: thermostat_in_margin}
+- id: thermostat-equivalent-unit-conversion
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, value: 50, target: 68, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 3600, value: 10, target: 20, unit: °C, status: warn, reason: thermostat_stalled}
+- id: thermostat-custom-parameters
+  kind: thermostat
+  parameters: {unit: °C, margin: 0.5, progress: 0.5, worsening: 1, progress_seconds: 60}
+  steps:
+    - {at: 0, value: 18, target: 20, unit: °C, status: pass, reason: thermostat_qualifying, deadline: 60}
+    - {at: 60, value: 18.5, target: 20, unit: °C, status: pass, reason: thermostat_qualifying, deadline: 120}
+    - {at: 61, value: 19.5, target: 20, unit: °C, status: pass, reason: thermostat_in_margin}
+- id: limits-brief-excursion-and-rename
+  kind: limit
+  parameters: {unit: °F, minimum: 40, duration_seconds: 10}
+  steps:
+    - {at: 0, value: 39, status: pass, reason: temperature_qualifying, deadline: 10}
+    - {at: 9, value: 40, status: pass, reason: temperature_in_range}
+    - {at: 10, value: 39, status: pass, reason: temperature_qualifying, deadline: 20}
+    - {at: 20, value: 39, entity_id: sensor.renamed, status: warn, reason: temperature_low}
+- id: thermostat-pending-restart
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, value: 65, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 7200, restart: true, value: 60, status: pass, reason: thermostat_qualifying, deadline: 10800}
+- id: thermostat-late-progress-does-not-erase-stall
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, value: 60, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 3601, value: 62, status: warn, reason: thermostat_stalled}
+- id: thermostat-sub-threshold-oscillation
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, value: 60, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 100, value: 61, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 200, value: 60, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 3600, value: 61, status: warn, reason: thermostat_stalled}
+- id: thermostat-ranged-direction-change
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, mode: heat_cool, value: 60, low: 68, high: 74, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 1, mode: heat_cool, value: 80, low: 68, high: 74, status: pass, reason: thermostat_qualifying, deadline: 3601}
+- id: thermostat-active-new-target
+  kind: thermostat
+  parameters: {}
+  steps:
+    - {at: 0, value: 60, status: pass, reason: thermostat_qualifying, deadline: 3600}
+    - {at: 3600, value: 60, status: warn, reason: thermostat_stalled}
+    - {at: 3601, value: 60, target: 72, status: warn, reason: thermostat_stalled}
+- id: limits-kelvin-policy
+  kind: limit
+  parameters: {unit: K, minimum: 273.15, duration_seconds: 0}
+  steps:
+    - {at: 0, value: -1, unit: °C, status: warn, reason: temperature_low}

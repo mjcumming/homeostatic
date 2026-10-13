@@ -165,6 +165,7 @@ class AutomationAlerts:
         if (
             data["profile"] != "dashboard"
             and reporting.choices(settings.policy) is None
+            and settings.notification_definitions is None
         ):
             raise ValueError(
                 "Configure shared reporting profiles in Homeostatic Notifications first"
@@ -242,6 +243,14 @@ class AutomationAlerts:
             return "dashboard_only"
         if not settings.notifications:
             return "requests_disabled"
+        if settings.notification_definitions is not None:
+            return (
+                "configured"
+                if settings.notification_definitions.get("automation_profiles", {}).get(
+                    row["profile"]
+                )
+                else "missing_destinations"
+            )
         if profile_rule(settings.policy, row["profile"])["loudness"] == "record":
             return "missing_destinations"
         return "configured"

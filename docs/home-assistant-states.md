@@ -84,6 +84,12 @@ Both patterns are in Core, so Homeostatic can't assume either. An unavailable en
 
 **Other entity states.** An update entity is `on` or `off`, with install progress in attributes (`homeassistant/components/update/const.py`). Valve and cover states are `open`, `opening`, `closed`, and `closing`. Speech-to-text uses `error` as the result of one recognition (`SpeechResultState` in `homeassistant/components/stt/const.py`).
 
+## UPS reports
+
+UPS operating status is integration-specific. Homeostatic maps verified registry signals from NUT and APC UPS Daemon within one HA device. A current usable report can establish its mapped condition. Missing, disabled, restored, unknown or unavailable signals cannot establish recovery. APC communication loss invalidates cached status and numeric readings. HA state timestamps do not establish a physical heartbeat.
+
+The [UPS decision](adr/0051-monitor-ups-conditions-through-shared-mappings.md) records the checked entity identifiers and upstream status contracts.
+
 ## Limits that follow
 
 - A watched entity that an integration marks unavailable by mode looks like lost contact. Exclude it, or don't watch it on its own.

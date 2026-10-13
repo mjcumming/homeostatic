@@ -34,12 +34,12 @@ The `change` field says what happened:
 | `form` | `root` for an issue about one source. `group` when Homeostatic has grouped several related sources that failed together into one issue. |
 | `anchor` | Homeostatic's ID for the source the issue is about, such as `entry:<config entry id>` for an integration or `device:<device id>` for a device. Treat it as opaque. |
 | `anchor_name` | The source's current display name |
-| `anchor_kind` | `integration`, `device`, `entity`, `battery`, `vacuum`, `situation` (an alert), `repair` (a Home Assistant Repair), or `broken_automation` (an automation that names a missing entity). `null` when the source no longer exists. |
+| `anchor_kind` | `integration`, `device`, `entity`, `battery`, `vacuum`, `ups`, `thermostat`, `temperature_limit`, `situation` (an alert), `repair` (a Home Assistant Repair), or `broken_automation` (an automation that names a missing entity). `null` when the source no longer exists. |
 | `entity_ids` | The source's entity, or a device's watched entities. Empty for an integration or an alert from an automation. |
 | `device_id`, `area_id`, `floor_id` | The source's Home Assistant device, area and floor IDs, or `null` |
 | `status` | `warn`, `fail` or `unknown` |
 | `importance` | `low`, `normal`, `high` or `critical`. |
-| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `battery`, `vacuum`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
+| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `battery`, `vacuum`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
 | `opened_at` | When the issue opened, as an ISO 8601 timestamp |
 | `shelved` | Whether Pause alerts was on for the issue |
 | `maintenance` | Whether the source was covered by Working on this equipment |
@@ -116,7 +116,9 @@ It catches issues that are critical when they open. An issue whose importance ri
 
 Homeostatic fires `homeostatic_notification` once for each notification it requests for one recipient, after reporting choices, schedules, quiet hours, Pause alerts and Acknowledge have had their say. It fires only while notifications are on, apart from the withdrawals sent when you turn notifications off (see [Restart and activation](#restart-and-activation)) or remove Homeostatic.
 
-Homeostatic's built-in sender listens for this event too, and delivers the `phone:` and `notify:` channels itself. Any other channel is for your own automation. Installations that were set up with the Companion notifications blueprint use a channel called `event`. An event means Homeostatic asked for a notification. It doesn't tell you whether a phone received it.
+Homeostatic's built-in sender listens for this event too. It handles `phone:` Companion app targets, `notify:` notification entities, `satellite:` announcements, `tts:` provider/player pairs, and `sms:` notification actions with recipient targets. Other channels are for your own automation. Installations set up with the Companion notifications blueprint use a channel called `event`. An event records a delivery request; it doesn't establish receipt, reading or speech heard.
+
+Each notification row is evaluated independently. One issue can produce immediate requests and a later report for the same delivery method. Presence is resolved when a new request or reminder is prepared. A presence change alone creates no request. Non-Companion transports ignore silent updates and withdrawals, so cleanup never generates speech, email or SMS.
 
 | Field | Meaning |
 | --- | --- |
@@ -124,15 +126,16 @@ Homeostatic's built-in sender listens for this event too, and delivers the `phon
 | `entry_id` | The Homeostatic config entry |
 | `delivery_id` | This request's ID. It stays the same if the request is fired again after a restart. See [Delivery replay and deduplication](#delivery-replay-and-deduplication). |
 | `action` | What the request does. See the table below. |
-| `recipient` | Who it's for: `person:<person id>` for someone set up in Notifications, or a recipient name from your own notification policy, such as `owner` |
-| `channels` | The channels this recipient may receive on: `phone:<device id>`, `notify:<entity registry id>`, or names from your own policy such as `event`. Act only when your channel is in the list. |
+| `recipient` | `method:<method id>` for a reusable delivery method, `person:<person id>` for a legacy person assignment, or a custom policy recipient such as `owner` |
+| `route` | The stable notification-row identity for reusable assignments. Omitted on legacy requests. Independent rows have separate message identities. |
+| `channels` | The resolved destinations for this request: `phone:<device id>`, `notify:<entity registry id>`, `satellite:<entity registry id>`, `tts:<provider registry id>:<player registry id>`, `sms:<notify action>:<URL-encoded recipient>`, or custom channels such as `event`. Act only when your channel is listed. |
 | `episode_id` | The issue. On a summary or digest, the summary's ID instead. |
-| `tag` | A key for replacing or clearing this message on a phone. It stays the same for one issue and recipient, or one summary and recipient. Treat it as opaque. |
+| `tag` | A key for replacing or clearing this message on a phone. It stays the same for one issue, recipient and row, or their summary. Treat it as opaque. |
 | `title` | The source or alert name. On a summary, `Homeostatic: 3 open problems`. |
 | `message` | The issue's findings. On a summary, one line per issue. On `resolve`, a short note such as `Problem cleared.` |
 | `loudness` | `digest`, `notify` or `urgent` |
 | `silent` | `true` when the request replaces an earlier message without alerting again |
-| `digest` | On digest requests, the digest name (`morning`, `evening` or `weekly` for the built-in reporting choices). Otherwise `null`. |
+| `digest` | The report's identifier on digest requests; otherwise `null`. Treat generated identifiers as opaque. Legacy choices use names such as `morning`. |
 | `group` | Only on summaries and digests: the summary's ID |
 | `episodes` | Only on summaries and digests: the IDs of the issues in it. Empty when the summary is cleared. |
 | `cause` | Homeostatic's ID for the issue's source, or `null` on a summary |
@@ -144,10 +147,10 @@ Homeostatic's built-in sender listens for this event too, and delivers the `phon
 | --- | --- |
 | `open` | The first message about an issue for this recipient |
 | `update` | The issue or summary changed. Often `silent`. |
-| `remind` | A repeat, such as Immediate with acknowledgment every 30 minutes until someone acknowledges |
+| `remind` | A repeat at the schedule's configured reminder interval until someone acknowledges |
 | `escalate` | A custom notification policy raised the loudness after a delay |
 | `summary` | Several issues in one message, sent after a restart or when notifications are turned on |
-| `digest` | A scheduled summary: Morning, Evening or Weekly |
+| `digest` | A scheduled report of eligible open problems |
 | `resolve` | Withdraw or replace an earlier message, for the reason in `resolution` |
 
 | `resolution` | Meaning |
@@ -168,6 +171,8 @@ When an issue in a summary ends, Homeostatic sends a silent `update` with the re
 
 Homeostatic saves each request before it fires the event, then saves again to mark it as sent. If Home Assistant stops between those two saves, the request fires again after the restart with the same `delivery_id`. Your automation can therefore see the same request twice. Either skip a `delivery_id` you've already handled, or send with `tag` so the repeat replaces the first message on the phone. The Companion notifications blueprint uses the tag.
 
+Resolved targets are saved with the request. Replay keeps them even if someone has arrived home or left since the request was prepared. Silent updates and cleanup use the destinations of previous requests. Fields beginning with `_` are internal delivery bookkeeping; consumers must ignore them.
+
 Two kinds of repeat are deliberate. A reminder is a new request with a new `delivery_id`, even when its text matches the last one. A silent update that would change nothing isn't fired at all.
 
 You may also get a `resolve` for a message your automation never saw, for example when an issue ends during the startup hold. Clearing a tag that isn't on the phone is harmless.
@@ -180,13 +185,13 @@ The built-in sender records each `delivery_id` and channel before it sends, so a
 
 When Home Assistant starts, Homeostatic holds notification requests while your integrations load. The hold lasts at least **Wait after startup** (120 seconds by default). After that it ends as soon as no watched integration is still loading, or at **Maximum startup wait** (600 seconds by default). Integrations that are retrying or failed to set up count as finished, and disabled ones are ignored. Both timings are in **Settings**.
 
-Requests that would alert someone during the hold go into one `summary` per recipient, with the group `startup_<recipient>`. That includes a reminder that fell due while Home Assistant was down. An issue that already had its own message moves into the summary, and its old message gets a `resolve` with `replaced`. Silent updates and resolutions keep their normal form and go out when the hold ends. Reloading Homeostatic while Home Assistant is running has no hold.
+Requests that would alert someone during the hold go into one `summary` per recipient and notification row. That includes a reminder that fell due while Home Assistant was down. An issue that already had its own message moves into the summary, and its old message gets a `resolve` with `replaced`. Silent updates and resolutions keep their normal form and go out when the hold ends. Reloading Homeostatic while Home Assistant is running has no hold.
 
 `homeostatic_episode` and `homeostatic_control` aren't held. They fire as Homeostatic detects things, during startup too. They're never replayed after a restart or reload, so an automation that was off misses them. To get the current state after a restart, read the readiness sensors, or call `homeostatic.inventory`, `homeostatic.explain` or `homeostatic.resolved_history` (see the [reference](reference.md#actions)).
 
-When you turn notifications on, Homeostatic looks at the issues already open. Each recipient gets one `summary`, with the group `activation_<recipient>`, for the open issues their reporting choices allow, subject to any quiet hours or delays in the notification policy. Issues on Morning, Evening or Weekly summary wait for that summary, and Dashboard only issues send nothing. Escalation timing starts when notifications were turned on, and reminders start from each recipient's first request. Issue history and ages don't change.
+When you turn notifications on, Homeostatic looks at the issues already open. Immediate rows can request a `summary` for each recipient and row, subject to any quiet hours or delays in a custom policy. Report rows wait for their next occurrence. Dashboard-only monitoring sends nothing. Escalation timing starts when notifications were turned on, and reminders start from the first request on each row. Issue history and ages don't change.
 
-Changing the notification settings while notifications are on withdraws the outstanding messages, with `resolve` and `notifications_disabled`, and then does the same as turning notifications on.
+Changing reporting behavior while notifications are on cancels superseded pending requests, withdraws outstanding replaceable messages with `resolve` and `notifications_disabled`, and activates the new rows. Renaming a schedule or method alone doesn't restart reporting. Acknowledgment stops acknowledgment-based reminders across the issue's rows; scheduled reports continue to include eligible open problems.
 
 Turning notifications off withdraws every outstanding message with `resolve` and `notifications_disabled`. The problems may still be open.
 

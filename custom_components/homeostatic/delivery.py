@@ -1,5 +1,6 @@
 """Durable notification requests, independent of transport and engine state."""
 
+from collections.abc import Callable
 from typing import Any, cast
 
 from health_tree.types import Delivery, JSONValue, Loudness, Notification
@@ -63,6 +64,12 @@ class DeliveryState:
                 )
             ):
                 raise ValueError("Invalid notification payload")
+            for field in ("channels", "_target_channels"):
+                if field in payload and (
+                    not isinstance(payload[field], list)
+                    or any(not isinstance(channel, str) for channel in payload[field])
+                ):
+                    raise ValueError("Invalid resolved notification destinations")
         if any(not isinstance(payload.get("delivery_id"), str) for payload in outbox):
             raise ValueError("Invalid delivery id")
         attempts = data.get("attempted", [])
@@ -98,7 +105,7 @@ class DeliveryState:
         groups: dict[str, set[str]] = {}
         for delivery in deliveries:
             if isinstance(delivery, Notification) and delivery.cause == "digest":
-                group = f"digest_{delivery.digest}_{delivery.recipient}"
+                group = f"digest_{delivery.digest}_{delivery.recipient}{self._route_suffix(delivery)}"
                 groups.setdefault(group, set()).add(delivery.episode_id)
         for key, message in list(self.messages.items()):
             group = str(message.get("group", ""))
@@ -112,13 +119,15 @@ class DeliveryState:
         content: dict[str, JSONValue],
         *,
         startup: bool = False,
+        resolve_channels: Callable[[tuple[str, ...]], tuple[str, ...]] | None = None,
     ) -> None:
         """Render each authorized delivery, retaining summary membership.
 
         While Home Assistant starts, alerting requests join one startup summary
         per recipient. Silent replacements keep their existing presentation.
         """
-        key = f"{delivery.recipient}:{delivery.episode_id}"
+        suffix = self._route_suffix(delivery)
+        key = f"{delivery.recipient}:{delivery.episode_id}{suffix}"
         previous = self.messages.get(key)
         old_group = str(previous["group"]) if previous and "group" in previous else None
         if isinstance(delivery, Notification):
@@ -126,12 +135,12 @@ class DeliveryState:
             group = None
             if delivery.cause == "activate":
                 action = "summary"
-                group = f"activation_{delivery.recipient}"
+                group = f"activation_{delivery.recipient}{suffix}"
             elif startup and not delivery.silent:
                 action = "summary"
-                group = f"startup_{delivery.recipient}"
+                group = f"startup_{delivery.recipient}{suffix}"
             elif delivery.cause == "digest":
-                group = f"digest_{delivery.digest}_{delivery.recipient}"
+                group = f"digest_{delivery.digest}_{delivery.recipient}{suffix}"
             elif delivery.silent and old_group:
                 group = old_group
             tag = (
@@ -139,11 +148,26 @@ class DeliveryState:
                 if delivery.recipient == "owner"
                 else f"{content['tag']}_{delivery.recipient}"
             )
+            prior_channels = (
+                cast(
+                    list[str],
+                    previous.get("_target_channels", previous.get("channels", [])),
+                )
+                if previous
+                else []
+            )
+            channels = (
+                prior_channels
+                if delivery.silent and previous is not None
+                else list(resolve_channels(delivery.channels))
+                if resolve_channels
+                else list(delivery.channels)
+            )
             payload: dict[str, JSONValue] = {
                 **content,
-                "tag": tag,
+                "tag": f"{tag}{suffix}",
                 "recipient": delivery.recipient,
-                "channels": list(delivery.channels),
+                "channels": cast(list[JSONValue], channels),
                 "loudness": delivery.loudness.value,
                 "silent": delivery.silent,
                 "action": action,
@@ -152,6 +176,14 @@ class DeliveryState:
                 if delivery.silent and previous
                 else delivery.previously_reported,
             }
+            if suffix:
+                payload["route"] = delivery.route
+            if resolve_channels is not None or (
+                previous is not None and "_target_channels" in previous
+            ):
+                payload["_target_channels"] = list(
+                    dict.fromkeys([*prior_channels, *channels])
+                )
             if group is not None:
                 payload["group"] = group
                 payload["tag"] = f"homeostatic_{self.entry_id}_{group}"
@@ -191,6 +223,7 @@ class DeliveryState:
             if not (
                 item["episode_id"] == delivery.episode_id
                 and item["recipient"] == delivery.recipient
+                and item.get("route", "") == getattr(delivery, "route", "")
             )
         ]
         if old_group:
@@ -199,12 +232,19 @@ class DeliveryState:
             self.enqueue(
                 {
                     **previous,
+                    "channels": previous.get("_target_channels", previous["channels"]),
                     "action": "resolve",
                     "silent": True,
                     "resolution": delivery.resolution,
                     "message": f"Problem {delivery.resolution}.",
                 }
             )
+
+    @staticmethod
+    def _route_suffix(delivery: Delivery) -> str:
+        """Keep legacy identities intact while separating independent assignments."""
+        route = getattr(delivery, "route", "")
+        return f"_route_{route}" if route else ""
 
     def _group(
         self,
@@ -236,6 +276,7 @@ class DeliveryState:
             self.enqueue(
                 {
                     **previous,
+                    "channels": previous.get("_target_channels", previous["channels"]),
                     "episode_id": group,
                     "episodes": [],
                     "action": "resolve",
@@ -248,11 +289,35 @@ class DeliveryState:
         members.sort(key=lambda item: bool(item.get("previously_reported", False)))
         first = members[0]
         noisy = [item for item in members if item["episode_id"] in alerting]
+        history = list(
+            dict.fromkeys(
+                str(channel)
+                for item in [*members, *([previous] if previous else [])]
+                for channel in cast(
+                    list[JSONValue], item.get("_target_channels", item["channels"])
+                )
+            )
+        )
+        for member in members:
+            member["_target_channels"] = list(history)
+        channels = (
+            list(
+                dict.fromkeys(
+                    str(channel)
+                    for item in noisy
+                    for channel in cast(list[JSONValue], item["channels"])
+                )
+            )
+            if noisy
+            else history
+        )
         if silent and noisy:
             action = str(pending[-1]["action"])
         self.enqueue(
             {
                 **first,
+                "channels": cast(list[JSONValue], channels),
+                "_target_channels": cast(list[JSONValue], history),
                 "episode_id": group,
                 "episodes": [item["episode_id"] for item in members],
                 "action": action,
@@ -290,21 +355,33 @@ class DeliveryState:
             }
         )
 
-    def deactivate(self) -> None:
-        """Withdraw requests without claiming that their problems recovered."""
+    def deactivate(self, *, routes: set[str] | None = None) -> None:
+        """Withdraw selected requests without claiming that their problems recovered."""
         self.outbox = [
-            payload for payload in self.outbox if payload["action"] == "resolve"
+            payload
+            for payload in self.outbox
+            if payload["action"] == "resolve"
+            or (routes is not None and str(payload.get("route", "")) not in routes)
         ]
-        by_tag = {str(payload["tag"]): payload for payload in self.messages.values()}
+        selected = {
+            key: payload
+            for key, payload in self.messages.items()
+            if routes is None or str(payload.get("route", "")) in routes
+        }
+        by_tag = {str(payload["tag"]): payload for payload in selected.values()}
         for payload in by_tag.values():
             self.enqueue(
                 {
                     **payload,
+                    "channels": payload.get("_target_channels", payload["channels"]),
                     "action": "resolve",
                     "silent": True,
                     "resolution": "notifications_disabled",
                     "message": "Notifications disabled; the problem may still be open.",
                 }
             )
-        self.messages.clear()
-        self.summarized.clear()
+        for key in selected:
+            del self.messages[key]
+            self.summarized.discard(key)
+        if routes is None:
+            self.summarized.clear()

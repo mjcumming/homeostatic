@@ -3,12 +3,17 @@
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+
+# Importing optional integration packages loads providers and their dependencies.
+# These public feature bits are defined by Core's entity platform contracts.
+_SATELLITE_ANNOUNCE = 1
+_PLAYER_PLAY_MEDIA = 512
 
 
 def webhook_id_from_device_id(hass: HomeAssistant, device_id: str) -> str | None:
@@ -109,6 +114,97 @@ def destinations(hass: HomeAssistant) -> list[Destination]:
     return sorted(result, key=lambda item: (item.name.casefold(), item.channel))
 
 
+def delivery_targets(hass: HomeAssistant) -> list[dict[str, Any]]:
+    """Discover configured notification capabilities without requesting delivery."""
+    result = [
+        {
+            "channel": route.channel,
+            "name": route.name,
+            "type": "app" if route.channel.startswith("phone:") else "email",
+            "available": route.available,
+            "user_id": route.user_id,
+            "replace": route.channel.startswith("phone:"),
+            "acknowledgment": route.channel.startswith("phone:"),
+        }
+        for route in destinations(hass)
+    ]
+    entries = [
+        item
+        for item in er.async_get(hass).entities.values()
+        if item.disabled_by is None
+    ]
+
+    def available(entity: er.RegistryEntry) -> bool:
+        state = hass.states.get(entity.entity_id)
+        return (
+            state is not None
+            and state.state != "unavailable"
+            and not state.attributes.get("restored", False)
+        )
+
+    for entity in entries:
+        if entity.domain == "assist_satellite":
+            state = hass.states.get(entity.entity_id)
+            result.append(
+                {
+                    "channel": f"satellite:{entity.id}",
+                    "name": state.name if state else entity.name or entity.entity_id,
+                    "type": "voice",
+                    "available": available(entity)
+                    and bool(entity.supported_features & _SATELLITE_ANNOUNCE)
+                    and hass.services.has_service("assist_satellite", "announce"),
+                    "replace": False,
+                    "acknowledgment": False,
+                }
+            )
+        elif entity.domain == "tts":
+            for player in entries:
+                if player.domain == "media_player":
+                    result.append(
+                        {
+                            "channel": f"tts:{entity.id}:{player.id}",
+                            "name": f"{entity.name or entity.entity_id} → {player.name or player.entity_id}",
+                            "type": "voice",
+                            "available": available(entity)
+                            and available(player)
+                            and bool(player.supported_features & _PLAYER_PLAY_MEDIA)
+                            and hass.services.has_service("tts", "speak"),
+                            "replace": False,
+                            "acknowledgment": False,
+                        }
+                    )
+    for service in hass.services.async_services().get("notify", {}):
+        if service != "send_message" and not service.startswith("mobile_app_"):
+            result.append(
+                {
+                    "channel": f"sms:{service}:",
+                    "name": f"notify.{service}",
+                    "type": "sms",
+                    "available": True,
+                    "requires_target": True,
+                    "replace": False,
+                    "acknowledgment": False,
+                }
+            )
+    return sorted(
+        result, key=lambda item: (str(item["name"]).casefold(), str(item["channel"]))
+    )
+
+
+def _entity(hass: HomeAssistant, identity: str, domain: str) -> er.RegistryEntry:
+    entity = er.async_get(hass).entities.get_entry(identity)
+    if entity is None or entity.domain != domain or entity.disabled_by is not None:
+        raise HomeAssistantError("Selected destination is unavailable")
+    state = hass.states.get(entity.entity_id)
+    if (
+        state is None
+        or state.state == "unavailable"
+        or state.attributes.get("restored", False)
+    ):
+        raise HomeAssistantError("Selected destination is unavailable")
+    return entity
+
+
 def notification_url(payload: dict[str, Any]) -> str:
     """Link individual deliveries to history-safe issue detail on the HA server."""
     episode_id = payload.get("episode_id")
@@ -190,6 +286,8 @@ async def async_send(
         )
         return
     if channel.startswith("notify:"):
+        if clear or silent:
+            return
         entity = er.async_get(hass).entities.get_entry(channel[7:])
         if (
             entity is None
@@ -197,13 +295,64 @@ async def async_send(
             or entity.disabled_by is not None
         ):
             raise HomeAssistantError("Selected message destination is unavailable")
-        if clear or silent:
-            return
+        # HA's notify action validates the loaded entity and its availability.
         await hass.services.async_call(
             "notify",
             "send_message",
             {"entity_id": entity.entity_id, "title": title, "message": message},
             blocking=True,
         )
+        return
+    if channel.startswith(("satellite:", "tts:", "sms:")):
+        if clear or silent:
+            return
+        if channel.startswith("satellite:"):
+            entity = _entity(hass, channel[10:], "assist_satellite")
+            if not entity.supported_features & _SATELLITE_ANNOUNCE:
+                raise HomeAssistantError(
+                    "Selected satellite does not support announcements"
+                )
+            await hass.services.async_call(
+                "assist_satellite",
+                "announce",
+                {"entity_id": entity.entity_id, "message": message},
+                blocking=True,
+            )
+        elif channel.startswith("tts:"):
+            parts = channel.split(":")
+            if len(parts) != 3:
+                raise HomeAssistantError("Choose a TTS provider and media player")
+            provider = _entity(hass, parts[1], "tts")
+            player = _entity(hass, parts[2], "media_player")
+            if not player.supported_features & _PLAYER_PLAY_MEDIA:
+                raise HomeAssistantError("Selected media player cannot play media")
+            await hass.services.async_call(
+                "tts",
+                "speak",
+                {
+                    "entity_id": provider.entity_id,
+                    "media_player_entity_id": player.entity_id,
+                    "message": message,
+                },
+                blocking=True,
+            )
+        else:
+            parts = channel.split(":")
+            if (
+                len(parts) != 3
+                or not parts[1]
+                or not parts[2]
+                or parts[1] == "send_message"
+                or parts[1].startswith("mobile_app_")
+            ):
+                raise HomeAssistantError(
+                    "Choose an SMS notification action and recipient"
+                )
+            await hass.services.async_call(
+                "notify",
+                parts[1],
+                {"message": message, "target": [unquote(parts[2])]},
+                blocking=True,
+            )
         return
     raise HomeAssistantError("Unsupported notification destination")

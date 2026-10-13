@@ -1,6 +1,6 @@
 # ADR 0030: Show group policies separately from individual source choices
 
-**Status:** Accepted
+**Status:** Accepted; reusable-definition editing boundary superseded by [ADR 0054](0054-reusable-monitoring-policy-editor.md)
 **Date:** 2026-09-29
 
 **Partially supersedes:** ADR 0028's placement of the complete catalog editor

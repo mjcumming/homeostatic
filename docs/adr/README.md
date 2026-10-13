@@ -18,7 +18,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0012](0012-monitoring-expectations-and-persistent-exclusions.md) | Monitor declared availability expectations and persist exclusions | Partially superseded by 0013 and 0025 |
 | [0013](0013-retire-automatically-discovered-sources.md) | Retire automatically selected sources when HA removes registry evidence | Accepted |
 | [0014](0014-publish-detected-facts-for-owner-automations.md) | Publish detected facts for owner automations | Proposed |
-| [0015](0015-deliver-notifications-to-people.md) | Deliver notifications to people with a built-in sender | Accepted; reporting configuration model partially superseded by 0026 |
+| [0015](0015-deliver-notifications-to-people.md) | Deliver notifications to people with a built-in sender | Accepted; reporting model partially superseded by 0026; method and presence design by 0056 |
 | [0016](0016-guided-integration-availability-defaults.md) | Guide availability enrollment by integration | Accepted; navigation scope extended by 0017 |
 | [0017](0017-one-sources-workspace.md) | Use one Sources workspace | Accepted; implemented locally for review |
 | [0018](0018-source-panel-views.md) | Use source-specific views beside one tree | Accepted |
@@ -29,11 +29,11 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0023](0023-optional-topomation-location-tree.md) | Use Topomation as an optional location tree | Superseded by 0024 |
 | [0024](0024-explicit-topomation-grouping.md) | Offer Topomation as its own Sources grouping | Accepted |
 | [0025](0025-follow-home-assistant-availability-semantics.md) | Follow Home Assistant entity availability semantics | Accepted; supersedes 0012 source eligibility and status mapping; partial-device warning superseded by 0045 |
-| [0026](0026-fixed-reporting-preferences.md) | Use five fixed reporting preferences | Accepted product direction; contract and implementation pending |
-| [0027](0027-reporting-defaults-and-delivery.md) | Fixed reporting defaults and delivery semantics | Accepted |
+| [0026](0026-fixed-reporting-preferences.md) | Use five fixed reporting preferences | Accepted; details settled by 0027; fixed profile model superseded by 0055 |
+| [0027](0027-reporting-defaults-and-delivery.md) | Fixed reporting defaults and delivery semantics | Accepted; combined profiles and single-choice assignment superseded by 0055 |
 | [0028](0028-settings-scope-and-visible-reporting.md) | Keep global policies in Settings and expose reporting directly | Accepted; catalog presentation superseded by 0030; page placement superseded by 0047 |
 | [0029](0029-load-catalog-pages-on-demand.md) | Load revision-bound catalog pages on demand | Proposed; implemented locally for review |
-| [0030](0030-separate-group-policies-from-source-choices.md) | Show group policies separately from individual source choices | Accepted; partially supersedes 0028; page placement superseded by 0047; catalog editor superseded by 0048 |
+| [0030](0030-separate-group-policies-from-source-choices.md) | Show group policies separately from individual source choices | Accepted; partially supersedes 0028; page placement superseded by 0047; catalog editor by 0048; reusable-definition ownership by 0054 |
 | [0031](0031-review-source-settings-together.md) | Review integration monitoring and reporting together | Accepted |
 | [0032](0032-automation-reported-situations.md) | Receive expiring situation reports from HA automations | Accepted; setup and registration partially superseded by 0034 |
 | [0033](0033-notification-tap-destinations.md) | Open issue context from notification taps | Accepted |
@@ -51,9 +51,15 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0045](0045-device-issue-requires-every-selected-entity-unavailable.md) | Open a device issue only when every selected entity is unavailable | Accepted; supersedes 0025's partial-device warning |
 | [0046](0046-report-vacuum-error-activity.md) | Report a vacuum's error activity as an issue | Accepted |
 | [0047](0047-policies-page.md) | Give Policies its own dashboard page | Accepted; check presentation superseded by 0048 |
-| [0048](0048-policy-checks.md) | Show Integrations, Devices, Batteries, and Vacuums as on or off, and Repairs as always on | Accepted; Repairs row superseded by 0049 |
+| [0048](0048-policy-checks.md) | Show Integrations, Devices, Batteries, and Vacuums as on or off, and Repairs as always on | Accepted; Repairs row superseded by 0049; reusable-definition ownership by 0054 |
 | [0049](0049-repairs-check.md) | Turn Repairs on or off like the other checks | Accepted |
 | [0050](0050-flag-automations-that-name-missing-entities.md) | Flag automations that name a missing entity | Accepted |
+| [0051](0051-monitor-ups-conditions-through-shared-mappings.md) | Monitor UPS conditions through shared integration mappings | Accepted |
+| [0052](0052-thermostat-setpoint-deviation-alerts.md) | Detect thermostat setpoint deviation with progress-aware checks | Accepted; implemented in working tree with isolated validation; reporting assignment model superseded by 0055 |
+| [0053](0053-configurable-temperature-limit-checks.md) | Check user-configured temperature limits | Accepted; implemented in working tree with isolated validation; reporting assignment model superseded by 0055 |
+| [0054](0054-reusable-monitoring-policy-editor.md) | Manage reusable monitoring policies on Policies | Accepted; implemented locally for review |
+| [0055](0055-separate-notification-schedules-and-methods.md) | Pair reusable notification schedules and delivery methods on policies | Accepted; implemented in working tree; requires matching health-tree route support |
+| [0056](0056-ha-delivery-methods-and-presence.md) | Deliver through Home Assistant methods with optional presence selection | Accepted; implemented in working tree with isolated transport validation; live-provider trials pending |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision, not production readiness. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 

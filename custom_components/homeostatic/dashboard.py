@@ -6,9 +6,10 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import unquote
 
 import voluptuous as vol
-from health_tree.types import JSONValue
+from health_tree.types import JSONValue, Rule
 from homeassistant.components import frontend, websocket_api
 from homeassistant.components.http.server import StaticPathConfig
 from homeassistant.components.websocket_api.connection import ActiveConnection
@@ -29,12 +30,21 @@ from homeassistant.helpers.dispatcher import (
 from homeassistant.util import dt as dt_util
 from homeassistant.util.hass_dict import HassKey
 
-from . import reporting
+from . import notification_definitions, reporting
 from .battery import observe as battery_observation
-from .config import Settings, normalize_rules, rule_data
+from .config import Settings, normalize_requirement, normalize_rules, rule_data
 from .const import DEFAULTS, DOMAIN, NAME
 from .device_availability import device_availability
-from .notification_routes import async_send, destinations
+from .enrollment import evaluate, inventory
+from .monitoring_runtime import (
+    contributing_policies,
+    enrollment_rules,
+    temperature_sources,
+    transfer_batteries,
+    ups_sources,
+)
+from .notification_routes import async_send, delivery_targets, destinations
+from .rules import parse_rules
 from .runtime import Runtime
 from .serialization import json_object
 from .simple_notifications import available_people, generate_policy, simple_choices
@@ -43,7 +53,7 @@ from .vacuum import observe as vacuum_observation
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=68"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=69"
 PANEL_ELEMENT = "homeostatic-panel-v25"
 
 
@@ -57,6 +67,19 @@ def _configuration(runtime: Runtime) -> tuple[dict[str, Any], str]:
     """Read the effective options and their concurrency revision."""
     current = dict(runtime.entry.options or runtime.entry.data)
     return current, _digest(current)
+
+
+def _settings_review_token(
+    runtime: Runtime, revision: str, settings: dict[str, Any]
+) -> str:
+    """Bind named-policy review to the sources and issues it describes."""
+    reviewed: dict[str, Any] = {"revision": revision, "settings": settings}
+    if "monitoring_policies" in settings:
+        reviewed.update(
+            inventory_revision=runtime.inventory_revision,
+            episodes=sorted(runtime.episodes),
+        )
+    return _digest(reviewed)
 
 
 def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
@@ -357,6 +380,12 @@ def websocket_node(
         msg["id"],
         {
             "source": json_object(source),
+            "monitoring_policies": [
+                {"id": item.id, "name": item.name}
+                for item in contributing_policies(
+                    runtime.settings.monitoring_policies, source, runtime.sources
+                )
+            ],
             "integration_evidence": runtime.integration_evidence.view(node_id),
             "entity_status": runtime.entity_status(node_id),
             "device_evidence": runtime.device_evidence(node_id),
@@ -469,6 +498,12 @@ def websocket_source(
             if source.kind == "device"
             else None,
             "members": members[:50],
+            "monitoring_policies": [
+                {"id": item.id, "name": item.name}
+                for item in contributing_policies(
+                    runtime.settings.monitoring_policies, source, runtime.sources
+                )
+            ],
             "total": len(members),
             "unavailable_count": sum(
                 item["state"] == "unavailable" for item in members
@@ -526,6 +561,7 @@ async def _async_configuration(
             ],
             "settings": _editable_settings(settings),
             "notification_people": await available_people(hass),
+            "delivery_targets": delivery_targets(hass),
             "notification_destinations": [
                 {
                     "channel": item.channel,
@@ -597,23 +633,185 @@ async def _async_test_notification(
     connection.send_result(msg["id"], {"requested": True})
 
 
+def _delivery_method_test_preview(
+    runtime: Runtime, method_id: str, revision: str
+) -> dict[str, Any]:
+    """Bind a saved method test to its current presence evidence and exact targets."""
+    _, current_revision = _configuration(runtime)
+    if revision != current_revision:
+        raise ValueError("Notification settings changed; reload before testing")
+    definitions = runtime.settings.notification_definitions
+    if definitions is None or method_id not in definitions["methods"]:
+        raise ValueError("Save this delivery method before testing it")
+    method = definitions["methods"][method_id]
+    channels = notification_definitions.resolve_channels(
+        runtime.hass, definitions, method_id
+    )
+    catalog = {item["channel"]: item for item in delivery_targets(runtime.hass)}
+    targets: list[dict[str, Any]] = []
+    for channel in channels:
+        target = catalog.get(channel)
+        if target is None and channel.startswith("sms:"):
+            parts = channel.split(":")
+            template = catalog.get(f"sms:{parts[1]}:")
+            if template is not None:
+                target = {
+                    **template,
+                    "name": f"{template['name']} → {unquote(parts[2])}",
+                }
+        targets.append(
+            {
+                "channel": channel,
+                "name": target["name"] if target else channel,
+                "type": target["type"] if target else channel.split(":", 1)[0],
+                "available": bool(target and target["available"]),
+            }
+        )
+    presence: dict[str, dict[str, Any]] = {}
+    for person in method.get("people", []):
+        state = runtime.hass.states.get(person)
+        presence[person] = {
+            "state": state.state if state else None,
+            "restored": bool(state and state.attributes.get("restored", False)),
+        }
+    preview = {
+        "method_id": method_id,
+        "name": method["name"],
+        "targets": targets,
+        "presence": presence,
+        "skipped": not channels,
+    }
+    return {
+        **preview,
+        "preview_token": _digest({"revision": revision, "method": method, **preview}),
+    }
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/preview_delivery_method",
+        vol.Required("method_id"): str,
+        vol.Required("revision"): str,
+    }
+)
+@require_admin
+@callback
+def websocket_preview_delivery_method(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Show currently resolved saved destinations without requesting delivery."""
+    runtime = hass.data[DATA_DASHBOARD].runtime
+    if runtime is None or not runtime.available:
+        connection.send_error(msg["id"], "not_ready", "Homeostatic is unavailable")
+        return
+    try:
+        preview = _delivery_method_test_preview(
+            runtime, msg["method_id"], msg["revision"]
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_method", str(err))
+        return
+    connection.send_result(msg["id"], preview)
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/test_delivery_method",
+        vol.Required("method_id"): str,
+        vol.Required("revision"): str,
+        vol.Required("preview_token"): str,
+    }
+)
+@require_admin
+@callback
+def websocket_test_delivery_method(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Request a test only for the destinations in an unchanged explicit preview."""
+    hass.async_create_task(_async_test_delivery_method(hass, connection, msg))
+
+
+async def _async_test_delivery_method(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    runtime = hass.data[DATA_DASHBOARD].runtime
+    if runtime is None or not runtime.available:
+        connection.send_error(msg["id"], "not_ready", "Homeostatic is unavailable")
+        return
+    try:
+        preview = _delivery_method_test_preview(
+            runtime, msg["method_id"], msg["revision"]
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_method", str(err))
+        return
+    if msg["preview_token"] != preview["preview_token"]:
+        connection.send_error(
+            msg["id"],
+            "preview_required",
+            "Destinations or presence changed; preview again before sending",
+        )
+        return
+    if any(not target["available"] for target in preview["targets"]):
+        connection.send_error(
+            msg["id"], "invalid_route", "A selected destination is unavailable"
+        )
+        return
+    requested: list[str] = []
+    failed: list[dict[str, str]] = []
+    for target in preview["targets"]:
+        channel = target["channel"]
+        try:
+            await async_send(
+                hass,
+                channel,
+                title="Homeostatic test",
+                message=f"Test notification for {preview['name']}.",
+                tag=f"homeostatic_test_{msg['method_id']}",
+            )
+        except HomeAssistantError as err:
+            failed.append({"channel": channel, "error": str(err)})
+        else:
+            requested.append(channel)
+    connection.send_result(
+        msg["id"],
+        {"requested": requested, "failed": failed, "skipped": preview["skipped"]},
+    )
+
+
 def _editable_settings(settings: Settings) -> dict[str, Any]:
     """Expose only installation options supported by the dashboard editor."""
-    return {
+    result = {
         "timings": dict(settings.timings),
         "notifications": settings.notifications,
         "consumer": settings.consumer,
         "policy": settings.policy,
         "simple_notifications": simple_choices(settings.policy),
         "reporting": reporting.choices(settings.policy),
+        "monitoring_policies": [
+            policy.data() for policy in settings.monitoring_policies
+        ],
+        "notification_definitions": settings.notification_definitions
+        or (
+            notification_definitions.convert_legacy(legacy)
+            if (legacy := reporting.choices(settings.policy)) is not None
+            else None
+        ),
     }
+    if not hasattr(Rule, "route"):
+        result.pop("notification_definitions")
+    return result
 
 
 async def _settings_candidate(
     hass: HomeAssistant, current: dict[str, Any], proposed: dict[str, Any]
 ) -> dict[str, Any]:
     """Preserve unrelated options and validate a complete editable proposal."""
-    if set(proposed) - {"rules"} not in (
+    if set(proposed) - {
+        "rules",
+        "monitoring_policies",
+        "notification_definitions",
+    } not in (
         {"timings", "notifications", "consumer", "policy"},
         {"timings", "notifications", "consumer", "policy", "simple_notifications"},
         {
@@ -640,9 +838,22 @@ async def _settings_candidate(
     }
     if "rules" in proposed:
         candidate["rules"] = normalize_rules(hass, proposed["rules"])
+    if "monitoring_policies" in proposed:
+        candidate["monitoring_policies"] = []
+        for item in proposed["monitoring_policies"]:
+            match = dict(item.get("match", {}))
+            if "entity" in match:
+                values = match["entity"]
+                match["entity"] = [
+                    normalize_requirement(hass, value, node=False)
+                    for value in ([values] if isinstance(values, str) else values)
+                ]
+            candidate["monitoring_policies"].append({**item, "match": match})
     simple = proposed.get("simple_notifications")
-    if simple is not None and simple != simple_choices(
-        Settings.from_data(current).policy
+    if (
+        proposed.get("notification_definitions") is None
+        and simple is not None
+        and simple != simple_choices(Settings.from_data(current).policy)
     ):
         candidate["policy"] = generate_policy(
             hass, simple, await available_people(hass)
@@ -652,7 +863,10 @@ async def _settings_candidate(
                 "Clear the existing notification automation before switching to person delivery"
             )
     requested_reporting = proposed.get("reporting")
-    if requested_reporting is not None:
+    if (
+        proposed.get("notification_definitions") is None
+        and requested_reporting is not None
+    ):
         if (
             requested_reporting != reporting.choices(Settings.from_data(current).policy)
             or proposed["notifications"]
@@ -670,6 +884,13 @@ async def _settings_candidate(
             raise ValueError(
                 "Choose people and destinations for every used reporting profile"
             )
+    if proposed.get("notification_definitions") is not None:
+        candidate["notification_definitions"] = notification_definitions.validate(
+            proposed["notification_definitions"]
+        )
+        candidate["policy"] = notification_definitions.generate(
+            candidate["notification_definitions"]
+        )
     settings = Settings.from_data(candidate)
     previous = Settings.from_data(current)
     if settings.notifications and (
@@ -677,7 +898,7 @@ async def _settings_candidate(
     ):
         consumer = hass.states.get(settings.consumer) if settings.consumer else None
         built_in = any(
-            channel.startswith(("phone:", "notify:"))
+            channel.startswith(("phone:", "notify:", "method:"))
             for recipient in settings.policy_config().recipients.values()
             for channel in recipient.channels
         )
@@ -719,27 +940,77 @@ async def _async_preview_settings(
     try:
         candidate = await _settings_candidate(hass, current, msg["settings"])
         settings = Settings.from_data(candidate)
-        policy = runtime.preview_policy(settings.policy)
+        policy = runtime.preview_policy(settings.policy, settings=settings)
         monitoring = (
             _monitoring_preview(runtime, candidate["rules"])
             if "rules" in msg["settings"]
             else None
         )
+        if "monitoring_policies" in msg["settings"]:
+            proposed_sources = evaluate(
+                inventory(hass, settings, runtime.enrolled),
+                (
+                    *parse_rules(rule_data(hass, settings)),
+                    *enrollment_rules(settings.monitoring_policies),
+                ),
+            )
+            selected_ups = ups_sources(settings.monitoring_policies, proposed_sources)
+            proposed_sources = transfer_batteries(
+                settings.monitoring_policies, proposed_sources, selected_ups
+            )
+            proposed_sources.update(selected_ups)
+            proposed_sources.update(
+                temperature_sources(
+                    hass, settings.monitoring_policies, proposed_sources
+                )
+            )
+            after = {
+                key: source
+                for key, source in proposed_sources.items()
+                if source.watched
+            }
+            before = {
+                key: source
+                for key, source in {**runtime.candidates, **runtime.sources}.items()
+                if source.watched
+                and source.kind
+                not in {"repair", "broken_automation", "situation", "function"}
+            }
+            added = [
+                {"node_id": key, "name": after[key].name}
+                for key in after.keys() - before.keys()
+            ]
+            removed = [
+                {"node_id": key, "name": before[key].name}
+                for key in before.keys() - after.keys()
+            ]
+            monitoring = {
+                "watched": len(after),
+                "added": added[:50],
+                "added_count": len(added),
+                "removed": removed[:50],
+                "removed_count": len(removed),
+                "functions": [],
+                "ended_issues": [
+                    key
+                    for key, issue in runtime.episodes.items()
+                    if issue["anchor"] in before.keys() - after.keys()
+                ],
+            }
     except (ValueError, TypeError, KeyError, vol.Invalid) as err:
         connection.send_error(msg["id"], "invalid_settings", str(err))
         return
     connection.send_result(
         msg["id"],
         {
-            "preview_token": _digest(
-                {"revision": revision, "settings": msg["settings"]}
-            ),
+            "preview_token": _settings_review_token(runtime, revision, msg["settings"]),
             "before": _editable_settings(Settings.from_data(current)),
             "after": msg["settings"],
             **({"monitoring": monitoring} if monitoring is not None else {}),
             "activating": settings.notifications
             and not Settings.from_data(current).notifications,
             "requests_now": len(cast(list[JSONValue], policy["deliveries"])),
+            "reports": policy["reports"],
             "open_problems": len(runtime.episodes),
             "reporting_assignments": len(
                 msg["settings"].get("reporting", {}).get("assignments", {})
@@ -787,8 +1058,8 @@ async def _async_save_settings(
         except (ValueError, TypeError, KeyError, vol.Invalid) as err:
             connection.send_error(msg["id"], "invalid_settings", str(err))
             return
-        if msg["preview_token"] != _digest(
-            {"revision": revision, "settings": msg["settings"]}
+        if msg["preview_token"] != _settings_review_token(
+            runtime, revision, msg["settings"]
         ):
             connection.send_error(
                 msg["id"],
@@ -1123,6 +1394,8 @@ async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> Non
         websocket_api.async_register_command(hass, websocket_source)
         websocket_api.async_register_command(hass, websocket_configuration)
         websocket_api.async_register_command(hass, websocket_test_notification)
+        websocket_api.async_register_command(hass, websocket_preview_delivery_method)
+        websocket_api.async_register_command(hass, websocket_test_delivery_method)
         websocket_api.async_register_command(hass, websocket_preview_settings)
         websocket_api.async_register_command(hass, websocket_save_settings)
         websocket_api.async_register_command(hass, websocket_preview_alerts)

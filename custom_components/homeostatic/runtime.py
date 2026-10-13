@@ -41,7 +41,7 @@ from homeassistant.config_entries import (
     ConfigEntryState,
 )
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP, EVENT_STATE_CHANGED
-from homeassistant.core import Context, Event, HomeAssistant, callback
+from homeassistant.core import Context, Event, HomeAssistant, State, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -60,7 +60,7 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from . import reporting
+from . import notification_definitions, reporting
 from .attention import build_policy, explanations, supports_attention_controls
 from .automation_alerts import MAX_ALERTS, AutomationAlerts, automation_owner, identity
 from .battery import observe as battery_observation
@@ -102,12 +102,27 @@ from .facts import (
 )
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
+from .monitoring import TEMPERATURE_CHECKS
+from .monitoring_runtime import (
+    assignments,
+    enrollment_rules,
+    temperature_sources,
+    transfer_batteries,
+    ups_sources,
+)
 from .notification_routes import async_send, notification_url
 from .phone_actions import PhoneActions
 from .repairs import Repairs
 from .rules import Attributes, parse_rules
 from .serialization import json_object, to_json
 from .situation_reports import report_observation
+from .temperature import (
+    TemperatureLimitParameters,
+    TemperatureMonitor,
+    ThermostatParameters,
+)
+from .ups import MAPPINGS, UpsMonitor, retained_candidates
+from .ups_parameters import ReserveParameters
 from .vacuum import observe as vacuum_observation
 
 _LOGGER = logging.getLogger(__name__)
@@ -131,6 +146,7 @@ class Runtime:
         self._facts: list[Fact] = []
         self.engine: Engine | None = None
         self.policy: Policy | None = None
+        self._compiled_policy: PolicyConfig | None = None
         self.sources: dict[str, Source] = {}
         self.targets: list[str] = []
         self.enrolled: dict[str, Attributes] = {}
@@ -143,6 +159,13 @@ class Runtime:
         self.entity_evidence: dict[str, ReportedCondition] = {}
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
+        self.temperature_monitors: dict[str, TemperatureMonitor] = {}
+        self.ups_monitors: dict[str, UpsMonitor] = {}
+        self._ups_saved: dict[str, Any] = {}
+        self._temperature_saved: dict[str, Any] = {}
+        self._temperature_deadlines: dict[str, datetime] = {}
+        self._temperature_removed: set[str] = set()
+        self._resolved_requests: dict[str, dict[str, JSONValue]] = {}
         self.automation_alerts = AutomationAlerts()
         self.repairs = Repairs()
         self._repairs_dirty = True
@@ -154,11 +177,17 @@ class Runtime:
         self.delivery_failures: deque[dict[str, str]] = deque(maxlen=50)
         self._legacy_notifications: set[str] = set()
         self._activating = False
+        self._activating_routes: set[str] | None = None
         self.fresh_start = False
         self._quiet_since: datetime | None = None
-        self._pending: deque[tuple[datetime, list[Observation], Context | None]] = (
-            deque()
-        )
+        self._pending: deque[
+            tuple[
+                datetime,
+                list[Observation],
+                Context | None,
+                tuple[tuple[str, State | None], ...],
+            ]
+        ] = deque()
         self.retry_since: dict[str, datetime] = {}
         self.saved: dict[str, Any] | None = None
         self.running = False
@@ -189,7 +218,7 @@ class Runtime:
     def consumer_missing(self) -> bool:
         """An enabled notification route needs an enabled consumer automation."""
         if any(
-            channel.startswith(("phone:", "notify:"))
+            channel.startswith(("phone:", "notify:", "method:"))
             for recipient in self._policy_config().recipients.values()
             for channel in recipient.channels
         ):
@@ -248,6 +277,8 @@ class Runtime:
             if type(self.saved.get("notifications_enabled")) is not bool:
                 raise ValueError("Invalid notification activation state")
         self.automation_alerts.restore(self.saved.get("automation_alerts", {}))
+        self._temperature_saved = dict(self.saved.get("temperature_monitors", {}))
+        self._ups_saved = dict(self.saved.get("ups_monitors", {}))
         self.repairs.restore(self.saved.get("repairs", {}))
         self.broken.restore(self.saved.get("broken_automations", {}))
         self.phone_actions.restore(self.saved.get("phone_actions", {}))
@@ -338,9 +369,18 @@ class Runtime:
         )
         if metadata_changed:
             self._inventory_dirty = True
+        if entity_id.startswith("climate.") and any(
+            item.enabled and item.check == "thermostat"
+            for item in self.settings.monitoring_policies
+        ):
+            self._inventory_dirty = True
+            self._request_refresh()
         if sources and (
             any(source.kind == "situation" for source in sources)
-            or any(source.kind in {"battery", "vacuum"} for source in sources)
+            or any(
+                source.kind in {"battery", "vacuum", "ups", *TEMPERATURE_CHECKS}
+                for source in sources
+            )
             or any(
                 source.kind == "device"
                 and entity_id in source.connectivity_entities
@@ -354,7 +394,13 @@ class Runtime:
         ):
             now = dt_util.utcnow()
             observations = []
+            temperature_states: list[tuple[str, State | None]] = []
             for source in sources:
+                if source.kind in TEMPERATURE_CHECKS:
+                    temperature_states.append((source.node_id, new))
+                    self._inventory_dirty = True
+                    self._request_refresh()
+                    continue
                 observation = (
                     self._observe_device(source, now)
                     if source.kind == "device"
@@ -374,6 +420,8 @@ class Runtime:
                         changed_state=new,
                     )
                     if source.kind == "vacuum"
+                    else self._observe_ups(source, now, entity_id, new)
+                    if source.kind == "ups"
                     else entity_observation(source, event.data["new_state"], now)
                 )
                 if source.kind == "device":
@@ -382,8 +430,10 @@ class Runtime:
                         continue
                     self._device_signatures[source.node_id] = signature
                 observations.append(observation)
-            if observations:
-                self._pending.append((now, observations, event.context))
+            if observations or temperature_states:
+                self._pending.append(
+                    (now, observations, event.context, tuple(temperature_states))
+                )
                 self._request_refresh()
             elif metadata_changed:
                 self._request_refresh()
@@ -395,7 +445,7 @@ class Runtime:
         if self.running:
             source = self.sources[f"entry:{entry.entry_id}"]
             now = dt_util.utcnow()
-            self._pending.append((now, [self._observe_entry(source, now)], None))
+            self._pending.append((now, [self._observe_entry(source, now)], None, ()))
             self._request_refresh()
 
     async def _drain_pending(self) -> None:
@@ -404,9 +454,23 @@ class Runtime:
         processed = 0
         slice_started = perf_counter()
         while self._pending:
-            now, observations, cause = self._pending.popleft()
-            self._record_observations(observations)
-            self._handle(self.engine.ingest_many(observations, now), now, cause)
+            now, observations, cause, temperature_states = self._pending.popleft()
+            for node_id, state in temperature_states:
+                source = self.sources[node_id]
+                observation = self._observe_temperature(source, state, now)
+                if observation is not None:
+                    observations.append(observation)
+                if node_id in self._temperature_removed:
+                    self._temperature_removed.discard(node_id)
+                    self._handle(self.engine.remove(node_id, now), now, cause)
+                    self._handle(
+                        self.engine.register_many([source.node(self.settings)], now),
+                        now,
+                        cause,
+                    )
+            if observations:
+                self._record_observations(observations)
+                self._handle(self.engine.ingest_many(observations, now), now, cause)
             self._deliveries(self.policy.advance(now, PolicyContext()))
             processed += 1
             if self._pending and (
@@ -483,9 +547,19 @@ class Runtime:
         await self.async_stop()
 
     def _discover(self) -> dict[str, Source]:
-        rules = parse_rules(rule_data(self.hass, self.settings))
+        rules = (
+            *parse_rules(rule_data(self.hass, self.settings)),
+            *enrollment_rules(self.settings.monitoring_policies),
+        )
         discovered = inventory(self.hass, self.settings, self.enrolled)
+        discovered = retained_candidates(
+            self.hass, discovered, self.candidates, self._ups_saved
+        )
         candidates = evaluate(discovered, rules)
+        selected_ups = ups_sources(self.settings.monitoring_policies, candidates)
+        candidates = transfer_batteries(
+            self.settings.monitoring_policies, candidates, selected_ups
+        )
         at = dt_util.utcnow().isoformat()
         batch = uuid4().hex
         if not self._discovered:
@@ -568,6 +642,7 @@ class Runtime:
             self.hass, self.automation_alerts.compose(self.settings), candidates
         )
         sources.update(self.automation_alerts.sources(self.settings))
+        sources.update(selected_ups)
         open_episodes = (
             self.saved["episodes"] if self.saved is not None else self.episodes
         )
@@ -576,10 +651,16 @@ class Runtime:
         self.broken.prune(open_anchors)
         sources.update(self.repairs.sources(self.settings.policy, rules))
         sources.update(self.broken.sources(self.settings.policy, rules))
+        sources.update(
+            temperature_sources(
+                self.hass, self.settings.monitoring_policies, candidates
+            )
+        )
         self.enrolled = {
             node_id: source.attributes
             for node_id, source in sources.items()
             if source.kind in {"entity", "integration", "device", "battery", "vacuum"}
+            or (source.kind == "ups" and source.monitoring_policy is None)
         }
         return sources
 
@@ -663,9 +744,17 @@ class Runtime:
     async def _complete(self, now: datetime) -> None:
         assert self.policy is not None
         if self._activating:
-            self.delivery.deactivate()
+            self.delivery.deactivate(routes=self._activating_routes)
             self._activating = False
-            self._deliveries(self.policy.activate(now, PolicyContext()))
+            activated = (
+                self.policy.activate(now, PolicyContext())
+                if self._activating_routes is None
+                else self.policy.activate(
+                    now, PolicyContext(), routes=self._activating_routes
+                )
+            )
+            self._deliveries(activated)
+            self._activating_routes = None
         self._deliveries(self.policy.advance(now, PolicyContext()))
         self._prune_controls(now)
         self.history.advance(now)
@@ -954,7 +1043,8 @@ class Runtime:
             changed = True
         if first:
             previous = self.policy.snapshot()
-            self.policy = Policy(self._policy_config())
+            self._compiled_policy = self._policy_config()
+            self.policy = Policy(self._compiled_policy)
             self.policy.restore(previous, now)
         if changed:
             self._inventory_dirty = True
@@ -973,11 +1063,30 @@ class Runtime:
             "reporting_status": self.automation_alerts.status(self.settings, row),
         }
 
-    def _policy_config(self) -> PolicyConfig:
-        return build_policy(
-            self.automation_alerts.policy(self.settings),
-            self.settings.duration("batch"),
-        )
+    def _policy_config(
+        self,
+        settings: Settings | None = None,
+        *,
+        sources: dict[str, Source] | None = None,
+    ) -> PolicyConfig:
+        settings = settings or self.settings
+        sources = self.sources if sources is None else sources
+        if settings.notification_definitions is not None:
+            definitions = deepcopy(settings.notification_definitions)
+            definitions["assignments"].update(
+                assignments(settings.monitoring_policies, sources)
+            )
+            return build_policy(
+                notification_definitions.generate(definitions),
+                settings.duration("batch"),
+            )
+        legacy = self.automation_alerts.policy(settings)
+        dashboard_nodes = list(assignments(settings.monitoring_policies, sources))
+        if dashboard_nodes:
+            legacy["rules"].insert(
+                0, {"match": {"nodes": dashboard_nodes}, "loudness": "record"}
+            )
+        return build_policy(legacy, settings.duration("batch"))
 
     async def async_phone_action(self, event: Event[Any]) -> None:
         """Apply an authenticated recipient response through existing operator controls."""
@@ -985,9 +1094,23 @@ class Runtime:
         if row is None or not self.settings.notifications:
             return
         recipient = self._policy_config().recipients.get(row["recipient"])
+        method = (
+            self.settings.notification_definitions["methods"].get(
+                row["recipient"].removeprefix("method:")
+            )
+            if self.settings.notification_definitions
+            else None
+        )
+        permitted = (
+            notification_definitions.method_channels(method)
+            if method
+            else recipient.channels
+            if recipient
+            else ()
+        )
         if (
             recipient is None
-            or row["channel"] not in recipient.channels
+            or row["channel"] not in permitted
             or row["episode_id"] not in self.episodes
         ):
             return
@@ -1054,6 +1177,7 @@ class Runtime:
         previous_changes = tuple(self.enrollment_changes)
         sources = self._discover() if discover else self.sources
         events: list[HealthEvent] = []
+        self.sources = sources if first else self.sources
         if first:
             engine_settings = self.settings.engine_settings()
             if not self.fresh_start:
@@ -1062,6 +1186,15 @@ class Runtime:
             self.policy = Policy(self._policy_config())
         assert self.engine is not None
         assert self.policy is not None
+        for node_id in self._temperature_removed:
+            if node_id in self.sources and node_id in sources:
+                events.extend(self.engine.remove(node_id, now))
+                events.extend(
+                    self.engine.register_many(
+                        [sources[node_id].node(self.settings)], now
+                    )
+                )
+        self._temperature_removed.clear()
         changed = [
             source.node(self.settings)
             for node_id, source in sources.items()
@@ -1107,6 +1240,14 @@ class Runtime:
                 elif source.kind == "device" and source.watched:
                     for entity_id in self._device_members.get(source.node_id[7:], ()):
                         self._entity_sources.setdefault(entity_id, []).append(source)
+                if source.kind == "ups" and source.watched:
+                    for entity_id in dict.fromkeys(
+                        entity for _, entity in source.ups_entities
+                    ):
+                        if entity_id != source.entity_id:
+                            self._entity_sources.setdefault(entity_id, []).append(
+                                source
+                            )
                 if source.kind == "battery" and source.watched:
                     for entity_id in dict.fromkeys(
                         entity_id
@@ -1119,6 +1260,33 @@ class Runtime:
                     ):
                         self._entity_sources.setdefault(entity_id, []).append(source)
         self.sources = sources
+        self.ups_monitors = {
+            key: value for key, value in self.ups_monitors.items() if key in sources
+        }
+        self._ups_saved = {
+            key: value for key, value in self._ups_saved.items() if key in sources
+        }
+        self._temperature_saved = {
+            key: value
+            for key, value in self._temperature_saved.items()
+            if key in sources
+        }
+        compiled = self._policy_config()
+        if not first and compiled != self._compiled_policy:
+            previous_policy = self.policy.snapshot()
+            self.policy = Policy(compiled)
+            self.policy.restore(previous_policy, now)
+        self._compiled_policy = compiled
+        self.temperature_monitors = {
+            key: value
+            for key, value in self.temperature_monitors.items()
+            if key in sources
+        }
+        self._temperature_deadlines = {
+            key: value
+            for key, value in self._temperature_deadlines.items()
+            if key in sources
+        }
         self.entity_evidence = {
             key: value
             for key, value in self.entity_evidence.items()
@@ -1151,6 +1319,19 @@ class Runtime:
                 )
                 != self._policy_settings()
             )
+            if (
+                self._activating
+                and self.saved.get("notifications_enabled")
+                and self.settings.notification_definitions is not None
+                and "attention_routes" in self.saved
+            ):
+                previous_routes = self.saved["attention_routes"]
+                current_routes = self._route_signatures()
+                self._activating_routes = {
+                    route
+                    for route in previous_routes.keys() | current_routes.keys()
+                    if previous_routes.get(route) != current_routes.get(route)
+                }
             self.retry_since = {
                 entry_id: datetime.fromisoformat(value)
                 for entry_id, value in self.saved["retry_since"].items()
@@ -1201,6 +1382,15 @@ class Runtime:
         for source in sources.values():
             if not source.watched:
                 continue
+            if source.kind in TEMPERATURE_CHECKS:
+                state = (
+                    self.hass.states.get(source.entity_id) if source.entity_id else None
+                )
+                if (
+                    observation := self._observe_temperature(source, state, now)
+                ) is not None:
+                    observations.append(observation)
+                continue
             if source.kind == "repair":
                 if discover and (
                     observation := self.repairs.observation(
@@ -1219,6 +1409,8 @@ class Runtime:
                 continue
             if source.kind == "battery" and discover:
                 observations.append(battery_observation(self.hass, source, now))
+            elif source.kind == "ups" and discover:
+                observations.append(self._observe_ups(source, now))
             elif source.kind == "vacuum" and discover:
                 observations.append(vacuum_observation(self.hass, source, now))
             elif source.kind in {"entity", "situation"} and discover:
@@ -1240,9 +1432,18 @@ class Runtime:
     def _record_observations(self, observations: list[Observation]) -> None:
         for observation in observations:
             source = self.sources[observation.node_id]
+            if source.kind == "ups" and source.node_id in self.ups_monitors:
+                self.ups_monitors[source.node_id].latest = observation
             if source.kind == "integration":
                 self.integration_evidence.observe(observation, source.name)
-            elif source.kind in {"entity", "device", "battery", "vacuum"}:
+            elif source.kind in {
+                "entity",
+                "device",
+                "battery",
+                "vacuum",
+                "ups",
+                *TEMPERATURE_CHECKS,
+            }:
                 self.entity_evidence[source.node_id] = ReportedCondition(
                     reason=observation.reason,
                     message=observation.message or "",
@@ -1253,6 +1454,104 @@ class Runtime:
                         observation.status.value,
                         observation.reason,
                     )
+
+    def _observe_ups(
+        self,
+        source: Source,
+        now: datetime,
+        changed_entity: str | None = None,
+        changed_state: State | None = None,
+    ) -> Observation:
+        monitor = self.ups_monitors.get(source.node_id)
+        if monitor is None:
+            policy = next(
+                (
+                    item
+                    for item in self.settings.monitoring_policies
+                    if item.id == source.monitoring_policy
+                ),
+                None,
+            )
+            parameters = (
+                ReserveParameters.from_data(policy.parameters)
+                if policy and policy.check == "ups_reserve"
+                else ReserveParameters()
+            )
+            monitor = UpsMonitor(source=source, parameters=parameters)
+            if source.node_id in self._ups_saved:
+                monitor.restore(self._ups_saved.pop(source.node_id))
+            self.ups_monitors[source.node_id] = monitor
+        monitor.source = source
+        states: dict[str, State | None] = {}
+        registry, devices = er.async_get(self.hass), dr.async_get(self.hass)
+        device_id = next(iter(source.attributes.get("device", ())), None)
+        device = devices.async_get(device_id) if device_id else None
+        identities = (
+            {
+                identity
+                for domain, identity in device.identifiers
+                if domain == source.ups_platform
+            }
+            if device
+            else set()
+        )
+        for role, entity in source.ups_entities:
+            registered = registry.async_get(entity)
+            key = MAPPINGS[source.ups_platform or "nut"].get(role)
+            valid = (
+                registered is not None
+                and registered.device_id == device_id
+                and registered.platform == source.ups_platform
+                and registered.disabled_by is None
+                and key is not None
+                and registered.unique_id
+                in {f"{identity}_{key}" for identity in identities}
+            )
+            states[role] = (
+                (
+                    changed_state
+                    if entity == changed_entity
+                    else self.hass.states.get(entity)
+                )
+                if valid
+                else None
+            )
+        return monitor.evaluate(states, now)
+
+    def _observe_temperature(
+        self, source: Source, state: State | None, now: datetime
+    ) -> Observation | None:
+        policy = next(
+            item
+            for item in self.settings.monitoring_policies
+            if item.id == source.monitoring_policy
+        )
+        monitor = self.temperature_monitors.get(source.node_id)
+        if monitor is None:
+            parameters = (
+                TemperatureLimitParameters.from_data(policy.parameters)
+                if policy.check == "temperature_limit"
+                else ThermostatParameters.from_data(policy.parameters)
+            )
+            monitor = TemperatureMonitor(
+                node_id=source.node_id,
+                check_id=source.check_id,
+                name=source.name,
+                parameters=parameters,
+            )
+            if source.node_id in self._temperature_saved:
+                monitor.restore(self._temperature_saved.pop(source.node_id))
+            self.temperature_monitors[source.node_id] = monitor
+        monitor.name = source.name
+        result = monitor.evaluate(
+            state, now, climate_unit=self.hass.config.units.temperature_unit
+        )
+        self._temperature_deadlines.pop(source.node_id, None)
+        if result.next_deadline is not None:
+            self._temperature_deadlines[source.node_id] = result.next_deadline
+        if result.removed:
+            self._temperature_removed.add(source.node_id)
+        return result.observation
 
     def _observe_entry(self, source: Source, now: datetime) -> Observation:
         assert source.entry_id is not None
@@ -1285,6 +1584,33 @@ class Runtime:
     ) -> None:
         assert self.policy is not None
         for event in events:
+            rearm = False
+            if isinstance(event, EpisodeUpdated):
+                source = self.sources.get(event.episode.anchor)
+                monitor = self.ups_monitors.get(event.episode.anchor)
+                latest = monitor.latest if monitor else None
+                previous = self.episodes.get(event.episode.episode_id, {})
+                old_reasons = previous.get("reasons", [])
+                already_critical = (
+                    any(
+                        isinstance(item, dict)
+                        and item.get("reason") == "ups_reserve_critical"
+                        for item in old_reasons
+                    )
+                    if isinstance(old_reasons, list)
+                    else False
+                )
+                rearm = (
+                    source is not None
+                    and source.check_id == "ups_reserve"
+                    and not already_critical
+                    and any(
+                        item.reason == "ups_reserve_critical"
+                        and latest is not None
+                        and latest.evidence.get("mode_changed_to_backup") is True
+                        for item in event.episode.reasons
+                    )
+                )
             if isinstance(event, EpisodeOpened | EpisodeUpdated | EpisodeResolved):
                 self._episode_fact(event, cause)
             if isinstance(event, EpisodeOpened | EpisodeUpdated):
@@ -1297,6 +1623,10 @@ class Runtime:
                 # cached entity update cannot establish physical freshness.
                 continue
             self._deliveries(self.policy.handle(event, now, PolicyContext()))
+            if rearm:
+                self._deliveries(
+                    self.policy.rearm(event.episode.episode_id, now, PolicyContext())
+                )
 
     def _functions(self, episode: dict[str, JSONValue] | None) -> frozenset[str]:
         if episode is None:
@@ -1468,8 +1798,27 @@ class Runtime:
                 else {}
             )
             self.delivery.record(
-                delivery, content, startup=self._quiet_since is not None
+                delivery,
+                content,
+                startup=self._quiet_since is not None,
+                resolve_channels=self._resolve_channels,
             )
+
+    def _resolve_channels(self, channels: tuple[str, ...]) -> tuple[str, ...]:
+        result = []
+        for channel in channels:
+            if (
+                channel.startswith("method:")
+                and self.settings.notification_definitions is not None
+            ):
+                result.extend(
+                    notification_definitions.resolve_channels(
+                        self.hass, self.settings.notification_definitions, channel[7:]
+                    )
+                )
+            else:
+                result.append(channel)
+        return tuple(dict.fromkeys(result))
 
     def _content(self, episode_id: str) -> dict[str, JSONValue]:
         assert self.engine is not None
@@ -1520,9 +1869,15 @@ class Runtime:
             return
         pending = list(self.delivery.outbox)
         for payload in pending:
+            public_payload = {
+                key: value for key, value in payload.items() if key != "_alerting"
+            }
+            self._resolved_requests[str(payload["delivery_id"])] = public_payload
+            if len(self._resolved_requests) > 2000:
+                self._resolved_requests.pop(next(iter(self._resolved_requests)))
             self.hass.bus.async_fire(
                 EVENT_NOTIFICATION,
-                {key: value for key, value in payload.items() if key != "_alerting"},
+                public_payload,
             )
         self.delivery.outbox.clear()
         try:
@@ -1547,13 +1902,18 @@ class Runtime:
         if not isinstance(recipient_id, str):
             return
         recipient = self._policy_config().recipients.get(recipient_id)
-        if recipient is None:
+        resolved = self._resolved_requests.get(delivery_id) == payload
+        if recipient is None and not resolved:
             return
-        permitted = set(recipient.channels)
+        permitted = (
+            set(channels) if resolved else set(recipient.channels if recipient else ())
+        )
         for channel in channels:
             if not isinstance(channel, str) or channel not in permitted:
                 continue
-            if not channel.startswith(("phone:", "notify:")):
+            if not channel.startswith(
+                ("phone:", "notify:", "satellite:", "tts:", "sms:")
+            ):
                 continue
             attempt = f"{delivery_id}:{channel}"
             async with self._lock:
@@ -1599,7 +1959,8 @@ class Runtime:
                     silent=payload.get("silent") is True,
                     clear=payload.get("action") == "resolve"
                     and (
-                        not self.settings.notifications
+                        not channel.startswith("phone:")
+                        or not self.settings.notifications
                         or payload.get("loudness") != "urgent"
                     ),
                 )
@@ -1619,6 +1980,7 @@ class Runtime:
         assert self.engine is not None
         assert self.policy is not None
         deadlines = [self.engine.next_deadline(), self.policy.next_deadline()]
+        deadlines.extend(self._temperature_deadlines.values())
         deadlines.extend(
             control.until for control in self.controls if control.until > now
         )
@@ -1645,6 +2007,13 @@ class Runtime:
         assert self.policy is not None
         return {
             "schema_version": 2,
+            "temperature_monitors": {
+                key: monitor.snapshot()
+                for key, monitor in self.temperature_monitors.items()
+            },
+            "ups_monitors": {
+                key: monitor.snapshot() for key, monitor in self.ups_monitors.items()
+            },
             "automation_alerts": deepcopy(self.automation_alerts.records),
             "repairs": self.repairs.snapshot(),
             "broken_automations": self.broken.snapshot(),
@@ -1662,6 +2031,7 @@ class Runtime:
             "engine": self.engine.snapshot(),
             "policy": self.policy.snapshot(),
             "policy_settings": self._policy_settings(),
+            "attention_routes": self._route_signatures(),
             "episodes": self.episodes.copy(),
             "notifications": sorted(self.desired_notifications),
             "notifications_enabled": self.settings.notifications,
@@ -1679,29 +2049,131 @@ class Runtime:
         if await self.store.async_load() != snapshot:
             raise HomeAssistantError("Homeostatic snapshot could not be saved")
 
-    def _policy_settings(self) -> dict[str, Any]:
-        return {"policy": self.settings.policy, "batch": self.settings.timings["batch"]}
+    def _route_signatures(
+        self,
+        settings: Settings | None = None,
+        *,
+        sources: dict[str, Source] | None = None,
+    ) -> dict[str, Any]:
+        settings = settings or self.settings
+        config = self._policy_config(settings, sources=sources)
+        result: dict[str, Any] = {}
+        for rule in config.rules:
+            route = getattr(rule, "route", "")
+            item = result.setdefault(
+                route,
+                {
+                    "rules": [],
+                    "digests": {},
+                    "methods": {},
+                    "timezone": str(config.timezone),
+                    "batch": settings.timings["batch"],
+                },
+            )
+            item["rules"].append(json_object(rule))
+            recipients = rule.to
+            if rule.digest is not None:
+                item["digests"][rule.digest] = json_object(config.digests[rule.digest])
+                recipients = (*recipients, *config.digests[rule.digest].to)
+            if settings.notification_definitions is not None:
+                for recipient in recipients:
+                    method = settings.notification_definitions["methods"].get(
+                        recipient.removeprefix("method:")
+                    )
+                    if method is not None:
+                        item["methods"][recipient] = {
+                            key: value for key, value in method.items() if key != "name"
+                        }
+        return result
 
-    def preview_policy(self, data: dict[str, Any]) -> dict[str, JSONValue]:
+    def _policy_settings(self) -> dict[str, Any]:
+        if self.settings.notification_definitions is None:
+            return {
+                "policy": self.settings.policy,
+                "batch": self.settings.timings["batch"],
+            }
+        definitions = deepcopy(self.settings.notification_definitions)
+        for kind in ("schedules", "methods"):
+            for row in definitions[kind].values():
+                row.pop("name", None)
+        return {
+            "definitions": definitions,
+            "assignments": {
+                item.id: list(item.notifications)
+                for item in self.settings.monitoring_policies
+            },
+            "batch": self.settings.timings["batch"],
+        }
+
+    def preview_policy(
+        self, data: dict[str, Any], *, settings: Settings | None = None
+    ) -> dict[str, JSONValue]:
         """Simulate activation in an isolated policy using its opaque public snapshot."""
         assert self.policy is not None
-        settings = Settings.from_data(
+        settings = settings or Settings.from_data(
             {**(self.entry.options or self.entry.data), "policy": data}
         )
-        candidate = Policy(
-            build_policy(
-                self.automation_alerts.policy(settings), settings.duration("batch")
-            )
+        rules = (
+            *parse_rules(rule_data(self.hass, settings)),
+            *enrollment_rules(settings.monitoring_policies),
         )
+        candidates = evaluate(inventory(self.hass, settings, self.enrolled), rules)
+        candidates = evaluate(
+            retained_candidates(
+                self.hass, candidates, self.candidates, self._ups_saved
+            ),
+            rules,
+        )
+        selected_ups = ups_sources(settings.monitoring_policies, candidates)
+        candidates = transfer_batteries(
+            settings.monitoring_policies, candidates, selected_ups
+        )
+        sources, _ = compose(
+            self.hass, self.automation_alerts.compose(settings), candidates
+        )
+        sources.update(self.automation_alerts.sources(settings))
+        sources.update(selected_ups)
+        sources.update(self.repairs.sources(settings.policy, rules))
+        sources.update(self.broken.sources(settings.policy, rules))
+        sources.update(
+            temperature_sources(self.hass, settings.monitoring_policies, candidates)
+        )
+        candidate = Policy(self._policy_config(settings, sources=sources))
         now = dt_util.utcnow()
         candidate.restore(self.policy.snapshot(), now)
-        deliveries = candidate.activate(now, PolicyContext())
+        assert self.engine is not None
+        proposed_engine = Engine(settings.engine_settings())
+        if sources:
+            proposed_engine.register_many(
+                [source.node(settings) for source in sources.values()], now
+            )
+        active_ids = set(self.episodes)
+        for event in proposed_engine.restore(self.engine.snapshot(), now):
+            candidate.handle(event, now, PolicyContext())
+            if isinstance(event, EpisodeResolved):
+                active_ids.discard(event.episode.episode_id)
+        if (
+            settings.notification_definitions is not None
+            and self.settings.notification_definitions is not None
+            and self.settings.notifications
+        ):
+            before_routes = self._route_signatures()
+            after_routes = self._route_signatures(settings, sources=sources)
+            changed_routes = {
+                route
+                for route in before_routes.keys() | after_routes.keys()
+                if before_routes.get(route) != after_routes.get(route)
+            }
+            deliveries = candidate.activate(now, PolicyContext(), routes=changed_routes)
+        else:
+            deliveries = candidate.activate(now, PolicyContext())
         deliveries.extend(candidate.advance(now, PolicyContext()))
         return json_object(
             {
                 "at": now,
-                "episodes": explanations(candidate, list(self.episodes)),
+                "episodes": explanations(candidate, sorted(active_ids)),
                 "deliveries": deliveries,
+                "reports": candidate.reports(now),
                 "next_deadline": candidate.next_deadline(),
             }
         )
@@ -1846,6 +2318,10 @@ class Runtime:
             return None
         return {
             "current": json_object(current),
+            "ups": json_object(self.ups_monitors[node_id].latest)
+            if node_id in self.ups_monitors
+            and self.ups_monitors[node_id].latest is not None
+            else None,
             "explanation": self.query("explain", {"node_id": node_id}),
             "readiness": self.query("readiness", {"node_ids": [node_id]}),
         }
@@ -1854,6 +2330,11 @@ class Runtime:
         """Read dynamic inventory evidence without rebuilding catalog metadata."""
         return {
             "episodes": list(self.episodes.values()),
+            "ups_status": {
+                key: json_object(monitor.latest)
+                for key, monitor in self.ups_monitors.items()
+                if monitor.latest is not None
+            },
             "integration_evidence": {
                 str(episode["anchor"]): self.integration_evidence.view(
                     str(episode["anchor"])
@@ -1865,7 +2346,7 @@ class Runtime:
                 str(episode["anchor"]): self.entity_status(str(episode["anchor"]))
                 for episode in self.episodes.values()
                 if self.sources[str(episode["anchor"])].kind
-                in {"entity", "device", "battery", "vacuum"}
+                in {"entity", "device", "battery", "vacuum", "ups", *TEMPERATURE_CHECKS}
             },
             "resolved_history": self.history.view(dt_util.utcnow()),
             "operator_controls": [json_object(control) for control in self.controls],

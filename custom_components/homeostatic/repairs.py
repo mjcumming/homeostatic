@@ -162,6 +162,10 @@ class Repairs:
                 node_id=key,
                 name=row["name"],
                 kind="repair",
+                attributes={
+                    "kind": ("repair",),
+                    "integration_domain": (row["domain"],),
+                },
                 alert_profile=chosen,
                 fix_url=row["url"],
                 check_id="repair",

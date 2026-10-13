@@ -27,6 +27,8 @@ from .definitions import (
     definitions,
     external_capabilities,
 )
+from .monitoring import MonitoringPolicy, parse_policies
+from .notification_definitions import validate as validate_notification_definitions
 from .rules import DEFAULT_RULES, CatalogRule, parse_rules
 
 
@@ -44,6 +46,8 @@ class Settings:
     consumer: str | None = None
     rules: tuple[CatalogRule, ...] | None = None
     external_capabilities: tuple[ExternalCapability, ...] = ()
+    monitoring_policies: tuple[MonitoringPolicy, ...] = ()
+    notification_definitions: dict[str, Any] | None = None
 
     @classmethod
     def from_data(
@@ -87,10 +91,47 @@ class Settings:
             situations=situations,
             consumer=consumer,
             rules=parse_rules(data["rules"]) if "rules" in data else None,
+            monitoring_policies=parse_policies(data.get("monitoring_policies", [])),
+            notification_definitions=validate_notification_definitions(
+                data["notification_definitions"]
+            )
+            if data.get("notification_definitions") is not None
+            else None,
             external_capabilities=external_capabilities(
                 data if functions_enabled else {**data, "external_capabilities": []}
             ),
         )
+        if settings.notification_definitions is not None:
+            validation = dict(settings.notification_definitions)
+            for item in settings.monitoring_policies:
+                validate_notification_definitions(
+                    {
+                        **validation,
+                        "default": list(item.notifications),
+                        "repairs": [],
+                        "broken_automations": [],
+                        "assignments": {},
+                        "automation_profiles": {},
+                    }
+                )
+            validation["assignments"] = {
+                **validation["assignments"],
+                **{
+                    f"policy:{item.id}": {
+                        "default": [
+                            {**row, "id": f"policy_{item.id}_{row['id']}"}
+                            for row in item.notifications
+                        ],
+                        "checks": {},
+                    }
+                    for item in settings.monitoring_policies
+                },
+            }
+            validate_notification_definitions(validation)
+        elif any(item.notifications for item in settings.monitoring_policies):
+            raise ValueError(
+                "Create schedules and delivery methods before assigning notifications"
+            )
         nodes = []
         for function in functions:
             try:

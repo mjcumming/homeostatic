@@ -1,0 +1,78 @@
+- id: power-transition-and-conflict
+  check: ups_power
+  steps:
+    - {at: 0, states: {status: OL}, status: pass, reason: ups_on_mains}
+    - {at: 1, states: {status: OB}, status: warn, reason: ups_on_battery}
+    - {at: 2, states: {status: unknown}, status: unknown, reason: ups_evidence_missing}
+    - {at: 3, restart: true, states: {status: OL OB}, status: unknown, reason: ups_evidence_missing}
+    - {at: 4, states: {status: OL FUTURE_FLAG}, status: pass, reason: ups_on_mains}
+- id: apc-communication-loss-invalidates-cached-readings
+  platform: apcupsd
+  check: ups_reserve
+  parameters: {charge_low: 20, charge_clear: 30}
+  steps:
+    - {at: 0, states: {status: ONLINE, charge: 80}, status: pass, reason: ups_reserve_normal}
+    - {at: 1, states: {status: ONLINE COMMLOST LOWBATT, charge: 5}, status: unknown, reason: ups_evidence_missing}
+    - {at: 2, states: {status: ONLINE, charge: 80}, status: pass, reason: ups_reserve_normal}
+- id: reserve-mains-backup-charging-recovery
+  check: ups_reserve
+  parameters: {charge_low: 20, charge_clear: 30}
+  steps:
+    - {at: 0, states: {status: OL, charge: 10}, status: warn, reason: ups_reserve_low}
+    - {at: 1, states: {status: OB, charge: 10}, status: warn, reason: ups_reserve_critical}
+    - {at: 2, restart: true, states: {status: unknown, charge: 10}, status: warn, reason: ups_reserve_critical}
+    - {at: 3, states: {status: OL CHRG, charge: 25, charging: charging}, status: warn, reason: ups_reserve_low}
+    - {at: 4, states: {status: OL, charge: 30}, status: pass, reason: ups_reserve_normal}
+- id: explicit-warning-wins-over-percentage
+  check: ups_reserve
+  parameters: {charge_low: 20, charge_clear: 30}
+  steps:
+    - {at: 0, states: {status: OB LB, charge: 80}, status: warn, reason: ups_reserve_critical}
+    - {at: 1, states: {status: OL LB CHRG, charge: 80}, status: warn, reason: ups_reserve_low}
+    - {at: 2, states: {status: OL, charge: unavailable}, status: unknown, reason: ups_evidence_missing}
+    - {at: 3, states: {status: OL, charge: 80}, status: pass, reason: ups_reserve_normal}
+- id: replacement-does-not-clear-on-charging
+  check: ups_battery_replacement
+  steps:
+    - {at: 0, states: {status: OL RB}, status: warn, reason: ups_battery_replace}
+    - {at: 1, states: {status: OL RB CHRG}, status: warn, reason: ups_battery_replace}
+    - {at: 2, states: {status: unavailable}, status: unknown, reason: ups_evidence_missing}
+    - {at: 3, states: {status: OL}, status: pass, reason: ups_battery_normal}
+- id: fault-and-voltage-regulation
+  check: ups_fault
+  steps:
+    - {at: 0, states: {status: OL TRIM BOOST}, status: pass, reason: ups_fault_clear}
+    - {at: 1, states: {status: OB OVER}, status: fail, reason: ups_fault}
+    - {at: 2, states: {status: OL BYPASS}, status: warn, reason: ups_protection_lost}
+    - {at: 3, states: {status: 'OFF'}, status: fail, reason: ups_fault}
+    - {at: 4, states: {status: WAIT}, status: unknown, reason: ups_evidence_missing}
+    - {at: 5, states: {status: OL}, status: pass, reason: ups_fault_clear}
+- id: runtime-seconds-hysteresis
+  check: ups_reserve
+  parameters: {runtime_low_minutes: 5, runtime_clear_minutes: 10}
+  steps:
+    - {at: 0, states: {status: OB, runtime: 300}, status: warn, reason: ups_reserve_critical}
+    - {at: 1, states: {status: OB, runtime: 500}, status: warn, reason: ups_reserve_critical}
+    - {at: 2, states: {status: OB, runtime: 600}, status: pass, reason: ups_reserve_normal}
+- id: hardware-setpoint-lost-after-restart
+  check: ups_reserve
+  steps:
+    - {at: 0, states: {status: OL, charge: 5, charge_low: 10}, status: warn, reason: ups_reserve_low}
+    - {at: 1, restart: true, states: {status: OL, charge: 80, charge_low: unknown}, status: unknown, reason: ups_evidence_missing}
+    - {at: 2, states: {status: OL, charge: 80, charge_low: 10}, status: pass, reason: ups_reserve_normal}
+- id: initial-mode-unknown
+  check: ups_reserve
+  parameters: {charge_low: 20, charge_clear: 30}
+  steps:
+    - {at: 0, states: {status: unknown, charge: 5}, status: warn, reason: ups_reserve_mode_unknown}
+    - {at: 1, states: {status: OL, charge: 5}, status: warn, reason: ups_reserve_low}
+- id: apcupsd-shared-reserve-contract
+  check: ups_reserve
+  platform: apcupsd
+  runtime_unit: min
+  parameters: {runtime_low_minutes: 5, runtime_clear_minutes: 10}
+  steps:
+    - {at: 0, states: {status: ONLINE, runtime: 4}, status: warn, reason: ups_reserve_low}
+    - {at: 1, states: {status: ONBATT LOWBATT, runtime: 12}, status: warn, reason: ups_reserve_critical}
+    - {at: 2, states: {status: COMMLOST, runtime: unknown}, status: unknown, reason: ups_evidence_missing}
+    - {at: 3, states: {status: ONLINE, runtime: 12}, status: pass, reason: ups_reserve_normal}

@@ -13,6 +13,8 @@ It covers:
 - Integrations that won't start, keep retrying, or need you to sign in again
 - Devices and entities that go unavailable
 - Batteries running low
+- UPS backup operation, low reserve, replacement warnings and faults from NUT or APC UPS Daemon
+- Thermostat progress and temperature limits you configure
 - Vacuums that report an error
 - Repairs Home Assistant raises, like an automation calling an action that no longer exists
 - Automations that name an entity that no longer exists

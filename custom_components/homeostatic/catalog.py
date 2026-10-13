@@ -41,9 +41,38 @@ class Source:
     battery_level_entity: str | None = None
     battery_warning_entity: str | None = None
     battery_charging_entity: str | None = None
+    monitoring_policy: str | None = None
+    ups_entities: tuple[tuple[str, str], ...] = ()
+    ups_platform: str | None = None
+    ups_disabled_entities: tuple[str, ...] = ()
+    ups_name: str | None = None
 
     def node(self, settings: Settings) -> Node:
         """Declare a check for the observed HA control-path capability."""
+        if self.kind in {"thermostat", "temperature_limit", "ups"}:
+            return Node(
+                node_id=self.node_id,
+                kind=self.kind,
+                importance=self.importance,
+                labels={
+                    "name": self.name,
+                    "monitoring_policy": self.monitoring_policy or "",
+                },
+                checks=(
+                    Check(
+                        check_id=self.check_id,
+                        raise_hold=timedelta(0),
+                        clear_hold=settings.duration("clear_hold")
+                        if self.kind == "ups"
+                        else timedelta(0),
+                        ttl=None,
+                        unknown_hold=settings.duration("unknown_hold"),
+                        labels={
+                            "category": "ups" if self.kind == "ups" else "temperature"
+                        },
+                    ),
+                ),
+            )
         if self.kind == "battery":
             return Node(
                 node_id=self.node_id,
@@ -91,6 +120,7 @@ class Source:
                         else {}
                     ),
                     "source": "home_assistant",
+                    "homeostatic_source": self.kind,
                 },
                 checks=(
                     Check(
@@ -125,6 +155,7 @@ class Source:
             ),
             labels={
                 "name": self.name,
+                "homeostatic_source": self.kind,
                 **(
                     {"homeostatic_alert_profile": self.alert_profile}
                     if self.alert_profile

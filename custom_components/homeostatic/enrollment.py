@@ -15,6 +15,7 @@ from .config import Settings, resolve_entity, rule_data
 from .const import DOMAIN
 from .rules import Attributes, CatalogRule, attributes, decide, parse_rules
 from .serialization import json_object
+from .ups import candidates as ups_candidates
 from .vacuum import candidates as vacuum_candidates
 
 
@@ -32,6 +33,7 @@ def restore_enrollment(value: Any) -> dict[str, Attributes]:
                 "device:",
                 "battery:",
                 "vacuum:",
+                "ups:",
             )
         ):
             raise ValueError("Invalid enrolled identity")
@@ -190,6 +192,7 @@ def inventory(
             attributes=metadata,
         )
     sources.update(battery_candidates(hass, sources))
+    sources.update(ups_candidates(hass, sources))
     sources.update(vacuum_candidates(sources))
     members = device_members(hass)
     device_ids = set(members)

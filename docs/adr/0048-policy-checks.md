@@ -1,6 +1,6 @@
 # ADR 0048: Show the four policy checks as on or off
 
-**Status:** Accepted
+**Status:** Accepted; reusable-definition editing boundary superseded by [ADR 0054](0054-reusable-monitoring-policy-editor.md)
 **Date:** 2026-10-04
 
 **Supersedes:** the Policies presentation in [ADR 0047](0047-policies-page.md) that edited a saved broad rule in place and kept other group policies, individual source choices, and Advanced rule details on the page. The collapsed complete catalog editor in [ADR 0030](0030-separate-group-policies-from-source-choices.md) is also superseded. The Policies page, and the split that keeps one source in Sources, remain.

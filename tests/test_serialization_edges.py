@@ -1,5 +1,7 @@
 """Presentation serialization edge cases for public records."""
 
+from datetime import time, timedelta
+
 import pytest
 
 from custom_components.homeostatic.serialization import json_object, to_json
@@ -8,12 +10,14 @@ from custom_components.homeostatic.serialization import json_object, to_json
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-        ((1, "two"), [1, "two"]),
-        ([{"answer": 42}], [{"answer": 42}]),
+        pytest.param((1, "two"), [1, "two"], id="tuple"),
+        pytest.param([{"answer": 42}], [{"answer": 42}], id="list"),
+        pytest.param(timedelta(minutes=15), 900.0, id="reminder-duration"),
+        pytest.param(time(7, 30), "07:30:00", id="local-report-time"),
     ],
 )
-def test_sequences_are_json_arrays(value: object, expected: object) -> None:
-    """Tuple and list values remain ordered JSON arrays."""
+def test_public_record_values(value: object, expected: object) -> None:
+    """Policy timing and ordered collections have stable JSON representations."""
     assert to_json(value) == expected
 
 

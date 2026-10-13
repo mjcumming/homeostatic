@@ -107,6 +107,7 @@ _SCHEMA = vol.Schema(
                     vol.Optional("remind_every"): duration,
                     vol.Optional("escalate_after"): duration,
                     vol.Optional("require_acknowledgment"): bool,
+                    vol.Optional("route"): str,
                 }
             ],
             vol.Length(min=1),
@@ -182,6 +183,12 @@ def _rule(row: dict[str, Any]) -> Rule:
         remind_every=row.get("remind_every"),
         escalate_after=row.get("escalate_after"),
     )
+    if row.get("route"):
+        if not hasattr(rule, "route"):
+            raise vol.Invalid(
+                "Reusable notification schedules require the health-tree build with independent attention routes"
+            )
+        rule = replace(rule, route=row["route"])
     if row.get("require_acknowledgment", False):
         if not hasattr(rule, "require_acknowledgment"):
             raise vol.Invalid("Acknowledgment requires HealthTree 0.4.0 or newer")

@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import fields, is_dataclass
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from enum import Enum
 
 from health_tree.types import JSONValue
@@ -14,8 +14,10 @@ def to_json(value: object) -> JSONValue:
         return to_json(value.value)
     if value is None or isinstance(value, str | int | float | bool):
         return value
-    if isinstance(value, datetime):
+    if isinstance(value, datetime | time):
         return value.isoformat()
+    if isinstance(value, timedelta):
+        return value.total_seconds()
     if is_dataclass(value) and not isinstance(value, type):
         return {
             field.name: to_json(getattr(value, field.name)) for field in fields(value)

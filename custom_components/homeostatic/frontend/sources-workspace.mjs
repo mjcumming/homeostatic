@@ -1,11 +1,13 @@
-import {sourceReporting} from "./reporting.mjs?v=62";
-import {integrationSettings} from "./source-settings.mjs?v=63";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=52";
-import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=60";
-import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=47";
-import {batteryProblem, deviceProblem, entityProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=62";
+import {sourceReporting} from "./reporting.mjs?v=69";
+import {integrationSettings} from "./source-settings.mjs?v=69";
+import {applicablePolicyLinks} from "./reusable-editors.mjs?v=69";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=69";
+import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=69";
+import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=69";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=69";
 
-import {deviceAvailability} from "./device-availability.mjs?v=47";
+import {deviceAvailability} from "./device-availability.mjs?v=69";
+import {upsSourceSummary} from "./ups.mjs?v=69";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -190,6 +192,7 @@ function includedEntities(data) {
 }
 
 export function sourceMonitoringChoices(card,node) {
+  if(node.source?.kind==="ups")return `<section class="source-section"><h3>UPS monitoring</h3><p>Reusable policies own each UPS condition, its thresholds and notification schedules.</p>${applicablePolicyLinks(card,node.source)}<button type="button" class="button" data-page="policies">View monitoring policies</button></section>`;
   if(node.source?.automation_url)return '<p class="sub">Edit the condition, name, message, and reporting preference in its Home Assistant automation.</p>'+sourceReporting(card,node);
   if(!card.configuration)return `<p class="sub">${esc(card.configError||"Loading monitoring choices…")}</p><button type="button" class="button" data-action="load-configuration">Reload choices</button>`;
   if(node.family)return integrationSettings(card,node);
@@ -244,6 +247,7 @@ function sourceReport(card,node,episodes) {
   if(!evidence||evidence.loading)return '<p class="sub" role="status">Reading current Home Assistant values…</p>';
   if(evidence.error)return `<p role="alert">${esc(evidence.error)}</p><button type="button" class="button" data-action="refresh-source">Retry reading</button>`;
   const linked=episodes.filter(item=>item.anchor===source.node_id);
+  if(source.kind==="ups")return upsSourceSummary(card,source,card.sourceDetail?.entity_status||data.inventory.ups_status?.[source.node_id],Boolean(linked.length))+applicablePolicyLinks(card,source)+linked.map(item=>`<button type="button" class="button" data-episode="${esc(item.episode_id)}">View issue</button>`).join("");
   if(source.kind==="battery"){
     const condition=evidence.battery_condition;
     const problem=batteryProblem(source,{current:condition},Boolean(linked.length));
@@ -339,7 +343,7 @@ export function sourcesBrowser(card) {
   const node=selected?.node,view=card.sourcesView||"source";
   const tabs=`<nav class="sources-views" aria-label="Selected source views">${[["source","Source"],["settings","Settings"],["history","History"]].map(([id,label])=>`<button type="button" data-sources-view="${id}" aria-current="${view===id?'page':'false'}">${label}${id==="settings"&&card.configuration&&JSON.stringify(card.configDraft)!==JSON.stringify(card.configuration.rules)?" •":""}</button>`).join("")}</nav>`;
   const context=selected?.parents.map(parent=>parent.name).join(" / ")|| (node?.family?"Integration":node?.type==="location"?"Location":"");
-  const detail=node?`<header class="source-heading"><button type="button" class="link sources-back" data-action="back-sources">← Back to sources</button><p class="config-path">${esc(context)}</p><h2 id="sources-detail-title" tabindex="-1">${esc(node.name)}</h2>${node.source?.entity_id?`<p class="source-entity-id">${esc(node.source.entity_id)}</p>`:""}${tabs}</header><div class="source-body">${view==="settings"?sourceMonitoringChoices(card,node):view==="history"?sourceHistory(card,node):sourceReport(card,node,episodes)}${view==="source"&&["entity","integration"].includes(node.source?.kind)?`<section class="source-section"><button type="button" class="button" data-maintenance="${esc(node.source.node_id)}">Working on this equipment…</button></section>`:""}</div>`:'<div class="sources-empty"><h2>Choose an integration or device</h2><p class="sub">See its status, change monitoring, or review its history.</p></div>';
+  const detail=node?`<header class="source-heading"><button type="button" class="link sources-back" data-action="back-sources">← Back to sources</button><p class="config-path">${esc(context)}</p><h2 id="sources-detail-title" tabindex="-1">${esc(node.name)}</h2>${node.source?.entity_id?`<p class="source-entity-id">${esc(node.source.entity_id)}</p>`:""}${tabs}</header><div class="source-body">${view==="settings"?sourceMonitoringChoices(card,node):view==="history"?sourceHistory(card,node):sourceReport(card,node,episodes)+applicablePolicyLinks(card,node.source)}${view==="source"&&["entity","integration"].includes(node.source?.kind)?`<section class="source-section"><button type="button" class="button" data-maintenance="${esc(node.source.node_id)}">Working on this equipment…</button></section>`:""}</div>`:'<div class="sources-empty"><h2>Choose an integration or device</h2><p class="sub">See its status, change monitoring, or review its history.</p></div>';
   const guidance=`<details class="sources-explainer" data-sources-explainer${card.sourcesHelpOpen?' open':''}><summary>How monitoring is chosen</summary><p>New installations monitor integrations. Devices, separate entity checks, batteries, and vacuums need a saved choice. Repairs and broken automations are on until turned off in Policies.</p><p>For a monitored device, Homeostatic checks enabled ordinary Home Assistant entities. It uses diagnostic entities only when there are no enabled ordinary ones. Configuration and disabled entities are left out. An entity exclusion removes it from the device check.</p><p>This checks availability in Home Assistant, not physical device health. Open Policies for a choice that covers current and future sources. Open a source’s Settings to change that source.</p></details>`;
   const topoNote=topomationAvailable?card.sourcesGrouping==="topomation"?"Viewing TopoMation's deeper house tree.":"TopoMation's deeper house tree is available in Group by.":"Want a deeper house tree? TopoMation adds property, buildings, grounds, rooms, and subareas to Home Assistant's locations. Its tree appears here when available.";
   return `<section class="panel sources-workspace" data-mobile-detail="${Boolean(card.sourcesMobileDetail&&node)}"><div class="sources-tools"><label>Group by<select data-sources-group><option value="integration"${card.sourcesGrouping==="integration"?' selected':''}>Integration</option><option value="location"${card.sourcesGrouping==="location"?' selected':''}>Home Assistant location</option>${topomationAvailable||card.sourcesGrouping==="topomation"?`<option value="topomation"${card.sourcesGrouping==="topomation"?' selected':''}${topomationAvailable?'':' disabled'}>TopoMation${topomationAvailable?'':' (loading)'}</option>`:''}</select></label><label class="coverage-search">Find a source<input type="search" data-sources-search value="${esc(card.sourcesQuery)}" placeholder="Search devices and integrations"></label>${card.sourcesExpanded.size?'<button type="button" class="link sources-collapse" data-action="collapse-sources">Collapse all</button>':''}${card.sourcesNeedsReview?'<button type="button" class="link" data-action="all-sources">Show all sources</button>':''}</div><p class="sources-topomation-note">${topoNote} <a href="https://github.com/mjcumming/topomation" target="_blank" rel="noopener noreferrer">Explore TopoMation</a></p><div class="config-layout"><nav class="config-rail" aria-label="Sources tree">${guidance}<ul class="config-tree">${visible.map(branch).join("")||'<li class="sub">No matching sources.</li>'}</ul></nav><section class="config-detail" aria-label="Selected source">${detail}</section></div></section>`;

@@ -1,6 +1,6 @@
 # ADR 0026: Use five fixed reporting preferences
 
-**Status:** Accepted product direction; details settled by [ADR 0027](0027-reporting-defaults-and-delivery.md)
+**Status:** Accepted product direction; details settled by [ADR 0027](0027-reporting-defaults-and-delivery.md); fixed profile model superseded by [ADR 0055](0055-separate-notification-schedules-and-methods.md)
 **Date:** 2026-09-28
 **Decider:** Michael Cumming
 

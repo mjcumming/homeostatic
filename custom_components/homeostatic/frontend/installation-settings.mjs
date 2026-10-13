@@ -1,6 +1,8 @@
-import {escapeHtml as esc} from "./model.mjs?v=46";
+import {escapeHtml as esc} from "./model.mjs?v=69";
+import {editReusable, namedNotifications, reusableChanges} from "./reusable-editors.mjs?v=69";
+import {sourceSettingsFooter} from "./source-settings.mjs?v=69";
 
-import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=62";
+import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=69";
 
 export const TIMINGS = [
   ["Recovery", "settle", "Wait for related failures", "Allow dependencies that are still uncertain to settle before opening a separate problem."],
@@ -38,7 +40,7 @@ const ruleLabel = (rule,index) => {
 const field = (path,label,value,type="text",help="",attributes="") => `<label class="installation-field"><span><strong>${esc(label)}</strong>${help?`<small>${esc(help)}</small>`:""}</span><input type="${type}" data-setting-path="${esc(path)}" value="${esc(value??"")}" ${attributes}></label>`;
 
 export function settingsChanges(before,after,context=null) {
-  const changes=[...reportingChanges(before.reporting,after.reporting,context)];
+  const changes=[...reportingChanges(before.reporting,after.reporting,context),...reusableChanges(before,after)];
   for(const [,key,label] of TIMINGS)if(before.timings[key]!==after.timings[key])changes.push([label,key==="coalesce_count"?before.timings[key]:timeLabel(before.timings[key]),key==="coalesce_count"?after.timings[key]:timeLabel(after.timings[key])]);
   if(before.notifications!==after.notifications)changes.push(["Notification requests",before.notifications?"On":"Off",after.notifications?"On":"Off"]);
   if(before.consumer!==after.consumer)changes.push(["Notification automation",before.consumer||"None",after.consumer||"None"]);
@@ -56,6 +58,7 @@ export function installationSettings(card) {
   const notificationsPage=card.page==="notifications";
   const intro=`<div class="intro"><h1>${notificationsPage?"Notifications":"Settings"}</h1></div>`;
   if(!card.configuration||!card.settingsDraft)return `${intro}<section class="panel body"><p>${esc(card.configError||"Loading settings…")}</p><button type="button" class="button" data-action="load-configuration">Reload settings</button></section>`;
+  if(notificationsPage&&"notification_definitions" in card.settingsDraft)return `${intro}<section class="panel installation-content"><fieldset class="installation-editor"${card.settingsBusy||card.configBusy?' disabled':''}>${namedNotifications(card)}</fieldset>${card.settingsError?`<p class="config-error" role="alert">${esc(card.settingsError)}</p>`:""}${card.settingsNotice?`<p role="status">${esc(card.settingsNotice)}</p>`:""}${sourceSettingsFooter(card)}</section>`;
   const draft=card.settingsDraft,section=notificationsPage?"notifications":card.settingsSection==="grouping"?"grouping":"timing";
   const nav=notificationsPage?"":`<nav class="installation-nav" aria-label="Installation settings">${[["timing","Timing"],["grouping","Problem grouping"]].map(([id,label])=>`<button type="button" data-settings-section="${id}" aria-current="${section===id?'page':'false'}">${label}</button>`).join("")}</nav>`;
   let body="";
@@ -77,6 +80,7 @@ export function installationSettings(card) {
 }
 
 export function editInstallation(card,event) {
+  if(editReusable(card,event))return true;
   if(editReporting(card,event))return true;
   const element=event.target,draft=card.settingsDraft;
   if(!draft)return false;

@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-13
+
+### Added
+
+- Monitor NUT and APC UPS Daemon with shared mappings for backup operation, low reserve, battery replacement and faults. Group independent issues under each UPS, preserve missing evidence and restart state, and review transfers from overlapping battery checks.
+- Show both reserve schedules: summary on mains and immediate acknowledgment on backup. A confirmed move to backup renews attention for acknowledged low reserve without ending the issue or removing pauses.
+- Add named monitoring policies with independent inactive copies, source and group selection, effective-policy links, detection settings and reviewed save. Preserve pending drafts across page navigation and allow overlapping custom temperature policies.
+- Add thermostat deviation checks with configurable progress and worsening thresholds, plus temperature limits with explicit bounds and duration. Keep unknown evidence separate from recovery, preserve qualified problems across restart, and restart qualification when detection settings change.
+- Add reusable notification schedules and delivery methods with explicit policy rows, independent immediate and scheduled reporting, editable acknowledgment reminder intervals, stable identities and reviewed shared-definition changes. Preserve generated source, condition and automation assignments during conversion; leave custom policies active until reviewed replacement.
+- Request app, voice, email and SMS delivery through configured Home Assistant targets. Support fixed destinations and presence selection with explicit fallback or skip, preserve resolved targets during replay, and use prior destinations for cleanup without generating speech, email or SMS.
+- Add administrator-only saved-method previews and explicit delivery tests bound to reviewed configuration, presence evidence and exact targets. Report requests and per-destination failures. Tests use isolated Home Assistant instances; live-provider validation remains separate.
+
+### Documentation
+
+- Record the accepted reusable monitoring-policy editor, separate notification schedules and delivery methods, and explicit schedule/method pairings on each policy. Use health-tree independent attention routes for these assignments.
+- Record app, voice, email and SMS delivery scope with fixed destinations and optional presence selection. Document the three lists and their implemented editors.
+- Record thermostat deviation defaults and independent temperature limits with explicit duration, recovery evidence and configurable thresholds.
+- Document UPS policies, mode-dependent reserve schedules, shared mappings and reviewed battery ownership transfer.
+
+### Changed
+
+- Pin published health-tree 0.6.0 for independent notification routes and explicit renewed attention.
+
 ## [1.6.0] - 2026-10-04
 
 ### Added

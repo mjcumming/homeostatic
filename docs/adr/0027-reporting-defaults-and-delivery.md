@@ -1,6 +1,6 @@
 # ADR 0027: Implement fixed reporting with quiet defaults
 
-**Status:** Accepted
+**Status:** Accepted; combined profiles and single-choice assignment superseded by [ADR 0055](0055-separate-notification-schedules-and-methods.md)
 **Date:** 2026-09-28
 **Deciders:** Michael Cumming
 

@@ -12,8 +12,10 @@ A local test build can include uncommitted changes. When you report the result, 
 
 ## Full release
 
+Monitoring and notification editors require the published health-tree version pinned in the integration manifest and lockfile. For isolated library development, install a sibling checkout into the existing test environment with `uv pip install --python .venv/bin/python --no-deps -e ../health-tree` after syncing. A later `uv sync` restores the published dependency. Release library changes first, then update the adapter pin and pass the clean-install checks below.
+
 1. Finish the behavior documentation, scenarios, changelog, and version changes. Run the quick checks and focused tests while you work. Commit and push the release candidate only when the maintainer asks.
 2. Let GitHub CI run `script/check.py` without `--quick`, including strict typing, the complete Python suite, coverage, and frontend tests. CI also builds the archive from the clean commit, checks installation in a fresh HA environment, and runs hassfest. Don't repeat the full suite locally just because CI will run it. Run it locally to track down a specific failure.
-3. Publish the release tag and the CI-validated archive only after the exact candidate commit passes. Install that archive on the local HA instance, then check the version, the affected UI, notification requests, and saved monitoring choices. Keep the previous component folder for rollback.
+3. Publish the release tag and the CI-validated archive only after the exact candidate commit passes. If the owner separately authorizes installation, install that archive on the local HA instance, then check the version, the affected UI, notification requests, and saved monitoring choices. Keep the previous component folder for rollback.
 
 For an ordinary code-only upgrade, a recent usable automatic HA backup is enough. Take a fresh full HA backup before a stored-data migration, an options-schema or dependency change, or when no suitable backup exists. If stored data changes, rolling back needs the paired HA backup and the matching component. Never put old code over newer stored data.
