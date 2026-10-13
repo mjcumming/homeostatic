@@ -46,6 +46,7 @@ class Settings:
     consumer: str | None = None
     rules: tuple[CatalogRule, ...] | None = None
     external_capabilities: tuple[ExternalCapability, ...] = ()
+    monitoring_policy_version: int = 0
     monitoring_policies: tuple[MonitoringPolicy, ...] = ()
     notification_definitions: dict[str, Any] | None = None
 
@@ -81,7 +82,11 @@ class Settings:
             not isinstance(consumer, str) or not consumer.startswith("automation.")
         ):
             raise ValueError("consumer must be an automation entity id")
+        version = data.get("monitoring_policy_version", 0)
+        if type(version) is not int or version not in {0, 1}:
+            raise ValueError("Unsupported monitoring policy version")
         settings = cls(
+            monitoring_policy_version=version,
             policy=policy_data(data.get("policy")),
             entities=tuple(dict.fromkeys(entities)),
             config_entries=tuple(dict.fromkeys(entries)),
@@ -130,7 +135,7 @@ class Settings:
             validate_notification_definitions(validation)
         elif any(item.notifications for item in settings.monitoring_policies):
             raise ValueError(
-                "Create schedules and delivery methods before assigning notifications"
+                "Create delivery methods before assigning notification entries"
             )
         nodes = []
         for function in functions:
@@ -274,6 +279,8 @@ def normalize_rules(hass: HomeAssistant, value: Any) -> list[dict[str, Any]]:
 
 def rule_data(hass: HomeAssistant, settings: Settings) -> list[dict[str, Any]]:
     """Translate legacy selections into the same editable rule catalog."""
+    if settings.monitoring_policy_version == 1:
+        return []
     if settings.rules is not None:
         return [
             {

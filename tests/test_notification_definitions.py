@@ -1,5 +1,6 @@
-"""Executable scenarios for reusable schedules and presence-aware delivery."""
+"""Executable scenarios for policy-owned timing and presence-aware delivery."""
 
+import json
 from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -38,8 +39,16 @@ def configured() -> dict[str, Any]:
         "email": {"name": "Email", "mode": "fixed", "destinations": ["notify:mail"]},
     }
     data["default"] = [
-        {"id": "urgent", "schedule": "acknowledge", "methods": ["phone", "email"]},
-        {"id": "morning_row", "schedule": "morning", "methods": ["phone"]},
+        {
+            "id": "urgent",
+            "timing": {"mode": "acknowledge", "remind_every": "30m"},
+            "methods": ["phone", "email"],
+        },
+        {
+            "id": "morning_row",
+            "timing": {"mode": "report", "at": "08:00", "weekdays": list(range(7))},
+            "methods": ["phone"],
+        },
     ]
     return data
 
@@ -124,7 +133,7 @@ def test_legacy_conversion_preserves_automation_choices() -> None:
     legacy["profiles"]["morning"]["at"] = "07:15"
     converted = definitions.convert_legacy(legacy)
     assert converted["default"] == []
-    assert converted["schedules"]["morning"]["at"] == "07:15"
+    assert converted["repairs"][0]["timing"]["at"] == "07:15"
     assert converted["automation_profiles"]["morning"] == converted["repairs"]
     assert converted["methods"]["person:owner"]["destinations"] == ["phone:one"]
     assert definitions.choices(definitions.generate(converted)) == converted
@@ -187,7 +196,6 @@ def test_rename_preserves_effective_policy(configured: dict[str, Any]) -> None:
     """Names can change without restarting reporting or changing identities."""
     before = definitions.generate(configured)
     configured["methods"]["phone"]["name"] = "Renamed phone"
-    configured["schedules"]["morning"]["name"] = "Breakfast"
     after = definitions.generate(configured)
     assert {key: value for key, value in before.items() if key != "generated"} == {
         key: value for key, value in after.items() if key != "generated"
@@ -201,7 +209,6 @@ def test_rename_preserves_effective_policy(configured: dict[str, Any]) -> None:
     "kind,identity,replacement",
     [
         pytest.param("methods", "phone", "email", id="shared-method"),
-        pytest.param("schedules", "morning", "evening", id="shared-schedule"),
     ],
 )
 def test_delete_requires_reference_treatment(
@@ -226,17 +233,21 @@ def test_delete_requires_reference_treatment(
     "path,value",
     [
         pytest.param(("timezone",), "not/a/zone", id="timezone"),
-        pytest.param(("schedules",), [], id="definition-collection"),
+        pytest.param(("methods",), [], id="definition-collection"),
         pytest.param(
-            ("schedules", "BAD"), {"name": "Bad", "mode": "immediate"}, id="unstable-id"
+            ("methods", "BAD"),
+            {"name": "Bad", "mode": "fixed", "destinations": ["phone:one"]},
+            id="unstable-id",
         ),
-        pytest.param(("schedules", "immediate", "name"), " ", id="blank-name"),
+        pytest.param(("methods", "phone", "name"), " ", id="blank-name"),
         pytest.param(
-            ("schedules", "immediate", "mode"), "other", id="unsupported-schedule"
+            ("default", 0, "timing", "mode"), "other", id="unsupported-timing"
         ),
-        pytest.param(
-            ("schedules", "immediate", "at"), "07:00", id="unexpected-setting"
-        ),
+        pytest.param(("default", 0, "timing", "at"), "07:00", id="unexpected-setting"),
+        pytest.param(("default", 0, "timing"), [], id="timing-object"),
+        pytest.param(("default", 0, "timing"), {}, id="timing-mode-required"),
+        pytest.param(("default", 0, "timing", "name"), "Urgent", id="no-named-timing"),
+        pytest.param(("schedules",), {}, id="no-schedule-library"),
         pytest.param(
             ("methods", "phone", "skip"), True, id="fixed-fallback-not-allowed"
         ),
@@ -245,12 +256,32 @@ def test_delete_requires_reference_treatment(
         pytest.param(("default",), [{}], id="incomplete-row"),
         pytest.param(
             ("default",),
-            [{"id": "123", "schedule": "morning", "methods": ["phone"]}],
+            [
+                {
+                    "id": "123",
+                    "timing": {
+                        "mode": "report",
+                        "at": "08:00",
+                        "weekdays": list(range(7)),
+                    },
+                    "methods": ["phone"],
+                }
+            ],
             id="unstable-row-id",
         ),
         pytest.param(
             ("repairs",),
-            [{"id": "urgent", "schedule": "morning", "methods": ["phone"]}],
+            [
+                {
+                    "id": "urgent",
+                    "timing": {
+                        "mode": "report",
+                        "at": "08:00",
+                        "weekdays": list(range(7)),
+                    },
+                    "methods": ["phone"],
+                }
+            ],
             id="conflicting-shared-row",
         ),
         pytest.param(("automation_profiles",), [], id="automation-collection"),
@@ -268,12 +299,10 @@ def test_delete_requires_reference_treatment(
         pytest.param(
             ("assignments",), {"source": {"checks": {"": []}}}, id="blank-check"
         ),
-        pytest.param(("schedules", "morning", "weekdays"), [], id="empty-days"),
-        pytest.param(("schedules", "morning", "weekdays"), [True], id="boolean-day"),
-        pytest.param(("schedules", "morning", "at"), "25:00", id="invalid-time"),
-        pytest.param(
-            ("schedules", "acknowledge", "remind_every"), 0, id="zero-reminder"
-        ),
+        pytest.param(("default", 1, "timing", "weekdays"), [], id="empty-days"),
+        pytest.param(("default", 1, "timing", "weekdays"), [True], id="boolean-day"),
+        pytest.param(("default", 1, "timing", "at"), "25:00", id="invalid-time"),
+        pytest.param(("default", 0, "timing", "remind_every"), 0, id="zero-reminder"),
         pytest.param(("methods", "phone", "destinations"), [], id="empty-destinations"),
         pytest.param(
             ("methods", "phone", "destinations"),
@@ -283,20 +312,30 @@ def test_delete_requires_reference_treatment(
         pytest.param(
             ("default",),
             [{"id": "missing", "schedule": "gone", "methods": ["phone"]}],
-            id="dangling-schedule",
+            id="schedule-reference-rejected",
         ),
         pytest.param(
             ("default",),
-            [{"id": "missing", "schedule": "morning", "methods": ["gone"]}],
+            [
+                {
+                    "id": "missing",
+                    "timing": {
+                        "mode": "report",
+                        "at": "08:00",
+                        "weekdays": list(range(7)),
+                    },
+                    "methods": ["gone"],
+                }
+            ],
             id="dangling-method",
         ),
     ],
 )
 def test_invalid_definition_rejected(
-    configured: dict[str, Any], path: tuple[str, ...], value: Any
+    configured: dict[str, Any], path: tuple[str | int, ...], value: Any
 ) -> None:
     """Malformed editor drafts fail before they alter any reporting configuration."""
-    target = configured
+    target: Any = configured
     for key in path[:-1]:
         target = target[key]
     target[path[-1]] = value
@@ -406,7 +445,7 @@ def test_deletion_traverses_condition_assignments(
         "email"
     ]
     assert definitions.resolve_channels(hass, configured, "phone") == ["phone:one"]
-    with pytest.raises(ValueError, match="existing schedule"):
+    with pytest.raises(ValueError, match="existing delivery method"):
         definitions.remove_definition(configured, "methods", "missing")
     with pytest.raises(ValueError, match="different existing"):
         definitions.remove_definition(
@@ -656,3 +695,113 @@ def test_summary_cleanup_retains_past_targets_after_member_removal() -> None:
         {**content(), "episode_id": "other"},
     )
     assert set(state.outbox[-1]["channels"]) == {"phone:old", "phone:new"}
+
+
+def test_inline_timing_is_owned_and_round_trips(configured: dict[str, Any]) -> None:
+    """Editing one timing preserves the other entry and the saved JSON shape."""
+    configured["default"].append(
+        {
+            "id": "evening",
+            "timing": {"mode": "report", "at": "18:00", "weekdays": [0, 2, 4]},
+            "methods": ["email"],
+        }
+    )
+    before = definitions.generate(configured)
+    configured["default"][1]["timing"]["at"] = "07:30"
+    after = definitions.generate(configured)
+    assert before["digests"]["entry:morning_row"]["at"] == "08:00"
+    assert after["digests"]["entry:morning_row"]["at"] == "07:30"
+    assert before["digests"]["entry:evening"] == after["digests"]["entry:evening"]
+    saved = definitions.choices(json.loads(json.dumps(after)))
+    assert saved == configured
+    assert "schedules" not in saved
+    assert before["generated"]["version"] == "notifications-v3"
+
+
+def test_empty_entries_remain_dashboard_only() -> None:
+    """Fresh definitions contain no schedule library, routes or destinations."""
+    now = datetime(2026, 10, 13, 7, tzinfo=UTC)
+    data = definitions.defaults()
+    assert "schedules" not in data
+    policy = Policy(build_policy(definitions.generate(data), timedelta(0)))
+    assert policy.handle(problem(now), now, PolicyContext()) == []
+    assert policy.advance(now + timedelta(days=7), PolicyContext()) == []
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        pytest.param(-1, id="negative"),
+        pytest.param(True, id="boolean"),
+        pytest.param("never", id="malformed"),
+        pytest.param(None, id="missing"),
+    ],
+)
+def test_invalid_reminder_interval(configured: dict[str, Any], bad: object) -> None:
+    """Reject unusable reminder settings before generating a route."""
+    configured["default"][0]["timing"]["remind_every"] = bad
+    with pytest.raises(ValueError, match="reminder"):
+        definitions.validate(configured)
+
+
+def test_report_reaches_multiple_methods(configured: dict[str, Any]) -> None:
+    """One scheduled entry sends to every explicitly selected method."""
+    now = datetime(2026, 10, 13, 7, tzinfo=UTC)
+    row = configured["default"][1]
+    row["methods"] = ["phone", "email"]
+    configured["default"] = [row]
+    policy = Policy(build_policy(definitions.generate(configured), timedelta(0)))
+    assert policy.handle(problem(now), now, PolicyContext()) == []
+    assert {
+        (item.route, item.recipient)
+        for item in policy.advance(now + timedelta(hours=1), PolicyContext())
+    } == {("morning_row", "method:phone"), ("morning_row", "method:email")}
+
+
+@pytest.mark.parametrize(
+    "owner",
+    [
+        pytest.param("default", id="general"),
+        pytest.param("repairs", id="repairs"),
+        pytest.param("broken_automations", id="automations"),
+        pytest.param("assignments", id="source"),
+        pytest.param("automation_profiles", id="alert-profile"),
+    ],
+)
+def test_all_owners_validate_inline_timing(
+    configured: dict[str, Any], owner: str
+) -> None:
+    """Every supported scope rejects malformed entry timing before save."""
+    row = {
+        "id": "invalid",
+        "timing": {"mode": "report", "at": "08:00", "weekdays": []},
+        "methods": ["phone"],
+    }
+    owners: dict[str, Any] = {
+        "default": [row],
+        "repairs": [row],
+        "broken_automations": [row],
+        "assignments": {"source": {"checks": {"battery": [row]}}},
+        "automation_profiles": {"morning": [row]},
+    }
+    configured[owner] = owners[owner]
+    with pytest.raises(ValueError, match="weekdays"):
+        definitions.validate(configured)
+
+
+def test_reordered_inline_entries_retain_route_identity(
+    configured: dict[str, Any],
+) -> None:
+    """A report restored from a snapshot retains its route when entries reorder."""
+    now = datetime(2026, 10, 13, 7, tzinfo=UTC)
+    policy = Policy(build_policy(definitions.generate(configured), timedelta(0)))
+    policy.handle(problem(now), now, PolicyContext())
+    policy.acknowledge("issue", now, actor_id="owner")
+    snapshot = policy.snapshot()
+    configured["default"].reverse()
+    restored = Policy(build_policy(definitions.generate(configured), timedelta(0)))
+    restored.restore(snapshot, now)
+    assert [
+        (item.route, item.recipient)
+        for item in restored.advance(now + timedelta(hours=1), PolicyContext())
+    ] == [("morning_row", "method:phone")]

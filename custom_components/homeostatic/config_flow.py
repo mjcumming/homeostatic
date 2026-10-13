@@ -6,11 +6,12 @@ from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import HomeAssistant
 
-from .config import Settings, data_from_input, rule_data
+from .config import Settings, rule_data
 from .const import DOMAIN, NAME
 from .enrollment import inventory, report
 from .function_model import preview as preview_functions
-from .rules import DEFAULT_RULES, Attributes, parse_rules
+from .policy_defaults import initial_settings
+from .rules import Attributes, parse_rules
 
 
 class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -21,12 +22,12 @@ class HomeostaticConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Start with the default integration-availability policy."""
+        """Start with editable basic monitoring policies."""
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")
         await self.async_set_unique_id(DOMAIN)
         self._abort_if_unique_id_configured()
-        data = data_from_input(self.hass, {"rules": DEFAULT_RULES})
+        data = initial_settings(self.hass.config.time_zone)
         return self.async_create_entry(title=NAME, data=data)
 
 

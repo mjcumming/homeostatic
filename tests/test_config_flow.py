@@ -22,7 +22,7 @@ from custom_components.homeostatic.const import DOMAIN
 
 
 async def test_user_flow(hass: HomeAssistant) -> None:
-    """Setup creates the default integration monitor without a form."""
+    """Setup creates editable basic policies with no outgoing notifications."""
     source = MockConfigEntry(domain="test", title="Controller")
     source.add_to_hass(hass)
     with patch("custom_components.homeostatic.async_setup_entry", return_value=True):
@@ -31,7 +31,19 @@ async def test_user_flow(hass: HomeAssistant) -> None:
         )
         await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"]["rules"][0]["match"]["kind"] == ["integration"]
+    assert result["data"]["monitoring_policy_version"] == 1
+    assert {
+        item["id"] for item in result["data"]["monitoring_policies"] if item["enabled"]
+    } == {
+        "default_integrations",
+        "default_devices",
+        "default_entities",
+        "default_repairs",
+        "default_broken_automations",
+    }
+    assert not any(
+        item["notifications"] for item in result["data"]["monitoring_policies"]
+    )
     assert result["data"]["notifications"] is False
 
 

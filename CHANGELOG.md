@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [1.8.0b1] - 2026-10-13
+
+### Changed
+
+- Show supplied and user-created monitoring policies in one editable list. Fix the monitoring type at creation, support independent duplicates and overlapping policies, and allow deletion and selective restoration of supplied defaults.
+- Configure notification timing inside each policy. Add several entries with immediate delivery, optional acknowledgment reminders or scheduled summaries; select one or more reusable delivery methods for each. Remove the separate schedule library and default-assignment editor.
+- Use capability-based source selectors and detection fields, including configurable battery thresholds and independently evaluated overlapping battery policies. UPS reserve and generic battery policies can coexist without ownership transfer.
+- Start fresh installations with integration, device and entity availability, Repairs and broken automations enabled. Batteries and vacuums start off. Every supplied policy has no notification entries and global sending starts off.
+- Preserve new-model edits and deletions through reloads and updates. Existing test configurations are not automatically converted or reset. Older schedule-library settings require fresh setup for this prerelease; back up before explicitly replacing a test configuration.
+
+### Documentation
+
+- Record policy-owned timing and the unified lifecycle in ADRs 0057 and 0058, with supersession notices on the earlier decisions. Align the specification, editor design, roadmap and user guides with the new workflow and fresh-setup testing requirement.
+
 ## [1.7.1] - 2026-10-13
 
 ### Fixed

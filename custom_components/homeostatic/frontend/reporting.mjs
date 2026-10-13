@@ -1,6 +1,6 @@
-import {escapeHtml as esc, sourceMap} from "./model.mjs?v=69";
-import {sourceNotificationDefinitions} from "./reusable-editors.mjs?v=69";
-import {sourceSettingsFooter} from "./source-settings.mjs?v=69";
+import {escapeHtml as esc, sourceMap} from "./model.mjs?v=70";
+import {sourceNotificationDefinitions,applicablePolicyLinks} from "./reusable-editors.mjs?v=70";
+import {sourceSettingsFooter} from "./source-settings.mjs?v=70";
 
 export const REPORTING = [
   ["immediate","Immediate","Notify once, including overnight."],
@@ -97,8 +97,9 @@ export function reportingSettings(card) {
 }
 export function sourceReporting(card,node) {
   const source=node.source;
-  if(source?.automation_url)return `<section class="source-section"><h3>Reporting</h3><p>${esc(label(source.alert_profile))} · Managed by its HA automation</p>${source.alert_reporting_status==="requests_disabled"?'<p class="note">Outgoing requests are disabled.</p>':source.alert_reporting_status==="missing_destinations"?'<p class="note">This profile has no configured destination. Set up people and destinations in Notifications.</p>':""}<a href="${esc(source.automation_url)}">Edit alert automation</a><p>Shared recipients and schedules are configured in Notifications.</p></section>`;
+  if(source?.automation_url)return `<section class="source-section"><h3>Reporting</h3><p>${esc(label(source.alert_profile))} · Managed by its HA automation</p>${source.alert_reporting_status==="requests_disabled"?'<p class="note">Outgoing requests are disabled.</p>':source.alert_reporting_status==="missing_destinations"?'<p class="note">This profile has no configured destination. Set up people and destinations in Notifications.</p>':""}<a href="${esc(source.automation_url)}">Edit alert automation</a><p>Reusable delivery methods are configured in Notifications.</p></section>`;
   if(!card.settingsDraft)return "";
+  if(card.configuration?.monitoring_policy_version===1)return `<section class="source-section"><p>Each monitoring policy owns its notifications. Delivery methods are managed in Notifications.</p>${applicablePolicyLinks(card,source)}<button type="button" class="link" data-page="policies">Review policies</button></section>`;
   if(card.settingsDraft.notification_definitions&&source&&source.kind!=="function")return sourceNotificationDefinitions(card,source)+sourceSettingsFooter(card);
   const choices=reportingChoices(card);
   const setup=!card.settingsDraft.reporting?'<p class="note">Choose a preference, then review and save to apply it. The current policy stays active until then.</p>':"";

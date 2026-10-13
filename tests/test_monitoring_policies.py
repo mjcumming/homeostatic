@@ -141,7 +141,15 @@ def limit_policy(identity: str = "freeze") -> dict[str, Any]:
         pytest.param(
             {
                 "notifications": [
-                    {"id": "row", "schedule": "morning", "methods": ["phone"]}
+                    {
+                        "id": "row",
+                        "timing": {
+                            "mode": "report",
+                            "at": "08:00",
+                            "weekdays": [0, 1, 2, 3, 4, 5, 6],
+                        },
+                        "methods": ["phone"],
+                    }
                 ]
             },
             id="notifications",
@@ -163,22 +171,29 @@ def test_notification_rows_are_local_to_each_policy() -> None:
     definitions["methods"] = {
         "phone": {"name": "Phone", "mode": "fixed", "destinations": ["phone:owner"]}
     }
-    definitions["default"] = [{"id": "row", "schedule": "weekly", "methods": ["phone"]}]
+    definitions["default"] = [
+        {
+            "id": "row",
+            "timing": {"mode": "report", "at": "08:00", "weekdays": [0]},
+            "methods": ["phone"],
+        }
+    ]
     policies = [
         {
             **limit_policy(identity),
-            "notifications": [
-                {"id": "row", "schedule": schedule, "methods": ["phone"]}
-            ],
+            "notifications": [{"id": "row", "timing": timing, "methods": ["phone"]}],
         }
-        for identity, schedule in (("freeze", "immediate"), ("backup", "morning"))
+        for identity, timing in (
+            ("freeze", {"mode": "immediate"}),
+            ("backup", {"mode": "report", "at": "08:00", "weekdays": [0]}),
+        )
     ]
     settings = Settings.from_data(
         {"monitoring_policies": policies, "notification_definitions": definitions}
     )
     assert [
-        item.notifications[0]["schedule"] for item in settings.monitoring_policies
-    ] == ["immediate", "morning"]
+        item.notifications[0]["timing"]["mode"] for item in settings.monitoring_policies
+    ] == ["immediate", "report"]
     policies[0]["notifications"][0]["id"] = 1
     with pytest.raises(ValueError, match="stable ids"):
         Settings.from_data(
@@ -254,13 +269,13 @@ async def test_thermostat_off_and_resume(
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
-def test_missing_schedule_assignment_rejected() -> None:
+def test_missing_delivery_method_configuration_rejected() -> None:
     """Policies cannot activate dangling reporting references."""
     policy = deepcopy(limit_policy())
     policy["notifications"] = [
-        {"id": "row", "schedule": "missing", "methods": ["phone"]}
+        {"id": "row", "timing": {"mode": "immediate"}, "methods": ["phone"]}
     ]
-    with pytest.raises(ValueError, match="Create schedules"):
+    with pytest.raises(ValueError, match="Create delivery methods"):
         Settings.from_data({"monitoring_policies": [policy]})
 
 
@@ -515,7 +530,9 @@ async def test_disabled_policy_preview_does_not_report_retired_issue(
     }
     policy = {
         **limit_policy(),
-        "notifications": [{"id": "now", "schedule": "immediate", "methods": ["phone"]}],
+        "notifications": [
+            {"id": "now", "timing": {"mode": "immediate"}, "methods": ["phone"]}
+        ],
     }
     hass.states.async_set(
         "sensor.temperature",

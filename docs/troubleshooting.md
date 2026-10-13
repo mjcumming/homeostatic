@@ -17,7 +17,7 @@ Adding it says "Homeostatic is already configured": there can only be one Homeos
 The Homeostatic card under **Settings → Devices & services** says it failed to set up:
 
 - The first load couldn't install the health-tree library. Look in the log for a requirements error that names `health-tree`. Home Assistant needs internet access the first time Homeostatic loads. Fix the connection and restart.
-- The log says "Invalid Homeostatic configuration or snapshot", followed by the reason. This usually means the saved data doesn't match the installed version, for example after rolling back to an older version without restoring the matching backup. Restore the backup you took before the upgrade, as described in [Upgrade and roll back](install.md#7-upgrade-and-roll-back).
+- The log says "Invalid Homeostatic configuration or snapshot", followed by the reason. This usually means the saved data doesn't match the installed version, for example after rolling back to an older version without restoring the matching backup. Restore the backup you took before the upgrade, as described in [Upgrade and roll back](install.md#7-upgrade-and-roll-back). The testing redesign with policy-owned timing does not convert older schedule-library settings. Use a fresh test setup for that model; existing settings are left intact until you explicitly remove or replace them.
 
 The panel shows a message instead of your pages:
 
@@ -43,50 +43,29 @@ If Home Assistant is still restarting when you see the out-of-sync message, let 
 
 ## No notifications arriving
 
-Start with the issue you expected to hear about. Its card on **Issues** has a reporting line that tells you where it stands:
+Start with the affected policy in **Policies**. Fresh setup has no notification entries and global sending is off.
 
-| Reporting line | What it means and what to do |
-| --- | --- |
-| Reporting off | Notifications aren't turned on. Open **Notifications**, tick **Enable notification requests** under **Outgoing requests**, then select **Review changes** and **Save settings**. Overview says **Reporting is on** once it's saved. |
-| Dashboard only | The source's reporting choice is **Dashboard only**, or the choice it uses has nobody under **Recipients**. Without recipients, a reporting choice behaves like **Dashboard only**. |
-| Weekly summary, Morning summary or Evening summary | The issue is waiting for that report. New sources start on **Weekly summary**, which is sent on Sunday at 9:00. To hear sooner, open the source in **Sources**, go to **Settings** and change **Source preference**. |
-| Notification requested | Homeostatic handed the message to the phone's notify action. Look at the phone side, below. |
-| Acknowledged · problem remains open | Someone acknowledged it, which stops the repeats for **Immediate with acknowledgment**. |
+1. Confirm the policy is enabled and matches the source. Check that an issue is open.
+2. Inspect its **Notifications** entries. Each entry needs timing and at least one saved delivery method. No entries means **Dashboard only**.
+3. For a scheduled summary, check the time, weekdays and displayed time zone. Reports include open problems at that time. Acknowledgment stops acknowledgment reminders, but an open issue remains eligible for a summary.
+4. Open **Notifications** and check **Enable notification requests**. Changes take effect only after review and save.
+5. Preview the selected delivery method. Presence-based methods may select fallback destinations or skip when nobody qualifies. Inspect recent request failures and unavailable targets.
 
-If Overview says **Reporting needs attention**, a destination is missing or a request failed. Open **Notifications**. Under **People and destinations**, a phone marked as unavailable can't receive anything, and **Recent delivery request failures** lists the errors Home Assistant returned.
+For a Companion app phone, check the Home Assistant user-to-person link under **Settings → People**, the account signed in to the app and the app's notification permission. An unavailable phone registration cannot receive requests.
 
-Your phone isn't offered under **People and destinations**, or is marked as unavailable:
-
-- Your Home Assistant user isn't linked to a person. Check under **Settings → People**.
-- The Companion app on that phone is signed in as a different user. Each person is offered only their own phones.
-- A phone marked as unavailable has a Companion app registration that can't receive push notifications. Check that notifications are allowed for the app, and sign out of the app and back in if that doesn't help.
-
-Select **Send test** beside the phone. If the test arrives but real notifications don't, the cause is in the reporting choices above. If the test fails or never arrives, the cause is the phone or the Companion app:
-
-- Notifications for the Companion app are turned off in the phone's settings.
-- On Android, Immediate notifications use their own notification channel, *Homeostatic urgent*, which may be muted in the app's notification settings.
-
-Other reasons you hear nothing:
-
-- Someone used **Pause alerts** on the issue. The issue shows when the pause ends.
-- Someone started **Working on this equipment**, so no new issues open for that equipment until it ends. The source shows the end time.
-- Home Assistant restarted recently. Notifications wait until your integrations have finished loading, up to ten minutes, then arrive as one summary.
-- The issue ended before its summary was due. Summaries include only issues that are still open, and an empty summary isn't sent.
-- The destination is a notify entity rather than a Companion phone. Those get new notifications and reminders, but no updates to earlier messages and no notice when an issue ends.
+Save the method, preview its current targets and explicitly send a test. A test request works while normal sending is off. If it arrives but policy notifications do not, check timing, pauses, acknowledgment and policy scope. If it never arrives, inspect the provider and Home Assistant logs. A successful request cannot confirm receipt on the phone.
 
 ## Too many issues
 
-A new install watches your integrations, Home Assistant's Repairs, and automations that name a missing entity. A long list of issues usually comes from watching more than you need:
+Fresh setup enables integration, device and entity availability policies, Repairs and broken automations. Open **Policies** to see which policies select the sources producing issues. You can narrow a policy's source selection or disable it, then review and save the change.
 
-- An integration you don't care about keeps failing or retrying, such as one for a TV that's switched off at the wall. Open it in **Sources**, go to **Settings** and turn off **Allow monitoring for this integration**.
-- An entity is watched separately and also as part of its device, so one failure gives two issues. Keep one of them: choose **Follow device monitoring** in the entity's **Settings**.
-- An entity you watch on its own is unavailable for a normal reason, such as a feature that only exists in some modes. Open its issue and use **Stop checking this entity…**, then review and save the draft in Sources. A device check isn't affected unless every selected entity on the device is unavailable.
-- A source you chose by hand no longer exists in Home Assistant, so it has had no reading for 15 minutes. Remove its monitoring choice in **Sources**.
-- You used **Monitor all batteries**, and it found many low batteries at once. Each one stays open until its reading rises above 20% or it reports charging.
+An entity can be unavailable because its current device mode does not support it. Inspect its readings before deciding to monitor it. A device availability check uses all selected entities and opens a device issue only when they are all unavailable, or a supported connectivity sensor reports disconnected.
 
-Three or more watched devices or entities on the same integration that fail within a minute are grouped into one issue. To group more readily, lower **Group related problems** or widen **Grouping window** under **Settings → Problem grouping**. [How it works](how-it-works.md#how-one-failure-becomes-one-issue) explains which failures group and which don't.
+Overlapping policies operate independently. If two policies intentionally select the same source, inspect their names and detection settings. Disable or delete the one you no longer want. A battery policy may find many low batteries at once; each follows that policy's threshold and the reported low/charging evidence.
 
-If the issues are right but the notifications are too many, change the reporting choices instead. Summaries and **Dashboard only** keep issues visible without sending each one, and **Pause alerts** quiets a single issue for up to a week. The [user guide](guide.md#operator-controls) covers the controls.
+Three or more watched devices or entities on the same integration that fail within a minute can be grouped into one issue. The count and time window are under **Settings → Problem grouping**. [How it works](how-it-works.md#how-one-failure-becomes-one-issue) explains grouping.
+
+If the issues are useful but the notifications are too frequent, change the policy's notification entries. Scheduled summaries and dashboard-only monitoring keep issues visible. **Pause alerts** quiets an issue temporarily; the [user guide](guide.md#operator-controls) explains the controls.
 
 ## An alert stuck on unknown
 
@@ -141,14 +120,14 @@ The [user guide](guide.md#what-an-availability-problem-means) explains what an a
 - A notification request isn't proof of delivery. Homeostatic hands each message to Home Assistant's notify action, which can't confirm the phone received it, and some delivery errors appear only in the Home Assistant log.
 - When an integration fails, everything watched on it is grouped under its issue, including a device that happens to have a fault of its own at the same moment. Check anything still failing once the integration recovers.
 - An automation that names an entity that no longer exists opens an issue. An automation that never runs, or an error that appears only in its trace, doesn't show up in Homeostatic. An entity id written only inside a template is not seen, and scripts are not checked.
-- All Repairs share one reporting choice, and all broken automations share another. You can't send one of those issues immediately and another in the weekly summary.
+- Repairs and broken automations have their own policies and notification entries. Their policy editors offer only the source-selection options supported by those checks.
 - A device's availability never reads **Partially available**. Home Assistant doesn't yet let integrations report device availability directly, so Homeostatic works it out from entity states.
 - A light or binary sensor group can stay available while some of its members are unavailable. Watch the members that matter directly.
-- The low-battery level is fixed at 20%. Homeostatic can't tell whether a battery was replaced or recharged, and doesn't know what type of battery a device takes.
+- Each battery policy has a configurable percentage threshold, initially 20%. Homeostatic cannot identify a battery replacement or tell you which replacement battery to buy.
 - A vacuum issue follows the vacuum entity's error activity. A fault that never becomes that activity stays an alert you write yourself. The notice names the area Home Assistant has assigned to the vacuum, which is often the room where it docks.
 - Alerts describe continuing conditions. A one-off event, like a doorbell press, doesn't fit unless something in Home Assistant holds it as a state. Homeostatic can't check that **Required evidence** lists every entity your condition uses.
 - The panel and cards are for administrators only. Other people can receive notifications and tap **Acknowledge**, but can't open the panel.
-- Notifications can't go to whoever is home, be spoken on a speaker, or be snoozed from the phone.
+- Delivery methods can select people currently home or use configured speakers. Phone snooze controls are not provided.
 - Homeostatic never fixes anything itself. It doesn't retry integrations, turn anything back on or send commands to devices. It shows the Repairs Home Assistant raises, but fixing or ignoring them happens in Home Assistant.
 - The History page keeps up to 100 ended issues from the last 30 days. Its times are when Homeostatic saw a change, so after Home Assistant has been down, an end time can be later than the actual recovery.
 - Timings apply to the whole installation. You can't give one source a different wait.

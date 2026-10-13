@@ -1,5 +1,4 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=69";
-import {MATCH_FIELDS, MATCH_LABELS} from "./configuration.mjs?v=69";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=70";
 
 export const POLICY_CHECKS = {
   availability: "HA availability", battery: "Battery condition", vacuum: "Vacuum error",
@@ -8,7 +7,7 @@ export const POLICY_CHECKS = {
   ups_power:"UPS backup power", ups_reserve:"UPS low reserve", ups_battery_replacement:"UPS battery replacement", ups_fault:"UPS faults",
 };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const MODES = {immediate:"Immediate once", acknowledge:"Until acknowledged", report:"Scheduled report"};
+
 const METHOD_MODES = {fixed:"Fixed destinations", home_away:"Home or away", home_people:"People currently home"};
 const equal = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const checked = value => value ? " checked" : "";
@@ -26,24 +25,26 @@ export function nextDefinitionId(existing,prefix) {
   return `${prefix}-${number}`;
 }
 
-export function newMonitoringPolicy(existing,check="availability") {
+export const MONITORING_TYPES = {
+  integration: "Integration availability", device: "Device availability", entity: "Entity availability",
+  battery: "Low battery", vacuum: "Vacuum error", repair: "Repairs", broken_automation: "Broken automations",
+  thermostat: "Thermostat progress", temperature_limit: "Temperature limits",
+  ups_power: "UPS backup power", ups_reserve: "UPS low reserve", ups_battery_replacement: "UPS battery replacement", ups_fault: "UPS faults",
+};
+export function policyType(policy) {
+  return policy.check === "availability" ? policy.match?.kind?.[0]||"device" : policy.check;
+}
+export function newMonitoringPolicy(existing,type="device") {
+  if(type==="availability")type="device";
+  const check=["integration","device","entity"].includes(type)?"availability":type;
   const parameters = check === "thermostat" ? {unit:"°F",margin:2,progress:2,worsening:2,progress_seconds:3600}
-    : check === "temperature_limit" ? {unit:"°F"} : {};
-  const kind = check.startsWith("ups_")?"ups":{availability:"device",thermostat:"entity",temperature_limit:"entity"}[check] || check;
-  return {id:nextDefinitionId(existing,"policy"),name:POLICY_CHECKS[check],check,match:{kind:[kind]},parameters,enabled:false,notifications:[]};
+    : check === "temperature_limit" ? {unit:"°F",duration_seconds:0} : check === "battery" ? {threshold:20} : {};
+  const kind = check.startsWith("ups_")?"ups":["thermostat","temperature_limit"].includes(check)?"entity":type;
+  return {id:nextDefinitionId(existing,"policy"),name:MONITORING_TYPES[type],check,match:{kind:[kind]},parameters,enabled:false,notifications:[]};
 }
 
 export function emptyNotificationDefinitions(timezone="UTC") {
-  return {
-    timezone,
-    schedules:{
-      immediate:{name:"Immediate",mode:"immediate"},
-      acknowledge:{name:"Until acknowledged",mode:"acknowledge",remind_every:1800},
-      morning:{name:"Morning report",mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]},
-      evening:{name:"Evening report",mode:"report",at:"18:00",weekdays:[0,1,2,3,4,5,6]},
-      weekly:{name:"Weekly report",mode:"report",at:"08:00",weekdays:[0]},
-    },methods:{},default:[],repairs:[],broken_automations:[],assignments:{},
-  };
+  return {timezone,methods:{},default:[],repairs:[],broken_automations:[],assignments:{},automation_profiles:{}};
 }
 
 /** Every assignment stays explicit, including source and condition exceptions. */
@@ -61,7 +62,7 @@ export function notificationRowGroups(draft) {
 }
 
 export function definitionUses(draft,kind,id) {
-  return notificationRowGroups(draft).filter(group=>group.rows.some(row=>kind==="schedules"?row.schedule===id:row.methods.includes(id))).map(group=>group.label);
+  return notificationRowGroups(draft).filter(group=>group.rows.some(row=>row.methods.includes(id))).map(group=>group.label);
 }
 
 function nextRowId(draft) {
@@ -75,11 +76,10 @@ export function deleteNotificationDefinition(draft,kind,id,resolution) {
   const uses=definitionUses(draft,kind,id);
   if(uses.length&&resolution!=="remove-rows"&&(!definitions[kind][resolution]||resolution===id))throw Error("Choose a replacement or explicitly remove the affected notification rows.");
   for(const group of notificationRowGroups(draft)) {
-    const matches=row=>kind==="schedules"?row.schedule===id:row.methods.includes(id);
+    const matches=row=>row.methods.includes(id);
     if(resolution==="remove-rows")group.owner[group.key]=group.rows.filter(row=>!matches(row));
     else for(const row of group.rows.filter(matches)) {
-      if(kind==="schedules")row.schedule=resolution;
-      else row.methods=[...new Set(row.methods.map(method=>method===id?resolution:method))];
+      row.methods=[...new Set(row.methods.map(method=>method===id?resolution:method))];
     }
   }
   delete definitions[kind][id];
@@ -95,7 +95,7 @@ export function reusableChanges(before,after) {
     result.push([b?.name||a.name,a?(a.enabled?"Monitoring":"Disabled"):"Not configured",!b?"Deleted; monitoring ends":reset?"Detection changed; existing alerts end and qualification restarts":b.enabled?"Monitoring with updated settings":"Disabled"]);
   }
   const a=before.notification_definitions,b=after.notification_definitions;
-  for(const kind of ["schedules","methods"])for(const id of new Set([...Object.keys(a?.[kind]||{}),...Object.keys(b?.[kind]||{})])) {
+  for(const kind of ["methods"])for(const id of new Set([...Object.keys(a?.[kind]||{}),...Object.keys(b?.[kind]||{})])) {
     const old=a?.[kind]?.[id],item=b?.[kind]?.[id];
     if(equal(old,item))continue;
     const uses=definitionUses(after,kind,id);
@@ -128,7 +128,7 @@ export function sourceNotificationDefinitions(card,source) {
       :`<p class="small">Following ${condition?"the source preference":"the default notification rows"}.</p>${button("override-rows","Choose notification rows","","",extra)}`;
     return `<h4>${title}</h4>${body}`;
   };
-  return `<section class="source-section"><h3>Notifications</h3>${section("","Source preference")}<details><summary>Condition exception</summary>${section(check,POLICY_CHECKS[check]||"Configured condition")}</details><p class="small">Named monitoring policies use their own notification rows.</p>${applicablePolicyLinks(card,source)}<button type="button" class="link" data-page="notifications">Manage schedules and delivery methods</button></section>`;
+  return `<section class="source-section"><h3>Notifications</h3>${section("","Source preference")}<details><summary>Condition exception</summary>${section(check,POLICY_CHECKS[check]||"Configured condition")}</details><p class="small">Monitoring policies use their own notifications.</p>${applicablePolicyLinks(card,source)}<button type="button" class="link" data-page="notifications">Manage delivery methods</button></section>`;
 }
 
 export function applicablePolicyLinks(card,source) {
@@ -139,17 +139,53 @@ export function applicablePolicyLinks(card,source) {
 
 export function notificationRowsEditor(card,rows,scope) {
   const definitions=card.settingsDraft.notification_definitions;
-  if(!definitions)return '<p class="note">Create schedules and delivery methods in Notifications, then return to this policy. Pending changes are retained.</p><button type="button" class="button" data-page="notifications">Open Notifications</button>';
-  const schedules=definitions.schedules,methods=definitions.methods;
+  if(!definitions)return '<p class="note">Add delivery methods in Notifications to configure sending.</p><button type="button" class="button" data-page="notifications">Open Notifications</button>';
+  const methods=definitions.methods,zone=definitions.timezone;
   const reserve=scope.startsWith("policy:")&&card.settingsDraft.monitoring_policies.find(item=>item.id===scope.slice(7))?.check==="ups_reserve";
-  const rowHTML=rows.map(row=>`<div class="definition-notification-row">${reserve?`<label>When reserve is low<select data-row-scope="${esc(scope)}" data-row-id="${esc(row.id)}" data-row-field="when">${[["mains","Mains power confirmed"],["backup","Backup power confirmed"]].map(([id,name])=>option(id,name,row.when||"mains")).join("")}</select></label>`:""}<label>Schedule<select data-row-scope="${esc(scope)}" data-row-id="${esc(row.id)}" data-row-field="schedule">${!schedules[row.schedule]?option(row.schedule,"Choose a schedule",row.schedule):""}${Object.entries(schedules).map(([id,schedule])=>option(id,schedule.name,row.schedule)).join("")}</select></label><fieldset><legend>Delivery methods</legend>${Object.entries(methods).map(([id,method])=>`<label class="installation-toggle"><input type="checkbox" data-row-scope="${esc(scope)}" data-row-id="${esc(row.id)}" data-row-method="${esc(id)}"${checked(row.methods.includes(id))}>${esc(method.name)}<small>${esc(METHOD_MODES[method.mode])}</small></label>`).join("")||'<p>No delivery methods yet.</p>'}${row.methods.filter(id=>!methods[id]).map(id=>`<p role="alert">Missing delivery method: ${esc(id)}</p>`).join("")}</fieldset>${button("remove-row","Remove notification","",row.id,`data-row-scope="${esc(scope)}"`)}</div>`).join("");
-  return `${rowHTML||'<p class="sub">Dashboard only. No outgoing requests for this policy.</p>'}${button("add-row","Add notification","","",`data-row-scope="${esc(scope)}"`)}<p class="small">Each row pairs one schedule with its selected methods. Immediate delivery includes overnight.</p><button type="button" class="link" data-page="notifications">Manage schedules and delivery methods</button>`;
+  const rowHTML=rows.map(row=>{
+    const timing=row.timing||{mode:"immediate"};
+    const attr=field=>`data-row-scope="${esc(scope)}" data-row-id="${esc(row.id)}" data-row-field="${field}"`;
+    const immediate=timing.mode!=="report";
+    return `<div class="definition-notification-row">${reserve?`<label>When reserve is low<select ${attr("when")}>${[["mains","Mains power confirmed"],["backup","Backup power confirmed"]].map(([id,name])=>option(id,name,row.when||"mains")).join("")}</select></label>`:""}<label class="installation-field"><span>When to notify</span><select ${attr("timing:mode")}>${option("immediate","Immediately",immediate?"immediate":"report")}${option("report","Scheduled summary",timing.mode)}</select></label>${immediate?`<p class="small">Notify when the problem begins, including overnight.</p><label class="installation-toggle"><input type="checkbox" ${attr("timing:remind")}${checked(timing.mode==="acknowledge")}>Remind until acknowledged</label>${timing.mode==="acknowledge"?`<label class="installation-field"><span>Remind every (minutes)</span><input type="number" min="1" step="1" required ${attr("timing:minutes")} value="${esc(timing.remind_every/60)}"></label>`:""}`:`<label class="installation-field"><span>Summary time · ${esc(zone)}</span><input type="time" required ${attr("timing:at")} value="${esc(timing.at)}"></label><fieldset class="policy-weekdays"><legend>Days</legend>${DAYS.map((day,index)=>`<label class="installation-toggle"><input type="checkbox" ${attr("timing:weekdays")} data-row-day="${index}"${checked(timing.weekdays?.includes(index))}>${day}</label>`).join("")}</fieldset><p class="small">Includes open problems, even after acknowledgment. Empty summaries are skipped.</p>`}<fieldset><legend>Delivery methods</legend>${Object.entries(methods).map(([id,method])=>`<label class="installation-toggle"><input type="checkbox" data-row-scope="${esc(scope)}" data-row-id="${esc(row.id)}" data-row-method="${esc(id)}"${checked(row.methods.includes(id))}>${esc(method.name)}<small>${esc(METHOD_MODES[method.mode])}</small></label>`).join("")||'<p>No delivery methods yet. Add one in Notifications.</p>'}${row.methods.filter(id=>!methods[id]).map(()=>'<p role="alert">A selected delivery method is unavailable.</p>').join("")}</fieldset>${button("remove-row","Remove notification","",row.id,`data-row-scope="${esc(scope)}"`)}</div>`;
+  }).join("");
+  return `${rowHTML||'<p class="sub">Dashboard only. No notifications configured.</p>'}${button("add-row","Add notification","","",`data-row-scope="${esc(scope)}"`)}<button type="button" class="link" data-page="notifications">Manage delivery methods</button>`;
+}
+
+export function watchChoices(policy) {
+  const type=policyType(policy),noun={integration:"integrations",device:"devices",entity:"entities",battery:"batteries",vacuum:"vacuums",thermostat:"thermostats",temperature_limit:"temperature sensors"}[type]||(type.startsWith("ups_")?"UPS devices":"sources");
+  if(["repair","broken_automation"].includes(type))return {all:type==="repair"?"All Repairs":"All automations"};
+  return {all:`All ${noun}`,selected:`Selected ${noun}…`,...(type==="integration"?{}:{area:`${noun[0].toUpperCase()+noun.slice(1)} in areas…`,label:`${noun[0].toUpperCase()+noun.slice(1)} with labels…`})};
+}
+function sourceField(policy) {
+  return {integration:"integration",device:"device",ups:"device"}[(policy.match?.kind?.[0]||"device")]||"entity";
+}
+export function watchMode(policy) {
+  return policy.match.area?"area":policy.match.label?"label":policy.match[sourceField(policy)]?"selected":"all";
+}
+export function policySelectionChoices(card,policy,mode) {
+  if(mode==="area"||mode==="label")return (card.configuration[mode==="area"?"areas":"labels"]||[]).map(item=>({...item,group:mode==="area"?(card.configuration.floors||[]).find(floor=>floor.id===item.floor_id)?.name||"Other areas":"Labels"}));
+  const inventory=card.current?.data?.inventory?.catalog?inventoryRows(card.current.data):[];
+  const field=sourceField(policy);
+  return [...new Map(inventory.filter(source=>source.kind===(policy.match?.kind?.[0]||"device")&&(policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature"))).map(source=>{
+    const id=source.attributes?.[field]?.[0]||(field==="integration"?source.entry_id:null);
+    return [id,{id,name:source.name,group:"Sources"}];
+  }).filter(([id])=>id)).values()];
+}
+function watchEditor(card,policy) {
+  const mode=watchMode(policy),choices=watchChoices(policy),field=mode==="selected"?sourceField(policy):mode;
+  const values=policy.match[field]||[],items=policySelectionChoices(card,policy,mode);
+  const names=values.map(id=>items.find(item=>item.id===id)?.name||"Unavailable selection");
+  const picker=card.policyPicker?.id===policy.id?card.policyPicker:null;
+  const filtered=picker?items.filter(item=>(!picker.selectedOnly||values.includes(item.id))&&item.name.toLocaleLowerCase().includes(picker.query.toLocaleLowerCase())):[];
+  const groups=[...new Set(filtered.map(item=>item.group))];
+  return `${select("policies",policy.id,"watch","Watch",mode,choices)}${mode!=="all"?`<div class="policy-selection"><p>${names.length?esc(names.slice(0,2).join(", "))+(names.length>2?` +${names.length-2} more`:""):"Nothing selected"}</p>${button("pick",`Choose ${mode==="area"?"areas":mode==="label"?"labels":"sources"}`,"policies",policy.id)}${picker?`<section class="policy-picker" aria-label="Choose ${mode==="area"?"areas":mode==="label"?"labels":"sources"}"><label class="installation-field"><span>Search</span><input type="search" data-definition-picker-search value="${esc(picker.query)}"></label><label class="installation-toggle"><input type="checkbox" data-definition-picker-selected${checked(picker.selectedOnly)}>Show selected only</label><p role="status">${values.length} selected</p><div class="policy-picker-options">${groups.map(group=>`<fieldset><legend>${esc(group)}</legend>${filtered.filter(item=>item.group===group).sort((a,b)=>a.name.localeCompare(b.name)).map(item=>`<label class="installation-toggle"><input type="checkbox" ${attrs("policies",policy.id,"selection")} data-definition-value="${esc(item.id)}"${checked(values.includes(item.id))}>${esc(item.name)}</label>`).join("")}</fieldset>`).join("")||'<p>No matching choices.</p>'}${values.filter(id=>!items.some(item=>item.id===id)).map(id=>`<label class="installation-toggle"><input type="checkbox" ${attrs("policies",policy.id,"selection")} data-definition-value="${esc(id)}" checked>Unavailable selection — clear to remove</label>`).join("")}</div>${button("finish-pick","Done","policies",policy.id)}</section>`:""}<p class="small">${mode==="selected"?"Only the selected sources are included.":`Includes current and future matching sources in any selected ${mode==="area"?"area":"label"}.`}</p></div>`:'<p class="small">Includes current and future matching sources.</p>'}`;
 }
 
 function policyFields(card,policy) {
   const {id,check,parameters}=policy;
   const inventory=card.current?.data?.inventory?.catalog?inventoryRows(card.current.data):[];
-  let parameterFields='<p class="sub">This check uses the configured Home Assistant evidence and installation timing.</p>';
+  let parameterFields='<p class="sub">Uses the reported Home Assistant state and configured timing.</p>';
+  if(check==="battery")parameterFields=input("policies",id,"parameters:threshold","Battery level at or below (%)",parameters.threshold??20,"number",'min="0" max="100" step="1" required');
   if(check==="ups_reserve") {
     const selected=inventory.filter(source=>source.kind==="ups"&&Object.entries(policy.match||{}).every(([field,values])=>values.some(value=>source.attributes?.[field]?.includes(value))));
     const hasRole=role=>selected.some(source=>(source.ups_entities||[]).some(([key])=>key===role));
@@ -162,20 +198,18 @@ function policyFields(card,policy) {
     parameterFields+=fields.map(([field,label])=>input("policies",id,`parameters:${field}`,label,parameters[field],"number",`step="any" ${["minimum","maximum"].includes(field)?"":'min="0" required'}`)).join("");
     parameterFields+=`<p class="small">${check==="thermostat"?"Deviation and progress are differences in the selected unit. Heating and cooling are evaluated separately.":"Choose a minimum, a maximum, or both. Qualification restarts when evidence no longer satisfies the limit."}</p>`;
   }
-  const matches=MATCH_FIELDS.map(field=> {
-    const registry={area:card.configuration.areas,floor:card.configuration.floors,label:card.configuration.labels}[field];
-    const choices=registry?.map(item=>[item.id,item.name])||[...new Map(inventory.flatMap(source=>(source.attributes?.[field]||[]).map(value=>[value,source.name]))).entries()];
-    const listId=`policy-${id}-${field}`;
-    return input("policies",id,`match:${field}`,MATCH_LABELS[field],(policy.match[field]||[]).join(", "),"text",`list="${esc(listId)}" placeholder="Any"`)+`<datalist id="${esc(listId)}">${choices.map(([value,name])=>`<option value="${esc(value)}">${esc(name)}</option>`).join("")}</datalist>`;
-  }).join("");
-  return `<h3>What to watch</h3>${input("policies",id,"name","Name",policy.name,"text","required")}${select("policies",id,"check","Check",check,POLICY_CHECKS)}<label class="installation-toggle"><input type="checkbox" ${attrs("policies",id,"enabled")}${checked(policy.enabled)}>Enable monitoring</label><details class="definition-scope" open><summary>Sources and groups</summary><div class="config-fields">${matches}</div><p class="small">All filled conditions must match. Separate alternatives with commas. Area, label and integration groups include future matching sources. Individual selections belong to this named policy.</p></details><h3>When it is a problem</h3>${parameterFields}<h3>Notifications</h3>${notificationRowsEditor(card,policy.notifications,`policy:${id}`)}`;
+  return `${input("policies",id,"name","Name",policy.name,"text","required")}<div class="policy-type"><span>Monitoring type</span><strong>${esc(MONITORING_TYPES[policyType(policy)])}</strong></div>${watchEditor(card,policy)}<h3>When it becomes a problem</h3>${parameterFields}<h3>Notifications</h3>${notificationRowsEditor(card,policy.notifications,`policy:${id}`)}<label class="installation-toggle"><input type="checkbox" ${attrs("policies",id,"enabled")}${checked(policy.enabled)}>Enabled</label>`;
 }
 
 export function namedPolicies(card) {
   const policies=card.settingsDraft?.monitoring_policies||[];
   const active=policies.find(item=>card.definitionSelection?.kind==="policies"&&item.id===card.definitionSelection.id);
-  const list=policies.map(policy=>`<article class="definition-list-item"><div><h3>${esc(policy.name)}</h3><p class="small">${esc(POLICY_CHECKS[policy.check])} · ${policy.enabled?"On":"Off"} · ${policy.notifications.length?`${policy.notifications.length} notification rows`:"Dashboard only"}</p></div><div class="actions">${button("edit","Edit","policies",policy.id)}${button("duplicate","Duplicate","policies",policy.id)}${button("delete","Delete","policies",policy.id)}</div></article>`).join("");
-  return `<section class="reusable-definitions"><div class="policy-check-head"><h2>Named monitoring policies</h2>${button("add","Add monitoring policy","policies")}</div><p class="sub">Configure independent checks, their sources and notification rows. Copies start disabled.</p><div class="definition-workspace${active?" has-selection":""}"><div class="definition-list">${list||'<p>No named policies yet. Add a check or start from a template.</p>'}<label class="installation-field"><span>Starting template</span><select data-definition-template>${Object.entries(POLICY_CHECKS).map(([id,name])=>option(id,name,card.definitionTemplate||"availability")).join("")}</select></label></div>${active?`<section class="definition-editor installation-editor" aria-label="Edit monitoring policy"><header><h2>${esc(active.name)}</h2>${button("close","Back to policies","policies",active.id)}</header>${policyFields(card,active)}</section>`:""}</div>${deletePrompt(card)}</section>`;
+  const templates=card.configuration.monitoring_policy_templates||[];
+  const missing=templates.filter(template=>!policies.some(policy=>policy.id===template.id));
+  if(card.policyCreating)return `<section class="definition-editor installation-editor"><h2>Add policy</h2><p>Choose the monitoring type. It stays fixed after creation.</p><label class="installation-field"><span>Monitoring type</span><select data-definition-template>${Object.entries(MONITORING_TYPES).map(([id,name])=>option(id,name,card.definitionTemplate||"device")).join("")}</select></label>${button("create","Continue","policies")}${button("close","Cancel","policies")}</section>`;
+  if(active)return `<section class="definition-editor installation-editor unified-policy-editor" aria-label="Edit monitoring policy"><header><h2>Edit policy</h2>${button("close","Back to policies","policies",active.id)}</header>${policyFields(card,active)}${button("close","Done","policies",active.id)}${deletePrompt(card)}</section>`;
+  const list=policies.map(policy=>`<article class="definition-list-item"><div><h3>${esc(policy.name)}</h3><p class="small">${esc(MONITORING_TYPES[policyType(policy)])} · ${policy.enabled?"On":"Off"} · ${policy.notifications.length?`${policy.notifications.length} notification${policy.notifications.length===1?"":"s"}`:"Dashboard only"}</p></div><div class="actions">${button("toggle",policy.enabled?"Turn off":"Turn on","policies",policy.id)}${button("edit","Edit","policies",policy.id)}${button("duplicate","Duplicate","policies",policy.id)}${button("delete","Delete","policies",policy.id)}</div></article>`).join("");
+  return `<section class="reusable-definitions"><div class="policy-check-head"><h2>Monitoring policies</h2><div class="actions">${button("restore","Restore defaults","policies","",missing.length?"":"disabled")}${button("add","Add policy","policies")}</div></div>${card.policyRestoring?`<section class="policy-picker" aria-label="Restore default policies"><h3>Restore defaults</h3><p>Choose deleted policies to restore. Existing policies keep their settings.</p>${missing.map(policy=>`<label class="installation-toggle"><input type="checkbox" data-definition-restore="${esc(policy.id)}"${checked(card.policyRestoreIds?.includes(policy.id))}>${esc(policy.name)}</label>`).join("")}${button("confirm-restore","Restore selected","policies","",card.policyRestoreIds?.length?"":"disabled")}${button("cancel-restore","Cancel","policies")}</section>`:""}<div class="definition-list">${list||'<p>No policies. Add a policy or restore defaults to start monitoring.</p>'}</div>${deletePrompt(card)}</section>`;
 }
 
 function destinationChoices(card,method,id,field,label) {
@@ -228,28 +262,6 @@ export async function testDeliveryMethod(card,id) {
   finally{card.deliveryMethodReview=null;card.deliveryMethodBusy=false;card.render();}
 }
 
-function scheduleForecast(card,id,schedule,timezone) {
-  const preview=card.sourceSettingsReview?.result.reports;
-  const saved=card.configuration.settings.notification_definitions;
-  const changed=JSON.stringify(schedule)!==JSON.stringify(saved?.schedules?.[id])||timezone!==saved?.timezone;
-  if(changed&&!preview)return '<p class="note">Review changes to see the next scheduled time for this draft.</p>';
-  const reports=(preview||card.current.data.policy.reports||[]).filter(report=>report.name.startsWith(`schedule:${id}:`)).sort((a,b)=>a.next_at.localeCompare(b.next_at));
-  if(!reports.length)return '<p class="small">No notification row currently uses this schedule.</p>';
-  let next;
-  try{next=new Date(reports[0].next_at).toLocaleString(undefined,{timeZone:timezone,timeZoneName:"short"});}
-  catch(error){if(!(error instanceof RangeError))throw error;return '<p class="note">Choose a valid time zone before reviewing this schedule.</p>';}
-  return `<p class="note">${preview?"After saving, next":"Next"} scheduled time: ${esc(next)}. Only eligible open problems are included.</p>`;
-}
-
-function scheduleFields(card,id,schedule,timezone) {
-  let body=input("schedules",id,"name","Name",schedule.name,"text","required")+select("schedules",id,"mode","When to request",schedule.mode,MODES);
-  if(schedule.mode==="acknowledge")body+=input("schedules",id,"remind_every","Repeat every (seconds)",schedule.remind_every,"number",'min="1" step="1" required');
-  if(schedule.mode==="report")body+=input("schedules",id,"at",`Report time · ${timezone}`,schedule.at,"time","required")+`<fieldset><legend>Weekdays</legend>${DAYS.map((day,index)=>`<label class="installation-toggle"><input type="checkbox" ${attrs("schedules",id,"weekdays")} data-weekday="${index}"${checked(schedule.weekdays?.includes(index))}>${day}</label>`).join("")}</fieldset><p class="small">Reports include eligible open problems. Empty reports and resolved problems are omitted.</p>`;
-  else body+='<p class="small">Immediate requests include overnight delivery.</p>';
-  if(schedule.mode==="report")body+=scheduleForecast(card,id,schedule,timezone);
-  return body;
-}
-
 function deletePrompt(card) {
   const request=card.definitionDelete;
   if(!request)return "";
@@ -261,13 +273,13 @@ function deletePrompt(card) {
 
 export function namedNotifications(card) {
   const definitions=card.settingsDraft.notification_definitions;
-  if(!definitions)return `<section class="reusable-definitions"><h2>Reusable notification settings</h2><p>The current custom policy stays active until a replacement is reviewed and saved. Start with empty destinations and assign schedules explicitly.</p>${button("start","Start reusable schedules")}</section>`;
-  const kind=card.notificationDefinitionTab||"schedules",items=definitions[kind];
+  if(!definitions)return `<section class="reusable-definitions"><h2>Delivery methods</h2>${button("start","Set up delivery methods")}</section>`;
+  const kind="methods",items=definitions.methods;
   const active=card.definitionSelection?.kind===kind?items[card.definitionSelection.id]:null;
   const id=active?card.definitionSelection.id:null;
-  const list=Object.entries(items).map(([itemId,item])=>`<article class="definition-list-item"><div><h3>${esc(item.name)}</h3><p class="small">${esc(kind==="schedules"?MODES[item.mode]:METHOD_MODES[item.mode])}${item.mode==="report"?` · ${esc(item.at)}`:""} · Used by ${definitionUses(card.settingsDraft,kind,itemId).length}</p></div><div class="actions">${button("edit","Edit",kind,itemId)}${button("duplicate","Duplicate",kind,itemId)}${button("delete","Delete",kind,itemId)}</div></article>`).join("");
+  const list=Object.entries(items).map(([itemId,item])=>`<article class="definition-list-item"><div><h3>${esc(item.name)}</h3><p class="small">${esc(METHOD_MODES[item.mode])} · Used by ${definitionUses(card.settingsDraft,kind,itemId).length}</p></div><div class="actions">${button("edit","Edit",kind,itemId)}${button("duplicate","Duplicate",kind,itemId)}${button("delete","Delete",kind,itemId)}</div></article>`).join("");
   const targets=card.configuration.delivery_targets||card.configuration.notification_destinations||[];
-  return `<section class="reusable-definitions"><nav class="installation-nav" aria-label="Notification definitions">${[["schedules","Schedules"],["methods","Delivery methods"]].map(([value,label])=>button("tab",label,value,"",`aria-current="${kind===value?"page":"false"}"`)).join("")}</nav><div class="policy-check-head"><h2>${kind==="schedules"?"Schedules":"Delivery methods"}</h2>${button("add",kind==="schedules"?"Add schedule":"Add delivery method",kind)}</div><div class="definition-workspace${active?" has-selection":""}"><div class="definition-list">${list||'<p>No definitions yet.</p>'}</div>${active?`<section class="definition-editor installation-editor" aria-label="Edit ${kind==="schedules"?"schedule":"delivery method"}"><header><h2>${esc(active.name)}</h2>${button("close","Back to list",kind,id)}</header>${kind==="schedules"?`<label class="installation-field"><span>Time zone for all schedules</span><input required data-definition-zone value="${esc(definitions.timezone)}"></label>`+scheduleFields(card,id,active,definitions.timezone):methodFields(card,id,active)}<p class="small">Used by: ${definitionUses(card.settingsDraft,kind,id).map(esc).join(", ")||"No assignments"}</p></section>`:""}</div>${deletePrompt(card)}<details class="installation-group"><summary>Default notification rows</summary><p>Used by existing monitoring choices without a source override. Named policies use their own rows.</p>${[ ["default","Default"],["repairs","Repairs"],["broken_automations","Broken automations"]].map(([scope,label])=>`<h3>${label}</h3>${notificationRowsEditor(card,definitions[scope]||[],scope)}`).join("")}</details><section class="installation-group"><h3>Outgoing requests</h3><label class="installation-toggle"><input type="checkbox" data-definition-notifications${checked(card.settingsDraft.notifications)}>Enable notification requests</label><p class="small">Review and save to apply changes. Reporting edits can request messages for existing open problems.</p></section><details class="installation-group"><summary>Test a destination</summary><p>Only an explicit test action requests a message.</p>${targets.filter(target=>target.available!==false&&!target.channel.endsWith(":")).map(target=>`<div class="definition-list-item"><span>${esc(target.name)}</span><button type="button" class="button" data-notification-test="${esc(target.channel)}">Send test</button></div>`).join("")||'<p>No testable destination is available.</p>'}</details></section>`;
+  return `<section class="reusable-definitions"><div class="policy-check-head"><h2>Delivery methods</h2>${button("add","Add delivery method",kind)}</div><p class="sub">Choose destinations and optional presence rules here. Set notification timing in each policy.</p><div class="definition-workspace${active?" has-selection":""}"><div class="definition-list">${list||'<p>No delivery methods yet.</p>'}</div>${active?`<section class="definition-editor installation-editor" aria-label="Edit delivery method"><header><h2>${esc(active.name)}</h2>${button("close","Back to list",kind,id)}</header>${methodFields(card,id,active)}<p class="small">Used by: ${definitionUses(card.settingsDraft,kind,id).map(esc).join(", ")||"No assignments"}</p></section>`:""}</div>${deletePrompt(card)}<section class="installation-group"><h3>Notification sending</h3><label class="installation-toggle"><input type="checkbox" data-definition-notifications${checked(card.settingsDraft.notifications)}>Enable notification requests</label><p class="small">Monitoring continues with this switch off. Review and save to apply changes.</p></section><details class="installation-group"><summary>Test a destination</summary><p>Only an explicit test action requests a message.</p>${targets.filter(target=>target.available!==false&&!target.channel.endsWith(":")).map(target=>`<div class="definition-list-item"><span>${esc(target.name)}</span><button type="button" class="button" data-notification-test="${esc(target.channel)}">Send test</button></div>`).join("")||'<p>No testable destination is available.</p>'}</details></section>`;
 }
 
 function invalidate(card) {
@@ -278,7 +290,7 @@ function invalidate(card) {
 function renderAfterEdit(card,element) {
   const dataset={...element.dataset},start=element.selectionStart,end=element.selectionEnd;
   card.render();
-  const replacement=[...(card.main?.querySelectorAll?.("[data-definition-field],[data-row-field]")||[])].find(item=>Object.entries(dataset).every(([key,value])=>item.dataset[key]===value));
+  const replacement=[...(card.main?.querySelectorAll?.("[data-definition-field],[data-row-field],[data-definition-picker-search],[data-definition-picker-selected]")||[])].find(item=>Object.entries(dataset).every(([key,value])=>item.dataset[key]===value));
   replacement?.focus?.({preventScroll:true});
   if(start!==null&&start!==undefined)replacement?.setSelectionRange?.(start,end);
 }
@@ -289,7 +301,7 @@ export function editReusable(card,event) {
   const d=element.dataset||{};
   if(!card.settingsDraft) {
     if(d.definitionAction!=="open-policy")return false;
-    card.definitionSelection={kind:"policies",id:d.definitionId};card.page="policies";
+    card.dialog?.close();card.definitionSelection=d.definitionId?{kind:"policies",id:d.definitionId}:null;card.page="policies";
     void card.loadConfiguration();return true;
   }
   const draft=card.settingsDraft;
@@ -303,36 +315,34 @@ export function editReusable(card,event) {
     if(action==="test-method"){void testDeliveryMethod(card,id);return true;}
     if(action==="tab"){card.notificationDefinitionTab=kind;card.definitionSelection=null;card.render();return true;}
     if(action==="edit"){card.definitionSelection={kind,id};card.render();return true;}
-    if(action==="open-policy"){card.definitionSelection={kind:"policies",id};card.page="policies";card.render();return true;}
-    if(action==="close"){card.definitionSelection=null;card.render();return true;}
+    if(action==="open-policy"){card.dialog?.close();card.definitionSelection=id?{kind:"policies",id}:null;card.page="policies";card.render();return true;}
+    if(action==="close"){card.definitionSelection=null;card.policyCreating=false;card.policyPicker=null;card.render();return true;}
+    if(action==="add"&&kind==="policies"){card.policyCreating=true;card.definitionSelection=null;card.render();return true;}
+    if(action==="pick"){card.policyPicker={id,query:"",selectedOnly:false};card.render();return true;}
+    if(action==="finish-pick"){card.policyPicker=null;card.render();return true;}
+    if(action==="restore"){card.policyRestoring=true;card.policyRestoreIds=[];card.render();return true;}
+    if(action==="cancel-restore"){card.policyRestoring=false;card.render();return true;}
     if(action==="delete"){card.definitionDelete={kind,id,resolution:""};card.render();return true;}
     if(action==="cancel-delete"){card.definitionDelete=null;card.render();return true;}
     if(action==="start")draft.notification_definitions=emptyNotificationDefinitions(draft.policy.timezone);
-    else if(action==="add"||action==="duplicate") {
+    else if(action==="add"||action==="create"||action==="duplicate") {
       if(kind==="policies") {
         draft.monitoring_policies??=[];
         const original=policies.find(item=>item.id===id);
-        const policy=action==="duplicate"?{...structuredClone(original),id:nextDefinitionId(policies,"policy"),name:`${original.name} copy`,enabled:false}:newMonitoringPolicy(policies,card.definitionTemplate||"availability");
-        if(action==="add"&&policy.check==="thermostat"&&definitions) {
-          const schedule=Object.entries(definitions.schedules).find(([,item])=>item.mode==="immediate")?.[0];
-          const methods=[...new Set((definitions.default||[]).flatMap(row=>row.methods))].filter(method=>definitions.methods[method]);
-          if(schedule&&methods.length)policy.notifications=[{id:nextRowId(draft),schedule,methods}];
-        }
-        if(action==="add"&&policy.check.startsWith("ups_")&&definitions) {
-          const methods=[...new Set((definitions.default||[]).flatMap(row=>row.methods))].filter(method=>definitions.methods[method]);
-          const modes=policy.check==="ups_reserve"?[["mains","report"],["backup","acknowledge"]]:[[null,policy.check==="ups_power"?"immediate":policy.check==="ups_battery_replacement"?"report":"acknowledge"]];
-          for(const [when,mode] of modes) {
-            const schedule=Object.entries(definitions.schedules).find(([,item])=>item.mode===mode&&(mode!=="report"||item.at==="08:00"))?.[0];
-            if(schedule&&methods.length)policy.notifications.push({id:nextDefinitionId([...notificationRowGroups(draft).flatMap(group=>group.rows),...policy.notifications],"notification"),schedule,methods,...(when?{when}:{})});
-          }
-        }
+        const policy=action==="duplicate"?{...structuredClone(original),id:nextDefinitionId(policies,"policy"),name:`${original.name} copy`,enabled:false}:newMonitoringPolicy(policies,card.definitionTemplate||"device");
+        card.policyCreating=false;
         draft.monitoring_policies.push(policy);card.definitionSelection={kind,id:policy.id};
       }else {
-        const newId=nextDefinitionId(definitions[kind],kind==="schedules"?"schedule":"method");
+        const newId=nextDefinitionId(definitions[kind],"method");
         const original=definitions[kind][id];
-        definitions[kind][newId]=action==="duplicate"?{...structuredClone(original),name:`${original.name} copy`}:kind==="schedules"?{name:"New schedule",mode:"immediate"}:{name:"New delivery method",mode:"fixed",destinations:[]};
+        definitions[kind][newId]=action==="duplicate"?{...structuredClone(original),name:`${original.name} copy`}:{name:"New delivery method",mode:"fixed",destinations:[]};
         card.definitionSelection={kind,id:newId};
       }
+    }else if(action==="toggle") {
+      const policy=policies.find(item=>item.id===id);policy.enabled=!policy.enabled;
+    }else if(action==="confirm-restore") {
+      for(const template of card.configuration.monitoring_policy_templates||[])if(card.policyRestoreIds.includes(template.id)&&!policies.some(policy=>policy.id===template.id))policies.push(structuredClone(template));
+      card.policyRestoring=false;card.policyRestoreIds=[];
     }else if(action==="confirm-delete") {
       if(kind==="policies")draft.monitoring_policies=policies.filter(item=>item.id!==id);
       else deleteNotificationDefinition(draft,kind,id,card.definitionDelete?.resolution);
@@ -340,7 +350,7 @@ export function editReusable(card,event) {
     }else if(action==="add-row") {
       const rows=rowsFor(card,d.rowScope);
       const reserve=d.rowScope.startsWith("policy:")&&policies.find(item=>item.id===d.rowScope.slice(7))?.check==="ups_reserve";
-      rows.push({id:nextRowId(draft),schedule:Object.keys(definitions.schedules)[0]||"",methods:[],...(reserve?{when:rows.some(row=>row.when==="mains")?"backup":"mains"}:{})});
+      rows.push({id:nextRowId(draft),timing:{mode:"immediate"},methods:[],...(reserve?{when:rows.some(row=>row.when==="mains")?"backup":"mains"}:{})});
     }else if(action==="override-rows"||action==="inherit-rows") {
       const [source,check,inherited="default"]=JSON.parse(d.rowScope.slice(7));
       const assignment=definitions.assignments[source]??={checks:{}};
@@ -350,7 +360,7 @@ export function editReusable(card,event) {
       else {
         const inheritedRows=structuredClone(check?(assignment.default||definitions[inherited]):definitions[inherited]);
         owner[key]=[];
-        for(const row of inheritedRows)owner[key].push({...row,id:nextRowId(draft)});
+        for(const row of inheritedRows||[])owner[key].push({...row,id:nextRowId(draft)});
       }
     }else if(action==="remove-row") {
       const rows=rowsFor(card,d.rowScope),index=rows.findIndex(row=>row.id===id);
@@ -363,6 +373,9 @@ export function editReusable(card,event) {
       owner[key]=[...new Set([...(owner[key]||[]),d.smsService+encodeURIComponent(target.value)])];
     }else return false;
   }else {
+    if(d.definitionPickerSearch!==undefined){card.policyPicker.query=element.value;renderAfterEdit(card,element);return true;}
+    if(d.definitionPickerSelected!==undefined){card.policyPicker.selectedOnly=element.checked;renderAfterEdit(card,element);return true;}
+    if(d.definitionRestore!==undefined){card.policyRestoreIds=element.checked?[...card.policyRestoreIds,d.definitionRestore]:card.policyRestoreIds.filter(value=>value!==d.definitionRestore);card.render();return true;}
     if(d.definitionTemplate!==undefined){card.definitionTemplate=element.value;return true;}
     if(d.definitionDeleteResolution!==undefined){card.definitionDelete.resolution=element.value;card.render();return true;}
     if(d.definitionNotifications!==undefined)draft.notifications=element.checked;
@@ -372,7 +385,15 @@ export function editReusable(card,event) {
       if(!row)return false;
       if(notificationRowGroups(draft).some(group=>group.rows.some(other=>other!==row&&other.id===row.id)))row.id=nextRowId(draft);
       if(d.rowMethod)row.methods=element.checked?[...new Set([...row.methods,d.rowMethod])]:row.methods.filter(method=>method!==d.rowMethod);
-      else row[d.rowField]=element.value;
+      else if(d.rowField?.startsWith("timing:")) {
+        const field=d.rowField.slice(7);
+        row.timing??={mode:"immediate"};delete row.schedule;
+        if(field==="mode")row.timing=element.value==="report"?{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]}:{mode:"immediate"};
+        else if(field==="remind")row.timing=element.checked?{mode:"acknowledge",remind_every:1800}:{mode:"immediate"};
+        else if(field==="minutes")row.timing.remind_every=Number(element.value)*60;
+        else if(field==="weekdays")row.timing.weekdays=element.checked?[...new Set([...row.timing.weekdays,Number(d.rowDay)])].sort() :row.timing.weekdays.filter(day=>day!==Number(d.rowDay));
+        else row.timing[field]=element.value;
+      }else row[d.rowField]=element.value;
     }else if(d.definitionField) {
       const item=kind==="policies"?policies.find(policy=>policy.id===id):definitions[kind][id],field=d.definitionField;
       if(d.destination||d.person||d.weekday!==undefined) {
@@ -383,6 +404,13 @@ export function editReusable(card,event) {
           item.person_destinations??={};
           if(element.checked)item.person_destinations[value]??=[];else delete item.person_destinations[value];
         }
+      }else if(field==="watch") {
+        const selector=element.value==="selected"?sourceField(item):element.value;
+        item.match={kind:item.match.kind||["device"],...(selector==="all"?{}:{[selector]:[]})};card.policyPicker=null;
+      }else if(field==="selection") {
+        const mode=watchMode(item),selector=mode==="selected"?sourceField(item):mode;
+        const values=item.match[selector]||[];
+        item.match[selector]=element.checked?[...new Set([...values,d.definitionValue])]:values.filter(value=>value!==d.definitionValue);
       }else if(field.startsWith("match:")) {
         const key=field.slice(6),values=element.value.split(",").map(value=>value.trim()).filter(Boolean);
         if(values.length)item.match[key]=values;else delete item.match[key];
@@ -399,21 +427,14 @@ export function editReusable(card,event) {
         if(element.type==="checkbox")item.parameters[key]=element.checked;
         else if(element.value==="")delete item.parameters[key];else item.parameters[key]=element.type==="number"?Number(element.value):element.value;
       }else if(field==="check") {
-        const template=newMonitoringPolicy([],element.value);
-        item.check=element.value;item.parameters=template.parameters;item.match=template.match;
+        return true;
       }else if(field==="mode") {
         item.mode=element.value;
-        if(kind==="schedules") {
-          delete item.remind_every;delete item.at;delete item.weekdays;
-          if(item.mode==="acknowledge")item.remind_every=1800;
-          if(item.mode==="report"){item.at="08:00";item.weekdays=[0,1,2,3,4,5,6];}
-        }else {
-          const name=item.name;
-          for(const key of Object.keys(item))delete item[key];
-          Object.assign(item,{name,mode:element.value});
-          if(item.mode==="fixed")item.destinations=[];
-          else {item.people=[];item.fallback=[];item.skip=false;if(item.mode==="home_away"){item.home=[];item.away=[];}else item.person_destinations={};}
-        }
+        const name=item.name;
+        for(const key of Object.keys(item))delete item[key];
+        Object.assign(item,{name,mode:element.value});
+        if(item.mode==="fixed")item.destinations=[];
+        else {item.people=[];item.fallback=[];item.skip=false;if(item.mode==="home_away"){item.home=[];item.away=[];}else item.person_destinations={};}
       }else {
         item[field]=element.type==="checkbox"?element.checked:element.type==="number"?Number(element.value):element.value;
         if(kind==="methods"&&field==="skip"&&element.checked)item.fallback=[];

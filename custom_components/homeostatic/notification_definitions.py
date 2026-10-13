@@ -1,4 +1,4 @@
-"""Reusable schedules, destination methods, and explicit attention assignments."""
+"""Policy-owned notification timing, reusable methods, and attention routes."""
 
 import hashlib
 import json
@@ -9,6 +9,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from homeassistant.core import HomeAssistant
+from voluptuous import Invalid
 
 from .attention import duration, policy_data
 
@@ -19,35 +20,9 @@ _CHANNEL = re.compile(
 
 
 def defaults(timezone: str = "UTC") -> dict[str, Any]:
-    """Provide familiar timing definitions without adding destinations or sends."""
+    """Provide empty notification choices without adding destinations or sends."""
     return {
         "timezone": timezone,
-        "schedules": {
-            "immediate": {"name": "Immediate", "mode": "immediate"},
-            "acknowledge": {
-                "name": "Immediate with acknowledgment",
-                "mode": "acknowledge",
-                "remind_every": "30m",
-            },
-            "morning": {
-                "name": "Morning",
-                "mode": "report",
-                "at": "08:00",
-                "weekdays": list(range(7)),
-            },
-            "evening": {
-                "name": "Evening",
-                "mode": "report",
-                "at": "18:00",
-                "weekdays": list(range(7)),
-            },
-            "weekly": {
-                "name": "Weekly",
-                "mode": "report",
-                "at": "09:00",
-                "weekdays": [6],
-            },
-        },
         "methods": {},
         "default": [],
         "repairs": [],
@@ -120,11 +95,47 @@ def _method(key: str, value: object) -> None:
             _channels(channels, empty=False)
 
 
+def _timing(value: object) -> None:
+    """Validate the timing owned by one notification entry."""
+    if not isinstance(value, dict):
+        raise ValueError("Provide timing settings on each notification entry")
+    mode = value.get("mode")
+    fields = {"mode"}
+    if mode == "acknowledge":
+        fields.add("remind_every")
+    elif mode == "report":
+        fields.update(("at", "weekdays"))
+    elif mode != "immediate":
+        raise ValueError("Choose immediate, acknowledgment, or scheduled reporting")
+    if set(value) != fields:
+        raise ValueError("Provide the settings for the selected timing")
+    if mode == "acknowledge":
+        try:
+            interval = duration(value["remind_every"])
+        except Invalid as err:
+            raise ValueError("Use a positive reminder interval") from err
+        if interval.total_seconds() <= 0:
+            raise ValueError("Reminders must have a positive interval")
+    if mode == "report":
+        if not isinstance(value["at"], str) or not re.fullmatch(
+            r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", value["at"]
+        ):
+            raise ValueError("Use a local HH:MM report time")
+        time.fromisoformat(value["at"])
+        days = value["weekdays"]
+        if (
+            not isinstance(days, list)
+            or not days
+            or any(type(day) is not int or day not in range(7) for day in days)
+            or len(set(days)) != len(days)
+        ):
+            raise ValueError("Choose weekdays once, from Monday through Sunday")
+
+
 def validate(value: object) -> dict[str, Any]:
     """Copy a complete definition set and reject dangling or ambiguous references."""
     if not isinstance(value, dict) or set(value) - {"automation_profiles"} != {
         "timezone",
-        "schedules",
         "methods",
         "default",
         "repairs",
@@ -138,42 +149,8 @@ def validate(value: object) -> dict[str, Any]:
         ZoneInfo(data["timezone"])
     except (ZoneInfoNotFoundError, TypeError, ValueError) as err:
         raise ValueError("Choose an IANA timezone") from err
-    if any(
-        not isinstance(data[key], dict)
-        for key in ("schedules", "methods", "assignments")
-    ):
+    if any(not isinstance(data[key], dict) for key in ("methods", "assignments")):
         raise ValueError("Definitions and source assignments must be mappings")
-    for key, value in data["schedules"].items():
-        item = _named(key, value)
-        mode = item.get("mode")
-        fields = {"name", "mode"}
-        if mode == "acknowledge":
-            fields.add("remind_every")
-        elif mode == "report":
-            fields.update(("at", "weekdays"))
-        elif mode != "immediate":
-            raise ValueError("Choose immediate, acknowledgment, or scheduled reporting")
-        if set(item) != fields:
-            raise ValueError("Provide the settings for the selected schedule")
-        if (
-            mode == "acknowledge"
-            and duration(item["remind_every"]).total_seconds() <= 0
-        ):
-            raise ValueError("Reminders must have a positive interval")
-        if mode == "report":
-            if not isinstance(item["at"], str) or not re.fullmatch(
-                r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", item["at"]
-            ):
-                raise ValueError("Use a local HH:MM report time")
-            time.fromisoformat(item["at"])
-            days = item["weekdays"]
-            if (
-                not isinstance(days, list)
-                or not days
-                or any(type(day) is not int or day not in range(7) for day in days)
-                or len(set(days)) != len(days)
-            ):
-                raise ValueError("Choose weekdays once, from Monday through Sunday")
     for key, value in data["methods"].items():
         _method(key, value)
     identities: dict[str, dict[str, Any]] = {}
@@ -185,10 +162,12 @@ def validate(value: object) -> dict[str, Any]:
         for row in items:
             if (
                 not isinstance(row, dict)
-                or set(row) - {"id", "schedule", "methods", "when"}
-                or not {"id", "schedule", "methods"} <= set(row)
+                or set(row) - {"id", "timing", "methods", "when"}
+                or not {"id", "timing", "methods"} <= set(row)
             ):
-                raise ValueError("Pair a schedule with delivery methods on each row")
+                raise ValueError(
+                    "Pair timing with delivery methods on each notification entry"
+                )
             identity = row["id"]
             if (
                 not isinstance(identity, str)
@@ -197,13 +176,12 @@ def validate(value: object) -> dict[str, Any]:
             ):
                 raise ValueError("Give notification rows distinct stable ids")
             seen.add(identity)
-            if (
-                not isinstance(row["schedule"], str)
-                or row["schedule"] not in data["schedules"]
-            ):
-                raise ValueError("A notification row references a missing schedule")
+            _timing(row["timing"])
             methods = _strings(row["methods"], empty=False)
-            if "when" in row and row["when"] not in {"mains", "backup"}:
+            if "when" in row and (
+                not isinstance(row["when"], str)
+                or row["when"] not in {"mains", "backup"}
+            ):
                 raise ValueError(
                     "Choose confirmed mains or backup power for reserve reporting"
                 )
@@ -264,7 +242,7 @@ def choices(policy: dict[str, Any]) -> dict[str, Any] | None:
     plain = {key: value for key, value in policy.items() if key != "generated"}
     if (
         not isinstance(marker, dict)
-        or marker.get("version") != "notifications-v2"
+        or marker.get("version") != "notifications-v3"
         or marker.get("hash") != _hash(plain)
     ):
         return None
@@ -328,9 +306,9 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
                 "loudness": "record",
             }
         )
-        schedule = data["schedules"][row["schedule"]]
+        schedule = row["timing"]
         targets = [f"method:{method}" for method in row["methods"]]
-        digest_id = f"schedule:{row['schedule']}:{identity}"
+        digest_id = f"entry:{identity}"
         if schedule["mode"] == "report":
             digests[digest_id] = {
                 "at": schedule["at"],
@@ -398,7 +376,7 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
     }
     policy_data(policy)
     policy["generated"] = {
-        "version": "notifications-v2",
+        "version": "notifications-v3",
         "choices": data,
         "hash": _hash(policy),
     }
@@ -415,11 +393,20 @@ def convert_legacy(value: dict[str, Any]) -> dict[str, Any]:
                 "mode": "fixed",
                 "destinations": list(channels),
             }
-    for name, profile in value["profiles"].items():
-        if "at" in profile:
-            result["schedules"][name]["at"] = profile["at"]
-        if "weekday" in profile:
-            result["schedules"][name]["weekdays"] = [profile["weekday"]]
+
+    def timing(profile: str) -> dict[str, Any]:
+        settings = value["profiles"][profile]
+        if profile == "immediate":
+            return {"mode": "immediate"}
+        if profile == "acknowledge":
+            return {"mode": "acknowledge", "remind_every": "30m"}
+        return {
+            "mode": "report",
+            "at": settings["at"],
+            "weekdays": [settings["weekday"]]
+            if "weekday" in settings
+            else list(range(7)),
+        }
 
     def rows(profile: str) -> list[dict[str, Any]]:
         if profile == "dashboard":
@@ -430,7 +417,7 @@ def convert_legacy(value: dict[str, Any]) -> dict[str, Any]:
             if f"person:{person}" in result["methods"]
         ]
         return (
-            [{"id": f"legacy:{profile}", "schedule": profile, "methods": methods}]
+            [{"id": f"legacy:{profile}", "timing": timing(profile), "methods": methods}]
             if methods
             else []
         )
@@ -515,8 +502,8 @@ def remove_definition(
 ) -> dict[str, Any]:
     """Delete a shared definition only with explicit treatment of every reference."""
     data = validate(value)
-    if kind not in {"schedules", "methods"} or identity not in data[kind]:
-        raise ValueError("Choose an existing schedule or delivery method")
+    if kind != "methods" or identity not in data[kind]:
+        raise ValueError("Choose an existing delivery method")
     if replacement is not None and (
         replacement == identity or replacement not in data[kind]
     ):
@@ -529,11 +516,7 @@ def remove_definition(
             collections.append(assignment["default"])
     for rows in collections:
         for row in list(rows):
-            used = (
-                row["schedule"] == identity
-                if kind == "schedules"
-                else identity in row["methods"]
-            )
+            used = identity in row["methods"]
             if not used:
                 continue
             if replacement is None:
@@ -542,8 +525,6 @@ def remove_definition(
                         "Replace the definition or explicitly remove affected notification rows"
                     )
                 rows.remove(row)
-            elif kind == "schedules":
-                row["schedule"] = replacement
             else:
                 row["methods"] = list(
                     dict.fromkeys(

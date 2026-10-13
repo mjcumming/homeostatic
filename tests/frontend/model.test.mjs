@@ -1596,7 +1596,7 @@ test("Sources explains default monitoring without opening the tree",()=>{
     sourcesExpanded:new Set(),sourcesSelection:null,sourcesView:"source",sourcesHelpOpen:false};
   const closed=sourcesBrowser(card);
   assert.match(closed,/<details class="sources-explainer" data-sources-explainer><summary>How monitoring is chosen<\/summary>/);
-  assert.match(closed,/New installations monitor integrations/);
+  assert.match(closed,/New installations monitor integration, device and entity availability/);
   assert.match(closed,/diagnostic entities only when there are no enabled ordinary ones/);
   assert.match(closed,/An entity exclusion removes it from the device check/);
   assert.match(closed,/Open Policies for a choice that covers current and future sources/);

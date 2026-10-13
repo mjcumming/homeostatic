@@ -12,12 +12,12 @@ const card=document.querySelector("homeostatic-card"),feedback=document.querySel
 const definitions=emptyNotificationDefinitions("America/Chicago");
 definitions.methods.phone={name:"Owner phone",mode:"fixed",destinations:["phone:owner"]};
 definitions.methods.email={name:"Household email",mode:"fixed",destinations:["notify:email"]};
-definitions.default=[{id:"default",schedule:"morning",methods:["phone"]}];
-const policy={...newMonitoringPolicy([],"thermostat"),name:"Main floor thermostat",enabled:true,match:{kind:["entity"],entity:["climate.main_floor"]},notifications:[{id:"immediate",schedule:"immediate",methods:["phone"]},{id:"report",schedule:"morning",methods:["email"]}]};
+definitions.default=[{id:"default",timing:{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]},methods:["phone"]}];
+const policy={...newMonitoringPolicy([],"thermostat"),name:"Main floor thermostat",enabled:true,match:{kind:["entity"],entity:["climate.main_floor"]},notifications:[{id:"immediate",timing:{mode:"immediate"},methods:["phone"]},{id:"report",timing:{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]},methods:["email"]}]};
 let saved={monitoring_policies:[policy],notification_definitions:definitions,timings:{settle:120,unknown_hold:900,retry_hold:120,clear_hold:120,rejoin_grace:60,startup_grace:120,startup_quiet_max:600,coalesce_count:3,coalesce_window:60,batch:30},notifications:false,consumer:null,reporting:null,simple_notifications:null,policy:{timezone:"America/Chicago",recipients:{},rules:[]}};
 let revision=1,proposal=null;
 const calls=[];
-const configuration=()=>({revision:String(revision),rules:[],settings:structuredClone(saved),alerts:{notifications:false,consumer:null,policy:saved.policy},notification_people:[{id:"person.owner",entity_id:"person.owner",name:"Owner"},{id:"person.guest",entity_id:"person.guest",name:"Guest"}],delivery_targets:[{channel:"phone:owner",name:"Owner phone",type:"App",available:true},{channel:"notify:email",name:"Household email",type:"Email",available:true},{channel:"satellite:kitchen",name:"Kitchen assistant",type:"Voice",available:true},{channel:"tts:provider:living-room",name:"Living room speaker",type:"Voice",available:true},{channel:"sms:family:",name:"Family SMS",type:"SMS",requires_target:true,available:true}],areas:[{id:"main",name:"Main floor"}],labels:[],floors:[]});
+const configuration=()=>({revision:String(revision),rules:[],settings:structuredClone(saved),alerts:{notifications:false,consumer:null,policy:saved.policy},notification_people:[{id:"person.owner",entity_id:"person.owner",name:"Owner"},{id:"person.guest",entity_id:"person.guest",name:"Guest"}],delivery_targets:[{channel:"phone:owner",name:"Owner phone",type:"App",available:true},{channel:"notify:email",name:"Household email",type:"Email",available:true},{channel:"satellite:kitchen",name:"Kitchen assistant",type:"Voice",available:true},{channel:"tts:provider:living-room",name:"Living room speaker",type:"Voice",available:true},{channel:"sms:family:",name:"Family SMS",type:"SMS",requires_target:true,available:true}],monitoring_policy_templates:[{...newMonitoringPolicy([],"battery"),id:"default_batteries"}],areas:[{id:"kitchen",name:"Kitchen",floor_id:"main"},{id:"family",name:"Family room",floor_id:"main"},{id:"bedroom",name:"Bedroom",floor_id:"upper"}],labels:[{id:"phones",name:"Phones"}],floors:[{id:"main",name:"Main floor"},{id:"upper",name:"Upstairs"}]});
 card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},localize:()=>null,async callWS(request){
   calls.push(structuredClone(request));
   if(request.type==="homeostatic/configuration")return configuration();
@@ -52,8 +52,8 @@ document.querySelector("#run").onclick=async()=>{
     change(`[data-definition-id="${copy.id}"][data-definition-field="name"]`,"Garage thermostat");
     change(`[data-definition-id="${copy.id}"][data-definition-field="parameters:unit"]`,"°C");
     expect(copy.parameters.margin===10/9,"Unit edit must preserve deviation");
+    expect(!root.querySelector('[data-definition-field="check"]'),"Monitoring type is fixed after creation");
     click('[data-page="notifications"]');
-    click('[data-definition-action="tab"][data-definition-kind="methods"]');
     click('[data-definition-action="duplicate"][data-definition-kind="methods"][data-definition-id="phone"]');
     const methodId=card.definitionSelection.id;
     change(`[data-definition-id="${methodId}"][data-definition-field="name"]`,"Home announcement or phone");
@@ -69,6 +69,23 @@ document.querySelector("#run").onclick=async()=>{
     expect(card.settingsDraft.monitoring_policies[0].notifications[0].methods[0]===methodId,"Replacement preserves assignments");
     click('[data-page="policies"]');
     expect(card.settingsDraft.monitoring_policies.at(-1).name==="Garage thermostat","Navigation retains policy draft");
+    click(`[data-definition-action="edit"][data-definition-id="${copy.id}"]`);
+    change(`[data-definition-id="${copy.id}"][data-definition-field="watch"]`,"area");
+    click('[data-definition-action="pick"]');
+    change('[data-definition-value="kitchen"]',true);change('[data-definition-value="family"]',true);
+    change('[data-definition-picker-search]',"Kitchen");
+    expect(copy.match.area.length===2,"Search retains selected areas");
+    expect(!root.querySelector('[data-definition-value="bedroom"]'),"Search filters the checklist");
+    click('[data-definition-action="finish-pick"]');
+    click('[data-definition-action="add-row"]');
+    const entry=copy.notifications.at(-1);
+    change(`[data-row-id="${entry.id}"][data-row-field="timing:mode"]`,"report");
+    change(`[data-row-id="${entry.id}"][data-row-field="timing:at"]`,"10:00");
+    change(`[data-row-id="${entry.id}"][data-row-method="${methodId}"]`,true);
+    expect(entry.timing.at==="10:00"&&entry.methods[0]===methodId,"Timing and methods belong to the policy entry");
+    click('[data-definition-action="close"]');
+    click('[data-definition-action="restore"]');change('[data-definition-restore="default_batteries"]',true);click('[data-definition-action="confirm-restore"]');
+    expect(card.settingsDraft.monitoring_policies.some(item=>item.id==="default_batteries"),"Selected default restored");
     await previewSourceSettings(card);
     expect(root.textContent.includes("Monitoring ends for 1 existing issues"),"Review explains ended monitoring");
     await saveSourceSettings(card);
@@ -76,13 +93,12 @@ document.querySelector("#run").onclick=async()=>{
     expect(!calls.some(request=>request.type.includes("test_notification")),"Editing must never request a test message");
     expect(card.settingsDraft.notifications===false,"Requests stay off");
     click('[data-page="notifications"]');
-    click('[data-definition-action="tab"][data-definition-kind="methods"]');
     click(`[data-definition-action="edit"][data-definition-kind="methods"][data-definition-id="${methodId}"]`);
     click('[data-definition-action="preview-method"]');await Promise.resolve();await Promise.resolve();
     expect(root.textContent.includes("Current destinations"),"Method preview shows exact destinations");
     click('[data-definition-action="test-method"]');await Promise.resolve();await Promise.resolve();
     expect(root.textContent.includes("1 test message requests; 0 failed requests."),"Explicit synthetic method test shows request outcome");
-    feedback.textContent="PASS: copy, units, drafts, presence method, guarded deletion/save, exact target preview and explicit synthetic test. No live services.";
+    feedback.textContent="PASS: fixed types, copy, units, search and multiple areas, owned timing, restore, drafts, presence method, guarded deletion/save, exact target preview and explicit synthetic test. No live services.";
   }catch(error){feedback.textContent="FAIL: "+error.message;throw error;}
 };
 </script></body></html>

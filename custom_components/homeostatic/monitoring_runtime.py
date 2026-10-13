@@ -26,6 +26,92 @@ def enrollment_rules(policies: tuple[MonitoringPolicy, ...]) -> tuple[CatalogRul
     )
 
 
+def ordinary_sources(
+    policies: tuple[MonitoringPolicy, ...], sources: dict[str, Source]
+) -> dict[str, Source]:
+    """Give each policy its own findings and retain explicit upstream dependencies."""
+    ordinary = {"availability", "battery", "vacuum", "repair", "broken_automation"}
+    originals = {
+        identity: source
+        for identity, source in sources.items()
+        if source.check_id in ordinary
+        and source.kind
+        in {
+            "integration",
+            "device",
+            "entity",
+            "battery",
+            "vacuum",
+            "repair",
+            "broken_automation",
+        }
+        and source.monitoring_policy is None
+    }
+    result = {
+        identity: source
+        for identity, source in sources.items()
+        if identity not in originals
+    }
+    bindings: dict[str, list[str]] = {}
+    for policy in policies:
+        if not policy.enabled or policy.check not in ordinary:
+            continue
+        for source in originals.values():
+            if (
+                source.excluded_by
+                or policy.check != source.check_id
+                or not policy.matches(source.attributes)
+            ):
+                continue
+            identity = (
+                f"monitoring:{policy.id}:{policy.detection_key()}:{source.node_id}"
+            )
+            bindings.setdefault(source.node_id, []).append(identity)
+            result[identity] = replace(
+                source,
+                node_id=identity,
+                name=f"{source.name} · {policy.name}",
+                watched=True,
+                attached_by=(policy.id,),
+                monitoring_policy=policy.id,
+                monitoring_source=source.node_id,
+                alert_profile=None,
+            )
+    for identity, source in originals.items():
+        if source.kind in {"integration", "device", "entity"}:
+            result[identity] = replace(source, watched=False, attached_by=())
+    for identity, source in tuple(result.items()):
+        if source.monitoring_source is not None and source.check_id == "availability":
+            upstream = (
+                source.requirements
+                if source.kind == "device"
+                else (f"entry:{source.owner_id}",)
+                if source.owner_id
+                else ()
+            )
+            result[identity] = replace(
+                source,
+                requirements=tuple(
+                    bound for base in upstream for bound in bindings.get(base, ())
+                ),
+            )
+        elif source.kind == "function":
+            result[identity] = replace(
+                source,
+                requirements=tuple(
+                    bound
+                    for base in source.requirements
+                    for bound in bindings.get(base, [base])
+                ),
+            )
+    return result
+
+
+def original_identity(identity: str) -> str:
+    """Resolve the registry record behind an independent policy condition."""
+    return identity.split(":", 3)[3] if identity.startswith("monitoring:") else identity
+
+
 def temperature_sources(
     hass: HomeAssistant,
     policies: tuple[MonitoringPolicy, ...],
@@ -169,12 +255,14 @@ def assignments(
     """Pair contributing definitions with existing or independent conditions."""
     result: dict[str, Any] = {}
     for source in sources.values():
+        if not source.watched:
+            continue
         rows: list[dict[str, Any]] = []
         matched = False
         for policy in policies:
             applies = (
                 source.monitoring_policy == policy.id
-                if policy.check in TEMPERATURE_CHECKS | UPS_CHECKS
+                if source.monitoring_policy is not None
                 else policy.enabled
                 and policy.check == source.check_id
                 and policy.matches(source.attributes)
@@ -199,12 +287,15 @@ def contributing_policies(
     """Link a source to definitions that contribute an actual monitored check."""
     related = (
         [source]
-        if source.monitoring_policy is not None or source.entity_id is None
+        if source.monitoring_policy is not None
         else [
             candidate
             for candidate in sources.values()
             if candidate.node_id == source.node_id
-            or candidate.entity_id == source.entity_id
+            or candidate.monitoring_source == source.node_id
+            or (
+                source.entity_id is not None and candidate.entity_id == source.entity_id
+            )
         ]
     )
     return tuple(
@@ -216,7 +307,7 @@ def contributing_policies(
             and not candidate.disabled
             and (
                 candidate.monitoring_policy == policy.id
-                if policy.check in TEMPERATURE_CHECKS | UPS_CHECKS
+                if candidate.monitoring_policy is not None
                 else candidate.check_id == policy.check
                 and policy.matches(candidate.attributes)
             )

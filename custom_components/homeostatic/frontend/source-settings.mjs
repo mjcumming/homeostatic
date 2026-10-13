@@ -1,7 +1,7 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=69";
-import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=69";
-import {REPORTING, reportingChoices} from "./reporting.mjs?v=69";
-import {settingsChanges} from "./installation-settings.mjs?v=69";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=70";
+import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=70";
+import {REPORTING, reportingChoices} from "./reporting.mjs?v=70";
+import {settingsChanges} from "./installation-settings.mjs?v=70";
 
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const reportingLabel = id => REPORTING.find(row=>row[0]===id)?.[1] || id;
@@ -31,6 +31,7 @@ function monitoringRow(card,scope,id,title,help,count,options) {
 
 /** Show actual monitoring outcomes before exposing their policy controls. */
 export function integrationSettings(card,node) {
+  if(card.configuration?.monitoring_policy_version===1)return `<section class="source-setting-section"><h3>Monitoring policies</h3><p>Policies select the integrations, devices, and entities to monitor. Edit a policy to change its sources or notifications.</p>${policyLink}</section>${sourceSettingsFooter(card)}`;
   const scopes=integrationScopes(node),allChoice=scopeChoice(card.configDraft,scopes.all);
   const off=allChoice==="exclude",changed=allChoice!==scopeChoice(card.configuration.rules,scopes.all);
   const index=card.configScopes.push(scopes.all)-1;
@@ -54,8 +55,8 @@ export function integrationReporting(card,devices) {
   if(!card.settingsDraft||!devices.length)return "";
   if(card.settingsDraft.notification_definitions) {
     const definitions=card.settingsDraft.notification_definitions;
-    const describe=rows=>rows.length?rows.map(row=>`${definitions.schedules[row.schedule]?.name||row.schedule} → ${row.methods.map(id=>definitions.methods[id]?.name||id).join(", ")}`).join("; "):"Dashboard only";
-    return `<section class="source-setting-section"><h3>When to notify</h3><p>Household notifications are ${card.configuration.settings.notifications?"on":"off"}.</p><p class="small">Default notification rows apply to future devices. Each source can override them; named policies keep their own notification rows.</p><details><summary>Reporting for ${devices.length} devices</summary>${devices.map(child=>{const assignment=definitions.assignments[child.source.node_id]||{};return `<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}</span><small>${esc(describe(assignment.checks?.availability||assignment.default||definitions.default))}</small></button>`;}).join("")}</details><button type="button" class="link" data-page="notifications">Manage schedules and delivery methods</button></section>`;
+    const describe=rows=>rows.length?rows.map(row=>`${row.timing?.mode==="report"?`Summary at ${row.timing.at}`:row.timing?.mode==="acknowledge"?"Until acknowledged":"Immediately"} → ${row.methods.map(id=>definitions.methods[id]?.name||id).join(", ")}`).join("; "):"Dashboard only";
+    return `<section class="source-setting-section"><h3>When to notify</h3><p>Household notifications are ${card.configuration.settings.notifications?"on":"off"}.</p><p class="small">Default notification rows apply to future devices. Each source can override them; named policies keep their own notification rows.</p><details><summary>Reporting for ${devices.length} devices</summary>${devices.map(child=>{const assignment=definitions.assignments[child.source.node_id]||{};return `<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}</span><small>${esc(describe(assignment.checks?.availability||assignment.default||definitions.default))}</small></button>`;}).join("")}</details><button type="button" class="link" data-page="notifications">Manage delivery methods</button></section>`;
   }
   const choices=reportingChoices(card),saved=card.configuration.settings;
   const counts=new Map(),exceptions=[];
@@ -111,6 +112,8 @@ export function sourceSettingsFooter(card) {
 export async function previewSourceSettings(card) {
   if(card.settingsBusy||card.configBusy||card.current.status!=="current")return;
   if([...(card.main.querySelectorAll?.(".installation-editor input, .installation-editor select")||[])].some(input=>!input.reportValidity()))return;
+  const emptySelection=(card.settingsDraft.monitoring_policies||[]).find(policy=>Object.values(policy.match||{}).some(values=>Array.isArray(values)&&values.length===0));
+  if(emptySelection){card.sourceSettingsError=`Choose at least one source, area, or label for ${emptySelection.name}, or choose All.`;card.render();return;}
   const proposal=sourceSettingsProposal(card),revision=card.configuration.revision;
   card.sourceSettingsReview=null;card.sourceSettingsError=null;card.sourceSettingsNotice=null;
   card.settingsBusy=true;card.render();

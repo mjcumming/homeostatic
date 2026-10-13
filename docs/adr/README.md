@@ -54,12 +54,14 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0048](0048-policy-checks.md) | Show Integrations, Devices, Batteries, and Vacuums as on or off, and Repairs as always on | Accepted; Repairs row superseded by 0049; reusable-definition ownership by 0054 |
 | [0049](0049-repairs-check.md) | Turn Repairs on or off like the other checks | Accepted |
 | [0050](0050-flag-automations-that-name-missing-entities.md) | Flag automations that name a missing entity | Accepted |
-| [0051](0051-monitor-ups-conditions-through-shared-mappings.md) | Monitor UPS conditions through shared integration mappings | Accepted |
+| [0051](0051-monitor-ups-conditions-through-shared-mappings.md) | Monitor UPS conditions through shared integration mappings | Accepted; required battery-ownership transfer superseded by 0058 |
 | [0052](0052-thermostat-setpoint-deviation-alerts.md) | Detect thermostat setpoint deviation with progress-aware checks | Accepted; implemented in working tree with isolated validation; reporting assignment model superseded by 0055 |
 | [0053](0053-configurable-temperature-limit-checks.md) | Check user-configured temperature limits | Accepted; implemented in working tree with isolated validation; reporting assignment model superseded by 0055 |
-| [0054](0054-reusable-monitoring-policy-editor.md) | Manage reusable monitoring policies on Policies | Accepted; implemented locally for review |
-| [0055](0055-separate-notification-schedules-and-methods.md) | Pair reusable notification schedules and delivery methods on policies | Accepted; implemented in working tree; requires matching health-tree route support |
+| [0054](0054-reusable-monitoring-policy-editor.md) | Manage reusable monitoring policies on Policies | Accepted; notification timing by 0057; type editing, built-in presentation and overlap by 0058 |
+| [0055](0055-separate-notification-schedules-and-methods.md) | Pair reusable notification schedules and delivery methods on policies | Accepted; schedule library superseded by 0057; test-setting migration by 0058 |
 | [0056](0056-ha-delivery-methods-and-presence.md) | Deliver through Home Assistant methods with optional presence selection | Accepted; implemented in working tree with isolated transport validation; live-provider trials pending |
+| [0057](0057-policy-owned-notification-timing.md) | Configure notification timing inside each policy | Accepted; test-setting migration superseded by 0058 |
+| [0058](0058-unified-policy-lifecycle.md) | Use one editable policy lifecycle | Accepted |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision, not production readiness. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 

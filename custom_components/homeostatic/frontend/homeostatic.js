@@ -1,26 +1,26 @@
-import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, isBrokenOffPolicy, isRepairsOffPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newBrokenOffPolicy, newGroupPolicy, newRepairsOffPolicy} from "./monitoring-policies.mjs?v=69";
-import {sourceSettingsAction, sourceSettingsFooter} from "./source-settings.mjs?v=69";
-import {editReusable, namedPolicies} from "./reusable-editors.mjs?v=69";
-import {groupedUpsIssues, upsProblem} from "./ups.mjs?v=69";
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=69";
+import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, isBrokenOffPolicy, isRepairsOffPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newBrokenOffPolicy, newGroupPolicy, newRepairsOffPolicy} from "./monitoring-policies.mjs?v=70";
+import {sourceSettingsAction, sourceSettingsFooter} from "./source-settings.mjs?v=70";
+import {editReusable, namedPolicies} from "./reusable-editors.mjs?v=70";
+import {groupedUpsIssues, upsProblem} from "./ups.mjs?v=70";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=70";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
-  sourceMap} from "./model.mjs?v=69";
-import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=69";
-import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=69";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=69";
-import {diagnosticOverview} from "./evidence.mjs?v=69";
+  sourceMap} from "./model.mjs?v=70";
+import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=70";
+import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=70";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=70";
+import {diagnosticOverview} from "./evidence.mjs?v=70";
 import {editCatalogRule, monitoringScope,
-  scopeChoice, setScopeChoice} from "./configuration.mjs?v=69";
-import {styles} from "./styles.mjs?v=69";
-import {locationBranch, setBranchExpanded} from "./tree.mjs?v=69";
+  scopeChoice, setScopeChoice} from "./configuration.mjs?v=70";
+import {styles} from "./styles.mjs?v=70";
+import {locationBranch, setBranchExpanded} from "./tree.mjs?v=70";
 
-import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=69";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=69";
+import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=70";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=70";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=69";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=70";
 
-import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=69";
+import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=70";
 
 const VIEWS = ["overview", "sources", "house", "coverage", "problems", "history", "notifications", "policies", "configuration"];
 const status = (value) => {
@@ -428,7 +428,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   policiesPage() {
-    const intro = `<div class="intro"><div><h1>Policies</h1><p class="sub">Choose what Homeostatic watches, when a condition becomes a problem, and its notification rows. Shared schedules and delivery methods are in Notifications.</p></div></div>`;
+    const intro = `<div class="intro"><div><h1>Policies</h1><p class="sub">Choose what to watch, when it becomes a problem, and who to notify.</p></div></div>`;
     if (!this.configuration) return `${intro}<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading monitoring rules…")}</p><button type="button" class="button" data-action="load-configuration">Reload configuration</button></div></section>`;
     return `${intro}<section class="panel"><div class="body">${this.monitoringEditor(true)}</div></section>`;
   }
@@ -454,7 +454,7 @@ class HomeostaticCard extends HTMLElement {
     const policies = global ? monitoringPolicies(this) : "";
     const changed=JSON.stringify(this.configDraft)!==JSON.stringify(this.configuration.rules);
     const actions = `<section class="config-review">${changed?`<div class="config-actions"><span class="small">Unsaved monitoring choices</span><button type="button" class="button primary" data-action="${preview?'save-configuration':'preview-configuration'}"${this.configBusy?' disabled':''}>${preview?'Save choices':'Review changes'}</button><button type="button" class="link" data-action="discard-monitoring"${this.configBusy?' disabled':''}>Discard</button></div>`:'<p class="small">Changes are reviewed before saving.</p>'}${this.configError?`<p class="config-error" role="alert">${esc(this.configError)}</p>`:''}</section>`;
-    if(global&&this.settingsDraft&&"monitoring_policies" in this.settingsDraft)return `${namedPolicies(this)}<details class="source-section"><summary>Built-in monitoring and enrollment</summary>${policies}</details>${sourceSettingsFooter(this)}`;
+    if(global&&this.settingsDraft&&"monitoring_policies" in this.settingsDraft)return `${namedPolicies(this)}${sourceSettingsFooter(this)}`;
     return global ? `${policies}${result}${actions}` : `${result}${actions}`;
   }
 
@@ -582,6 +582,7 @@ class HomeostaticCard extends HTMLElement {
     const index = Number(event.target.dataset.ruleIndex);
     const field = event.target.dataset.ruleField;
     if (!this.configDraft?.[index] || !field) return false;
+    if(this.configuration?.monitoring_policy_version===1)return true;
     const rule = this.configDraft[index];
     editCatalogRule(rule, field, field === "enabled" ? event.target.checked : event.target.value);
     this.configPreview = null;
@@ -609,6 +610,7 @@ class HomeostaticCard extends HTMLElement {
 
   editScope(event) {
     if (!event.target.matches?.("[data-scope-index]")) return false;
+    if(this.configuration?.monitoring_policy_version===1)return true;
     if (this.configBusy || this.settingsBusy) return true;
     const index = Number(event.target.dataset.scopeIndex);
     const scope = this.configScopes[index];
@@ -624,6 +626,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   async previewConfiguration() {
+    if(this.configuration?.monitoring_policy_version===1){this.page="policies";this.render();return;}
     if (this.current.status !== "current" || !this.configuration || this.configBusy) return;
     this.configBusy = true;
     this.configError = null;
@@ -640,6 +643,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   async saveConfiguration() {
+    if(this.configuration?.monitoring_policy_version===1){this.page="policies";this.render();return;}
     if (this.current.status !== "current" || !this.configPreview || this.configBusy || this.settingsBusy) return;
     this.configBusy = true;
     this.configError = null;
@@ -791,7 +795,7 @@ class HomeostaticCard extends HTMLElement {
       connectivity_disconnected:"Connection reports disconnected",
     }[problem?.currentReason] : null;
     const impact = affected.map((item) => `${item.name}: ${ownerStatus(item.readiness.answer).toLowerCase()}`).join("; ");
-    return `<article class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}"><div class="issue-copy">${eyebrow ? `<p class="small">${esc(eyebrow)}</p>` : ""}<h3>${esc(sourceName)}</h3><p>${esc(deviceCondition ?? problem?.headline ?? "Current condition needs review")}</p>${impact ? `<p class="impact-line">Function status: ${esc(impact)}</p>` : ""}<p class="small">Open since ${esc(date(episode.opened_at))}</p><p class="small">${esc(reportingStatus(data,episode))}</p></div><div class="actions"><button type="button" class="button" data-episode="${esc(episode.episode_id)}">View details</button>${repair ? `<a class="link" href="${esc(source.fix_url)}">Fix in Home Assistant</a>` : source && !situation ? `<button type="button" class="link" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}</div></article>`;
+    return `<article class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}"><div class="issue-copy">${eyebrow ? `<p class="small">${esc(eyebrow)}</p>` : ""}<h3>${esc(sourceName)}</h3><p>${esc(deviceCondition ?? problem?.headline ?? "Current condition needs review")}</p>${impact ? `<p class="impact-line">Function status: ${esc(impact)}</p>` : ""}<p class="small">Open since ${esc(date(episode.opened_at))}</p><p class="small">${esc(reportingStatus(data,episode))}</p></div><div class="actions"><button type="button" class="button" data-episode="${esc(episode.episode_id)}">View details</button>${repair ? `<a class="link" href="${esc(source.fix_url)}">Fix in Home Assistant</a>` : source && !situation ? `<button type="button" class="link" data-source-link="${esc(source.monitoring_source||source.node_id)}">View in Sources</button>` : ""}</div></article>`;
   }
 
   issuesPanel(data, episodes, recent = false) {
@@ -1038,6 +1042,7 @@ class HomeostaticCard extends HTMLElement {
     }
     const button = event.target.closest("button");
     if (!button) return;
+    if(this.configuration?.monitoring_policy_version===1&&(button.dataset.removeRule!==undefined||button.dataset.ignoreAvailability||button.dataset.action==="add-rule"||/^(add|clear|enable)-(integration|device|battery|vacuum)-rule$/.test(button.dataset.action)||["turn-off-repairs","monitor-repairs","turn-off-broken","monitor-broken"].includes(button.dataset.action))){this.dialog.close();this.page="policies";this.render();return;}
     if (sourceSettingsAction(this,button)) return;
     if (button.dataset.sourceMore) {const key=button.dataset.sourceMore;this.sourcesLimits.set(key,(this.sourcesLimits.get(key)||80)+80);this.render();return;}
     if (button.dataset.action === "back-sources") {this.sourcesMobileDetail=false;this.render();[...this.main.querySelectorAll("[data-sources-select]")].find(item=>item.dataset.sourcesSelect===this.sourcesSelection)?.focus();return;}
@@ -1238,6 +1243,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   async ignoreAvailability(nodeId) {
+    if(this.configuration?.monitoring_policy_version===1){this.dialog.close();this.page="policies";this.render();return;}
     if (this.configBusy || this.current.status !== "current") return;
     const source = inventoryRows(this.current.data).find((item) => item.node_id === nodeId);
     if (!source) return;
@@ -1248,6 +1254,7 @@ class HomeostaticCard extends HTMLElement {
     this.sourcesActionError = null;
     if (!this.configuration) await this.loadConfiguration();
     if (!this.configuration || this.current.status !== "current") return;
+    if(this.configuration.monitoring_policy_version===1){this.page="policies";this.render();return;}
     const scope = monitoringScope("entity",nodeId,source);
     if (!scope || !setScopeChoice(this.configDraft,scope,"exclude")) {
       this.sourcesActionError = "Several direct rules apply to this entity. Review its monitoring rules before changing this choice.";
@@ -1321,7 +1328,10 @@ class HomeostaticCard extends HTMLElement {
       const issueTitle = connectionReported ? result.device_availability?.status === "unavailable" ? "Device unavailable" : "Connection reports disconnected" : otherIssues.length === 1 ? `${memberName(otherIssues[0])} ${memberState(otherIssues[0])}` : otherIssues.length ? "Selected entities need review" : episode ? "Confirming recovery" : "Selected entities available";
       const issueList = otherIssues.length && (connectionReported || otherIssues.length > 1) ? `<ul class="problem-evidence">${otherIssues.map((member) => `<li><strong>${esc(memberName(member))}</strong> · ${esc(memberState(member))}</li>`).join("")}</ul>` : "";
       const deviceBrief = memberEvidence ? `<p class="problem-origin">${esc(deviceIntegrations.join(", ") || "Home Assistant device")}</p><h3 class="problem-status">${esc(issueTitle)}</h3>${connectionReported ? "<p>Connectivity reports disconnected.</p>" : ""}${issueList}${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing the first 50 selected entities. More may need review.</p>` : ""}` : "";
-      const availabilityChoices = memberEvidence ? `<details ${disclosure("selected-readings")}><summary>Monitoring choices (${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"})</summary><ul class="monitoring-choice-list">${memberEvidence.members.map((member) => `<li class="monitoring-choice"><span><strong>${esc(memberName(member))}</strong> · ${esc(memberState(member))}</span><button class="link" type="button" data-ignore-availability="${esc(member.node_id)}" aria-label="Stop checking ${esc(memberName(member))}">Stop checking…</button></li>`).join("")}</ul>${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} selected entities.</p>` : ""}<p class="small">Stop checking opens a draft in Sources. Review and save it there.</p><div class="actions"><button class="link" type="button" data-config-source="${esc(source.node_id)}">Review monitoring choices</button><button class="link" type="button" data-source-link="${esc(source.node_id)}">View in Sources</button></div></details>` : source.kind === "entity" ? `<section class="detail"><button class="button" type="button" data-ignore-availability="${esc(source.node_id)}">Stop checking this entity…</button><p class="small">Opens a draft monitoring change in Sources. Review and save it there.</p></section>` : "";
+      const unifiedPolicy=this.configuration?.monitoring_policy_version===1||source.monitoring_policy;
+      const policyChoices=result.monitoring_policies?.length?result.monitoring_policies:source.monitoring_policy?[{id:source.monitoring_policy,name:"Edit monitoring policy"}]:[];
+      const policyActions=`<section class="detail"><h3>Monitoring policies</h3><p>Change monitoring and notifications in the policy that watches this source.</p>${policyChoices.length?policyChoices.map(policy=>`<button class="button" type="button" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="${esc(policy.id)}">${esc(policy.name)}</button>`).join(""):'<button class="button" type="button" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="">Review policies</button>'}</section>`;
+      const availabilityChoices = unifiedPolicy ? policyActions : memberEvidence ? `<details ${disclosure("selected-readings")}><summary>Monitoring choices (${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"})</summary><ul class="monitoring-choice-list">${memberEvidence.members.map((member) => `<li class="monitoring-choice"><span><strong>${esc(memberName(member))}</strong> · ${esc(memberState(member))}</span><button class="link" type="button" data-ignore-availability="${esc(member.node_id)}" aria-label="Stop checking ${esc(memberName(member))}">Stop checking…</button></li>`).join("")}</ul>${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} selected entities.</p>` : ""}<p class="small">Stop checking opens a draft in Sources. Review and save it there.</p><div class="actions"><button class="link" type="button" data-config-source="${esc(source.node_id)}">Review monitoring choices</button><button class="link" type="button" data-source-link="${esc(source.monitoring_source||source.node_id)}">View in Sources</button></div></details>` : source.kind === "entity" ? `<section class="detail"><button class="button" type="button" data-ignore-availability="${esc(source.node_id)}">Stop checking this entity…</button><p class="small">Opens a draft monitoring change in Sources. Review and save it there.</p></section>` : "";
       const availabilityExplanation = episode && memberEvidence && uncertainMembers.length && result.device_availability?.status === "available" ? `<details ${disclosure("assessment")}><summary>Why does Home Assistant say Available?</summary><p>Device availability uses all enabled entities. This problem checks the ${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"}; ${uncertainMembers.length === 1 ? "one needs" : "some need"} attention. An available entity state does not confirm the whole device is working.</p></details>` : "";
       const dependencies = result.explanation.nodes.filter((node) => node.node_id !== nodeId);
       const unwatched = result.readiness?.nodes.filter((node) => !node.watched) ?? [];
@@ -1339,7 +1349,7 @@ class HomeostaticCard extends HTMLElement {
          ${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}
          ${problem?.connectionNote ? `<section class="detail"><p>${esc(problem.connectionNote)}</p><button class="link" data-node="${esc(problem.connectionNode)}">${esc(problem.connectionLabel)}</button></section>` : ""}
          ${diagnostic ? source.kind === "device" ? `<section class="detail evidence-overview" aria-label="Household impact"><h3>What this means at home</h3><p>${esc(diagnostic.impact)}</p></section>` : `<section class="detail evidence-overview" aria-label="Evidence summary"><h3>What Homeostatic knows</h3><dl><dt>Monitoring</dt><dd>${esc(diagnostic.monitoring)}</dd><dt>What is checked</dt><dd>${esc(diagnostic.checks)}</dd><dt>Current assessment</dt><dd>${esc(diagnostic.assessment)}</dd><dt>Household impact</dt><dd>${esc(diagnostic.impact)}</dd></dl></section>` : ""}
-          ${["integration","entity","battery","vacuum","ups"].includes(source.kind) ? `<button type="button" class="button" data-source-link="${esc(source.node_id)}">View in Sources</button>` : ""}
+          ${["integration","entity","battery","vacuum","ups"].includes(source.kind) ? `<button type="button" class="button" data-source-link="${esc(source.monitoring_source||source.node_id)}">View in Sources</button>` : ""}
          ${controls.map((control) => `<p class="control-notice">${control.action === "shelve" ? "Alerts paused" : "Working on equipment"} until ${esc(date(control.until))}.</p>`).join("")}
         ${this.tools.detailButtons(source, episode, data)}
          ${availabilityExplanation}

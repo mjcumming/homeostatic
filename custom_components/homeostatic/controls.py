@@ -39,6 +39,7 @@ class OperatorControl:
     user_id: str | None
     reason: str
     include_dependents: bool = False
+    monitoring_roots: tuple[str, ...] = ()
 
 
 _STORED = vol.Schema(
@@ -51,6 +52,7 @@ _STORED = vol.Schema(
         vol.Required("user_id"): vol.Any(None, str),
         vol.Required("reason"): vol.All(str, vol.Length(max=500)),
         vol.Required("include_dependents"): bool,
+        vol.Optional("monitoring_roots", default=list): [str],
     }
 )
 
@@ -66,6 +68,7 @@ def restore_controls(value: Any) -> list[OperatorControl]:
         data = _STORED(item)
         data["started_at"] = utc_time(data["started_at"])
         data["until"] = expiry(data["until"], data["started_at"])
+        data["monitoring_roots"] = tuple(data["monitoring_roots"])
         control = OperatorControl(**data)
         if control.control_id in ids or (
             control.action == "shelve"

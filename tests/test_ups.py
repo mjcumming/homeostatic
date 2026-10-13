@@ -279,13 +279,17 @@ async def test_runtime_reserve_escalation_and_restart(
         "notifications": [
             {
                 "id": "mains",
-                "schedule": "morning",
+                "timing": {
+                    "mode": "report",
+                    "at": "08:00",
+                    "weekdays": [0, 1, 2, 3, 4, 5, 6],
+                },
                 "methods": ["phone"],
                 "when": "mains",
             },
             {
                 "id": "backup",
-                "schedule": "acknowledge",
+                "timing": {"mode": "acknowledge", "remind_every": "1h"},
                 "methods": ["phone"],
                 "when": "backup",
             },

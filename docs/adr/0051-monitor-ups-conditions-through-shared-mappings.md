@@ -1,8 +1,10 @@
 # ADR 0051: Monitor UPS conditions through shared integration mappings
 
-**Status:** Accepted
+**Status:** Accepted; mandatory battery-ownership transfer superseded for the unified policy redesign by [ADR 0058](0058-unified-policy-lifecycle.md); replacement implementation pending
 **Date:** 2026-10-05
 **Updated:** 2026-10-13
+
+**Later decision:** ADR 0058 permits deliberately overlapping UPS reserve and battery policies without required ownership transfer or automatic replacement. The evidence, power-mode selection and renewed-attention decisions remain in effect. The earlier transfer contract is retained below as history and still describes the current implementation.
 
 ## Context
 

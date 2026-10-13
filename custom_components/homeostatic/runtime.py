@@ -106,6 +106,8 @@ from .monitoring import TEMPERATURE_CHECKS
 from .monitoring_runtime import (
     assignments,
     enrollment_rules,
+    ordinary_sources,
+    original_identity,
     temperature_sources,
     transfer_batteries,
     ups_sources,
@@ -408,6 +410,7 @@ class Runtime:
                         self.hass,
                         source,
                         now,
+                        threshold=self._battery_threshold(source),
                         changed_entity_id=entity_id,
                         changed_state=new,
                     )
@@ -443,9 +446,13 @@ class Runtime:
     @callback
     def _entry_changed(self, entry: ConfigEntry) -> None:
         if self.running:
-            source = self.sources[f"entry:{entry.entry_id}"]
             now = dt_util.utcnow()
-            self._pending.append((now, [self._observe_entry(source, now)], None, ()))
+            observations = [
+                self._observe_entry(source, now)
+                for source in self.sources.values()
+                if source.entry_id == entry.entry_id and source.watched
+            ]
+            self._pending.append((now, observations, None, ()))
             self._request_refresh()
 
     async def _drain_pending(self) -> None:
@@ -557,9 +564,10 @@ class Runtime:
         )
         candidates = evaluate(discovered, rules)
         selected_ups = ups_sources(self.settings.monitoring_policies, candidates)
-        candidates = transfer_batteries(
-            self.settings.monitoring_policies, candidates, selected_ups
-        )
+        if not self.settings.monitoring_policy_version:
+            candidates = transfer_batteries(
+                self.settings.monitoring_policies, candidates, selected_ups
+            )
         at = dt_util.utcnow().isoformat()
         batch = uuid4().hex
         if not self._discovered:
@@ -646,7 +654,10 @@ class Runtime:
         open_episodes = (
             self.saved["episodes"] if self.saved is not None else self.episodes
         )
-        open_anchors = {str(episode["anchor"]) for episode in open_episodes.values()}
+        open_anchors = {
+            original_identity(str(episode["anchor"]))
+            for episode in open_episodes.values()
+        }
         self.repairs.prune(open_anchors)
         self.broken.prune(open_anchors)
         sources.update(self.repairs.sources(self.settings.policy, rules))
@@ -656,8 +667,17 @@ class Runtime:
                 self.hass, self.settings.monitoring_policies, candidates
             )
         )
+        if self.settings.monitoring_policy_version:
+            sources = ordinary_sources(self.settings.monitoring_policies, sources)
+            targets = set(self.targets)
+            self.targets = [
+                identity
+                for identity, source in sources.items()
+                if (source.watched or source.kind == "function")
+                and (identity in targets or source.monitoring_source in targets)
+            ]
         self.enrolled = {
-            node_id: source.attributes
+            source.monitoring_source or node_id: source.attributes
             for node_id, source in sources.items()
             if source.kind in {"entity", "integration", "device", "battery", "vacuum"}
             or (source.kind == "ups" and source.monitoring_policy is None)
@@ -829,16 +849,38 @@ class Runtime:
                 kept.append(control)
         self.controls = kept
 
+    def _maintenance_roots(self, node_id: str) -> list[str]:
+        """Bind equipment maintenance to every policy monitoring that capability."""
+        source = self.sources[node_id]
+        if source.kind not in {"entity", "integration", "external"}:
+            raise ValueError("Maintenance must start at an equipment capability")
+        original = source.monitoring_source or node_id
+        return list(
+            dict.fromkeys(
+                [
+                    original,
+                    *(
+                        identity
+                        for identity, candidate in self.sources.items()
+                        if candidate.monitoring_source == original
+                    ),
+                ]
+            )
+        )
+
     def _maintenance_scope(self, node_id: str, include_dependents: bool) -> list[str]:
         assert self.engine is not None
-        if self.sources[node_id].kind not in {"entity", "integration", "external"}:
-            raise ValueError("Maintenance must start at an equipment capability")
-        scope = [node_id]
+        roots = self._maintenance_roots(node_id)
+        scope = list(roots)
         if include_dependents:
-            scope.extend(item.node_id for item in self.engine.impact(node_id).nodes)
+            scope.extend(
+                item.node_id
+                for root in roots
+                for item in self.engine.impact(root).nodes
+            )
         if any(self.sources[item].kind == "situation" for item in scope):
             raise ValueError("Equipment maintenance cannot cover a situation")
-        return scope
+        return list(dict.fromkeys(scope))
 
     def _preview_maintenance(
         self, data: dict[str, Any], now: datetime
@@ -948,20 +990,22 @@ class Runtime:
         else:
             target = data["node_id"]
             response = self._preview_maintenance(data, now)
-            self._handle(
-                self.engine.quiet(
-                    QuietWindow(
-                        scope="node_and_dependents"
-                        if data.get("include_dependents", False)
-                        else "node",
-                        node_id=target,
-                        until=until,
+            target = self.sources[target].monitoring_source or target
+            for root in self._maintenance_roots(target):
+                self._handle(
+                    self.engine.quiet(
+                        QuietWindow(
+                            scope="node_and_dependents"
+                            if data.get("include_dependents", False)
+                            else "node",
+                            node_id=root,
+                            until=until,
+                        ),
+                        now,
                     ),
                     now,
-                ),
-                now,
-                context,
-            )
+                    context,
+                )
         control = OperatorControl(
             control_id=uuid4().hex,
             action="shelve" if action == "shelve" else "maintenance",
@@ -971,6 +1015,9 @@ class Runtime:
             user_id=user_id,
             reason=data.get("reason", ""),
             include_dependents=data.get("include_dependents", False),
+            monitoring_roots=tuple(self._maintenance_roots(target))
+            if action != "shelve"
+            else (),
         )
         self.controls.append(control)
         self._control_fact("started", control, context=context)
@@ -989,20 +1036,21 @@ class Runtime:
         if control.action == "shelve":
             self._deliveries(self.policy.unshelve(control.target, now, PolicyContext()))
         else:
-            self._handle(
-                self.engine.cancel_quiet(
-                    QuietWindow(
-                        scope="node_and_dependents"
-                        if control.include_dependents
-                        else "node",
-                        node_id=control.target,
-                        until=control.until,
+            for root in self._maintenance_roots(control.target):
+                self._handle(
+                    self.engine.cancel_quiet(
+                        QuietWindow(
+                            scope="node_and_dependents"
+                            if control.include_dependents
+                            else "node",
+                            node_id=root,
+                            until=control.until,
+                        ),
+                        now,
                     ),
                     now,
-                ),
-                now,
-                context,
-            )
+                    context,
+                )
         self.controls.remove(control)
         self._control_fact("ended", control, ended_reason="cancelled", context=context)
         return {"cancelled_control_id": control_id}
@@ -1217,14 +1265,19 @@ class Runtime:
                     "nodes": [json_object(source) for source in sources.values()],
                     "catalog": report(
                         self.candidates,
-                        parse_rules(rule_data(self.hass, self.settings)),
+                        (
+                            *parse_rules(rule_data(self.hass, self.settings)),
+                            *enrollment_rules(self.settings.monitoring_policies),
+                        ),
                     ),
                     "enrollment_changes": list(self.enrollment_changes),
                     "targets": list(self.targets),
                 }
             self._inventory_dirty = False
             self._device_members = {
-                source.node_id[7:]: source.availability_entities
+                (source.monitoring_source or source.node_id)[
+                    7:
+                ]: source.availability_entities
                 for source in sources.values()
                 if source.kind == "device"
             }
@@ -1238,7 +1291,9 @@ class Runtime:
                 if source.entity_id and source.watched:
                     self._entity_sources.setdefault(source.entity_id, []).append(source)
                 elif source.kind == "device" and source.watched:
-                    for entity_id in self._device_members.get(source.node_id[7:], ()):
+                    for entity_id in self._device_members.get(
+                        (source.monitoring_source or source.node_id)[7:], ()
+                    ):
                         self._entity_sources.setdefault(entity_id, []).append(source)
                 if source.kind == "ups" and source.watched:
                     for entity_id in dict.fromkeys(
@@ -1378,6 +1433,7 @@ class Runtime:
             for node_id, source in sources.items()
             if source.kind == "device"
         }
+        events.extend(self._bind_maintenance(now))
         observations = []
         for source in sources.values():
             if not source.watched:
@@ -1394,21 +1450,37 @@ class Runtime:
             if source.kind == "repair":
                 if discover and (
                     observation := self.repairs.observation(
-                        source.node_id, now, holding=self.startup_quiet
+                        source.monitoring_source or source.node_id,
+                        now,
+                        holding=self.startup_quiet,
                     )
                 ):
-                    observations.append(observation)
+                    observations.append(replace(observation, node_id=source.node_id))
                 continue
             if source.kind == "broken_automation":
                 if discover:
-                    observations.append(self.broken.observation(source.node_id, now))
+                    observations.append(
+                        replace(
+                            self.broken.observation(
+                                source.monitoring_source or source.node_id, now
+                            ),
+                            node_id=source.node_id,
+                        )
+                    )
                 continue
             if source.report_timeout is not None:
                 if first:
                     observations.append(report_observation(source, "unknown", now))
                 continue
             if source.kind == "battery" and discover:
-                observations.append(battery_observation(self.hass, source, now))
+                observations.append(
+                    battery_observation(
+                        self.hass,
+                        source,
+                        now,
+                        threshold=self._battery_threshold(source),
+                    )
+                )
             elif source.kind == "ups" and discover:
                 observations.append(self._observe_ups(source, now))
             elif source.kind == "vacuum" and discover:
@@ -1570,8 +1642,22 @@ class Runtime:
             reauth,
         )
 
+    def _battery_threshold(self, source: Source) -> float:
+        """Read the threshold of this independent battery expectation."""
+        policy = next(
+            (
+                item
+                for item in self.settings.monitoring_policies
+                if item.id == source.monitoring_policy
+            ),
+            None,
+        )
+        return float(policy.parameters["threshold"]) if policy is not None else 20.0
+
     def _observe_device(self, source: Source, now: datetime) -> Observation:
-        members = self._device_members.get(source.node_id[7:], ())
+        members = self._device_members.get(
+            (source.monitoring_source or source.node_id)[7:], ()
+        )
         states = tuple(self.hass.states.get(entity_id) for entity_id in members)
         return device_observation(source, states, now)
 
@@ -1637,16 +1723,45 @@ class Runtime:
             and self.sources[node_id].kind == "function"
         )
 
+    def _bind_maintenance(self, now: datetime) -> list[HealthEvent]:
+        """Keep equipment controls attached when policy edits replace condition ids."""
+        assert self.engine is not None
+        events: list[HealthEvent] = []
+        for index, control in enumerate(self.controls):
+            if (
+                control.action != "maintenance"
+                or control.until <= now
+                or control.target not in self.sources
+            ):
+                continue
+            roots = tuple(self._maintenance_roots(control.target))
+            previous = control.monitoring_roots or (control.target,)
+            for root in roots:
+                if root not in previous:
+                    events.extend(
+                        self.engine.quiet(
+                            QuietWindow(
+                                scope="node_and_dependents"
+                                if control.include_dependents
+                                else "node",
+                                node_id=root,
+                                until=control.until,
+                            ),
+                            now,
+                        )
+                    )
+            self.controls[index] = replace(control, monitoring_roots=roots)
+        return events
+
     def _maintained(self) -> set[str]:
         assert self.engine is not None
         scope: set[str] = set()
         for control in self.controls:
             if control.action != "maintenance":
                 continue
-            scope.add(control.target)
-            if control.include_dependents and control.target in self.sources:
+            if control.target in self.sources:
                 scope.update(
-                    item.node_id for item in self.engine.impact(control.target).nodes
+                    self._maintenance_scope(control.target, control.include_dependents)
                 )
         return scope
 
@@ -2090,7 +2205,7 @@ class Runtime:
             }
         definitions = deepcopy(self.settings.notification_definitions)
         for kind in ("schedules", "methods"):
-            for row in definitions[kind].values():
+            for row in definitions.get(kind, {}).values():
                 row.pop("name", None)
         return {
             "definitions": definitions,
@@ -2101,14 +2216,8 @@ class Runtime:
             "batch": self.settings.timings["batch"],
         }
 
-    def preview_policy(
-        self, data: dict[str, Any], *, settings: Settings | None = None
-    ) -> dict[str, JSONValue]:
-        """Simulate activation in an isolated policy using its opaque public snapshot."""
-        assert self.policy is not None
-        settings = settings or Settings.from_data(
-            {**(self.entry.options or self.entry.data), "policy": data}
-        )
+    def preview_sources(self, settings: Settings) -> dict[str, Source]:
+        """Compose draft policy findings without changing monitoring or sending."""
         rules = (
             *parse_rules(rule_data(self.hass, settings)),
             *enrollment_rules(settings.monitoring_policies),
@@ -2121,9 +2230,10 @@ class Runtime:
             rules,
         )
         selected_ups = ups_sources(settings.monitoring_policies, candidates)
-        candidates = transfer_batteries(
-            settings.monitoring_policies, candidates, selected_ups
-        )
+        if not settings.monitoring_policy_version:
+            candidates = transfer_batteries(
+                settings.monitoring_policies, candidates, selected_ups
+            )
         sources, _ = compose(
             self.hass, self.automation_alerts.compose(settings), candidates
         )
@@ -2134,6 +2244,19 @@ class Runtime:
         sources.update(
             temperature_sources(self.hass, settings.monitoring_policies, candidates)
         )
+        if settings.monitoring_policy_version:
+            sources = ordinary_sources(settings.monitoring_policies, sources)
+        return sources
+
+    def preview_policy(
+        self, data: dict[str, Any], *, settings: Settings | None = None
+    ) -> dict[str, JSONValue]:
+        """Simulate activation in an isolated policy using its opaque public snapshot."""
+        assert self.policy is not None
+        settings = settings or Settings.from_data(
+            {**(self.entry.options or self.entry.data), "policy": data}
+        )
+        sources = self.preview_sources(settings)
         candidate = Policy(self._policy_config(settings, sources=sources))
         now = dt_util.utcnow()
         candidate.restore(self.policy.snapshot(), now)

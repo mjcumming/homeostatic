@@ -117,6 +117,7 @@ def observe(
     source: Source,
     now: datetime,
     *,
+    threshold: float = LOW_PERCENT,
     changed_entity_id: str | None = None,
     changed_state: State | None = None,
 ) -> Observation:
@@ -148,14 +149,14 @@ def observe(
     warning = _current(warning_state) if source.battery_warning_entity else None
     charging = _current(charging_state) if source.battery_charging_entity else None
     warning_valid = warning in {STATE_ON, STATE_OFF}
-    low = (percent is not None and percent <= LOW_PERCENT) or warning == STATE_ON
+    low = (percent is not None and percent <= threshold) or warning == STATE_ON
     missing = (source.battery_level_entity is not None and percent is None) or (
         source.battery_warning_entity is not None and not warning_valid
     )
     conflict = (
         percent is not None
         and warning_valid
-        and (percent <= LOW_PERCENT) != (warning == STATE_ON)
+        and (percent <= threshold) != (warning == STATE_ON)
     )
     if source.disabled:
         status, reason, detail = (
@@ -178,7 +179,7 @@ def observe(
         status, reason, detail = (
             Status.PASS,
             "battery_ok",
-            "is above 20% or reports normal",
+            f"is above {threshold:g}% or reports normal",
         )
     return Observation(
         node_id=source.node_id,
@@ -189,6 +190,7 @@ def observe(
         message=f"{source.name} {detail}.",
         evidence={
             "battery_pct": percent,
+            "threshold": threshold,
             "low_warning": warning if warning_valid else None,
             "charging": charging if charging in {STATE_ON, STATE_OFF} else None,
             "conflicting_reports": conflict,

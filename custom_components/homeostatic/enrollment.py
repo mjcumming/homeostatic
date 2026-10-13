@@ -380,7 +380,7 @@ def restore_device_exclusions(value: Any) -> dict[str, tuple[str, ...]]:
     """Validate adapter-owned scope history without interpreting engine state."""
     if not isinstance(value, dict) or any(
         not isinstance(key, str)
-        or not key.startswith("device:")
+        or not key.startswith(("device:", "monitoring:"))
         or not isinstance(members, list)
         or any(not isinstance(member, str) for member in members)
         for key, members in value.items()

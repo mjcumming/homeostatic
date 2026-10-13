@@ -7,7 +7,8 @@ Lookup tables for Homeostatic's timings, entities, actions, card, dashboard and 
 - [Setup](#setup)
 - [Timings](#timings)
 - [Fixed limits](#fixed-limits)
-- [Reporting choices](#reporting-choices)
+- [Policy notifications](#policy-notifications)
+- [Reporting choices for automation alerts](#reporting-choices)
 - [Monitoring rules](#monitoring-rules)
 - [Node ids](#node-ids)
 - [Entities](#entities)
@@ -20,7 +21,9 @@ Lookup tables for Homeostatic's timings, entities, actions, card, dashboard and 
 
 ## Setup
 
-Adding Homeostatic creates one integration entry with integration availability monitoring and notification requests off. Change monitoring, timing and notifications in the Homeostatic panel. Homeostatic has no **Configure** form in Home Assistant.
+Adding Homeostatic creates one integration entry. Integration, device and entity availability, Repairs and broken-automation policies start enabled. Battery and vacuum policies start disabled. Temperature, thermostat and UPS policies require setup. Every supplied policy starts with no notification entries, and global notification requests are off. Change monitoring, timing and notifications in the Homeostatic panel. Homeostatic has no **Configure** form in Home Assistant.
+
+Use a fresh setup to test the unified policy editor in this testing release. Updating an existing installation does not automatically convert or reset its saved monitoring and notification settings.
 
 ## Timings
 
@@ -37,7 +40,7 @@ Edit these under **Settings → Timing** and **Settings → Problem grouping** i
 | Maximum startup wait | `startup_quiet_max` | 600 (10 min) | After a Home Assistant start, notifications are held until watched integrations finish loading, but never longer than this |
 | Group related problems | `coalesce_count` | 3 | How many sources that share a direct dependency have to fail together before they're grouped into one issue on that dependency |
 | Grouping window | `coalesce_window` | 60 (1 min) | How close together those failures have to start |
-| Standard alert batching | `batch` | 30 | How long a `notify` message waits in a custom notification policy. The six reporting choices don't use it, and the panel hides it while they're in use. |
+| Standard alert batching | `batch` | 30 | How long a `notify` message waits in a custom notification policy. Policy notification entries and automation reporting choices don't use it. |
 
 A watched source that fails opens an issue straight away, subject to the waits above. There's no separate delay before raising an issue.
 
@@ -47,8 +50,7 @@ These values aren't configurable.
 
 | What | Value |
 | --- | --- |
-| Low battery | Level at or below 20%, or a low-battery sensor reporting low |
-| Immediate with acknowledgment repeat | Every 30 minutes |
+| Automation alert acknowledgment repeat | Every 30 minutes for the `acknowledge` reporting choice. Policy notification entries have their own configurable intervals. |
 | Recheck of Home Assistant's registries | Every 60 seconds, plus whenever a registry changes |
 | History | The latest 100 ended issues from the last 30 days |
 | Pause alerts and maintenance | End time in the future and at most seven days away. Reason up to 500 characters. |
@@ -56,22 +58,41 @@ These values aren't configurable.
 | Alert report timeout | 60 to 86400 seconds, default 300. The alert blueprint's minimum is 300. |
 | Phone Acknowledge button | Works for 30 days after the notification is sent. The latest 2000 are kept. |
 
+## Policy notifications
+
+Each policy has zero or more independent notification entries. Each entry contains timing and one or more reusable delivery methods. No entries means dashboard-only monitoring.
+
+| Setting | Value |
+| --- | --- |
+| When to notify | **Immediately** or **Scheduled summary** |
+| Remind until acknowledged | Optional for immediate delivery; requires a positive interval in minutes |
+| Summary time | Required local time for a scheduled summary, in the displayed installation time zone |
+| Days | One or more weekdays for a scheduled summary |
+| Delivery methods | One or more saved methods; each method may be used by several entries |
+| When reserve is low | UPS reserve entries select confirmed mains or backup power |
+
+Immediate delivery includes overnight. Scheduled summaries include eligible open problems after immediate delivery or acknowledgment. Recovery removes a problem from future summaries, and empty summaries are skipped. Timing belongs to the entry; changing a shared method can affect every policy that uses it. The global switch in **Notifications** controls sending without removing entries or stopping monitoring.
+
+The policy editor keeps **Monitoring type** fixed after creation. Duplication retains the type and starts the copy disabled. The available source selectors and detection settings depend on that type. Battery policies start with a configurable 20% threshold. Supplied and custom policies share the same edit, duplicate, enable, disable and delete actions. **Restore defaults** restores only selected deleted policies; updates preserve edits and deletions.
+
 ## Reporting choices
 
-The `profile` value is what the [`report_alert`](#homeostaticreport_alert) action and the alert blueprint store. The guide describes [what each choice does](guide.md#set-up-the-reporting-choices).
+These `profile` values belong to the [`report_alert`](#homeostaticreport_alert) action and the alert blueprint. Monitoring policies use the [notification entries](#policy-notifications) above. Automation-owned alerts retain their reporting selection and configured delivery mapping.
 
-| Choice | `profile` value | Default schedule |
+| Choice | `profile` value | Starting timing |
 | --- | --- | --- |
 | Immediate | `immediate` | Right away, overnight included |
 | Immediate with acknowledgment | `acknowledge` | Right away, repeated every 30 minutes |
-| Morning summary | `morning` | Daily at 08:00. The default for Home Assistant Repairs and broken automations. |
+| Morning summary | `morning` | Daily at 08:00 |
 | Evening summary | `evening` | Daily at 18:00 |
-| Weekly summary | `weekly` | Sunday at 09:00. The household default for new sources. |
+| Weekly summary | `weekly` | Sunday at 09:00 |
 | Dashboard only | `dashboard` | Never sent |
+
+Choosing a profile does not create a delivery method or turn on notification requests. See [Alerts from automations](automation-situations.md) for the automation interface.
 
 ## Monitoring rules
 
-What Homeostatic watches is saved as rules. Sources writes a rule for one source. Policies saves the checks and any other policy. [`preview_rules`](#homeostaticpreview_rules) accepts the stored rules.
+The [`preview_rules`](#homeostaticpreview_rules) action accepts catalog rules in the format below. These low-level rules are separate from the complete monitoring policies edited in **Policies**, which also carry names, detection settings and notification entries.
 
 | Field | Required | Value |
 | --- | --- | --- |
@@ -82,7 +103,7 @@ What Homeostatic watches is saved as rules. Sources writes a rule for one source
 | `match` | Yes | Conditions, below |
 | `overridable` | No | Set by Sources on an integration's **Only devices I choose** choice, so a single device can still be watched |
 
-| Match field | Label in the panel | Value |
+| Match field | Meaning | Value |
 | --- | --- | --- |
 | `kind` | Source type | `integration`, `device`, `entity`, `battery`, `vacuum`, `repair`, or `broken_automation` |
 | `domain` | Domain | An entity domain such as `light`, or the integration's domain for an integration |

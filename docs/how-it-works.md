@@ -87,7 +87,7 @@ Opening an issue:
 - An entity that Home Assistant reports unavailable, or a device whose selected entities are all unavailable, gets an issue straight away. The one exception is a device or entity whose integration is still loading or unknown: it waits up to two minutes for the integration to settle (**Wait for related failures**). The same two minutes decide whether its issue folds into the integration's.
 - An integration that's retrying gets an issue straight away, as a warning. If it's still retrying after two minutes (**Wait before reporting setup retries**), the warning becomes a failure.
 - A watched source with no current reading, such as an entity Home Assistant still lists but isn't providing, gets an issue after 15 minutes (**Wait for unknown evidence**). An entity whose state is `unknown` is different: Home Assistant can reach it but has no value yet, so it gets no issue.
-- A battery gets an issue as soon as it reads 20% or less, or the device reports a low warning.
+- A battery policy opens an issue when the reading reaches its configured low threshold, initially 20%, or the device reports a low warning.
 - A vacuum gets an issue as soon as Home Assistant reports its activity as error.
 
 Ending an issue:
@@ -97,7 +97,7 @@ Ending an issue:
 - A vacuum error ends as soon as the activity is cleaning, docked, idle, paused, or returning. Unavailable, unknown, and restored states leave it open.
 - When an integration recovers, devices and entities that are still reconnecting get a minute (**Allow reconnecting devices**) before they count as failures of their own.
 
-Sending notifications: Immediate choices go out as soon as the issue opens. Summaries go out at their scheduled times and include only issues that are still open. **Standard alert batching** applies only to custom notification policies.
+Sending notifications: each policy owns its notification entries. An immediate entry requests delivery when an eligible issue opens; its optional reminders stop on acknowledgment or recovery. Scheduled entries report eligible open issues at their chosen times, including acknowledged problems. Each entry selects its own delivery methods. No entries means dashboard-only monitoring, and global sending must also be enabled. **Standard alert batching** applies only to custom notification policies.
 
 ## Restarts
 

@@ -141,7 +141,7 @@ test("initial reporting review names the selected source preference",()=>{
   assert.ok(changes.some(([name])=>name==="Weekly summary"));
 });
 
-for(const [status,warning] of [["requests_disabled","Outgoing requests are disabled"],["missing_destinations","no configured destination"],["configured","Shared recipients"]])test(`automation alert reporting is owned by HA with ${status} status`,()=>{
+for(const [status,warning] of [["requests_disabled","Outgoing requests are disabled"],["missing_destinations","no configured destination"],["configured","Reusable delivery methods"]])test(`automation alert reporting is owned by HA with ${status} status`,()=>{
   const c=card();c.settingsDraft=null;
   const html=sourceReporting(c,{source:{node_id:"situation:leak",automation_url:"/config/automation/edit/owner",alert_profile:"acknowledge",alert_reporting_status:status}});
   assert.match(html,/Immediate with acknowledgment/);

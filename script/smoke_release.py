@@ -58,6 +58,11 @@ async def exercise(config: Path, port: int) -> None:
         await hass.async_block_till_done()
         entry = result["result"]
         assert entry.state is ConfigEntryState.LOADED, entry.state
+        assert entry.data["monitoring_policy_version"] == 1
+        assert len(entry.data["monitoring_policies"]) == 7
+        assert not any(
+            item["notifications"] for item in entry.data["monitoring_policies"]
+        )
         hass.config_entries.async_update_entry(
             entry,
             options={
@@ -69,12 +74,24 @@ async def exercise(config: Path, port: int) -> None:
                     "rejoin_grace": 0,
                     "clear_hold": 0,
                 },
-                "rules": [
+                "monitoring_policies": [
                     {
                         "id": "pilot",
-                        "action": "attach",
-                        "match": {"entity": ["entity_id:sensor.pilot_source"]},
-                    }
+                        "name": "Pilot entity",
+                        "check": "availability",
+                        "enabled": True,
+                        "match": {
+                            "kind": ["entity"],
+                            "entity": ["entity_id:sensor.pilot_source"],
+                        },
+                        "parameters": {},
+                        "notifications": [],
+                    },
+                    next(
+                        item
+                        for item in entry.data["monitoring_policies"]
+                        if item["id"] == "default_repairs"
+                    ),
                 ],
             },
         )
@@ -83,19 +100,24 @@ async def exercise(config: Path, port: int) -> None:
         runtime = entry.runtime_data
         assert runtime.available
         assert not runtime.settings.notifications
+        pilot_anchor = next(
+            source.node_id
+            for source in runtime.sources.values()
+            if source.monitoring_policy == "pilot"
+        )
         assert runtime.query("readiness", {})["answer"] == "ready"
         async with ClientSession() as client:
             for asset in (
-                "homeostatic.js?v=55",
-                "sources-workspace.mjs?v=53",
-                "source-settings.mjs?v=53",
-                "model.mjs?v=22",
-                "problem.mjs?v=22",
-                "history-controls.mjs?v=22",
-                "styles.mjs?v=22",
-                "configuration.mjs?v=22",
-                "evidence.mjs?v=22",
-                "tree.mjs?v=22",
+                "homeostatic.js?v=70",
+                "sources-workspace.mjs?v=70",
+                "source-settings.mjs?v=70",
+                "model.mjs?v=70",
+                "problem.mjs?v=70",
+                "history-controls.mjs?v=70",
+                "styles.mjs?v=70",
+                "configuration.mjs?v=70",
+                "evidence.mjs?v=70",
+                "tree.mjs?v=70",
             ):
                 async with client.get(
                     f"http://127.0.0.1:{port}/homeostatic_static/{asset}"
@@ -106,15 +128,11 @@ async def exercise(config: Path, port: int) -> None:
         await hass.async_block_till_done()
         assert runtime.query("readiness", {})["answer"] == "degraded"
         inventory = runtime.query("inventory", {})
-        pilot = [
-            row
-            for row in inventory["episodes"]
-            if row["anchor"] == "entity:entity_id:sensor.pilot_source"
-        ]
+        pilot = [row for row in inventory["episodes"] if row["anchor"] == pilot_anchor]
         # A fresh Home Assistant can raise its own Repairs, which are issues too.
         assert len(pilot) == 1, inventory["episodes"]
         assert all(
-            row["anchor"].startswith("repair:")
+            runtime.sources[row["anchor"]].kind == "repair"
             for row in inventory["episodes"]
             if row not in pilot
         ), inventory["episodes"]
@@ -163,7 +181,7 @@ async def exercise(config: Path, port: int) -> None:
         pilot = [
             row
             for row in history["episodes"]
-            if row["episode"]["anchor"] == "entity:entity_id:sensor.pilot_source"
+            if row["episode"]["anchor"] == pilot_anchor
         ]
         assert [row["resolution"] for row in pilot] == ["cleared"], history
         assert await hass.config_entries.async_reload(entry.entry_id)

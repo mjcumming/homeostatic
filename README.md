@@ -37,10 +37,10 @@ It covers:
 
 ## What it watches
 
-A new install watches your integrations, Home Assistant's Repairs, and automations that name an entity that no longer exists. You add devices, entities, batteries, vacuums and alerts in the panel. In **Sources**, you choose one source, or every current and future device on one integration. In **Policies**, you choose a check for the whole installation, including sources added later.
+A new install watches integration, device and entity availability, Home Assistant's Repairs, and automations that name an entity that no longer exists. **Policies** shows these supplied policies alongside policies you add. Batteries and vacuums start off; temperature, thermostat and UPS checks need setup. Use **Sources** to inspect equipment and open the policies that watch it.
 
-- A battery issue opens at 20% or less, or when the device reports a low warning. It's tracked apart from whether the device is available.
-- A vacuum issue opens when Home Assistant reports the vacuum's activity as error. Cleaning, docked, idle, paused, or returning ends it. The notice is Immediate unless you choose otherwise for that vacuum, and it names the area Home Assistant assigned when there is one.
+- A battery policy opens an issue at your chosen level, initially 20%, or when the device reports a low warning. It's tracked apart from whether the device is available.
+- A vacuum issue opens when Home Assistant reports the vacuum's activity as error. Cleaning, docked, idle, paused, or returning ends it. Its notification message names the area Home Assistant assigned when there is one.
 - A Repair's issue ends when Home Assistant stops reporting the Repair, or when you ignore it in Home Assistant.
 - A broken automation is an automation that names an entity that no longer exists. The issue lists those entity ids and opens the automation in the editor. It ends when the entity exists again, the automation no longer names it, or the automation is removed.
 - Alerts are ordinary Home Assistant automations made from a blueprint, so you get the full automation editor for the condition. If a sensor an alert needs goes offline, the alert shows *unknown*, so a dead leak sensor never reads as a dry floor.
@@ -49,18 +49,15 @@ A new install watches your integrations, Home Assistant's Repairs, and automatio
 
 An issue for each problem. It quotes what Home Assistant reported (setup failed, needs sign-in, retrying), lists the entities affected, suggests what to try, and shows recovery as it happens. When an integration fails, the devices and entities you watch on it are listed on that one issue instead of each raising its own.
 
-Notifications on your schedule. Everything you watch has one of six reporting choices. All Repairs share one choice, and all broken automations share another:
+Each policy decides when and how to notify. Add an immediate notification, a scheduled summary, or both, and choose one or more delivery methods for each entry.
 
-| Choice | What happens |
+| Timing | What happens |
 | --- | --- |
-| Immediate | Sent right away, overnight included. A vacuum error starts here. |
-| Immediate with acknowledgment | Sent right away and repeated every 30 minutes until someone taps Acknowledge or the problem clears |
-| Morning summary | In the 8:00 summary. Repairs and broken automations start here. |
-| Evening summary | In the 18:00 summary |
-| Weekly summary | In the Sunday 9:00 summary. Integrations, devices, entities and batteries start here. |
-| Dashboard only | Never sent. It shows in the panel. |
+| Immediately | Sent when the problem begins, overnight included. Optionally repeat at your chosen interval until acknowledgment or recovery. |
+| Scheduled summary | Open problems at a local time on the weekdays you choose, including problems already reported immediately or acknowledged. Cleared problems and empty summaries are omitted. |
+| No notification entries | Dashboard only; monitoring continues. |
 
-You can change the summary times and choose which people get each kind. Notifications go to their phones through the Home Assistant Companion app, and they don't need to be admins to tap Acknowledge. Notifications stay off until you turn them on. After a Home Assistant restart, Homeostatic waits for your integrations to finish loading, then sends one summary instead of a burst.
+Create reusable delivery methods in **Notifications** for phones, voice, email or SMS destinations configured in Home Assistant. Supplied policies have no notification entries, and the global notification switch starts off. After a Home Assistant restart, Homeostatic waits for your integrations to finish loading, then combines waiting notifications into summaries.
 
 Controls for problems you already know about:
 
@@ -78,9 +75,9 @@ Homeostatic adds a sidebar panel for administrators:
 | --- | --- |
 | Overview | What's open and what's being watched |
 | Issues | Every open problem, with its details and controls |
-| Sources | Every integration, device, entity, battery and vacuum Home Assistant knows about. Choose what to watch for one source. |
-| Policies | Turn Integrations, Devices, Batteries, Vacuums, Repairs, and Broken automations on or off for current and future sources. Add a policy for an area, floor, label, or another condition. |
-| Notifications | People, phones, schedules, and the switch that turns notifications on |
+| Sources | Inspect equipment and open the policies that watch it. |
+| Policies | Edit, duplicate, disable or delete supplied and custom policies. Choose sources, detection settings and notifications. |
+| Notifications | Reusable delivery methods, destination previews and tests, and the global notification switch |
 | Settings | Timing and problem grouping |
 | History | Ended issues from the last 30 days |
 
@@ -88,7 +85,7 @@ If you use [TopoMation](https://github.com/mjcumming/topomation), Sources can al
 
 ## How it works
 
-Homeostatic builds a map of what depends on what: each device and entity you watch depends on its integration. When things fail, Homeostatic works out which failure explains the others and keeps one issue for that failure. The reporting choice decides when someone hears about it.
+Homeostatic builds a map of what depends on what: each device and entity you watch depends on its integration. When things fail, Homeostatic works out which failure explains the others and keeps one issue for that failure. The policy's notification entries decide when someone hears about it.
 
 The reasoning comes from [Health Tree](https://github.com/mjcumming/health-tree), a separate Python library with no Home Assistant code in it. Homeostatic connects it to Home Assistant, keeps the history, draws the panel and sends the notifications.
 
@@ -130,10 +127,10 @@ The full list is in [Known limitations](docs/troubleshooting.md#known-limitation
 
    [![Open your Home Assistant instance and start setting up Homeostatic.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeostatic)
 
-2. Open **Homeostatic** in the sidebar. It's watching your integrations, Home Assistant's Repairs, and automations that name an entity that no longer exists.
-3. Open **Sources**, pick an integration or device you know well, and choose what to watch in its **Settings**. You'll see what the change does before you save it. Start with a few things that matter and widen from there.
-4. Open **Policies** for a check that should cover sources added later. **Integrations**, **Repairs**, and **Broken automations** start on. **Devices**, **Batteries**, and **Vacuums** start off; select **Monitor all devices**, **Monitor all batteries**, or **Monitor all vacuums** to turn one on. **Add policy** matches an area, floor, label, or another condition. You'll see what the change covers before you save it.
-5. Leave notifications off for a day or two and see what turns up. When it looks right, open **Notifications**, pick the people and their phones, check the schedules and turn notifications on. Homeostatic sends to the Companion app itself.
+2. Open **Homeostatic** in the sidebar. Availability, Repairs and broken-automation monitoring are already on; notifications are off.
+3. Open **Policies** and review what the supplied policies watch. Edit their sources and settings, or use **Add policy** to choose another monitoring type. Review changes before saving.
+4. Enable battery or vacuum monitoring if wanted. Temperature, thermostat and UPS policies need sources and detection settings before use. Supplied and custom policies use the same editor.
+5. Leave notifications off while you review the issues. When ready, create delivery methods in **Notifications**, add notification entries to the policies you want to hear from, then review and enable the global notification switch.
 
 The [user guide](docs/guide.md) covers the rest: one integration's devices, policies, batteries, vacuums, notifications and the controls.
 
@@ -168,7 +165,6 @@ From the same demo house as above.
 
 <img src="docs/images/sources.png" alt="Sources page with monitored Zigbee devices and the failed connection" width="720"/>
 
-<img src="docs/images/notifications.png" alt="Notifications page with a phone and reporting schedules" width="600"/>
 
 <img src="docs/images/history.png" alt="History page with three ended availability problems" width="720"/>
 

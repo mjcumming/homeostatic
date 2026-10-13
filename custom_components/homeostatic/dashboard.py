@@ -35,16 +35,11 @@ from .battery import observe as battery_observation
 from .config import Settings, normalize_requirement, normalize_rules, rule_data
 from .const import DEFAULTS, DOMAIN, NAME
 from .device_availability import device_availability
-from .enrollment import evaluate, inventory
 from .monitoring_runtime import (
     contributing_policies,
-    enrollment_rules,
-    temperature_sources,
-    transfer_batteries,
-    ups_sources,
 )
 from .notification_routes import async_send, delivery_targets, destinations
-from .rules import parse_rules
+from .policy_defaults import policy_templates
 from .runtime import Runtime
 from .serialization import json_object
 from .simple_notifications import available_people, generate_policy, simple_choices
@@ -53,7 +48,7 @@ from .vacuum import observe as vacuum_observation
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=69"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=70"
 PANEL_ELEMENT = "homeostatic-panel-v25"
 
 
@@ -422,6 +417,9 @@ def websocket_source(
         connection.send_error(msg["id"], "not_ready", "Monitoring is unavailable")
         return
     node_id = msg["node_id"]
+    monitored = runtime.sources.get(node_id)
+    if monitored is not None and monitored.monitoring_source:
+        node_id = monitored.monitoring_source
     source = runtime.candidates.get(node_id)
     if source is None:
         connection.send_error(
@@ -474,7 +472,15 @@ def websocket_source(
             str(item["name"]),
         )
     )
-    evidence = runtime.integration_evidence.view(node_id) or {}
+    observed_node = next(
+        (
+            item.node_id
+            for item in runtime.sources.values()
+            if item.monitoring_source == node_id and item.watched
+        ),
+        node_id,
+    )
+    evidence = runtime.integration_evidence.view(observed_node) or {}
     if source.kind == "integration" and source.entry_id:
         entry = hass.config_entries.async_get_entry(source.entry_id)
         if entry is not None and not evidence.get("current"):
@@ -486,7 +492,29 @@ def websocket_source(
                 battery_observation(hass, source, dt_util.utcnow())
             )
             if source.kind == "battery"
+            and not runtime.settings.monitoring_policy_version
             else None,
+            "battery_conditions": [
+                {
+                    "policy_id": item.id,
+                    "policy_name": item.name,
+                    "condition": json_object(
+                        battery_observation(
+                            hass,
+                            source,
+                            dt_util.utcnow(),
+                            threshold=float(item.parameters["threshold"]),
+                        )
+                    ),
+                }
+                for item in runtime.settings.monitoring_policies
+                if source.kind == "battery"
+                and item.check == "battery"
+                and item.enabled
+                and item.matches(source.attributes)
+            ]
+            if runtime.settings.monitoring_policy_version
+            else [],
             "vacuum_activity": json_object(
                 vacuum_observation(hass, source, dt_util.utcnow())
             )
@@ -512,8 +540,8 @@ def websocket_source(
                 item["state"] == "missing" or bool(item["restored"]) for item in members
             ),
             "integration_evidence": evidence,
-            "entity_status": runtime.entity_status(node_id)
-            if node_id in runtime.sources
+            "entity_status": runtime.entity_status(observed_node)
+            if observed_node in runtime.sources
             else None,
             "updated_at": runtime.updated_at.isoformat()
             if runtime.updated_at
@@ -547,8 +575,10 @@ async def _async_configuration(
         {
             "revision": revision,
             "rules": rule_data(hass, settings),
+            "monitoring_policy_templates": policy_templates(),
+            "monitoring_policy_version": settings.monitoring_policy_version,
             "areas": [
-                {"id": area.id, "name": area.name}
+                {"id": area.id, "name": area.name, "floor_id": area.floor_id}
                 for area in ar.async_get(hass).areas.values()
             ],
             "floors": [
@@ -791,12 +821,7 @@ def _editable_settings(settings: Settings) -> dict[str, Any]:
         "monitoring_policies": [
             policy.data() for policy in settings.monitoring_policies
         ],
-        "notification_definitions": settings.notification_definitions
-        or (
-            notification_definitions.convert_legacy(legacy)
-            if (legacy := reporting.choices(settings.policy)) is not None
-            else None
-        ),
+        "notification_definitions": settings.notification_definitions,
     }
     if not hasattr(Rule, "route"):
         result.pop("notification_definitions")
@@ -893,6 +918,17 @@ async def _settings_candidate(
         )
     settings = Settings.from_data(candidate)
     previous = Settings.from_data(current)
+    existing = {item.id: item for item in previous.monitoring_policies}
+    for item in settings.monitoring_policies:
+        old = existing.get(item.id)
+        if old is not None and (
+            item.check != old.check
+            or (
+                item.check == "availability"
+                and item.match.get("kind") != old.match.get("kind")
+            )
+        ):
+            raise ValueError("Monitoring type cannot change; create a new policy")
     if settings.notifications and (
         not previous.notifications or settings.consumer != previous.consumer
     ):
@@ -947,34 +983,16 @@ async def _async_preview_settings(
             else None
         )
         if "monitoring_policies" in msg["settings"]:
-            proposed_sources = evaluate(
-                inventory(hass, settings, runtime.enrolled),
-                (
-                    *parse_rules(rule_data(hass, settings)),
-                    *enrollment_rules(settings.monitoring_policies),
-                ),
-            )
-            selected_ups = ups_sources(settings.monitoring_policies, proposed_sources)
-            proposed_sources = transfer_batteries(
-                settings.monitoring_policies, proposed_sources, selected_ups
-            )
-            proposed_sources.update(selected_ups)
-            proposed_sources.update(
-                temperature_sources(
-                    hass, settings.monitoring_policies, proposed_sources
-                )
-            )
+            proposed_sources = runtime.preview_sources(settings)
             after = {
                 key: source
                 for key, source in proposed_sources.items()
-                if source.watched
+                if source.watched and source.kind not in {"situation", "function"}
             }
             before = {
                 key: source
-                for key, source in {**runtime.candidates, **runtime.sources}.items()
-                if source.watched
-                and source.kind
-                not in {"repair", "broken_automation", "situation", "function"}
+                for key, source in runtime.sources.items()
+                if source.watched and source.kind not in {"situation", "function"}
             }
             added = [
                 {"node_id": key, "name": after[key].name}

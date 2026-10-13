@@ -23,7 +23,13 @@ async def test_scheduled_method_signature_tracks_destinations_but_not_names(
     data["methods"] = {
         "mail": {"name": "Email", "mode": "fixed", "destinations": ["notify:mail"]}
     }
-    data["default"] = [{"id": "daily", "schedule": "morning", "methods": ["mail"]}]
+    data["default"] = [
+        {
+            "id": "daily",
+            "timing": {"mode": "report", "at": "08:00", "weekdays": list(range(7))},
+            "methods": ["mail"],
+        }
+    ]
     config_data.update(notifications=False, notification_definitions=data)
     hass.states.async_set("sensor.observed", "42")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -64,7 +70,7 @@ async def test_presence_change_replay_and_original_target_cleanup(
         }
     }
     data["default"] = [
-        {"id": "immediate", "schedule": "immediate", "methods": ["household"]}
+        {"id": "immediate", "timing": {"mode": "immediate"}, "methods": ["household"]}
     ]
     config_data.update(
         consumer=None, notification_definitions=data, policy=definitions.generate(data)
@@ -100,7 +106,9 @@ async def test_name_only_method_edit_does_not_notify_again(
     data["methods"] = {
         "mail": {"name": "Email", "mode": "fixed", "destinations": ["notify:mail"]}
     }
-    data["default"] = [{"id": "now", "schedule": "immediate", "methods": ["mail"]}]
+    data["default"] = [
+        {"id": "now", "timing": {"mode": "immediate"}, "methods": ["mail"]}
+    ]
     config_data.update(
         consumer=None, notification_definitions=data, policy=definitions.generate(data)
     )
@@ -143,8 +151,8 @@ async def test_edit_only_restarts_affected_notification_row(
         "other": {"name": "Other", "mode": "fixed", "destinations": ["notify:other"]},
     }
     data["default"] = [
-        {"id": "mail_now", "schedule": "immediate", "methods": ["mail"]},
-        {"id": "other_now", "schedule": "immediate", "methods": ["other"]},
+        {"id": "mail_now", "timing": {"mode": "immediate"}, "methods": ["mail"]},
+        {"id": "other_now", "timing": {"mode": "immediate"}, "methods": ["other"]},
     ]
     config_data.update(
         consumer=None, notification_definitions=data, policy=definitions.generate(data)

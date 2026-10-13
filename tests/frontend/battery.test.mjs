@@ -3,6 +3,7 @@ import {test} from "node:test";
 import {monitoringExample,baseSource} from "./monitoring-fixture.mjs";
 import {monitoringScope,monitoringTree,scopeChoice,setScopeChoice} from "../../custom_components/homeostatic/frontend/configuration.mjs";
 import {batteryProblem, brokenAutomationProblem, repairProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
+import {sourcesBrowser} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {sourceReporting} from "../../custom_components/homeostatic/frontend/reporting.mjs";
 
 test("battery is a reviewable source with an independent check choice",()=>{
@@ -59,4 +60,24 @@ test("a broken automation is described from its recorded finding",()=>{
   assert.match(open.nextStep,/Open the automation/);
   const ended=brokenAutomationProblem({kind:"broken_automation"},[{status:"pass",message:"This automation no longer names a missing entity."}]);
   assert.equal(ended.nextStep,"No action needed.");
+});
+
+
+test("Sources shows independent battery policy outcomes at 25 percent without a default verdict",()=>{
+  const data=monitoringExample();
+  const battery=baseSource("battery:registry:battery","Deck battery","battery",{entity_id:"sensor.deck_battery",attributes:{kind:["battery"],entity:["registry:battery"]},watched:false});
+  data.inventory.catalog.candidates.push(battery);
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${battery.node_id}`,sourcesView:"source",sourceDetail:{nodeId:battery.node_id,battery_condition:null,battery_conditions:[
+    {policy_id:"early",policy_name:"Early battery warning",condition:{status:"warn",reason:"battery_low",message:"Battery reads 25% under the 30% policy.",evidence:{battery_pct:25,threshold:30}}},
+    {policy_id:"standard",policy_name:"Standard battery warning",condition:{status:"pass",reason:"battery_ok",message:"Battery reads 25% above the 20% policy.",evidence:{battery_pct:25,threshold:20}}},
+  ],members:[{name:"Deck battery level",state:"25",restored:false}]}};
+  const html=sourcesBrowser(card);
+  assert.match(html,/<section class="source-condition needs-attention" data-battery-policy="early"><h3>Early battery warning<\/h3><h4>Battery low<\/h4>/);
+  assert.match(html,/<section class="source-condition" data-battery-policy="standard"><h3>Standard battery warning<\/h3><h4>No low battery reported<\/h4>/);
+  assert.match(html,/at or below 30%/);assert.match(html,/at or below 20%/);
+  assert.match(html,/Battery reads 25% under the 30% policy/);assert.match(html,/Battery reads 25% above the 20% policy/);
+  assert.match(html,/Deck battery level<\/td><td>25/);
+  assert.doesNotMatch(html,/<h3>No low battery reported|Battery monitoring is off|Battery condition unknown/);
+  card.sourceDetail.battery_conditions=[];
+  const unwatched=sourcesBrowser(card);assert.match(unwatched,/No enabled battery policy/);assert.match(unwatched,/Deck battery level/);assert.doesNotMatch(unwatched,/No low battery reported/);
 });

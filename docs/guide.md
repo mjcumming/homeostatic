@@ -22,64 +22,47 @@ If you haven't installed Homeostatic yet, start with [Install and first run](ins
 
 ## Choose what to watch
 
-A new install watches the connection of every integration, Home Assistant's Repairs, and automations that name an entity that no longer exists. Devices, entities, batteries, and vacuums stay off until you choose them in **Sources** or turn that check on under **Policies**. Start with a few things that matter, like the Zigbee integration and the devices on it you rely on, and widen from there.
+A new install watches integration, device and entity availability, Home Assistant's Repairs, and automations that name an entity that no longer exists. Batteries and vacuums start off. Temperature limits, thermostat progress and UPS checks are available when you add a policy and configure its sources and settings. All supplied policies start with no notification entries, and notifications are off.
 
 Every monitoring change goes through a review. Make your choices, select **Review changes** to see which sources start or stop being watched, then save. Nothing changes until you save.
 
 ### Watch a device or an entity
 
-1. Open **Sources** and find the device. Use **Find a source** to search, or **Group by** to browse by integration, by Home Assistant location, or by [TopoMation](https://github.com/mjcumming/topomation) location if you use it.
-2. Select the device and open its **Settings** tab.
-3. Under **Device availability**, choose **Always monitor this device**.
-4. Select **Review changes**, check the result, then select **Save changes**.
+Open **Sources** to inspect equipment. Use **Find a source** to search, or **Group by** to browse by integration, Home Assistant location, or [TopoMation](https://github.com/mjcumming/topomation) location. The source details show the policies that apply and link to their editors.
 
-A watched device gets one check across its selected entities. Homeostatic selects the device's ordinary entities, including buttons and hidden entities, and falls back to its diagnostic entities only when it has no ordinary ones. Configuration entities and disabled entities are left out, and so is anything you [exclude](#exclude-something). Expand the device in the tree to see which entities its check covers.
+In **Policies**, edit the device or entity availability policy. Under **Watch**, choose all eligible sources or selected sources. Where supported, you can also select areas or labels. The searchable picker accepts several selections and keeps them when you filter the list. Area and label selections include future matching sources.
 
-To watch a single entity, select it in the tree and open **Settings**. **Follow device monitoring** includes the entity in its device's check whenever the device is watched. **Monitor this entity** gives it a check of its own. If its device already includes it, that choice is under **More monitoring choices** as **Monitor this entity separately**.
+A watched device checks its selected entities together. Homeostatic selects ordinary entities, including buttons and hidden entities, and falls back to diagnostic entities only when it has no ordinary ones. Configuration entities and disabled entities are left out. An entity availability policy can also watch an entity independently.
 
-### Watch a whole integration
+### Watch integrations
 
-Open the integration in **Sources** and open **Settings**. **What to monitor** shows how many of its connections and devices are watched now. Select **Change** to choose:
+Edit the integration availability policy to watch all integrations or selected integrations. It watches setup failures, retries and sign-in problems. Integration availability has no area or label selection. Device and entity policies separately choose the equipment they watch.
 
-- Under **Integration problems**, **Monitor the connection** watches for setup failures and sign-in problems. A new install already does this for every integration.
-- Under **Device availability**, **All devices, including new devices** watches every current device and any the integration adds later. **Only devices I choose** leaves new devices unwatched until you pick them one by one.
+### Add or edit a monitoring policy
 
-A choice on one device wins over the integration's device default, so you can choose **Only devices I choose** and still watch the two devices that matter.
+Supplied policies and policies you create appear together in **Policies**. Each supports **Edit**, **Duplicate**, **Turn on** or **Turn off**, and **Delete**.
 
-**When to notify**, on the same page, sets the reporting choice for all the integration's current devices at once. See [Choose when each source reports](#choose-when-each-source-reports).
+1. Select **Add policy**, choose its **Monitoring type**, then select **Continue**.
+2. Give the policy a name and choose what to **Watch**. The available source choices and detection fields depend on its monitoring type.
+3. Set the supported detection parameters and choose whether the policy is **Enabled**.
+4. Add any [notification entries](#choose-when-each-policy-reports). Leave them empty for dashboard-only monitoring.
+5. Review changes and save.
 
-### Named monitoring policies
+The monitoring type stays fixed after creation. To watch a different kind of problem, add a policy. **Duplicate** retains the type and copies the settings into an independent disabled policy. Names, sources, detection settings and notifications remain editable. Pending edits stay available while you move between Policies and Notifications.
 
-Use a named policy for a reusable check with its own source selection and notifications. On **Policies**, choose a **Starting template** under **Named monitoring policies**, then select **Add monitoring policy**. Give it a name, choose its sources under **Sources and groups**, set any detection parameters, and select **Enable monitoring**. Each filled source condition must match; comma-separated values within one condition are alternatives. Area, label and integration groups include future matching sources.
+Renaming keeps current issues. Changing source selection or detection settings ends the affected monitoring and begins fresh evaluation. Disabling or deleting a policy ends its monitoring; History records **Monitoring ended**, without claiming that the problem cleared.
 
-The **Notifications** rows pair schedules with delivery methods. Leaving the rows empty means Dashboard only. Review changes and save when the complete policy is ready. Sources shows the named policies that apply and links back to their editors.
+Policies may overlap. Each keeps its own detection and notification settings, so two battery policies can use different thresholds for the same battery. Check the contributing policies when the result is more monitoring or notifications than you want.
 
-**Duplicate** makes an independent disabled copy. Rename keeps its current issues. Changing its check, sources or detection parameters ends its current issues as **Monitoring ended** and begins fresh evaluation. Disable or Delete ends its monitoring. Copies can overlap, so two temperature policies can produce separate issues for the same sensor. Pending edits remain available when you move between Policies and Notifications.
+### Restore a supplied policy
 
-### Other policies
-
-Some choices work better as a policy, such as watching every device in the garage area or leaving everything with a `test` label alone. A policy like this applies to current sources and to any that appear later. Turn Integrations, Devices, Batteries, Vacuums, Repairs, and Broken automations on or off from the top of Policies. Repairs and broken automations stay on until you turn them off. Turning one off leaves the other on.
-
-1. Open **Policies** and select **Add policy**.
-2. Under **Edit policy**, set **Action** to **Watch** or **Leave unmonitored**, and **Check** to **HA availability**, **Battery condition**, or **Vacuum error**.
-3. Fill in the conditions you need: source type, domain, device class, integration type, area ID, floor ID or label ID. A new policy starts paused and limited to devices, so set the conditions and enable it before you review. Every filled condition has to match. Separate alternative values within one condition with commas. To cover devices, set the source type to `device`; a policy without a source type matches integrations and entities only.
-4. Select **Review changes** to see which sources the policy picks up, then **Save choices**.
-
-**Leave unmonitored** policies are listed under **Leave unmonitored policies**. One source is changed in Sources. The fields are listed in the [reference](reference.md#monitoring-rules).
+Deleting a supplied policy leaves it deleted through restarts and updates. Updates also preserve edits to surviving policies. To bring back a deleted default, select **Restore defaults**, choose the policies to restore, then select **Restore selected** and review the changes. Other policies keep their settings. Restored policies have no notification entries and do not turn on global notification sending.
 
 ### Exclude something
 
-Some sources go unavailable as a matter of course: a TV's media player while the TV is off at the wall, or a feature an integration only offers in some modes. To stop watching one:
+Some sources go unavailable as a matter of course, such as a TV's media player while the TV is off at the wall. Open its contributing policies from **Sources** and narrow their selections, or disable a policy you no longer want. A source selected by another enabled policy continues to be watched. Review the resulting coverage before saving.
 
-- For an entity, choose **Exclude this entity** in its **Settings**. This also removes it from its device's check.
-- For a device, choose **Do not monitor this device**.
-- From an open device issue, select **Stop checking…** beside the entity under **Monitoring choices**. An entity's own issue offers **Stop checking this entity…**. Both open a draft in Sources; review and save the change there.
-
-Then review and save. An exclusion wins over any rule that would watch the source, and it follows the entity through renames. If an issue was open for it, the issue ends in History as **Monitoring ended**, which records that you stopped watching rather than that the problem cleared. To watch the source again, open its **Settings** and pick a watch choice.
-
-### Turn an integration off
-
-To stop every check for one integration, open it in **Sources**, open **Settings** and turn off **Allow monitoring for this integration**. That stops its connection check, its device checks and its separate entity checks, including those for devices it adds later. Your individual choices are kept, and they apply again when you turn the switch back on.
+To quiet an existing issue temporarily while keeping monitoring, use [Pause alerts](#pause-alerts).
 
 ### Helpers and groups
 
@@ -93,19 +76,19 @@ Batteries are watched separately from device availability. A device can be avail
 
 Homeostatic finds battery level sensors, low-battery binary sensors and charging sensors by their Home Assistant device class, and lists each battery in **Sources**. None are watched until you choose them.
 
-To watch one battery, select it in **Sources**, open **Settings**, choose **Monitor this battery**, then review and save. Check the entities paired with it first. When a device has more than one battery signal, Homeostatic lists them as separate batteries.
+Open the battery policy in **Policies**, choose selected batteries under **Watch**, and enable it. Check the entities paired with each battery in **Sources** first. When a device has more than one battery signal, Homeostatic lists them as separate batteries.
 
-To watch every battery, now and in future, open **Policies**, select **Monitor all batteries**, review the result and select **Save choices**. Batteries you've excluded one by one stay excluded.
+To watch every battery, now and in future, choose **All batteries**. Set **Battery level at or below (%)**, add any notifications, then review and save. The starting threshold is 20%.
 
-A watched battery opens an issue when its level is at or below 20%, or when its low-battery sensor reports low. A current charging report clears the issue even if the level is still low, and the issue comes back if charging stops before the level recovers. Homeostatic can't tell whether a battery was replaced or recharged.
+A watched battery opens an issue when its level is at or below the policy's threshold, or when its low-battery sensor reports low. A current charging report clears the issue even if the level is still low, and the issue comes back if charging stops before the level recovers. Homeostatic can't tell whether a battery was replaced or recharged.
 
 ## Watch UPS conditions
 
-Homeostatic can watch UPS devices supplied by Home Assistant's NUT or APC UPS Daemon integrations. In **Policies**, add a UPS starting template, choose its sources and enable it. Backup power, low reserve, battery replacement and faults have separate checks and notification choices. Groups can include UPS devices added later.
+Homeostatic can watch UPS devices supplied by Home Assistant's NUT or APC UPS Daemon integrations. In **Policies**, select **Add policy**, choose a UPS monitoring type, then choose its sources and enable it. Backup power, low reserve, battery replacement and faults have separate checks and notification choices. Groups can include UPS devices added later.
 
-For low reserve, choose both power modes together: a morning report while mains power is confirmed, and immediate notification with acknowledgment while running on backup power. Select the delivery methods for each row. Optional charge and runtime thresholds have separate raise and clear values. A current UPS low warning remains authoritative even if another measurement appears adequate.
+For low reserve, choose both power modes together: a morning report while mains power is confirmed, and immediate notification with acknowledgment while running on backup power. Set the timing and delivery methods in each notification entry. Optional charge and runtime thresholds have separate raise and clear values. A current UPS low warning remains authoritative even if another measurement appears adequate.
 
-If the same battery is already monitored, choose **Transfer overlapping battery monitoring to this reserve policy** and review which checks will end. Disabling the reserve policy keeps that transfer. Clearing the transfer choice or deleting its policy shows any original battery checks that would resume in the review.
+A UPS reserve policy can overlap a battery policy. Each continues to use its own detection and notifications. Disable or edit either policy if that overlap is unwanted.
 
 Issues groups open conditions under the UPS, with the most urgent first. Open **View issues** to acknowledge or pause one condition. Mains restoration can leave reserve low; charging does not clear a replacement warning or fault. If reserve becomes critical on backup power after an earlier acknowledgment, Homeostatic requests acknowledgment again and keeps any existing alert pause.
 
@@ -115,27 +98,25 @@ Runtime is an estimate supplied by the UPS. Missing readings remain visible, and
 
 A vacuum is watched separately from whether Home Assistant can reach it. Homeostatic lists each vacuum entity in **Sources**. None are watched until you choose them.
 
-To watch one vacuum, select it in **Sources**, open **Settings**, choose **Monitor this vacuum**, then review and save.
-
-To watch every vacuum, now and in future, open **Policies**, select **Monitor all vacuums**, review the result and select **Save choices**. Vacuums you've excluded one by one stay excluded.
+In **Policies**, edit the vacuum policy, choose selected vacuums or **All vacuums**, then enable it. Add any notification entries, review and save. All vacuums includes matching sources added later.
 
 A watched vacuum opens an issue when Home Assistant reports its activity as error. Cleaning, docked, idle, paused, or returning ends the issue. Unavailable, unknown, missing, and restored states leave an open issue open.
 
-The notice uses Immediate, including overnight, unless you set a **Source preference** for that vacuum. Immediate sends once. The message names the vacuum and, when Home Assistant has an area assigned to it, that area. The area is often the room where the vacuum docks.
+The policy starts without notifications. Add an immediate entry if you want to hear when an error begins, including overnight. The message names the vacuum and, when Home Assistant has an area assigned, that area. The area is often the room where the vacuum docks.
 
 A fault that never becomes the error activity stays an alert you write yourself.
 
 ## Watch temperature limits
 
-Choose the **Temperature limits** starting template in Policies and select **Add monitoring policy**. Select a temperature sensor or a group of temperature sensors, then enter a **Minimum**, a **Maximum**, or both, with the **Temperature unit**. Enter **Must persist for (seconds)** before enabling the policy. Zero means an immediate issue; no duration or temperature limit is selected for you.
+In **Policies**, select **Add policy** and choose **Temperature limits**. Select a temperature sensor or a group of temperature sensors, then enter a **Minimum**, a **Maximum**, or both, with the **Temperature unit**. Enter **Must persist for (seconds)** before enabling the policy. Zero means an immediate issue. Choose at least one temperature limit and review the duration before enabling the policy.
 
-A reading below the minimum or above the maximum must stay outside the range for the chosen duration before opening an issue. Equality is allowed. A reading back within the range clears the issue. A direct jump from below the minimum to above the maximum keeps the same issue because no in-range reading was seen. To monitor cold and warm conditions separately, create two policies with separate notification rows.
+A reading below the minimum or above the maximum must stay outside the range for the chosen duration before opening an issue. Equality is allowed. A reading back within the range clears the issue. A direct jump from below the minimum to above the maximum keeps the same issue because no in-range reading was seen. To monitor cold and warm conditions separately, create two policies with separate notification entries.
 
 For example, a garage policy could watch a chosen sensor below an owner-selected minimum for ten minutes. Duplicate that policy to watch another space, then change the sensor and settings before enabling the copy. Sensor placement and the limits you choose determine what the check means.
 
 ## Watch thermostat progress
 
-Choose the **Thermostat progress** starting template in Policies and select **Add monitoring policy**. Select the thermostat, review its temperature differences and **Progress window (seconds)**, then choose notification rows and enable the policy. An immediate schedule is useful when you want to hear about worsening conditions as they qualify.
+In **Policies**, select **Add policy** and choose **Thermostat progress**. Select the thermostat, review its temperature differences and **Progress window (seconds)**, then choose notification entries and enable the policy. An immediate notification is useful when you want to hear about worsening conditions as they qualify.
 
 The starting policy allows 2 °F of deviation from the thermostat's target. Outside that margin, it expects at least 2 °F of progress toward the target within an hour. Useful progress starts another hour. Moving 2 °F away from the best temperature reached opens an issue immediately. Repeatedly moving back and forth over the same temperatures doesn't count as new progress. You can change these settings for the system being watched.
 
@@ -185,7 +166,7 @@ Every Repair Home Assistant raises becomes an issue, whichever integration raise
 
 The issue ends when Home Assistant stops reporting the Repair, or when you select **Ignore** on it in Home Assistant. Ended Repairs go into History like any other issue, and Acknowledge and Pause alerts work on them. **Working on this equipment** doesn't apply, because a Repair isn't equipment.
 
-Repairs use the rows under **Notifications → Default notification rows → Repairs**. Existing Morning summary assignments are retained when settings are converted. With no notification rows, Repairs show only in the panel.
+Edit the **Repairs** policy to change its monitoring or add notification entries. It starts enabled with no entries, so Repairs initially show only in the panel.
 
 An error that shows up only in an automation's trace still won't appear as a Repair. Check those in the automation's traces. An automation that names an entity that no longer exists is a [broken automation](#broken-automations).
 
@@ -195,9 +176,9 @@ An automation stays on when a trigger, condition, or action names an entity that
 
 Homeostatic opens one issue for that automation. The issue uses the automation's name, lists the missing entity ids, and **Fix in Home Assistant** opens the automation in the editor. The issue ends when the automation no longer names a missing entity, the automation is removed, or the entity exists again. If the automation has other triggers, those can still run.
 
-The check is on until you turn it off under **Policies → Broken automations**. **Turn off** opens a draft you review and save, and **Monitor all automations** turns the check back on. Turning Repairs off leaves this check on.
+The **Broken automations** policy starts enabled. Use **Turn off** or **Turn on**, then review and save. Turning Repairs off leaves this policy on.
 
-These issues use **Notifications → Default notification rows → Broken automations**. Existing Morning summary assignments are retained when settings are converted. With no notification rows, the issue shows only in the panel.
+Add notification entries in the **Broken automations** policy. It starts with no entries, so these issues initially show only in the panel.
 
 An entity that is unavailable, unknown, or disabled is still an entity, so it does not open this issue. An entity id written only inside a template is not seen. Scripts are not checked.
 
@@ -207,7 +188,7 @@ Notifications are off on a new install, and issues still appear in the panel. Le
 
 Homeostatic requests delivery through configured Home Assistant destinations. A notification automation is optional.
 
-Use **Notifications → Schedules** to decide when to report and **Delivery methods** to choose destinations. Changes wait for **Review changes** and **Save settings**. Opening the page doesn't change reporting or enable requests. Existing generated reporting choices are converted for editing with their destinations and assignments intact. A custom notification policy stays active until you explicitly start, review and save its replacement.
+Use **Notifications** to create reusable delivery methods, then set timing and choose methods inside each policy. Changes wait for **Review changes** and **Save settings**. Opening a page, editing or previewing doesn't send messages or enable requests.
 
 ### Choose delivery methods
 
@@ -217,33 +198,26 @@ Fixed methods always use the selected destinations. Presence methods can choose 
 
 Home Assistant's generic notification listings don't identify every provider's delivery medium. Select a configured email or SMS provider appropriate to the field; a generic notification entity or action alone doesn't establish email or SMS support. Voice requires a satellite that supports announcements or a media player that supports playback with the chosen TTS provider.
 
-### Set up schedules
+### Choose when each policy reports
 
-Select **Add schedule** or edit one of the starting definitions:
+Open a policy in **Policies** and find **Notifications**. Select **Add another notification**, choose **When to notify**, then select one or more **Delivery methods** for that entry.
 
-| Schedule | What happens |
+| Timing | Settings |
 | --- | --- |
-| Immediate | Sent right away, overnight included |
-| Immediate with acknowledgment | Sent right away, then repeated at your chosen interval until someone acknowledges it or the problem clears; the starting interval is 30 minutes |
-| Morning summary | Listed in the morning summary, 08:00 by default |
-| Evening summary | Listed in the evening summary, 18:00 by default |
-| Weekly summary | Listed in the weekly summary, Sunday 09:00 by default |
+| Immediately | Sent when the problem begins, including overnight. Optionally select **Remind until acknowledged** and enter a positive interval in minutes. |
+| Scheduled summary | Choose a local time and one or more weekdays in the displayed installation time zone. |
 
-Scheduled reports use one local time on the weekdays you select, in the displayed time zone. A schedule contains no destinations. Rename preserves every assignment, while Duplicate creates a new definition without assignments. Editing a shared definition affects its listed uses. Deleting one in use requires a replacement or explicit removal of its notification rows.
+Add another entry to report the same problem in a different way: for example, immediately to phones and at 08:00 on weekdays to email. Each entry owns its timing, so editing it doesn't change another policy. A method may be shared by several entries or policies. **Manage delivery methods** opens Notifications while keeping your policy draft.
 
-A summary lists new problems and those still open, with how long each has been open. Problems that have already cleared aren't listed, and an empty summary isn't sent.
+Every saved entry needs at least one method. **Remove notification** removes only that entry. With no entries, the policy shows **Dashboard only** and continues monitoring.
 
-Both immediate schedules include overnight delivery. Companion app requests use critical alerts on iPhone and the **Homeostatic urgent** notification channel on Android. Voice follows the schedule too, including reminders and overnight delivery.
+A scheduled summary lists eligible new problems and problems still open, including ones already reported immediately or acknowledged. It shows how long each has been open. Cleared problems and empty summaries are omitted. Acknowledgment stops reminders across the issue's entries; it doesn't remove an open problem from later summaries.
 
-### Choose when each source reports
+Immediate delivery includes overnight. Companion app requests use critical alerts on iPhone and the **Homeostatic urgent** notification channel on Android. Voice follows the entry's timing too, including reminders and overnight delivery.
 
-Open a named monitoring policy in **Policies**. Its **Notifications** rows each pair one schedule with one or more delivery methods. Add an immediate row for phones and a morning row for email to report the same problem both ways. Reuse a method across schedules or a schedule across methods. With no rows, the policy monitors for the dashboard only.
+Delivery methods are shared. Review shows which policies use an edited method. Deleting one in use requires choosing a replacement or removing its affected notification entries in the same reviewed change.
 
-**Notifications → Default notification rows** sets the rows for existing monitoring without a source override, Repairs and broken automations. Converted settings preserve existing source and condition choices: the household starting choice is Weekly summary, Repairs and broken automations start at Morning summary, and vacuum errors start at Immediate unless overridden. Conversion doesn't add destinations to an unconfigured choice.
-
-Independent notification rows remain independent when issues are grouped. Acknowledgment applies to the issue across its rows: it stops acknowledgment reminders while scheduled reports continue to include eligible open problems.
-
-Alerts made from automations carry their reporting choice in the automation; see [Alerts from automations](automation-situations.md).
+Alerts made from automations keep their reporting selection in the automation; see [Alerts from automations](automation-situations.md).
 
 ### Send a test notification
 
@@ -253,13 +227,13 @@ For a saved method, select **Preview delivery method** to see its exact current 
 
 ### Turn notifications on
 
-1. Under **Outgoing requests**, tick **Enable notification requests** after configuring the methods and rows you want.
+1. Under **Outgoing requests**, tick **Enable notification requests** after configuring the methods and entries you want.
 2. Select **Review changes**. The review says how many notifications the problems open right now would produce.
 3. Select **Save settings**.
 
-Problems already open follow their notification rows when you save. Immediate rows can request new messages, combined into summaries per row and method, while report rows wait for their next occurrence. Problems already cleared are left out. A reporting edit cancels superseded pending requests and withdraws replaceable messages without clearing the issue. A name-only edit doesn't restart reporting.
+Problems already open follow their notification entries when you save. Immediate entries can request new messages, combined into summaries per entry and method, while scheduled entries wait for their next occurrence. Problems already cleared are left out. A reporting edit cancels superseded pending requests and withdraws replaceable messages without clearing the issue. A name-only edit doesn't restart reporting.
 
-After a Home Assistant restart, Homeostatic holds notifications until your integrations have finished loading, for at least **Wait after startup** and at most **Maximum startup wait**. Alerting requests join summaries per row and method. Pending requests keep their already selected destinations even if presence changes during the restart. [Restart and activation](events.md#restart-and-activation) has the details.
+After a Home Assistant restart, Homeostatic holds notifications until your integrations have finished loading, for at least **Wait after startup** and at most **Maximum startup wait**. Alerting requests join summaries per entry and method. Pending requests keep their already selected destinations even if presence changes during the restart. [Restart and activation](events.md#restart-and-activation) has the details.
 
 ### When a notification arrives
 
@@ -275,7 +249,7 @@ Three controls handle problems you already know about. They're in the issue and 
 
 ### Acknowledge
 
-**Acknowledge…** on an open issue records that someone has seen it, for everyone who gets its notifications. It stops the repeats for **Immediate with acknowledgment**, and the issue shows when it was acknowledged. The issue stays open until the problem clears. You can also acknowledge from the phone notification (see [When a notification arrives](#when-a-notification-arrives)).
+**Acknowledge…** on an open issue records that someone has seen it, for everyone who gets its notifications. It stops the repeats for **Remind until acknowledged**, and the issue shows when it was acknowledged. The issue stays open until the problem clears. You can also acknowledge from the phone notification (see [When a notification arrives](#when-a-notification-arrives)).
 
 ### Pause alerts
 

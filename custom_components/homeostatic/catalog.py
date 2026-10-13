@@ -42,6 +42,7 @@ class Source:
     battery_warning_entity: str | None = None
     battery_charging_entity: str | None = None
     monitoring_policy: str | None = None
+    monitoring_source: str | None = None
     ups_entities: tuple[tuple[str, str], ...] = ()
     ups_platform: str | None = None
     ups_disabled_entities: tuple[str, ...] = ()
@@ -148,7 +149,7 @@ class Source:
             importance=self.importance,
             depends_on=(
                 tuple(Edge(to=target) for target in self.requirements)
-                if self.kind == "device" and self.watched
+                if self.watched and (self.kind == "device" or self.monitoring_policy)
                 else (Edge(to=f"entry:{self.owner_id}"),)
                 if self.owner_id and self.watched
                 else ()

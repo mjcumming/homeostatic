@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
@@ -105,6 +106,17 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
             parameters = asdict(ThermostatParameters.from_data(parameters))
         elif check == "ups_reserve":
             parameters = ReserveParameters.from_data(parameters).data()
+        elif check == "battery":
+            threshold = parameters.get("threshold", 20)
+            if (
+                parameters.keys() - {"threshold"}
+                or isinstance(threshold, bool)
+                or not isinstance(threshold, (int, float))
+                or not math.isfinite(threshold)
+                or not 0 <= threshold <= 100
+            ):
+                raise ValueError("Battery threshold must be a percentage from 0 to 100")
+            parameters = {"threshold": float(threshold)}
         elif parameters:
             raise ValueError("This check has no configurable detection parameters")
         enabled = row.get("enabled", False)
