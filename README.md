@@ -57,7 +57,7 @@ Each policy decides when and how to notify. Add an immediate notification, a sch
 | Scheduled summary | Open problems at a local time on the weekdays you choose, including problems already reported immediately or acknowledged. Cleared problems and empty summaries are omitted. |
 | No notification entries | Dashboard only; monitoring continues. |
 
-Create reusable delivery methods in **Notifications** for phones, voice, email or SMS destinations configured in Home Assistant. Supplied policies have no notification entries, and the global notification switch starts off. After a Home Assistant restart, Homeostatic waits for your integrations to finish loading, then combines waiting notifications into summaries.
+Create delivery methods inside a policy notification entry, or manage shared methods in **Notifications**, for phones, voice, email or SMS destinations configured in Home Assistant. Supplied policies have no notification entries, and the global notification switch starts off. After a Home Assistant restart, Homeostatic waits for your integrations to finish loading, then combines waiting notifications into summaries.
 
 Controls for problems you already know about:
 
@@ -130,7 +130,7 @@ The full list is in [Known limitations](docs/troubleshooting.md#known-limitation
 2. Open **Homeostatic** in the sidebar. Availability, Repairs and broken-automation monitoring are already on; notifications are off.
 3. Open **Policies** and review what the supplied policies watch. Edit their sources and settings, or use **Add policy** to choose another monitoring type. Select **Save changes** to apply edits.
 4. Enable battery or vacuum monitoring if wanted. Temperature, thermostat and UPS policies need sources and detection settings before use. Supplied and custom policies use the same editor.
-5. Leave notifications off while you review the issues. When ready, create delivery methods in **Notifications**, add notification entries to the policies you want to hear from, then enable the global notification switch and save.
+5. Leave notifications off while you review the issues. When ready, add notification entries to the policies you want to hear from, choose or create their delivery methods within the policy, then enable the global notification switch in **Notifications** and save.
 
 The [user guide](docs/guide.md) covers the rest: one integration's devices, policies, batteries, vacuums, notifications and the controls.
 

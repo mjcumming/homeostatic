@@ -1,13 +1,13 @@
-import {sourceReporting} from "./reporting.mjs?v=71";
-import {integrationSettings} from "./source-settings.mjs?v=71";
-import {applicablePolicyLinks} from "./reusable-editors.mjs?v=71";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=71";
-import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=71";
-import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=71";
-import {batteryProblem, deviceProblem, entityProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=71";
+import {sourceReporting} from "./reporting.mjs?v=72";
+import {integrationSettings} from "./source-settings.mjs?v=72";
+import {applicablePolicyLinks} from "./reusable-editors.mjs?v=72";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=72";
+import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=72";
+import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=72";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=72";
 
-import {deviceAvailability} from "./device-availability.mjs?v=71";
-import {upsSourceSummary} from "./ups.mjs?v=71";
+import {deviceAvailability} from "./device-availability.mjs?v=72";
+import {upsSourceSummary} from "./ups.mjs?v=72";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);

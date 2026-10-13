@@ -48,7 +48,7 @@ from .vacuum import observe as vacuum_observation
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=71"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=72"
 PANEL_ELEMENT = "homeostatic-panel-v25"
 
 
@@ -550,29 +550,34 @@ def websocket_source(
     )
 
 
-@websocket_command({vol.Required("type"): "homeostatic/configuration"})
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/configuration",
+        vol.Optional("section", default="all"): vol.In(["all", "settings", "delivery"]),
+    }
+)
 @require_admin
 def websocket_configuration(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Provide the current saved settings without a second configuration store."""
+    """Provide saved settings separately from delivery discovery."""
     hass.async_create_task(_async_configuration(hass, connection, msg))
 
 
 async def _async_configuration(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Include current people and destinations in the administrator editor."""
+    """Discover notification capabilities only when their editor needs them."""
     runtime = hass.data[DATA_DASHBOARD].runtime
     if runtime is None:
         connection.send_error(msg["id"], "not_ready", "Homeostatic is not loaded")
         return
-    current, revision = _configuration(runtime)
-    settings = Settings.from_data(current)
-    consumer = hass.states.get(settings.consumer) if settings.consumer else None
-    connection.send_result(
-        msg["id"],
-        {
+    result: dict[str, Any] = {}
+    if msg["section"] != "delivery":
+        _, revision = _configuration(runtime)
+        settings = runtime.settings
+        consumer = hass.states.get(settings.consumer) if settings.consumer else None
+        result = {
             "revision": revision,
             "rules": rule_data(hass, settings),
             "monitoring_policy_templates": policy_templates(),
@@ -590,9 +595,18 @@ async def _async_configuration(
                 for label in lr.async_get(hass).labels.values()
             ],
             "settings": _editable_settings(settings),
-            "notification_people": await available_people(hass),
-            "delivery_targets": delivery_targets(hass),
-            "notification_destinations": [
+            "alerts": {
+                "notifications": settings.notifications,
+                "consumer": settings.consumer,
+                "consumer_state": consumer.state if consumer else None,
+                "policy": settings.policy,
+            },
+        }
+    if msg["section"] != "settings":
+        result.update(
+            notification_people=await available_people(hass),
+            delivery_targets=delivery_targets(hass),
+            notification_destinations=[
                 {
                     "channel": item.channel,
                     "name": item.name,
@@ -602,22 +616,12 @@ async def _async_configuration(
                 }
                 for item in destinations(hass)
             ],
-            "alerts": {
-                "notifications": settings.notifications,
-                "consumer": settings.consumer,
-                "consumer_state": consumer.state if consumer else None,
-                "policy": settings.policy,
-            },
-            "consumers": [
-                {
-                    "entity_id": state.entity_id,
-                    "name": state.name,
-                    "state": state.state,
-                }
+            consumers=[
+                {"entity_id": state.entity_id, "name": state.name, "state": state.state}
                 for state in hass.states.async_all("automation")
             ],
-        },
-    )
+        )
+    connection.send_result(msg["id"], result)
 
 
 @websocket_command(

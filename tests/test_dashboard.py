@@ -1051,3 +1051,45 @@ async def test_unmonitored_sources_show_observations_without_enrollment(
     assert not runtime.episodes
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()
+
+
+async def test_configuration_sections_keep_delivery_discovery_off_policy_reads(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Saved policy reads neither rediscover delivery nor revalidate settings."""
+    await start_monitor(hass, config_entry)
+    client = await hass_ws_client(hass)
+    with (
+        patch.object(
+            dashboard_module, "available_people", new=AsyncMock(return_value=[])
+        ) as people,
+        patch.object(dashboard_module, "delivery_targets", return_value=[]) as targets,
+        patch.object(dashboard_module, "destinations", return_value=[]) as routes,
+        patch.object(
+            dashboard_module.Settings,
+            "from_data",
+            side_effect=AssertionError("Unexpected revalidation"),
+        ),
+    ):
+        await client.send_json(
+            {"id": 1, "type": "homeostatic/configuration", "section": "settings"}
+        )
+        saved = (await client.receive_json())["result"]
+        assert "settings" in saved
+        assert "delivery_targets" not in saved
+        people.assert_not_awaited()
+        targets.assert_not_called()
+        routes.assert_not_called()
+        await client.send_json(
+            {"id": 2, "type": "homeostatic/configuration", "section": "delivery"}
+        )
+        delivery = (await client.receive_json())["result"]
+        assert "settings" not in delivery
+        assert delivery["delivery_targets"] == []
+        people.assert_awaited_once()
+        targets.assert_called_once()
+        routes.assert_called_once()
+    await client.close()
+    assert await hass.config_entries.async_unload(config_entry.entry_id)

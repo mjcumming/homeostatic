@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.8.0b4] - 2026-10-13
+
+### Fixed
+
+- Load saved policies without rediscovering notification destinations, people or automations. Discover delivery choices when a method editor opens, retaining drafts on discovery failure.
+- Create and edit delivery methods inside a policy. Keep the policy selected, restore only the method's pre-open draft on Cancel, select the method on Use method, and save the complete draft once. Show the policies affected by shared-method edits.
+
 ## [1.8.0b3] - 2026-10-13
 
 ### Fixed

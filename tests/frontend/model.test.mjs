@@ -1753,3 +1753,38 @@ test("selected device refresh coalesces reads and notices access changes",async(
   await card.loadSource();
   assert.equal(pending.length,3);
 });
+
+
+test("policy configuration loads without delivery discovery and discovery preserves the draft",async(t)=>{
+  const elements=new Map();
+  globalThis.HTMLElement=class {};
+  globalThis.customElements={get:key=>elements.get(key),define:(key,value)=>elements.set(key,value)};
+  globalThis.window={};
+  t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
+  await import("../../custom_components/homeostatic/frontend/homeostatic.js?configuration-test");
+  const card=Object.create(elements.get("homeostatic-card-v21").prototype);
+  const calls=[],pending=[];
+  Object.assign(card,{page:"policies",render(){},_hass:{connection:{},callWS(request){calls.push(request);return new Promise((resolve,reject)=>pending.push({resolve,reject}));}}});
+  const settings={monitoring_policies:[{id:"one",name:"Saved policy"}],notification_definitions:{methods:{}}};
+  const loading=card.loadConfiguration();
+  assert.deepEqual(calls,[{type:"homeostatic/configuration",section:"settings"}]);
+  pending[0].resolve({revision:"one",rules:[],settings,alerts:{notifications:false,consumer:null}});
+  await loading;
+  card.settingsDraft.monitoring_policies[0].name="Unsaved policy";
+  const draft=card.settingsDraft;
+  const discovery=card.loadDeliveryConfiguration();
+  await card.loadDeliveryConfiguration();
+  assert.equal(calls.length,2);
+  assert.deepEqual(calls[1],{type:"homeostatic/configuration",section:"delivery"});
+  pending[1].reject(Error("Discovery failed"));
+  await discovery;
+  assert.equal(card.deliveryError,"Discovery failed");
+  assert.equal(card.settingsDraft,draft);
+  const retry=card.loadDeliveryConfiguration(true);
+  pending[2].resolve({delivery_targets:[{channel:"phone:one",name:"Owner phone"}],notification_people:[],notification_destinations:[],consumers:[]});
+  await retry;
+  assert.equal(card.settingsDraft.monitoring_policies[0].name,"Unsaved policy");
+  assert.equal(card.deliveryError,null);
+  await card.loadDeliveryConfiguration();
+  assert.equal(calls.length,3);
+});

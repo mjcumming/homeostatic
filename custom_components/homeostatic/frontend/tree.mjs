@@ -1,6 +1,6 @@
 /** Presentation helpers for the expandable location tree. */
 
-import {escapeHtml as esc} from "./model.mjs?v=71";
+import {escapeHtml as esc} from "./model.mjs?v=72";
 
 export function setBranchExpanded(collapsed, locationId, expanded) {
   const next = new Set(collapsed);

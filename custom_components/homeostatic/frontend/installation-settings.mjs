@@ -1,8 +1,8 @@
-import {escapeHtml as esc} from "./model.mjs?v=71";
-import {editReusable, namedNotifications, reusableChanges} from "./reusable-editors.mjs?v=71";
-import {sourceSettingsFooter} from "./source-settings.mjs?v=71";
+import {escapeHtml as esc} from "./model.mjs?v=72";
+import {editReusable, namedNotifications, reusableChanges} from "./reusable-editors.mjs?v=72";
+import {sourceSettingsFooter} from "./source-settings.mjs?v=72";
 
-import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=71";
+import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=72";
 
 export const TIMINGS = [
   ["Recovery", "settle", "Wait for related failures", "Allow dependencies that are still uncertain to settle before opening a separate problem."],

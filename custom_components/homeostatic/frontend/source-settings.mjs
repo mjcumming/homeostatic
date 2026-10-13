@@ -1,6 +1,6 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=71";
-import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=71";
-import {REPORTING, reportingChoices} from "./reporting.mjs?v=71";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=72";
+import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=72";
+import {REPORTING, reportingChoices} from "./reporting.mjs?v=72";
 
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const reportingLabel = id => REPORTING.find(row=>row[0]===id)?.[1] || id;
@@ -114,6 +114,7 @@ export async function previewSourceSettings(card) {
 /** Save the complete draft once; validation and rollback remain server-side. */
 export async function saveSourceSettings(card) {
   if(!card.settingsDraft||card.settingsBusy||card.configBusy||card.current.status!=="current")return;
+  if(card.policyMethodEditor){card.sourceSettingsError="Use or cancel the delivery method before saving.";card.render();return;}
   if([...(card.main.querySelectorAll?.(".installation-editor input, .installation-editor select")||[])].some(input=>!input.reportValidity()))return;
   const emptySelection=(card.settingsDraft.monitoring_policies||[]).find(policy=>Object.values(policy.match||{}).some(values=>Array.isArray(values)&&values.length===0));
   if(emptySelection){card.sourceSettingsError=`Choose at least one item for ${emptySelection.name}, or choose All.`;card.render();return;}
@@ -136,6 +137,7 @@ export function sourceSettingsAction(card,button) {
   else {
     card.configDraft=structuredClone(card.configuration.rules);
     card.settingsDraft=structuredClone(card.configuration.settings);
+    card.policyMethodEditor=null;card.deliveryPicker=null;
     card.configPreview=null;card.settingsPreview=null;card.sourceSettingsReview=null;
     card.sourceSettingsError=null;card.sourceSettingsNotice=null;card.render();
   }

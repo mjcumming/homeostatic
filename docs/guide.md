@@ -48,7 +48,7 @@ Supplied policies and policies you create appear together in **Policies**. Each 
 4. Add any [notification entries](#choose-when-each-policy-reports). Leave them empty for dashboard-only monitoring.
 5. Select **Save changes**.
 
-The monitoring type stays fixed after creation. To watch a different kind of problem, add a policy. **Duplicate** retains the type and copies the settings into an independent disabled policy. Names, sources, detection settings and notifications remain editable. Pending edits stay available while you move between Policies and Notifications.
+The monitoring type stays fixed after creation. To watch a different kind of problem, add a policy. **Duplicate** retains the type and copies the settings into an independent disabled policy. Names, sources, detection settings and notifications remain editable. Pending edits stay available while you move between Policies and Notifications. In a policy's notification entry, choose **Send using**, or select **New method** or **Edit** to configure delivery within the policy. **Use method** selects it and returns to the policy; **Cancel** restores the method's earlier draft. **Save changes** applies the complete draft. Editing a shared method also affects the policies listed in its editor.
 
 Renaming keeps current issues. Changing source selection or detection settings ends the affected monitoring and begins fresh evaluation. Disabling or deleting a policy ends its monitoring; History records **Monitoring ended**, without claiming that the problem cleared.
 

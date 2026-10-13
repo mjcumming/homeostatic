@@ -350,3 +350,69 @@ for(const [type,text] of [["repair","Watches all Home Assistant Repairs"],["brok
   const html=namedPolicies(card);assert.ok(html.includes(text));
   assert.doesNotMatch(html,/data-definition-field="watch"|When it becomes a problem|data-definition-field="check"/);
 });
+
+
+test("policy method editing returns to the same policy and saves one complete draft",async()=>{
+  const {card,calls}=fixture();
+  card.definitionSelection={kind:"policies",id:"policy-1"};
+  card.settingsDraft.monitoring_policies[0].name="Pending policy name";
+  const scope="policy:policy-1";
+  click(card,"new-policy-method","methods","",{rowScope:scope,rowId:"phone"});
+  const id=card.policyMethodEditor.id;
+  assert.equal(card.page,"policies");
+  assert.deepEqual(card.definitionSelection,{kind:"policies",id:"policy-1"});
+  change(card,"methods",id,"name","Kitchen announcements");
+  card.settingsDraft.notification_definitions.methods[id].destinations=["satellite:kitchen"];
+  assert.match(namedPolicies(card),/Delivery method in policy/);
+  assert.doesNotMatch(namedPolicies(card),/Manage delivery methods|data-row-method="method-1"/);
+  await saveSourceSettings(card);
+  assert.equal(calls.length,0);
+  assert.match(card.sourceSettingsError,/Use or cancel/);
+  click(card,"use-policy-method","methods",id);
+  assert.equal(card.policyMethodEditor,null);
+  assert.deepEqual(card.settingsDraft.monitoring_policies[0].notifications[0].methods,["phone",id]);
+  assert.equal(card.settingsDraft.monitoring_policies[0].name,"Pending policy name");
+  assert.match(namedPolicies(card),/Kitchen announcements/);
+  await saveSourceSettings(card);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].type,"homeostatic/save_settings");
+  assert.equal(calls[0].settings.monitoring_policies[0].name,"Pending policy name");
+  assert.equal(calls[0].settings.notification_definitions.methods[id].name,"Kitchen announcements");
+});
+
+test("cancelling a method restores the pre-open method draft and retains policy edits",()=>{
+  const {card}=fixture();
+  card.definitionSelection={kind:"policies",id:"policy-1"};
+  const policy=card.settingsDraft.monitoring_policies[0];
+  policy.name="Edited policy";
+  card.settingsDraft.notification_definitions.methods.phone.name="Earlier unsaved method edit";
+  const before=sourceSettingsProposal(card);
+  click(card,"edit-policy-method","methods","phone",{rowScope:"policy:policy-1",rowId:"phone"});
+  assert.match(namedPolicies(card),/Changes to this shared method apply to/);
+  change(card,"methods","phone","name","Cancelled method edit");
+  click(card,"close","policies","policy-1");
+  assert.deepEqual(card.definitionSelection,{kind:"policies",id:"policy-1"});
+  click(card,"cancel-policy-method","methods","phone");
+  assert.deepEqual(sourceSettingsProposal(card),before);
+  click(card,"new-policy-method","methods","",{rowScope:"policy:policy-1",rowId:"phone"});
+  const id=card.policyMethodEditor.id;
+  click(card,"cancel-policy-method","methods",id);
+  assert.deepEqual(sourceSettingsProposal(card),before);
+});
+
+test("policy notification setup starts inline when no delivery definitions exist",()=>{
+  const {card,calls}=fixture();
+  card.definitionSelection={kind:"policies",id:"policy-1"};
+  card.settingsDraft.notification_definitions=null;
+  card.settingsDraft.monitoring_policies[0].notifications=[];
+  assert.match(namedPolicies(card),/Add notification/);
+  assert.doesNotMatch(namedPolicies(card),/Open Notifications|Manage delivery methods/);
+  click(card,"add-row","","",{rowScope:"policy:policy-1"});
+  assert.equal(card.settingsDraft.notification_definitions.timezone,"America/Chicago");
+  const row=card.settingsDraft.monitoring_policies[0].notifications[0];
+  click(card,"new-policy-method","methods","",{rowScope:"policy:policy-1",rowId:row.id});
+  click(card,"use-policy-method","methods",card.policyMethodEditor.id);
+  assert.match(card.sourceSettingsError,/choose a destination/);
+  assert.equal(row.methods.length,0);
+  assert.equal(calls.length,0);
+});

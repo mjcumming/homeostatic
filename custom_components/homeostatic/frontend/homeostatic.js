@@ -1,26 +1,26 @@
-import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, isBrokenOffPolicy, isRepairsOffPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newBrokenOffPolicy, newGroupPolicy, newRepairsOffPolicy} from "./monitoring-policies.mjs?v=71";
-import {sourceSettingsAction, sourceSettingsFooter, saveSourceSettings, settingsErrorMessage} from "./source-settings.mjs?v=71";
-import {editReusable, namedPolicies} from "./reusable-editors.mjs?v=71";
-import {groupedUpsIssues, upsProblem} from "./ups.mjs?v=71";
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=71";
+import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, isBrokenOffPolicy, isRepairsOffPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newBrokenOffPolicy, newGroupPolicy, newRepairsOffPolicy} from "./monitoring-policies.mjs?v=72";
+import {sourceSettingsAction, sourceSettingsFooter, saveSourceSettings, settingsErrorMessage} from "./source-settings.mjs?v=72";
+import {editReusable, namedPolicies} from "./reusable-editors.mjs?v=72";
+import {groupedUpsIssues, upsProblem} from "./ups.mjs?v=72";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=72";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
-  sourceMap} from "./model.mjs?v=71";
-import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=71";
-import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=71";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=71";
-import {diagnosticOverview} from "./evidence.mjs?v=71";
+  sourceMap} from "./model.mjs?v=72";
+import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=72";
+import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=72";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=72";
+import {diagnosticOverview} from "./evidence.mjs?v=72";
 import {editCatalogRule, monitoringScope,
-  scopeChoice, setScopeChoice} from "./configuration.mjs?v=71";
-import {styles} from "./styles.mjs?v=71";
-import {locationBranch, setBranchExpanded} from "./tree.mjs?v=71";
+  scopeChoice, setScopeChoice} from "./configuration.mjs?v=72";
+import {styles} from "./styles.mjs?v=72";
+import {locationBranch, setBranchExpanded} from "./tree.mjs?v=72";
 
-import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=71";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=71";
+import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=72";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=72";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=71";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=72";
 
-import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=71";
+import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=72";
 
 const VIEWS = ["overview", "sources", "house", "coverage", "problems", "history", "notifications", "policies", "configuration"];
 const status = (value) => {
@@ -96,6 +96,9 @@ class HomeostaticCard extends HTMLElement {
     this.sourceSettingsNotice = null;
     this.settingsSection = "timing";
     this.settingsDraft = null;
+    this.policyMethodEditor = null;
+    this.deliveryBusy = false;
+    this.deliveryError = null;
     this.settingsPreview = null;
     this.settingsBusy = false;
     this.settingsError = null;
@@ -490,7 +493,7 @@ class HomeostaticCard extends HTMLElement {
     const saved = this.configuration.alerts;
     const draft = this.alertDraft;
     const policy = saved.policy;
-    const consumers = this.configuration.consumers;
+    const consumers = this.configuration.consumers || [];
     const selected = consumers.some((item) => item.entity_id === draft.consumer);
     const options = [`<option value="">Choose a consumer automation</option>`,
       ...(!selected && draft.consumer ? [`<option value="${esc(draft.consumer)}" selected>${esc(draft.consumer)} (missing)</option>`] : []),
@@ -537,11 +540,11 @@ class HomeostaticCard extends HTMLElement {
     this.configError = null;
     this.render();
     try {
-      const result = await this._hass.callWS({type:"homeostatic/configuration"});
+      const result = await this._hass.callWS({type:"homeostatic/configuration",section:"settings"});
       const previous = this.configuration;
       const monitoringDirty = previous && JSON.stringify(this.configDraft) !== JSON.stringify(previous.rules);
       const settingsDirty = previous && JSON.stringify(this.settingsDraft) !== JSON.stringify(previous.settings);
-      this.configuration = result;
+      this.configuration = {...result,...Object.fromEntries(["delivery_targets","notification_people","notification_destinations","consumers"].filter(key=>previous && key in previous).map(key=>[key,previous[key]]))};
       if (reset !== "settings" || !monitoringDirty) this.configDraft = structuredClone(result.rules);
       if (reset !== "monitoring" || !settingsDirty) this.settingsDraft = structuredClone(result.settings);
       this.settingsPreview = null;
@@ -555,6 +558,23 @@ class HomeostaticCard extends HTMLElement {
     } finally {
       this.configBusy = false;
       if (["configuration","notifications","policies","sources"].includes(this.page)) this.render();
+    }
+  }
+
+  async loadDeliveryConfiguration(retry = false) {
+    if (!this.configuration || this.deliveryBusy || !retry && this.configuration.delivery_targets) return;
+    const connection = this._hass.connection;
+    this.deliveryBusy = true;
+    this.deliveryError = null;
+    this.render();
+    try {
+      const result = await this._hass.callWS({type:"homeostatic/configuration",section:"delivery"});
+      if (this._hass.connection === connection && this.configuration) Object.assign(this.configuration,result);
+    } catch (error) {
+      this.deliveryError = error?.message ?? "Could not load notification destinations.";
+    } finally {
+      this.deliveryBusy = false;
+      this.render();
     }
   }
 
