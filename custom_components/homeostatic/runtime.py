@@ -121,7 +121,7 @@ from .temperature import (
     TemperatureMonitor,
     ThermostatParameters,
 )
-from .ups import MAPPINGS, UpsMonitor, retained_candidates
+from .ups import MAPPINGS, UpsMonitor, platform_identities, retained_candidates
 from .ups_parameters import ReserveParameters
 from .vacuum import observe as vacuum_observation
 
@@ -1487,11 +1487,7 @@ class Runtime:
         device_id = next(iter(source.attributes.get("device", ())), None)
         device = devices.async_get(device_id) if device_id else None
         identities = (
-            {
-                identity
-                for domain, identity in device.identifiers
-                if domain == source.ups_platform
-            }
+            set(platform_identities(device.identifiers, source.ups_platform))
             if device
             else set()
         )

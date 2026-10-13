@@ -115,6 +115,44 @@ def test_measurements(
     )
 
 
+async def test_longer_device_identifiers_do_not_stop_discovery(
+    hass: HomeAssistant,
+) -> None:
+    """A three-field identifier must not stop discovery of a normal UPS."""
+    nut = MockConfigEntry(domain="nut", state=ConfigEntryState.NOT_LOADED)
+    homekit = MockConfigEntry(domain="homekit", state=ConfigEntryState.NOT_LOADED)
+    nut.add_to_hass(hass)
+    homekit.add_to_hass(hass)
+    devices = dr.async_get(hass)
+    ups = devices.async_get_or_create(
+        config_entry_id=nut.entry_id,
+        identifiers={("nut", "office"), ("homekit", "bridge", "homekit.bridge")},
+        name="Office UPS",
+    )
+    devices.async_get_or_create(
+        config_entry_id=homekit.entry_id,
+        identifiers={("homekit", "only", "homekit.bridge")},
+        name="Bridge",
+    )
+    registry = er.async_get(hass)
+    for role in ("status", "charge", "runtime"):
+        entity = registry.async_get_or_create(
+            "sensor",
+            "nut",
+            f"office_{MAPPINGS['nut'][role]}",
+            config_entry=nut,
+            device_id=ups.id,
+        )
+        hass.states.async_set(entity.entity_id, "50", {"unit_of_measurement": "%"})
+    found = [
+        source
+        for source in inventory(hass, Settings.from_data({}), {}).values()
+        if source.kind == "ups"
+    ]
+    assert len(found) == 4
+    assert {source.ups_name for source in found} == {"Office UPS"}
+
+
 @pytest.mark.parametrize("platform", ["nut", "apcupsd"])
 async def test_registry_mapping_and_pairing(hass: HomeAssistant, platform: str) -> None:
     """Two devices on one entry keep identities and pair only their own roles."""

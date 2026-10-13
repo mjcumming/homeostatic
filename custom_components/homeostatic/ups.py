@@ -1,7 +1,7 @@
 """Shared UPS conditions supplied by verified Home Assistant entity mappings."""
 
 import math
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -68,17 +68,28 @@ _FLAGS = {
 }
 
 
+def platform_identities(
+    identifiers: Iterable[Sequence[str]], platform: str | None
+) -> list[str]:
+    """Return device ids for one integration.
+
+    Core types an identifier as a pair and accepts a longer tuple. Reading
+    every identifier as two fields stops refresh for the whole installation.
+    """
+    return [
+        identifier[1]
+        for identifier in identifiers
+        if len(identifier) >= 2 and identifier[0] == platform
+    ]
+
+
 def candidates(hass: HomeAssistant, entities: dict[str, Source]) -> dict[str, Source]:
     """Discover supported roles by full registry identity within each UPS."""
     registry, devices = er.async_get(hass), dr.async_get(hass)
     result = {}
     for device in devices.devices:
         for platform, mapping in MAPPINGS.items():
-            identities = [
-                identity
-                for domain, identity in device.identifiers
-                if domain == platform
-            ]
+            identities = platform_identities(device.identifiers, platform)
             if len(identities) != 1:
                 continue
             identity = identities[0]

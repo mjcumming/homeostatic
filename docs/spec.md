@@ -237,7 +237,7 @@ reporting preferences and attention rules govern delivery.
 
 ### UPS condition producer
 
-Homeostatic maps NUT and APC UPS Daemon entities into one UPS producer. Discovery uses the integration's full entity unique ids and HA device identity, including separate devices on one server. A candidate requires mapped raw status and battery charge or remaining runtime. Entity names never identify roles. Disabled diagnostics remain disabled and are shown as optional missing evidence. Conditions begin unmonitored until a named policy selects them.
+Homeostatic maps NUT and APC UPS Daemon entities into one UPS producer. Discovery uses the integration's full entity unique ids and the device identifier's integration and id, including separate devices on one server. Further identifier fields are ignored. A candidate requires mapped raw status and battery charge or remaining runtime. Entity names never identify roles. Disabled diagnostics remain disabled and are shown as optional missing evidence. Conditions begin unmonitored until a named policy selects them.
 
 Each UPS condition is an independent edgeless node: `ups_power`, `ups_reserve`, `ups_battery_replacement`, or `ups_fault`. Named policies create stable device/condition identities qualified by policy identity and detection settings. Backup operation warns, replacement warns, and explicit faults fail; NUT bypass warns about lost protection. Mains input alone cannot prove output to connected equipment. No power wiring or equipment dependency is inferred.
 

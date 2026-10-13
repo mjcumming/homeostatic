@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-13
+
+### Fixed
+
+- Continue health checks when a device identifier has extra fields, including a HomeKit bridge. UPS matching still uses the integration and device id.
+
 ## [1.7.0] - 2026-10-13
 
 ### Added
