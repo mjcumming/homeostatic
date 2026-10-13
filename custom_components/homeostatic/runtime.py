@@ -2023,7 +2023,7 @@ class Runtime:
             if not isinstance(channel, str) or channel not in permitted:
                 continue
             if not channel.startswith(
-                ("phone:", "notify:", "satellite:", "tts:", "sms:")
+                ("phone:", "notify:", "satellite:", "tts:", "sms:", "service:")
             ):
                 continue
             attempt = f"{delivery_id}:{channel}"

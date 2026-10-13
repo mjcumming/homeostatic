@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-04
 
+**Later decision:** The required review-before-save UI is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.
+
 **Supersedes:** the Repairs row in [ADR 0048](0048-policy-checks.md) that stayed always on and linked to Notifications. [ADR 0044](0044-report-home-assistant-repairs-as-issues.md) still reports every Repair while this check is on.
 
 ## Context

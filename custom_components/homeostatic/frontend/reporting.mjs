@@ -1,6 +1,6 @@
-import {escapeHtml as esc, sourceMap} from "./model.mjs?v=70";
-import {sourceNotificationDefinitions,applicablePolicyLinks} from "./reusable-editors.mjs?v=70";
-import {sourceSettingsFooter} from "./source-settings.mjs?v=70";
+import {escapeHtml as esc, sourceMap} from "./model.mjs?v=71";
+import {sourceNotificationDefinitions,applicablePolicyLinks} from "./reusable-editors.mjs?v=71";
+import {sourceSettingsFooter} from "./source-settings.mjs?v=71";
 
 export const REPORTING = [
   ["immediate","Immediate","Notify once, including overnight."],
@@ -86,7 +86,7 @@ export function reportingSettings(card) {
     const person=people.find(item=>item.id===id);
     const available=destinationChoices(routes,person?.user_id,choices.people[id]);
     const missing=choices.people[id].filter(channel=>!available.some(route=>route.channels.includes(channel)));
-    return `<section class="installation-group"><h4>${esc(person?.name||id)}</h4>${available.map(route=>`<div class="notification-route"><label class="installation-toggle"><input type="checkbox" data-reporting-channel="${esc(route.channel)}" data-reporting-person="${esc(id)}"${route.selected?' checked':''}${!route.available&&!route.selected?' disabled':''}> ${esc(route.name)}${route.selected>1?' — multiple saved routes; clear and reselect to use one':''}${route.available?'':' — unavailable'}</label>${route.available?`<button type="button" class="link" data-notification-test="${esc(route.channel)}">Send test</button>`:""}</div>`).join("")}${missing.map(channel=>`<label class="installation-toggle"><input type="checkbox" checked data-reporting-channel="${esc(channel)}" data-reporting-person="${esc(id)}"> ${esc(channel)} — unavailable; remove this destination</label>`).join("")}${!choices.people[id].length?'<p class="note">Choose a destination for this person.</p>':''}<button type="button" class="link" data-reporting-remove="${esc(id)}">Remove person</button></section>`;
+    return `<section class="installation-group"><h4>${esc(person?.name||id)}</h4>${available.map(route=>`<div class="notification-route"><label class="installation-toggle"><input type="checkbox" data-reporting-channel="${esc(route.channel)}" data-reporting-person="${esc(id)}"${route.selected?' checked':''}${!route.available&&!route.selected?' disabled':''}> ${esc(route.name)}${route.selected>1?' — multiple saved routes; clear and reselect to use one':''}${route.available?'':' — unavailable'}</label>${route.available?``:""}</div>`).join("")}${missing.map(channel=>`<label class="installation-toggle"><input type="checkbox" checked data-reporting-channel="${esc(channel)}" data-reporting-person="${esc(id)}"> ${esc(channel)} — unavailable; remove this destination</label>`).join("")}${!choices.people[id].length?'<p class="note">Choose a destination for this person.</p>':''}<button type="button" class="link" data-reporting-remove="${esc(id)}">Remove person</button></section>`;
   }).join("");
   const profiles=REPORTING.filter(([id])=>id!=="dashboard").map(([id,name,help])=>{
     const profile=choices.profiles[id];
@@ -99,10 +99,10 @@ export function sourceReporting(card,node) {
   const source=node.source;
   if(source?.automation_url)return `<section class="source-section"><h3>Reporting</h3><p>${esc(label(source.alert_profile))} · Managed by its HA automation</p>${source.alert_reporting_status==="requests_disabled"?'<p class="note">Outgoing requests are disabled.</p>':source.alert_reporting_status==="missing_destinations"?'<p class="note">This profile has no configured destination. Set up people and destinations in Notifications.</p>':""}<a href="${esc(source.automation_url)}">Edit alert automation</a><p>Reusable delivery methods are configured in Notifications.</p></section>`;
   if(!card.settingsDraft)return "";
-  if(card.configuration?.monitoring_policy_version===1)return `<section class="source-section"><p>Each monitoring policy owns its notifications. Delivery methods are managed in Notifications.</p>${applicablePolicyLinks(card,source)}<button type="button" class="link" data-page="policies">Review policies</button></section>`;
+  if(card.configuration?.monitoring_policy_version===1)return `<section class="source-section"><p>Each monitoring policy owns its notifications. Delivery methods are managed in Notifications.</p>${applicablePolicyLinks(card,source)}<button type="button" class="link" data-page="policies">View policies</button></section>`;
   if(card.settingsDraft.notification_definitions&&source&&source.kind!=="function")return sourceNotificationDefinitions(card,source)+sourceSettingsFooter(card);
   const choices=reportingChoices(card);
-  const setup=!card.settingsDraft.reporting?'<p class="note">Choose a preference, then review and save to apply it. The current policy stays active until then.</p>':"";
+  const setup=!card.settingsDraft.reporting?'<p class="note">Choose a preference, then save to apply it. The current policy stays active until then.</p>':"";
   if(node.family){
     const devices=node.children.filter(child=>child.source?.kind==="device").map(child=>child.source.node_id);
     if(!devices.length)return "";
@@ -117,9 +117,9 @@ export function sourceReporting(card,node) {
 }
 function reportingFooter(card) {
   if(!card.settingsDraft.reporting)return '<p class="small">Shared schedules and recipients are configured in Notifications.</p>';
-  const changes=reportingChanges(card.configuration.settings.reporting,card.settingsDraft.reporting,card),preview=card.settingsPreview;
+  const changes=reportingChanges(card.configuration.settings.reporting,card.settingsDraft.reporting,card);
   if(!changes.length)return "";
-  return `<div class="installation-actions"><p>${changes.length} reporting changes awaiting review.</p>${preview?`<section class="settings-preview"><h4>Review reporting changes</h4><ul>${changes.map(([name,from,to])=>`<li>${esc(name)}: ${esc(from)} → ${esc(to)}</li>`).join("")}</ul><p>Applies to ${preview.reporting_assignments} explicit source preferences. ${preview.requests_now} requests would be produced now. Requests ${card.settingsDraft.notifications?'enabled':'remain off'}.</p></section>`:""}${card.settingsError?`<p role="alert">${esc(card.settingsError)}</p>`:""}<button type="button" class="button" data-action="${preview?'save-settings':'preview-settings'}"${card.settingsBusy?' disabled':''}>${preview?'Save reporting':'Review reporting changes'}</button></div>`;
+  return `<div class="installation-actions"><p>${changes.length} unsaved reporting changes.</p>${card.settingsError?`<p role="alert">${esc(card.settingsError)}</p>`:""}<button type="button" class="button primary" data-action="save-settings"${card.settingsBusy?' disabled':''}>Save changes</button></div>`;
 }
 export function editReporting(card,event) {
   const target=event.target.closest?.("[data-reporting-review],[data-reporting-remove]")||event.target;
@@ -133,7 +133,7 @@ export function editReporting(card,event) {
   const choices=card.settingsDraft.reporting;
   if(target.hasAttribute("data-reporting-review")){
     card.settingsPreview=null;card.settingsError=null;card.settingsNotice=null;
-    card.previewSettings();return true;
+    card.saveSettings();return true;
   }else if(target.dataset.reportingRemove){const id=target.dataset.reportingRemove;delete choices.people[id];for(const p of Object.values(choices.profiles))p.people=p.people.filter(x=>x!==id);}
   else if(target.hasAttribute("data-reporting-add")){if(target.value)choices.people[target.value]=[];}
   else if(target.hasAttribute("data-reporting-default"))choices.default=target.value;

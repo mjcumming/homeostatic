@@ -3,6 +3,8 @@
 **Status:** Accepted; test-setting migration requirements superseded by [ADR 0058](0058-unified-policy-lifecycle.md)
 **Date:** 2026-10-13
 
+**Later decision:** Required review-before-save UI is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.
+
 **Partially supersedes:** the reusable schedule library, schedule references and schedule-management UI in [ADR 0055](0055-separate-notification-schedules-and-methods.md), and the corresponding notification-selection fields in [ADR 0054](0054-reusable-monitoring-policy-editor.md). Independent reporting, issue controls, delivery methods and reviewed-save safeguards remain in effect.
 
 **Later decision:** ADR 0058 removes migration of existing test settings from this redesign. The preservation and conversion requirements in Existing notification owners, Editing and conversion, and the implementation checklist below are historical; they no longer block implementation or require legacy override controls. Policy-owned timing, shared delivery methods, normal reviewed edits and persistence of the new model remain required. This waiver does not authorize a live reset or deployment.

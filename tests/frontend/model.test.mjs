@@ -80,7 +80,7 @@ test("notification settings expose reporting directly for older saved policies",
   const person=installationSettings(card);
   assert.match(person,/Michael/);
   assert.match(person,/iPhone/);
-  assert.match(person,/data-notification-test="phone:device-1"/);
+  assert.doesNotMatch(person,/data-notification-test/);
   assert.doesNotMatch(person,/data-setting-path="notifications" disabled/);
 });
 
@@ -1451,13 +1451,13 @@ test("a broad check is on, off, paused, or an unsaved draft", () => {
   assert.doesNotMatch(html,/Edit policy|Remove rule|Source type/);
   const draft={id:"batteries",action:"attach",enabled:true,match:{kind:["battery"]},checks:["battery"]};
   const drafted=monitoringPolicies({configDraft:[draft],configuration:{rules:[]},current:{data:{}}});
-  assert.match(drafted,/Review and save before this takes effect/);
+  assert.match(drafted,/Save before this takes effect/);
   assert.match(drafted,/data-action="clear-battery-rule"/);
   assert.doesNotMatch(drafted,/data-action="add-battery-rule"/);
   const off={id:"repairs_off",action:"exclude",enabled:true,match:{kind:["repair"]},checks:["repair"]};
   const stopped=monitoringPolicies({configDraft:[off],configuration:{rules:[]},current:{data:{}}});
   assert.match(stopped,/Monitor all repairs/);
-  assert.match(stopped,/Review and save before this takes effect/);
+  assert.match(stopped,/Save before this takes effect/);
   assert.doesNotMatch(stopped,/Edit policy|When to report them/);
   const broken={id:"broken_off",action:"exclude",enabled:true,match:{kind:["broken_automation"]},checks:["broken_automation"]};
   const brokenStopped=monitoringPolicies({configDraft:[broken],configuration:{rules:[]},current:{data:{}}});

@@ -34,7 +34,7 @@ export async function runMonitoringPolicyScenario(card) {
   expect(!root.querySelector(".config-advanced"),"The raw catalog editor is not on Policies");
   expect(visible().includes("Turn off") && !visible().includes("When to report them"),"Repairs uses the same on or off control");
   root.querySelector('[data-action="turn-off-repairs"]').click();
-  expect(visible().includes("Monitor all repairs") && visible().includes("Review and save before this takes effect"),"Turning Repairs off stays a draft");
+  expect(visible().includes("Monitor all repairs") && visible().includes("Save before this takes effect"),"Turning Repairs off stays a draft");
   expect(!root.querySelector(".policy-edit"),"The Repairs switch does not open the match-field editor");
   root.querySelector('[data-action="monitor-repairs"]').click();
   expect(!card.configDraft.some(rule => rule.checks?.[0] === "repair") && visible().includes("Turn off"),"Monitor all repairs removes that draft");
@@ -59,7 +59,7 @@ export async function runMonitoringPolicyScenario(card) {
   expect(card.configPreview === null,"Turning a check on invalidates the preview");
   expect(!root.querySelector('[data-action="save-configuration"]'),"Changed drafts need a fresh review");
   expect(card.configDraft.at(-1).enabled && card.configDraft.at(-1).match.kind[0] === "integration","Monitor all drafts an enabled broad check");
-  expect(visible().includes("Review and save before this takes effect"),"A draft check is not described as saved");
+  expect(visible().includes("Save before this takes effect"),"A draft check is not described as saved");
   await card.previewConfiguration();
   await card.saveConfiguration();
   expect(saved.length === 19 && saved.at(-1).match.kind[0] === "integration","Save applies the reviewed check");
@@ -87,7 +87,7 @@ export async function runMonitoringPolicyScenario(card) {
     JSON.stringify(battery.checks) === JSON.stringify(["battery"]),"The action drafts a broad battery check");
   expect(saved.length === 19,"Adding a battery policy must not save it");
   expect(!root.querySelector('[data-action="add-battery-rule"]'),"An existing broad battery policy must not be duplicated");
-  expect(visible().includes("Review and save before this takes effect"),"The draft must not be described as saved monitoring");
+  expect(visible().includes("Save before this takes effect"),"The draft must not be described as saved monitoring");
   await card.previewConfiguration();
   expect(requests.at(-1).type === "homeostatic/preview_configuration" && requests.at(-1).rules.length === 20,
     "Review must include the broad battery policy and all existing choices");

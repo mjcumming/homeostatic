@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-09-28
 
+**Later decision:** Required review-before-save UI is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.
+
 ## Context
 
 The owner found the installation-wide catalog editor inside Eero's Settings and

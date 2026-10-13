@@ -65,11 +65,11 @@ async function open(kind="maintenance"){
 document.querySelector("#run").addEventListener("click",async()=>{
   const passed=[];
   try{
-    fail=false;hold=null;card.tools.close();card.tools.query="";card.tools.resolution="";card.tools.page=0;reset();publish(data);card.setConfig({view:"overview",navigation:false});await flush();
-    expect([...root.querySelectorAll('.nav button')].map(button=>button.textContent).join('|')==="Overview|Issues|Sources|Notifications|Settings|History","History must be the rightmost Homeostatic tab");
+    fail=false;hold=null;card.tools.close();card.tools.query="";card.tools.resolution="";card.tools.page=0;reset();publish(data);card.setConfig({view:"overview",navigation:true});await flush();
+    expect([...root.querySelectorAll('.nav button')].map(button=>button.textContent).join('|')==="Overview|Issues|Sources|Policies|Notifications|Settings|History","History must be the rightmost Homeostatic tab");
     const generated=await customElements.get('ll-strategy-dashboard-homeostatic').generate();
-    expect(generated.views.map(view=>view.path).join('|')==="overview|issues|sources|notifications|settings|history","History must be the last generated HA dashboard view");
-    expect(generated.views[1].cards[0].view==="issues"&&generated.views[4].cards[0].view==="settings","Generated cards use current page names");
+    expect(generated.views.map(view=>view.path).join('|')==="overview|issues|sources|policies|notifications|settings|history","History must be the last generated HA dashboard view");
+    expect(generated.views[1].cards[0].view==="issues"&&generated.views[5].cards[0].view==="settings","Generated cards use current page names");
     card.page="history";card.render();
     expect(root.querySelectorAll('main [data-history]').length===20,"History must render at most 20 rows");
     root.querySelector('[data-tool="next"]').click();root.querySelector('[data-tool="next"]').click();
@@ -82,7 +82,7 @@ document.querySelector("#run").addEventListener("click",async()=>{
     expect(card.tools.body.textContent.includes("Home Assistant reported an availability problem with Family Room Frigate"),"History must explain the reported condition plainly");
     expect(!card.tools.body.textContent.includes("non-unavailable") && !card.tools.body.textContent.includes("does not identify"),"History must omit technical clearance and evidence caveats");
     expect(card.tools.body.querySelector(".history-times dt").textContent==="Observed","History must identify observation times");
-    expect(card.tools.body.querySelector(".history-times dd").textContent.includes("25 hr"),"History must give a compact duration");
+    expect(card.tools.body.querySelector(".history-times dd").textContent.includes("1 hr"),"History must give a compact duration");
     expect(!card.tools.body.querySelector("details"),"History must not repeat the saved finding in a dropdown");
     card.tools.showHistory("ended-1");
     expect(card.tools.dialog.querySelector("h2").textContent==="Former controller","Deleted device must retain its saved name");
@@ -96,19 +96,20 @@ document.querySelector("#run").addEventListener("click",async()=>{
     card.dialog.close();await flush();
     passed.push("History-last navigation, pagination, search, focus, outcomes, safe text and related problem navigation");
 
-    await open();expect(submit().disabled,"Maintenance cannot start without expiry and preview");
+    await open();expect(submit().disabled,"Maintenance cannot start without expiry");
     expect(card.tools.body.textContent.includes("Existing problems and alerts continue"),"Maintenance must describe what remains active");
     card.tools.body.querySelector('[data-duration="30"]').click();
     expect(!!card.tools.body.querySelector('[name="untilLocal"]').value,"Short choice must populate an explicit expiry");
-    expect(submit().disabled,"Short choice still requires scope review");
+    expect(!submit().disabled,"Valid duration must allow direct apply");
+    expect(!card.tools.body.querySelector('[data-tool="preview"]'),"Preview button remains");
     field("untilLocal",end());field("reason","Replacing battery");field("includeDependents",true);
-    await card.tools.preview();expect(!submit().disabled,"Successful preview should enable maintenance");
-    expect(card.tools.body.textContent.includes("Configured home functions in scope: Motion lighting"),"Preview must name affected functions");
-    expect(card.tools.body.textContent.includes("1 existing problem remains active"),"Preview must distinguish existing problems");
-    publish(data);expect(submit().disabled,"Live update must invalidate a preview");
+    expect(!submit().disabled,"Completed form should allow maintenance");
+
+
+    publish(data);expect(!submit().disabled,"Live update must preserve valid form");
     expect(card.tools.body.querySelector('[name="reason"]').value==="Replacing battery","Live update must preserve the draft");
-    await card.tools.preview();field("includeDependents",false);expect(submit().disabled,"Scope edit must invalidate preview");
-    await card.tools.preview();
+    field("includeDependents",false);expect(!submit().disabled,"Scope edit must remain directly applicable");
+
     let release;hold={promise:new Promise(resolve=>{release=resolve;})};
     const before=calls.filter(c=>c.service==="start_maintenance").length;
     const first=card.tools.execute();await card.tools.execute();
@@ -116,7 +117,7 @@ document.querySelector("#run").addEventListener("click",async()=>{
     release();await first;hold=null;
     expect(card.tools.body.textContent.includes("Saved by Home Assistant"),"Durable result must be visible");
     expect(card.tools.body.textContent.includes("Replacing battery"),"Saved reason must be visible");
-    passed.push("Maintenance expiry, scope preview, draft preservation, preview invalidation, duplicate prevention and saved result");
+    passed.push("Maintenance expiry, direct apply, draft preservation, duplicate prevention and saved result");
 
     await open("shelve");expect(card.tools.body.textContent.includes("including urgent alerts"),"Shelving must explain urgent scope");
     expect(card.tools.body.textContent.includes("this problem only")&&card.tools.body.textContent.includes("Other problems on this equipment are unaffected"),"Pause explicitly applies only to the selected problem");
@@ -181,5 +182,6 @@ document.querySelector("#run").addEventListener("click",async()=>{
     result.textContent="PASS\n"+passed.join("\n");
   }catch(error){result.textContent="FAIL: "+error.stack+"\n"+passed.join("\n");}
 });
+if(new URLSearchParams(location.search).has("run"))document.querySelector("#run").click();
 </script>
 </html>

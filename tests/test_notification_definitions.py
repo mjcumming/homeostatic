@@ -617,7 +617,7 @@ async def test_missing_voice_target_fails_separately(hass: HomeAssistant) -> Non
 
 
 def test_discovery_reports_capabilities_without_calls(hass: HomeAssistant) -> None:
-    """Discovery keeps unavailable targets visible and offers required SMS fields."""
+    """Discovery keeps unavailable targets visible without guessing SMS capability."""
     registry = er.async_get(hass)
     voice = registry.async_get_or_create(
         "assist_satellite", "test", "voice", supported_features=1
@@ -641,7 +641,8 @@ def test_discovery_reports_capabilities_without_calls(hass: HomeAssistant) -> No
     assert known[f"satellite:{voice.id}"]["available"] is True
     assert known[f"tts:{provider.id}:{player.id}"]["replace"] is False
     assert known[f"notify:{email.id}"]["acknowledgment"] is False
-    assert known["sms:twilio:"]["requires_target"] is True
+    assert known["service:twilio"]["requires_target"] is False
+    assert known["service:twilio"]["type"] == "notification"
     hass.states.async_set(voice.entity_id, "unavailable")
     unavailable = {
         item["channel"]: item for item in notification_routes.delivery_targets(hass)

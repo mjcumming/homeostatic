@@ -2,13 +2,13 @@
 
 This page describes the policy editor: monitoring policies contain their own notification timing and select reusable delivery methods. [The specification](spec.md) owns the behavior contract. Example thresholds, times and destinations illustrate the forms and are not supplied monitoring defaults.
 
-Policies supports adding, editing, duplicating, disabling and deleting named definitions. Each policy answers what to watch, when it is a problem, and when and how to notify. The editors preserve one complete draft across navigation and use Review changes followed by Save changes. Source details link to contributing policies. The coordinated policy-page direction uses one immediately visible list for supplied and user-created policies, with the same editor and actions for both.
+Policies supports adding, editing, duplicating, disabling and deleting named definitions. Each policy answers what to watch, when it is a problem, and when and how to notify. The editors preserve one complete draft across navigation and use one Save changes action, with validation and conflict protection handled during saving. Source details link to contributing policies. The coordinated policy-page direction uses one immediately visible list for supplied and user-created policies, with the same editor and actions for both.
 
 ## Navigation
 
-Keep Policies and Notifications as separate main pages. Policies contains monitoring definitions and their notification choices. Notifications contains the reusable delivery-method list, global notification switch, delivery status and explicit delivery tests. Remove the Schedules tab and Default notification rows section. Sources shows which policies apply and links to the relevant editor. The Notifications page name and route can remain; this design does not require another top-level page.
+Keep Policies and Notifications as separate main pages. Policies contains monitoring definitions and their notification choices. Notifications contains the reusable delivery-method list, global notification switch, delivery status and a Send test action inside each saved method's editor. Remove the Schedules tab and Default notification rows section. Sources shows which policies apply and links to the relevant editor. The Notifications page name and route can remain; this design does not require another top-level page.
 
-Use a compact list with an editor beside it on a wide screen. On a phone, open that same editor as a full-width view with a Back action. Retain the current Home Assistant typography, colors and form controls. Opening an item is read-only until a field changes. Keep review and save at the bottom of the editor, with pending changes visible while navigating.
+Use a compact list that opens a focused editor with a Back action. An unsaved new delivery method does not also appear as a saved list entry beside the editor. Retain the current Home Assistant typography, colors and form controls. Opening an item is read-only until a field changes. Keep Save changes at the bottom of the editor, with pending changes visible while navigating. All configuration pages, retained legacy editors and maintenance forms apply their completed form without a separate review step.
 
 ## Policies
 
@@ -18,8 +18,8 @@ Choose the monitoring type when adding a policy. Once created, that type is fixe
 
 The editor has three groups:
 
-1. What to watch: name, read-only type for an existing policy, and source selection. Build the available choices from the selected type's capabilities. The reviewed patterns are all eligible sources, selected sources, sources in areas, or sources with labels; show only those supported by that type. Allow multiple selected sources, areas or labels where supported by that type. The combined mockup with searchable multiple-selection checklists, areas grouped by floor, compact selection summaries and any-of matching within selected areas or labels was positively reviewed. Group summaries explain that future matches are included. The runtime capability and matching contract still needs validation for each monitoring type.
-2. When it is a problem: supported fields appropriate to that monitoring type, with units and duration beside their values.
+1. What to watch: name, read-only type for an existing policy, and source selection. Build the available choices from the selected type's capabilities. The reviewed patterns are all eligible sources, selected sources, sources in areas, or sources with labels; show only those supported by that type. Allow multiple selected sources, areas or labels where supported by that type. The combined mockup with searchable multiple-selection checklists, areas grouped by floor, compact selection summaries and any-of matching within selected areas or labels was positively reviewed. Group summaries explain that future matches are included. Use type-specific picker labels, headings and help: Choose integrations, Choose devices, Choose entities or the corresponding supported type. Selected integrations are domain/family choices covering current and future configured connections, with account names only as supporting detail. Repairs and Broken automations have a fixed all-sources scope and show explanatory text instead of a dropdown.
+2. When it is a problem: supported fields appropriate to that monitoring type, with units and duration beside their values. Omit this group when it contains no configurable setting, including Repairs and Broken automations.
 3. Notifications: independent entries, each with its own timing and one or more selected delivery methods.
 
 Example policy form:
@@ -48,24 +48,24 @@ Remove notification
 
 Add another notification
 
-Review changes                              Cancel
+Save changes                                Cancel
 ```
 
-Use the reviewed inline layout as the initial direction: show When to notify and Deliver using together for each entry. Immediately reveals an optional Remind until acknowledged checkbox and, when selected, a positive interval in minutes. Scheduled summary reveals a time and weekday selection. Show the installation time zone and the next report time from saved settings or a reviewed draft. State that immediate delivery includes overnight, and scheduled summaries include eligible problems still open even if they were reported immediately.
+Use the reviewed inline layout as the initial direction: show When to notify and Deliver using together for each entry. Immediately reveals an optional Remind until acknowledged checkbox and, when selected, a positive interval in minutes. Scheduled summary reveals a time and weekday selection. Show the installation time zone and the next report time from saved settings or the current validated draft. State that immediate delivery includes overnight, and scheduled summaries include eligible problems still open even if they were reported immediately.
 
 Delivery methods use labeled checkboxes, allowing more than one selection per entry. Add another notification inserts an independent entry; Remove notification removes only that entry. Require at least one method per saved entry, at least one weekday and a time for a scheduled summary, and a positive interval for reminders. With no entries, show Dashboard only and explain that monitoring continues without notifications. Do not add a schedule name field or a schedule-management link.
 
-Manage delivery methods opens Notifications while retaining the pending policy draft. Final review includes new methods needed by that draft. Method names describe reusable destination choices. Changing timing here affects only this entry; the method itself remains shared. Compact summaries that expand for editing were also explored in the prototype, but are not required for the initial implementation.
+Manage delivery methods opens Notifications while retaining the pending policy draft. Save validates new methods needed by that draft. Method names describe reusable destination choices. Changing timing here affects only this entry; the method itself remains shared. Compact summaries that expand for editing were also explored in the prototype, but are not required for the initial implementation.
 
-The review states which sources will be watched, which existing alerts will end after a detection change, and each notification entry's timing and selected methods. It identifies affected open issues and the uses of changed shared methods. The saved result follows that exact review.
+Save captures and validates the exact complete draft, checks the saved revision and applies it under the existing save lock and rollback protection. A validation or apply error retains the draft and explains what needs attention. Shared-method uses remain visible in the editor. Optional deletion confirmations identify consequences without requiring a general review screen.
 
 ### Supplied policies and overlap
 
 Use the same Notifications section in supplied policies, including Repairs and Broken automations, as in user-created policies. Each policy owns its choices directly. The test-phase redesign does not require a migration editor, inherited general defaults, or source-override compatibility controls. Remove those conversion tasks from the implementation plan.
 
-Supplied policies can be deleted without special protection. Keep templates available for selective restoration. Updates preserve edits and deletions, and do not automatically recreate removed defaults. Deliberately overlapping policies are allowed and operate independently. Identify their contributing policies so owners can adjust excessive notifications themselves; do not add overlap prevention, priorities, forced replacement or silent merging.
+Supplied policies can be deleted without special protection. Keep templates available for selective restoration. Restore selected adds missing defaults to the draft; Save changes applies them. Updates preserve edits and deletions, and do not automatically recreate removed defaults. Deliberately overlapping policies are allowed and operate independently. Identify their contributing policies so owners can adjust excessive notifications themselves; do not add overlap prevention, priorities, forced replacement or silent merging.
 
-The global notification switch remains in Notifications. Turning it off does not remove policy entries or stop monitoring. The page retains delivery status and explicit tests; viewing or editing a policy never sends a test. Start integration, device and entity availability, Repairs and broken automations enabled. Batteries and vacuums start off; temperature limits, thermostat deviation and UPS monitoring are templates requiring setup. All supplied policies start with no notification entries, and global notification sending starts off.
+The global notification switch remains in Notifications. Turning it off does not remove policy entries or stop monitoring. The page retains delivery status and saved-method tests; viewing or editing a policy never sends a test. Start integration, device and entity availability, Repairs and broken automations enabled. Batteries and vacuums start off; temperature limits, thermostat deviation and UPS monitoring are templates requiring setup. All supplied policies start with no notification entries, and global notification sending starts off.
 
 ## UPS monitoring
 
@@ -100,78 +100,76 @@ Open in Home Assistant        View monitoring policy
 Technical details                                      >
 ```
 
-Show the actual triggering measurement and configured threshold in the condition details. Present a useful next step based on the reported condition. Other conditions on the UPS keep their own acknowledgment and alert controls. An equipment-wide pause with a scope preview is follow-up work; current controls act on the selected condition.
+Show the actual triggering measurement and configured threshold in the condition details. Present a useful next step based on the reported condition. Other conditions on the UPS keep their own acknowledgment and alert controls. An equipment-wide pause is follow-up work; current controls act on the selected condition.
 
 When mains returns, keep the reserve issue open until its own readings recover. Show charging as context. A missing runtime is labeled with its cause when known: Not supported, Enable the runtime entity, or Runtime reading unavailable. Missing measurements never become zero readings or a healthy indication. Technical details contains integration-specific flags, entity ids and evidence conflicts.
 
 Policies owns reusable UPS configuration. Sources lists applicable policies and links to that editor. Supported conditions are offered before optional numeric fields; threshold inputs include units and separate raise/clear values. A UPS reserve policy may overlap a generic battery policy. Both retain their independent settings; the redesigned editor does not require a transfer of battery ownership.
 
-The reserve notification preview shows both power modes together. Each entry keeps its mode selector and contains editable timing and selected delivery methods:
+The reserve notification editor shows both power modes together. Each entry keeps its mode selector and contains editable timing and selected delivery methods:
 
 | When reserve is low | When to notify | Delivery methods |
 | --- | --- | --- |
 | Mains power confirmed | Scheduled summary; selected days at 08:00 | Selected methods |
 | Backup power confirmed | Immediately; remind every 30 minutes until acknowledged | Selected methods |
 
-Below the entries, state the currently applicable mode and timing. If power mode is unknown, show that uncertainty instead of selecting the mains entry. Review includes the measurements establishing mode, the selected destinations, pending changes and any effects on existing issues. Both timing choices are edited here. Changing their presentation preserves the existing mains/backup eligibility and renewed-attention behavior.
+Below the entries, state the currently applicable mode and timing. If power mode is unknown, show that uncertainty instead of selecting the mains entry. The editor shows the measurements establishing mode and the selected destinations, with pending changes retained until Save. Both timing choices are edited here. Changing their presentation preserves the existing mains/backup eligibility and renewed-attention behavior.
 
 Keep the card and details readable on a phone, with text labels accompanying status color. Actions must work by keyboard. Live updates preserve the selected condition, open Technical details and unsaved policy changes. Issue counts represent conditions consistently across Overview, Issues and Sources; a UPS with two conditions is one equipment group and two issues.
 
 ## Delivery methods
 
-Notifications shows the delivery-method list directly. The list shows Name, Destinations, Presence behavior and Used by. Destinations use short readable summaries such as Two phones, Kitchen voice assistant or Household email. Shared edits show affected uses in review. Deleting an assigned method requires replacement or explicit removal of the affected notification entries.
+Notifications shows the delivery-method list directly. The list shows Name, Destinations, Presence behavior and Used by. Destinations use short readable summaries such as Two phones, Kitchen voice assistant or Household email. Shared-method uses are visible in the editor. Deleting an assigned method requires replacement or explicit removal of the affected notification entries in the same save.
 
-The editor starts with a name and a Fixed / Based on presence choice. Fixed is the ordinary path. Add destination offers App, Voice, Email and SMS, then shows the appropriate installed targets and required fields.
+Place Enable notifications near the top, with the explanation Monitoring continues when notifications are off. Save changes applies this switch with the pending draft.
+
+The method editor starts with its name, its selected destinations and Add destination. Fixed destinations are the ordinary path. Optional presence controls stay collapsed until the owner chooses to change destinations based on who is home.
+
+```text
+Household phones
+
+Name            [Household phones]
+
+Send to
+Michael's iPhone — App                        Remove
+Marla's iPhone — App                          Remove
+
+Add destination
+Change destinations based on who's home       >
+
+Save changes                                 Cancel
+```
+
+Add destination selects a supported delivery type, then offers a searchable list of its available configured targets. Use friendly names, with area or provider context to distinguish similar destinations. Keep technical identifiers in optional details. Do not present every discovered service or every speech-provider/player combination as a form row.
 
 | Destination type | Fields to show |
 | --- | --- |
-| App | Available Companion app devices, with their linked people where known |
-| Voice | Assist satellite, or TTS provider and speaker targets |
-| Email | Configured email notification destinations |
-| SMS | Configured SMS notifier and recipient numbers where its action requires them |
+| App | Available Companion app devices, with linked people where known |
+| Speaker announcement | An announcement-capable satellite or compatible speaker; choose a speech provider when needed |
+| Email | Configured destinations whose provider identifies email support |
+| SMS | A verified SMS provider and the recipient numbers required by its action |
+| Generic notification | Configured notification targets whose delivery medium is not established |
 
-One method can contain several destination rows, including different types. Setup links explain a missing provider. Unavailable saved targets remain visible so the owner can fix or replace them.
+Only supported capabilities appear as Email or SMS. Generic notification entities and actions do not establish either capability. Unavailable targets are hidden from new selections by default; unavailable saved targets remain visible for repair or removal. Missing-provider guidance links to Home Assistant setup instead of displaying irrelevant recipient fields.
 
-Presence controls open only when selected. A home/away method could look like:
+Presence selection retains home/away destinations or selected people's destinations with an explicit fallback or Skip choice. The method summarizes its saved behavior. Current presence is resolved for a new request or test; merely arriving home sends nothing.
 
-```text
-Home or away
-
-Delivery        [Based on presence]
-People          [Selected household members]
-
-When someone is home
-  Voice         [Kitchen assistant]
-
-When everyone is away
-  App           [Owner's phone]
-  SMS           [Configured SMS destination]
-
-When presence is unknown
-  App           [Owner's phone]
-
-Preview current destinations
-Review changes                              Cancel
-```
-
-The alternate presence option, People currently home, lists selected people and their configured destinations, followed by a fallback or an explicit Skip choice. Both forms summarize what happens when nobody qualifies. Preview current destinations is read-only and states that the next send will use presence at that time. Send test is a separate explicit action showing the destinations it will contact.
-
-Saved methods support Preview delivery method, showing the current destinations and presence evidence, followed by the separate Send test to these destinations action. Its result describes requests and failures without claiming receipt. Editing a method requires saving before testing it.
+Send test is available only in the saved unchanged method's editor. Save further edits before testing again. One click resolves the method's current configured destinations and requests the test. There is no separate global test area, destination-test catalog, preview button or second test picker. Internal target validation preserves the authorization and saved-revision boundary. Results describe requests, per-destination failures or a presence Skip outcome without claiming receipt.
 
 ## Points for UI review
 
 Start with these concrete journeys: add immediate delivery to two methods and a weekly summary to another method on one policy; change one entry's timing without affecting another policy; enable reminders; remove every entry and confirm Dashboard only; delete and selectively restore a supplied policy; edit notifications inside the ordinary Repairs policy; and configure both UPS reserve modes. Also review duplicate policies, shared-method changes, presence fallback and assigned-method deletion.
 
-Check keyboard focus after adding or removing an entry, weekday selection, narrow layouts, draft retention across navigation, and validation before review. New delivery methods start with fixed destinations. Discovered phone, notification, Assist satellite, TTS and SMS targets appear in the appropriate form; SMS requires an explicit recipient number.
+Check keyboard focus after adding or removing an entry, weekday selection, narrow layouts, draft retention across navigation, and validation during Save. New delivery methods start with fixed destinations. Verify provider capabilities and friendly destination names, saved-only tests, unavailable-target handling and presence fallback. SMS recipient fields appear only for identified SMS providers.
 
 ## Implementation boundary
 
-The editor follows the [unified lifecycle](adr/0058-unified-policy-lifecycle.md) and [policy-owned timing](adr/0057-policy-owned-notification-timing.md). Type is read-only after creation. Supplied policies use the same editor and lifecycle as user-created policies. Configurable battery thresholds and independent overlapping policies are part of the runtime contract.
+The editor follows the [single-save and delivery editor decision](adr/0059-save-directly-and-test-configured-methods.md), [unified lifecycle](adr/0058-unified-policy-lifecycle.md) and [policy-owned timing](adr/0057-policy-owned-notification-timing.md). Type is read-only after creation. Supplied policies use the same editor and lifecycle as user-created policies. Configurable battery thresholds and independent overlapping policies are part of the runtime contract.
 
 Existing test settings are not automatically converted or reset. Use fresh setup to try this redesign; older schedule-library settings may fail validation. Normal saves, updates and restarts of the new model preserve configuration and runtime state. The installation guide describes the testing transition and backup choices.
 
-Validation covers immutable type, supported selectors, independent detection and notifications, duplication, deletion, selective restoration, shared methods, acknowledgment, scheduled summaries, exact reviewed saves and restart persistence. Fresh setup enables basic availability, Repairs and broken automations while leaving every notification entry list empty and global sending off. Tests use isolated instances and mocked delivery actions.
+Validation covers immutable type, supported selectors, independent detection and notifications, duplication, deletion, selective restoration, shared methods, acknowledgment, scheduled summaries, exact-payload saves and restart persistence. Fresh setup enables basic availability, Repairs and broken automations while leaving every notification entry list empty and global sending off. Tests use isolated instances and mocked delivery actions.
 
 The generic health-tree scheduling and independent attention-route model remains in use. Live-provider trials and browser/device-specific usability follow-up remain separate from isolated validation.
 
-Maintainers: [unified policy lifecycle](adr/0058-unified-policy-lifecycle.md), [policy-owned timing](adr/0057-policy-owned-notification-timing.md), and [delivery methods](adr/0056-ha-delivery-methods-and-presence.md) own the decisions. This page owns form layout.
+Maintainers: [single-save and delivery editor decision](adr/0059-save-directly-and-test-configured-methods.md), [unified policy lifecycle](adr/0058-unified-policy-lifecycle.md), [policy-owned timing](adr/0057-policy-owned-notification-timing.md), and [delivery methods](adr/0056-ha-delivery-methods-and-presence.md) own the decisions. This page owns form layout.

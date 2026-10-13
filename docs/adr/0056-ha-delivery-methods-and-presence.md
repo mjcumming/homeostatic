@@ -3,6 +3,8 @@
 **Status:** Accepted; implemented in the working tree with isolated transport validation; live-provider trials pending
 **Date:** 2026-10-12
 
+**Later decision:** Required preview-before-test UI and generic destination presentation is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.
+
 **Partially supersedes:** the person-only configuration and presence deferral in [ADR 0015](0015-deliver-notifications-to-people.md). Selecting a voice destination through a policy also replaces that ADR's fixed category, reminder and report restrictions on speech. Existing delivery identity, authorization and request-versus-receipt boundaries remain.
 
 ## Context

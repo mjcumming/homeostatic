@@ -48,16 +48,16 @@ Start with the affected policy in **Policies**. Fresh setup has no notification 
 1. Confirm the policy is enabled and matches the source. Check that an issue is open.
 2. Inspect its **Notifications** entries. Each entry needs timing and at least one saved delivery method. No entries means **Dashboard only**.
 3. For a scheduled summary, check the time, weekdays and displayed time zone. Reports include open problems at that time. Acknowledgment stops acknowledgment reminders, but an open issue remains eligible for a summary.
-4. Open **Notifications** and check **Enable notification requests**. Changes take effect only after review and save.
-5. Preview the selected delivery method. Presence-based methods may select fallback destinations or skip when nobody qualifies. Inspect recent request failures and unavailable targets.
+4. Open **Notifications** and check **Enable notifications**. Select **Save changes** to apply edits.
+5. Check the selected delivery method's destinations and presence settings. Presence-based methods may select fallback destinations or skip when nobody qualifies. Inspect recent request failures and unavailable targets.
 
 For a Companion app phone, check the Home Assistant user-to-person link under **Settings → People**, the account signed in to the app and the app's notification permission. An unavailable phone registration cannot receive requests.
 
-Save the method, preview its current targets and explicitly send a test. A test request works while normal sending is off. If it arrives but policy notifications do not, check timing, pauses, acknowledgment and policy scope. If it never arrives, inspect the provider and Home Assistant logs. A successful request cannot confirm receipt on the phone.
+Save the method, then select **Send test** in its editor. A test request works while normal sending is off. If it arrives but policy notifications do not, check timing, pauses, acknowledgment and policy scope. If it never arrives, inspect the provider and Home Assistant logs. A successful request cannot confirm receipt on the phone.
 
 ## Too many issues
 
-Fresh setup enables integration, device and entity availability policies, Repairs and broken automations. Open **Policies** to see which policies select the sources producing issues. You can narrow a policy's source selection or disable it, then review and save the change.
+Fresh setup enables integration, device and entity availability policies, Repairs and broken automations. Open **Policies** to see which policies select the sources producing issues. You can narrow a policy's source selection or disable it, then select **Save changes**.
 
 An entity can be unavailable because its current device mode does not support it. Inspect its readings before deciding to monitor it. A device availability check uses all selected entities and opens a device issue only when they are all unavailable, or a supported connectivity sensor reports disconnected.
 

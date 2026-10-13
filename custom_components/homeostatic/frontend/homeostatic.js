@@ -1,26 +1,26 @@
-import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, isBrokenOffPolicy, isRepairsOffPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newBrokenOffPolicy, newGroupPolicy, newRepairsOffPolicy} from "./monitoring-policies.mjs?v=70";
-import {sourceSettingsAction, sourceSettingsFooter} from "./source-settings.mjs?v=70";
-import {editReusable, namedPolicies} from "./reusable-editors.mjs?v=70";
-import {groupedUpsIssues, upsProblem} from "./ups.mjs?v=70";
-import {reportingOverview, reportingStatus} from "./reporting.mjs?v=70";
+import {isAllBatteryPolicy, isAllDevicePolicy, isAllIntegrationPolicy, isAllVacuumPolicy, isBrokenOffPolicy, isRepairsOffPolicy, monitoringPolicies, newAllBatteryPolicy, newAllDevicePolicy, newAllIntegrationPolicy, newAllVacuumPolicy, newBrokenOffPolicy, newGroupPolicy, newRepairsOffPolicy} from "./monitoring-policies.mjs?v=71";
+import {sourceSettingsAction, sourceSettingsFooter, saveSourceSettings, settingsErrorMessage} from "./source-settings.mjs?v=71";
+import {editReusable, namedPolicies} from "./reusable-editors.mjs?v=71";
+import {groupedUpsIssues, upsProblem} from "./ups.mjs?v=71";
+import {reportingOverview, reportingStatus} from "./reporting.mjs?v=71";
 import {affectedFunctions, coverageInventory, dashboardStore, deviceRegistryCoverage, escapeHtml as esc,
   inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel, recentEpisodes, sortedEpisodes,
-  sourceMap} from "./model.mjs?v=70";
-import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=70";
-import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=70";
-import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=70";
-import {diagnosticOverview} from "./evidence.mjs?v=70";
+  sourceMap} from "./model.mjs?v=71";
+import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=71";
+import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=71";
+import {DashboardTools, controlsPanel} from "./history-controls.mjs?v=71";
+import {diagnosticOverview} from "./evidence.mjs?v=71";
 import {editCatalogRule, monitoringScope,
-  scopeChoice, setScopeChoice} from "./configuration.mjs?v=70";
-import {styles} from "./styles.mjs?v=70";
-import {locationBranch, setBranchExpanded} from "./tree.mjs?v=70";
+  scopeChoice, setScopeChoice} from "./configuration.mjs?v=71";
+import {styles} from "./styles.mjs?v=71";
+import {locationBranch, setBranchExpanded} from "./tree.mjs?v=71";
 
-import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=70";
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=70";
+import {configurationBrowser, monitoringNavigation, monitoringIndex, revealMonitoringPath} from "./monitoring-browser.mjs?v=71";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree} from "./sources-workspace.mjs?v=71";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=70";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=71";
 
-import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=70";
+import {applyNotificationRoute, cardView} from "./notification-navigation.mjs?v=71";
 
 const VIEWS = ["overview", "sources", "house", "coverage", "problems", "history", "notifications", "policies", "configuration"];
 const status = (value) => {
@@ -437,25 +437,11 @@ class HomeostaticCard extends HTMLElement {
     const data = this.current.data;
     const intro = '<div class="intro"><div><h1>Settings</h1><p class="sub">Choose what Homeostatic watches and how it responds.</p></div></div>';
     if (!this.configuration) return `${intro}<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading monitoring rules…")}</p><button type="button" class="button" data-action="load-configuration">Reload configuration</button></div></section>`;
-    const preview = this.configPreview;
-    const changes = (items, count, label) => count ? `<div><strong>${count} ${label}</strong><ul>${items.map((item) => `<li>${esc(item.name)}</li>`).join("")}</ul>${count > items.length ? `<p class="small">Showing the first ${items.length}.</p>` : ""}</div>` : "";
-    const selected = !global ? sourcePaths(sourcesTree(data,this.sourcesGrouping,null,this.topomation)).get(this.sourcesSelection)?.node : null;
-    const entity = selected?.source?.kind === "entity" ? selected.source : null;
-    const entityChoice = entity ? scopeChoice(this.configDraft,monitoringScope("entity",entity.node_id,entity)) : null;
-    const subject = entity ? `<p><strong>${esc(selected.name)}</strong><br><small>${esc(entity.entity_id)}</small></p><p>Selected choice: ${entityChoice === "exclude" ? "Exclude this entity" : entityChoice === "attach" ? "Monitor this entity separately" : "Use device and integration choices"}.</p>` : "";
-    const noCountChange = !preview?.added_count && !preview?.removed_count ? `<p>No sources are newly watched or stopped by this draft.${entityChoice === "exclude" ? " This exclusion can still change which entities a device availability check uses, or keep this entity out of future device monitoring." : ""}</p>` : "";
-    const repairsWereOff = this.configuration?.rules?.some(rule => isRepairsOffPolicy(rule) && rule.enabled !== false);
-    const repairsAreOff = this.configDraft?.some(rule => isRepairsOffPolicy(rule) && rule.enabled !== false);
-    const repairsChange = preview && repairsWereOff !== repairsAreOff ? `<p>${repairsAreOff ? "Home Assistant Repairs will no longer open issues." : "Home Assistant Repairs will open issues again."}</p>` : "";
-    const brokenWereOff = this.configuration?.rules?.some(rule => isBrokenOffPolicy(rule) && rule.enabled !== false);
-    const brokenAreOff = this.configDraft?.some(rule => isBrokenOffPolicy(rule) && rule.enabled !== false);
-    const brokenChange = preview && brokenWereOff !== brokenAreOff ? `<p>${brokenAreOff ? "Broken automations will no longer open issues." : "Broken automations will open issues again."}</p>` : "";
-    const result = preview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Review monitoring choices</h2></div><div class="body">${subject}<p><strong>${preview.watched}</strong> watched sources after this change.</p>${noCountChange}${repairsChange}${brokenChange}<div class="config-change-list">${changes(preview.added,preview.added_count,"newly watched")}${changes(preview.removed,preview.removed_count,"no longer watched")}</div><p class="small">This preview uses current Home Assistant evidence. New devices may match these rules later.</p></div></section>` : "";
     const policies = global ? monitoringPolicies(this) : "";
     const changed=JSON.stringify(this.configDraft)!==JSON.stringify(this.configuration.rules);
-    const actions = `<section class="config-review">${changed?`<div class="config-actions"><span class="small">Unsaved monitoring choices</span><button type="button" class="button primary" data-action="${preview?'save-configuration':'preview-configuration'}"${this.configBusy?' disabled':''}>${preview?'Save choices':'Review changes'}</button><button type="button" class="link" data-action="discard-monitoring"${this.configBusy?' disabled':''}>Discard</button></div>`:'<p class="small">Changes are reviewed before saving.</p>'}${this.configError?`<p class="config-error" role="alert">${esc(this.configError)}</p>`:''}</section>`;
+    const actions = `<section class="config-review">${changed?`<div class="config-actions"><span class="small">Unsaved monitoring choices</span><button type="button" class="button primary" data-action="save-configuration"${this.configBusy?' disabled':''}>Save changes</button><button type="button" class="link" data-action="discard-monitoring"${this.configBusy?' disabled':''}>Discard</button></div>`:'<p class="small">Changes take effect when saved.</p>'}${this.configError?`<p class="config-error" role="alert">${esc(this.configError)}</p>`:''}</section>`;
     if(global&&this.settingsDraft&&"monitoring_policies" in this.settingsDraft)return `${namedPolicies(this)}${sourceSettingsFooter(this)}`;
-    return global ? `${policies}${result}${actions}` : `${result}${actions}`;
+    return global ? `${policies}${actions}` : actions;
   }
 
   sourcesPage() {
@@ -515,13 +501,7 @@ class HomeostaticCard extends HTMLElement {
     const digests = Object.entries(policy.digests ?? {}).map(([name,item]) => `<li><strong>${esc(name)}</strong>: ${esc(item.at)} to ${esc(item.to)}</li>`).join("");
     const routingDetails = `<details><summary>Recipients, quiet hours and digests</summary><h3>Recipients and channels</h3><ul>${recipients || "<li>None configured</li>"}</ul><h3>Digests</h3><ul>${digests || "<li>None configured</li>"}</ul></details>`;
     const unchanged = saved.notifications === draft.notifications && saved.consumer === draft.consumer;
-    const previewCopy = this.alertPreview?.activating
-      ? `Turning requests on: ${this.alertPreview.open_problems} open ${this.alertPreview.open_problems === 1 ? "problem" : "problems"} remain. The current policy would request ${this.alertPreview.requests_now} ${this.alertPreview.requests_now === 1 ? "message" : "messages"} immediately.`
-      : this.alertPreview?.notifications
-        ? "Requests stay on. Changing the consumer affects future requests; existing problems stay open."
-        : "With requests off, Homeostatic will not request new alert messages. Open problems remain visible.";
-    const preview = this.alertPreview ? `<section class="panel config-preview" aria-live="polite"><div class="panel-head"><h2>Preview</h2></div><div class="body"><p>${previewCopy}</p>${this.alertPreview.next_deadline ? `<p>Next policy decision: ${esc(date(this.alertPreview.next_deadline))}.</p>` : ""}<p class="small">This preview uses current problems and does not send messages. Future changes may produce different requests.</p></div></section>` : "";
-    return `${intro}${sections}<section class="panel"><div class="panel-head"><h2>Alert requests</h2></div><div class="body"><p><strong>Requests are currently ${saved.notifications ? "on" : "off"}.</strong> Open problems remain visible in Homeostatic. ${consumer}</p><fieldset class="alert-editor"${this.alertBusy ? " disabled" : ""}><label class="alert-toggle"><input type="checkbox" data-alert-field="notifications"${draft.notifications ? " checked" : ""}> Request alerts for open problems</label><label class="alert-consumer"><span>Consumer automation</span><select data-alert-field="consumer">${options}</select></label></fieldset><p class="sub">The selected Home Assistant automation receives Homeostatic requests and handles delivery. Turning requests on can alert you about problems already open.</p><div class="config-actions"><button type="button" class="button" data-action="preview-alerts"${this.alertBusy || unchanged ? " disabled" : ""}>Preview changes</button><button type="button" class="button primary" data-action="save-alerts"${this.alertBusy || !this.alertPreview ? " disabled" : ""}>Save alert settings</button><button type="button" class="link" data-action="load-configuration"${this.alertBusy ? " disabled" : ""}>Discard edits and reload</button></div>${this.alertError ? `<p class="config-error" role="alert">${esc(this.alertError)}</p>` : ""}</div></section>${preview}<section class="panel settings-following"><div class="panel-head"><h2>Current routing policy</h2></div><div class="body"><p>${policy.rules.length} ${policy.rules.length === 1 ? "rule" : "rules"} · ${routes.length} recipient/channel ${routes.length === 1 ? "route" : "routes"} · ${Object.keys(policy.digests ?? {}).length} ${Object.keys(policy.digests ?? {}).length === 1 ? "digest" : "digests"} · Time zone: ${esc(policy.timezone)}</p>${routingDetails}<p class="sub">Homeostatic records requests, not proof that a phone received or displayed a message.</p></div></section>`;
+    return `${intro}${sections}<section class="panel"><div class="panel-head"><h2>Alert requests</h2></div><div class="body"><p><strong>Requests are currently ${saved.notifications ? "on" : "off"}.</strong> Open problems remain visible in Homeostatic. ${consumer}</p><fieldset class="alert-editor"${this.alertBusy ? " disabled" : ""}><label class="alert-toggle"><input type="checkbox" data-alert-field="notifications"${draft.notifications ? " checked" : ""}> Request alerts for open problems</label><label class="alert-consumer"><span>Consumer automation</span><select data-alert-field="consumer">${options}</select></label></fieldset><p class="sub">The selected Home Assistant automation receives Homeostatic requests and handles delivery. Turning requests on can alert you about problems already open.</p><div class="config-actions"><button type="button" class="button primary" data-action="save-alerts"${this.alertBusy || unchanged ? " disabled" : ""}>Save changes</button><button type="button" class="link" data-action="load-configuration"${this.alertBusy ? " disabled" : ""}>Discard edits and reload</button></div>${this.alertError ? `<p class="config-error" role="alert">${esc(this.alertError)}</p>` : ""}</div></section><section class="panel settings-following"><div class="panel-head"><h2>Current routing policy</h2></div><div class="body"><p>${policy.rules.length} ${policy.rules.length === 1 ? "rule" : "rules"} · ${routes.length} recipient/channel ${routes.length === 1 ? "route" : "routes"} · ${Object.keys(policy.digests ?? {}).length} ${Object.keys(policy.digests ?? {}).length === 1 ? "digest" : "digests"} · Time zone: ${esc(policy.timezone)}</p>${routingDetails}<p class="sub">Homeostatic records requests, not proof that a phone received or displayed a message.</p></div></section>`;
   }
 
   expandConfigurationMatches(query) {
@@ -590,7 +570,7 @@ class HomeostaticCard extends HTMLElement {
     const pending = this.shadowRoot.querySelector(".config-review strong");
     if (pending) pending.textContent = "Unsaved monitoring choices";
     const action=this.shadowRoot.querySelector('[data-action="save-configuration"],[data-action="preview-configuration"]');
-    if(action){action.dataset.action="preview-configuration";action.textContent="Review changes";}
+    if(action){action.dataset.action="save-configuration";action.textContent="Save changes";}
     if (!action || event.type === "change" || field === "enabled" || field === "action") this.render();
     else for (const control of this.main.querySelectorAll(`[data-rule-index="${index}"][data-rule-field="${field}"]`)) {
       if (control !== event.target) control.value = event.target.value;
@@ -644,17 +624,17 @@ class HomeostaticCard extends HTMLElement {
 
   async saveConfiguration() {
     if(this.configuration?.monitoring_policy_version===1){this.page="policies";this.render();return;}
-    if (this.current.status !== "current" || !this.configPreview || this.configBusy || this.settingsBusy) return;
+    if (this.current.status !== "current" || !this.configuration || this.configBusy || this.settingsBusy) return;
     this.configBusy = true;
     this.configError = null;
     this.render();
     try {
-      await this._hass.callWS({type:"homeostatic/save_configuration",revision:this.configuration.revision,preview_token:this.configPreview.preview_token,rules:this.configDraft});
+      await this._hass.callWS({type:"homeostatic/save_configuration",revision:this.configuration.revision,rules:structuredClone(this.configDraft)});
       this.configBusy = false;
       await this.loadConfiguration("monitoring");
       return;
     } catch (error) {
-      this.configError = error?.message ?? "Could not save monitoring rules.";
+      this.configError = settingsErrorMessage(error);
     } finally {
       this.configBusy = false;
       this.render();
@@ -680,19 +660,19 @@ class HomeostaticCard extends HTMLElement {
   }
 
   async saveAlerts() {
-    if (!this.alertPreview || this.alertBusy) return;
+    if (!this.alertDraft || this.alertBusy || this.current.status !== "current") return;
     this.alertBusy = true;
     this.alertError = null;
     this.render();
     try {
       await this._hass.callWS({
         type:"homeostatic/save_alerts",revision:this.configuration.revision,
-        preview_token:this.alertPreview.preview_token,...this.alertDraft,
+        ...structuredClone(this.alertDraft),
       });
       this.alertBusy = false;
       await this.loadConfiguration();
     } catch (error) {
-      this.alertError = error?.message ?? "Could not save alert settings.";
+      this.alertError = settingsErrorMessage(error);
     } finally {
       this.alertBusy = false;
       this.render();
@@ -750,14 +730,10 @@ class HomeostaticCard extends HTMLElement {
   }
 
   async saveSettings() {
-    if (!this.settingsPreview || this.settingsBusy || this.configBusy) return;
-    this.settingsBusy=true;this.settingsError=null;this.render();
-    try {
-      await this._hass.callWS({type:"homeostatic/save_settings",revision:this.configuration.revision,preview_token:this.settingsPreview.preview_token,settings:this.settingsDraft});
-      await this.loadConfiguration("settings");
-      this.settingsNotice=this.page==="notifications"?"Notifications saved.":"Settings saved.";
-    } catch(error) {this.settingsError=error?.message||"Could not save settings.";}
-    finally {this.settingsBusy=false;this.render();}
+    await saveSourceSettings(this);
+    this.settingsError=this.sourceSettingsError;
+    this.settingsNotice=this.sourceSettingsNotice;
+    this.render();
   }
 
   displaySourceName(source) {
@@ -1330,8 +1306,8 @@ class HomeostaticCard extends HTMLElement {
       const deviceBrief = memberEvidence ? `<p class="problem-origin">${esc(deviceIntegrations.join(", ") || "Home Assistant device")}</p><h3 class="problem-status">${esc(issueTitle)}</h3>${connectionReported ? "<p>Connectivity reports disconnected.</p>" : ""}${issueList}${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing the first 50 selected entities. More may need review.</p>` : ""}` : "";
       const unifiedPolicy=this.configuration?.monitoring_policy_version===1||source.monitoring_policy;
       const policyChoices=result.monitoring_policies?.length?result.monitoring_policies:source.monitoring_policy?[{id:source.monitoring_policy,name:"Edit monitoring policy"}]:[];
-      const policyActions=`<section class="detail"><h3>Monitoring policies</h3><p>Change monitoring and notifications in the policy that watches this source.</p>${policyChoices.length?policyChoices.map(policy=>`<button class="button" type="button" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="${esc(policy.id)}">${esc(policy.name)}</button>`).join(""):'<button class="button" type="button" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="">Review policies</button>'}</section>`;
-      const availabilityChoices = unifiedPolicy ? policyActions : memberEvidence ? `<details ${disclosure("selected-readings")}><summary>Monitoring choices (${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"})</summary><ul class="monitoring-choice-list">${memberEvidence.members.map((member) => `<li class="monitoring-choice"><span><strong>${esc(memberName(member))}</strong> · ${esc(memberState(member))}</span><button class="link" type="button" data-ignore-availability="${esc(member.node_id)}" aria-label="Stop checking ${esc(memberName(member))}">Stop checking…</button></li>`).join("")}</ul>${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} selected entities.</p>` : ""}<p class="small">Stop checking opens a draft in Sources. Review and save it there.</p><div class="actions"><button class="link" type="button" data-config-source="${esc(source.node_id)}">Review monitoring choices</button><button class="link" type="button" data-source-link="${esc(source.monitoring_source||source.node_id)}">View in Sources</button></div></details>` : source.kind === "entity" ? `<section class="detail"><button class="button" type="button" data-ignore-availability="${esc(source.node_id)}">Stop checking this entity…</button><p class="small">Opens a draft monitoring change in Sources. Review and save it there.</p></section>` : "";
+      const policyActions=`<section class="detail"><h3>Monitoring policies</h3><p>Change monitoring and notifications in the policy that watches this source.</p>${policyChoices.length?policyChoices.map(policy=>`<button class="button" type="button" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="${esc(policy.id)}">${esc(policy.name)}</button>`).join(""):'<button class="button" type="button" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="">View policies</button>'}</section>`;
+      const availabilityChoices = unifiedPolicy ? policyActions : memberEvidence ? `<details ${disclosure("selected-readings")}><summary>Monitoring choices (${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"})</summary><ul class="monitoring-choice-list">${memberEvidence.members.map((member) => `<li class="monitoring-choice"><span><strong>${esc(memberName(member))}</strong> · ${esc(memberState(member))}</span><button class="link" type="button" data-ignore-availability="${esc(member.node_id)}" aria-label="Stop checking ${esc(memberName(member))}">Stop checking…</button></li>`).join("")}</ul>${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} selected entities.</p>` : ""}<p class="small">Stop checking opens a draft in Sources. Save it there.</p><div class="actions"><button class="link" type="button" data-config-source="${esc(source.node_id)}">Review monitoring choices</button><button class="link" type="button" data-source-link="${esc(source.monitoring_source||source.node_id)}">View in Sources</button></div></details>` : source.kind === "entity" ? `<section class="detail"><button class="button" type="button" data-ignore-availability="${esc(source.node_id)}">Stop checking this entity…</button><p class="small">Opens a draft monitoring change in Sources. Save it there.</p></section>` : "";
       const availabilityExplanation = episode && memberEvidence && uncertainMembers.length && result.device_availability?.status === "available" ? `<details ${disclosure("assessment")}><summary>Why does Home Assistant say Available?</summary><p>Device availability uses all enabled entities. This problem checks the ${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"}; ${uncertainMembers.length === 1 ? "one needs" : "some need"} attention. An available entity state does not confirm the whole device is working.</p></details>` : "";
       const dependencies = result.explanation.nodes.filter((node) => node.node_id !== nodeId);
       const unwatched = result.readiness?.nodes.filter((node) => !node.watched) ?? [];

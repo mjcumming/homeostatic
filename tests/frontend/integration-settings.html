@@ -5,7 +5,7 @@
 <script type="module">
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
 import {monitoringExample} from "./monitoring-fixture.mjs";
-import {previewSourceSettings,saveSourceSettings} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
+import {saveSourceSettings} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
 const card=document.querySelector("homeostatic-card"),feedback=document.querySelector("#feedback");
 const data=monitoringExample();
 const omitted=new Set(["camera-21","camera-22","camera-23","camera-24","camera-25"]);
@@ -32,7 +32,7 @@ card._hass={user:{is_admin:true},localize:()=>null,async callWS(request){
   }
   if(request.type==="homeostatic/save_settings"){
     if(failSave)throw Error("Settings changed; reload this page");
-    if(request.preview_token!=="combined-review"||request.revision!==String(revision)||JSON.stringify(request.settings)!==JSON.stringify(review.settings))throw Error("Exact combined preview required");
+    if(request.preview_token!==undefined||request.revision!==String(revision))throw Error("Current revision required");
     saveCalls++;savedRules=structuredClone(request.settings.rules);savedSettings=structuredClone(request.settings);delete savedSettings.rules;revision++;reflectSaved();return {saved:true};
   }
   if(request.type==="homeostatic/source")return {members:[],total:0,updated_at:data.updated_at};
@@ -63,30 +63,31 @@ document.querySelector("#run").onclick=async()=>{
     const bulk=root.querySelector("[data-reporting-bulk]");bulk.value="evening";bulk.dispatchEvent(new Event("change",{bubbles:true}));
     expect(card.settingsDraft.reporting.assignments["device:camera-1"].checks.availability==="immediate","Bulk edit erased a check preference");
     expect(card.main.innerText.includes("20 Evening summary"),"Draft reporting summary is missing");
-    expect(!root.querySelector('[data-action="save-source-settings"]'),"Unreviewed changes have a save button");
-    await previewSourceSettings(card);
+    expect(!!root.querySelector('[data-action="save-source-settings"]'),"Save is missing");
+
     expect(!!root.querySelector('[data-action="save-source-settings"]'),"Combined preview did not expose Save");
     root.querySelector("[data-integration-master]").click();
-    expect(!root.querySelector('[data-action="save-source-settings"]'),"Master edit reused a stale preview");
+    expect(!root.querySelector('[data-action="save-source-settings"]').disabled,"Edited draft cannot save");
     expect(!card.main.innerText.includes("What to monitor"),"Master off did not hide narrower monitoring controls");
     root.querySelector("[data-integration-master]").click();
     expect(card.settingsDraft.reporting.assignments["device:camera-1"].default==="evening","Master toggle discarded reporting draft");
-    await previewSourceSettings(card);failSave=true;await saveSourceSettings(card);failSave=false;
+    failSave=true;await saveSourceSettings(card);failSave=false;
     expect(card.main.innerText.includes("Settings changed; reload this page"),"Failed save needs an explicit error");
-    expect(!root.querySelector('[data-action="save-source-settings"]'),"Failed save retained reusable review");
-    const count=saveCalls;await previewSourceSettings(card);await saveSourceSettings(card);
+    expect(!root.querySelector('[data-action="save-source-settings"]').disabled,"Failed save cannot retry");
+    const count=saveCalls;await saveSourceSettings(card);
     expect(saveCalls===count+1,"Combined save was not sent exactly once");
     expect(savedRules.length===6&&savedSettings.reporting.assignments["device:camera-1"].default==="evening","Combined save omitted a draft");
     expect(savedSettings.notifications===false,"Saving activated notifications");
-    expect(card.main.innerText.includes("No unsaved changes"),"Successful save did not clear drafts");
+    expect(card.main.innerText.includes("All changes saved"),"Successful save did not clear drafts");
     expect(root.querySelector(".integration-settings").scrollWidth<=root.querySelector(".source-body").clientWidth,"Settings overflow at phone width");
-    card.render();expect(!root.querySelector('[data-action="save-source-settings"]'),"Live update resurrected a saved preview");
+    card.render();expect(root.querySelector('[data-action="save-source-settings"]').disabled,"Unchanged settings can save again");
     root.querySelector('[data-ui-key="integration-devices"]>summary').click();
     root.querySelector('[data-scope-index="2"][value="exclude"]').click();
     root.querySelector('[data-action="discard-source-settings"]').click();
     expect(JSON.stringify(card.configDraft)===JSON.stringify(savedRules),"Discard did not restore monitoring");
-    feedback.textContent="PASS: actual counts, collapsed editors, draft preservation, exception retention, combined review/save, stale review, save failure, discard and phone layout";
+    feedback.textContent="PASS: actual counts, collapsed editors, draft preservation, exception retention, direct save, save failure, discard and phone layout";
     for(const details of root.querySelectorAll("details"))details.open=false;
   } catch(error){failSave=false;feedback.textContent="FAIL: "+error.message;}
 };
+if(new URLSearchParams(location.search).has("run"))document.querySelector("#run").click();
 </script></body></html>

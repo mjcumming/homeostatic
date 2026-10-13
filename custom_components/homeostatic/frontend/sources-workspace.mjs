@@ -1,13 +1,13 @@
-import {sourceReporting} from "./reporting.mjs?v=70";
-import {integrationSettings} from "./source-settings.mjs?v=70";
-import {applicablePolicyLinks} from "./reusable-editors.mjs?v=70";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=70";
-import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=70";
-import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=70";
-import {batteryProblem, deviceProblem, entityProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=70";
+import {sourceReporting} from "./reporting.mjs?v=71";
+import {integrationSettings} from "./source-settings.mjs?v=71";
+import {applicablePolicyLinks} from "./reusable-editors.mjs?v=71";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=71";
+import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=71";
+import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=71";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=71";
 
-import {deviceAvailability} from "./device-availability.mjs?v=70";
-import {upsSourceSummary} from "./ups.mjs?v=70";
+import {deviceAvailability} from "./device-availability.mjs?v=71";
+import {upsSourceSummary} from "./ups.mjs?v=71";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -203,7 +203,7 @@ export function sourceMonitoringChoices(card,node) {
     if(!scope)return "";
     const index=card.configScopes.push(scope)-1;
     const current=scopeChoice(card.configDraft,scope);
-    if(current==="multiple")return '<p class="note">Several saved policies apply here.</p><button type="button" class="link" data-page="policies">Review policies</button>';
+    if(current==="multiple")return '<p class="note">Several saved policies apply here.</p><button type="button" class="link" data-page="policies">View policies</button>';
     const option=([value,title,help])=>`<label class="source-radio"><input type="radio" name="source-choice-${index}" data-scope-index="${index}" value="${value}"${current===value?' checked':''}><span><strong>${esc(title)}</strong>${help?`<small>${esc(help)}</small>`:''}</span></label>`;
     const choices=advanced?`${option(options[0])}${option(options[2])}<details class="source-advanced-choice"${current==="attach"?' open':''}><summary>More monitoring choices</summary>${option(options[1])}</details>`:options.map(option).join("");
     return `<fieldset class="source-choices"${card.configBusy?' disabled':''}><legend>${esc(label)}</legend>${choices}</fieldset>`;
@@ -226,7 +226,7 @@ export function sourceMonitoringChoices(card,node) {
   }
   if(source?.kind==="situation")controls='<p class="sub">This situation uses its configured condition. Reporting does not change what detects it.</p>';
   if(!controls)controls='<p class="sub">Select an integration, device, or entity to change monitoring.</p>';
-  if(source?.excluded_by?.length)controls+='<p class="note">A saved exclusion applies. Review changes to see the effective result; an individual watch does not override ordinary exclusions.</p>';
+  if(source?.excluded_by?.length)controls+='<p class="note">A saved exclusion applies. An individual watch does not override ordinary exclusions.</p>';
   return actionError+controls+(card.sourcesSettingsPanel||"")+sourceReporting(card,node);
 }
 

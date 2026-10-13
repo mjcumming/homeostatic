@@ -48,7 +48,7 @@ from .vacuum import observe as vacuum_observation
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=70"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=71"
 PANEL_ELEMENT = "homeostatic-panel-v25"
 
 
@@ -1043,7 +1043,7 @@ async def _async_preview_settings(
     {
         vol.Required("type"): "homeostatic/save_settings",
         vol.Required("revision"): str,
-        vol.Required("preview_token"): str,
+        vol.Optional("preview_token"): str,
         vol.Required("settings"): dict,
     }
 )
@@ -1052,7 +1052,7 @@ async def _async_preview_settings(
 def websocket_save_settings(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Apply exactly reviewed installation settings under the shared save lock."""
+    """Validate and apply installation settings under the shared save lock."""
     hass.async_create_task(_async_save_settings(hass, connection, msg))
 
 
@@ -1076,7 +1076,7 @@ async def _async_save_settings(
         except (ValueError, TypeError, KeyError, vol.Invalid) as err:
             connection.send_error(msg["id"], "invalid_settings", str(err))
             return
-        if msg["preview_token"] != _settings_review_token(
+        if "preview_token" in msg and msg["preview_token"] != _settings_review_token(
             runtime, revision, msg["settings"]
         ):
             connection.send_error(
@@ -1189,7 +1189,7 @@ def websocket_preview_alerts(
     {
         vol.Required("type"): "homeostatic/save_alerts",
         vol.Required("revision"): str,
-        vol.Required("preview_token"): str,
+        vol.Optional("preview_token"): str,
         vol.Required("notifications"): bool,
         vol.Required("consumer"): vol.Any(None, str),
     }
@@ -1206,7 +1206,7 @@ def websocket_save_alerts(
 async def _async_save_alerts(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Save only notification activation and consumer after an exact preview."""
+    """Validate and save notification activation and the selected consumer."""
     dashboard = hass.data[DATA_DASHBOARD]
     async with dashboard.save_lock:
         runtime = dashboard.runtime
@@ -1231,7 +1231,7 @@ async def _async_save_alerts(
                 "consumer": candidate["consumer"],
             }
         )
-        if msg["preview_token"] != token:
+        if "preview_token" in msg and msg["preview_token"] != token:
             connection.send_error(
                 msg["id"],
                 "preview_required",
@@ -1329,7 +1329,7 @@ def _monitoring_preview(
     {
         vol.Required("type"): "homeostatic/save_configuration",
         vol.Required("revision"): str,
-        vol.Required("preview_token"): str,
+        vol.Optional("preview_token"): str,
         vol.Required("rules"): list,
     }
 )
@@ -1345,7 +1345,7 @@ def websocket_save_configuration(
 async def _async_save_configuration(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Replace only rules after validating an exact preview and saved revision."""
+    """Replace rules after validation and a saved revision check."""
     dashboard = hass.data[DATA_DASHBOARD]
     async with dashboard.save_lock:
         runtime = dashboard.runtime
@@ -1364,7 +1364,9 @@ async def _async_save_configuration(
         except (ValueError, TypeError, KeyError, vol.Invalid) as err:
             connection.send_error(msg["id"], "invalid_rules", str(err))
             return
-        if msg["preview_token"] != _digest({"revision": revision, "rules": rules}):
+        if "preview_token" in msg and msg["preview_token"] != _digest(
+            {"revision": revision, "rules": rules}
+        ):
             connection.send_error(
                 msg["id"], "preview_required", "Preview these exact rules before saving"
             )

@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [1.8.0b2] - 2026-10-13
+
+### Changed
+
+- Save configuration through one Save changes action throughout the dashboard, including retained editors. Maintenance also applies directly from its completed form. Keep validation, stale-revision protection and rollback within the action, preserve pending edits on failure, and remove separate review screens.
+- Select integrations by integration name, covering all current and future connections. Keep monitoring type fixed, name source pickers for their type, and remove single-choice scope dropdowns from Repairs and Broken automations.
+- Configure delivery methods with a compact list of selected destinations, an Add destination picker, optional presence settings and friendly target names. Classify email and SMS only when the configured provider supports them; choose speakers before speech providers.
+- Test only a saved unchanged delivery method from its editor. Remove the global test-destination list and separate preview step, and simplify the global switch to Enable notifications.
+
+### Documentation
+
+- Record the single-save workflow and focused delivery-method editor in ADR 0059. Update the specification and guides while retaining earlier ADRs with supersession notices.
+
 ## [1.8.0b1] - 2026-10-13
 
 ### Changed

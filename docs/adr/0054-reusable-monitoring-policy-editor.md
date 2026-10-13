@@ -3,6 +3,8 @@
 **Status:** Accepted; notification timing selection superseded by [ADR 0057](0057-policy-owned-notification-timing.md); type editing, built-in presentation and overlapping-policy behavior partially superseded by [ADR 0058](0058-unified-policy-lifecycle.md); replacement implementation pending
 **Date:** 2026-10-12
 
+**Later decision:** Required review-before-save UI is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.
+
 **Partially supersedes:** the reusable-definition editing boundary in [ADR 0030](0030-separate-group-policies-from-source-choices.md) and [ADR 0048](0048-policy-checks.md). Named policies are edited on Policies even when they select individual sources. Existing source enrollment and exclusion semantics remain until an implementation specification explicitly changes them.
 
 **Later decision:** ADR 0057 replaces the shared-schedule selector with timing owned by each notification entry. ADR 0058 fixes type at creation, gives supplied and custom policies the same lifecycle, and permits independent overlap. The earlier decision text remains below as history; unaffected detection-change and review safeguards remain in effect.

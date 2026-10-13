@@ -4,7 +4,7 @@
 <body><div id="controls"><strong>Synthetic inventory · no live changes</strong><button id="run">Run monitoring scenarios</button><button id="update">Simulate live update</button><label><input type="checkbox" id="narrow">Narrow layout</label><label><input type="checkbox" id="dark">Dark theme</label><span id="feedback" role="status"></span></div><homeostatic-card></homeostatic-card>
 <script type="module">
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
-import {previewSourceSettings,saveSourceSettings} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
+import {saveSourceSettings} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
 import {monitoringExample} from "./monitoring-fixture.mjs";
 const card=document.querySelector("homeostatic-card"),data=monitoringExample();
 const saved=[{id:"entries",action:"attach",enabled:true,match:{kind:["integration"]},checks:["availability"]},{id:"devices",action:"attach",enabled:true,match:{kind:["device"]},checks:["availability"]},{id:"batteries",action:"attach",enabled:true,match:{kind:["battery"]},checks:["battery"]},{id:"skip-test",action:"exclude",enabled:true,match:{kind:["entity"],label:["test"]},checks:["availability"]}];
@@ -26,7 +26,7 @@ card._hass={user:{is_admin:true},localize:()=>null,async callWS(command){
     return{preview_token:"synthetic-preview",watched:51,added:[],added_count:0,removed:[],removed_count:0,matches:[],functions:[]};
   }
   if(command.type==="homeostatic/save_configuration"){
-    if(command.preview_token!=="synthetic-preview"||previewRules!==JSON.stringify(command.rules)||command.revision!==String(revision))throw Error("Exact preview required");
+    if(command.preview_token!==undefined||command.revision!==String(revision))throw Error("Exact preview required");
     saveCalls++;revision++;saved.splice(0,saved.length,...structuredClone(command.rules));return{};
   }
   if(command.type==="homeostatic/preview_settings"){
@@ -34,7 +34,7 @@ card._hass={user:{is_admin:true},localize:()=>null,async callWS(command){
     return{before:structuredClone(settings),after:structuredClone(command.settings),preview_token:"settings-preview",open_problems:0,requests_now:0,reporting_assignments:Object.keys(command.settings.reporting?.assignments||{}).length};
   }
   if(command.type==="homeostatic/save_settings"){
-    if(command.preview_token!=="settings-preview"||settingsToken!==JSON.stringify(command.settings)||command.revision!==String(revision))throw Error("Exact settings preview required");
+    if(command.preview_token!==undefined||command.revision!==String(revision))throw Error("Exact settings preview required");
     settingsSaves++;revision++;settings=structuredClone(command.settings);if(settings.rules){saved.splice(0,saved.length,...settings.rules);delete settings.rules;}return{saved:true};
   }
   throw Error("Unexpected command: "+command.type);
@@ -57,13 +57,14 @@ document.querySelector("#run").onclick=async()=>{
     root.querySelector('[data-sources-toggle="source:entry:frigate"]').click();
     expect(card.sourcesSelection===null,"Expanding a branch changed selection");
     clickName("Back Porch");await settle();
-    expect(root.querySelector(".config-detail").textContent.includes("Entities available"),"Source did not show current entity states");
+    expect(root.querySelector(".config-detail").textContent.includes("Selected entities available"),"Source did not show current entity states");
+    root.querySelector(".source-readings details")?.setAttribute("open","");
     const memberLink=root.querySelector('.source-readings [data-source-link="entity:registry:camera-1-1"]');
     expect(memberLink,"Device member did not link to its source");
     memberLink.click();await settle();
     expect(card.sourcesSelection==="source:entity:registry:camera-1-1","Member link did not open entity source");
     expect(!root.querySelector('.source-readings [data-source-link="entity:registry:camera-1-1"]'),"Entity name still links to itself");
-    expect(root.querySelector(".source-readings td")?.textContent==="Back Porch signal 001","Current entity name is missing");
+    expect(root.querySelector("#sources-detail-title")?.textContent==="Back Porch signal 001","Current entity name is missing");
     clickName("Back Porch");await settle();
     const rail=root.querySelector(".config-rail"),detail=root.querySelector(".config-detail"),beforeTop=detail.getBoundingClientRect().top;
     rail.scrollTop=400;expect(Math.abs(detail.getBoundingClientRect().top-beforeTop)<1,"Tree scroll displaced details");
@@ -81,8 +82,9 @@ document.querySelector("#run").onclick=async()=>{
     change(root.querySelector("[data-sources-group]"),"location");
     expect(card.sourcesSelection==="source:entity:registry:orphan-124","Grouping lost source identity");
     change(root.querySelector("[data-sources-group]"),"integration");
-    search("Frigate");clickName("Frigate");
+    search("Frigate");clickName("Frigate");card.sourcesView="source";card.render();
     expect(root.querySelector('[data-maintenance="entry:frigate"]'),"Sources must offer maintenance for an integration connection");
+    card.sourcesView="settings";card.render();
     root.querySelector("[data-integration-master]").click();
     expect(card.configDraft.some(rule=>rule.match.integration_domain?.[0]==="frigate"&&rule.match.kind?.length===3&&rule.action==="exclude"),"Integration-wide off did not stage");
     expect(!root.querySelector('[data-scope-index="2"]'),"Narrower choices remain active while integration is off");
@@ -105,23 +107,23 @@ document.querySelector("#run").onclick=async()=>{
     expect(!root.querySelector('[data-setting-path="notifications"]'),"Notification controls remain in Settings");
     root.querySelector('.nav [data-page="policies"]').click();
     expect(root.querySelector("h1").textContent==="Policies","Policies did not open as a main page");
-    expect(root.querySelectorAll(".policy-check").length===5,"Policies did not show the checks");
+    expect(root.querySelectorAll(".policy-check").length===6,"Policies did not show the checks");
     expect(!root.querySelector(".config-advanced"),"The raw catalog editor remains on Policies");
     root.querySelector('.nav [data-page="configuration"]').click();
     root.querySelector('[data-settings-section="timing"]').click();
     change(root.querySelector('[data-setting-path="timings.unknown_hold"]'),"4");
-    await card.previewSettings();await card.saveSettings();
+    await card.saveSettings();
     expect(settingsSaves===1&&settings.timings.unknown_hold===240,"Settings save failed");
     expect(card.configDraft.some(rule=>rule.match.device?.[0]==="camera-1"),"Settings save discarded monitoring draft");
     change(root.querySelector('[data-setting-path="timings.clear_hold"]'),"3");
     card.page="sources";card.render();
     expect(!root.querySelector(".config-advanced"),"Global policies remain inside source Settings");
     expect(root.querySelector("[data-reporting-bulk]"),"Integration device reporting is hidden");
-    await previewSourceSettings(card);
+
     expect(root.querySelector('[data-action="save-source-settings"]').disabled===false,"Preview did not enable Save");
     root.querySelector('[data-scope-index="2"][value="attach"]').click();
-    expect(card.sourceSettingsReview===null&&!root.querySelector('[data-action="save-source-settings"]'),"Changed choice retained stale preview");
-    await previewSourceSettings(card);await saveSourceSettings(card);
+    expect(card.sourceSettingsReview===null&&!root.querySelector('[data-action="save-source-settings"]').disabled,"Edited choice cannot save");
+    await saveSourceSettings(card);
     expect(settingsSaves===2&&saveCalls===0,"Exact combined save was not sent once");
     expect(card.settingsDraft.timings.clear_hold===180,"Monitoring save discarded timing draft");
     card.sourcesView="source";card.sourcesQuery="";card.sourcesSelection="source:device:camera-1";card.sourcesMobileDetail=true;card.style.width="390px";card.render();await settle();
@@ -134,8 +136,9 @@ document.querySelector("#run").onclick=async()=>{
     expect(!root.querySelector(".home-history-link"),"Overview still repeats resolved history");
     card.style.width="";card.page="sources";card.sourcesView="source";card.sourcesMobileDetail=false;card.render();await settle();
     expect(errors.length===0,errors.join("; "));
-    feedback.textContent="PASS: family tree, full search, persistent details, immediate editing, retained drafts, exact reviewed saves, ten timings, separate Notifications page, and mobile list/detail.";
+    feedback.textContent="PASS: family tree, full search, persistent details, immediate editing, retained drafts, direct saves, ten timings, separate Notifications page, and mobile list/detail.";
   }catch(error){feedback.textContent="FAIL: "+error.message;}
 };
 
+if(new URLSearchParams(location.search).has("run"))document.querySelector("#run").click();
 </script></body></html>

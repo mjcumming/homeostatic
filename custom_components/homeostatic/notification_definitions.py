@@ -15,7 +15,7 @@ from .attention import duration, policy_data
 
 _ID = re.compile(r"^[a-z][a-z0-9_:-]*$")
 _CHANNEL = re.compile(
-    r"^(?:phone|notify|satellite):[^:]+$|^tts:[^:]+:[^:]+$|^sms:[a-z0-9_]+:[^:]+$"
+    r"^(?:phone|notify|satellite):[^:]+$|^tts:[^:]+:[^:]+$|^sms:[a-z0-9_]+:[^:]+$|^service:[a-z0-9_]+$"
 )
 
 

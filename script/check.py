@@ -40,6 +40,7 @@ def main() -> None:
             "tests/frontend/model.test.mjs",
             "tests/frontend/reporting.test.mjs",
             "tests/frontend/reusable-editors.test.mjs",
+            "tests/frontend/delivery-picker.test.mjs",
             "tests/frontend/source-settings.test.mjs",
             "tests/frontend/source-history.test.mjs",
             "tests/frontend/notification-navigation.test.mjs",

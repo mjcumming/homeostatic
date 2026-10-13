@@ -6,7 +6,7 @@
 <script type="module">
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
 import {emptyNotificationDefinitions,newMonitoringPolicy} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
-import {previewSourceSettings,saveSourceSettings} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
+import {saveSourceSettings} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
 import {monitoringExample} from "./monitoring-fixture.mjs";
 const card=document.querySelector("homeostatic-card"),feedback=document.querySelector("#feedback"),data=monitoringExample();
 const definitions=emptyNotificationDefinitions("America/Chicago");
@@ -31,7 +31,7 @@ card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},localize:(
     return {before:structuredClone(saved),after:proposal,preview_token:"exact-draft",open_problems:2,requests_now:0,monitoring:{watched:3,added:[],removed:[],added_count:0,removed_count:0,functions:[],ended_issues:["old-policy-issue"]}};
   }
   if(request.type==="homeostatic/save_settings"){
-    if(request.preview_token!=="exact-draft"||request.revision!==String(revision)||JSON.stringify(request.settings)!==JSON.stringify(proposal))throw Error("An exact preview is required");
+    if(request.revision!==String(revision))throw Error("Stale settings");
     saved=structuredClone(request.settings);delete saved.rules;revision++;return {saved:true};
   }
   throw Error("Unexpected request in isolated fixture: "+request.type);
@@ -47,7 +47,7 @@ document.querySelector("#run").onclick=async()=>{
   try {
     card.page="policies";card.definitionSelection=null;card.render();
     click('[data-definition-action="duplicate"][data-definition-kind="policies"][data-definition-id="policy-1"]');
-    const copy=card.settingsDraft.monitoring_policies.at(-1);
+    let copy=card.settingsDraft.monitoring_policies.at(-1);
     expect(copy.enabled===false&&copy.id!=="policy-1","Copy must be independent and inactive");
     change(`[data-definition-id="${copy.id}"][data-definition-field="name"]`,"Garage thermostat");
     change(`[data-definition-id="${copy.id}"][data-definition-field="parameters:unit"]`,"°C");
@@ -59,9 +59,20 @@ document.querySelector("#run").onclick=async()=>{
     change(`[data-definition-id="${methodId}"][data-definition-field="name"]`,"Home announcement or phone");
     change(`[data-definition-id="${methodId}"][data-definition-field="mode"]`,"home_away");
     change(`[data-definition-id="${methodId}"][data-definition-field="people"][data-person="person.owner"]`,true);
-    change(`[data-definition-id="${methodId}"][data-definition-field="home"][data-destination="satellite:kitchen"]`,true);
-    change(`[data-definition-id="${methodId}"][data-definition-field="away"][data-destination="phone:owner"]`,true);
+    expect(!root.querySelector('.definition-list'),"Method creation opens a separate editor");
+    click('[data-definition-action="destination-open"][data-destination-field="home"]');
+    change('[data-definition-delivery-type]',"voice");
+    change('[data-definition-delivery-search]',"Kitchen");
+    click('[data-definition-action="destination-add"][data-destination-channel="satellite:kitchen"]');
+    click('[data-definition-action="destination-open"][data-destination-field="away"]');
+    change('[data-definition-delivery-type]',"app");
+    click('[data-definition-action="destination-add"][data-destination-channel="phone:owner"]');
     change(`[data-definition-id="${methodId}"][data-definition-field="skip"]`,true);
+    expect(!root.querySelector('[data-definition-action="test-method"]'),"Unsaved methods cannot be tested");
+    await saveSourceSettings(card);
+    copy=card.settingsDraft.monitoring_policies.find(item=>item.id===copy.id);
+    expect(root.querySelector('[data-definition-action="test-method"]'),"Saved method can be tested");
+    click('[data-definition-action="cancel-method"]');
     click('[data-definition-action="delete"][data-definition-kind="methods"][data-definition-id="phone"]');
     expect(root.querySelector('[data-definition-action="confirm-delete"]').disabled,"Assigned deletion needs an explicit replacement");
     change('[data-definition-delete-resolution]',methodId);
@@ -86,19 +97,17 @@ document.querySelector("#run").onclick=async()=>{
     click('[data-definition-action="close"]');
     click('[data-definition-action="restore"]');change('[data-definition-restore="default_batteries"]',true);click('[data-definition-action="confirm-restore"]');
     expect(card.settingsDraft.monitoring_policies.some(item=>item.id==="default_batteries"),"Selected default restored");
-    await previewSourceSettings(card);
-    expect(root.textContent.includes("Monitoring ends for 1 existing issues"),"Review explains ended monitoring");
     await saveSourceSettings(card);
-    expect(calls.filter(request=>request.type==="homeostatic/save_settings").length===1,"One reviewed save");
+    expect(calls.filter(request=>request.type==="homeostatic/save_settings").length===2,"Each Save directly submits settings");
     expect(!calls.some(request=>request.type.includes("test_notification")),"Editing must never request a test message");
     expect(card.settingsDraft.notifications===false,"Requests stay off");
     click('[data-page="notifications"]');
     click(`[data-definition-action="edit"][data-definition-kind="methods"][data-definition-id="${methodId}"]`);
-    click('[data-definition-action="preview-method"]');await Promise.resolve();await Promise.resolve();
-    expect(root.textContent.includes("Current destinations"),"Method preview shows exact destinations");
-    click('[data-definition-action="test-method"]');await Promise.resolve();await Promise.resolve();
-    expect(root.textContent.includes("1 test message requests; 0 failed requests."),"Explicit synthetic method test shows request outcome");
-    feedback.textContent="PASS: fixed types, copy, units, search and multiple areas, owned timing, restore, drafts, presence method, guarded deletion/save, exact target preview and explicit synthetic test. No live services.";
+    expect(!root.querySelector('[data-definition-action="preview-method"]'),"No separate method preview step");
+    click('[data-definition-action="test-method"]');await Promise.resolve();await Promise.resolve();await Promise.resolve();await Promise.resolve();
+    expect(root.textContent.includes("Test requested for Owner phone."),"Explicit synthetic method test shows request outcome");
+    feedback.textContent="PASS: fixed types, copy, units, search and multiple areas, owned timing, restore, drafts, presence method, guarded deletion, direct save, compact destination selection and saved-method synthetic test. No live services.";
   }catch(error){feedback.textContent="FAIL: "+error.message;throw error;}
 };
+if(new URLSearchParams(location.search).has("run"))document.querySelector("#run").click();
 </script></body></html>

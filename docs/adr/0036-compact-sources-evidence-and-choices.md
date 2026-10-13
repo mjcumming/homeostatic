@@ -4,6 +4,8 @@
 **Date:** 2026-09-30
 **Decider:** Michael Cumming
 
+**Later decision:** Required review-before-save UI is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.
+
 **Supersedes:** The repeated selected-entity row and default presentation of all three entity choices under ADRs 0017 and 0018. Their one-tree navigation, source-specific views, and guarded settings changes remain in force.
 
 ## Context

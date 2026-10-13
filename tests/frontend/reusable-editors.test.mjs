@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {emptyNotificationDefinitions,newMonitoringPolicy,namedPolicies,namedNotifications,editReusable,definitionUses,deleteNotificationDefinition,reusableChanges,sourceNotificationDefinitions,applicablePolicyLinks,previewDeliveryMethod,testDeliveryMethod,watchChoices,watchMode,policySelectionChoices} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
+import {emptyNotificationDefinitions,newMonitoringPolicy,namedPolicies,namedNotifications,editReusable,definitionUses,deleteNotificationDefinition,reusableChanges,sourceNotificationDefinitions,applicablePolicyLinks,testDeliveryMethod,watchChoices,watchMode,policySelectionChoices} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
 import {sourceSettingsProposal,sourceSettingsReviewed,previewSourceSettings,saveSourceSettings} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
 import {installationSettings} from "../../custom_components/homeostatic/frontend/installation-settings.mjs";
 import {sourceMonitoringChoices} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
@@ -170,34 +170,24 @@ test("notification rows have globally independent ids and shared legacy pairings
   assert.equal(defs.default[0].timing.at,"08:00");assert.notEqual(defs.repairs[0].id,"default");
 });
 
-test("method preview sends nothing until exact saved destinations are explicitly tested",async()=>{
-  const {card,calls}=fixture();
-  card._hass.callWS=async request=>{
-    calls.push(request);
-    return request.type==="homeostatic/preview_delivery_method"?{method_id:"phone",name:"Owner phone",targets:[{channel:"phone:owner",name:"Owner's phone",type:"App",available:true}],presence:{},skipped:false,preview_token:"bound-presence"}:{requested:["phone:owner"],failed:[],skipped:false};
-  };
-  card.notificationDefinitionTab="methods";card.definitionSelection={kind:"methods",id:"phone"};
-  await previewDeliveryMethod(card,"phone");assert.equal(calls.length,1);
-  assert.match(namedNotifications(card),/Send test to these destinations/);
+test("saved method tests use an internal exact-target check with one user action",async()=>{
+  const {card,calls}=fixture();card.definitionSelection={kind:"methods",id:"phone"};
+  card._hass.callWS=async request=>{calls.push(request);return request.type.includes("preview_")?{preview_token:"bound-presence",targets:[{name:"Owner phone",available:true}],presence:{},skipped:false}:{requested:["phone:owner"],failed:[],skipped:false};};
+  assert.match(namedNotifications(card),/>Send test</);assert.doesNotMatch(namedNotifications(card),/Preview delivery method/);
   await testDeliveryMethod(card,"phone");
   assert.deepEqual(calls[1],{type:"homeostatic/test_delivery_method",method_id:"phone",revision:"one",preview_token:"bound-presence"});
-  assert.equal(card.deliveryMethodNotice,"1 test message requests; 0 failed requests.");
-  assert.equal(card.deliveryMethodReview,null);
+  assert.match(card.deliveryMethodNotice,/Owner phone/);
 });
 
-test("editing or changing revision after a method preview prevents test requests",async()=>{
-  const {card,calls}=fixture();
-  card.deliveryMethodReview={method_id:"phone",revision:"one",preview_token:"old"};
-  change(card,"methods","phone","name","Changed");
-  await testDeliveryMethod(card,"phone");assert.equal(calls.length,0);
-  card.settingsDraft=structuredClone(card.configuration.settings);card.configuration.revision="two";
+test("editing a saved method prevents test requests until it is saved",async()=>{
+  const {card,calls}=fixture();change(card,"methods","phone","name","Changed");
   await testDeliveryMethod(card,"phone");assert.equal(calls.length,0);
 });
 
 test("Notifications offers methods and sending without schedule or default assignment editors",()=>{
   const {card}=fixture();card.definitionSelection={kind:"schedules",id:"morning"};
   const html=namedNotifications(card);
-  assert.match(html,/Delivery methods/);assert.match(html,/Notification sending/);
+  assert.match(html,/Delivery methods/);assert.match(html,/Enable notifications/);
   assert.doesNotMatch(html,/>Schedules<|Default notification rows|Add schedule|data-definition-zone/);
 });
 
@@ -210,15 +200,14 @@ test("source detail links name the actual contributing policy and opening retain
   assert.equal(card.page,"policies");assert.deepEqual(sourceSettingsProposal(card),before);
 });
 
-test("review sends the entire draft and navigation does not permit saving a changed definition",async()=>{
-  const {card,calls}=fixture();card.configDraft.push({id:"all",action:"attach",match:{kind:["device"]},checks:["availability"]});
-  await previewSourceSettings(card);
-  assert.deepEqual(calls[0].settings,sourceSettingsProposal(card));
-  assert.deepEqual(calls[0].settings.notification_definitions.automation_profiles,card.settingsDraft.notification_definitions.automation_profiles);
-  card.page="notifications";click(card,"tab","methods");assert.ok(sourceSettingsReviewed(card));
-  change(card,"methods","phone","name","Renamed phone");await saveSourceSettings(card);assert.equal(calls.length,1);
-  await previewSourceSettings(card);await saveSourceSettings(card);assert.equal(calls.length,3);
-  assert.equal(calls[2].preview_token,"exact");assert.deepEqual(calls[2].settings,calls[1].settings);
+test("save sends the latest complete draft after navigating between editors",async()=>{
+  const {card,calls}=fixture();
+  change(card,"methods","phone","name","Renamed phone");
+  await saveSourceSettings(card);
+  assert.equal(calls.length,1);assert.equal(calls[0].type,"homeostatic/save_settings");
+  assert.equal(calls[0].settings.notification_definitions.methods.phone.name,"Renamed phone");
+  assert.deepEqual(calls[0].settings.rules,card.configDraft);
+  assert.equal(calls[0].preview_token,undefined);
 });
 
 test("review distinguishes detection reset from observed recovery and shared definition edits",()=>{
@@ -309,7 +298,7 @@ test("unified Sources settings link to policies without legacy enrollment mutati
   const {card}=fixture();card.configuration.monitoring_policy_version=1;
   const source=card.current.data.inventory.catalog.candidates.find(item=>item.kind==="device");
   const html=sourceMonitoringChoices(card,{source});assert.match(html,/View monitoring policies/);assert.doesNotMatch(html,/data-scope-index|data-row-field|data-reporting-node/);
-  const family=integrationSettings(card,{});assert.match(family,/Review policies/);assert.doesNotMatch(family,/data-scope-index/);
+  const family=integrationSettings(card,{});assert.match(family,/View policies/);assert.doesNotMatch(family,/data-scope-index/);
 });
 
 
@@ -337,4 +326,27 @@ test("unified problem detail renders policy actions and base source links withou
   assert.doesNotMatch(body.innerHTML,/data-ignore-availability|Stop checking/);
   detail.dialog={close(){}};detail.configDraft=[];
   await prototype.ignoreAvailability.call(detail,"entity:registry:one");assert.deepEqual(detail.configDraft,[]);assert.equal(detail.page,"policies");
+});
+
+test("integration picker lists families once and stores domain selection",()=>{
+  const {card}=fixture();
+  card.current.data.inventory.catalog.candidates.push(
+    {node_id:"entry:phone1",kind:"integration",name:"One phone",attributes:{kind:["integration"],integration:["phone1"],integration_domain:["mobile_app"]}},
+    {node_id:"entry:phone2",kind:"integration",name:"Other phone",attributes:{kind:["integration"],integration:["phone2"],integration_domain:["mobile_app"]}}
+  );
+  const policy=newMonitoringPolicy([],"integration");card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
+  const choices=policySelectionChoices(card,policy,"selected");
+  assert.equal(choices.filter(item=>item.id==="mobile_app").length,1);
+  assert.equal(choices.find(item=>item.id==="mobile_app").name,"Mobile App");
+  change(card,"policies",policy.id,"watch","selected");click(card,"pick","policies",policy.id);
+  assert.match(namedPolicies(card),/Choose integrations/);assert.match(namedPolicies(card),/<legend>Integrations/);
+  assert.doesNotMatch(namedPolicies(card),/One phone|Other phone|Choose sources/);
+  change(card,"policies",policy.id,"selection",true,{definitionValue:"mobile_app"});
+  assert.deepEqual(policy.match,{kind:["integration"],integration_domain:["mobile_app"]});
+});
+
+for(const [type,text] of [["repair","Watches all Home Assistant Repairs"],["broken_automation","Checks all automations for references"]])test(`${type} has scope text without a one-choice selector`,()=>{
+  const {card}=fixture();const policy=newMonitoringPolicy([],type);card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
+  const html=namedPolicies(card);assert.ok(html.includes(text));
+  assert.doesNotMatch(html,/data-definition-field="watch"|When it becomes a problem|data-definition-field="check"/);
 });

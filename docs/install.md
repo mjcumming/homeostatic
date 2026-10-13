@@ -17,28 +17,28 @@ Take a backup first. Go to **Settings → System → Backups** and select **Back
 
 ## 1. Install Homeostatic
 
-This guide describes the **1.8.0b1 testing prerelease** and its fresh-setup policy model. Use HACS or install by hand. Both end with the same files in the same place.
+This guide describes the **1.8.0b2 testing prerelease** and its fresh-setup policy model. Use HACS or install by hand. Both end with the same files in the same place.
 
 ### With HACS
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with the type **Integration**.
-3. Find **Homeostatic** and open its download options. Include beta/prerelease versions if needed, choose **1.8.0b1** explicitly and download it. If HACS does not offer this prerelease, use the manual download below.
+3. Find **Homeostatic** and open its download options. Include beta/prerelease versions if needed, choose **1.8.0b2** explicitly and download it. If HACS does not offer this prerelease, use the manual download below.
 4. Restart Home Assistant (**Settings → System**, then the power button at the top right).
 
 ### By hand
 
 You'll need access to your Home Assistant config folder, through the Samba share, SSH or a file editor add-on.
 
-1. From the [1.8.0b1 prerelease](https://github.com/mjcumming/homeostatic/releases/tag/v1.8.0b1), download `homeostatic-1.8.0b1.zip` and `homeostatic-1.8.0b1.zip.sha256` into the same folder on your computer.
+1. From the [1.8.0b2 prerelease](https://github.com/mjcumming/homeostatic/releases/tag/v1.8.0b2), download `homeostatic-1.8.0b2.zip` and `homeostatic-1.8.0b2.zip.sha256` into the same folder on your computer.
 2. Check the download against its checksum before you unpack it. In that folder, run the command for your system:
 
    ```bash
-   sha256sum -c homeostatic-1.8.0b1.zip.sha256        # Linux
-   shasum -a 256 -c homeostatic-1.8.0b1.zip.sha256    # macOS
+   sha256sum -c homeostatic-1.8.0b2.zip.sha256        # Linux
+   shasum -a 256 -c homeostatic-1.8.0b2.zip.sha256    # macOS
    ```
 
-   Both should print `homeostatic-1.8.0b1.zip: OK`. On Windows, run `Get-FileHash .\homeostatic-1.8.0b1.zip -Algorithm SHA256` in PowerShell and compare the hash with the first value in the `.sha256` file. If the check fails, download the zip again and don't install it.
+   Both should print `homeostatic-1.8.0b2.zip: OK`. On Windows, run `Get-FileHash .\homeostatic-1.8.0b2.zip -Algorithm SHA256` in PowerShell and compare the hash with the first value in the `.sha256` file. If the check fails, download the zip again and don't install it.
 3. Unzip it. Copy its `custom_components/homeostatic` folder into your config folder, so you end up with `<config>/custom_components/homeostatic/manifest.json`. If an older copy is already there, delete that folder first. Copying over it leaves old files behind.
 4. Optionally, copy the zip's `blueprints/automation/homeostatic` folder to `<config>/blueprints/automation/homeostatic`. Then you won't need to import the alert blueprint in step 5.
 5. Restart Home Assistant.
@@ -73,7 +73,7 @@ Fresh setup already watches eligible devices through the supplied device availab
 3. Review the name, **Monitoring type**, source selection and **Notifications**. The type is fixed; the other supported settings are editable.
 4. Leave the source selection unchanged for this walkthrough. With no notification entries, the policy is **Dashboard only**.
 
-To narrow what is watched, edit the policy's source selection, then select **Review changes** and save after checking the affected sources. Changes to detection or source selection start fresh monitoring for the new settings. Merely opening the policy changes nothing.
+To narrow what is watched, edit the policy's source selection, then select **Save changes**. Changes to detection or source selection start fresh monitoring for the new settings. Merely opening the policy changes nothing.
 
 A device issue opens when every selected entity is unavailable, or a supported connectivity sensor reports disconnected. One unavailable entity can instead have its own issue under the separate entity availability policy. When availability returns, Homeostatic waits for the configured recovery interval before ending the issue. The [user guide](guide.md#choose-what-to-watch) explains source selection and overlapping policies.
 
@@ -110,10 +110,10 @@ When finished, delete the test automation and helper. Homeostatic removes the al
 Create a reusable delivery method, then choose when a policy uses it. For a Companion app phone, link your Home Assistant user to a person under **Settings → People** and sign in to the app as that user.
 
 1. Open **Notifications**, select **Add delivery method**, give it a name and select a destination. Start with fixed destinations.
-2. Review and save the method. Select **Preview delivery method**, inspect the targets, then explicitly request a test. The result confirms a request; check the destination for receipt. Testing works while normal notifications are off.
+2. Select **Save changes**, then **Send test** in the saved method's editor. The test uses only that method's configured destinations. The result confirms a request; check the destination for receipt. Testing works while normal notifications are off.
 3. Open a policy in **Policies**. Under **Notifications**, select **Add another notification** and choose a scheduled summary time and weekdays. Select the method you created. Add a separate immediate entry if this policy needs it.
-4. Review and save the policy. Other policies keep their own timing and methods; policies with no entries remain dashboard-only.
-5. In **Notifications → Outgoing requests**, enable notification requests, review the change and save. Existing open issues follow their entries: immediate entries can send now, while scheduled entries wait for their next time.
+4. Select **Save changes** for the policy. Other policies keep their own timing and methods; policies with no entries remain dashboard-only.
+5. Near the top of **Notifications**, select **Enable notifications**, then **Save changes**. Existing open issues follow their entries: immediate entries can send now, while scheduled entries wait for their next time.
 
 Start with a summary for one policy, then add immediate delivery where it helps. Optional reminders continue until acknowledgment or recovery. An acknowledged open problem can still appear in a scheduled summary. See [Activate notifications](guide.md#activate-notifications) for presence-based methods, multiple entries and delivery tests.
 

@@ -118,6 +118,8 @@ Homeostatic fires `homeostatic_notification` once for each notification it reque
 
 Homeostatic's built-in sender listens for this event too. It handles `phone:` Companion app targets, `notify:` notification entities, `satellite:` announcements, `tts:` provider/player pairs, and `sms:` notification actions with recipient targets. Other channels are for your own automation. Installations set up with the Companion notifications blueprint use a channel called `event`. An event records a delivery request; it doesn't establish receipt, reading or speech heard.
 
+Method tests are explicit administrator requests from a saved method's editor. They resolve only that method's destinations and current presence rules, work while normal notifications are off, and create no issue or issue-outbox entry. Saving a method does not request a test.
+
 Each policy notification entry owns its timing and is evaluated independently. One issue can produce immediate requests and a later report for the same delivery method. Presence is resolved when a new request or reminder is prepared. A presence change alone creates no request. Non-Companion transports ignore silent updates and withdrawals, so cleanup never generates speech, email or SMS.
 
 | Field | Meaning |

@@ -3,6 +3,8 @@
 **Status:** Accepted; reusable-definition editing boundary superseded by [ADR 0054](0054-reusable-monitoring-policy-editor.md)
 **Date:** 2026-10-04
 
+**Later decision:** The required review-before-save UI is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.
+
 **Supersedes:** the Policies presentation in [ADR 0047](0047-policies-page.md) that edited a saved broad rule in place and kept other group policies, individual source choices, and Advanced rule details on the page. The collapsed complete catalog editor in [ADR 0030](0030-separate-group-policies-from-source-choices.md) is also superseded. The Policies page, and the split that keeps one source in Sources, remain.
 
 **Repairs row superseded by:** [ADR 0049](0049-repairs-check.md). Repairs uses the same on or off control. The other decisions remain.

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {integrationSettings, integrationScopes, sourceSettingsProposal, sourceSettingsReviewed, previewSourceSettings, saveSourceSettings, sourceSettingsAction} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
+import {integrationSettings, integrationScopes, sourceSettingsProposal, sourceSettingsReviewed, previewSourceSettings, saveSourceSettings, sourceSettingsAction,sourceSettingsFooter,settingsErrorMessage} from "../../custom_components/homeostatic/frontend/source-settings.mjs";
 import {sourcesTree} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {setScopeChoice} from "../../custom_components/homeostatic/frontend/configuration.mjs";
 import {editReporting} from "../../custom_components/homeostatic/frontend/reporting.mjs";
@@ -51,36 +51,48 @@ test("older policy is not misrepresented as saved fixed preferences",()=>{
   assert.equal(card.settingsDraft.reporting,undefined);
 });
 
-test("one exact combined proposal is previewed and saved once",async()=>{
+test("one click saves the complete current proposal without preview",async()=>{
   const {card,node,calls}=fixture();
   setScopeChoice(card.configDraft,integrationScopes(node).devices,"attach");
   card.settingsDraft.reporting.assignments["device:camera-1"].default="morning";
-  await previewSourceSettings(card);
-  assert.equal(calls.length,1);
-  assert.deepEqual(calls[0].settings.rules,card.configDraft);
-  assert.match(integrationSettings(card,node),/Save changes/);
+  const proposed=sourceSettingsProposal(card);
+  assert.match(sourceSettingsFooter(card),/Save changes/);
+  assert.doesNotMatch(sourceSettingsFooter(card),/Review changes|preview-source-settings/);
   await saveSourceSettings(card);
-  assert.equal(calls.length,2);
-  assert.equal(calls[1].type,"homeostatic/save_settings");
-  assert.equal(calls[1].preview_token,"review");
-  assert.deepEqual(calls[1].settings,calls[0].settings);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].type,"homeostatic/save_settings");
+  assert.equal(calls[0].preview_token,undefined);
+  assert.deepEqual(calls[0].settings,proposed);
   assert.equal(card.settingsDraft.notifications,false);
   assert.equal(card.settingsDraft.reporting.assignments["device:camera-1"].checks.availability,"immediate");
-  assert.equal(sourceSettingsReviewed(card),null);
 });
 
-for(const [name,mutate] of [
-  ["monitoring",card=>card.configDraft.push({id:"later",match:{kind:["device"]},action:"exclude"})],
-  ["reporting",card=>card.settingsDraft.reporting.default="morning"],
-  ["revision",card=>card.configuration.revision="new"],
-])test(`${name} changes cannot reuse a combined review`,async()=>{
-  const {card,calls}=fixture();await previewSourceSettings(card);mutate(card);
-  assert.equal(sourceSettingsReviewed(card),null);
+test("save submits edited content rather than an old preview",async()=>{
+  const {card,calls}=fixture();await previewSourceSettings(card);
+  card.settingsDraft.reporting.default="morning";
   await saveSourceSettings(card);
-  assert.equal(calls.length,1);
+  assert.equal(calls.length,2);
+  assert.equal(calls[1].settings.reporting.default,"morning");
+  assert.equal(calls[1].preview_token,undefined);
 });
 
-test("save failure retains both drafts and requires another review",async()=>{
+test("double click cannot submit a second save while the first is pending",async()=>{
+  const {card}=fixture();let finish,count=0;
+  card._hass.callWS=()=>{count++;return new Promise(resolve=>{finish=resolve;});};
+  const saving=saveSourceSettings(card);
+  await saveSourceSettings(card);assert.equal(count,1);
+  finish({saved:true});await saving;assert.equal(card.settingsBusy,false);
+});
+
+test("empty selection fails before saving and connection errors explain retained edits",async()=>{
+  const {card,calls}=fixture();card.settingsDraft.monitoring_policies=[{name:"Integrations",match:{integration_domain:[]}}];
+  await saveSourceSettings(card);assert.equal(calls.length,0);assert.match(card.sourceSettingsError,/Choose at least one/);
+  assert.match(settingsErrorMessage({code:"timeout"}),/timeout.*edits are still here/);
+  assert.match(settingsErrorMessage("Server unavailable"),/Server unavailable/);
+  assert.match(settingsErrorMessage({error:{message:"Invalid threshold"}}),/Invalid threshold/);
+});
+
+test("save failure retains both drafts for correction or retry",async()=>{
   const {card}=fixture();card.configDraft.push({id:"choice",match:{kind:["device"]},action:"attach"});
   await previewSourceSettings(card);const before=sourceSettingsProposal(card);
   card._hass.callWS=async()=>{throw Error("Settings changed; reload this page");};

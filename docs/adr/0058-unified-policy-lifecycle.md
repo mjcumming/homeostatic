@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-13
 
+**Later decision:** Connection-level integration selection and editor presentation is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.
+
 **Partially supersedes:** the editable check type, separate built-in enrollment presentation and shared-check restriction for overlapping policies in [ADR 0054](0054-reusable-monitoring-policy-editor.md); the required UPS/battery ownership transfer in [ADR 0051](0051-monitor-ups-conditions-through-shared-mappings.md); and the preservation/conversion requirements for existing test settings in [ADR 0055](0055-separate-notification-schedules-and-methods.md) and [ADR 0057](0057-policy-owned-notification-timing.md). Policy-owned timing and reusable delivery methods remain the accepted notification model.
 
 ## Context

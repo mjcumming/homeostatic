@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=70";
-import {MATCH_FIELDS, MATCH_LABELS, newCatalogRule} from "./configuration.mjs?v=70";
+import {escapeHtml as esc} from "./model.mjs?v=71";
+import {MATCH_FIELDS, MATCH_LABELS, newCatalogRule} from "./configuration.mjs?v=71";
 
 /** Keep exact source choices in Sources, including mixed and multi-source rules. */
 export function isGroupPolicy(rule) {
@@ -141,7 +141,7 @@ export function monitoringPolicies(card) {
     const draft = entry && card.configuration?.rules && !card.configuration.rules.some(rule => rule.id === entry.rule.id);
     const paused = entry?.rule.enabled === false;
     const state = entry && !paused ? "On" : "Off";
-    const note = paused ? " This check is paused." : draft ? " Review and save before this takes effect." : "";
+    const note = paused ? " This check is paused." : draft ? " Save before this takes effect." : "";
     const actions = !entry
       ? `<button type="button" class="button" data-action="${addAction}"${disabled}>${addLabel}</button>`
       : paused
@@ -166,7 +166,7 @@ export function monitoringPolicies(card) {
       title,
       detail,
       stopped ? "Off" : "On",
-      stopped && draft ? " Review and save before this takes effect." : "",
+      stopped && draft ? " Save before this takes effect." : "",
       stopped
         ? `<button type="button" class="button" data-action="${monitorAction}"${disabled}>${monitorLabel}</button>`
         : `<button type="button" class="link" data-action="${turnOffAction}"${disabled}>Turn off</button>`,

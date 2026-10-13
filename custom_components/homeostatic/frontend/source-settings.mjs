@@ -1,11 +1,10 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=70";
-import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=70";
-import {REPORTING, reportingChoices} from "./reporting.mjs?v=70";
-import {settingsChanges} from "./installation-settings.mjs?v=70";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=71";
+import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=71";
+import {REPORTING, reportingChoices} from "./reporting.mjs?v=71";
 
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const reportingLabel = id => REPORTING.find(row=>row[0]===id)?.[1] || id;
-const policyLink = '<button type="button" class="link" data-page="policies">Review policies</button>';
+const policyLink = '<button type="button" class="link" data-page="policies">View policies</button>';
 const choiceLabel = value => ({inherit:"Following monitoring policies",attach:"Explicitly monitored",exclude:"Not monitored by default",multiple:"Several direct policies apply"}[value]);
 const familyDevices = node => node.children.flatMap(child=>child.source?.kind==="device"?[child]:child.children?child.children.filter(item=>item.source?.kind==="device"):[]);
 
@@ -46,7 +45,7 @@ export function integrationSettings(card,node) {
   const deviceOptions=[["inherit","Follow monitoring policies",deviceCount+"."],["attach","All devices, including new devices","Individual choices and exclusions still apply."],["exclude","Only devices I choose","New devices stay unmonitored until selected. Separate entity checks keep their own choices."]];
   const deviceChoice=scopeChoice(card.configDraft,scopes.devices);
   const list=(items,text)=>items.map(child=>`<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}</span><small>${esc(text(child))}</small></button>`).join("");
-  const monitoring=node.entries.length&&!off?`<section class="source-setting-section"><h3>What to monitor</h3><p class="small">Choose which Home Assistant reports become checks. The counts show what is monitored now; a choice that covers future sources takes effect when they appear.</p>${monitoringRow(card,scopes.connection,"integration-connection","Integration problems","Setup failures and sign-in problems reported by Home Assistant.",connectionCount,connectionOptions)}${monitoringRow(card,scopes.devices,"integration-devices","Device availability","Watch for selected entities becoming unavailable in Home Assistant.",deviceCount,deviceOptions)}${deviceChoice==="exclude"?'<p class="small">Open a device in Sources to choose whether to monitor it.</p>':""}${excluded.length?`<details class="source-setting-exceptions"><summary>${excluded.length} ${excluded.length===1?'device currently excluded':'devices currently excluded'}</summary>${list(excluded,()=>"Not monitored")}<p class="small">Review changes to see which exclusions still apply.</p></details>`:""}${choices.length?`<details class="source-setting-exceptions"><summary>${choices.length} individual monitoring ${choices.length===1?'choice':'choices'}</summary>${list(choices.map(item=>item.child),child=>choiceLabel(choices.find(item=>item.child===child).choice))}</details>`:""}</section>`:"";
+  const monitoring=node.entries.length&&!off?`<section class="source-setting-section"><h3>What to monitor</h3><p class="small">Choose which Home Assistant reports become checks. The counts show what is monitored now; a choice that covers future sources takes effect when they appear.</p>${monitoringRow(card,scopes.connection,"integration-connection","Integration problems","Setup failures and sign-in problems reported by Home Assistant.",connectionCount,connectionOptions)}${monitoringRow(card,scopes.devices,"integration-devices","Device availability","Watch for selected entities becoming unavailable in Home Assistant.",deviceCount,deviceOptions)}${deviceChoice==="exclude"?'<p class="small">Open a device in Sources to choose whether to monitor it.</p>':""}${excluded.length?`<details class="source-setting-exceptions"><summary>${excluded.length} ${excluded.length===1?'device currently excluded':'devices currently excluded'}</summary>${list(excluded,()=>"Not monitored")}<p class="small">Saved exclusions continue to apply until you change them.</p></details>`:""}${choices.length?`<details class="source-setting-exceptions"><summary>${choices.length} individual monitoring ${choices.length===1?'choice':'choices'}</summary>${list(choices.map(item=>item.child),child=>choiceLabel(choices.find(item=>item.child===child).choice))}</details>`:""}</section>`:"";
   return `<div class="integration-settings"><fieldset class="source-settings-editor"${busy?' disabled':''}>${master}${monitoring}${integrationReporting(card,devices)}</fieldset>${sourceSettingsFooter(card)}</div>`;
 }
 
@@ -70,7 +69,7 @@ export function integrationReporting(card,devices) {
   const summary=setup?[...counts].map(([id,count])=>`${count} ${reportingLabel(id)}`).join(" · "):"Using the existing notification policy";
   const activation=saved.notifications?"Household notifications are on.":"Household notifications are off.";
   const draftActivation=saved.notifications!==card.settingsDraft.notifications?`<p class="source-setting-pending">After saving, household notifications will be ${card.settingsDraft.notifications?'on':'off'}.</p>`:"";
-  return `<section class="source-setting-section"><h3>When to notify</h3><p>Choose when device problems should reach someone.</p><p><strong>${activation}</strong></p>${draftActivation}<p class="small">Preferences apply to monitored devices when notifications are enabled.</p><div class="source-setting-row"><div><h4>Device preferences</h4><strong>${esc(summary)}</strong>${changed?'<p class="source-setting-pending">Unsaved reporting choices</p>':""}${!setup?'<p class="small">Choosing a preference prepares a replacement reporting setup with notifications off. Review before saving.</p>':""}</div><details class="source-setting-change" data-ui-key="integration-reporting"><summary>Change<span class="source-setting-sr"> device reporting</span></summary><label class="source-reporting-select">Apply to these ${devices.length} devices<select data-reporting-bulk="${esc(JSON.stringify(devices.map(child=>child.source.node_id)))}"><option value="">Choose when to notify</option>${REPORTING.map(([id,name])=>`<option value="${id}">${esc(name)}</option>`).join("")}</select></label><p class="small">Applies to current devices. New devices use the household reporting default. Check-specific preferences are kept.</p><details class="source-setting-exceptions"><summary>What each reporting choice does</summary><dl>${REPORTING.map(([,name,help])=>`<dt>${esc(name)}</dt><dd>${esc(help)}</dd>`).join("")}</dl></details></details></div>${setup&&exceptions.length?`<details class="source-setting-exceptions"><summary>${exceptions.length} ${exceptions.length===1?'check has its':'checks have their'} own reporting preference</summary>${exceptions.map(({child,check,id})=>`<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}<small>${esc(check==="availability"?"Availability":check==="condition"?"Configured situation":check)}</small></span><small>${esc(reportingLabel(id))}</small></button>`).join("")}<p class="small">Changing device defaults keeps these preferences.</p></details>`:""}<button type="button" class="link source-settings-destination" data-page="notifications">Manage report times and recipients</button></section>`;
+  return `<section class="source-setting-section"><h3>When to notify</h3><p>Choose when device problems should reach someone.</p><p><strong>${activation}</strong></p>${draftActivation}<p class="small">Preferences apply to monitored devices when notifications are enabled.</p><div class="source-setting-row"><div><h4>Device preferences</h4><strong>${esc(summary)}</strong>${changed?'<p class="source-setting-pending">Unsaved reporting choices</p>':""}${!setup?'<p class="small">Choosing a preference prepares a replacement reporting setup with notifications off. Save to apply these choices.</p>':""}</div><details class="source-setting-change" data-ui-key="integration-reporting"><summary>Change<span class="source-setting-sr"> device reporting</span></summary><label class="source-reporting-select">Apply to these ${devices.length} devices<select data-reporting-bulk="${esc(JSON.stringify(devices.map(child=>child.source.node_id)))}"><option value="">Choose when to notify</option>${REPORTING.map(([id,name])=>`<option value="${id}">${esc(name)}</option>`).join("")}</select></label><p class="small">Applies to current devices. New devices use the household reporting default. Check-specific preferences are kept.</p><details class="source-setting-exceptions"><summary>What each reporting choice does</summary><dl>${REPORTING.map(([,name,help])=>`<dt>${esc(name)}</dt><dd>${esc(help)}</dd>`).join("")}</dl></details></details></div>${setup&&exceptions.length?`<details class="source-setting-exceptions"><summary>${exceptions.length} ${exceptions.length===1?'check has its':'checks have their'} own reporting preference</summary>${exceptions.map(({child,check,id})=>`<button type="button" class="source-child" data-sources-select="${esc(child.key)}"><span>${esc(child.name)}<small>${esc(check==="availability"?"Availability":check==="condition"?"Configured situation":check)}</small></span><small>${esc(reportingLabel(id))}</small></button>`).join("")}<p class="small">Changing device defaults keeps these preferences.</p></details>`:""}<button type="button" class="link source-settings-destination" data-page="notifications">Manage report times and recipients</button></section>`;
 }
 
 /** Include the complete shared drafts in one revision-bound proposal. */
@@ -83,29 +82,17 @@ export function sourceSettingsReviewed(card) {
   return review?.revision===card.configuration.revision&&same(review.proposal,sourceSettingsProposal(card))?review:null;
 }
 
-function monitoringChanges(card) {
-  const before=card.configuration.rules,after=card.configDraft;
-  const sources=inventoryRows(card.current.data);
-  const describe=rule=>{
-    if(!rule)return "Follow other matching policies";
-    const names=sources.filter(source=>Object.entries(rule.match||{}).every(([field,values])=>values.some(value=>field==="kind"?source.kind===value:source.attributes?.[field]?.includes(value)))).map(source=>source.name);
-    return `${ruleSummary(rule)}${names.length&&names.length<=3?`: ${[...new Set(names)].join(", ")}`:""}`;
-  };
-  return [...new Set([...before,...after].map(rule=>rule.id))].flatMap(id=>{
-    const a=before.find(rule=>rule.id===id),b=after.find(rule=>rule.id===id);
-    return same(a,b)?[]:[["Monitoring",describe(a),describe(b)]];
-  });
-}
-
 export function sourceSettingsFooter(card) {
   if(!card.settingsDraft)return "";
-  const monitoringDirty=!same(card.configuration.rules,card.configDraft),settingsDirty=!same(card.configuration.settings,card.settingsDraft);
-  const dirty=monitoringDirty||settingsDirty,review=sourceSettingsReviewed(card),busy=card.configBusy||card.settingsBusy;
-  const changes=[...monitoringChanges(card),...settingsChanges(card.configuration.settings,card.settingsDraft,card)];
-  const affected=(items,count,label)=>count?`<p><strong>${count} ${label}</strong></p><ul>${items.map(item=>`<li>${esc(item.name)}</li>`).join("")}</ul>${count>items.length?`<p class="small">Showing ${items.length} of ${count}.</p>`:""}`:"";
-  const preview=review?.result,monitoring=preview?.monitoring;
-  const result=review?`<section class="settings-preview source-settings-preview" aria-live="polite"><h3>Review changes</h3><p>All pending monitoring and settings changes are included, including choices made on other pages.</p><ul>${changes.map(([name,from,to])=>`<li><strong>${esc(name)}</strong>: ${esc(from)} → ${esc(to)}</li>`).join("")}</ul>${monitoring?`<p>${monitoring.watched} sources monitored after saving.</p>${affected(monitoring.added,monitoring.added_count,"newly monitored")}${affected(monitoring.removed,monitoring.removed_count,"no longer monitored")}${!monitoring.added_count&&!monitoring.removed_count?'<p>No current sources start or stop monitoring. Entity inclusion or future matching sources may still change.</p>':""}${monitoring.functions.length?`<details><summary>Function readiness from current evidence</summary><ul>${monitoring.functions.map(item=>`<li>${esc(item.name)}: ${esc(item.readiness.answer)}</li>`).join("")}</ul></details>`:""}`:""}<p>${monitoring?.ended_issues?.length?`Monitoring ends for ${monitoring.ended_issues.length} existing issues. New evidence will be evaluated under the saved definitions.`:""}</p><p>Household notifications ${card.settingsDraft.notifications?'will be on':'will be off'}.</p><p class="small">${preview.open_problems} existing open problems would produce ${preview.requests_now} requests under this policy. This does not simulate problems after monitoring changes. Preview sends nothing. Saving reloads Homeostatic.</p></section>`:"";
-  return `${result}<footer class="source-settings-footer"><p class="small" role="status">${busy?'Checking settings…':dirty?'Unsaved changes':'No unsaved changes'}</p>${card.sourceSettingsError?`<p role="alert" class="config-error">${esc(card.sourceSettingsError)}</p>`:""}${card.sourceSettingsNotice?`<p role="status">${esc(card.sourceSettingsNotice)}</p>`:""}<div class="actions"><button type="button" class="button primary" data-action="${review?'save-source-settings':'preview-source-settings'}"${busy||!dirty?' disabled':''}>${review?'Save changes':'Review changes'}</button>${dirty?`<button type="button" class="link" data-action="discard-source-settings"${busy?' disabled':''}>Discard changes</button>`:""}</div></footer>`;
+  const dirty=!same(card.configuration.rules,card.configDraft)||!same(card.configuration.settings,card.settingsDraft),busy=card.configBusy||card.settingsBusy;
+  return `<footer class="source-settings-footer"><p class="small" role="status">${busy?'Saving changes…':dirty?'Unsaved changes':'All changes saved'}</p>${card.sourceSettingsError?`<p role="alert" class="config-error">${esc(card.sourceSettingsError)}</p>`:""}${card.sourceSettingsNotice?`<p role="status">${esc(card.sourceSettingsNotice)}</p>`:""}<div class="actions"><button type="button" class="button primary" data-action="save-source-settings"${busy||!dirty?' disabled':''}>Save changes</button>${dirty?`<button type="button" class="link" data-action="discard-source-settings"${busy?' disabled':''}>Discard changes</button>`:""}</div></footer>`;
+}
+
+export function settingsErrorMessage(error) {
+  const message=typeof error==="string"?error:error?.message||error?.error?.message;
+  if(message?.trim())return message;
+  const code=error?.code||error?.error?.code;
+  return code?`Could not save changes (${code}). Your edits are still here. Try again or reload the saved settings.`:"Could not reach Home Assistant to save changes. Your edits are still here. Check the connection and try again.";
 }
 
 /** Review the complete proposal without sending notifications or saving. */
@@ -124,17 +111,19 @@ export async function previewSourceSettings(card) {
   finally {card.settingsBusy=false;card.render();card.main.querySelector(".source-settings-preview")?.scrollIntoView({block:"nearest"});}
 }
 
-/** Save one exact combined preview; server rollback covers both drafts. */
+/** Save the complete draft once; validation and rollback remain server-side. */
 export async function saveSourceSettings(card) {
-  const review=sourceSettingsReviewed(card);
-  if(!review||card.settingsBusy||card.configBusy||card.current.status!=="current")return;
-  card.settingsBusy=true;card.sourceSettingsError=null;card.render();
+  if(!card.settingsDraft||card.settingsBusy||card.configBusy||card.current.status!=="current")return;
+  if([...(card.main.querySelectorAll?.(".installation-editor input, .installation-editor select")||[])].some(input=>!input.reportValidity()))return;
+  const emptySelection=(card.settingsDraft.monitoring_policies||[]).find(policy=>Object.values(policy.match||{}).some(values=>Array.isArray(values)&&values.length===0));
+  if(emptySelection){card.sourceSettingsError=`Choose at least one item for ${emptySelection.name}, or choose All.`;card.render();return;}
+  const proposal=sourceSettingsProposal(card),revision=card.configuration.revision;
+  card.settingsBusy=true;card.sourceSettingsReview=null;card.sourceSettingsError=null;card.sourceSettingsNotice=null;card.render();
   try {
-    await card._hass.callWS({type:"homeostatic/save_settings",revision:review.revision,preview_token:review.result.preview_token,settings:review.proposal});
-    card.sourceSettingsReview=null;
+    await card._hass.callWS({type:"homeostatic/save_settings",revision,settings:proposal});
     await card.loadConfiguration();
-    card.sourceSettingsNotice=card.configError?"Saved, but the current settings could not be reloaded. Reload choices before editing again.":"Monitoring and reporting choices saved.";
-  } catch(error) {card.sourceSettingsReview=null;card.sourceSettingsError=error?.message||"Could not save these settings. Review again before retrying.";}
+    card.sourceSettingsNotice=card.configError?"Saved, but the current settings could not be reloaded. Reload settings before editing again.":"Changes saved.";
+  } catch(error) {card.sourceSettingsError=settingsErrorMessage(error);}
   finally {card.settingsBusy=false;card.render();}
 }
 

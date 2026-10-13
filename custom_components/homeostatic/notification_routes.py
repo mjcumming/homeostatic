@@ -7,6 +7,7 @@ from urllib.parse import quote, unquote
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
@@ -114,78 +115,137 @@ def destinations(hass: HomeAssistant) -> list[Destination]:
     return sorted(result, key=lambda item: (item.name.casefold(), item.channel))
 
 
+def _legacy_providers(hass: HomeAssistant) -> dict[int, str]:
+    """Match registered legacy service owners to Core's loaded notify platforms."""
+    loaded = hass.data.get("notify_services", {})
+    if not isinstance(loaded, dict):
+        return {}
+    return {
+        id(provider): platform
+        for platform, providers in loaded.items()
+        for provider in providers
+    }
+
+
 def delivery_targets(hass: HomeAssistant) -> list[dict[str, Any]]:
     """Discover configured notification capabilities without requesting delivery."""
-    result = [
-        {
-            "channel": route.channel,
-            "name": route.name,
-            "type": "app" if route.channel.startswith("phone:") else "email",
-            "available": route.available,
-            "user_id": route.user_id,
-            "replace": route.channel.startswith("phone:"),
-            "acknowledgment": route.channel.startswith("phone:"),
-        }
-        for route in destinations(hass)
-    ]
-    entries = [
-        item
-        for item in er.async_get(hass).entities.values()
-        if item.disabled_by is None
-    ]
+    registry = er.async_get(hass)
+    devices = dr.async_get(hass)
+    areas = ar.async_get(hass)
+
+    def name(entity: er.RegistryEntry) -> str:
+        state = hass.states.get(entity.entity_id)
+        return (
+            state.name
+            if state
+            else entity.name or entity.original_name or entity.entity_id
+        )
+
+    def area(entity: er.RegistryEntry) -> str | None:
+        device = devices.async_get(entity.device_id) if entity.device_id else None
+        area_id = entity.area_id or (device.area_id if device else None)
+        selected = areas.async_get_area(area_id) if area_id else None
+        return selected.name if selected else None
 
     def available(entity: er.RegistryEntry) -> bool:
         state = hass.states.get(entity.entity_id)
+        device = devices.async_get(entity.device_id) if entity.device_id else None
         return (
-            state is not None
+            entity.disabled_by is None
+            and (device is None or device.disabled_by is None)
+            and state is not None
             and state.state != "unavailable"
             and not state.attributes.get("restored", False)
         )
 
+    result: list[dict[str, Any]] = []
+    for route in destinations(hass):
+        phone = route.channel.startswith("phone:")
+        entity = registry.entities.get_entry(route.channel[7:]) if not phone else None
+        platform = entity.platform if entity else "mobile_app"
+        result.append(
+            {
+                "channel": route.channel,
+                "name": route.name,
+                "type": {"mobile_app": "app", "smtp": "email"}.get(
+                    platform, "notification"
+                ),
+                "available": available(entity) if entity else route.available,
+                "user_id": route.user_id,
+                "alias_of": route.phone_channel,
+                "area": area(entity) if entity else None,
+                "replace": phone,
+                "acknowledgment": phone,
+            }
+        )
+    entries = [item for item in registry.entities.values() if item.disabled_by is None]
+    players = [
+        item
+        for item in entries
+        if item.domain == "media_player"
+        and item.supported_features & _PLAYER_PLAY_MEDIA
+    ]
     for entity in entries:
-        if entity.domain == "assist_satellite":
-            state = hass.states.get(entity.entity_id)
+        if (
+            entity.domain == "assist_satellite"
+            and entity.supported_features & _SATELLITE_ANNOUNCE
+        ):
             result.append(
                 {
                     "channel": f"satellite:{entity.id}",
-                    "name": state.name if state else entity.name or entity.entity_id,
+                    "name": name(entity),
+                    "destination_id": entity.id,
+                    "destination_name": name(entity),
+                    "area": area(entity),
                     "type": "voice",
                     "available": available(entity)
-                    and bool(entity.supported_features & _SATELLITE_ANNOUNCE)
                     and hass.services.has_service("assist_satellite", "announce"),
                     "replace": False,
                     "acknowledgment": False,
                 }
             )
         elif entity.domain == "tts":
-            for player in entries:
-                if player.domain == "media_player":
-                    result.append(
-                        {
-                            "channel": f"tts:{entity.id}:{player.id}",
-                            "name": f"{entity.name or entity.entity_id} → {player.name or player.entity_id}",
-                            "type": "voice",
-                            "available": available(entity)
-                            and available(player)
-                            and bool(player.supported_features & _PLAYER_PLAY_MEDIA)
-                            and hass.services.has_service("tts", "speak"),
-                            "replace": False,
-                            "acknowledgment": False,
-                        }
-                    )
-    for service in hass.services.async_services().get("notify", {}):
-        if service != "send_message" and not service.startswith("mobile_app_"):
-            result.append(
-                {
-                    "channel": f"sms:{service}:",
-                    "name": f"notify.{service}",
-                    "type": "sms",
-                    "available": True,
-                    "requires_target": True,
-                    "replace": False,
-                    "acknowledgment": False,
-                }
-            )
+            for player in players:
+                result.append(
+                    {
+                        "channel": f"tts:{entity.id}:{player.id}",
+                        "name": name(player),
+                        "destination_id": player.id,
+                        "destination_name": name(player),
+                        "provider_id": entity.id,
+                        "provider_name": name(entity),
+                        "area": area(player),
+                        "type": "voice",
+                        "available": available(entity)
+                        and available(player)
+                        and hass.services.has_service("tts", "speak"),
+                        "replace": False,
+                        "acknowledgment": False,
+                    }
+                )
+    providers = _legacy_providers(hass)
+    for service, definition in hass.services.async_services().get("notify", {}).items():
+        if service == "send_message" or service.startswith("mobile_app_"):
+            continue
+        owner = getattr(definition.job.target, "__self__", None)
+        provider_platform = providers.get(id(owner), "")
+        # Core's notify base schema accepts target for every provider; only a
+        # verified provider contract establishes that it means a phone number.
+        kind = {"twilio_sms": "sms", "smtp": "email"}.get(
+            provider_platform, "notification"
+        )
+        result.append(
+            {
+                "channel": f"sms:{service}:" if kind == "sms" else f"service:{service}",
+                "name": service.replace("_", " ").capitalize(),
+                "service": f"notify.{service}",
+                "type": kind,
+                "available": True,
+                "requires_target": kind == "sms",
+                "replace": False,
+                "acknowledgment": False,
+            }
+        )
     return sorted(
         result, key=lambda item: (str(item["name"]).casefold(), str(item["channel"]))
     )
@@ -301,6 +361,21 @@ async def async_send(
             "send_message",
             {"entity_id": entity.entity_id, "title": title, "message": message},
             blocking=True,
+        )
+        return
+    if channel.startswith("service:"):
+        if clear or silent:
+            return
+        service = channel[8:]
+        if (
+            not service
+            or service == "send_message"
+            or service.startswith("mobile_app_")
+            or not hass.services.has_service("notify", service)
+        ):
+            raise HomeAssistantError("Selected notification action is unavailable")
+        await hass.services.async_call(
+            "notify", service, {"title": title, "message": message}, blocking=True
         )
         return
     if channel.startswith(("satellite:", "tts:", "sms:")):

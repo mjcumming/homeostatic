@@ -21,7 +21,7 @@ Lookup tables for Homeostatic's timings, entities, actions, card, dashboard and 
 
 ## Setup
 
-Adding Homeostatic creates one integration entry. Integration, device and entity availability, Repairs and broken-automation policies start enabled. Battery and vacuum policies start disabled. Temperature, thermostat and UPS policies require setup. Every supplied policy starts with no notification entries, and global notification requests are off. Change monitoring, timing and notifications in the Homeostatic panel. Homeostatic has no **Configure** form in Home Assistant.
+Adding Homeostatic creates one integration entry. Integration, device and entity availability, Repairs and broken-automation policies start enabled. Battery and vacuum policies start disabled. Temperature, thermostat and UPS policies require setup. Every supplied policy starts with no notification entries, and global notification requests are off. Change monitoring, timing and notifications in the Homeostatic panel and select **Save changes**. Settings are validated during saving; failed saves retain your pending edits. Homeostatic has no **Configure** form in Home Assistant.
 
 Use a fresh setup to test the unified policy editor in this testing release. Updating an existing installation does not automatically convert or reset its saved monitoring and notification settings.
 
@@ -71,7 +71,7 @@ Each policy has zero or more independent notification entries. Each entry contai
 | Delivery methods | One or more saved methods; each method may be used by several entries |
 | When reserve is low | UPS reserve entries select confirmed mains or backup power |
 
-Immediate delivery includes overnight. Scheduled summaries include eligible open problems after immediate delivery or acknowledgment. Recovery removes a problem from future summaries, and empty summaries are skipped. Timing belongs to the entry; changing a shared method can affect every policy that uses it. The global switch in **Notifications** controls sending without removing entries or stopping monitoring.
+Immediate delivery includes overnight. Scheduled summaries include eligible open problems after immediate delivery or acknowledgment. Recovery removes a problem from future summaries, and empty summaries are skipped. Timing belongs to the entry; changing a shared method can affect every policy that uses it. The **Enable notifications** switch in **Notifications** controls sending without removing entries or stopping monitoring. A saved unchanged delivery method has a **Send test** action in its editor; it uses only that method's configured destinations and current presence rules.
 
 The policy editor keeps **Monitoring type** fixed after creation. Duplication retains the type and starts the copy disabled. The available source selectors and detection settings depend on that type. Battery policies start with a configurable 20% threshold. Supplied and custom policies share the same edit, duplicate, enable, disable and delete actions. **Restore defaults** restores only selected deleted policies; updates preserve edits and deletions.
 

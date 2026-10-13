@@ -77,7 +77,7 @@ Homeostatic adds a sidebar panel for administrators:
 | Issues | Every open problem, with its details and controls |
 | Sources | Inspect equipment and open the policies that watch it. |
 | Policies | Edit, duplicate, disable or delete supplied and custom policies. Choose sources, detection settings and notifications. |
-| Notifications | Reusable delivery methods, destination previews and tests, and the global notification switch |
+| Notifications | Reusable delivery methods with their own tests, and the global notification switch |
 | Settings | Timing and problem grouping |
 | History | Ended issues from the last 30 days |
 
@@ -128,9 +128,9 @@ The full list is in [Known limitations](docs/troubleshooting.md#known-limitation
    [![Open your Home Assistant instance and start setting up Homeostatic.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeostatic)
 
 2. Open **Homeostatic** in the sidebar. Availability, Repairs and broken-automation monitoring are already on; notifications are off.
-3. Open **Policies** and review what the supplied policies watch. Edit their sources and settings, or use **Add policy** to choose another monitoring type. Review changes before saving.
+3. Open **Policies** and review what the supplied policies watch. Edit their sources and settings, or use **Add policy** to choose another monitoring type. Select **Save changes** to apply edits.
 4. Enable battery or vacuum monitoring if wanted. Temperature, thermostat and UPS policies need sources and detection settings before use. Supplied and custom policies use the same editor.
-5. Leave notifications off while you review the issues. When ready, create delivery methods in **Notifications**, add notification entries to the policies you want to hear from, then review and enable the global notification switch.
+5. Leave notifications off while you review the issues. When ready, create delivery methods in **Notifications**, add notification entries to the policies you want to hear from, then enable the global notification switch and save.
 
 The [user guide](docs/guide.md) covers the rest: one integration's devices, policies, batteries, vacuums, notifications and the controls.
 

@@ -125,11 +125,11 @@ for(const saved of [
   assert.deepEqual(c.configuration.settings,before);
 });
 
-test("reviewing initial reporting setup invokes preview without saving or sending",()=>{
+test("saving initial reporting setup stages defaults and invokes one save",()=>{
   const c=card();c.settingsDraft={policy:{timezone:"UTC"},notifications:true};
-  let previews=0;c.previewSettings=()=>{previews++;};
+  let saves=0;c.saveSettings=()=>{saves++;};
   editReporting(c,{type:"click",target:target({reportingReview:""})});
-  assert.equal(previews,1);
+  assert.equal(saves,1);
   assert.equal(c.settingsDraft.notifications,false);
   assert.equal(c.settingsDraft.reporting.default,"weekly");
 });

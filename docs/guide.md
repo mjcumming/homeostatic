@@ -24,19 +24,19 @@ If you haven't installed Homeostatic yet, start with [Install and first run](ins
 
 A new install watches integration, device and entity availability, Home Assistant's Repairs, and automations that name an entity that no longer exists. Batteries and vacuums start off. Temperature limits, thermostat progress and UPS checks are available when you add a policy and configure its sources and settings. All supplied policies start with no notification entries, and notifications are off.
 
-Every monitoring change goes through a review. Make your choices, select **Review changes** to see which sources start or stop being watched, then save. Nothing changes until you save.
+Make your choices, then select **Save changes**. Homeostatic checks the settings as it saves them. If a setting is invalid or saving fails, your pending edits stay available with an explanation. Nothing changes until you save.
 
 ### Watch a device or an entity
 
 Open **Sources** to inspect equipment. Use **Find a source** to search, or **Group by** to browse by integration, Home Assistant location, or [TopoMation](https://github.com/mjcumming/topomation) location. The source details show the policies that apply and link to their editors.
 
-In **Policies**, edit the device or entity availability policy. Under **Watch**, choose all eligible sources or selected sources. Where supported, you can also select areas or labels. The searchable picker accepts several selections and keeps them when you filter the list. Area and label selections include future matching sources.
+In **Policies**, edit the device or entity availability policy. Under **Watch**, choose all eligible sources or selected sources. Where supported, you can also select areas or labels. The **Choose devices** or **Choose entities** picker accepts several selections and keeps them when you filter the list. Area and label selections include future matching sources.
 
 A watched device checks its selected entities together. Homeostatic selects ordinary entities, including buttons and hidden entities, and falls back to diagnostic entities only when it has no ordinary ones. Configuration entities and disabled entities are left out. An entity availability policy can also watch an entity independently.
 
 ### Watch integrations
 
-Edit the integration availability policy to watch all integrations or selected integrations. It watches setup failures, retries and sign-in problems. Integration availability has no area or label selection. Device and entity policies separately choose the equipment they watch.
+Edit the integration availability policy to watch all integrations or selected integrations. Choose integration names such as Mobile App or Matter. A selected integration includes all its current and future configured connections; account and phone names are supporting details. It watches setup failures, retries and sign-in problems. Integration availability has no area or label selection. Device and entity policies separately choose the equipment they watch.
 
 ### Add or edit a monitoring policy
 
@@ -46,7 +46,7 @@ Supplied policies and policies you create appear together in **Policies**. Each 
 2. Give the policy a name and choose what to **Watch**. The available source choices and detection fields depend on its monitoring type.
 3. Set the supported detection parameters and choose whether the policy is **Enabled**.
 4. Add any [notification entries](#choose-when-each-policy-reports). Leave them empty for dashboard-only monitoring.
-5. Review changes and save.
+5. Select **Save changes**.
 
 The monitoring type stays fixed after creation. To watch a different kind of problem, add a policy. **Duplicate** retains the type and copies the settings into an independent disabled policy. Names, sources, detection settings and notifications remain editable. Pending edits stay available while you move between Policies and Notifications.
 
@@ -56,11 +56,11 @@ Policies may overlap. Each keeps its own detection and notification settings, so
 
 ### Restore a supplied policy
 
-Deleting a supplied policy leaves it deleted through restarts and updates. Updates also preserve edits to surviving policies. To bring back a deleted default, select **Restore defaults**, choose the policies to restore, then select **Restore selected** and review the changes. Other policies keep their settings. Restored policies have no notification entries and do not turn on global notification sending.
+Deleting a supplied policy leaves it deleted through restarts and updates. Updates also preserve edits to surviving policies. To bring back a deleted default, select **Restore defaults**, choose the policies to restore, then select **Restore selected**. This adds them to your pending edits; select **Save changes** to apply them. Other policies keep their settings. Restored policies have no notification entries and do not turn on global notification sending.
 
 ### Exclude something
 
-Some sources go unavailable as a matter of course, such as a TV's media player while the TV is off at the wall. Open its contributing policies from **Sources** and narrow their selections, or disable a policy you no longer want. A source selected by another enabled policy continues to be watched. Review the resulting coverage before saving.
+Some sources go unavailable as a matter of course, such as a TV's media player while the TV is off at the wall. Open its contributing policies from **Sources** and narrow their selections, or disable a policy you no longer want. A source selected by another enabled policy continues to be watched. Select **Save changes** to apply the new selection.
 
 To quiet an existing issue temporarily while keeping monitoring, use [Pause alerts](#pause-alerts).
 
@@ -78,7 +78,7 @@ Homeostatic finds battery level sensors, low-battery binary sensors and charging
 
 Open the battery policy in **Policies**, choose selected batteries under **Watch**, and enable it. Check the entities paired with each battery in **Sources** first. When a device has more than one battery signal, Homeostatic lists them as separate batteries.
 
-To watch every battery, now and in future, choose **All batteries**. Set **Battery level at or below (%)**, add any notifications, then review and save. The starting threshold is 20%.
+To watch every battery, now and in future, choose **All batteries**. Set **Battery level at or below (%)**, add any notifications, then select **Save changes**. The starting threshold is 20%.
 
 A watched battery opens an issue when its level is at or below the policy's threshold, or when its low-battery sensor reports low. A current charging report clears the issue even if the level is still low, and the issue comes back if charging stops before the level recovers. Homeostatic can't tell whether a battery was replaced or recharged.
 
@@ -98,7 +98,7 @@ Runtime is an estimate supplied by the UPS. Missing readings remain visible, and
 
 A vacuum is watched separately from whether Home Assistant can reach it. Homeostatic lists each vacuum entity in **Sources**. None are watched until you choose them.
 
-In **Policies**, edit the vacuum policy, choose selected vacuums or **All vacuums**, then enable it. Add any notification entries, review and save. All vacuums includes matching sources added later.
+In **Policies**, edit the vacuum policy, choose selected vacuums or **All vacuums**, then enable it. Add any notification entries, then select **Save changes**. All vacuums includes matching sources added later.
 
 A watched vacuum opens an issue when Home Assistant reports its activity as error. Cleaning, docked, idle, paused, or returning ends the issue. Unavailable, unknown, missing, and restored states leave an open issue open.
 
@@ -162,6 +162,8 @@ If an unavailable feature is normal in your house, exclude it (see [Exclude some
 
 ## Home Assistant Repairs
 
+The Repairs policy watches all Home Assistant Repairs. Its editor has no scope dropdown; you can change its name, notifications and enabled state.
+
 Every Repair Home Assistant raises becomes an issue, whichever integration raised it. That includes an automation that fails to set up or calls an action that doesn't exist, a YAML setting that's going away, and an integration asking you to do something before an upgrade. The issue uses the Repair's own title and says which integration raised it and how serious Home Assistant considers it. **Fix in Home Assistant** opens the automation when Home Assistant links one, and the Repairs page otherwise.
 
 The issue ends when Home Assistant stops reporting the Repair, or when you select **Ignore** on it in Home Assistant. Ended Repairs go into History like any other issue, and Acknowledge and Pause alerts work on them. **Working on this equipment** doesn't apply, because a Repair isn't equipment.
@@ -176,7 +178,7 @@ An automation stays on when a trigger, condition, or action names an entity that
 
 Homeostatic opens one issue for that automation. The issue uses the automation's name, lists the missing entity ids, and **Fix in Home Assistant** opens the automation in the editor. The issue ends when the automation no longer names a missing entity, the automation is removed, or the entity exists again. If the automation has other triggers, those can still run.
 
-The **Broken automations** policy starts enabled. Use **Turn off** or **Turn on**, then review and save. Turning Repairs off leaves this policy on.
+The **Broken automations** policy checks all automations for references to missing entities, including automations added later. Its editor has no scope dropdown. The policy starts enabled. Use **Turn off** or **Turn on**, then select **Save changes**. Turning Repairs off leaves this policy on.
 
 Add notification entries in the **Broken automations** policy. It starts with no entries, so these issues initially show only in the panel.
 
@@ -188,15 +190,15 @@ Notifications are off on a new install, and issues still appear in the panel. Le
 
 Homeostatic requests delivery through configured Home Assistant destinations. A notification automation is optional.
 
-Use **Notifications** to create reusable delivery methods, then set timing and choose methods inside each policy. Changes wait for **Review changes** and **Save settings**. Opening a page, editing or previewing doesn't send messages or enable requests.
+Use **Notifications** to create reusable delivery methods, then set timing and choose methods inside each policy. Changes wait for **Save changes**. Opening a page or editing a method does not send a test or enable notifications.
 
 ### Choose delivery methods
 
-Select **Add delivery method**, give it a name and choose its destinations. A method can combine Companion app phones, configured notification entities such as email, Assist satellite announcements, a TTS provider with a media player, and a named notification action with an SMS recipient. Home Assistant owns the provider accounts and credentials. An unavailable saved target remains visible until you replace or remove it.
+Select **Add delivery method** and give it a name. Select **Add destination**, choose the delivery type, then choose a configured destination. The editor lists only the destinations selected for this method. For speech, choose the speaker and, when needed, its speech provider. A method can combine several supported destination types. Home Assistant owns the provider accounts and credentials. Unavailable destinations are hidden from new choices by default; an unavailable saved destination stays visible until you replace or remove it.
 
-Fixed methods always use the selected destinations. Presence methods can choose separate home and away destinations, or the destinations of selected people currently home. Choose fallback destinations or explicitly choose to skip when nobody qualifies or presence is unknown. A current home report qualifies; a named zone counts as away. Missing, restored, unknown and unavailable person states use the fallback when nobody is known to be home. Presence changes alone send nothing. Each new request or reminder uses the evidence available at that time.
+Fixed methods always use the selected destinations. Open the optional presence settings to choose separate home and away destinations, or the destinations of selected people currently home. Choose fallback destinations or explicitly choose to skip when nobody qualifies or presence is unknown. A current home report qualifies; a named zone counts as away. Missing, restored, unknown and unavailable person states use the fallback when nobody is known to be home. Presence changes alone send nothing. Each new request or reminder uses the evidence available at that time.
 
-Home Assistant's generic notification listings don't identify every provider's delivery medium. Select a configured email or SMS provider appropriate to the field; a generic notification entity or action alone doesn't establish email or SMS support. Voice requires a satellite that supports announcements or a media player that supports playback with the chosen TTS provider.
+Only destinations with identified email or SMS support appear as those types. Unclassified notification routes use a generic notification label. Phone-number fields are offered only for supported SMS providers. Voice requires a satellite that supports announcements or a media player that supports playback with the chosen TTS provider.
 
 ### Choose when each policy reports
 
@@ -215,21 +217,22 @@ A scheduled summary lists eligible new problems and problems still open, includi
 
 Immediate delivery includes overnight. Companion app requests use critical alerts on iPhone and the **Homeostatic urgent** notification channel on Android. Voice follows the entry's timing too, including reminders and overnight delivery.
 
-Delivery methods are shared. Review shows which policies use an edited method. Deleting one in use requires choosing a replacement or removing its affected notification entries in the same reviewed change.
+Delivery methods are shared. The editor identifies which policies use a method. Deleting one in use requires choosing a replacement or removing its affected notification entries in the same save.
 
 Alerts made from automations keep their reporting selection in the automation; see [Alerts from automations](automation-situations.md).
 
 ### Send a test notification
 
-Under **Test a destination**, **Send test** requests a fixed message for the displayed destination. It doesn't create an issue, and works while notifications are off. Previewing or editing a method sends nothing. The result records a request, not confirmed receipt or speech heard. If nothing arrives, see [Troubleshooting](troubleshooting.md).
+Save the delivery method, then select **Send test** in its editor. The test uses only that method's configured destinations, resolving any presence rules at the time of the test. There is no separate test area or destination picker. Save further edits before testing again.
 
-For a saved method, select **Preview delivery method** to see its exact current targets and presence evidence. Then select **Send test to these destinations** to request a message through that set, including configured SMS recipient numbers. Save an edited method before testing it. A change to its settings, presence evidence or target availability requires a new preview. An explicit Skip fallback requests nothing; a provider failure is reported for that destination.
+A test works while normal notifications are off and does not create an issue. An explicit Skip fallback sends nothing; provider failures are reported for each destination. The result confirms a request, not receipt or speech heard. Opening, editing or saving the method does not send a test. If nothing arrives, see [Troubleshooting](troubleshooting.md).
 
 ### Turn notifications on
 
-1. Under **Outgoing requests**, tick **Enable notification requests** after configuring the methods and entries you want.
-2. Select **Review changes**. The review says how many notifications the problems open right now would produce.
-3. Select **Save settings**.
+1. Near the top of **Notifications**, select **Enable notifications** after configuring the methods and entries you want.
+2. Select **Save changes**.
+
+Monitoring continues when notifications are off.
 
 Problems already open follow their notification entries when you save. Immediate entries can request new messages, combined into summaries per entry and method, while scheduled entries wait for their next occurrence. Problems already cleared are left out. A reporting edit cancels superseded pending requests and withdraws replaceable messages without clearing the issue. A name-only edit doesn't restart reporting.
 
@@ -261,8 +264,7 @@ For planned work, like replacing a Zigbee coordinator or rewiring the garage, op
 
 1. Choose **30 minutes**, **2 hours** or **4 hours**, or enter an end time up to seven days ahead.
 2. Tick **Also cover equipment that depends on this** if the work takes down what's behind it too. For an integration, that's the devices and entities you watch on it.
-3. Select **Review what will be covered**. The review lists the equipment and any issues already open.
-4. Select **Start maintenance**.
+3. Select **Start maintenance** to apply the window. The result shows the covered equipment and expiry.
 
 Until the end time, Homeostatic doesn't open new issues for that equipment. Issues that were already open stay open and keep notifying, and alerts from automations carry on as usual. If something is still broken when the window ends, its issue opens then. If it recovered during the window, nothing opens.
 

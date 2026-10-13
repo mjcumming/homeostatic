@@ -1,8 +1,8 @@
-import {escapeHtml as esc} from "./model.mjs?v=70";
-import {editReusable, namedNotifications, reusableChanges} from "./reusable-editors.mjs?v=70";
-import {sourceSettingsFooter} from "./source-settings.mjs?v=70";
+import {escapeHtml as esc} from "./model.mjs?v=71";
+import {editReusable, namedNotifications, reusableChanges} from "./reusable-editors.mjs?v=71";
+import {sourceSettingsFooter} from "./source-settings.mjs?v=71";
 
-import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=70";
+import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=71";
 
 export const TIMINGS = [
   ["Recovery", "settle", "Wait for related failures", "Allow dependencies that are still uncertain to settle before opening a separate problem."],
@@ -70,13 +70,12 @@ export function installationSettings(card) {
     const reporting=reportingChoices(card);
     const routeReady=Object.values(reporting.people).some(channels=>channels.length);
     const enabled=Boolean(draft.reporting&&draft.notifications);
-    const setup=!card.configuration.settings.reporting?'<p class="note">Review and save to apply this reporting setup. The current policy stays active until then. New requests start off; choose recipients and enable them when ready.</p>':"";
-    body=setup+reportingSettings(card)+`<section class="installation-group"><h3>Outgoing requests</h3><label class="installation-toggle"><input type="checkbox" data-setting-path="notifications"${enabled?' checked':''}${!routeReady&&!enabled?' disabled':''}> Enable notification requests</label><p class="sub">Review and save to apply changes. Immediate includes overnight. Current open problems follow their selected reporting preferences.</p></section>`;
+    const setup=!card.configuration.settings.reporting?'<p class="note">Save to apply this reporting setup. The current policy stays active until then. New requests start off; choose recipients and enable them when ready.</p>':"";
+    body=setup+reportingSettings(card)+`<section class="installation-group"><h3>Outgoing requests</h3><label class="installation-toggle"><input type="checkbox" data-setting-path="notifications"${enabled?' checked':''}${!routeReady&&!enabled?' disabled':''}> Enable notification requests</label><p class="sub">Save to apply changes. Immediate includes overnight. Current open problems follow their selected reporting preferences.</p></section>`;
   }
-  const changes=settingsChanges(card.configuration.settings,draft,card),preview=card.settingsPreview;
-  const review=preview?`<section class="settings-preview" aria-live="polite"><h3>Review changes</h3><ul>${settingsChanges(preview.before,preview.after,card).map(([label,from,to])=>`<li><strong>${esc(label)}</strong>: ${esc(from)} → ${esc(to)}</li>`).join("")}</ul><p>Homeostatic will reload to apply these settings.</p><p>Right now: ${preview.open_problems} open problems would produce ${preview.requests_now} notification requests under this policy. This preview sends nothing. Scheduled problems wait for their report; resolved problems will be omitted.</p></section>`:"";
+  const changes=settingsChanges(card.configuration.settings,draft,card);
   const initialSetup=notificationsPage&&!draft.reporting;
-  return `${intro}<div class="installation-layout${notificationsPage?' notification-layout':''}">${nav}<section class="panel installation-content"><fieldset class="installation-editor"${card.settingsBusy?' disabled':''}>${body}</fieldset>${card.settingsError?`<p class="config-error" role="alert">${esc(card.settingsError)}</p>`:''}${review}${card.settingsNotice?`<p role="status">${esc(card.settingsNotice)}</p>`:''}<footer class="installation-actions"><span class="small">${initialSetup?'Reporting setup not saved':changes.length?`${changes.length} unsaved ${changes.length===1?'change':'changes'}`:'All changes saved'}</span><button type="button" class="button primary" ${initialSetup?'data-reporting-review':`data-action="${preview?'save-settings':'preview-settings'}"`}${card.settingsBusy||(!initialSetup&&!changes.length)?' disabled':''}>${initialSetup?'Review reporting setup':preview?'Save settings':'Review changes'}</button>${changes.length?'<button type="button" class="link" data-action="discard-settings">Discard</button>':''}</footer></section></div>`;
+  return `${intro}<div class="installation-layout${notificationsPage?' notification-layout':''}">${nav}<section class="panel installation-content"><fieldset class="installation-editor"${card.settingsBusy?' disabled':''}>${body}</fieldset>${card.settingsError?`<p class="config-error" role="alert">${esc(card.settingsError)}</p>`:''}${card.settingsNotice?`<p role="status">${esc(card.settingsNotice)}</p>`:''}<footer class="installation-actions"><span class="small">${initialSetup?'Reporting setup not saved':changes.length?`${changes.length} unsaved ${changes.length===1?'change':'changes'}`:'All changes saved'}</span><button type="button" class="button primary" ${initialSetup?'data-reporting-review':'data-action="save-settings"'}${card.settingsBusy||(!initialSetup&&!changes.length)?' disabled':''}>Save changes</button>${changes.length?'<button type="button" class="link" data-action="discard-settings">Discard</button>':''}</footer></section></div>`;
 }
 
 export function editInstallation(card,event) {
@@ -118,7 +117,7 @@ export function editInstallation(card,event) {
   else if(event.type==="click")return false;
   else {
   if(element.matches?.("[data-setting-path],[data-quiet-time]") && element.checkValidity && !element.checkValidity()) {
-    card.settingsPreview=null;card.settingsError="Complete the highlighted setting before reviewing.";
+    card.settingsPreview=null;card.settingsError="Complete the highlighted setting before saving.";
     element.reportValidity();card.main.querySelector('[data-action="save-settings"]')?.setAttribute("disabled","");return true;
   }
   if(element.dataset.quietRecipient!==undefined){

@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=70";
-import {UPS_CHECK_NAMES} from "./ups.mjs?v=70";
+import {escapeHtml as esc} from "./model.mjs?v=71";
+import {UPS_CHECK_NAMES} from "./ups.mjs?v=71";
 
 const date = (value) => value ? new Date(value).toLocaleString() : "Unknown";
 export function observedRange(start, end) {
@@ -273,7 +273,7 @@ export class DashboardTools {
     const dependents = kind === "maintenance"
       ? '<label class="check-field"><input type="checkbox" name="includeDependents"> Also cover equipment that depends on this</label>'
       : "";
-    this.body.innerHTML = `<p><strong>${esc(name)}</strong></p><p>${introduction}</p><p class="small">${kind === "maintenance" ? "Choose a short window or enter an end time. A problem still present at expiry may open then. " : "Choose an end time within seven days. "}${inventory.attention_controls_supported ? "You can end this control early." : "Early cancellation is not available."}${kind === "shelve" ? " An existing pause can only be extended." : ""}</p><form class="tool-form">${duration}<label>${kind === "maintenance" ? "Or choose an end date and time" : "End date and time"} (your local time)<input type="datetime-local" name="untilLocal" required></label>${dependents}<details><summary>Add a reason (optional)</summary><label>Reason<textarea name="reason" maxlength="500" rows="3"></textarea></label></details><div data-control-preview></div><p data-control-feedback role="status"></p><div class="actions">${kind === "maintenance" ? '<button class="button" type="button" data-tool="preview">Review what will be covered</button>' : ""}<button class="button primary" type="submit">${kind === "shelve" ? "Pause alerts" : "Start maintenance"}</button></div></form>`;
+    this.body.innerHTML = `<p><strong>${esc(name)}</strong></p><p>${introduction}</p><p class="small">${kind === "maintenance" ? "Choose a short window or enter an end time. A problem still present at expiry may open then. " : "Choose an end time within seven days. "}${inventory.attention_controls_supported ? "You can end this control early." : "Early cancellation is not available."}${kind === "shelve" ? " An existing pause can only be extended." : ""}</p><form class="tool-form">${duration}<label>${kind === "maintenance" ? "Or choose an end date and time" : "End date and time"} (your local time)<input type="datetime-local" name="untilLocal" required></label>${dependents}<details><summary>Add a reason (optional)</summary><label>Reason<textarea name="reason" maxlength="500" rows="3"></textarea></label></details><div data-control-preview></div><p data-control-feedback role="status"></p><div class="actions"><button class="button primary" type="submit">${kind === "shelve" ? "Pause alerts" : "Start maintenance"}</button></div></form>`;
     this.dialog.showModal();
     this.refreshFormState();
   }
@@ -346,10 +346,10 @@ export class DashboardTools {
     let validation = "";
     try {controlPayload(draft);} catch (error) {validation = error.message;}
     for (const field of form.querySelectorAll("input, textarea, button")) field.disabled = draft.busy || !allowed;
-    form.querySelector('[type="submit"]').disabled = draft.busy || !allowed || !!validation || (draft.kind === "maintenance" && !draft.preview);
+    form.querySelector('[type="submit"]').disabled = draft.busy || !allowed || !!validation;
     const preview = form.querySelector('[data-tool="preview"]');
     if (preview) preview.disabled = draft.busy || !allowed || !!validation;
-    form.querySelector("[data-control-feedback]").textContent = draft.error || (draft.busy ? "Waiting for Home Assistant…" : !allowed ? "This target is no longer available, or monitoring is disconnected. No action can be submitted." : validation || (draft.kind === "maintenance" && !draft.preview ? "Review what will be covered before starting." : ""));
+    form.querySelector("[data-control-feedback]").textContent = draft.error || (draft.busy ? "Waiting for Home Assistant…" : !allowed ? "This target is no longer available, or monitoring is disconnected. No action can be submitted." : validation || "");
     form.querySelector("[data-control-preview]").innerHTML = draft.preview ? this.scopeMarkup(draft.preview) : "";
   }
 
@@ -373,7 +373,7 @@ export class DashboardTools {
 
   async execute() {
     const draft = this.draft;
-    if (!draft || draft.busy || !controlAllowed(this.card.current, this.card._hass?.user?.is_admin, draft) || (draft.kind === "maintenance" && !draft.preview)) return;
+    if (!draft || draft.busy || !controlAllowed(this.card.current, this.card._hass?.user?.is_admin, draft)) return;
     const operation = ++this.operation;
     try {
       const data = controlPayload(draft);
