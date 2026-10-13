@@ -2,6 +2,9 @@
 
 from copy import deepcopy
 from datetime import timedelta
+from operator import ne
+from pathlib import Path
+from threading import Event, get_ident
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -9,7 +12,9 @@ import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import json as storage_json
+from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -18,6 +23,9 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.homeostatic.const import DOMAIN
 from tests.test_lifecycle import start_monitor
+
+_STORE_LOAD = Store._async_load
+_STORE_WRITE = Store._async_write_data
 
 
 @pytest.mark.parametrize(
@@ -195,3 +203,60 @@ async def test_failed_platform_unload_keeps_monitor(
     assert runtime.running
     await hass.async_stop()
     assert not runtime.running
+
+
+async def test_large_snapshot_keeps_loop_responsive(
+    hass: HomeAssistant, config_data: dict[str, Any], tmp_path: Path
+) -> None:
+    """A large verified save lets HA capture evidence before persistence finishes."""
+    config_data["notifications"] = False
+    config_entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    hass.states.async_set("sensor.observed", "42")
+    runtime = await start_monitor(hass, config_entry)
+    snapshot = runtime.snapshot()
+    snapshot["large_inventory"] = {str(node): "x" * 3500 for node in range(3966)}
+    loop_thread = get_ident()
+    serialization_threads: list[int] = []
+    comparison_threads: list[int] = []
+    evidence_captured = Event()
+    prepare_json = storage_json.prepare_save_json
+
+    @callback
+    def capture_evidence() -> None:
+        hass.states.async_set("sensor.observed", "unavailable")
+        hass.loop.call_soon(evidence_captured.set)
+
+    def serialize(data: Any, *, encoder: Any = None) -> tuple[str, str | bytes]:
+        serialization_threads.append(get_ident())
+        assert get_ident() != loop_thread
+        hass.loop.call_soon_threadsafe(capture_evidence)
+        assert evidence_captured.wait(timeout=5)
+        return prepare_json(data, encoder=encoder)
+
+    def differs(stored: Any, expected: Any) -> bool:
+        comparison_threads.append(get_ident())
+        assert get_ident() != loop_thread
+        return ne(stored, expected)
+
+    with (
+        patch.object(runtime, "snapshot", return_value=snapshot),
+        patch.object(runtime.store, "path", str(tmp_path / "snapshot")),
+        patch.object(runtime.store, "_async_load", _STORE_LOAD.__get__(runtime.store)),
+        patch.object(
+            runtime.store, "_async_write_data", _STORE_WRITE.__get__(runtime.store)
+        ),
+        patch.object(storage_json, "prepare_save_json", side_effect=serialize),
+        patch("custom_components.homeostatic.runtime.ne", new=differs),
+    ):
+        async with runtime._lock:
+            await runtime._save()
+            assert runtime._pending
+            assert not runtime.episodes
+
+    assert len(serialization_threads) == 1
+    assert len(comparison_threads) == 1
+    await hass.async_block_till_done()
+    assert runtime.available
+    assert len(runtime.episodes) == 1
+    assert runtime.readiness == "degraded"
+    assert await hass.config_entries.async_unload(config_entry.entry_id)

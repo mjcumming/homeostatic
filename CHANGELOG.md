@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.8.0b3] - 2026-10-13
+
+### Fixed
+
+- Reuse compiled notification policies during ordinary evidence updates, reconciliation with unchanged sources, and diagnostic reads. Rebuild after source or settings changes, preserving attention clocks.
+- Group consecutive sources with identical notification choices into shared rules, preserving source override order, condition exceptions, independent schedules, acknowledgment, and saved delivery identity.
+- Serialize saved health snapshots and compare read-back data outside the Home Assistant event loop, keeping the UI and API responsive during large snapshot saves while preserving write verification and queued evidence.
+
 ## [1.8.0b2] - 2026-10-13
 
 ### Changed

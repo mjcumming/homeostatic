@@ -806,3 +806,102 @@ def test_reordered_inline_entries_retain_route_identity(
         (item.route, item.recipient)
         for item in restored.advance(now + timedelta(hours=1), PolicyContext())
     ] == [("morning_row", "method:phone")]
+
+
+@pytest.mark.parametrize(
+    "check,expected",
+    [
+        pytest.param("availability", [], id="shared-dashboard-only"),
+        pytest.param("battery", ["morning_row"], id="shared-condition-exception"),
+    ],
+)
+def test_grouped_source_condition_exceptions(
+    configured: dict[str, Any], check: str, expected: list[str]
+) -> None:
+    """Grouping retains dashboard-only defaults and inherited condition exceptions."""
+    configured["assignments"] = {
+        node: {"default": [], "checks": {"battery": [configured["default"][1]]}}
+        for node in ("device:one", "device:two")
+    }
+    now = datetime(2026, 10, 12, 7, tzinfo=UTC)
+    policy = Policy(build_policy(definitions.generate(configured), timedelta(0)))
+    assert (
+        policy.handle(
+            problem(now, node="device:two", check=check), now, PolicyContext()
+        )
+        == []
+    )
+    assert [
+        item.route for item in policy.advance(now + timedelta(hours=1), PolicyContext())
+    ] == expected
+
+
+def test_nonadjacent_source_choices_retain_precedence(
+    configured: dict[str, Any],
+) -> None:
+    """A group issue retains the first matching explicit source override."""
+    immediate = [configured["default"][0]]
+    configured["assignments"] = {
+        "device:one": {"default": immediate},
+        "device:two": {"default": []},
+        "device:three": {"default": immediate},
+        "device:four": {"default": immediate},
+    }
+    now = datetime(2026, 10, 12, 7, tzinfo=UTC)
+    opened = problem(now, node="device:two")
+    opened = replace(
+        opened,
+        episode=replace(
+            opened.episode, recorded=frozenset({"device:two", "device:three"})
+        ),
+    )
+    policy = Policy(build_policy(definitions.generate(configured), timedelta(0)))
+    assert policy.handle(opened, now, PolicyContext()) == []
+    assert policy.advance(now + timedelta(hours=1), PolicyContext()) == []
+
+
+def test_expanded_rule_snapshot_restores_into_grouped_policy(
+    configured: dict[str, Any],
+) -> None:
+    """Grouping keeps delivered reminders, acknowledgment and report clocks on restore."""
+    now = datetime(2026, 10, 12, 7, tzinfo=UTC)
+    rows = configured["default"]
+    configured["default"] = []
+    configured["assignments"] = {
+        node: {"default": rows, "checks": {}} for node in ("device:one", "device:two")
+    }
+    grouped = definitions.generate(configured)
+    expanded = {
+        **grouped,
+        "rules": [
+            {
+                "route": "urgent",
+                "match": {"nodes": [node]},
+                "loudness": "urgent",
+                "to": ["method:phone", "method:email"],
+                "require_acknowledgment": True,
+                "remind_every": "30m",
+            }
+            for node in ("device:one", "device:two")
+        ]
+        + [
+            {
+                "route": "morning_row",
+                "match": {"nodes": [node]},
+                "loudness": "digest",
+                "to": ["method:phone"],
+                "digest": "entry:morning_row",
+            }
+            for node in ("device:one", "device:two")
+        ],
+    }
+    prior = Policy(build_policy(expanded, timedelta(0)))
+    assert len(prior.handle(problem(now), now, PolicyContext())) == 2
+    prior.acknowledge("issue", now + timedelta(minutes=1), actor_id="owner")
+    restored = Policy(build_policy(grouped, timedelta(0)))
+    restored.restore(prior.snapshot(), now + timedelta(minutes=1))
+    assert restored.advance(now + timedelta(minutes=30), PolicyContext()) == []
+    assert [
+        (item.route, item.recipient)
+        for item in restored.advance(now + timedelta(hours=1), PolicyContext())
+    ] == [("morning_row", "method:phone")]

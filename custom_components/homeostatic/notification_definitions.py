@@ -5,6 +5,7 @@ import json
 import re
 from copy import deepcopy
 from datetime import time
+from itertools import groupby
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -265,14 +266,18 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
         )
         for profile, rows in data["automation_profiles"].items()
     ]
-    for node, assignment in data["assignments"].items():
+    # Only adjacent assignments can combine without changing first-match precedence.
+    for assignment, members in groupby(
+        data["assignments"].items(), key=lambda item: item[1]
+    ):
+        nodes = [node for node, _ in members]
         checks = assignment.get("checks", {})
         for check, rows in checks.items():
-            scopes.append(({"nodes": [node], "checks": [check]}, rows))
+            scopes.append(({"nodes": nodes, "checks": [check]}, rows))
         scopes.append(
             (
                 {
-                    "nodes": [node],
+                    "nodes": nodes,
                     **({"excluded_checks": list(checks)} if checks else {}),
                 },
                 assignment.get("default", data["default"]),

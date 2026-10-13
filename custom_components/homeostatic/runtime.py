@@ -8,6 +8,7 @@ from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime, timedelta
 from functools import partial
+from operator import ne
 from time import perf_counter
 from typing import Any
 from uuid import uuid4
@@ -141,7 +142,11 @@ class Runtime:
         self.entry = entry
         self.settings = settings
         self.store: Store[dict[str, Any]] = Store(
-            hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}", atomic_writes=True
+            hass,
+            STORE_VERSION,
+            f"{DOMAIN}.{entry.entry_id}",
+            atomic_writes=True,
+            serialize_in_event_loop=False,
         )
         self.signal = f"{DOMAIN}_{entry.entry_id}_updated"
         self.fact_signal = f"{DOMAIN}_{entry.entry_id}_fact"
@@ -149,6 +154,7 @@ class Runtime:
         self.engine: Engine | None = None
         self.policy: Policy | None = None
         self._compiled_policy: PolicyConfig | None = None
+        self._compiled_settings: Settings | None = None
         self.sources: dict[str, Source] = {}
         self.targets: list[str] = []
         self.enrolled: dict[str, Attributes] = {}
@@ -1060,7 +1066,6 @@ class Runtime:
     ) -> dict[str, JSONValue]:
         assert self.engine is not None
         assert self.policy is not None
-        first = not self.automation_alerts.records
         if action == "report_alert":
             key, row = self.automation_alerts.prepare(self.hass, self.settings, data)
         else:
@@ -1089,11 +1094,6 @@ class Runtime:
         self.automation_alerts.records[key] = row
         if self.automation_alerts.prune_removed_owners(self.hass):
             changed = True
-        if first:
-            previous = self.policy.snapshot()
-            self._compiled_policy = self._policy_config()
-            self.policy = Policy(self._compiled_policy)
-            self.policy.restore(previous, now)
         if changed:
             self._inventory_dirty = True
             self._handle(self._evaluate(now), now, context)
@@ -1117,6 +1117,13 @@ class Runtime:
         *,
         sources: dict[str, Source] | None = None,
     ) -> PolicyConfig:
+        if (
+            settings is None
+            and sources is None
+            and self.settings is self._compiled_settings
+            and self._compiled_policy is not None
+        ):
+            return self._compiled_policy
         settings = settings or self.settings
         sources = self.sources if sources is None else sources
         if settings.notification_definitions is not None:
@@ -1141,7 +1148,8 @@ class Runtime:
         row = await self.phone_actions.authorize(self.hass, event, dt_util.utcnow())
         if row is None or not self.settings.notifications:
             return
-        recipient = self._policy_config().recipients.get(row["recipient"])
+        # Delivered actions must recheck current destination permissions.
+        recipient = self._policy_config(self.settings).recipients.get(row["recipient"])
         method = (
             self.settings.notification_definitions["methods"].get(
                 row["recipient"].removeprefix("method:")
@@ -1224,6 +1232,11 @@ class Runtime:
         previous_targets = self.targets
         previous_changes = tuple(self.enrollment_changes)
         sources = self._discover() if discover else self.sources
+        policy_changed = (
+            first
+            or self.settings is not self._compiled_settings
+            or sources != self.sources
+        )
         events: list[HealthEvent] = []
         self.sources = sources if first else self.sources
         if first:
@@ -1231,9 +1244,7 @@ class Runtime:
             if not self.fresh_start:
                 engine_settings = replace(engine_settings, startup_grace=timedelta(0))
             self.engine = Engine(engine_settings)
-            self.policy = Policy(self._policy_config())
         assert self.engine is not None
-        assert self.policy is not None
         for node_id in self._temperature_removed:
             if node_id in self.sources and node_id in sources:
                 events.extend(self.engine.remove(node_id, now))
@@ -1326,12 +1337,21 @@ class Runtime:
             for key, value in self._temperature_saved.items()
             if key in sources
         }
-        compiled = self._policy_config()
-        if not first and compiled != self._compiled_policy:
+        compiled = (
+            self._policy_config(sources=sources)
+            if policy_changed
+            else self._policy_config()
+        )
+        if first:
+            self.policy = Policy(compiled)
+        elif compiled != self._compiled_policy:
+            assert self.policy is not None
             previous_policy = self.policy.snapshot()
             self.policy = Policy(compiled)
             self.policy.restore(previous_policy, now)
         self._compiled_policy = compiled
+        self._compiled_settings = self.settings
+        assert self.policy is not None
         self.temperature_monitors = {
             key: value
             for key, value in self.temperature_monitors.items()
@@ -2157,7 +2177,8 @@ class Runtime:
         await self.store.async_save(snapshot)
         # Store logs some write failures without raising. Read-back prevents
         # delivering a problem whose new persistence state was not accepted.
-        if await self.store.async_load() != snapshot:
+        stored = await self.store.async_load()
+        if await self.hass.async_add_executor_job(ne, stored, snapshot):
             raise HomeAssistantError("Homeostatic snapshot could not be saved")
 
     def _route_signatures(
@@ -2166,8 +2187,8 @@ class Runtime:
         *,
         sources: dict[str, Source] | None = None,
     ) -> dict[str, Any]:
-        settings = settings or self.settings
         config = self._policy_config(settings, sources=sources)
+        settings = settings or self.settings
         result: dict[str, Any] = {}
         for rule in config.rules:
             route = getattr(rule, "route", "")
