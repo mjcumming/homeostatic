@@ -1063,6 +1063,11 @@ async def test_configuration_sections_keep_delivery_discovery_off_policy_reads(
     client = await hass_ws_client(hass)
     with (
         patch.object(
+            dashboard_module,
+            "_async_configuration",
+            wraps=dashboard_module._async_configuration,
+        ) as discovery,
+        patch.object(
             dashboard_module, "available_people", new=AsyncMock(return_value=[])
         ) as people,
         patch.object(dashboard_module, "delivery_targets", return_value=[]) as targets,
@@ -1079,6 +1084,7 @@ async def test_configuration_sections_keep_delivery_discovery_off_policy_reads(
         saved = (await client.receive_json())["result"]
         assert "settings" in saved
         assert "delivery_targets" not in saved
+        discovery.assert_not_called()
         people.assert_not_awaited()
         targets.assert_not_called()
         routes.assert_not_called()
@@ -1088,6 +1094,7 @@ async def test_configuration_sections_keep_delivery_discovery_off_policy_reads(
         delivery = (await client.receive_json())["result"]
         assert "settings" not in delivery
         assert delivery["delivery_targets"] == []
+        discovery.assert_awaited_once()
         people.assert_awaited_once()
         targets.assert_called_once()
         routes.assert_called_once()

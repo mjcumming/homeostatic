@@ -557,70 +557,79 @@ def websocket_source(
     }
 )
 @require_admin
+@callback
 def websocket_configuration(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Provide saved settings separately from delivery discovery."""
-    hass.async_create_task(_async_configuration(hass, connection, msg))
-
-
-async def _async_configuration(
-    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
-) -> None:
-    """Discover notification capabilities only when their editor needs them."""
+    """Answer saved settings directly; queue only delivery discovery."""
     runtime = hass.data[DATA_DASHBOARD].runtime
     if runtime is None:
         connection.send_error(msg["id"], "not_ready", "Homeostatic is not loaded")
         return
-    result: dict[str, Any] = {}
-    if msg["section"] != "delivery":
-        _, revision = _configuration(runtime)
-        settings = runtime.settings
-        consumer = hass.states.get(settings.consumer) if settings.consumer else None
-        result = {
-            "revision": revision,
-            "rules": rule_data(hass, settings),
-            "monitoring_policy_templates": policy_templates(),
-            "monitoring_policy_version": settings.monitoring_policy_version,
-            "areas": [
-                {"id": area.id, "name": area.name, "floor_id": area.floor_id}
-                for area in ar.async_get(hass).areas.values()
-            ],
-            "floors": [
-                {"id": floor.floor_id, "name": floor.name}
-                for floor in fr.async_get(hass).floors.values()
-            ],
-            "labels": [
-                {"id": label.label_id, "name": label.name}
-                for label in lr.async_get(hass).labels.values()
-            ],
-            "settings": _editable_settings(settings),
-            "alerts": {
-                "notifications": settings.notifications,
-                "consumer": settings.consumer,
-                "consumer_state": consumer.state if consumer else None,
-                "policy": settings.policy,
-            },
-        }
-    if msg["section"] != "settings":
-        result.update(
-            notification_people=await available_people(hass),
-            delivery_targets=delivery_targets(hass),
-            notification_destinations=[
-                {
-                    "channel": item.channel,
-                    "name": item.name,
-                    "user_id": item.user_id,
-                    "available": item.available,
-                    "phone_channel": item.phone_channel,
-                }
-                for item in destinations(hass)
-            ],
-            consumers=[
-                {"entity_id": state.entity_id, "name": state.name, "state": state.state}
-                for state in hass.states.async_all("automation")
-            ],
-        )
+    if msg["section"] == "settings":
+        connection.send_result(msg["id"], _settings_configuration(hass, runtime))
+        return
+    hass.async_create_task(_async_configuration(hass, connection, msg, runtime))
+
+
+def _settings_configuration(hass: HomeAssistant, runtime: Runtime) -> dict[str, Any]:
+    """Read validated settings without yielding to another refresh."""
+    _, revision = _configuration(runtime)
+    settings = runtime.settings
+    consumer = hass.states.get(settings.consumer) if settings.consumer else None
+    return {
+        "revision": revision,
+        "rules": rule_data(hass, settings),
+        "monitoring_policy_templates": policy_templates(),
+        "monitoring_policy_version": settings.monitoring_policy_version,
+        "areas": [
+            {"id": area.id, "name": area.name, "floor_id": area.floor_id}
+            for area in ar.async_get(hass).areas.values()
+        ],
+        "floors": [
+            {"id": floor.floor_id, "name": floor.name}
+            for floor in fr.async_get(hass).floors.values()
+        ],
+        "labels": [
+            {"id": label.label_id, "name": label.name}
+            for label in lr.async_get(hass).labels.values()
+        ],
+        "settings": _editable_settings(settings),
+        "alerts": {
+            "notifications": settings.notifications,
+            "consumer": settings.consumer,
+            "consumer_state": consumer.state if consumer else None,
+            "policy": settings.policy,
+        },
+    }
+
+
+async def _async_configuration(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+    runtime: Runtime,
+) -> None:
+    """Discover notification capabilities only when their editor needs them."""
+    result = _settings_configuration(hass, runtime) if msg["section"] == "all" else {}
+    result.update(
+        notification_people=await available_people(hass),
+        delivery_targets=delivery_targets(hass),
+        notification_destinations=[
+            {
+                "channel": item.channel,
+                "name": item.name,
+                "user_id": item.user_id,
+                "available": item.available,
+                "phone_channel": item.phone_channel,
+            }
+            for item in destinations(hass)
+        ],
+        consumers=[
+            {"entity_id": state.entity_id, "name": state.name, "state": state.state}
+            for state in hass.states.async_all("automation")
+        ],
+    )
     connection.send_result(msg["id"], result)
 
 

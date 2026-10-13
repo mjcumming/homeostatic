@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.8.0b5] - 2026-10-13
+
+### Fixed
+
+- Answer saved policy configuration directly in the WebSocket handler, avoiding an additional task queued behind monitoring work. Delivery discovery remains asynchronous and separate.
+
 ## [1.8.0b4] - 2026-10-13
 
 ### Fixed
