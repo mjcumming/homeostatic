@@ -795,13 +795,13 @@ async def test_monitoring_page_rejects_stale_and_invalid_rules(
     await client.close()
 
 
-async def test_monitoring_page_restores_options_if_reload_fails(
+async def test_monitoring_page_restores_options_if_application_fails(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
     hass_ws_client: WebSocketGenerator,
 ) -> None:
     """A failed apply retains the last valid saved configuration."""
-    await start_monitor(hass, config_entry)
+    runtime = await start_monitor(hass, config_entry)
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     current = (await client.receive_json())["result"]
@@ -814,11 +814,14 @@ async def test_monitoring_page_restores_options_if_reload_fails(
         }
     )
     preview = (await client.receive_json())["result"]
-    with patch.object(
-        hass.config_entries,
-        "async_reload",
-        new=AsyncMock(side_effect=[False, True]),
-    ) as reload:
+    with (
+        patch.object(
+            runtime,
+            "async_apply_settings",
+            new=AsyncMock(side_effect=HomeAssistantError("Test apply failure")),
+        ) as apply,
+        patch.object(hass.config_entries, "async_reload", new=AsyncMock()) as reload,
+    ):
         await client.send_json(
             {
                 "id": 3,
@@ -828,8 +831,10 @@ async def test_monitoring_page_restores_options_if_reload_fails(
                 "rules": [],
             }
         )
-        assert (await client.receive_json())["error"]["code"] == "reload_failed"
-    assert reload.await_count == 2
+        assert (await client.receive_json())["error"]["code"] == "apply_failed"
+    apply.assert_awaited_once()
+    reload.assert_not_awaited()
+    assert config_entry.runtime_data is runtime
     assert not config_entry.options
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     await client.close()

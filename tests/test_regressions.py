@@ -130,12 +130,12 @@ async def test_panel_save_does_not_restart_startup_grace(
     await client.close()
 
 
-async def test_unenrollment_options_reload(
+async def test_unenrollment_options_apply_in_place(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
     hass_ws_client: WebSocketGenerator,
 ) -> None:
-    """Removing all sources through the guided editor resolves their episodes."""
+    """Removing all sources ends their episodes without replacing the running monitor."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
     client = await hass_ws_client(hass)
@@ -162,7 +162,8 @@ async def test_unenrollment_options_reload(
     assert (await client.receive_json())["result"] == {"saved": True}
     await hass.async_block_till_done()
     restored = config_entry.runtime_data
-    assert restored is not runtime
+    assert restored is runtime
+    assert restored.running
     assert restored.readiness == "unknown"
     assert not restored.episodes
     assert not restored.desired_notifications
