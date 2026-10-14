@@ -21,7 +21,7 @@ test("method editor shows configured destinations only and no test catalog",()=>
   const {card}=fixture();const html=namedNotifications(card);
   assert.match(html,/Michael’s iPhone/);assert.match(html,/Add destination/);assert.match(html,/>Send test</);
   assert.doesNotMatch(html,/Kitchen speaker|Living room television|Test a destination|Preview delivery|definition-list"/);
-  assert.match(html,/<details><summary>Change destinations based on/);
+  assert.match(html,/<details[^>]*><summary>Change destinations based on/);
 });
 
 test("new method remains solely in editor and cannot be tested before save",()=>{
@@ -70,7 +70,7 @@ test("SMS recipient is explicit and only accepted for a verified SMS target",()=
 test("aliases are excluded from new choices while saved unavailable choices remain removable",()=>{
   const {card}=fixture();card.settingsDraft.notification_definitions.methods.home.destinations=["notify:one","tts:a:bedroom","notify:missing"];
   click(card,"destination-open");input(card,"definitionDeliveryType","app");
-  let html=namedNotifications(card);assert.equal((html.match(/Michael’s iPhone alias/g)||[]).length,1);assert.match(html,/Bedroom speaker/);assert.match(html,/Unavailable/);assert.match(html,/Saved destination unavailable/);
+  let html=namedNotifications(card);assert.match(html,/<strong>Michael’s iPhone alias<\/strong>/);assert.doesNotMatch(html.split('<dialog class="delivery-picker"')[1],/Michael’s iPhone alias/);assert.match(html,/Bedroom speaker/);assert.match(html,/Unavailable/);assert.match(html,/Saved destination unavailable/);
   click(card,"destination-remove",{destinationChannel:"notify:missing"});assert.ok(!card.settingsDraft.notification_definitions.methods.home.destinations.includes("notify:missing"));
 });
 
@@ -101,4 +101,46 @@ test("search and destination labels escape untrusted markup",()=>{
   const {card}=fixture();card.configuration.delivery_targets.push({channel:"notify:x",type:"notification",name:'<img src=x onerror="alert(1)">',available:true});
   click(card,"destination-open");input(card,"definitionDeliveryType","notification");
   assert.doesNotMatch(namedNotifications(card),/<img/);assert.match(namedNotifications(card),/&lt;img/);
+});
+
+
+test("returning to the methods list retains edits without opening a discard dialog",()=>{
+  const {card,calls}=fixture();
+  card.settingsDraft.notification_definitions.methods.home.name="Changed name";
+  const before=structuredClone(card.settingsDraft);
+  click(card,"close-method");
+  assert.equal(card.definitionSelection,null);
+  assert.deepEqual(card.settingsDraft,before);
+  const html=namedNotifications(card);
+  assert.match(html,/Changed name/);assert.match(html,/Unsaved changes/);
+  assert.doesNotMatch(html,/method-discard-dialog/);
+  assert.equal(calls.length,0);
+});
+
+test("cancel confirms method edits and restores only that method",()=>{
+  const {card,calls}=fixture();
+  card.settingsDraft.notifications=true;
+  card.settingsDraft.notification_definitions.methods.home.name="Changed name";
+  click(card,"cancel-method");
+  assert.equal(card.methodCancel,"home");
+  assert.equal(card.settingsDraft.notification_definitions.methods.home.name,"Changed name");
+  assert.match(namedNotifications(card),/method-discard-dialog/);
+  click(card,"keep-method");
+  assert.equal(card.methodCancel,null);
+  assert.equal(card.settingsDraft.notification_definitions.methods.home.name,"Changed name");
+  click(card,"cancel-method");click(card,"discard-method");
+  assert.deepEqual(card.settingsDraft.notification_definitions.methods.home,card.configuration.settings.notification_definitions.methods.home);
+  assert.equal(card.settingsDraft.notifications,true);
+  assert.equal(card.definitionSelection,null);
+  assert.equal(calls.length,0);
+});
+
+test("closing the destination dialog retains all configured choices",()=>{
+  const {card,calls}=fixture(),before=structuredClone(card.settingsDraft);
+  click(card,"destination-open");input(card,"definitionDeliveryType","voice");
+  assert.match(namedNotifications(card),/<dialog class="delivery-picker"/);
+  click(card,"destination-close");
+  assert.equal(card.deliveryPicker,null);
+  assert.deepEqual(card.settingsDraft,before);
+  assert.equal(calls.length,0);
 });

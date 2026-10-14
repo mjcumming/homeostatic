@@ -1,4 +1,5 @@
 /** Read-model helpers and a shared, lifecycle-bound HA subscription. */
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=73";
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -23,15 +24,29 @@ export function affectedFunctions(data, episode) {
     impacted.has(item.node_id) && item.readiness.answer !== "ready");
 }
 
+export function visibleEpisodes(data) {
+  const nodes = sourceMap(data);
+  return data.inventory.episodes.filter(episode => {
+    const source = nodes.get(episode.anchor);
+    if (!source) return true;
+    const findings = episode.reasons ?? [];
+    if (findings.some(item => item.node_id && item.node_id !== episode.anchor && item.status !== "pass")) return true;
+    const problem = integrationProblem(source, findings, () => null, data.inventory.integration_evidence?.[episode.anchor]) ??
+      deviceProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
+      entityProblem(source, data.inventory.entity_status?.[episode.anchor], nodes.get(`entry:${source.owner_id}`), data.areas ?? []);
+    return problem?.tone !== "recovering";
+  });
+}
+
 export function sortedEpisodes(data) {
   const importance = {critical: 3, high: 2, normal: 1, low: 0};
-  return [...data.inventory.episodes].sort((a, b) =>
+  return [...visibleEpisodes(data)].sort((a, b) =>
     (importance[b.importance] - importance[a.importance]) ||
     a.opened_at.localeCompare(b.opened_at) || a.episode_id.localeCompare(b.episode_id));
 }
 
 export function recentEpisodes(data, limit = 3) {
-  return [...data.inventory.episodes].sort((a, b) =>
+  return [...visibleEpisodes(data)].sort((a, b) =>
     b.opened_at.localeCompare(a.opened_at) || a.episode_id.localeCompare(b.episode_id)).slice(0, limit);
 }
 
@@ -685,23 +700,23 @@ export class DashboardStore {
     const revision = data.catalog_revision;
     const current = () => token === this.catalogGeneration && this.active && this.state.status === "current";
     const task = Promise.resolve().then(async () => {
-      const sections = {};
-      for (const section of CATALOG_SECTIONS) {
-        const total = data.catalog_sections[section];
-        const items = [];
-        for (let offset = 0; offset < total;) {
-          if (!current()) return;
+      const sections = Object.fromEntries(CATALOG_SECTIONS.map(section=>[section,new Array(data.catalog_sections[section])]));
+      const pages = CATALOG_SECTIONS.flatMap(section=>Array.from({length:Math.ceil(data.catalog_sections[section]/200)},(_,index)=>({section,offset:index*200})));
+      let nextPage = 0;
+      const fetchPages = async () => {
+        while (nextPage < pages.length && current()) {
+          const {section,offset} = pages[nextPage++];
+          const total = data.catalog_sections[section];
           const page = await this.connection.sendMessagePromise({type:"homeostatic/catalog",revision,section,offset,limit:200});
           if (!current()) return;
           const end = Math.min(offset + 200,total);
           if (page.revision !== revision || page.section !== section || page.offset !== offset ||
               page.total !== total || !Array.isArray(page.items) || page.items.length !== end - offset ||
               page.next_offset !== (end < total ? end : null)) throw new Error("Incomplete source catalog. Retry loading sources.");
-          items.push(...page.items);
-          offset = end;
+          page.items.forEach((item,index)=>{sections[section][offset+index]=item;});
         }
-        sections[section] = items;
-      }
+      };
+      await Promise.all(Array.from({length:Math.min(4,pages.length)},fetchPages));
       if (!current()) return;
       const latest = this.baseline;
       this.baseline = {...latest,catalog_loaded:true,catalog_stale:false,inventory:{...latest.inventory,

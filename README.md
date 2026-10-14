@@ -47,7 +47,7 @@ A new install watches integration, device and entity availability, Home Assistan
 
 ## What you get when something goes wrong
 
-An issue for each problem. It quotes what Home Assistant reported (setup failed, needs sign-in, retrying), lists the entities affected, suggests what to try, and shows recovery as it happens. When an integration fails, the devices and entities you watch on it are listed on that one issue instead of each raising its own.
+An issue for each problem. It quotes what Home Assistant reported (setup failed, needs sign-in, retrying), lists the entities affected, suggests what to try, and lets you inspect recovery in its details. When an integration fails, the devices and entities you watch on it are listed on that one issue instead of each raising its own.
 
 Each policy decides when and how to notify. Add an immediate notification, a scheduled summary, or both, and choose one or more delivery methods for each entry.
 
@@ -74,7 +74,7 @@ Homeostatic adds a sidebar panel for administrators:
 | Page | What it's for |
 | --- | --- |
 | Overview | What's open and what's being watched |
-| Issues | Every open problem, with its details and controls |
+| Issues | Problems needing review, with their details and controls |
 | Sources | Inspect equipment and open the policies that watch it. |
 | Policies | Edit, duplicate, disable or delete supplied and custom policies. Choose sources, detection settings and notifications. |
 | Notifications | Reusable delivery methods with their own tests, and the global notification switch |

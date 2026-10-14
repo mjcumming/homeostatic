@@ -95,6 +95,7 @@ async def test_direct_save_validates_type_revision_and_rollback(
         }
     )
     assert (await client.receive_json())["error"]["code"] == "stale_configuration"
+    draft["timings"]["settle"] += 1
     with patch.object(
         hass.config_entries, "async_reload", AsyncMock(side_effect=[False, True])
     ):

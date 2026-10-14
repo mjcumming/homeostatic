@@ -63,6 +63,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0057](0057-policy-owned-notification-timing.md) | Configure notification timing inside each policy | Accepted; test-setting migration superseded by 0058; UI simplification by 0059 |
 | [0058](0058-unified-policy-lifecycle.md) | Use one editable policy lifecycle | Accepted; UI simplification by 0059 |
 | [0059](0059-save-directly-and-test-configured-methods.md) | Save directly and test configured delivery methods | Accepted |
+| [0060](0060-hide-recovery-confirmation-from-issue-lists.md) | Keep recovery confirmation out of issue lists and explain related-source findings | Accepted; implemented locally |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision, not production readiness. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 

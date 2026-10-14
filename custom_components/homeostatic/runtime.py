@@ -469,7 +469,9 @@ class Runtime:
         while self._pending:
             now, observations, cause, temperature_states = self._pending.popleft()
             for node_id, state in temperature_states:
-                source = self.sources[node_id]
+                source = self.sources.get(node_id)
+                if source is None:
+                    continue
                 observation = self._observe_temperature(source, state, now)
                 if observation is not None:
                     observations.append(observation)
@@ -481,6 +483,9 @@ class Runtime:
                         now,
                         cause,
                     )
+            observations = [
+                item for item in observations if item.node_id in self.sources
+            ]
             if observations:
                 self._record_observations(observations)
                 self._handle(self.engine.ingest_many(observations, now), now, cause)
@@ -602,6 +607,7 @@ class Runtime:
                     ],
                 }
             )
+        changes: deque[dict[str, object]] = deque(maxlen=self.enrollment_changes.maxlen)
         for node_id, source in candidates.items():
             previous = self.candidates.get(node_id)
             if not self._discovered:
@@ -611,7 +617,7 @@ class Runtime:
                 previous.attached_by,
                 previous.excluded_by,
             ) != (source.watched, source.attached_by, source.excluded_by):
-                self.enrollment_changes.append(
+                changes.append(
                     {
                         "node_id": node_id,
                         "at": at,
@@ -624,32 +630,33 @@ class Runtime:
                         else "match_attributes_changed"
                         if previous.attributes != source.attributes
                         else "rules_changed",
-                        "before": json_object(previous),
-                        "after": json_object(source),
+                        "before": previous,
+                        "after": source,
                     }
                 )
             elif previous is None and source.watched:
-                self.enrollment_changes.append(
+                changes.append(
                     {
                         "node_id": node_id,
                         "at": at,
                         "batch": batch,
                         "reason": "source_enrolled",
-                        "after": json_object(source),
+                        "after": source,
                     }
                 )
         for node_id in self.candidates.keys() - candidates.keys():
             previous = self.candidates[node_id]
             if previous.watched:
-                self.enrollment_changes.append(
+                changes.append(
                     {
                         "node_id": node_id,
                         "at": at,
                         "batch": batch,
                         "reason": "source_removed",
-                        "before": json_object(previous),
+                        "before": previous,
                     }
                 )
+        self.enrollment_changes.extend(json_object(change) for change in changes)
         self._discovered = True
         self.candidates = candidates
         sources, self.targets = compose(
@@ -708,6 +715,149 @@ class Runtime:
                     entry,
                     entry.async_on_state_change(partial(self._entry_changed, entry)),
                 )
+
+    def _monitoring_routes(self) -> dict[str, dict[str, Any]]:
+        # Source edits can remove another route's record-only fallback rules.
+        # Those compiled differences do not change this route's reporting clock.
+        return {
+            f"policy_{item.id}_{row['id']}": row
+            for item in self.settings.monitoring_policies
+            if item.enabled
+            for row in item.notifications
+        }
+
+    def can_apply_settings(self, settings: Settings) -> bool:
+        """Apply monitoring edits in place; retain reload for installation changes."""
+        return (
+            replace(
+                self.settings,
+                rules=settings.rules,
+                monitoring_policies=settings.monitoring_policies,
+            )
+            == settings
+        )
+
+    async def async_apply_settings(self, settings: Settings) -> None:
+        """Reconcile a monitoring draft and verify storage before publishing it."""
+        async with self._lock:
+            if not self.running or not self.available:
+                raise HomeAssistantError("Homeostatic is unavailable")
+            if not self.can_apply_settings(settings):
+                raise ValueError("These settings require an integration reload")
+            await self._drain_pending()
+            assert self.engine is not None
+            assert self.policy is not None
+            now = dt_util.utcnow()
+            engine_state, policy_state = self.engine.snapshot(), self.policy.snapshot()
+            # Keep HA subscriptions, captured observations and task ownership live
+            # while saving. Only adapter-owned evaluated state is transactional.
+            infrastructure = {
+                "hass",
+                "entry",
+                "store",
+                "engine",
+                "policy",
+                "_lock",
+                "_subscriptions",
+                "_entries",
+                "_deadline_cancel",
+                "_refresh_task",
+                "_pending",
+                "running",
+                "_stopped",
+                "_refresh_requested",
+                "_reconcile_requested",
+                "_repairs_dirty",
+                "_broken_full",
+                "_broken_named",
+                "_broken_created",
+            }
+            previous = {
+                key: value
+                for key, value in vars(self).items()
+                if key not in infrastructure
+            }
+            # Discovery replaces these views; preserving their references avoids
+            # copying the entire catalog just to roll back a small settings edit.
+            replaced_views = {
+                "settings",
+                "sources",
+                "candidates",
+                "targets",
+                "enrolled",
+                "inventory_static",
+                "_compiled_settings",
+                "_compiled_policy",
+                "_entity_sources",
+                "_device_members",
+                "device_exclusions",
+            }
+            previous = {
+                **previous,
+                **deepcopy(
+                    {
+                        key: value
+                        for key, value in previous.items()
+                        if key not in replaced_views
+                    }
+                ),
+            }
+            routes = self._monitoring_routes()
+            try:
+                self.settings = settings
+                self._inventory_dirty = True
+                events = self._evaluate(now)
+                self._handle(events, now)
+                current_routes = self._monitoring_routes()
+                changed_routes = {
+                    route
+                    for route in routes.keys() | current_routes.keys()
+                    if routes.get(route) != current_routes.get(route)
+                }
+                if self.settings.notifications and changed_routes:
+                    self._activating = True
+                    self._activating_routes = changed_routes
+                await self._complete(now)
+                if not self.running:
+                    raise HomeAssistantError(
+                        "Homeostatic stopped while applying settings"
+                    )
+            except OSError, HomeAssistantError, ValueError, KeyError, TypeError:
+                published = self._resolved_requests != previous["_resolved_requests"]
+                last_sequence = self.delivery.sequence
+                self.__dict__.update(previous)
+                if published:
+                    self.delivery.sequence = max(self.delivery.sequence, last_sequence)
+                self.engine = Engine(
+                    replace(self.settings.engine_settings(), startup_grace=timedelta(0))
+                )
+                if self.sources:
+                    self.engine.register_many(
+                        [
+                            source.node(self.settings)
+                            for source in self.sources.values()
+                        ],
+                        now,
+                    )
+                self.engine.restore(engine_state, now)
+                self.policy = Policy(self._policy_config())
+                self.policy.restore(policy_state, now)
+                self._inventory_dirty = True
+                if self.running:
+                    self._listen_entries()
+                try:
+                    await self._save()
+                except (
+                    OSError,
+                    HomeAssistantError,
+                    ValueError,
+                    KeyError,
+                    TypeError,
+                ) as err:
+                    self._failed(err)
+                raise
+            finally:
+                async_dispatcher_send(self.hass, self.signal)
 
     async def async_refresh(self, *, reconcile: bool = True) -> None:
         """Process captured evidence, optionally reconcile, then persist deliveries."""
@@ -1259,10 +1409,24 @@ class Runtime:
             for node_id, source in sources.items()
             if first or source != self.sources.get(node_id)
         ]
-        if changed:
-            events.extend(self.engine.register_many(changed, now))
-        for node_id in self.sources.keys() - sources.keys():
-            events.extend(self.engine.remove(node_id, now))
+        removed = self.sources.keys() - sources.keys()
+        if len(removed) > 1:
+            # Each individual removal evaluates the entire graph. Restore the
+            # final topology once, retaining checks, holds and episode identities.
+            engine_state = self.engine.snapshot()
+            self.engine = Engine(
+                replace(self.settings.engine_settings(), startup_grace=timedelta(0))
+            )
+            if sources:
+                self.engine.register_many(
+                    [source.node(self.settings) for source in sources.values()], now
+                )
+            events.extend(self.engine.restore(engine_state, now))
+        else:
+            if changed:
+                events.extend(self.engine.register_many(changed, now))
+            for node_id in removed:
+                events.extend(self.engine.remove(node_id, now))
         if discover:
             if (
                 first
@@ -2048,6 +2212,8 @@ class Runtime:
                 continue
             attempt = f"{delivery_id}:{channel}"
             async with self._lock:
+                if resolved and self._resolved_requests.get(delivery_id) != payload:
+                    continue
                 if attempt in self.delivery.attempted:
                     continue
                 self.delivery.attempted.add(attempt)
@@ -2270,14 +2436,18 @@ class Runtime:
         return sources
 
     def preview_policy(
-        self, data: dict[str, Any], *, settings: Settings | None = None
+        self,
+        data: dict[str, Any],
+        *,
+        settings: Settings | None = None,
+        sources: dict[str, Source] | None = None,
     ) -> dict[str, JSONValue]:
         """Simulate activation in an isolated policy using its opaque public snapshot."""
         assert self.policy is not None
         settings = settings or Settings.from_data(
             {**(self.entry.options or self.entry.data), "policy": data}
         )
-        sources = self.preview_sources(settings)
+        sources = self.preview_sources(settings) if sources is None else sources
         candidate = Policy(self._policy_config(settings, sources=sources))
         now = dt_util.utcnow()
         candidate.restore(self.policy.snapshot(), now)

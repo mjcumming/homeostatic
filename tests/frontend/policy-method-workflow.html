@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Policy delivery workflow</title>
-<style>body{font:14px Arial,sans-serif;margin:20px;background:#fafafa;color:#212121}#status{margin:12px 0}button{font:inherit;padding:8px}homeostatic-card-v21{display:block;max-width:1200px}</style></head>
-<body><p>Isolated workflow fixture. No connection to Home Assistant and no messages are sent.</p><button id="checks">Run workflow checks</button><p id="status" role="status">Ready</p><homeostatic-card-v21></homeostatic-card-v21>
+<style>body{font:14px Arial,sans-serif;margin:20px;background:#fafafa;color:#212121}#status{margin:12px 0}button{font:inherit;padding:8px}homeostatic-card-v22{display:block;max-width:1200px}</style></head>
+<body><p>Isolated workflow fixture. No connection to Home Assistant and no messages are sent.</p><button id="checks">Run workflow checks</button><p id="status" role="status">Ready</p><homeostatic-card-v22></homeostatic-card-v22>
 <script type="module">
 import '/custom_components/homeostatic/frontend/homeostatic.js';
 import {monitoringExample} from '/tests/frontend/monitoring-fixture.mjs';
@@ -12,7 +12,7 @@ const policy={...newMonitoringPolicy([],'integration'),name:'Integration availab
 let saved={monitoring_policies:[policy],notification_definitions:definitions,policy:{timezone:'America/Chicago',rules:[],recipients:{}},timings:{},notifications:false,consumer:null};
 const requests=[];
 const delivery={delivery_targets:[{channel:'phone:owner',name:'Owner iPhone',type:'app',available:true},{channel:'satellite:kitchen',name:'Kitchen speaker',type:'voice',available:true}],notification_people:[],notification_destinations:[],consumers:[]};
-const card=document.querySelector('homeostatic-card-v21');
+const card=document.querySelector('homeostatic-card-v22');
 const connection={addEventListener(){},removeEventListener(){},async subscribeMessage(callback){queueMicrotask(()=>callback(monitoringExample()));return ()=>{};}};
 const hass={connection,user:{id:'fixture',is_admin:true},states:{},async callWS(request){
  requests.push(structuredClone(request));

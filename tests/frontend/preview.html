@@ -13,7 +13,7 @@
   <p><a href="reusable-editors.html">Reusable monitoring policies, schedules and delivery methods: desktop and phone scenario</a></p>
   <p><a href="ups.html">UPS grouped issues, partial recovery and mode-specific reserve schedules</a></p>
   <p><a href="source-history.html">Sources History: MQTT phone and desktop scenario</a></p>
-  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="alert">Automation-owned water alert</option><option value="device">Front Porch restored state</option><option value="light">Light unavailable</option><option value="occupancy">Occupancy sensor unavailable</option><option value="entity-recovery">Light recovering</option><option value="entity-unknown">Light state unknown</option><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="update-mismatch">Dashboard update mismatch</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="entity-check">Run entity regression</button><button type="button" id="menu-check">Run menu regression</button><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="live-navigation-check">Run live update regression</button><button type="button" id="scroll-panel-check">Open scrolling panel</button><button type="button" id="page-check">Run page map regression</button><button type="button" id="house-check">Run house layout regression</button><button type="button" id="device-check">Run device popup regression</button><button type="button" id="problem-check">Run problem regression</button><button type="button" id="policy-check">Run monitoring policy regression</button><span id="feedback" role="status"></span></div>
+  <div id="controls"><strong>Component test · synthetic data</strong><label>State <select id="scenario"><option value="alert">Automation-owned water alert</option><option value="device">Front Porch restored state</option><option value="light">Light unavailable</option><option value="occupancy">Occupancy sensor unavailable</option><option value="entity-recovery">Light recovering</option><option value="entity-unknown">Light state unknown</option><option value="failure">Shared failure</option><option value="setup">Setup: no reported cause</option><option value="cause">Setup: reported sign-in error</option><option value="auth">Sign-in requested</option><option value="retry">NuHeat timeout</option><option value="receiver">Receiver timeout</option><option value="starting">Retry in progress</option><option value="recovering">Awaiting recovery confirmation</option><option value="related">Loaded integration with related issues</option><option value="disabled">Disabled integration</option><option value="healthy">Healthy</option><option value="unknown">Unknown requirement</option><option value="disconnected">Disconnected</option><option value="update-mismatch">Dashboard update mismatch</option><option value="unloaded">Integration unloaded</option></select></label><label><input id="dark" type="checkbox"> Dark theme</label><label><input id="unsafe" type="checkbox"> HTML-like source names</label><label><input id="admin" type="checkbox" checked> Administrator</label><button type="button" id="entity-check">Run entity regression</button><button type="button" id="menu-check">Run menu regression</button><button type="button" id="navigation-check">Run navigation regression</button><button type="button" id="live-navigation-check">Run live update regression</button><button type="button" id="scroll-panel-check">Open scrolling panel</button><button type="button" id="page-check">Run page map regression</button><button type="button" id="house-check">Run house layout regression</button><button type="button" id="device-check">Run device popup regression</button><button type="button" id="problem-check">Run problem regression</button><button type="button" id="policy-check">Run monitoring policy regression</button><span id="feedback" role="status"></span></div>
   <homeostatic-panel></homeostatic-panel>
   <button type="button" id="header-check">Run pinned header regression</button>
   <script type="module">
@@ -74,7 +74,7 @@
       if(scenario.value==="device")return deviceData();
       if(["light","occupancy","entity-recovery","entity-unknown"].includes(scenario.value))return entityData();
       if(scenario.value==="unloaded")return{schema_version:1,available:false,updated_at:"2026-09-25T15:52:00Z",error:null};
-      const integrationExample=["setup","cause","auth","retry","receiver","starting","recovering","disabled"].includes(scenario.value);
+      const integrationExample=["setup","cause","auth","retry","receiver","starting","recovering","related","disabled"].includes(scenario.value);
       const failing=scenario.value==="failure"||integrationExample,unknown=scenario.value==="unknown";
       const name=unsafe.checked?'<img src=x onerror="alert(1)"> Frigate':scenario.value==="disabled"?"mike@4831.com":scenario.value==="receiver"?"Home Theater":integrationExample?"Master Bathroom":"Frigate integration";
       const entry=baseSource("entry:frigate",name,"integration",{entry_id:"frigate",disabled:scenario.value==="disabled",attributes:{domain:[scenario.value==="receiver"?"denonavr":integrationExample?"nuheat":"frigate"]}});
@@ -82,12 +82,13 @@
       const fn=baseSource("function:lighting","Basement motion lighting","function",{requirements:["entity:person"],watched:false});
       const unwatched=baseSource("entity:excluded","Workshop test sensor","entity",{watched:false,excluded_by:["ignore_workbench"]});
       const answer=["starting","disabled"].includes(scenario.value)?"unknown":scenario.value==="recovering"?"ready":failing?"blocked":unknown?"unknown":"ready";
-      const reason={auth:"auth_required",retry:"setup_retry",receiver:"setup_retry",starting:"setup_in_progress",recovering:"loaded",healthy:"loaded",disabled:"disabled"}[scenario.value]??"setup_error";
+      const reason={auth:"auth_required",retry:"setup_retry",receiver:"setup_retry",starting:"setup_in_progress",recovering:"loaded",related:"loaded",healthy:"loaded",disabled:"disabled"}[scenario.value]??"setup_error";
       const detail={auth:"Session expired",cause:"Unable to sign in to provider",retry:"HTTPSConnectionPool: /api/authenticate/user (Caused by ConnectTimeoutError: Connection timed out)",receiver:"TimeoutException for http://192.0.2.15/status.xml"}[scenario.value]??reason.replaceAll("_"," ");
       const current={reason,message:detail,observed_at:"2026-09-25T15:52:00Z"};
       const last_failure=scenario.value==="starting"?{reason:"setup_retry",message:"Connection timed out",observed_at:"2026-09-25T15:42:00Z"}:null;
       const evidence={current,last_failure};
       const reasons=["starting","recovering"].includes(scenario.value)?[]:failing?[{node_id:entry.node_id,reason:scenario.value==="disabled"?"stale":reason,message:name+": "+detail,status:scenario.value==="disabled"?"unknown":"fail"}]:[];
+      if(scenario.value==="related")reasons.splice(0,reasons.length,{node_id:sensor.node_id,reason:"stale",message:"Solar azimuth: disabled",status:"unknown"});
       const episode={episode_id:"demo-episode",anchor:"entry:frigate",status:"fail",importance:"high",impact:integrationExample?[]:["entity:person","function:lighting"],recorded:["entity:person"],opened_at:"2026-09-25T15:42:00Z",reasons};
       const nodes=[entry,sensor,fn];
       if(scenario.value==="alert")nodes.push(baseSource("situation:leak","Basement water leak","situation",{automation_url:"/config/automation/edit/demo-leak",alert_profile:"acknowledge",alert_reporting_status:"requests_disabled"}));
@@ -111,7 +112,7 @@
        if(source.kind==="device")return{source,device_availability:connectivityCase?{status:"unavailable",basis:"entities",reason:"connectivity_disconnected",entity_ids:["binary_sensor.porch_connectivity","binary_sensor.porch_motion"],connectivity_entity_ids:["binary_sensor.porch_connectivity"]}:{status:"available",basis:"entities",entity_ids:["sensor.porch_status","sensor.porch_temperature"]},entity_status:current.inventory.entity_status[node_id],device_evidence:connectivityCase?{total:2,reporting_count:2,members:[{node_id:"entity:porch_connectivity",name:"Front Porch Connectivity",state:"off",restored:false,connectivity:true},{node_id:"entity:porch_motion",name:"Front Porch Motion",state:"unavailable",restored:false,connectivity:false}]}:{total:2,reporting_count:1,members:[{node_id:"entity:porch_status",name:deviceMemberName,state:"unknown",restored:true},{node_id:"entity:porch_temperature",name:"Front Porch Temperature",state:"72",restored:false}]},explanation:{findings:[],nodes:[]},readiness:current.readiness,impact:{nodes:[]}};
       if(current.inventory.entity_status?.[node_id])return{source,entity_status:current.inventory.entity_status[node_id],...current.inventory.entity_status[node_id],impact:{nodes:[]},updated_at:current.updated_at};
       return{source,integration_evidence:current.inventory.integration_evidence[node_id],readiness:current.readiness,updated_at:current.updated_at,
-        explanation:{findings:current.inventory.episodes[0]?.reasons??[],nodes:source.kind==="function"?current.readiness.nodes:[]},
+        explanation:{findings:(current.inventory.episodes[0]?.reasons??[]).filter(item=>item.node_id===node_id),nodes:source.kind==="function"?current.readiness.nodes:[]},
         impact:{nodes:current.inventory.nodes.filter(n=>n.node_id!==node_id).map(n=>({node_id:n.node_id,importance:"normal"}))}};
     }};
     card.setConfig({view:"overview"});
@@ -461,8 +462,13 @@
           if(clipboardDescriptor)Object.defineProperty(navigator,"clipboard",clipboardDescriptor);
         }
         scenario.value="recovering";change();await card.loadDetail();
-        expect(body.innerText.includes("Checking recovery")&&body.innerText.includes("once recovery is confirmed"),"Recovery hold cannot announce resolved");
+        expect(body.innerText.includes("Running — confirming recovery")&&body.innerText.includes("confirming that it stays available"),"Recovery hold cannot announce resolved");
         expect(!body.querySelector(".next-action a.primary"),"Recovery should not demand an unnecessary action");
+        expect(!card.main.querySelector(".issue-row"),"Overview omits recovery-wait issues");
+        scenario.value="related";change();await card.loadDetail();
+        expect(card.main.innerText.includes("1 related source needs attention")&&!card.main.innerText.includes("confirming recovery"),"Outstanding related findings remain visible under a loaded integration");
+        expect(body.innerText.includes("Affected sources")&&body.innerText.includes("Solar azimuth: disabled"),"Issue detail includes grouped findings absent from the anchor explanation");
+
         scenario.value="disabled";change();await card.loadDetail();
         expect(body.innerText.includes("Disabled in Home Assistant")&&card.main.querySelector(".issue-row.neutral"),"Disabled stays counted and visually quiet");
         expect(body.innerText.includes("If this is intentional"),"Do not infer intentional disablement");
@@ -471,9 +477,9 @@
         unsafe.checked=true;change();await card.loadDetail();
         expect(!body.querySelector("img")&&!card.main.querySelector("img"),"Source names remain text");
         unsafe.checked=false;scenario.value="healthy";change();await card.loadDetail();
-        expect(body.textContent.includes("no longer open"),"A resolved selection refreshes");
+        expect(body.textContent.includes("not in current issues or retained history"),"A vanished selection refreshes without inventing resolution");
         card.openDetail({nodeId:"entry:frigate"});await card.loadDetail();
-        expect(body.innerText.includes("Connection available")&&!body.innerText.includes("Checking recovery"),"Healthy source detail must not invent an open recovery hold");
+        expect(body.innerText.includes("Connection available")&&!body.innerText.includes("confirming recovery"),"Healthy source detail must not invent an open recovery hold");
          scenario.value="retry";change();card.openDetail({episodeId:"demo-episode"});await card.loadDetail();
          body.querySelectorAll("details").forEach(item=>item.open=false);
          await checkDeviceProblem(expect);
@@ -496,9 +502,9 @@
         await new Promise(resolve=>card.dialog.addEventListener("close",resolve,{once:true}));
         card.openDetail({episodeId:"entity-episode"});await card.loadDetail();
         scenario.value="entity-recovery";change();await card.loadDetail();
-        expect(body.innerText.includes("Checking recovery")&&card.main.innerText.includes("Checking recovery"),"Historical failure cannot override current recovery");
+        expect(body.innerText.includes("Available — confirming recovery")&&!card.main.querySelector(".issue-row"),"Historical failure cannot override current recovery");
         scenario.value="entity-unknown";change();await card.loadDetail();
-        expect(body.innerText.includes("Waiting for a known state")&&!body.innerText.includes("Checking recovery"),"Unknown evidence is not recovery");
+        expect(body.innerText.includes("Waiting for a known state")&&!body.innerText.includes("confirming recovery"),"Unknown evidence is not recovery");
         scenario.value="occupancy";change();await card.loadDetail();
         expect(body.innerText.includes("Occupancy sensor")&&body.innerText.includes("sensor's power or battery"),"Detection sensor has its own guidance");
         unsafe.checked=true;change();await card.loadDetail();

@@ -17,28 +17,28 @@ Take a backup first. Go to **Settings → System → Backups** and select **Back
 
 ## 1. Install Homeostatic
 
-This guide describes the **1.8.0b3 testing prerelease** and its fresh-setup policy model. Use HACS or install by hand. Both end with the same files in the same place.
+This guide describes the **1.8.0b6 testing prerelease** and its fresh-setup policy model. Use HACS or install by hand. Both end with the same files in the same place.
 
 ### With HACS
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with the type **Integration**.
-3. Find **Homeostatic** and open its download options. Include beta/prerelease versions if needed, choose **1.8.0b3** explicitly and download it. If HACS does not offer this prerelease, use the manual download below.
+3. Find **Homeostatic** and open its download options. Include beta/prerelease versions if needed, choose **1.8.0b6** explicitly and download it. If HACS does not offer this prerelease, use the manual download below.
 4. Restart Home Assistant (**Settings → System**, then the power button at the top right).
 
 ### By hand
 
 You'll need access to your Home Assistant config folder, through the Samba share, SSH or a file editor add-on.
 
-1. From the [1.8.0b3 prerelease](https://github.com/mjcumming/homeostatic/releases/tag/v1.8.0b3), download `homeostatic-1.8.0b3.zip` and `homeostatic-1.8.0b3.zip.sha256` into the same folder on your computer.
+1. From the [1.8.0b6 prerelease](https://github.com/mjcumming/homeostatic/releases/tag/v1.8.0b6), download `homeostatic-1.8.0b6.zip` and `homeostatic-1.8.0b6.zip.sha256` into the same folder on your computer.
 2. Check the download against its checksum before you unpack it. In that folder, run the command for your system:
 
    ```bash
-   sha256sum -c homeostatic-1.8.0b3.zip.sha256        # Linux
-   shasum -a 256 -c homeostatic-1.8.0b3.zip.sha256    # macOS
+   sha256sum -c homeostatic-1.8.0b6.zip.sha256        # Linux
+   shasum -a 256 -c homeostatic-1.8.0b6.zip.sha256    # macOS
    ```
 
-   Both should print `homeostatic-1.8.0b3.zip: OK`. On Windows, run `Get-FileHash .\homeostatic-1.8.0b3.zip -Algorithm SHA256` in PowerShell and compare the hash with the first value in the `.sha256` file. If the check fails, download the zip again and don't install it.
+   Both should print `homeostatic-1.8.0b6.zip: OK`. On Windows, run `Get-FileHash .\homeostatic-1.8.0b6.zip -Algorithm SHA256` in PowerShell and compare the hash with the first value in the `.sha256` file. If the check fails, download the zip again and don't install it.
 3. Unzip it. Copy its `custom_components/homeostatic` folder into your config folder, so you end up with `<config>/custom_components/homeostatic/manifest.json`. If an older copy is already there, delete that folder first. Copying over it leaves old files behind.
 4. Optionally, copy the zip's `blueprints/automation/homeostatic` folder to `<config>/blueprints/automation/homeostatic`. Then you won't need to import the alert blueprint in step 5.
 5. Restart Home Assistant.

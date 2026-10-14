@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=72";
-import {UPS_CHECK_NAMES} from "./ups.mjs?v=72";
+import {escapeHtml as esc} from "./model.mjs?v=73";
+import {UPS_CHECK_NAMES} from "./ups.mjs?v=73";
 
 const date = (value) => value ? new Date(value).toLocaleString() : "Unknown";
 export function observedRange(start, end) {

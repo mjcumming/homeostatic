@@ -164,7 +164,9 @@ async def test_combined_reload_failure_restores_both_parts(
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     current = (await client.receive_json())["result"]
-    change = {"revision": current["revision"], "settings": combined_proposal(current)}
+    draft = combined_proposal(current)
+    draft["timings"]["settle"] += 1
+    change = {"revision": current["revision"], "settings": draft}
     await client.send_json({"id": 2, "type": "homeostatic/preview_settings", **change})
     preview = (await client.receive_json())["result"]
     with patch.object(

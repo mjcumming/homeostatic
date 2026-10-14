@@ -316,10 +316,8 @@ def evaluate(
         result[node_id] = replace(
             source,
             watched=decision.watched
-            and not (
-                source.kind == "device"
-                and (source.disabled or not source.availability_entities)
-            ),
+            and not source.disabled
+            and not (source.kind == "device" and not source.availability_entities),
             attached_by=decision.attached_by,
             excluded_by=decision.excluded_by,
         )

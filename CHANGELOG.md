@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [1.8.0b6] - 2026-10-13
+
+### Documentation
+
+- Record recovery-confirmation visibility and wording in ADR 0060, and align the explanation with the issue lists and grouped-source details.
+
+### Changed
+
+- Focus delivery-method editing on selected destinations, with aligned fields, a searchable destination dialog, optional presence controls, visible save/cancel actions, and a More actions menu. Retain drafts when returning to the list and confirm before discarding method edits. Use the same form inside policies.
+- Apply ordinary monitoring edits without restarting the integration; Save changes waits for verified storage and an updated dashboard.
+- Refresh the complete source catalog with up to four pages in flight. Retained editors save the complete draft and keep newer edits made during a save.
+- Move Duplicate and Delete into each policy's More actions menu, keeping on/off and Edit visible.
+- Give Turn on an accent button in Policies, show saved state beside each name, and identify on/off changes that still need saving.
+- Use plain tree rows with neutral labels, consistent child indentation, whole-row hover and selection, and wrapping secondary counts in Sources.
+
+### Fixed
+
+- Omit availability issues awaiting recovery confirmation from Overview and Issues, while keeping their source details available. Describe loaded integrations with outstanding related-source problems accurately and list the affected sources in details.
+- Keep disabled entities browsable without attaching availability checks, preventing disabled Sun sensors and other optional entities from becoming stale issues.
+- Clear the previous save confirmation when editing a policy or delivery method again.
+- Highlight only the selected source in the Sources tree, including paired connection details. Empty or stale selections no longer highlight unrelated rows.
+
 ## [1.8.0b5] - 2026-10-13
 
 ### Fixed

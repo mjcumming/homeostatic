@@ -59,6 +59,7 @@ def ordinary_sources(
         for source in originals.values():
             if (
                 source.excluded_by
+                or source.disabled
                 or policy.check != source.check_id
                 or not policy.matches(source.attributes)
             ):

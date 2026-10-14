@@ -1,0 +1,557 @@
+{
+  "date": "2026-10-13",
+  "environment": {
+    "platform": "Ubuntu on WSL, registry and storage in the Windows checkout",
+    "python": "3.14.7",
+    "homeassistant": "2026.9.3",
+    "health_tree": "0.6.0",
+    "base_commit": "bd8550f43f95c3d4da56d666f0d365e90cf60f0d",
+    "working_tree": "dirty; concurrent unrelated edits retained",
+    "inventory": {
+      "integration_entries": 10,
+      "devices": 300,
+      "entities": 6000,
+      "repairs": 10
+    }
+  },
+  "runs": {
+    "save-before": {
+      "device": {
+        "entities": 6000,
+        "devices": 300,
+        "kind": "device",
+        "mode": "reload_serial_catalog",
+        "results": [
+          {
+            "enabled": false,
+            "applied_seconds": 0.8831042188685387,
+            "visible_seconds": 2.2142669840250164,
+            "phases_inclusive": {
+              "validation": 0.0009926450438797474,
+              "persistence": 0.11593099986203015,
+              "stop_drain": 0.06377423997037113,
+              "publication": 0.0003770710900425911,
+              "snapshot_load": 0.02993765100836754,
+              "discovery": 0.07592106005176902,
+              "engine_policy": 0.2781715670134872,
+              "startup": 0.39109817589633167
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.8610414431896061,
+            "visible_seconds": 2.354683059034869,
+            "phases_inclusive": {
+              "validation": 0.0004623571876436472,
+              "persistence": 0.09803391504101455,
+              "stop_drain": 0.04515407094731927,
+              "publication": 0.0009601712226867676,
+              "snapshot_load": 0.023630826035514474,
+              "discovery": 0.07496468396857381,
+              "engine_policy": 0.3146114582195878,
+              "startup": 0.4209931429941207
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 0.8467901709955186,
+            "visible_seconds": 2.234357631066814,
+            "phases_inclusive": {
+              "validation": 0.0008877459913492203,
+              "persistence": 0.11153425695374608,
+              "stop_drain": 0.05823095003142953,
+              "publication": 0.00038317893631756306,
+              "snapshot_load": 0.029355620965361595,
+              "discovery": 0.06881982600316405,
+              "engine_policy": 0.2692223039921373,
+              "startup": 0.37847109604626894
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.8556225071661174,
+            "visible_seconds": 2.55827821418643,
+            "phases_inclusive": {
+              "validation": 0.000395387876778841,
+              "persistence": 0.0973902780096978,
+              "stop_drain": 0.04336245497688651,
+              "publication": 0.0009111750405281782,
+              "snapshot_load": 0.02076410106383264,
+              "discovery": 0.07628189912065864,
+              "engine_policy": 0.31327202008105814,
+              "startup": 0.41993545391596854
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 0.900165889877826,
+            "visible_seconds": 2.1936832959763706,
+            "phases_inclusive": {
+              "validation": 0.00042062997817993164,
+              "persistence": 0.11132602300494909,
+              "stop_drain": 0.06321437610313296,
+              "publication": 0.00038524204865098,
+              "snapshot_load": 0.023467587074264884,
+              "discovery": 0.07051211199723184,
+              "engine_policy": 0.27281284914352,
+              "startup": 0.38369827601127326
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.8652373268269002,
+            "visible_seconds": 2.3753116650041193,
+            "phases_inclusive": {
+              "validation": 0.00041209091432392597,
+              "persistence": 0.10687477793544531,
+              "stop_drain": 0.05230571306310594,
+              "publication": 0.0009587162639945745,
+              "snapshot_load": 0.021640014834702015,
+              "discovery": 0.07745632017031312,
+              "engine_policy": 0.31744465813972056,
+              "startup": 0.42333379993215203
+            }
+          }
+        ]
+      },
+      "entity": {
+        "entities": 6000,
+        "devices": 300,
+        "kind": "entity",
+        "mode": "reload_serial_catalog",
+        "results": [
+          {
+            "enabled": false,
+            "applied_seconds": 1.31202281313017,
+            "visible_seconds": 2.654693191172555,
+            "phases_inclusive": {
+              "validation": 0.0004407349042594433,
+              "persistence": 0.36310727801173925,
+              "stop_drain": 0.315320085035637,
+              "publication": 0.0004180606920272112,
+              "snapshot_load": 0.08594401483424008,
+              "discovery": 0.07449093996547163,
+              "engine_policy": 0.40540115907788277,
+              "startup": 0.5065585800912231
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 1.9301517170388252,
+            "visible_seconds": 6.6406589220277965,
+            "phases_inclusive": {
+              "validation": 0.00043054413981735706,
+              "persistence": 0.27977195591665804,
+              "stop_drain": 0.045203328831121325,
+              "publication": 0.011826214846223593,
+              "snapshot_load": 0.020763484993949533,
+              "discovery": 0.18966353102587163,
+              "engine_policy": 1.0276429259683937,
+              "startup": 1.4704199079424143
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 1.2210193499922752,
+            "visible_seconds": 2.5005546079482883,
+            "phases_inclusive": {
+              "validation": 0.00043399306014180183,
+              "persistence": 0.38792386185377836,
+              "stop_drain": 0.337244656868279,
+              "publication": 0.0004359530285000801,
+              "snapshot_load": 0.0825323190074414,
+              "discovery": 0.07228272687643766,
+              "engine_policy": 0.2828351098578423,
+              "startup": 0.38876034296117723
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 1.9314489879179746,
+            "visible_seconds": 6.4616336149629205,
+            "phases_inclusive": {
+              "validation": 0.00044197821989655495,
+              "persistence": 0.40161897079087794,
+              "stop_drain": 0.04545409791171551,
+              "publication": 0.011109471786767244,
+              "snapshot_load": 0.02118103113025427,
+              "discovery": 0.18170064082369208,
+              "engine_policy": 1.0299948069732636,
+              "startup": 1.4622337699402124
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 1.2706506340764463,
+            "visible_seconds": 2.6552363322116435,
+            "phases_inclusive": {
+              "validation": 0.0006715091876685619,
+              "persistence": 0.3918611630797386,
+              "stop_drain": 0.34662963706068695,
+              "publication": 0.0005161222070455551,
+              "snapshot_load": 0.08328724722377956,
+              "discovery": 0.07154608704149723,
+              "engine_policy": 0.27323560090735555,
+              "startup": 0.39521217183209956
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 1.9744606020394713,
+            "visible_seconds": 6.589677966898307,
+            "phases_inclusive": {
+              "validation": 0.00043485010974109173,
+              "persistence": 0.40966658224351704,
+              "stop_drain": 0.044303792994469404,
+              "publication": 0.011223573004826903,
+              "snapshot_load": 0.020394798833876848,
+              "discovery": 0.1901369341649115,
+              "engine_policy": 1.0746748498640954,
+              "startup": 1.5151905289385468
+            }
+          }
+        ]
+      },
+      "repair": {
+        "entities": 6000,
+        "devices": 300,
+        "kind": "repair",
+        "mode": "reload_serial_catalog",
+        "results": [
+          {
+            "enabled": false,
+            "applied_seconds": 0.9153397211339325,
+            "visible_seconds": 2.272068378981203,
+            "phases_inclusive": {
+              "validation": 0.0004049651324748993,
+              "persistence": 0.11696192994713783,
+              "stop_drain": 0.04931910405866802,
+              "publication": 0.0006617987528443336,
+              "snapshot_load": 0.024970663944259286,
+              "discovery": 0.06882813898846507,
+              "engine_policy": 0.33503079297952354,
+              "startup": 0.4573804731480777
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 1.0012861110735685,
+            "visible_seconds": 2.4738496840000153,
+            "phases_inclusive": {
+              "validation": 0.0003963140770792961,
+              "persistence": 0.17112330091185868,
+              "stop_drain": 0.047791694989427924,
+              "publication": 0.0012979358434677124,
+              "snapshot_load": 0.023972138995304704,
+              "discovery": 0.06843016506172717,
+              "engine_policy": 0.33852922497317195,
+              "startup": 0.5187142931390554
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 0.9756683739833534,
+            "visible_seconds": 2.1910879481583834,
+            "phases_inclusive": {
+              "validation": 0.000506390817463398,
+              "persistence": 0.1352183511480689,
+              "stop_drain": 0.05256790295243263,
+              "publication": 0.0009385964367538691,
+              "snapshot_load": 0.01991734397597611,
+              "discovery": 0.06794347194954753,
+              "engine_policy": 0.3393332711420953,
+              "startup": 0.4921791600063443
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.8228600970469415,
+            "visible_seconds": 2.3473908498417586,
+            "phases_inclusive": {
+              "validation": 0.0004219980910420418,
+              "persistence": 0.09188622003421187,
+              "stop_drain": 0.045820015016943216,
+              "publication": 0.0009421482682228088,
+              "snapshot_load": 0.031028059078380466,
+              "discovery": 0.07206180389039218,
+              "engine_policy": 0.27323295501992106,
+              "startup": 0.3906474409159273
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 0.8581844549626112,
+            "visible_seconds": 2.2116817969363183,
+            "phases_inclusive": {
+              "validation": 0.00042701512575149536,
+              "persistence": 0.09316447703167796,
+              "stop_drain": 0.04579068417660892,
+              "publication": 0.0010182850528508425,
+              "snapshot_load": 0.0410920400172472,
+              "discovery": 0.07378701004199684,
+              "engine_policy": 0.27110311994329095,
+              "startup": 0.3715805499814451
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.8341193969827145,
+            "visible_seconds": 2.122915853979066,
+            "phases_inclusive": {
+              "validation": 0.0004094738978892565,
+              "persistence": 0.10089522087946534,
+              "stop_drain": 0.04667763691395521,
+              "publication": 0.001151897944509983,
+              "snapshot_load": 0.02241248800419271,
+              "discovery": 0.06868172204121947,
+              "engine_policy": 0.27048488217405975,
+              "startup": 0.38024228205904365
+            }
+          }
+        ]
+      }
+    },
+    "save-after": {
+      "device": {
+        "entities": 6000,
+        "devices": 300,
+        "kind": "device",
+        "mode": "in_place_bounded_catalog",
+        "results": [
+          {
+            "enabled": false,
+            "applied_seconds": 0.44966480298899114,
+            "visible_seconds": 1.0941888429224491,
+            "phases_inclusive": {
+              "validation": 0.00044005713425576687,
+              "discovery": 0.07984762918204069,
+              "engine_policy": 0.29579478804953396,
+              "persistence": 0.0691905349958688,
+              "publication": 0.00040115579031407833
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.45216632215306163,
+            "visible_seconds": 1.0403800869826227,
+            "phases_inclusive": {
+              "validation": 0.00041353795677423477,
+              "discovery": 0.08182261092588305,
+              "engine_policy": 0.3202006109058857,
+              "persistence": 0.06340929795987904,
+              "publication": 0.0009680150542408228
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 0.3947340149898082,
+            "visible_seconds": 0.9141316150780767,
+            "phases_inclusive": {
+              "validation": 0.0008192029781639576,
+              "discovery": 0.07453437498770654,
+              "engine_policy": 0.27915090904571116,
+              "persistence": 0.04434223985299468,
+              "publication": 0.0005078900139778852
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.43051742506213486,
+            "visible_seconds": 0.971609874162823,
+            "phases_inclusive": {
+              "validation": 0.0004090559668838978,
+              "discovery": 0.08218444790691137,
+              "engine_policy": 0.3141028929967433,
+              "persistence": 0.05442479089833796,
+              "publication": 0.0009412611834704876
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 0.3992458889260888,
+            "visible_seconds": 0.9004458929412067,
+            "phases_inclusive": {
+              "validation": 0.0004353071562945843,
+              "discovery": 0.0727413350250572,
+              "engine_policy": 0.2764864459168166,
+              "persistence": 0.04605195694603026,
+              "publication": 0.00037756701931357384
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.45257793203927577,
+            "visible_seconds": 0.9789388140197843,
+            "phases_inclusive": {
+              "validation": 0.00043019489385187626,
+              "discovery": 0.10558504401706159,
+              "engine_policy": 0.3381867620628327,
+              "persistence": 0.05083038308657706,
+              "publication": 0.0009210009593516588
+            }
+          }
+        ]
+      },
+      "entity": {
+        "entities": 6000,
+        "devices": 300,
+        "kind": "entity",
+        "mode": "in_place_bounded_catalog",
+        "results": [
+          {
+            "enabled": false,
+            "applied_seconds": 0.5806385551113635,
+            "visible_seconds": 1.0775994430296123,
+            "phases_inclusive": {
+              "validation": 0.0005395710468292236,
+              "discovery": 0.08396349311806262,
+              "engine_policy": 0.419077169848606,
+              "persistence": 0.04954530205577612,
+              "publication": 0.0003894858527928591
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 1.3683357718400657,
+            "visible_seconds": 2.9468895148020238,
+            "phases_inclusive": {
+              "validation": 0.0004166730213910341,
+              "discovery": 0.18735832092352211,
+              "engine_policy": 0.9434695518575609,
+              "persistence": 0.31922039994969964,
+              "publication": 0.011203124187886715
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 0.5601828300859779,
+            "visible_seconds": 1.1187067839782685,
+            "phases_inclusive": {
+              "validation": 0.0004193361382931471,
+              "discovery": 0.07354031619615853,
+              "engine_policy": 0.30459332605823874,
+              "persistence": 0.04563973401673138,
+              "publication": 0.00038399314507842064
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 1.4117252579890192,
+            "visible_seconds": 3.2473316218238324,
+            "phases_inclusive": {
+              "validation": 0.0007440811023116112,
+              "discovery": 0.1848968779668212,
+              "engine_policy": 0.9610002059489489,
+              "persistence": 0.35198777890764177,
+              "publication": 0.011261463863775134
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 0.5822011099662632,
+            "visible_seconds": 1.1213422601576895,
+            "phases_inclusive": {
+              "validation": 0.0004456921014934778,
+              "discovery": 0.0816008010879159,
+              "engine_policy": 0.43050711089745164,
+              "persistence": 0.049289646092802286,
+              "publication": 0.0003642719238996506
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 1.4978308060672134,
+            "visible_seconds": 3.249407982919365,
+            "phases_inclusive": {
+              "validation": 0.0004051569849252701,
+              "discovery": 0.18651564395986497,
+              "engine_policy": 1.0046701119281352,
+              "persistence": 0.25306535698473454,
+              "publication": 0.1430033619981259
+            }
+          }
+        ]
+      },
+      "repair": {
+        "entities": 6000,
+        "devices": 300,
+        "kind": "repair",
+        "mode": "in_place_bounded_catalog",
+        "results": [
+          {
+            "enabled": false,
+            "applied_seconds": 0.4402172628324479,
+            "visible_seconds": 0.9509457098320127,
+            "phases_inclusive": {
+              "validation": 0.00041164993308484554,
+              "discovery": 0.13117868010886014,
+              "engine_policy": 0.3319371349643916,
+              "persistence": 0.04602853488177061,
+              "publication": 0.000763491028919816
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.4372993151191622,
+            "visible_seconds": 0.8985236780717969,
+            "phases_inclusive": {
+              "validation": 0.0003952919505536556,
+              "discovery": 0.1267072861082852,
+              "engine_policy": 0.3275950129609555,
+              "persistence": 0.04486635094508529,
+              "publication": 0.0007741032168269157
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 0.4357831368688494,
+            "visible_seconds": 0.9086910528130829,
+            "phases_inclusive": {
+              "validation": 0.00039627496153116226,
+              "discovery": 0.06930655590258539,
+              "engine_policy": 0.3329291350673884,
+              "persistence": 0.0424590720795095,
+              "publication": 0.0008096920792013407
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.4540125769563019,
+            "visible_seconds": 0.9495428388472646,
+            "phases_inclusive": {
+              "validation": 0.00040439097210764885,
+              "discovery": 0.07218257104977965,
+              "engine_policy": 0.3397709080018103,
+              "persistence": 0.048739970894530416,
+              "publication": 0.0009503811597824097
+            }
+          },
+          {
+            "enabled": false,
+            "applied_seconds": 0.45526722399517894,
+            "visible_seconds": 0.9251175138633698,
+            "phases_inclusive": {
+              "validation": 0.00041469698771834373,
+              "discovery": 0.07162047387100756,
+              "engine_policy": 0.3427156701218337,
+              "persistence": 0.05080499895848334,
+              "publication": 0.0010049759875983
+            }
+          },
+          {
+            "enabled": true,
+            "applied_seconds": 0.4041730989702046,
+            "visible_seconds": 0.9739553548861295,
+            "phases_inclusive": {
+              "validation": 0.0004193910863250494,
+              "discovery": 0.07050467608496547,
+              "engine_policy": 0.281473936047405,
+              "persistence": 0.05960047780536115,
+              "publication": 0.0011544940061867237
+            }
+          }
+        ]
+      }
+    }
+  }
+}

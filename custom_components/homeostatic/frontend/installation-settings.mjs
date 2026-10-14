@@ -1,8 +1,8 @@
-import {escapeHtml as esc} from "./model.mjs?v=72";
-import {editReusable, namedNotifications, reusableChanges} from "./reusable-editors.mjs?v=72";
-import {sourceSettingsFooter} from "./source-settings.mjs?v=72";
+import {escapeHtml as esc} from "./model.mjs?v=73";
+import {editReusable, namedNotifications, reusableChanges} from "./reusable-editors.mjs?v=73";
+import {sourceSettingsFooter} from "./source-settings.mjs?v=73";
 
-import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=72";
+import {reportingSettings, reportingChanges, editReporting, reportingChoices, prepareReporting} from "./reporting.mjs?v=73";
 
 export const TIMINGS = [
   ["Recovery", "settle", "Wait for related failures", "Allow dependencies that are still uncertain to settle before opening a separate problem."],
@@ -58,7 +58,12 @@ export function installationSettings(card) {
   const notificationsPage=card.page==="notifications";
   const intro=`<div class="intro"><h1>${notificationsPage?"Notifications":"Settings"}</h1></div>`;
   if(!card.configuration||!card.settingsDraft)return `${intro}<section class="panel body"><p>${esc(card.configError||"Loading settings…")}</p><button type="button" class="button" data-action="load-configuration">Reload settings</button></section>`;
-  if(notificationsPage&&"notification_definitions" in card.settingsDraft)return `${intro}<section class="panel installation-content"><fieldset class="installation-editor"${card.settingsBusy||card.configBusy?' disabled':''}>${namedNotifications(card)}</fieldset>${card.settingsError?`<p class="config-error" role="alert">${esc(card.settingsError)}</p>`:""}${card.settingsNotice?`<p role="status">${esc(card.settingsNotice)}</p>`:""}${sourceSettingsFooter(card)}</section>`;
+  if(notificationsPage&&"notification_definitions" in card.settingsDraft) {
+    const methodId=card.definitionSelection?.kind==="methods"?card.definitionSelection.id:null;
+    const active=methodId&&card.settingsDraft.notification_definitions?.methods[methodId];
+    const cancel=active?`<button type="button" class="button" data-definition-action="cancel-method" data-definition-kind="methods" data-definition-id="${esc(methodId)}"${card.settingsBusy||card.configBusy?' disabled':''}>Cancel</button>`:"";
+    return `${active?"":intro}<section class="panel installation-content notifications-content${active?" has-method-editor":""}"><fieldset class="installation-editor notifications-body"${card.settingsBusy||card.configBusy?' disabled':''}>${namedNotifications(card)}${card.settingsError?`<p class="config-error" role="alert">${esc(card.settingsError)}</p>`:""}${card.settingsNotice?`<p role="status">${esc(card.settingsNotice)}</p>`:""}</fieldset>${sourceSettingsFooter(card,cancel)}</section>`;
+  }
   const draft=card.settingsDraft,section=notificationsPage?"notifications":card.settingsSection==="grouping"?"grouping":"timing";
   const nav=notificationsPage?"":`<nav class="installation-nav" aria-label="Installation settings">${[["timing","Timing"],["grouping","Problem grouping"]].map(([id,label])=>`<button type="button" data-settings-section="${id}" aria-current="${section===id?'page':'false'}">${label}</button>`).join("")}</nav>`;
   let body="";

@@ -1,5 +1,5 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=72";
-import {monitoringScope, monitoringTree} from "./configuration.mjs?v=72";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=73";
+import {monitoringScope, monitoringTree} from "./configuration.mjs?v=73";
 
 const keyFor = (...parts) => JSON.stringify(parts);
 const named = (left,right) => left.name.localeCompare(right.name) || left.key.localeCompare(right.key);

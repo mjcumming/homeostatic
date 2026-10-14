@@ -1,0 +1,5 @@
+[
+  {"id":"integration-disabled","disabled_by":"integration"},
+  {"id":"user-disabled","disabled_by":"user"},
+  {"id":"enabled-missing-state","disabled_by":null}
+]

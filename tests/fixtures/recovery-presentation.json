@@ -1,0 +1,14 @@
+[
+  {"id":"integration-confirming","kind":"integration","reason":"loaded","headline":"Running — confirming recovery","visible":false,"related":[]},
+  {"id":"entity-confirming","kind":"entity","reason":"available","headline":"Available — confirming recovery","visible":false,"related":[]},
+  {"id":"device-confirming","kind":"device","reason":"available","headline":"Available — confirming recovery","visible":false,"related":[]},
+  {"id":"missing-current-evidence","kind":"integration","reason":"unknown","visible":true,"related":[]},
+  {"id":"sun-disabled-readings","kind":"integration","reason":"loaded","headline":"3 related sources need attention","visible":true,"related":[
+    {"node_id":"entity:azimuth","status":"unknown","reason":"stale","message":"Solar azimuth: disabled"},
+    {"node_id":"entity:elevation","status":"unknown","reason":"stale","message":"Solar elevation: disabled"},
+    {"node_id":"entity:rising","status":"unknown","reason":"stale","message":"Solar rising: disabled"}
+  ]},
+  {"id":"matter-device-unavailable","kind":"integration","reason":"loaded","headline":"1 related source needs attention","visible":true,"related":[
+    {"node_id":"device:motion","status":"warn","reason":"all_unavailable","message":"Side Entry Motion Sensor: all unavailable"}
+  ]}
+]

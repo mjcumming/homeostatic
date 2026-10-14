@@ -2,6 +2,8 @@
 
 Use the local test cycle to try a small, contained change in the owner's Home Assistant pilot. Use the release cycle when the change is ready to publish. Neither cycle changes saved monitoring choices or turns on notification requests unless the owner asks for it.
 
+Isolated save measurements and their reproduction steps are in [Save performance](save-performance.md).
+
 ## Quick local test
 
 1. Update the spec and an executable scenario when behavior changes. Run `uv run python script/check.py --quick` (or `make quick`), plus the Python tests for the changed behavior. For a dashboard change, run the relevant browser fixture in `tests/frontend/preview.html` against the current component.

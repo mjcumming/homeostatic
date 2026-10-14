@@ -48,8 +48,8 @@ from .vacuum import observe as vacuum_observation
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=72"
-PANEL_ELEMENT = "homeostatic-panel-v25"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=73"
+PANEL_ELEMENT = "homeostatic-panel-v26"
 
 
 def _digest(value: dict[str, Any]) -> str:
@@ -989,14 +989,16 @@ async def _async_preview_settings(
     try:
         candidate = await _settings_candidate(hass, current, msg["settings"])
         settings = Settings.from_data(candidate)
-        policy = runtime.preview_policy(settings.policy, settings=settings)
+        proposed_sources = runtime.preview_sources(settings)
+        policy = runtime.preview_policy(
+            settings.policy, settings=settings, sources=proposed_sources
+        )
         monitoring = (
             _monitoring_preview(runtime, candidate["rules"])
             if "rules" in msg["settings"]
             else None
         )
         if "monitoring_policies" in msg["settings"]:
-            proposed_sources = runtime.preview_sources(settings)
             after = {
                 key: source
                 for key, source in proposed_sources.items()
@@ -1069,6 +1071,35 @@ def websocket_save_settings(
     hass.async_create_task(_async_save_settings(hass, connection, msg))
 
 
+async def _async_apply_monitoring(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+    runtime: Runtime,
+    candidate: dict[str, Any],
+) -> bool:
+    """Use the existing runtime for monitoring-only drafts under the save lock."""
+    settings = Settings.from_data(candidate, functions_enabled=False)
+    if not runtime.can_apply_settings(settings):
+        return False
+    previous_options = dict(runtime.entry.options)
+    hass.config_entries.async_update_entry(runtime.entry, options=candidate)
+    try:
+        await runtime.async_apply_settings(settings)
+    except OSError, HomeAssistantError, ValueError, KeyError, TypeError:
+        hass.config_entries.async_update_entry(runtime.entry, options=previous_options)
+        connection.send_error(
+            msg["id"],
+            "apply_failed",
+            "Could not apply settings; previous options restored"
+            if runtime.available
+            else "Previous options restored, but monitoring is unavailable",
+        )
+    else:
+        connection.send_result(msg["id"], {"saved": True})
+    return True
+
+
 async def _async_save_settings(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
@@ -1089,6 +1120,11 @@ async def _async_save_settings(
         except (ValueError, TypeError, KeyError, vol.Invalid) as err:
             connection.send_error(msg["id"], "invalid_settings", str(err))
             return
+        if dashboard.runtime is not runtime or _configuration(runtime)[1] != revision:
+            connection.send_error(
+                msg["id"], "stale_configuration", "Settings changed; reload this page"
+            )
+            return
         if "preview_token" in msg and msg["preview_token"] != _settings_review_token(
             runtime, revision, msg["settings"]
         ):
@@ -1097,6 +1133,8 @@ async def _async_save_settings(
                 "preview_required",
                 "Review these exact settings before saving",
             )
+            return
+        if await _async_apply_monitoring(hass, connection, msg, runtime, candidate):
             return
         entry = runtime.entry
         previous_options = dict(entry.options)
@@ -1383,6 +1421,10 @@ async def _async_save_configuration(
             connection.send_error(
                 msg["id"], "preview_required", "Preview these exact rules before saving"
             )
+            return
+        if await _async_apply_monitoring(
+            hass, connection, msg, runtime, {**current, "rules": rules}
+        ):
             return
         entry = runtime.entry
         previous_options = dict(entry.options)

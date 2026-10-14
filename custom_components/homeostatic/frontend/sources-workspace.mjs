@@ -1,13 +1,13 @@
-import {sourceReporting} from "./reporting.mjs?v=72";
-import {integrationSettings} from "./source-settings.mjs?v=72";
-import {applicablePolicyLinks} from "./reusable-editors.mjs?v=72";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=72";
-import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=72";
-import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=72";
-import {batteryProblem, deviceProblem, entityProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=72";
+import {sourceReporting} from "./reporting.mjs?v=73";
+import {integrationSettings} from "./source-settings.mjs?v=73";
+import {applicablePolicyLinks} from "./reusable-editors.mjs?v=73";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=73";
+import {coverageInventory, escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=73";
+import {monitoringTree, monitoringScope, scopeChoice} from "./configuration.mjs?v=73";
+import {batteryProblem, deviceProblem, entityProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=73";
 
-import {deviceAvailability} from "./device-availability.mjs?v=72";
-import {upsSourceSummary} from "./ups.mjs?v=72";
+import {deviceAvailability} from "./device-availability.mjs?v=73";
+import {upsSourceSummary} from "./ups.mjs?v=73";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -337,15 +337,15 @@ export function sourcesBrowser(card) {
     const count=episodes.filter(item=>ids.has(item.anchor)).length;
     const limit=card.sourcesLimits?.get(node.key)||80;
     const shown=expanded?node.children.slice(0,limit):[];
-    const linked=expanded&&node.children.find(child=>child.key===card.sourcesSelection||child.connection?.node_id===selected?.node.source?.node_id||selected?.parents.some(parent=>parent.key===child.key));
+    const linked=expanded&&node.children.find(child=>child.key===card.sourcesSelection||(child.connection&&child.connection.node_id===selected?.node.source?.node_id)||selected?.parents.some(parent=>parent.key===child.key));
     if(linked&&!shown.includes(linked))shown.push(linked);
     const deviceCount=fullNode.family?familyDevices(fullNode).length:0;
     const entityCount=fullNode.type==="device"?fullNode.children.filter(child=>child.type==="entity").length:0;
     const includedCount=fullNode.type==="device"?fullNode.children.filter(child=>child.source?.kind==="entity"&&included.has(child.source.entity_id)&&!child.source.excluded_by?.length).length:0;
     const deviceExtent=entityCount?`${includedCount}/${entityCount} entities included`:"No device entities";
-    const extent=node.family?`${deviceCount} ${deviceCount===1?"device":"devices"}`:node.type==="device"?`${node.connection?`${node.connection.name!==node.name?`${node.connection.name} · `:""}${connectionState(node.connection,data,episodes)} · `:""}${deviceExtent}`:node.source?.kind==="integration"?`Integration connection · ${monitoringState(node.source,included)}`:node.source?monitoringState(node.source,included):`${node.children.length} items`;
+    const extent=node.family?`${deviceCount} ${deviceCount===1?"device":"devices"}`:node.type==="device"?`${node.connection?`${node.connection.name!==node.name?`${node.connection.name} · `:""}${connectionState(node.connection,data,episodes)} · `:""}${deviceExtent}`:node.source?.kind==="integration"?`Integration connection · ${monitoringState(node.source,included)}`:node.source?monitoringState(node.source,included):`${node.children.length} ${node.children.length===1?"item":"items"}`;
     const issue=count?` <span class="source-issue-count">· ${count} ${count===1?"issue":"issues"}</span>`:"";
-    return `<li class="config-branch"><div class="config-nav-row">${node.children.length?`<button type="button" class="config-toggle" data-sources-toggle="${esc(node.key)}" aria-expanded="${expanded}" aria-label="${expanded?'Collapse':'Expand'} ${esc(node.name)}"><span class="disclosure" aria-hidden="true"></span></button>`:'<span class="config-leaf" aria-hidden="true"></span>'}<button type="button" class="config-pick" data-sources-select="${esc(node.key)}"${card.sourcesSelection===node.key||node.connection?.node_id===selected?.node.source?.node_id?' aria-current="true"':''}><span class="source-row-title">${esc(node.name)}${issue}</span><small>${esc(extent)}</small></button></div>${expanded?`<ul class="config-nav-children">${shown.map(branch).join("")}${node.children.length>limit?`<li><button type="button" class="link source-more" data-source-more="${esc(node.key)}">Show more sources</button></li>`:''}</ul>`:''}</li>`;
+    return `<li class="config-branch"><div class="config-nav-row">${node.children.length?`<button type="button" class="config-toggle" data-sources-toggle="${esc(node.key)}" aria-expanded="${expanded}" aria-label="${expanded?'Collapse':'Expand'} ${esc(node.name)}"><span class="disclosure" aria-hidden="true"></span></button>`:'<span class="config-leaf" aria-hidden="true"></span>'}<button type="button" class="config-pick" data-sources-select="${esc(node.key)}"${card.sourcesSelection===node.key||(node.connection&&node.connection.node_id===selected?.node.source?.node_id)?' aria-current="true"':''}><span class="source-row-title">${esc(node.name)}${issue}</span><small>${esc(extent)}</small></button></div>${expanded?`<ul class="config-nav-children">${shown.map(branch).join("")}${node.children.length>limit?`<li><button type="button" class="link source-more" data-source-more="${esc(node.key)}">Show more sources</button></li>`:''}</ul>`:''}</li>`;
   };
   const node=selected?.node,view=card.sourcesView||"source";
   const tabs=`<nav class="sources-views" aria-label="Selected source views">${[["source","Source"],["settings","Settings"],["history","History"]].map(([id,label])=>`<button type="button" data-sources-view="${id}" aria-current="${view===id?'page':'false'}">${label}${id==="settings"&&card.configuration&&JSON.stringify(card.configDraft)!==JSON.stringify(card.configuration.rules)?" •":""}</button>`).join("")}</nav>`;

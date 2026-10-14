@@ -28,6 +28,8 @@ Sometimes the integration reports that it's fine while things behind it fail. A 
 
 When three or more watched devices or entities on the same integration fail within a 60-second window, Homeostatic groups them into one issue on the integration. Issues already opened for the first ones fold into it, and anything on that integration that fails afterwards joins it. The grouped issue ends when fewer than three are still failing. Any that are still unavailable a minute later get their own issues.
 
+A loaded integration can therefore head an issue for related sources. The issue identifies those sources and their findings; a healthy integration does not mean they have recovered.
+
 Grouping happens as the reports arrive. If the first sensors' issues are set to **Immediate**, their notifications can go out before the third sensor fails and the group forms.
 
 You can change the count (**Group related problems**) and the window (**Grouping window**) under **Settings → Problem grouping**.
@@ -92,7 +94,7 @@ Opening an issue:
 
 Ending an issue:
 
-- An availability issue ends after the source has been working for two minutes (**Confirm recovery**). Until then, the issue says it's confirming recovery.
+- An availability issue ends after the source has stayed available for the configured **Confirm recovery** period, initially two minutes. During that wait, Overview and Issues omit the entry and their displayed counts omit it. Its details remain accessible through Sources, with **Running — confirming recovery** for an integration or **Available — confirming recovery** for an entity or device.
 - Alerts and batteries end as soon as the condition clears. A charging report clears a low battery, even while the reading is still low.
 - A vacuum error ends as soon as the activity is cleaning, docked, idle, paused, or returning. Unavailable, unknown, and restored states leave it open.
 - When an integration recovers, devices and entities that are still reconnecting get a minute (**Allow reconnecting devices**) before they count as failures of their own.

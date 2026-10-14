@@ -9,10 +9,11 @@ import {historyAccount, historyName, historyPage, observedRange, attentionAction
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
+import {readFileSync} from "node:fs";
 
 import {DashboardStore, affectedFunctions, browseHighlights, coverageInventory, dashboardStore, deviceRegistryCoverage, recentEpisodes,
   escapeHtml, inventoryRows, locationAssessment, locationList, locationTree, monitoringLabel,
-  recentActivity, sortedEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
+  recentActivity, sortedEpisodes, visibleEpisodes, sourcePage, sourceMap, mergeDashboard} from "../../custom_components/homeostatic/frontend/model.mjs";
 import {locationBranch, setBranchExpanded} from "../../custom_components/homeostatic/frontend/tree.mjs";
 import {editCatalogRule, monitoringScope, monitoringTree, newCatalogRule, ruleSummary,
   scopeChoice, setScopeChoice} from "../../custom_components/homeostatic/frontend/configuration.mjs";
@@ -170,6 +171,35 @@ test("coverage leads with gaps, groups devices, and bounds full-catalog search",
   assert.equal(results.groups.flatMap(group=>group.devices.flatMap(device=>device.sources)).length,50);
   assert.equal(results.groups[0].devices[0].sources[0].registered,false);
 });
+const recoveryScenarios = JSON.parse(readFileSync(new URL("../fixtures/recovery-presentation.json", import.meta.url)));
+for (const scenario of recoveryScenarios) {
+  test(`recovery presentation: ${scenario.id}`, () => {
+    const data=example();
+    const anchor=source("anchor",{kind:scenario.kind,attributes:{domain:["light"]}});
+    const current={reason:scenario.reason};
+    const episode={episode_id:"current",anchor:"anchor",importance:"normal",opened_at:"2026-10-13T10:00:00Z",reasons:scenario.related};
+    data.inventory.nodes=[anchor];
+    data.inventory.integration_evidence={anchor:{current,last_failure:null}};
+    data.inventory.entity_status={anchor:{current,explanation:{findings:[],nodes:[]},readiness:{answer:"blocked"}}};
+    data.inventory.episodes=[episode];
+    assert.equal(visibleEpisodes(data).length,Number(scenario.visible));
+    assert.equal(sortedEpisodes(data).length,Number(scenario.visible));
+    assert.equal(recentEpisodes(data).length,Number(scenario.visible));
+    const problem=integrationProblem(anchor,episode.reasons,()=>null,{current}) ?? deviceProblem(anchor,{current}) ?? entityProblem(anchor,data.inventory.entity_status.anchor);
+    assert.doesNotMatch(problem.summary,/running again|state.*again/);
+    assert.equal(scenario.headline ?? problem.headline,problem.headline);
+  });
+}
+
+test("Overview fills its three recent slots after omitting recovery",()=>{
+  const data=example();
+  data.inventory.nodes=[source("recovering",{kind:"integration"})];
+  data.inventory.integration_evidence={recovering:{current:{reason:"loaded"}}};
+  data.inventory.episodes=[0,1,2,3,4].map(i=>({episode_id:String(i),anchor:i>2?"recovering":"unknown",importance:"normal",opened_at:`2026-10-13T10:00:0${i}Z`,reasons:[]}));
+  assert.deepEqual(recentEpisodes(data).map(e=>e.episode_id),["2","1","0"]);
+  assert.equal(data.inventory.episodes.length,5);
+});
+
 test("Overview shows the three newest open issues while Issues retains all",()=>{
   const data=example();
   data.inventory.episodes=[
@@ -525,19 +555,19 @@ test("a new catalog revision cancels old pages and coalesces replacement loading
   const client=connection(), store=dashboardStore(client), requests=[];
   const stop=store.listen(()=>{});
   client.callback(old.data);
-  let finish;
+  const finishes=[];
   client.sendMessagePromise=request=>{
     requests.push(request);
-    return new Promise(resolve=>{finish=()=>resolve(catalogPage(request,old.sections));});
+    return new Promise(resolve=>{finishes.push(()=>resolve(catalogPage(request,old.sections)));});
   };
   const pending=store.ensureCatalog();await Promise.resolve();
   client.callback(fresh.data);
   client.sendMessagePromise=async request=>{requests.push(request);return catalogPage(request,fresh.sections);};
-  finish();await pending;await store.catalogTask;
+  finishes.forEach(finish=>finish());await pending;await store.catalogTask;
   assert.equal(store.state.data.catalog_revision,2);
   assert.equal(store.state.data.catalog_loaded,true);
   assert.deepEqual(store.state.data.inventory.catalog.candidates,fresh.sections.candidates);
-  assert.equal(requests.filter(request=>request.revision===1).length,1);
+  assert.equal(requests.filter(request=>request.revision===1).length,4);
   stop();await Promise.resolve();
 });
 
@@ -563,14 +593,14 @@ test("reconnect loads a new catalog without waiting for an abandoned request",as
   const {data,sections}=pagedExample();
   const client=connection(), store=dashboardStore(client);
   const stop=store.listen(()=>{});client.callback(data);
-  let finish;
-  client.sendMessagePromise=request=>new Promise(resolve=>{finish=()=>resolve(catalogPage(request,sections));});
+  const finishes=[];
+  client.sendMessagePromise=request=>new Promise(resolve=>{finishes.push(()=>resolve(catalogPage(request,sections)));});
   const pending=store.ensureCatalog();await Promise.resolve();
   client.events.get("disconnected")();
   client.sendMessagePromise=async request=>catalogPage(request,sections);
   client.callback(data);await store.ensureCatalog();
   assert.equal(store.state.data.catalog_loaded,true);
-  finish();await pending;
+  finishes.forEach(finish=>finish());await pending;
   assert.equal(store.state.data.catalog_loaded,true);
   stop();await Promise.resolve();
 });
@@ -594,10 +624,10 @@ for (const [name,invalidate] of [
   const {data,sections}=pagedExample();
   const client=connection(), store=dashboardStore(client);
   const stop=store.listen(()=>{});client.callback(data);
-  let finish;
-  client.sendMessagePromise=request=>new Promise(resolve=>{finish=()=>resolve(catalogPage(request,sections));});
+  const finishes=[];
+  client.sendMessagePromise=request=>new Promise(resolve=>{finishes.push(()=>resolve(catalogPage(request,sections)));});
   const pending=store.ensureCatalog();await Promise.resolve();
-  invalidate(client,stop);await Promise.resolve();finish();await pending;
+  invalidate(client,stop);await Promise.resolve();finishes.forEach(finish=>finish());await pending;
   assert.notEqual(store.state.data?.catalog_loaded,true);
   stop();await Promise.resolve();
 });
@@ -720,10 +750,10 @@ test("historical errors cannot override disablement, reauthentication or recover
   assert.equal(disabled.timedOut,false);
   assert.equal(describe("auth_required").integrationLabel,"Sign in again");
   const running=describe("loaded");
-  assert.equal(running.headline,"Checking recovery");
+  assert.equal(running.headline,"Running — confirming recovery");
   assert.equal(running.reported,"");
   assert.equal(running.needsAction,false);
-  assert.match(running.summary,/once recovery is confirmed/);
+  assert.match(running.summary,/confirming that it stays available/);
   const healthy=integrationProblem(entry,[],()=>null,{current:{reason:"loaded"},last_failure},false);
   assert.equal(healthy.headline,"Connection available");
   assert.doesNotMatch(healthy.summary,/problem|recovery/);
@@ -902,9 +932,9 @@ for(const [reason,headline] of [
 }
 
 test("entity recovery needs a current observation or ready query, not missing findings",()=>{
-  assert.equal(entityProblem(light,entityStatus(null,"ready")).headline,"Checking recovery");
+  assert.equal(entityProblem(light,entityStatus(null,"ready")).headline,"Available — confirming recovery");
   assert.equal(entityProblem(light,entityStatus(null,"ready"),null,[],()=>null,false).headline,"Light available");
-  assert.equal(entityProblem(light,{...entityStatus(null,"blocked"),current:{reason:"available"}}).headline,"Checking recovery");
+  assert.equal(entityProblem(light,{...entityStatus(null,"blocked"),current:{reason:"available"}}).headline,"Available — confirming recovery");
   assert.equal(entityProblem(light,null).currentReason,"unknown");
   assert.equal(entityProblem({...light,watched:false},entityStatus(null,"ready")).currentReason,"unknown");
   assert.equal(entityProblem({...light,disabled:true},entityStatus(null,"ready")).currentReason,"disabled");
@@ -1030,7 +1060,7 @@ test("ignore availability stages a stable exclusion without saving or discarding
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js");
-  const card=Object.create(elements.get("homeostatic-card-v21").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v22").prototype);
   const entity=source("entity:registry:optional",{entity_id:"media_player.group",name:"Optional group",attributes:{entity:["registry:optional"]}});
   const data=example();
   data.inventory.catalog.candidates.push(entity);
@@ -1564,6 +1594,46 @@ test("connectivity evidence explains unavailable without claiming every entity i
   assert.equal(deviceEntityName("ESP Presence Kitchen Fridge","ESP Presence Kitchen Fridge"),"Selected entity");
 });
 
+for (const grouping of ["integration","location","topomation"]) {
+  for (const selection of [null,"source:removed"]) {
+    test(`Sources ${grouping} leaves rows unselected for ${selection}`,()=>{
+      const card={current:{data:monitoringExample()},sourcesGrouping:grouping,sourcesQuery:"",sourcesNeedsReview:false,
+        sourcesExpanded:new Set(),sourcesSelection:selection,sourcesView:"source",topomation:{locations:[{id:"house",name:"House"}]}};
+      const html=sourcesBrowser(card);
+      assert.doesNotMatch(html,/<button[^>]*data-sources-select[^>]*aria-current="true"/);
+      assert.match(html,/Choose an integration or device/);
+    });
+  }
+}
+
+for (const grouping of ["integration","location"]) {
+  test(`Sources ${grouping} highlights only the selected group`,()=>{
+    const data=monitoringExample(),tree=sourcesTree(data,grouping),selected=tree[0];
+    const card={current:{data},sourcesGrouping:grouping,sourcesQuery:"",sourcesNeedsReview:false,
+      sourcesExpanded:new Set([selected.key]),sourcesSelection:selected.key,sourcesView:"history"};
+    const html=sourcesBrowser(card);
+    const current=[...html.matchAll(/<button[^>]*data-sources-select="([^"]+)"[^>]*aria-current="true"/g)];
+    assert.deepEqual(current.map(match=>match[1]),[selected.key]);
+  });
+}
+
+test("Sources selects only the paired device when viewing its connection",()=>{
+  const data=monitoringExample();
+  data.inventory.nodes=[
+    baseSource("entry:first","First connection","integration",{entry_id:"first",attributes:{domain:["sample"]}}),
+    baseSource("entry:second","Second connection","integration",{entry_id:"second",attributes:{domain:["sample"]}}),
+    baseSource("device:first","First device","device",{attributes:{device:["first"],integration:["first"]}}),
+    baseSource("device:second","Second device","device",{attributes:{device:["second"],integration:["second"]}}),
+  ];
+  data.devices=[{id:"first",name:"First device",config_entry_id:"first"},{id:"second",name:"Second device",config_entry_id:"second"}];
+  data.inventory.catalog.candidates=data.inventory.nodes;
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+    sourcesExpanded:new Set([sourcesTree(data)[0].key]),sourcesSelection:"source:entry:first",sourcesView:"history"};
+  const html=sourcesBrowser(card);
+  const current=[...html.matchAll(/<button[^>]*data-sources-select="([^"]+)"[^>]*aria-current="true"/g)];
+  assert.deepEqual(current.map(match=>match[1]),["source:device:first"]);
+});
+
 test("Sources starts collapsed and puts scope and issue counts beside names",()=>{
   const data=monitoringExample();
   const device=data.inventory.nodes.find(row=>row.node_id==="device:camera-0");
@@ -1727,7 +1797,7 @@ test("selected device refresh coalesces reads and notices access changes",async(
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?availability-test");
-  const card=Object.create(elements.get("homeostatic-card-v21").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v22").prototype);
   const data=monitoringExample(),entity="sensor.excluded",nodeId="device:camera-0",pending=[];
   Object.assign(card,{page:"sources",sourcesView:"source",current:{status:"current",data},sourcesGrouping:"integration",sourcesSelection:`source:${nodeId}`,sourceDetail:null,sourceSequence:0,
     render(){},_hass:{states:{[entity]:{state:"off",attributes:{}}},callWS(){return new Promise(resolve=>pending.push(resolve));}}});
@@ -1762,7 +1832,7 @@ test("policy configuration loads without delivery discovery and discovery preser
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?configuration-test");
-  const card=Object.create(elements.get("homeostatic-card-v21").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v22").prototype);
   const calls=[],pending=[];
   Object.assign(card,{page:"policies",render(){},_hass:{connection:{},callWS(request){calls.push(request);return new Promise((resolve,reject)=>pending.push({resolve,reject}));}}});
   const settings={monitoring_policies:[{id:"one",name:"Saved policy"}],notification_definitions:{methods:{}}};
@@ -1787,4 +1857,18 @@ test("policy configuration loads without delivery discovery and discovery preser
   assert.equal(card.deliveryError,null);
   await card.loadDeliveryConfiguration();
   assert.equal(calls.length,3);
+});
+
+test("catalog uses four bounded workers and keeps out-of-order pages coherent",async()=>{
+  const {data,sections}=pagedExample(1,1601),client=connection(),store=dashboardStore(client),pending=[];
+  let active=0,maximum=0;
+  const stop=store.listen(()=>{});client.callback(data);
+  client.sendMessagePromise=request=>new Promise(resolve=>{active++;maximum=Math.max(maximum,active);pending.push(()=>{active--;resolve(catalogPage(request,sections));});});
+  let done=false;const loading=store.ensureCatalog().then(()=>{done=true;});
+  await Promise.resolve();assert.equal(active,4);
+  while(!done){pending.splice(0).reverse().forEach(finish=>finish());await new Promise(resolve=>setImmediate(resolve));}
+  await loading;
+  assert.equal(maximum,4);
+  assert.deepEqual(store.state.data.inventory.catalog.candidates,sections.candidates);
+  stop();await Promise.resolve();
 });

@@ -416,3 +416,43 @@ test("policy notification setup starts inline when no delivery definitions exist
   assert.equal(row.methods.length,0);
   assert.equal(calls.length,0);
 });
+
+for(const enabled of [true,false])test(`policy toggle from ${enabled?"on":"off"} distinguishes saved state from pending changes`,async()=>{
+  const {card,calls}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
+  policy.enabled=enabled;card.configuration.settings.monitoring_policies[0].enabled=enabled;
+  card.sourceSettingsNotice="Changes saved.";
+  assert.match(namedPolicies(card),new RegExp(`<h3>Hall thermostat <span class="small">${enabled?"On":"Off"}</span>`));
+  click(card,"toggle","policies",policy.id);
+  let html=namedPolicies(card);
+  assert.equal(card.sourceSettingsNotice,null);
+  assert.match(html,new RegExp(`Will turn ${enabled?"off":"on"} when saved`));
+  assert.match(html,new RegExp(`class="button${enabled?" primary":""}" data-definition-action="toggle"`));
+  assert.match(html,new RegExp(`<span class="small">${enabled?"On":"Off"}</span>`));
+  assert.equal(calls.length,0);
+  click(card,"toggle","policies",policy.id);
+  assert.doesNotMatch(namedPolicies(card),/Will turn/);
+  click(card,"toggle","policies",policy.id);
+  await saveSourceSettings(card);
+  html=namedPolicies(card);
+  assert.match(html,new RegExp(`<span class="small">${enabled?"Off":"On"}</span>`));
+  assert.doesNotMatch(html,/Will turn/);
+});
+
+test("a new policy is not presented as a saved on or off choice",()=>{
+  const {card}=fixture();
+  card.settingsDraft.monitoring_policies.push(newMonitoringPolicy(card.settingsDraft.monitoring_policies,"battery"));
+  assert.match(namedPolicies(card),/<h3>Low battery <span class="small">Not saved<\/span>/);
+  click(card,"toggle","policies","policy-2");
+  assert.match(namedPolicies(card),/Not saved<\/span>[\s\S]*Will turn on when saved/);
+});
+
+test("policy overflow names are escaped and actions retain the policy identity without staging edits",()=>{
+  const {card,calls}=fixture();
+  card.settingsDraft.monitoring_policies[0].name='<House> "policy"';
+  const before=structuredClone(card.settingsDraft),html=namedPolicies(card);
+  assert.match(html,/aria-label="More actions for &lt;House&gt; &quot;policy&quot;"/);
+  assert.match(html,/popovertarget="policy-actions-policy-1"/);
+  assert.match(html,/<div id="policy-actions-policy-1" class="policy-actions-popover" popover role="group"[^>]*><button[^>]*data-definition-action="duplicate"[^>]*data-definition-id="policy-1"[^>]*>Duplicate<\/button><button[^>]*data-definition-action="delete"[^>]*data-definition-id="policy-1"/);
+  assert.deepEqual(card.settingsDraft,before);
+  assert.equal(calls.length,0);
+});

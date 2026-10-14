@@ -1,6 +1,6 @@
-import {escapeHtml as esc, sourceMap} from "./model.mjs?v=72";
-import {sourceNotificationDefinitions,applicablePolicyLinks} from "./reusable-editors.mjs?v=72";
-import {sourceSettingsFooter} from "./source-settings.mjs?v=72";
+import {escapeHtml as esc, sourceMap} from "./model.mjs?v=73";
+import {sourceNotificationDefinitions,applicablePolicyLinks} from "./reusable-editors.mjs?v=73";
+import {sourceSettingsFooter} from "./source-settings.mjs?v=73";
 
 export const REPORTING = [
   ["immediate","Immediate","Notify once, including overnight."],

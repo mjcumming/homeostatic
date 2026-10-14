@@ -119,3 +119,16 @@ test("selecting the bulk placeholder does not stage a reporting migration",()=>{
   editReporting(card,{type:"change",target});
   assert.deepEqual(card.settingsDraft,before);
 });
+
+test("edits made during save retain a separate unsaved draft",async()=>{
+  const {card}=fixture();let finish,submitted;
+  card._hass.callWS=request=>{submitted=structuredClone(request);return new Promise(resolve=>{finish=resolve;});};
+  card.settingsDraft.reporting.default="morning";
+  const saving=saveSourceSettings(card);
+  card.settingsDraft.reporting.default="evening";
+  card.loadConfiguration=async()=>{card.configuration={...card.configuration,revision:"two",settings:submitted.settings};card.settingsDraft=structuredClone(submitted.settings);};
+  finish({saved:true});await saving;
+  assert.equal(submitted.settings.reporting.default,"morning");
+  assert.equal(card.settingsDraft.reporting.default,"evening");
+  assert.match(card.sourceSettingsNotice,/Newer edits are still unsaved/);
+});

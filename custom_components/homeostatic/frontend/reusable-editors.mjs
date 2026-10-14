@@ -1,5 +1,5 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=72";
-import {destinationChoices,editDestinationPicker} from "./delivery-picker.mjs?v=72";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=73";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=73";
 
 export const POLICY_CHECKS = {
   availability: "HA availability", battery: "Battery condition", vacuum: "Vacuum error",
@@ -14,7 +14,7 @@ const equal = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const checked = value => value ? " checked" : "";
 const selected = value => value ? " selected" : "";
 const option = (value,name,current) => `<option value="${esc(value)}"${selected(value===current)}>${esc(name)}</option>`;
-const button = (action,label,kind="",id="",extra="") => `<button type="button" class="button" data-definition-action="${action}" data-definition-kind="${kind}" data-definition-id="${esc(id)}" ${extra}>${esc(label)}</button>`;
+const button = (action,label,kind="",id="",extra="",className="") => `<button type="button" class="button${className?` ${className}`:""}" data-definition-action="${action}" data-definition-kind="${kind}" data-definition-id="${esc(id)}" ${extra}>${esc(label)}</button>`;
 const attrs = (kind,id,field) => `data-definition-kind="${kind}" data-definition-id="${esc(id)}" data-definition-field="${esc(field)}"`;
 const input = (kind,id,field,label,value,type="text",extra="") => `<label class="installation-field"><span>${esc(label)}</span><input ${attrs(kind,id,field)} type="${type}" value="${esc(value??"")}" ${extra}></label>`;
 const select = (kind,id,field,label,value,choices) => `<label class="installation-field"><span>${esc(label)}</span><select ${attrs(kind,id,field)}>${Object.entries(choices).map(([id,name])=>option(id,name,value)).join("")}</select></label>`;
@@ -155,7 +155,7 @@ export function notificationRowsEditor(card,rows,scope) {
 
 function methodSummary(card,method) {
   if(method.mode!=="fixed")return METHOD_MODES[method.mode];
-  return (method.destinations||[]).map(channel=>card.configuration.delivery_targets?.find(target=>target.channel===channel)?.name).filter(Boolean).join(", ")||METHOD_MODES[method.mode];
+  return (method.destinations||[]).map(channel=>card.configuration.delivery_targets?.find(target=>target.channel===channel)).map(target=>target?.destination_name||target?.name).filter(Boolean).join(", ")||METHOD_MODES[method.mode];
 }
 
 function policyMethodEditor(card,scope) {
@@ -163,7 +163,7 @@ function policyMethodEditor(card,scope) {
   if(editor?.scope!==scope)return "";
   const method=card.settingsDraft.notification_definitions.methods[editor.id];
   const uses=definitionUses(card.settingsDraft,"methods",editor.id);
-  return `<section class="definition-editor installation-editor delivery-method-editor" aria-label="Delivery method in policy"><h3>${editor.before?"Edit delivery method":"New delivery method"}</h3>${methodFields(card,editor.id,method,false)}${uses.length?`<p class="small">Changes to this shared method apply to: ${uses.map(esc).join(", ")}.</p>`:""}${button("use-policy-method","Use method","methods",editor.id)}${button("cancel-policy-method","Cancel","methods",editor.id)}</section>`;
+  return `<section class="definition-editor installation-editor delivery-method-editor inline-method-editor" aria-label="Delivery method in policy"><header><h3>${editor.before?"Edit delivery method":"New delivery method"}</h3></header><div class="delivery-method-body">${methodFields(card,editor.id,method,false)}${uses.length?`<p class="method-usage">Changes to this shared method apply to: ${uses.map(esc).join(", ")}.</p>`:""}</div><footer class="delivery-method-actions"><span class="small">Pending until the policy is saved</span><div class="actions">${button("cancel-policy-method","Cancel","methods",editor.id)}${button("use-policy-method","Use method","methods",editor.id,"","primary")}</div></footer></section>`;
 }
 
 function sourceNoun(policy) {
@@ -239,7 +239,13 @@ export function namedPolicies(card) {
   const missing=templates.filter(template=>!policies.some(policy=>policy.id===template.id));
   if(card.policyCreating)return `<section class="definition-editor installation-editor"><h2>Add policy</h2><p>Choose the monitoring type. It stays fixed after creation.</p><label class="installation-field"><span>Monitoring type</span><select data-definition-template>${Object.entries(MONITORING_TYPES).map(([id,name])=>option(id,name,card.definitionTemplate||"device")).join("")}</select></label>${button("create","Continue","policies")}${button("close","Cancel","policies")}</section>`;
   if(active)return `<section class="definition-editor installation-editor unified-policy-editor" aria-label="Edit monitoring policy"><header><h2>Edit policy</h2>${button("close","Back to policies","policies",active.id)}</header>${policyFields(card,active)}${deletePrompt(card)}</section>`;
-  const list=policies.map(policy=>`<article class="definition-list-item"><div><h3>${esc(policy.name)}</h3><p class="small">${esc(MONITORING_TYPES[policyType(policy)])} · ${policy.enabled?"On":"Off"} · ${policy.notifications.length?`${policy.notifications.length} notification${policy.notifications.length===1?"":"s"}`:"Dashboard only"}</p></div><div class="actions">${button("toggle",policy.enabled?"Turn off":"Turn on","policies",policy.id)}${button("edit","Edit","policies",policy.id)}${button("duplicate","Duplicate","policies",policy.id)}${button("delete","Delete","policies",policy.id)}</div></article>`).join("");
+  const list=policies.map(policy=>{
+    const saved=card.configuration.settings.monitoring_policies?.find(item=>item.id===policy.id);
+    const state=saved?(saved.enabled?"On":"Off"):"Not saved";
+    const pending=saved?policy.enabled!==saved.enabled:policy.enabled;
+    const menuId=`policy-actions-${policy.id}`;
+    return `<article class="definition-list-item"><div><h3>${esc(policy.name)} <span class="small">${state}</span></h3><p class="small">${esc(MONITORING_TYPES[policyType(policy)])} · ${policy.notifications.length?`${policy.notifications.length} notification${policy.notifications.length===1?"":"s"}`:"Dashboard only"}</p>${pending?`<p class="source-setting-pending" role="status">Will turn ${policy.enabled?"on":"off"} when saved.</p>`:""}</div><div class="actions">${button("toggle",policy.enabled?"Turn off":"Turn on","policies",policy.id,"",policy.enabled?"":"primary")}${button("edit","Edit","policies",policy.id)}<button type="button" class="button policy-actions-trigger" data-definition-action="policy-actions" popovertarget="${esc(menuId)}" aria-label="More actions for ${esc(policy.name)}" title="More actions"${card.settingsBusy||card.configBusy?" disabled":""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><div id="${esc(menuId)}" class="policy-actions-popover" popover role="group" aria-label="More actions for ${esc(policy.name)}">${button("duplicate","Duplicate","policies",policy.id)}${button("delete","Delete","policies",policy.id)}</div></div></article>`;
+  }).join("");
   return `<section class="reusable-definitions"><div class="policy-check-head"><h2>Monitoring policies</h2><div class="actions">${button("restore","Restore defaults","policies","",missing.length?"":"disabled")}${button("add","Add policy","policies")}</div></div>${card.policyRestoring?`<section class="policy-picker" aria-label="Restore default policies"><h3>Restore defaults</h3><p>Choose deleted policies to restore. Existing policies keep their settings.</p>${missing.map(policy=>`<label class="installation-toggle"><input type="checkbox" data-definition-restore="${esc(policy.id)}"${checked(card.policyRestoreIds?.includes(policy.id))}>${esc(policy.name)}</label>`).join("")}${button("confirm-restore","Restore selected","policies","",card.policyRestoreIds?.length?"":"disabled")}${button("cancel-restore","Cancel","policies")}</section>`:""}<div class="definition-list">${list||'<p>No policies. Add a policy or restore defaults to start monitoring.</p>'}</div>${deletePrompt(card)}</section>`;
 }
 
@@ -249,7 +255,7 @@ function methodFields(card,id,method,allowTest=true) {
   let body=input("methods",id,"name","Name",method.name,"text","required");
   if(!card.configuration.delivery_targets)return body+`<p role="status">${esc(card.deliveryError||"Loading notification destinations…")}</p>${card.deliveryError?button("load-delivery","Retry loading destinations","methods",id):""}`;
   if(method.mode==="fixed")body+=destinationChoices(card,method,id,"destinations","Send to");
-  body+=`<details${method.mode!=="fixed"?" open":""}><summary>Change destinations based on who’s home</summary>${select("methods",id,"mode","Presence selection",method.mode,METHOD_MODES)}`;
+  body+=`<details class="method-presence" data-ui-key="method-presence-${esc(id)}"${method.mode!=="fixed"?" open":""}><summary>Change destinations based on who’s home <span class="small">Optional</span></summary>${select("methods",id,"mode","Presence selection",method.mode,METHOD_MODES)}`;
   if(method.mode!=="fixed") {
     body+=`<fieldset><legend>People whose presence is checked</legend>${people.map(person=>`<label class="installation-toggle"><input type="checkbox" ${attrs("methods",id,"people")} data-person="${esc(personId(person))}"${checked((method.people||[]).includes(personId(person)))}>${esc(person.name||personId(person))}</label>`).join("")||'<p>No Home Assistant people are configured.</p>'}</fieldset>`;
     if(method.mode==="home_away")body+=destinationChoices(card,method,id,"home","When someone is home")+destinationChoices(card,method,id,"away","When everyone is away");
@@ -262,7 +268,7 @@ function methodFields(card,id,method,allowTest=true) {
 function methodTest(card,id,method) {
   const saved=card.configuration.settings.notification_definitions?.methods?.[id];
   if(JSON.stringify(saved)!==JSON.stringify(method))return '<p class="note">Save this delivery method before testing it.</p>';
-  return `<div class="installation-group">${button("test-method",card.deliveryMethodBusy?"Sending test…":"Send test","methods",id,card.deliveryMethodBusy?"disabled":"")}<p class="small">Sends only to this method’s saved destinations, using current presence when configured.</p>${card.deliveryMethodError?`<p class="error" role="alert">${esc(card.deliveryMethodError)}</p>`:""}${card.deliveryMethodNotice?`<p role="status">${esc(card.deliveryMethodNotice)}</p>`:""}</div>`;
+  return `<div class="method-test">${button("test-method",card.deliveryMethodBusy?"Sending test…":"Send test","methods",id,card.deliveryMethodBusy?"disabled":"")}<p class="small">Sends only to this method’s saved destinations, using current presence when configured.</p>${card.deliveryMethodError?`<p class="error" role="alert">${esc(card.deliveryMethodError)}</p>`:""}${card.deliveryMethodNotice?`<p role="status">${esc(card.deliveryMethodNotice)}</p>`:""}</div>`;
 }
 
 export async function testDeliveryMethod(card,id) {
@@ -298,16 +304,38 @@ export function namedNotifications(card) {
   const active=card.definitionSelection?.kind===kind?items[card.definitionSelection.id]:null;
   const id=active?card.definitionSelection.id:null;
   const saved=card.configuration.settings.notification_definitions?.methods||{};
-  const list=Object.entries(items).filter(([itemId])=>saved[itemId]).map(([itemId,item])=>`<article class="definition-list-item"><div><h3>${esc(item.name)}</h3><p class="small">${esc(METHOD_MODES[item.mode])} · Used by ${definitionUses(card.settingsDraft,kind,itemId).length}</p></div><div class="actions">${button("edit","Edit",kind,itemId)}${button("duplicate","Duplicate",kind,itemId)}${button("delete","Delete",kind,itemId)}</div></article>`).join("");
+  const list=Object.entries(items).filter(([itemId])=>saved[itemId]).map(([itemId,item])=>{
+    const menuId=`method-actions-${itemId}`,uses=definitionUses(card.settingsDraft,kind,itemId);
+    return `<article class="definition-list-item"><div><h3>${esc(item.name)}</h3><p class="method-summary">${esc(methodSummary(card,item))}</p><p class="small">${uses.length?`Used in ${uses.length} ${uses.length===1?"place":"places"}`:"No policies use this method yet"}${equal(saved[itemId],item)?"":" · Unsaved changes"}</p></div><div class="actions">${button("edit","Edit",kind,itemId)}<button type="button" class="button policy-actions-trigger" data-definition-action="policy-actions" popovertarget="${esc(menuId)}" aria-label="More actions for ${esc(item.name)}" title="More actions"${card.settingsBusy||card.configBusy?" disabled":""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><div id="${esc(menuId)}" class="policy-actions-popover" popover role="group" aria-label="More actions for ${esc(item.name)}">${button("duplicate","Duplicate",kind,itemId)}${button("delete","Delete",kind,itemId)}</div></div></article>`;
+  }).join("");
   const unsaved=Object.entries(items).filter(([itemId])=>!saved[itemId]).map(([itemId,item])=>`<p class="note">Unsaved delivery method: ${esc(item.name)} ${button("edit","Continue editing",kind,itemId)}</p>`).join("");
-  const sending=`<section class="installation-group"><label class="installation-toggle"><input type="checkbox" data-definition-notifications${checked(card.settingsDraft.notifications)}>Enable notifications</label><p class="small">Monitoring continues when notifications are off.</p></section>`;
-  const editor=active?`<section class="definition-editor installation-editor delivery-method-editor" aria-label="Edit delivery method"><header><h2>${saved[id]?"Edit delivery method":"New delivery method"}</h2>${button("cancel-method","Cancel",kind,id)}</header>${methodFields(card,id,active)}<p class="small">Used by: ${definitionUses(card.settingsDraft,kind,id).map(esc).join(", ")||"No policies"}</p></section>`:`<div class="policy-check-head"><h2>Delivery methods</h2>${button("add","Add delivery method",kind)}</div><p class="sub">Choose where notifications go. Set notification timing in each policy.</p><div class="definition-list">${list||'<p>No saved delivery methods yet.</p>'}</div>${unsaved}`;
-  return `<section class="reusable-definitions">${sending}${editor}${deletePrompt(card)}</section>`;
+  const sending=`<section class="method-activation"><div><h3>Enable notifications</h3><p class="small">Monitoring continues when notifications are off.</p></div><label class="method-switch"><input type="checkbox" role="switch" aria-label="Enable notifications" data-definition-notifications${checked(card.settingsDraft.notifications)}><span>${card.settingsDraft.notifications?"On":"Off"}</span></label></section>`;
+  const uses=active?definitionUses(card.settingsDraft,kind,id):[];
+  const editor=active?`<div class="method-breadcrumb">${button("close-method","‹ Delivery methods",kind,id)}<span>${saved[id]?"Edit delivery method":"New delivery method"}</span></div><section class="definition-editor installation-editor delivery-method-editor" aria-label="Edit delivery method"><header><h2>${saved[id]?"Edit delivery method":"New delivery method"}</h2><p class="sub">Choose the destinations this method sends to.</p></header>${methodFields(card,id,active,false)}<p class="method-usage">${uses.length?`Used by ${uses.map(esc).join(", ")}.`:"No policies use this method yet."}</p>${methodTest(card,id,active)}</section>`:`${sending}<div class="policy-check-head"><div><h2>Delivery methods</h2><p class="sub">Choose where notifications go. Set notification timing in each policy.</p></div>${button("add","Add delivery method",kind,"","","primary")}</div><div class="definition-list method-list">${list||'<p>No saved delivery methods yet. Add a method to choose where notifications go.</p>'}</div>${unsaved}`;
+  const cancel=active&&card.methodCancel===id?`<dialog class="method-discard-dialog" aria-labelledby="method-discard-title"><h2 id="method-discard-title">Discard this method’s changes?</h2><p>Other pending policy and notification edits will stay available.</p><div class="actions">${button("keep-method","Keep editing",kind,id)}${button("discard-method","Discard changes",kind,id)}</div></dialog>`:"";
+  return `<section class="reusable-definitions notification-methods">${editor}${deletePrompt(card)}${cancel}</section>`;
+}
+
+
+/** Restore modal destination selection and cancellation after a dashboard render. */
+export function restoreMethodDialogs(card) {
+  for(const dialog of card.main.querySelectorAll?.("dialog.delivery-picker,dialog.method-discard-dialog")||[]) {
+    dialog.showModal();
+    dialog.oncancel=event=>{
+      event.preventDefault();
+      const picker=card.deliveryPicker;
+      if(dialog.classList.contains("delivery-picker"))card.deliveryPicker=null;
+      else card.methodCancel=null;
+      card.render();
+      if(picker)focusDestinationPicker(card,picker.id,picker.field);
+      else card.main.querySelector('[data-definition-action="cancel-method"]')?.focus({preventScroll:true});
+    };
+  }
 }
 
 function invalidate(card) {
   card.settingsPreview=null;card.configPreview=null;card.sourceSettingsReview=null;
-  card.settingsError=null;card.settingsNotice=null;card.sourceSettingsError=null;
+  card.settingsError=null;card.settingsNotice=null;card.sourceSettingsError=null;card.sourceSettingsNotice=null;
 }
 
 function renderAfterEdit(card,element) {
@@ -335,6 +363,16 @@ export function editReusable(card,event) {
   const kind=d.definitionKind,id=d.definitionId,action=d.definitionAction;
   if(editDestinationPicker(card,event,element,invalidate,renderAfterEdit))return true;
   if(event.type==="click") {
+    if(action==="policy-actions") {
+      const menu=element.popoverTargetElement,rect=element.getBoundingClientRect();
+      menu.style.top=`${Math.max(8,Math.min(rect.bottom+4,window.innerHeight-110))}px`;
+      menu.style.right=`${Math.max(8,window.innerWidth-rect.right)}px`;
+      menu.onkeydown=event=>{
+        if(event.key!=="Escape")return;
+        event.preventDefault();menu.hidePopover();element.focus();
+      };
+      return true;
+    }
     if(action==="load-delivery"){void card.loadDeliveryConfiguration?.(true);return true;}
     if(action==="new-policy-method"||action==="edit-policy-method") {
       if(card.policyMethodEditor){card.sourceSettingsError="Finish or cancel the delivery method first.";card.render();return true;}
@@ -342,7 +380,7 @@ export function editReusable(card,event) {
       const before=definitions.methods[methodId]?structuredClone(definitions.methods[methodId]):null;
       if(!before)definitions.methods[methodId]={name:"New delivery method",mode:"fixed",destinations:[]};
       card.policyMethodEditor={id:methodId,scope:d.rowScope,rowId:d.rowId,before};
-      card.deliveryPicker=null;invalidate(card);card.render();card.main.querySelector(".delivery-method-editor [data-definition-field=\"name\"]")?.focus();void card.loadDeliveryConfiguration?.(true);return true;
+      card.deliveryPicker=null;invalidate(card);card.render();card.main.querySelector(".inline-method-editor")?.scrollIntoView?.({block:"nearest"});card.main.querySelector(".delivery-method-editor [data-definition-field=\"name\"]")?.focus({preventScroll:true});void card.loadDeliveryConfiguration?.(true);return true;
     }
     if(action==="use-policy-method"||action==="cancel-policy-method") {
       const editor=card.policyMethodEditor;
@@ -358,15 +396,23 @@ export function editReusable(card,event) {
       }
       card.policyMethodEditor=null;card.deliveryPicker=null;invalidate(card);card.render();(card.main.querySelector(`[data-row-id="${editor.rowId}"][data-row-method="${editor.id}"]`)||card.main.querySelector(`[data-definition-action="new-policy-method"][data-row-id="${editor.rowId}"]`))?.focus();return true;
     }
-    if(action==="cancel-method") {
+    if(action==="close-method") {
+      card.definitionSelection=null;card.deliveryPicker=null;card.methodCancel=null;card.render();
+      [...(card.main.querySelectorAll?.('[data-definition-action="edit"]')||[])].find(element=>element.dataset.definitionId===id)?.focus({preventScroll:true});return true;
+    }
+    if(action==="keep-method") {card.methodCancel=null;card.render();card.main.querySelector?.('[data-definition-action="cancel-method"]')?.focus({preventScroll:true});return true;}
+    if(action==="cancel-method"||action==="discard-method") {
       const saved=card.configuration.settings.notification_definitions?.methods?.[id];
+      const pristine=saved||{name:"New delivery method",mode:"fixed",destinations:[]};
+      if(action==="cancel-method"&&!equal(pristine,definitions.methods[id])){card.methodCancel=id;card.deliveryPicker=null;card.render();return true;}
+      card.methodCancel=null;
       if(!saved&&definitionUses(draft,"methods",id).length){card.settingsError="Remove this unsaved method from its policies before cancelling it.";card.render();return true;}
       if(saved)definitions.methods[id]=structuredClone(saved);else delete definitions.methods[id];
-      card.definitionSelection=null;card.deliveryPicker=null;card.deliveryMethodError=null;card.deliveryMethodNotice=null;invalidate(card);card.render();return true;
+      card.definitionSelection=null;card.deliveryPicker=null;card.deliveryMethodError=null;card.deliveryMethodNotice=null;invalidate(card);card.render();[...(card.main.querySelectorAll?.('[data-definition-action="edit"]')||[])].find(element=>element.dataset.definitionId===id)?.focus({preventScroll:true});return true;
     }
     if(action==="test-method"){void testDeliveryMethod(card,id);return true;}
     if(action==="tab"){card.notificationDefinitionTab=kind;card.definitionSelection=null;card.render();return true;}
-    if(action==="edit"){card.definitionSelection={kind,id};card.deliveryPicker=null;card.deliveryMethodError=null;card.deliveryMethodNotice=null;card.render();if(kind==="methods")void card.loadDeliveryConfiguration?.(true);return true;}
+    if(action==="edit"){card.definitionSelection={kind,id};card.deliveryPicker=null;card.methodCancel=null;card.deliveryMethodError=null;card.deliveryMethodNotice=null;card.render();if(kind==="methods"){card.main.querySelector?.('.notifications-content')?.scrollIntoView?.({block:"nearest"});card.main.querySelector?.('.delivery-method-editor [data-definition-field="name"]')?.focus({preventScroll:true});void card.loadDeliveryConfiguration?.(true);}return true;}
     if(action==="open-policy"){card.dialog?.close();card.definitionSelection=id?{kind:"policies",id}:null;card.page="policies";card.render();return true;}
     if(action==="close"&&card.policyMethodEditor){card.sourceSettingsError="Use or cancel the delivery method before leaving this policy.";card.render();return true;}
     if(action==="close"){card.definitionSelection=null;card.policyCreating=false;card.policyPicker=null;card.render();return true;}
@@ -496,5 +542,10 @@ export function editReusable(card,event) {
       }
     }else return false;
   }
-  invalidate(card);renderAfterEdit(card,element);return true;
+  invalidate(card);renderAfterEdit(card,element);
+  if(event.type==="click"&&kind==="methods"&&["add","duplicate"].includes(action)) {
+    card.main.querySelector?.('.notifications-content')?.scrollIntoView?.({block:"nearest"});
+    card.main.querySelector?.('.delivery-method-editor [data-definition-field="name"]')?.focus({preventScroll:true});
+  }
+  return true;
 }

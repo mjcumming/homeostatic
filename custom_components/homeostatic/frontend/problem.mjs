@@ -37,7 +37,7 @@ export function integrationProblem(source, findings, localize = () => null, evid
       "Check whether it was removed or replaced. If it was removed on purpose, update what Homeostatic watches.", "uncertain", "Not found"],
     not_loaded: ["Connection is not running", "Home Assistant has not started this connection.",
       "Review the connection in Home Assistant for a setup or repair prompt.", "uncertain", "Not running"],
-    loaded: [openProblem ? "Checking recovery" : "Connection available", openProblem ? "Home Assistant reports this connection is running again. The problem will close once recovery is confirmed." : "Home Assistant reports this connection is running.",
+    loaded: [openProblem ? "Running — confirming recovery" : "Connection available", openProblem ? "Home Assistant reports this connection loaded. Homeostatic is confirming that it stays available before closing this problem." : "Home Assistant reports this connection is running.",
       "No action is needed right now.", "recovering", openProblem ? "Confirming recovery" : "Connected"],
     setup_in_progress: [retrying ? "Connection is retrying" : "Connection is starting",
       retrying ? "Home Assistant is trying to start this connection again." : "Home Assistant is starting this connection.",
@@ -57,12 +57,21 @@ export function integrationProblem(source, findings, localize = () => null, evid
       : domain === "denonavr" ? "Check that the receiver is powered on and connected to your network. If it responds normally, review its Home Assistant connection."
       : "Check whether you can use the device or service directly. If you can, review its Home Assistant connection.";
   }
-  return {headline, summary, nextStep, tone, progress, timedOut, reported, missingDetail,
+  const relatedFindings = openProblem ? findings.filter(item => item.node_id && item.node_id !== source.node_id && item.status !== "pass") : [];
+  if (current.reason === "loaded" && relatedFindings.length) {
+    const count = new Set(relatedFindings.map(item => item.node_id)).size;
+    headline = `${count} related ${count === 1 ? "source needs" : "sources need"} attention`;
+    summary = `Home Assistant reports this integration loaded. This issue remains open for ${count === 1 ? "a related source" : `${count} related sources`}.`;
+    nextStep = "Review the affected sources below.";
+    tone = "uncertain";
+    progress = "Related sources need attention";
+  }
+  return {headline, summary, nextStep, tone, progress, relatedFindings, timedOut, reported, missingDetail,
     historical: Boolean(report && !errorState), reportedAt: report?.observed_at ?? null,
     currentReason: current.reason, observedAt: evidence?.current?.observed_at ?? null,
     integration, integrationUrl,
     integrationLabel: current.reason === "auth_required" ? "Sign in again" : domain === "denonavr" ? "Review receiver connection" : domain ? `Review ${integration} connection` : "Review connections",
-    needsAction: !["loaded", "unload_in_progress"].includes(current.reason),
+    needsAction: relatedFindings.length > 0 || !["loaded", "unload_in_progress"].includes(current.reason),
     logsUrl: domain ? `/config/logs?filter=${encodeURIComponent(domain)}` : null,
   };
 }
@@ -90,7 +99,7 @@ export function deviceProblem(source, status, openProblem = true) {
     disabled:["Device disabled in Home Assistant",
       "Home Assistant is not using this device, so Homeostatic cannot assess its availability.",
       "Review the device in Home Assistant if this was not intentional.","neutral","Disabled"],
-    available:[openProblem ? "Checking device recovery" : "No entity availability warning",
+    available:[openProblem ? "Available — confirming recovery" : "No entity availability warning",
       openProblem ? "No selected entity currently reports unavailable. Homeostatic is waiting to confirm recovery." : "No selected entity currently reports unavailable. Some entity values may still be unknown.",
       "No action is needed right now.","recovering",openProblem ? "Confirming recovery" : "Available"],
   };
@@ -219,8 +228,8 @@ export function entityProblem(source, status, owner = null, areas = [], localize
       "If this is intentional, no action is needed. Otherwise, open its device page or details and review why it is disabled.", "neutral", "Disabled"],
     connection_problem: ["Connection needs attention", `Home Assistant has a state for this ${noun}, but a watched connection is not ready.`,
       "Review the connection below before troubleshooting the device.", "uncertain", "Connection not ready"],
-    available: [openProblem ? "Checking recovery" : `${label} available`, openProblem
-      ? `Home Assistant is receiving a state for this ${noun} again. Homeostatic is waiting for it to stay available before closing this problem.`
+    available: [openProblem ? "Available — confirming recovery" : `${label} available`, openProblem
+      ? `Home Assistant is receiving a state for this ${noun}. Homeostatic is waiting for it to stay available before closing this problem.`
       : `Home Assistant is receiving a state for this ${noun}.`, "No action is needed right now.", "recovering", openProblem ? "Confirming recovery" : "Reporting a state"],
   };
   const [headline, summary, nextStep, tone, progress] = Object.hasOwn(definitions, reason) ? definitions[reason]

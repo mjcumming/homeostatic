@@ -555,10 +555,10 @@ async def test_service_rejects_self_rule(
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
-async def test_disabled_device_is_unknown(
+async def test_disabled_device_has_no_availability_checks(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """A disabled device cannot pass on a leftover available entity state."""
+    """A disabled device stays browsable without monitoring its leftover states."""
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     owner.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(
@@ -579,8 +579,10 @@ async def test_disabled_device_is_unknown(
         device.id, disabled_by=dr.DeviceEntryDisabler.USER
     )
     await hass.async_block_till_done()
-    assert runtime.readiness == "unknown"
-    assert runtime.sources[f"entity:registry:{entity.id}"].disabled
+    candidate = runtime.candidates[f"entity:registry:{entity.id}"]
+    assert candidate.disabled
+    assert not candidate.watched
+    assert not runtime.episodes
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

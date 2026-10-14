@@ -40,7 +40,7 @@ Edit the integration availability policy to watch all integrations or selected i
 
 ### Add or edit a monitoring policy
 
-Supplied policies and policies you create appear together in **Policies**. Each supports **Edit**, **Duplicate**, **Turn on** or **Turn off**, and **Delete**.
+Supplied policies and policies you create appear together in **Policies**. Each row offers **Turn on** or **Turn off** and **Edit**. Open **More actions** (the three-dot button) for **Duplicate** and **Delete**.
 
 1. Select **Add policy**, choose its **Monitoring type**, then select **Continue**.
 2. Give the policy a name and choose what to **Watch**. The available source choices and detection fields depend on its monitoring type.
@@ -130,6 +130,8 @@ Missing or invalid readings leave an existing issue open. They interrupt an unco
 
 ## What an availability problem means
 
+Overview and Issues hide availability issues while their current state is available and Homeostatic is confirming recovery. You can still inspect them in Sources. An integration that is loaded may have an issue for related entities; its details identify those affected sources. Disabled entities stay browsable without availability checks.
+
 Home Assistant has no single health status that runs from an integration down to its devices and entities. It has separate signals, and Homeostatic reads each one for what it says:
 
 - An *integration* connects Home Assistant to a service or a hub. Its setup state says whether it loaded, is retrying, failed, or needs you to sign in again.
@@ -194,7 +196,9 @@ Use **Notifications** to create reusable delivery methods, then set timing and c
 
 ### Choose delivery methods
 
-Select **Add delivery method** and give it a name. Select **Add destination**, choose the delivery type, then choose a configured destination. The editor lists only the destinations selected for this method. For speech, choose the speaker and, when needed, its speech provider. A method can combine several supported destination types. Home Assistant owns the provider accounts and credentials. Unavailable destinations are hidden from new choices by default; an unavailable saved destination stays visible until you replace or remove it.
+Select **Add delivery method** and give it a name. To change an existing method, select **Edit**; **More actions** contains **Duplicate** and **Delete**. Select **Add destination**, choose the delivery type, then choose a configured destination. The editor lists only the destinations selected for this method. For speech, choose the speaker and, when needed, its speech provider. A method can combine several supported destination types. Home Assistant owns the provider accounts and credentials. Unavailable destinations are hidden from new choices by default; an unavailable saved destination stays visible until you replace or remove it.
+
+The editor keeps **Save changes** and **Cancel** visible while you scroll. **Delivery methods** returns to the list and retains your pending edits. **Cancel** asks before discarding changes to this method and keeps your other pending edits. Inside a policy, **Use method** returns to that policy; **Save changes** then applies the complete draft.
 
 Fixed methods always use the selected destinations. Open the optional presence settings to choose separate home and away destinations, or the destinations of selected people currently home. Choose fallback destinations or explicitly choose to skip when nobody qualifies or presence is unknown. A current home report qualifies; a named zone counts as away. Missing, restored, unknown and unavailable person states use the fallback when nobody is known to be home. Presence changes alone send nothing. Each new request or reminder uses the evidence available at that time.
 

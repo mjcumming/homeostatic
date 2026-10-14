@@ -1,4 +1,4 @@
-import {escapeHtml as esc, sourceMap} from "./model.mjs?v=72";
+import {escapeHtml as esc, sourceMap} from "./model.mjs?v=73";
 
 export const UPS_CHECK_NAMES = {
   ups_power:"Backup power", ups_reserve:"Low reserve",

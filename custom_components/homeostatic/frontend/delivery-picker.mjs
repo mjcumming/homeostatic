@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=72";
+import {escapeHtml as esc} from "./model.mjs?v=73";
 
 const TYPES={app:"App notification",voice:"Speaker announcement",email:"Email",sms:"SMS",notification:"Other notification"};
 const targetsFor=card=>card.configuration.delivery_targets||card.configuration.notification_destinations||[];
@@ -17,9 +17,9 @@ export function destinationChoices(card,method,id,field,label) {
     const target=targets.find(item=>item.channel===channel);
     const sms=!target&&channel.startsWith("sms:");
     const name=target?displayName(target):sms?decodeURIComponent(channel.split(":").slice(2).join(":")):channel;
-    return `<div class="definition-list-item"><div>${esc(name)}<p class="small">${target?esc(TYPES[typeOf(target)]||"Notification")+(target.area?` · ${esc(target.area)}`:"")+(target.available===false?" · Unavailable":""):sms?"SMS":"Saved destination unavailable"}</p></div>${button("destination-remove","Remove",id,field,`data-destination-channel="${esc(channel)}"`)}</div>`;
+    return `<div class="definition-list-item method-destination"><div><strong>${esc(name)}</strong><p class="small">${target?esc(TYPES[typeOf(target)]||"Notification")+(target.area?` · ${esc(target.area)}`:"")+(target.available===false?" · Unavailable":""):sms?"SMS":"Saved destination unavailable"}</p></div>${button("destination-remove","Remove",id,field,`data-destination-channel="${esc(channel)}" aria-label="Remove ${esc(name)}"`)}</div>`;
   }).join("");
-  return `<fieldset class="definition-destinations"><legend>${esc(label)}</legend>${rows||'<p class="sub">No destinations selected.</p>'}${selection?picker(card,method,id,field,selection):button("destination-open","Add destination",id,field)}</fieldset>`;
+  return `<fieldset class="definition-destinations"><legend>${esc(label)} <span class="small">${saved.length} selected</span></legend><div class="method-destination-list">${rows||'<p class="sub">No destinations selected. Add one to use this method.</p>'}</div>${button("destination-open","+ Add destination",id,field)}${selection?picker(card,method,id,field,selection):""}</fieldset>`;
 }
 
 function picker(card,method,id,field,state) {
@@ -40,7 +40,12 @@ function picker(card,method,id,field,state) {
     const chooser=state.speaker===key&&items.length>1;
     return `<div class="definition-list-item"><div>${esc(name)}${target.area?`<p class="small">${esc(target.area)}</p>`:""}${chooser?`<fieldset><legend>Speech provider</legend>${items.map(item=>button("destination-add",providerName(item),id,field,`data-destination-channel="${esc(item.channel)}"`)).join("")}</fieldset>`:""}</div>${chooser?"":button(items.length>1?"destination-speaker":"destination-add",items.length>1?"Choose provider":"Add",id,field,`data-destination-channel="${esc(target.channel)}" data-destination-speaker="${esc(key)}"`)}</div>`;
   }).join("");
-  return `<section aria-label="Add destination"><label class="installation-field"><span>Delivery type</span><select data-definition-delivery-type><option value="">Choose a delivery type</option>${types.map(([type,name])=>`<option value="${type}"${state.type===type?" selected":""}>${name}</option>`).join("")}</select></label>${state.type?`<label class="installation-field"><span>Search destinations</span><input type="search" data-definition-delivery-search value="${esc(state.query||"")}"></label><div style="max-height:320px;overflow:auto">${rows||'<p>No available destinations match.</p>'}</div>`:'<p class="small">Choose how to send the notification.</p>'}${!types.length?'<p>No supported destinations are available. Configure a notification integration in Home Assistant first.</p>':""}${button("destination-close","Done",id,field)}</section>`;
+  return `<dialog class="delivery-picker" aria-labelledby="delivery-picker-title"><header><h2 id="delivery-picker-title">Add destination</h2>${button("destination-close","Close",id,field,'aria-label="Close destination picker"')}</header><div class="delivery-picker-body"><label class="installation-field"><span>Delivery type</span><select aria-label="Delivery type" data-definition-delivery-type><option value="">Choose a delivery type</option>${types.map(([type,name])=>`<option value="${type}"${state.type===type?" selected":""}>${name}</option>`).join("")}</select></label>${state.type?`<label class="installation-field"><span>Search destinations</span><input type="search" aria-label="Search destinations" data-definition-delivery-search value="${esc(state.query||"")}"></label><div class="delivery-picker-results">${rows||'<p>No available destinations match.</p>'}</div>`:'<p class="small">Choose how to send the notification.</p>'}${!types.length?'<p>No supported destinations are available. Configure a notification integration in Home Assistant first.</p>':""}${card.settingsError?`<p role="alert" class="config-error">${esc(card.settingsError)}</p>`:""}</div><footer>${button("destination-close","Done",id,field)}</footer></dialog>`;
+}
+
+/** Return focus to the destination control that opened the picker. */
+export function focusDestinationPicker(card,id,field) {
+  [...(card.main.querySelectorAll?.('[data-definition-action="destination-open"]')||[])].find(element=>element.dataset.definitionId===id&&element.dataset.destinationField===field)?.focus({preventScroll:true});
 }
 
 /** Handle only delivery-picker events; configuration writes still use the shared draft. */
@@ -57,7 +62,7 @@ export function editDestinationPicker(card,event,element,invalidate,renderAfterE
   const method=card.settingsDraft.notification_definitions?.methods[id];
   if(!method)return true;
   if(action==="destination-open"){card.deliveryPicker={id,field,type:"",query:"",numbers:{}};card.render();return true;}
-  if(action==="destination-close"){card.deliveryPicker=null;card.render();return true;}
+  if(action==="destination-close"){card.deliveryPicker=null;card.render();focusDestinationPicker(card,id,field);return true;}
   if(action==="destination-speaker"){if(state)state.speaker=d.destinationSpeaker;card.render();return true;}
   const {owner,key}=ownerFor(method,field),channel=d.destinationChannel;
   if(action==="destination-remove")owner[key]=(owner[key]||[]).filter(value=>value!==channel);
@@ -74,5 +79,5 @@ export function editDestinationPicker(card,event,element,invalidate,renderAfterE
     owner[key]=[...new Set([...(owner[key]||[]),selection])];
     card.deliveryPicker=null;
   }
-  invalidate(card);renderAfterEdit(card,element);return true;
+  invalidate(card);renderAfterEdit(card,element);focusDestinationPicker(card,id,field);return true;
 }

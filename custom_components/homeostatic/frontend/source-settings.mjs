@@ -1,6 +1,6 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=72";
-import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=72";
-import {REPORTING, reportingChoices} from "./reporting.mjs?v=72";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=73";
+import {monitoringScope, scopeChoice, ruleSummary} from "./configuration.mjs?v=73";
+import {REPORTING, reportingChoices} from "./reporting.mjs?v=73";
 
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
 const reportingLabel = id => REPORTING.find(row=>row[0]===id)?.[1] || id;
@@ -82,10 +82,10 @@ export function sourceSettingsReviewed(card) {
   return review?.revision===card.configuration.revision&&same(review.proposal,sourceSettingsProposal(card))?review:null;
 }
 
-export function sourceSettingsFooter(card) {
+export function sourceSettingsFooter(card,cancel="") {
   if(!card.settingsDraft)return "";
   const dirty=!same(card.configuration.rules,card.configDraft)||!same(card.configuration.settings,card.settingsDraft),busy=card.configBusy||card.settingsBusy;
-  return `<footer class="source-settings-footer"><p class="small" role="status">${busy?'Saving changes…':dirty?'Unsaved changes':'All changes saved'}</p>${card.sourceSettingsError?`<p role="alert" class="config-error">${esc(card.sourceSettingsError)}</p>`:""}${card.sourceSettingsNotice?`<p role="status">${esc(card.sourceSettingsNotice)}</p>`:""}<div class="actions"><button type="button" class="button primary" data-action="save-source-settings"${busy||!dirty?' disabled':''}>Save changes</button>${dirty?`<button type="button" class="link" data-action="discard-source-settings"${busy?' disabled':''}>Discard changes</button>`:""}</div></footer>`;
+  return `<footer class="source-settings-footer"><p class="small" role="status">${busy?'Saving changes…':dirty?'Unsaved changes':'All changes saved'}</p>${card.sourceSettingsError?`<p role="alert" class="config-error">${esc(card.sourceSettingsError)}</p>`:""}${card.sourceSettingsNotice?`<p role="status">${esc(card.sourceSettingsNotice)}</p>`:""}<div class="actions"><button type="button" class="button primary" data-action="save-source-settings"${busy||!dirty?' disabled':''}>Save changes</button>${cancel|| (dirty?`<button type="button" class="link" data-action="discard-source-settings"${busy?' disabled':''}>Discard changes</button>`:"")}</div></footer>`;
 }
 
 export function settingsErrorMessage(error) {
@@ -122,8 +122,10 @@ export async function saveSourceSettings(card) {
   card.settingsBusy=true;card.sourceSettingsReview=null;card.sourceSettingsError=null;card.sourceSettingsNotice=null;card.render();
   try {
     await card._hass.callWS({type:"homeostatic/save_settings",revision,settings:proposal});
+    const pending=sourceSettingsProposal(card),newerEdits=!same(pending,proposal);
     await card.loadConfiguration();
-    card.sourceSettingsNotice=card.configError?"Saved, but the current settings could not be reloaded. Reload settings before editing again.":"Changes saved.";
+    if(newerEdits){const {rules,...settings}=pending;card.configDraft=rules;card.settingsDraft=settings;}
+    card.sourceSettingsNotice=card.configError?"Saved, but the current settings could not be reloaded. Reload settings before editing again.":newerEdits?"Changes saved. Newer edits are still unsaved.":"Changes saved.";
   } catch(error) {card.sourceSettingsError=settingsErrorMessage(error);}
   finally {card.settingsBusy=false;card.render();}
 }
