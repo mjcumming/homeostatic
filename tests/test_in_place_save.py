@@ -210,6 +210,7 @@ async def test_in_place_save_rolls_back_failed_durable_application(
     assert not config_entry.options
     assert runtime.settings.monitoring_policies[0].enabled
     assert runtime.snapshot()["episodes"] == before["episodes"]
+    assert runtime.snapshot()["resolved_history"] == before["resolved_history"]
     assert runtime.snapshot()["delivery"] == before["delivery"]
     assert (
         runtime.snapshot()["monitoring_identities"] == before["monitoring_identities"]

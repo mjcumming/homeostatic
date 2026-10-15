@@ -31,6 +31,39 @@ A local test build can include uncommitted changes. When you report the result, 
 
 For an explicitly authorized local pilot that requires an unpublished library, stage a uniquely versioned wheel in persistent HA configuration and reference that exact wheel from the installed manifest. Run the full local checks and rehearse clean installation and copied-state restoration on the installed HA version before deployment. Keep a full backup and paired component, library and state rollback; restoring a public version pin alone may retain a local-version package. Leave repository release pins unchanged and record the pilot separately from publication in Current work.
 
+## Automated isolated UI sweep
+
+Run the existing fixture inventory and real browser workflows with `script/ui_acceptance.mjs`. It starts a temporary Home Assistant configuration on loopback, copies the current component, seeds synthetic sources and captures notification requests in local mock services. Each invocation owns its configuration and removes its temporary authentication file on exit. It never accepts a household HA URL.
+
+Use the Linux development environment described in [Development](development.md). The runner needs Node.js 22 or newer and Playwright. Reuse an installed Playwright module through `PLAYWRIGHT_MODULE` or `--playwright-module`; a fresh test-only installation can live in the ignored tools directory:
+
+```bash
+npm install --prefix .tools/ui-acceptance --no-save playwright@1.57.0
+node .tools/ui-acceptance/node_modules/playwright/cli.js install --with-deps chromium
+uv run --no-sync node script/ui_acceptance.mjs --python "${UV_PROJECT_ENVIRONMENT:-.venv}/bin/python" --output build/ui-acceptance/desktop
+```
+
+For a stable sweep while other work continues, freeze the current component and existing browser fixtures first. Choose an unused snapshot directory for each build, then give every worker the same snapshot:
+
+```bash
+node script/ui_acceptance.mjs --freeze build/ui-acceptance/candidate
+uv run --no-sync node script/ui_acceptance.mjs --snapshot build/ui-acceptance/candidate --python "${UV_PROJECT_ENVIRONMENT:-.venv}/bin/python" --output build/ui-acceptance/desktop
+```
+
+The snapshot records the source revision, dirty state and content hashes. Both browser fixtures and temporary HA use the frozen files. The runner checks that they stayed unchanged and separately reports whether the working checkout still matches.
+
+Use `--group issues`, `--group policies`, `--group notifications` or `--group layout` to divide work between agents. The layout group covers cross-page navigation, keyboard, reconnect and responsive behavior. Give concurrent invocations distinct `--port` and `--output` values. `--mode fixtures` runs the existing synthetic browser scenarios; `--mode live` exercises the temporary HA backend through pointer and keyboard actions. The default runs both. `--width`, `--height`, `--theme` and `--browser` select the browser matrix; the requested browser must be installed. For example, `--width 390 --height 844 --theme dark` checks a phone-sized viewport. This does not establish physical-device coverage.
+
+Each output directory contains `report.md`, `report.json`, fixture receipts, failure screenshots and the real-HA browser trace and log. Reports separate fixture results from real-backend results and distinguish the complete inventory from narrower additional cases. Exit status 1 means a failure or run diagnostic; 2 means coverage remains untested. A passing retry does not erase a failure when reports are merged. Inspect traces locally because they describe the disposable authenticated test session.
+
+Merge completed shards from the same component contents with repeated `--merge` arguments:
+
+```bash
+node script/ui_acceptance.mjs --merge build/ui-acceptance/issues/report.json --merge build/ui-acceptance/policies/report.json --merge build/ui-acceptance/notifications/report.json --merge build/ui-acceptance/layout/report.json --output build/ui-acceptance/combined
+```
+
+Agents executing a report-only sweep may correct the runner or fixture setup, keeping earlier diagnostics and identifying the correction. They report product defects without changing application behavior. Keep skipped states and unimplemented paths visible; neither a successful mocked fixture nor a narrower real-HA case closes a broader untested inventory row.
+
 ## Full release
 
 Release builds require the published health-tree version pinned in the integration manifest and lockfile. [Current work](roadmap.md#current-work) identifies any unpublished library prerequisite. Follow [Changes spanning both repositories](development.md#changes-spanning-both-repositories) for isolated development with the sibling checkout. Release library changes first, update the adapter pins and lockfile, and pass the clean-install checks below. An editable checkout or local test result does not satisfy that release requirement.

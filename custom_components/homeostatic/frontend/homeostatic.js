@@ -1,23 +1,24 @@
-import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=82";
-import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=82";
-import {upsProblem} from "./ups.mjs?v=82";
-import {reportingStatus} from "./reporting.mjs?v=82";
-import {affectedFunctions, dashboardStore, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=82";
-import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=82";
-import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=82";
-import {DashboardTools} from "./history-controls.mjs?v=82";
-import {diagnosticOverview} from "./evidence.mjs?v=82";
-import {styles} from "./styles.mjs?v=82";
+import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=83";
+import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=83";
+import {upsProblem} from "./ups.mjs?v=83";
+import {reportingStatus} from "./reporting.mjs?v=83";
+import {affectedFunctions, dashboardStore, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=83";
+import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=83";
+import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=83";
+import {DashboardTools} from "./history-controls.mjs?v=83";
+import {diagnosticOverview} from "./evidence.mjs?v=83";
+import {styles} from "./styles.mjs?v=83";
 
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree, canonicalSourceSelection, editSourceAvailability, restoreSourceFilters} from "./sources-workspace.mjs?v=82";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree, canonicalSourceSelection, editSourceAvailability, restoreSourceFilters} from "./sources-workspace.mjs?v=83";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=82";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=83";
 
-import {cardView} from "./notification-navigation.mjs?v=82";
-import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=82";
-import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=82";
-import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=82";
-import {editIssueAvailability} from "./issue-monitoring.mjs?v=82";
+import {cardView} from "./notification-navigation.mjs?v=83";
+import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=83";
+import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=83";
+import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=83";
+import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=83";
+import {editIssueAvailability,issueAvailabilityAction,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=83";
 
 const VIEWS = ["sources", "problems", "history", "notifications", "policies", "configuration"];
 const date = (value) => value ? new Date(value).toLocaleString() : "No completed update";
@@ -135,7 +136,8 @@ class HomeostaticCard extends HTMLElement {
       }
     });
     this.tools = new DashboardTools(this);
-    this.dialog.addEventListener("close", () => {if (!this.dialog.open) {this.detail = null; this.detailSequence++;}});
+    this.dialog.addEventListener("close", () => {if (!this.dialog.open) {this.detail = null; this.detailSequence++; resetIssueAvailability(this);}});
+    this.dialog.addEventListener("cancel", () => resetIssueAvailability(this));
   }
 
   static getStubConfig() { return {view: "issues"}; }
@@ -154,8 +156,11 @@ class HomeostaticCard extends HTMLElement {
   }
 
   set hass(value) {
-    const changed = this._hass?.connection !== value.connection || this._hass?.user?.id !== value.user?.id;
+    const previous = this._hass;
+    const changed = previous?.connection !== value.connection || previous?.user?.id !== value.user?.id || previous?.user?.is_admin !== value.user?.is_admin;
     this._hass = value;
+    if (this.retainPanelDrafts && changed) this.configurationNeedsReload = connectPanelDrafts(this);
+    else if (changed && previous) resetCardDrafts(this);
     if (changed) {
       this.release();
       this.connect();
@@ -164,12 +169,16 @@ class HomeostaticCard extends HTMLElement {
       !this.sourceDetail.stamp?.endsWith(`:${deviceAvailabilityStamp(this.sourceDetail.device_availability,value.states)}`)) this.loadSource();
   }
 
-  connectedCallback() { this.navigation.connect(); this.connect(); }
+  connectedCallback() {
+    if (this.retainPanelDrafts && this._hass) this.configurationNeedsReload = connectPanelDrafts(this) || this.configurationNeedsReload;
+    this.navigation.connect(); this.connect();
+  }
   disconnectedCallback() {
     this.sourcesFilterListeners?.abort();
     this.sourcesFiltersOpen=false;
     this.navigation.disconnect();
     this.release(false);
+    disconnectPanelDrafts(this);
     this.detailSequence++;
     this.dialog.close();
   }
@@ -215,7 +224,7 @@ class HomeostaticCard extends HTMLElement {
       }
       this.tools.update(value);
       this.render();
-      if (value.status === "current" && !this.configuration && !this.configBusy) this.loadConfiguration();
+      if (value.status === "current" && (!this.configuration || this.configurationNeedsReload) && !this.configBusy && !this.settingsBusy) this.loadConfiguration();
       else if(value.status==="current" && this.configuration && !this.configBusy && !this.settingsBusy && typeof value.data.policy?.notifications_enabled==="boolean" && value.data.policy.notifications_enabled!==this.configuration.settings.notifications)this.loadConfiguration("rebase");
       if (this.pendingEpisode && value.status === "current") {
         const episodeId = this.pendingEpisode;
@@ -317,10 +326,12 @@ class HomeostaticCard extends HTMLElement {
   }
 
   render() {
+    if (!renderPanelDrafts(this)) return;
     if (this.rendering) return;
     this.rendering = true;
     try {
       this.renderPage();
+      renderIssueAvailability(this);
     } finally {
       this.rendering = false;
     }
@@ -485,11 +496,14 @@ class HomeostaticCard extends HTMLElement {
 
   async loadConfiguration() {
     if (this.configBusy) return;
+    const hass = this._hass, session = this.panelDraftSession, userId = hass.user?.id, admin = hass.user?.is_admin;
+    const current = () => this._hass.connection === hass.connection && this._hass.user?.id === userId && this._hass.user?.is_admin === admin && this.panelDraftSession === session;
     this.configBusy = true;
     this.configError = null;
     this.render();
     try {
-      const result = await this._hass.callWS({type:"homeostatic/configuration",section:"settings"});
+      const result = await hass.callWS({type:"homeostatic/configuration",section:"settings"});
+      if (!current()) return;
       const previous = this.configuration;
       const fresh = {...result,...Object.fromEntries(["delivery_targets","notification_people","notification_destinations","consumers"].filter(key=>previous && key in previous).map(key=>[key,previous[key]]))};
       if (this.scopedConfiguration) rebaseScopedConfiguration(this,fresh);
@@ -498,28 +512,28 @@ class HomeostaticCard extends HTMLElement {
         this.settingsDraft = structuredClone(result.settings);
         initializeScopedConfiguration(this);
       }
+      this.configurationNeedsReload = false;
     } catch (error) {
-      this.configError = error?.message ?? "Could not load configuration.";
+      if (current()) this.configError = error?.message ?? "Could not load configuration.";
     } finally {
-      this.configBusy = false;
-      this.render();
+      if (current()) {this.configBusy = false;this.render();}
     }
   }
 
   async loadDeliveryConfiguration(retry = false) {
     if (!this.configuration || this.deliveryBusy || !retry && this.configuration.delivery_targets) return;
-    const connection = this._hass.connection;
+    const hass = this._hass, connection = hass.connection, userId = hass.user?.id, admin = hass.user?.is_admin, session = this.panelDraftSession;
+    const current = () => this._hass.connection === connection && this._hass.user?.id === userId && this._hass.user?.is_admin === admin && this.panelDraftSession === session;
     this.deliveryBusy = true;
     this.deliveryError = null;
     this.render();
     try {
-      const result = await this._hass.callWS({type:"homeostatic/configuration",section:"delivery"});
-      if (this._hass.connection === connection && this.configuration) Object.assign(this.configuration,result);
+      const result = await hass.callWS({type:"homeostatic/configuration",section:"delivery"});
+      if (current() && this.configuration) Object.assign(this.configuration,result);
     } catch (error) {
-      this.deliveryError = error?.message ?? "Could not load notification destinations.";
+      if (current()) this.deliveryError = error?.message ?? "Could not load notification destinations.";
     } finally {
-      this.deliveryBusy = false;
-      this.render();
+      if (current()) {this.deliveryBusy = false;this.render();}
     }
   }
 
@@ -714,7 +728,7 @@ class HomeostaticCard extends HTMLElement {
     else if (button.dataset.node) this.openDetail({nodeId: button.dataset.node});
     else if (button.dataset.episode) this.openDetail({episodeId: button.dataset.episode});
     else if (button.dataset.action === "back") {this.page = this.config.view; this.render();}
-    else if (button.dataset.action === "close") {this.detail=null;this.dialog.close();}
+    else if (button.dataset.action === "close") {resetIssueAvailability(this);this.detail=null;this.dialog.close();}
     else if (button.dataset.action === "retry") this.store?.retry();
     else if (button.dataset.action === "retry-catalog") { this.store?.ensureCatalog(true); this.render(); }
     else if (button.dataset.action === "load-configuration") this.loadConfiguration();
@@ -738,6 +752,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   openDetail(selection) {
+    resetIssueAvailability(this);
     this.detail = selection;
     this.renderedDetailContent = null;
     this.shadowRoot.querySelector("#detail-title").textContent = "Problem details";
@@ -751,6 +766,7 @@ class HomeostaticCard extends HTMLElement {
     const sequence = ++this.detailSequence;
     const body = this.shadowRoot.querySelector(".dialog-body");
     const selection = this.detail;
+    if (!selection) return;
     const {status: connectionStatus, data} = this.current;
     body.inert = connectionStatus !== "current";
     if (connectionStatus !== "current") {
@@ -764,6 +780,16 @@ class HomeostaticCard extends HTMLElement {
     }
     const episode = selection.episodeId ? data.inventory.episodes.find((item) => item.episode_id === selection.episodeId) : null;
     if (selection.episodeId && !episode) {
+      if (this.issueAvailabilityEpisode === selection.episodeId) {
+        const label = this.shadowRoot.querySelector("#detail-label");
+        label.hidden = false;
+        label.textContent = "Issue no longer current";
+        if (!this.dialog.querySelector(".issue-availability")) {
+          body.innerHTML = issueAvailabilityAction(this, {episode_id: selection.episodeId});
+        }
+        renderIssueAvailability(this);
+        return;
+      }
       const retained = data.inventory.resolved_history?.episodes.some((item) => item.episode.episode_id === selection.episodeId);
       if (retained) {
         this.page = "history";
@@ -828,7 +854,7 @@ class HomeostaticCard extends HTMLElement {
         : problem?.headline;
       const monitoringSource = temperature ? inventoryRows(data).find(item => item.kind === "entity" && source.entity_id && item.entity_id === source.entity_id)?.node_id : null;
       const opened = episode ? `<dl class="source-facts issue-facts problem-progress"><div class="source-fact"><dt>Opened</dt><dd>${esc(date(episode.opened_at))}</dd></div></dl>` : "";
-      const controls = this.tools.detailButtons(source,episode,data);
+      const controls = this.tools.detailButtons(source,episode,data) + (episode ? issueAvailabilityAction(this,episode) : "");
       const deviceAction = problem?.deviceUrl ? `<a class="button primary" href="${esc(problem.deviceUrl)}">Open device in Home Assistant</a>` : "";
       const primaryAction = nativeLink || deviceAction;
       const monitoringLink = ["integration","device","entity","battery","vacuum","ups"].includes(source.kind) ? `<button type="button" class="link" data-source-link="${esc(monitoringSource || source.monitoring_source || source.node_id)}">View in Monitoring</button>` : "";
@@ -857,6 +883,7 @@ class HomeostaticCard extends HTMLElement {
 class HomeostaticPanel extends HomeostaticCard {
   constructor() {
     super();
+    this.retainPanelDrafts = true;
     this.navigation.enabled = true;
     this.shadowRoot.querySelector(".shell").classList.add("panel-shell");
     const menu = document.createElement("button");
@@ -882,17 +909,19 @@ class HomeostaticStrategy {
   static getCreateSuggestions() { return {title:"Homeostatic",icon:"mdi:home-heart"}; }
   static async generate() {
     return {title:"Homeostatic",views:[
-      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v30",view:"issues",navigation:false}]},
-      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v30",view:"sources",navigation:false}]},
-      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v30",view:"policies",navigation:false}]},
-      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v30",view:"notifications",navigation:false}]},
-      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v30",view:"history",navigation:false}]},
+      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v31",view:"issues",navigation:false}]},
+      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v31",view:"sources",navigation:false}]},
+      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v31",view:"policies",navigation:false}]},
+      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v31",view:"notifications",navigation:false}]},
+      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v31",view:"history",navigation:false}]},
     ]};
   }
 }
 
-if (!customElements.get("homeostatic-card-v30")) customElements.define("homeostatic-card-v30", HomeostaticCard);
-if (!customElements.get("homeostatic-panel-v34")) customElements.define("homeostatic-panel-v34", HomeostaticPanel);
+if (!customElements.get("homeostatic-card-v31")) customElements.define("homeostatic-card-v31", HomeostaticCard);
+if (!customElements.get("homeostatic-panel-v35")) customElements.define("homeostatic-panel-v35", HomeostaticPanel);
+if (!customElements.get("homeostatic-card-v30")) customElements.define("homeostatic-card-v30", class extends HomeostaticCard {});
+if (!customElements.get("homeostatic-panel-v34")) customElements.define("homeostatic-panel-v34", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v29")) customElements.define("homeostatic-card-v29", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-panel-v33")) customElements.define("homeostatic-panel-v33", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v28")) customElements.define("homeostatic-card-v28", class extends HomeostaticCard {});

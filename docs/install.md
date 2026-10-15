@@ -129,7 +129,7 @@ By hand, repeat step 1 with the new zip: check the checksum, move the old `custo
 
 For upgrades within the unified policy model, open the panel after restart to check retained policies, open issues and history. Existing Custom notification assignments keep their effective settings without automatic conversion. Updates do not replace custom choices, Dashboard only or deleted definitions with new defaults.
 
-The earlier transition to the unified policy model requires fresh setup only for unsupported pre-policy test configurations using the retired schedule library. It does not automatically convert or erase those settings. An old configuration can fail setup with a validation error. Keep your backup and use a separate test Home Assistant instance to try the new defaults. If you choose to replace an existing test configuration, [removing Homeostatic](guide.md#remove-homeostatic) deletes its settings and history; adding it again creates the new defaults. Restore the matching backup to return to the older configuration.
+Configurations using the retired schedule library require a backup and fresh setup before moving to the unified policy model. Homeostatic does not automatically convert or erase those settings, and the old configuration can fail setup with a validation error. Keep your backup and use a separate test Home Assistant instance to try the new defaults. If you choose to replace the old configuration, [removing Homeostatic](guide.md#remove-homeostatic) deletes its settings and history; adding it again creates the new defaults. Restore the matching backup to return to the older configuration.
 
 To roll back:
 

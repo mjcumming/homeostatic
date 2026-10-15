@@ -1,6 +1,7 @@
 # ADR 0069: Remove unwanted availability monitoring from Issues
 
 **Status:** Accepted
+**Later decision:** [ADR 0074](0074-availability-removal-inside-open-issues.md) supersedes group-wide action placement and selection scope. Availability removal is reviewed inside the opened issue.
 **Later decision:** [ADR 0070](0070-saved-monitoring-and-history-navigation.md) supersedes the saved-action Undo and History placement provisions where applicable.
 
 **Date:** 2026-10-14

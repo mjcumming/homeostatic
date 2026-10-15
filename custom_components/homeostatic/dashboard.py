@@ -52,8 +52,8 @@ from .vacuum import observe as vacuum_observation
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=82"
-PANEL_ELEMENT = "homeostatic-panel-v34"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=83"
+PANEL_ELEMENT = "homeostatic-panel-v35"
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 

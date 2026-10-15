@@ -1,5 +1,5 @@
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
-import {initializeScopedConfiguration,rebaseScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=82";
+import {initializeScopedConfiguration,rebaseScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=83";
 import {sourceDetailsFixture,DEVICE_ID,ENTITY_ID,UPDATED_AT} from "./source-details-fixture.mjs";
 import {emptyReceipt,recordResult,receiptSummary} from "./control-path-inventory.mjs";
 
@@ -9,7 +9,7 @@ const candidates=base.current.data.inventory.catalog.candidates,entities=candida
 const initial={...base.configuration.settings,notifications:false,timings:{settle:30},consumer:null,
   notification_definitions:{methods:{phone:{name:"Phone",mode:"fixed",destinations:[]}},profiles:{}},
   monitoring_policies:[...base.configuration.settings.monitoring_policies,{id:"temperature",name:"Temperature",check:"temperature_limit",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]}]};
-let saved,revision,calls,failNext,receipt,activePath;
+let saved,revision,calls,failNext,receipt,activePath,rejectPendingSave,withSibling=false;
 const configuration=()=>({revision:String(revision),settings:copy(saved)});
 const policy=id=>saved.monitoring_policies.find(item=>item.id===id);
 const exclusion=(id,source)=>policy(id).excluded_sources?.includes(source);
@@ -22,6 +22,14 @@ function inventory() {
   data.inventory.nodes=[...copy(candidates),...entities.filter(item=>!exclusion("entities",item.node_id)).map(item=>({...item,node_id:`monitoring:entities:${item.node_id}`,monitoring_source:item.node_id,monitoring_policy:"entities",watched:true})),
     ...(selected.length?[{...device,node_id:`monitoring:devices:${DEVICE_ID}`,monitoring_source:DEVICE_ID,monitoring_policy:"devices",watched:true,availability_entities:selected.map(item=>item.entity_id)}]:[])];
   data.inventory.episodes=exclusion("entities",ENTITY_ID)?[]:[{episode_id:"shared",anchor:"entry:lyric",recorded:["entry:lyric",`monitoring:entities:${ENTITY_ID}`],reasons:[{node_id:`monitoring:entities:${ENTITY_ID}`,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT}];
+  if(withSibling) {
+    const source={...copy(entities[0]),node_id:"entity:unrelated",entity_id:"sensor.unrelated_reading",name:"Other unavailable reading"};
+    const check={...source,node_id:"monitoring:entities:entity:unrelated",monitoring_source:source.node_id,monitoring_policy:"entities",watched:true};
+    const finding={node_id:check.node_id,message:"Other reading is unavailable",status:"warn",reason:"unavailable"};
+    data.inventory.catalog.candidates.push(source);data.inventory.nodes.push(source,check);
+    data.inventory.entity_status={...data.inventory.entity_status,[check.node_id]:{current:finding}};
+    data.inventory.episodes.push({episode_id:"unrelated",anchor:check.node_id,recorded:[check.node_id],reasons:[finding],opened_at:UPDATED_AT});
+  }
   return data;
 }
 function detail(id) {
@@ -36,7 +44,7 @@ card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},states:Obj
   if(request.type==="homeostatic/source")return detail(request.node_id);
   if(request.type==="homeostatic/node")return {source:inventory().inventory.nodes.find(item=>item.node_id===request.node_id),explanation:{findings:inventory().inventory.episodes[0]?.reasons||[]},readiness:{answer:"blocked",nodes:[]},impact:{nodes:[]},integration_evidence:{current:{status:"pass",reason:"loaded"}}};
   if(request.type==="homeostatic/save_settings") {
-    if(failNext){const error=failNext;failNext=null;if(error.applied){saved=copy(request.settings);revision++;card.current={status:"current",data:inventory()};}throw error;}
+    if(failNext){const error=failNext;failNext=null;if(error.deferred)await new Promise((_,reject)=>{rejectPendingSave=()=>reject(error);});if(error.applied){saved=copy(request.settings);revision++;card.current={status:"current",data:inventory()};}throw error;}
     if(request.revision!==String(revision))throw {code:"stale_configuration",message:"Saved settings changed"};
     saved=copy(request.settings);revision++;card.current={status:"current",data:inventory()};return {saved:true};
   }
@@ -55,10 +63,20 @@ function click(selector) {
 }
 function disclose(selector) {const target=root.querySelector(selector);check(target,`Missing ${selector}`);if(!target.open)click(`${selector} > summary`);}
 function choose(id) {card.sourcesSelection=`source:${id}`;card.sourcesMobileDetail=true;card.sourceDetail=detail(id);card.render();}
-function reset() {
-  saved=copy(initial);revision=1;calls=[];failNext=null;
-  Object.assign(card,{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,availabilityPlan:null,issueAvailabilityPlan:null,availabilitySelected:null,availabilityError:null,availabilityContext:null,sourcesExcludedOnly:false,sourcesQuery:"",sourcesExpanded:new Set(base.sourcesExpanded),current:{status:"current",data:inventory()},page:"sources"});
+function reset(includeSibling=false) {
+  if(card.dialog.open)card.dialog.close();
+  saved=copy(initial);revision=1;calls=[];failNext=null;rejectPendingSave=null;withSibling=includeSibling;
+  delete card._hass.states["sensor.unrelated_reading"];
+  if(withSibling)card._hass.states["sensor.unrelated_reading"]={state:"unavailable",attributes:{}};
+  Object.assign(card,{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,availabilityPlan:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null,detail:null,issueGroupsExpanded:new Set(),issueGroupLimits:new Map(),availabilitySelected:null,availabilityError:null,availabilityContext:null,sourcesExcludedOnly:false,sourcesQuery:"",sourcesExpanded:new Set(base.sourcesExpanded),current:{status:"current",data:inventory()},page:"sources"});
   initializeScopedConfiguration(card);choose(ENTITY_ID);
+}
+async function openIssueReview() {
+  reset(true);card.page="issues";card.render();await settle();
+  click('[data-issue-group]');await settle();
+  click('[data-episode="shared"]');await settle();
+  check(card.dialog.open&&card.detail.episodeId==="shared","The actual issue row opens its own removal review");
+  click('.dialog-body [data-issue-availability="remove"][data-issue-id="shared"]');
 }
 function report() {document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);parent.postMessage({type:"homeostatic-acceptance",fixture:"source-actions.html",receipt},location.origin);}
 function pass(id,evidence) {recordResult(receipt,id,"pass",evidence);report();}
@@ -74,22 +92,61 @@ document.querySelector("#run").onclick=async()=>{
   result.textContent="Running source action checks…";
   receipt=emptyReceipt({fixture:"source-actions.html",browser:navigator.userAgent,build:"working tree",transport:"synthetic settings and source replies; no live calls"});
   try {
-    start("issues.availability-batch");reset();card.page="issues";card.render();await settle();
-    click('[data-issue-availability="remove"]');
-    check(root.activeElement?.dataset.issueAvailability==="confirm","Bulk confirmation receives focus");
-    check(!root.querySelector('.source-availability-confirm details').open,"Entity and policy details start collapsed");
-    click('[data-issue-availability="cancel"]');check(saves().length===0,"Bulk cancel does not save");
-    click('[data-issue-availability="remove"]');click('[data-issue-availability="confirm"]');await settle();
-    check(saves().length===1&&exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID),"Issues action removes both availability contributions in one save");
-    check(!exclusion("entities",entities[1].node_id)&&!exclusion("devices",entities[2].node_id),"Unknown and off siblings remain monitored");
-    check(!root.querySelector('[data-issue-group]')&&!root.querySelector('[data-issue-availability="undo"]'),"Saved removal finishes without Undo after the group disappears");
-    check(!root.querySelector(".issue-monitoring-feedback")&&!root.textContent.includes("Changes saved."),"The completed change leaves no persistent success message");
+    start("issues.availability-batch");reset(true);card.page="issues";card.render();await settle();
+    check(!root.querySelector('.issue-group [data-issue-availability],.issue-group .issue-availability,.issue-monitoring-feedback'),"Collapsed queue has no removal control, count or review");
+    click('[data-issue-group]');await settle();
+    check(!root.querySelector('.issue-group [data-issue-availability],.issue-group .issue-availability,.issue-monitoring-feedback'),"Expanded queue has no removal control, count or review");
+    check(root.querySelector('[data-episode="shared"]')&&root.querySelector('[data-episode="unrelated"]'),"The same integration contains another unavailable issue");
+    click('[data-episode="shared"]');await settle();
+    check(card.dialog.open&&card.detail.episodeId==="shared","The actual issue row opens the exact current issue");
+    check(root.querySelector('.dialog-body .issue-availability')?.dataset.issueAvailabilityOwner==="shared","Removal belongs to the opened issue dialog");
+    click('.dialog-body [data-issue-availability="remove"][data-issue-id="shared"]');await settle();
+    check(root.activeElement?.dataset.issueAvailability==="confirm","Issue confirmation receives focus");
+    check(!root.querySelector('.dialog-body .source-availability-confirm details').open,"Entity and policy details start collapsed");
+    check(card.issueAvailabilityEpisode==="shared"&&card.issueAvailabilityPlan.sourceIds.join(",")===ENTITY_ID,"Review includes only this issue's unavailable entity");
+    click('.dialog-body [data-issue-availability="cancel"][data-issue-id="shared"]');
+    check(saves().length===0&&card.dialog.open&&!card.issueAvailabilityPlan,"Cancel keeps the issue open without saving");
+    click('.dialog-body [data-issue-availability="remove"][data-issue-id="shared"]');
+    click('.dialog-body [data-issue-availability="confirm"][data-issue-id="shared"]');await settle();
+    check(saves().length===1&&exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID),"Issue action removes both availability contributions in one save");
+    check(!exclusion("entities",entities[1].node_id)&&!exclusion("devices",entities[2].node_id)&&!exclusion("entities","entity:unrelated")&&!exclusion("devices","entity:unrelated"),"Unknown, off and unrelated unavailable siblings remain monitored");
+    check(!card.dialog.open&&!card.detail&&!card.issueAvailabilityPlan,"Saved removal closes the exact issue and clears its review");
+    check(!root.querySelector('[data-episode="shared"]')&&root.querySelector('[data-episode="unrelated"]'),"Only the removed issue disappears from this integration");
+    check(!card.main.querySelector('[data-issue-availability],.issue-monitoring-feedback')&&!card.main.textContent.includes("Changes saved."),"The completed change leaves no queue feedback or Undo");
     click('.nav [data-page="history"]');await settle();
     check(root.querySelector('h1').textContent==="History"&&!root.querySelector('.workspace-tabs'),"History opens its own page");
     check(root.querySelector('.nav [aria-current="page"]').dataset.page==="history","History is the selected top-level tab");
     click('.nav [data-page="problems"]');await settle();
-    check(exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID)&&saves().length===1,"Navigation preserves the completed policy save");
-    pass(activePath,"Actual group action, short confirmation, collapsed Details, Cancel, one saved entity/device exclusion change and no Undo after the group disappears; top-level History and Issues navigation preserve the save. Unknown/off siblings and notification settings preserved.");
+    check(exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID)&&saves().length===1&&saved.notifications===false,"Navigation preserves the completed policy save and notification setting");
+    await openIssueReview();card.current.data.catalog_revision="changed-issue-catalog";
+    click('.dialog-body [data-issue-availability="confirm"][data-issue-id="shared"]');await settle();
+    check(saves().length===0&&JSON.stringify(saved)===JSON.stringify(initial),"A stale issue review never saves monitoring");
+    check(card.dialog.open&&card.detail.episodeId==="shared"&&!card.issueAvailabilityPlan&&root.querySelector('.dialog-body [role="alert"]').textContent.includes("changed"),"Changed catalog feedback stays inside this issue and requires a fresh review");
+    click('.dialog-body [data-issue-availability="remove"][data-issue-id="shared"]');
+    check(card.issueAvailabilityPlan.catalogRevision==="changed-issue-catalog","Reopening reviews the current catalog");
+    click('.dialog-body [data-issue-availability="cancel"][data-issue-id="shared"]');check(saves().length===0,"Cancelling the refreshed issue review still does not save");
+
+    await openIssueReview();const failedIssuePlan=card.issueAvailabilityPlan;failNext={code:"invalid_settings",message:"Synthetic issue save rejection"};
+    click('.dialog-body [data-issue-availability="confirm"][data-issue-id="shared"]');await settle();
+    check(saves().length===1&&JSON.stringify(saved)===JSON.stringify(initial),"Rejected issue save leaves monitoring unchanged");
+    check(card.dialog.open&&card.detail.episodeId==="shared"&&card.issueAvailabilityPlan===failedIssuePlan&&root.querySelector('.dialog-body [role="alert"]').textContent.includes("Synthetic issue save rejection"),"Failed save keeps the exact review and error in its issue dialog");
+    await frame();check(saves().length===1,"A failed issue save never retries automatically");
+    click('.dialog-body [data-issue-availability="confirm"][data-issue-id="shared"]');await settle();
+    check(saves().length===2&&exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID)&&!exclusion("entities","entity:unrelated")&&!card.dialog.open,"Only explicit confirmation retries the exact issue save and then closes quietly");
+
+    await openIssueReview();failNext={code:"invalid_settings",message:"Synthetic late issue failure",deferred:true};
+    click('.dialog-body [data-issue-availability="confirm"][data-issue-id="shared"]');await frame();
+    check(saves().length===1&&card.settingsBusy&&typeof rejectPendingSave==="function","The issue save remains explicitly pending");
+    click('[data-action="close"]');await frame();
+    check(!card.dialog.open&&!card.issueAvailabilityPlan&&!card.issueAvailabilityEpisode,"Close discards the pending dialog's review");
+    click('[data-episode="unrelated"]');await frame();
+    check(card.dialog.open&&card.detail.episodeId==="unrelated","Another actual issue row can open while the previous save finishes");
+    const reject=rejectPendingSave;rejectPendingSave=null;reject();await settle();
+    check(saves().length===1&&JSON.stringify(saved)===JSON.stringify(initial),"A late rejected save never applies or retries");
+    check(card.dialog.open&&card.detail.episodeId==="unrelated"&&!card.issueAvailabilityPlan&&!card.issueAvailabilityEpisode&&!card.dialog.textContent.includes("Synthetic late issue failure"),"Late failure neither replaces nor adds an error to the new issue dialog");
+    check(!card.main.querySelector('.issue-monitoring-feedback')&&!card.main.textContent.includes("Synthetic late issue failure"),"Late issue failure never becomes queue feedback");
+    click('[data-action="close"]');await frame();
+    pass(activePath,"Collapsed and expanded queues have no removal action or count. An actual shared-issue row opens its own review; Cancel keeps the dialog open, confirmation saves exactly its entity across both availability policies, then closes quietly. Unknown/off and unrelated unavailable siblings remain monitored; History navigation preserves the save and notifications stay off. Stale issue catalogs block writes and require a fresh review; rejected saves remain in the exact dialog and retry only after explicit confirmation. Closing a pending review and opening another issue isolates a late failure without a retry or leaked feedback.");
 
     reset();await settle();
     start("sources.availability");

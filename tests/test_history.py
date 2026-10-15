@@ -13,6 +13,7 @@ from health_tree.types import Episode, EpisodeResolved, Finding, Importance, Sta
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
@@ -23,7 +24,11 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.homeostatic.catalog import Source
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.history import MAX_AGE, MAX_EPISODES, ResolvedHistory
-from tests.policy_helpers import availability_policies
+from tests.policy_helpers import (
+    availability_policies,
+    bound_identity,
+    monitoring_policy,
+)
 from tests.test_controls import NODE, action
 from tests.test_lifecycle import start_monitor
 
@@ -136,6 +141,118 @@ async def test_removal_during_reload_is_not_recovery(
     await hass.async_block_till_done()
     assert (await action(hass, "resolved_history", {}))["episodes"] == [row]
     assert await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+@pytest.mark.parametrize("recover_first", [True, False], ids=["cleared", "removed"])
+async def test_recorded_parent_survives_child_removal_and_reload(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    recover_first: bool,
+) -> None:
+    """History keeps observed ownership after a child is renamed or removed."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    devices = dr.async_get(hass)
+    original = devices.async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "original")}
+    )
+    replacement = devices.async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "replacement")}
+    )
+    registry = er.async_get(hass)
+    child = registry.async_get_or_create(
+        "sensor",
+        "test",
+        "child",
+        config_entry=owner,
+        device_id=original.id,
+        original_name="Original child",
+    )
+    policy = monitoring_policy("entities", {"kind": ["entity"]})
+    config_data.update(monitoring_policies=[policy], notifications=False)
+    hass.states.async_set(
+        child.entity_id, "unavailable", {"friendly_name": "Original child"}
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    episode_id = next(iter(runtime.episodes))
+    canonical = f"entity:registry:{child.id}"
+    anchor = bound_identity(policy, canonical)
+    if recover_first:
+        hass.states.async_set(child.entity_id, "42")
+        await hass.async_block_till_done()
+        registry.async_update_entity(
+            child.entity_id, name="Renamed child", device_id=replacement.id
+        )
+        await hass.async_block_till_done()
+    hass.states.async_remove(child.entity_id)
+    registry.async_remove(child.entity_id)
+    await hass.async_block_till_done()
+    history = await action(hass, "resolved_history", {})
+    [row] = history["episodes"]
+    assert row["episode"]["episode_id"] == episode_id
+    assert row["resolution"] == ("cleared" if recover_first else "removed")
+    assert row["source"] == {
+        "node_id": anchor,
+        "name": "Original child · entities",
+        "kind": "entity",
+        "owner_id": owner.entry_id,
+        "monitoring_source": canonical,
+        "attributes": {"integration": [owner.entry_id], "device": [original.id]},
+    }
+    inventory = await action(hass, "inventory", {})
+    assert not any(
+        item["node_id"] in {canonical, anchor}
+        for item in (*inventory["nodes"], *inventory["catalog"]["candidates"])
+    )
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert (await action(hass, "resolved_history", {})) == history
+    row["source"]["attributes"]["device"].clear()
+    assert (await action(hass, "resolved_history", {}))["episodes"][0]["source"][
+        "attributes"
+    ]["device"] == [original.id]
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_bulk_removal_retains_context_at_history_limit(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """A removal larger than retention records each remaining source just once."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    registry = er.async_get(hass)
+    children = [
+        registry.async_get_or_create(
+            "sensor", "test", f"child_{index}", config_entry=owner
+        )
+        for index in range(MAX_EPISODES + 1)
+    ]
+    for child in children:
+        hass.states.async_set(child.entity_id, "unavailable")
+    config_data.update(
+        monitoring_policies=[monitoring_policy("entities", {"kind": ["entity"]})],
+        notifications=False,
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    assert len(runtime.episodes) == MAX_EPISODES + 1
+    for child in children:
+        hass.states.async_remove(child.entity_id)
+        registry.async_remove(child.entity_id)
+    await hass.async_block_till_done()
+    records = (await action(hass, "resolved_history", {}))["episodes"]
+    assert len(records) == MAX_EPISODES
+    assert {row["resolution"] for row in records} == {"removed"}
+    assert all(row["source"]["owner_id"] == owner.entry_id for row in records)
+    assert {row["source"]["monitoring_source"] for row in records} <= {
+        f"entity:registry:{child.id}" for child in children
+    }
+    assert not runtime.episodes
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert (await action(hass, "resolved_history", {}))["episodes"] == records
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_absorption_links_to_still_open_episode(
@@ -263,6 +380,15 @@ async def test_failed_resolution_save_preserves_last_durable_snapshot(
         pytest.param(
             ("episodes", 0, "source", "node_id"), "unrelated", id="source-identity"
         ),
+        pytest.param(("episodes", 0, "source", "owner_id"), [], id="source-owner"),
+        pytest.param(
+            ("episodes", 0, "source", "monitoring_source"), 1, id="source-alias"
+        ),
+        pytest.param(
+            ("episodes", 0, "source", "attributes"),
+            {"device": "not-a-list"},
+            id="source-device-membership",
+        ),
         pytest.param(("episodes", 0, "episode", "reasons"), "bad", id="findings-shape"),
     ],
 )
@@ -325,6 +451,24 @@ def test_replay_and_group_record_restore() -> None:
     restored = ResolvedHistory()
     restored.restore(history.snapshot())
     assert restored.view(T0) == history.view(T0)
+
+
+def test_older_history_keeps_missing_ownership_without_inventing_it() -> None:
+    """Existing history loads unchanged without reconstructing absent parents."""
+    history = ResolvedHistory()
+    history.record(terminal(), Source(node_id=NODE, name="Old name", kind="entity"), T0)
+    saved = history.snapshot()
+    source = saved["episodes"][0]["source"]
+    for key in ("owner_id", "monitoring_source", "attributes"):
+        source.pop(key)
+    restored = ResolvedHistory()
+    restored.restore(saved)
+    assert restored.snapshot() == saved
+    assert restored.view(T0)["episodes"][0]["source"] == {
+        "node_id": NODE,
+        "name": "Old name",
+        "kind": "entity",
+    }
 
 
 def test_duplicate_stored_identity_is_invalid() -> None:

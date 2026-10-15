@@ -1,7 +1,6 @@
-import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=82";
+import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=83";
 
-import {deviceEntityName} from "./device-availability.mjs?v=82";
-import {issueAvailabilityAction, issueAvailabilityFeedback} from "./issue-monitoring.mjs?v=82";
+import {deviceEntityName} from "./device-availability.mjs?v=83";
 
 const count = (value, singular, plural = `${singular}s`) => `${value} ${value === 1 ? singular : plural}`;
 const sourceId = source => source?.monitoring_source || source?.node_id;
@@ -105,7 +104,6 @@ function ordered(episodes, sort, nodes) {
 
 /** Render one entry per issue, with evidence available in its details. */
 export function issuesWorkspace(card) {
-  card.issueAvailabilityGroups=new Map();
   const data = card.current.data, nodes = inventoryMap(data), groups = issueGroups(data,key => card._hass?.localize?.(key));
   const devices = new Map((data.devices || []).map(device=>[device.id,device]));
   const query = (card.issueQuery || "").trim().toLocaleLowerCase(), expanded = card.issueGroupsExpanded || new Set(), sort = card.issueSort || "newest";
@@ -132,13 +130,13 @@ export function issuesWorkspace(card) {
     const affectedDevices=new Set(),standaloneEntities=new Set();
     for(const episode of episodes)for(const id of episodeSourceIds(episode)){const source=nodes.get(id),canonical=nodes.get(source?.monitoring_source)||source,ids=canonical?.attributes?.device||source?.attributes?.device||[];if(source?.entity_id&&!ids.length)standaloneEntities.add(source.entity_id);for(const device of ids)affectedDevices.add(device);}
     const scope = [affectedDevices.size ? count(affectedDevices.size,"affected device") : "",standaloneEntities.size ? count(standaloneEntities.size,"entity without a device","entities without a device") : ""].filter(Boolean).join(" · ");
-    return `<section class="issue-group panel" data-ui-key="group:${esc(group.key)}"><h2><button type="button" class="issue-group-toggle" data-issue-group="${esc(group.key)}" aria-expanded="${Boolean(open)}"><span>${esc(group.name)}</span><span class="issue-group-meta">${scope ? `<span class="small">${esc(scope)}</span>` : ""}<span class="issue-count">${esc(count(episodes.length,"issue"))}</span></span></button></h2>${open ? `<div class="issue-group-body">${findings}${episodes.length > shownCount ? `<div class="body"><button type="button" class="button" data-issue-more="${esc(group.key)}">Show more issues</button><span class="small">Showing ${shownCount} of ${episodes.length}</span></div>` : ""}</div>` : ""}${issueAvailabilityAction(card,group)}</section>`;
+    return `<section class="issue-group panel" data-ui-key="group:${esc(group.key)}"><h2><button type="button" class="issue-group-toggle" data-issue-group="${esc(group.key)}" aria-expanded="${Boolean(open)}"><span>${esc(group.name)}</span><span class="issue-group-meta">${scope ? `<span class="small">${esc(scope)}</span>` : ""}<span class="issue-count">${esc(count(episodes.length,"issue"))}</span></span></button></h2>${open ? `<div class="issue-group-body">${findings}${episodes.length > shownCount ? `<div class="body"><button type="button" class="button" data-issue-more="${esc(group.key)}">Show more issues</button><span class="small">Showing ${shownCount} of ${episodes.length}</span></div>` : ""}</div>` : ""}</section>`;
   }).join("");
   const visibleIds=new Set(groups.flatMap(group=>group.episodes.map(episode=>episode.episode_id)));
   const hidden = data.inventory.episodes.filter(episode=>!visibleIds.has(episode.episode_id));
   const monitored = data.inventory.nodes.filter(source => source.watched).length;
   const empty = query ? `<h2>No matching issues</h2><p>Try another source name, entity ID or reported condition.</p><button type="button" class="link" data-action="clear-issue-search">Clear search</button>` : hidden.length ? `<h2>No current issues</h2><p>Monitoring shows current status and any pending recovery confirmation.</p><button type="button" class="link" data-page="sources">View monitoring</button>` : `<h2>${monitored ? "No open issues" : data.catalog_loaded === false ? "No open issues reported" : "Nothing is monitored"}</h2><p>${monitored ? "No open problems are reported by the current monitoring." : data.catalog_loaded === false ? "Open Policies to inspect the configured monitoring scope." : "Choose a monitoring policy to start checking sources."}</p><button type="button" class="link" data-page="policies">View policies</button>`;
-  return `<div class="intro"><div><h1>Open issues</h1><p class="page-description">Problems that need attention.</p></div></div>${issueAvailabilityFeedback(card)}<div class="issues-toolbar"><label><span>Find an issue</span><input type="search" data-issue-search value="${esc(card.issueQuery || "")}" placeholder="Find an issue"></label><label><span>Sort issues</span><select data-issue-sort>${[["newest","Newest first"],["oldest","Longest open"],["name","Source name"],["importance","Importance"]].map(([value,label]) => `<option value="${value}"${sort === value ? " selected" : ""}>${label}</option>`).join("")}</select></label></div><p class="small">${query ? `${visible} of ${total} issues match` : `${count(total,"open issue")}`}</p>${rows || `<section class="panel body">${empty}</section>`}`;
+  return `<div class="intro"><div><h1>Open issues</h1><p class="page-description">Problems that need attention.</p></div></div><div class="issues-toolbar"><label><span>Find an issue</span><input type="search" data-issue-search value="${esc(card.issueQuery || "")}" placeholder="Find an issue"></label><label><span>Sort issues</span><select data-issue-sort>${[["newest","Newest first"],["oldest","Longest open"],["name","Source name"],["importance","Importance"]].map(([value,label]) => `<option value="${value}"${sort === value ? " selected" : ""}>${label}</option>`).join("")}</select></label></div><p class="small">${query ? `${visible} of ${total} issues match` : `${count(total,"open issue")}`}</p>${rows || `<section class="panel body">${empty}</section>`}`;
 }
 
 

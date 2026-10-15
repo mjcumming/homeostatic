@@ -1,0 +1,780 @@
+{
+  "candidate": {
+    "branch": "main",
+    "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+    "dirty": true,
+    "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+    "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+    "frozen_at": "2026-10-15T23:49:26.389Z"
+  },
+  "runs": [
+    {
+      "run": "desktop-issues",
+      "environment": {
+        "group": "issues",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 31,
+        "fail": 0,
+        "untested": 43
+      },
+      "raw_cases": {
+        "pass": 31,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:49:40.486Z",
+      "finished_at": "2026-10-15T23:51:25.119Z",
+      "report": "../../../build/release-1.8.0/sweep-final/desktop-issues/report.json"
+    },
+    {
+      "run": "desktop-layout",
+      "environment": {
+        "group": "layout",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 4,
+        "fail": 1,
+        "untested": 62
+      },
+      "raw_cases": {
+        "pass": 4,
+        "fail": 1,
+        "untested": 0
+      },
+      "failed_paths": [
+        "updates.retention"
+      ],
+      "diagnostics": [
+        "Unhandled rejection (updates.retention): not_found Subscription not found.",
+        "Browser: Object"
+      ],
+      "unhandled_rejections": [
+        {
+          "code": "not_found",
+          "message": "Subscription not found.",
+          "case": "updates.retention",
+          "at": "2026-10-15T23:55:41.467Z"
+        }
+      ],
+      "started_at": "2026-10-15T23:55:30.855Z",
+      "finished_at": "2026-10-15T23:56:05.444Z",
+      "report": "../../../build/release-1.8.0/sweep-final/desktop-layout/report.json"
+    },
+    {
+      "run": "desktop-notifications",
+      "environment": {
+        "group": "notifications",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 42,
+        "fail": 0,
+        "untested": 44
+      },
+      "raw_cases": {
+        "pass": 49,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:53:35.750Z",
+      "finished_at": "2026-10-15T23:55:16.798Z",
+      "report": "../../../build/release-1.8.0/sweep-final/desktop-notifications/report.json"
+    },
+    {
+      "run": "desktop-policies",
+      "environment": {
+        "group": "policies",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 33,
+        "fail": 0,
+        "untested": 53
+      },
+      "raw_cases": {
+        "pass": 33,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:51:43.897Z",
+      "finished_at": "2026-10-15T23:53:17.730Z",
+      "report": "../../../build/release-1.8.0/sweep-final/desktop-policies/report.json"
+    },
+    {
+      "run": "fixtures-desktop",
+      "environment": {
+        "group": "all",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "fixtures",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 63,
+        "fail": 0,
+        "untested": 4
+      },
+      "live": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "raw_cases": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:49:57.209Z",
+      "finished_at": "2026-10-15T23:50:05.790Z",
+      "report": "../../../build/release-1.8.0/sweep-final/fixtures-desktop/report.json"
+    },
+    {
+      "run": "fixtures-narrow",
+      "environment": {
+        "group": "all",
+        "viewport": {
+          "width": 320,
+          "height": 844
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "fixtures",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 63,
+        "fail": 0,
+        "untested": 4
+      },
+      "live": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "raw_cases": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:50:15.570Z",
+      "finished_at": "2026-10-15T23:50:24.325Z",
+      "report": "../../../build/release-1.8.0/sweep-final/fixtures-narrow/report.json"
+    },
+    {
+      "run": "fixtures-phone",
+      "environment": {
+        "group": "all",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "browser": "chromium",
+        "mode": "fixtures",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 63,
+        "fail": 0,
+        "untested": 4
+      },
+      "live": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "raw_cases": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:50:06.376Z",
+      "finished_at": "2026-10-15T23:50:14.962Z",
+      "report": "../../../build/release-1.8.0/sweep-final/fixtures-phone/report.json"
+    },
+    {
+      "run": "narrow-issues",
+      "environment": {
+        "group": "issues",
+        "viewport": {
+          "width": 320,
+          "height": 844
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 31,
+        "fail": 0,
+        "untested": 43
+      },
+      "raw_cases": {
+        "pass": 31,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:49:58.087Z",
+      "finished_at": "2026-10-15T23:51:40.870Z",
+      "report": "../../../build/release-1.8.0/sweep-final/narrow-issues/report.json"
+    },
+    {
+      "run": "narrow-layout",
+      "environment": {
+        "group": "layout",
+        "viewport": {
+          "width": 320,
+          "height": 844
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 4,
+        "fail": 1,
+        "untested": 62
+      },
+      "raw_cases": {
+        "pass": 4,
+        "fail": 1,
+        "untested": 0
+      },
+      "failed_paths": [
+        "updates.retention"
+      ],
+      "diagnostics": [
+        "Unhandled rejection (updates.retention): not_found Subscription not found.",
+        "Browser: Object"
+      ],
+      "unhandled_rejections": [
+        {
+          "code": "not_found",
+          "message": "Subscription not found.",
+          "case": "updates.retention",
+          "at": "2026-10-15T23:55:42.454Z"
+        }
+      ],
+      "started_at": "2026-10-15T23:55:31.950Z",
+      "finished_at": "2026-10-15T23:56:06.155Z",
+      "report": "../../../build/release-1.8.0/sweep-final/narrow-layout/report.json"
+    },
+    {
+      "run": "narrow-notifications",
+      "environment": {
+        "group": "notifications",
+        "viewport": {
+          "width": 320,
+          "height": 844
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 42,
+        "fail": 0,
+        "untested": 44
+      },
+      "raw_cases": {
+        "pass": 49,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:53:39.585Z",
+      "finished_at": "2026-10-15T23:55:20.411Z",
+      "report": "../../../build/release-1.8.0/sweep-final/narrow-notifications/report.json"
+    },
+    {
+      "run": "narrow-policies",
+      "environment": {
+        "group": "policies",
+        "viewport": {
+          "width": 320,
+          "height": 844
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 33,
+        "fail": 0,
+        "untested": 53
+      },
+      "raw_cases": {
+        "pass": 33,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:51:52.903Z",
+      "finished_at": "2026-10-15T23:53:25.949Z",
+      "report": "../../../build/release-1.8.0/sweep-final/narrow-policies/report.json"
+    },
+    {
+      "run": "phone-issues",
+      "environment": {
+        "group": "issues",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 31,
+        "fail": 0,
+        "untested": 43
+      },
+      "raw_cases": {
+        "pass": 31,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:49:59.438Z",
+      "finished_at": "2026-10-15T23:51:44.784Z",
+      "report": "../../../build/release-1.8.0/sweep-final/phone-issues/report.json"
+    },
+    {
+      "run": "phone-layout",
+      "environment": {
+        "group": "layout",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 4,
+        "fail": 1,
+        "untested": 62
+      },
+      "raw_cases": {
+        "pass": 4,
+        "fail": 1,
+        "untested": 0
+      },
+      "failed_paths": [
+        "updates.retention"
+      ],
+      "diagnostics": [
+        "Unhandled rejection (updates.retention): not_found Subscription not found.",
+        "Browser: Object"
+      ],
+      "unhandled_rejections": [
+        {
+          "code": "not_found",
+          "message": "Subscription not found.",
+          "case": "updates.retention",
+          "at": "2026-10-15T23:55:49.585Z"
+        }
+      ],
+      "started_at": "2026-10-15T23:55:38.153Z",
+      "finished_at": "2026-10-15T23:56:13.061Z",
+      "report": "../../../build/release-1.8.0/sweep-final/phone-layout/report.json"
+    },
+    {
+      "run": "phone-notifications",
+      "environment": {
+        "group": "notifications",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 42,
+        "fail": 0,
+        "untested": 44
+      },
+      "raw_cases": {
+        "pass": 49,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:53:42.433Z",
+      "finished_at": "2026-10-15T23:55:24.457Z",
+      "report": "../../../build/release-1.8.0/sweep-final/phone-notifications/report.json"
+    },
+    {
+      "run": "phone-policies",
+      "environment": {
+        "group": "policies",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.7.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "2cc33ab69ff4ef3434cd58af35605a20b215d3de",
+        "dirty": true,
+        "component_sha256": "f6b3d6121c09c58ea0b9982778ff420a8af0e100ed9fdae650fdd948dc569612",
+        "fixture_sha256": "7ba46bdad6d698f9bfc4938403b3285e978edf3428d7be9361e4653bb9ec232a",
+        "frozen_at": "2026-10-15T23:49:26.389Z"
+      },
+      "fixtures": {
+        "pass": 0,
+        "fail": 0,
+        "untested": 67
+      },
+      "live": {
+        "pass": 33,
+        "fail": 0,
+        "untested": 53
+      },
+      "raw_cases": {
+        "pass": 33,
+        "fail": 0,
+        "untested": 0
+      },
+      "failed_paths": [],
+      "diagnostics": [],
+      "unhandled_rejections": [],
+      "started_at": "2026-10-15T23:51:56.732Z",
+      "finished_at": "2026-10-15T23:53:30.087Z",
+      "report": "../../../build/release-1.8.0/sweep-final/phone-policies/report.json"
+    }
+  ],
+  "total_runs": 15,
+  "raw_live_cases": {
+    "pass": 351,
+    "fail": 3,
+    "untested": 0
+  }
+}

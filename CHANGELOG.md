@@ -2,9 +2,22 @@
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-15
+
+### Upgrade notes
+
+- Publish the unified-policy interface as a stable release. Existing unified-policy settings, Custom notification assignments and disabled sending remain unchanged. The retired pre-policy configuration used by 1.7.x requires a backup and fresh setup; it is not automatically converted or erased.
+- Newly recorded history includes original source ownership. Existing history loads unchanged, but rolling back to an older build after new records are written requires restoring the matching backup.
+
 ### Fixed
 
-- Keep Open issues removal actions usable after the first click. Bring confirmation into view, retain it when returning from a source, and allow cancellation or a fresh review without saving.
+- Retain unfinished editor drafts when leaving Homeostatic and returning in the same browser tab, including completion of an already pending save without sending it twice. Separate users and browser reloads start a new draft session.
+- Keep removed sources in their recorded parent's history, preserving original names and ownership across later registry changes and reloads. Older records without that metadata retain their existing limited association.
+- Wrap navigation tabs when the available width or enlarged text requires another row. Keep the complete Summary time control readable by allowing its timezone label to wrap.
+- Restore availability-removal feedback after reconnecting when the opened issue has already ended, with confirmation disabled and cancellation still available.
+- Let embedded dashboard cards load again after their connection or permissions change, clearing stale editing state and ignoring obsolete pending responses.
+
+- Keep availability removal inside an opened issue, with confirmation scoped to its current unavailable entities. Remove the separate count and action footer from integration groups; closing the issue discards an unsaved review.
 
 - Group Open issues by registry device beneath every integration, with each device named once and its individual findings indented underneath. Preserve separate issue actions, standalone entities, shared integration findings, search and bounded pagination.
 
@@ -50,7 +63,7 @@
 
 - Order the Notifications list and notification pickers by saved delivery timing, with acknowledgment reminders first and scheduled summaries ordered by frequency and time.
 
-- Return to the matching Notifications list after saving a notification or delivery method, with a named confirmation beside its row. Keep failed saves and newer edits in the editor, simplify new-method headings, and keep test feedback tied to the method and saved destinations it tested.
+- Return quietly to the matching Notifications list after saving a notification or delivery method. Keep failed saves and newer edits in the editor, simplify new-method headings, and keep test feedback tied to the method and saved destinations it tested.
 
 - Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
 
@@ -68,7 +81,7 @@
 
 - Compact the destination picker on phones: left-aligned selectable rows, a separate speech-provider step, one Close control and one scrolling area. Keep editor header styles inside their own editor.
 
-- Remove unwanted availability monitoring directly from an Issues group in one batch, including matching issues beyond the visible page. Show a short count-based confirmation with entity and policy details collapsed, and report the saved policy change without retaining Undo.
+- Remove unwanted availability monitoring from opened issue details. Show a short count-based confirmation with entity and policy details collapsed, and finish the saved policy change without retaining Undo.
 - Simplify source removal wording and confirmation while preserving other checks and existing save safeguards.
 
 ## [1.8.0b7] - 2026-10-14

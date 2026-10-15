@@ -72,11 +72,12 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0066](0066-reusable-notifications-own-timing-and-delivery.md) | Reuse six named notifications with timing, delivery and explicit policy assignments | Accepted; method reload boundary superseded by 0067 |
 | [0067](0067-save-delivery-methods-in-place.md) | Save delivery methods in place while preserving routing and queued requests | Accepted |
 | [0068](0068-contextual-availability-monitoring-controls.md) | Act on availability monitoring from compact source details | Accepted; action wording and Issues workflow extended by 0069; source-detail disclosures superseded by 0071 |
-| [0069](0069-bulk-availability-removal-from-issues.md) | Remove unwanted availability monitoring from Issues | Accepted; extends 0068 |
+| [0069](0069-bulk-availability-removal-from-issues.md) | Remove unwanted availability monitoring from Issues | Accepted; extends 0068; group placement and scope superseded by 0074 |
 | [0070](0070-saved-monitoring-and-history-navigation.md) | Finish saved monitoring changes and restore History navigation | Accepted; supersedes History placement in 0061 and saved-action Undo in 0068/0069 |
 | [0071](0071-compact-monitoring-inspector.md) | Show monitoring coverage in a compact source inspector | Accepted; supersedes source-detail disclosures in 0068 |
 | [0072](0072-quiet-save-completion.md) | Complete saves without persistent success messages | Accepted; supersedes success feedback in 0061 and 0070 |
 | [0073](0073-entity-first-monitoring-details.md) | Keep entity details focused on the entity | Accepted; supersedes entity presentation in 0061/0068/0071, source-history placement in 0070 and availability wording in 0069 |
+| [0074](0074-availability-removal-inside-open-issues.md) | Review availability removal inside an opened issue | Accepted; supersedes group-wide action placement and scope in 0069 |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision. The [roadmap](../roadmap.md#current-work) owns implementation, validation and installation status; those states are not repeated in decision status fields. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 

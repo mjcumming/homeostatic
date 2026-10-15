@@ -68,7 +68,7 @@ if(!embedded) {
       check(queue.querySelectorAll('[data-episode]').length===1,"One row per actual issue");
       check(!queue.querySelector('[data-source-link],.issue-members'),"Queue has one route and no raw evidence list");
       check(!/View details|View in Sources|View in Monitoring|Recorded findings|Reporting off|Notifications off/.test(queue.innerText),"Queue avoids duplicate actions and reporting jargon");
-      if(variant==="phone")check(issue.querySelector('.issue-title').textContent==="Michael’s iPhone"&&issue.querySelector('.issue-condition').textContent==="10 entities unavailable","Phone queue names the affected device and condition");
+      if(variant==="phone")check(issue.closest('[data-issue-device]')?.querySelector('.issue-device-title')?.textContent==="Michael’s iPhone"&&issue.querySelector('.issue-title').textContent==="Related findings"&&issue.querySelector('.issue-condition').textContent==="10 entities unavailable","Phone queue names the device once above its findings and condition");
       issue.click();
       for(let turn=0;turn<12;turn++)await Promise.resolve();
     } else await card.loadDetail();

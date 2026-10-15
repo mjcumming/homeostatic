@@ -166,6 +166,7 @@ class Runtime:
         self._discovered = False
         self.episodes: dict[str, dict[str, JSONValue]] = {}
         self.history = ResolvedHistory()
+        self._resolved_sources: dict[str, Source] = {}
         self.integration_evidence = IntegrationEvidence()
         self.entity_evidence: dict[str, ReportedCondition] = {}
         self.controls: list[OperatorControl] = []
@@ -1625,6 +1626,18 @@ class Runtime:
                         if entity_id and entity_id != source.entity_id
                     ):
                         self._entity_sources.setdefault(entity_id, []).append(source)
+        # Retain the observed source until resolution handling, even when this
+        # reconciliation removes it from the current catalog.
+        self._resolved_sources = {
+            event.episode.episode_id: resolved_source
+            for event in events
+            if isinstance(event, EpisodeResolved)
+            and (
+                resolved_source := self.sources.get(event.episode.anchor)
+                or sources.get(event.episode.anchor)
+            )
+            is not None
+        }
         self.sources = sources
         self.ups_monitors = {
             key: value for key, value in self.ups_monitors.items() if key in sources
@@ -1987,7 +2000,14 @@ class Runtime:
             if isinstance(event, EpisodeOpened | EpisodeUpdated):
                 self.episodes[event.episode.episode_id] = json_object(event.episode)
             elif isinstance(event, EpisodeResolved):
-                self.history.record(event, self.sources.get(event.episode.anchor), now)
+                self.history.record(
+                    event,
+                    self._resolved_sources.pop(
+                        event.episode.episode_id,
+                        self.sources.get(event.episode.anchor),
+                    ),
+                    now,
+                )
                 self.episodes.pop(event.episode.episode_id, None)
             elif isinstance(event, ProbeRequested):
                 # Reconciliation has already read the available HA evidence. A

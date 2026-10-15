@@ -4,7 +4,7 @@ import {notificationSettings} from "./notification-profiles-fixture.mjs";
 import {initializeScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs";
 import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
 
-const card=document.querySelector("homeostatic-panel-v34"),root=card.shadowRoot,calls=[];
+const card=document.querySelector("homeostatic-panel-v35"),root=card.shadowRoot,calls=[];
 const copy=value=>structuredClone(value),families={esphome:"ESPHome",mqtt:"MQTT",eero:"eero"};
 const settings={...notificationSettings(),monitoring_policies:[
   {id:"devices",name:"Device availability",enabled:true,check:"availability",match:{kind:["device"]},parameters:{},notifications:[]},
@@ -68,7 +68,7 @@ function reset(expanded=true) {
   if(card.dialog.open)card.dialog.close();
   data=inventory();calls.length=0;
   card._hass.states=Object.fromEntries(data.inventory.catalog.candidates.filter(source=>source.entity_id).map(source=>[source.entity_id,{state:"unavailable",attributes:{}}]));
-  Object.assign(card,{current:{status:"current",data},configuration:configuration(),settingsDraft:copy(settings),scopedConfiguration:null,page:"problems",detail:null,issueQuery:"",issueSort:"newest",issueGroupsExpanded:new Set(expanded?["integration:esphome","integration:mqtt"]:[]),issueGroupLimits:new Map(),availabilityNotice:null,availabilityError:null,availabilityContext:null,issueAvailabilityPlan:null});
+  Object.assign(card,{current:{status:"current",data},configuration:configuration(),settingsDraft:copy(settings),scopedConfiguration:null,page:"problems",detail:null,issueQuery:"",issueSort:"newest",issueGroupsExpanded:new Set(expanded?["integration:esphome","integration:mqtt"]:[]),issueGroupLimits:new Map(),availabilityNotice:null,availabilityError:null,availabilityContext:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null});
   initializeScopedConfiguration(card);card.render();
 }
 document.querySelector("#dark").onchange=event=>{document.documentElement.dataset.theme=event.target.checked?"dark":"light";};
@@ -79,7 +79,9 @@ document.querySelector("#run").onclick=async()=>{
   try {
     reset(false);await settle();
     check(root.querySelectorAll(".issue-group").length===3&&!root.querySelector("[data-episode]"),"Integration groups start collapsed");
+    check(!card.main.querySelector("[data-issue-availability],.issue-availability,.issue-monitoring-feedback"),"Collapsed queue has no removal controls, counts or review");
     await click('[data-issue-group="integration:esphome"]');await click('[data-issue-group="integration:mqtt"]');
+    check(!card.main.querySelector("[data-issue-availability],.issue-availability,.issue-monitoring-feedback"),"Expanded queue has no removal controls, counts or review");
     const ball=find('[data-issue-device="ball"]');
     check(ball.querySelectorAll(".issue-device-title").length===1&&ball.querySelector("h3").textContent==="Xiaozhi Ball","Ball has one device heading");
     check(ids(ball).sort().join(",")==="ball-device,ball-player","Device and player findings remain individually reachable");
@@ -108,15 +110,37 @@ document.querySelector("#run").onclick=async()=>{
     check(find('[data-issue-group="integration:esphome"]').getAttribute("aria-expanded")==="true"&&root.querySelectorAll('[data-issue-device="ball"]').length===1,"Refresh retains expansion and a single heading");
     check(ids(group("eero")).length===45,"Refresh retains the expanded issue page");
     evidence.push("Parent-name search, three sort choices, 40-to-45 pagination and unchanged refresh retention.");
-    const availability=find(".issue-availability",group("esphome")),body=find(".issue-group-body",group("esphome"));
-    check(Boolean(body.compareDocumentPosition(availability)&Node.DOCUMENT_POSITION_FOLLOWING),"Bulk availability action follows the findings");
-    await click('[data-issue-availability="remove"][data-monitoring-group="integration:esphome"]');
-    check(card.issueAvailabilityPlan.sources.length===1&&card.issueAvailabilityPlan.sources[0].entityId==="media_player.ball_player","Removal review deduplicates the selected entity");
-    await click('[data-issue-availability="cancel"]');
-    check(!card.issueAvailabilityPlan&&JSON.stringify(card.configuration.settings)===JSON.stringify(settings),"Cancel leaves saved monitoring unchanged");
+    for(const [episodeId,entityIds] of [
+      ["ball-player",["media_player.ball_player"]],
+      ["ball-device",["media_player.ball_player"]],
+      ["laundry-temperature",["sensor.laundry_temperature"]],
+      ["laundry-device",["sensor.laundry_temperature","sensor.laundry_humidity"]],
+      ["mqtt-shared",["binary_sensor.twin_a_contact","binary_sensor.twin_b_contact"]],
+      ["standalone",["sensor.outdoor_feed"]],
+    ]) {
+      await click('[data-episode="'+episodeId+'"]');
+      check(card.dialog.open&&card.detail.episodeId===episodeId,"The rendered finding opens its original issue");
+      check(find(".issue-availability",card.dialog).dataset.issueAvailabilityOwner===episodeId,"Removal belongs to this opened issue");
+      await click('[data-issue-availability="remove"][data-issue-id="'+episodeId+'"]',card.dialog);
+      const selected=card.issueAvailabilityPlan.sources.map(source=>source.entityId).sort();
+      check(card.issueAvailabilityEpisode===episodeId&&selected.join(",")===entityIds.toSorted().join(","),"Review selects only the opened issue's current unavailable entities: "+episodeId);
+      check(!find(".source-availability-confirm details",card.dialog).open,"Exact entity and policy details start collapsed");
+      await click('[data-issue-availability="cancel"][data-issue-id="'+episodeId+'"]',card.dialog);
+      check(!card.issueAvailabilityPlan&&card.dialog.open,"Cancel preserves the opened issue without a pending review");
+      await click('[data-action="close"]',card.dialog);
+    }
+    await click('[data-episode="ball-player"]');
+    await click('[data-issue-availability="remove"][data-issue-id="ball-player"]',card.dialog);
+    await click('[data-action="close"]',card.dialog);
+    check(!card.issueAvailabilityPlan&&!card.issueAvailabilityEpisode,"Closing the dialog discards its unsaved review");
+    await click('[data-episode="laundry-temperature"]');
+    check(!card.issueAvailabilityPlan&&!card.dialog.querySelector('[data-issue-availability="confirm"]'),"Another issue starts without the previous review");
+    await click('[data-action="close"]',card.dialog);
+    check(JSON.stringify(card.configuration.settings)===JSON.stringify(settings),"Browsing and cancellation leave saved monitoring unchanged");
+    check(!card.main.querySelector("[data-issue-availability],.issue-availability,.issue-monitoring-feedback"),"The queue remains free of removal controls and feedback after closing");
     check(calls.every(request=>["homeostatic/node","homeostatic/configuration"].includes(request.type)),"Browsing and Cancel send no mutation or live-service request");
     check(find(".shell").scrollWidth<=find(".shell").clientWidth+1,"Current viewport has no horizontal overflow");
-    evidence.push("Bulk action follows evidence; review and Cancel preserve saved policies; no mutations or live services; current viewport fits.");
+    evidence.push("No queue removal controls or counts. Actual entity, device, shared and standalone issue dialogs review only their own current unavailable entities; unrelated unavailable siblings are excluded. Cancel and Close discard review without mutations or live services; current viewport fits.");
     receipt.status="pass";feedback.textContent="PASS: Device hierarchy, original issue actions, search, sorting, pagination, refresh and Cancel. Synthetic data only.";
   }catch(error){receipt.status="fail";receipt.error=error.message;feedback.textContent=`FAIL: ${error.message}`;}
   recordResult(receipt,"issues.device-hierarchy",receipt.status,receipt.error||evidence.join(" "));

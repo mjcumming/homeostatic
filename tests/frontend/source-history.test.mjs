@@ -4,6 +4,7 @@ import {DashboardTools, RESOLUTIONS} from "../../custom_components/homeostatic/f
 import {sourceHistory} from "../../custom_components/homeostatic/frontend/source-history.mjs";
 import {sourcesBrowser} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {sourceHistoryExample} from "./source-history-fixture.mjs";
+import {baseSource} from "./monitoring-fixture.mjs";
 
 test("source history keeps ended records concise with exact detail targets newest first",()=>{
   const data=sourceHistoryExample();
@@ -41,6 +42,26 @@ test("integration history does not infer retained membership from today's hierar
   const garage=sourcesBrowser({current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:"source:device:garage",sourcesView:"history"});
   assert.match(garage,/Garage relay before rename/);
   assert.match(garage,/data-history="cleared"/);
+});
+
+test("recorded parent and canonical identity survive removed checks and a different current parent",()=>{
+  const data=sourceHistoryExample(),record=data.inventory.resolved_history.episodes[0];
+  const canonical="entity:registry:child",anchor="monitoring:entities:previous:entity:registry:child";
+  record.episode.anchor=anchor;
+  record.source={node_id:anchor,name:"Original child · entities",kind:"entity",owner_id:"mqtt",monitoring_source:canonical,attributes:{integration:["mqtt"],device:["garage"]}};
+  data.inventory.resolved_history.episodes=[record];
+  data.inventory.nodes.push(baseSource("entry:other","Other connection","integration",{entry_id:"other",attributes:{domain:["other"]}}));
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesView:"history"};
+  for(const selection of ["source:entry:mqtt","source:device:garage"]){
+    const html=sourcesBrowser({...card,sourcesSelection:selection});
+    assert.match(html,/data-history="removed"/);
+    assert.match(html,/Original child · entities/);
+  }
+  data.inventory.nodes.push(baseSource(canonical,"Renamed child","entity",{owner_id:"other",attributes:{integration:["other"],device:["porch"]}}));
+  assert.match(sourcesBrowser({...card,sourcesSelection:`source:${canonical}`}),/data-history="removed"/);
+  for(const selection of ["source:entry:other","source:device:porch"])
+    assert.doesNotMatch(sourcesBrowser({...card,sourcesSelection:selection}),/data-history="removed"/);
+  assert.match(sourcesBrowser({...card,sourcesSelection:"source:entry:mqtt"}),/Original child · entities/);
 });
 
 test("history is bounded to the selected source and does not replace historical findings with live state",()=>{

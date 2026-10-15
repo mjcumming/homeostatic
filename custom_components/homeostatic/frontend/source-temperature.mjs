@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=82";
-import {deviceEntityName} from "./device-availability.mjs?v=82";
+import {escapeHtml as esc} from "./model.mjs?v=83";
+import {deviceEntityName} from "./device-availability.mjs?v=83";
 
 export const isTemperatureCheck = source => ["temperature_limit","thermostat"].includes(source.kind);
 

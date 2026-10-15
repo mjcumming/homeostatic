@@ -1,0 +1,277 @@
+/** Real Home Assistant issue/source acceptance; setup uses only the disposable lab. */
+import assert from "node:assert/strict";
+import {writeFile} from "node:fs/promises";
+
+export async function runIssueGaps(ctx) {
+  const {page,lab,call,run,at,bodyText,action,field,snapshot,click,fill,choose,check,clean,edit,save,discard,noChange,transport}=ctx;
+  // Escape in a focused search input clears it natively; navigation must not do that.
+  const go=async destination=>{await at(`.header [data-page="${destination}"]`).focus();await ctx.go(destination);};
+  let clockActive=false;
+  const control=async(action,fields={})=>{const status=await call("homeostatic_ui_lab/control",{action,...fields});Object.assign(lab,status);if(action==="advance")clockActive=true;if(action==="reset")clockActive=false;return status;};
+  const query=async service=>(await call("call_service",{domain:"homeostatic",service,service_data:{},return_response:true})).response;
+  const inventory=()=>query("inventory");
+  const controls=async()=>(await query("operator_controls")).controls;
+  const close=async()=>{await page.keyboard.press("Escape");};
+  const reset=async()=>{transport.interceptRequest=null;transport.transformResponse=null;transport.commandModes?.clear();await page.context().setOffline(false);await page.goto("about:blank");await control("reset");await clean();};
+  const scenario=async(id,body)=>run(id,async()=>{await reset();try{return await body();}finally{transport.interceptRequest=null;transport.transformResponse=null;transport.commandModes?.clear();await page.context().setOffline(false);}});
+  const text=async(selector,expression)=>at(selector).filter({hasText:expression}).first().waitFor({timeout:20000});
+  const read=async selector=>(await at(selector).innerText()).trim();
+  const fit=async selector=>assert.equal(await at(selector).first().evaluate(element=>{
+    const box=element.getBoundingClientRect();return box.left>=-1&&box.right<=innerWidth+1&&element.scrollWidth<=element.clientWidth+1;
+  }),true,`${selector} fits without horizontal scrolling`);
+  const sourceId=async(key,kind="entity")=>{
+    const data=await inventory(),rows=[...(data.catalog?.candidates||[]),...data.nodes];
+    const row=rows.find(item=>item.kind===kind&&(kind==="device"?item.attributes?.device?.includes(lab.devices[key]):item.entity_id===lab.entities[key])&&!item.monitoring_policy);
+    assert.ok(row,`Discovered ${kind} source for ${key}`);return row.node_id;
+  };
+  const source=async(key,kind="entity")=>{
+    const id=await sourceId(key,kind);await go("sources");
+    const back=at('[data-action="back-sources"]');if(await back.isVisible())await back.click();
+    await choose('[data-sources-monitoring]',"all");await fill('[data-sources-search]',kind==="device"?"Lab":lab.entities[key]);
+    await at(`[data-sources-select="source:${id}"]`).click();await at('#sources-detail-title').waitFor();return id;
+  };
+  const tree=async()=>{await go("sources");if(await at('[data-action="back-sources"]').isVisible())await click('[data-action="back-sources"]');};
+  const expandIssues=async()=>{
+    for(const button of await at('[data-issue-group]').all())if(await button.getAttribute("aria-expanded")==="false")await button.click();
+    while(await at('[data-issue-more]').count())await at('[data-issue-more]').first().click();
+  };
+  const openIssue=async id=>{await close();await go("problems");await fill('[data-issue-search]',"");await expandIssues();await at(`[data-episode="${id}"]`).click();await at(`dialog[open] [data-shelf="${id}"]`).waitFor();};
+  const episodeFor=async(key,kind)=>{
+    const data=await inventory(),rows=new Map(data.nodes.map(row=>[row.node_id,row]));
+    const episode=data.episodes.find(item=>{const node=rows.get(item.anchor);return node&&(!kind||node.kind===kind)&&(key?node.entity_id===lab.entities[key]||node.attributes?.device?.includes(lab.devices[key]):true);});
+    assert.ok(episode,`Open ${kind||""} issue for ${key||"any source"}`);return episode;
+  };
+  const details=async()=>{for(let pass=0;pass<3;pass++)for(const item of await at('dialog[open] details').all())if(await item.locator("summary").first().isVisible()&&!await item.evaluate(element=>element.open))await item.locator("summary").first().click();};
+  const realState=async(key,state,attributes)=>{await control("set_state",{entity_id:lab.entities[key],state,...(attributes?{attributes}:{})});if(clockActive)await control("advance",{seconds:1});};
+  const grouped=async(existing=false)=>{
+    await control("integration_failure",{failed:false});if(!existing)await control("recover");const config=await call("homeostatic/configuration"),settings=structuredClone(config.settings);
+    settings.timings.coalesce_count=2;settings.timings.settle=3;settings.timings.coalesce_window=60;
+    await call("homeostatic/save_settings",{revision:config.revision,settings});await control("advance",{seconds:5});
+    await control("integration_failure");await control("outage");await control("advance",{seconds:5});
+    const data=await inventory(),issue=data.episodes.find(item=>item.recorded.length>1);assert.ok(issue,"A real grouped issue contains multiple recorded members");return issue;
+  };
+  const expectedExclusions=async(before,ids,remove=true)=>{
+    const after=await snapshot(),wanted=new Set(ids),expected=structuredClone(before);
+    for(const policy of expected.monitoring_policies)if(policy.check==="availability"&&policy.match?.kind?.some(kind=>["entity","device"].includes(kind))&&policy.enabled){
+      const actual=after.monitoring_policies.find(item=>item.id===policy.id);
+      const additions=(actual.excluded_sources||[]).filter(id=>!(policy.excluded_sources||[]).includes(id));
+      const removals=(policy.excluded_sources||[]).filter(id=>!(actual.excluded_sources||[]).includes(id));
+      assert.ok(additions.every(id=>wanted.has(id))&&removals.every(id=>wanted.has(id)),"Only selected canonical entities change exclusions");
+      const intended=new Set(policy.excluded_sources||[]);for(const id of ids)remove?intended.add(id):intended.delete(id);
+      assert.deepEqual([...(actual.excluded_sources||[])].sort(),[...intended].sort(),`Every selected entity changes in applicable policy ${policy.id}`);
+      if(Object.hasOwn(actual,"excluded_sources"))policy.excluded_sources=actual.excluded_sources;else delete policy.excluded_sources;
+    }
+    assert.deepEqual(after,expected,"Only applicable availability exclusions change");
+    for(const id of ids)assert.equal(after.monitoring_policies.some(policy=>policy.check==="availability"&&(policy.excluded_sources||[]).includes(id)),remove,`Selected exclusion ${id}`);
+    return after;
+  };
+  const rejectSave=()=>{let count=0;transport.interceptRequest=(request,route)=>{
+    if(request.type!=="homeostatic/save_settings")return false;
+    count++;route.send(JSON.stringify({id:request.id,type:"result",success:false,error:{code:"acceptance_rejection",message:"Gap save rejected"}}));return true;
+  };return()=>count;};
+  const submit=()=>at('dialog[open] button[type="submit"]').click();
+  const cancelTool=()=>at('dialog[open] [data-tool="close"]').click();
+  const endTime=()=>new Date(Date.now()+3_600_000).toISOString().slice(0,16);
+  const pause=async(episode,reason="Acceptance exact pause")=>{
+    await openIssue(episode.episode_id);await click('[data-shelf]');const until=endTime();
+    await fill('dialog[open] [name="untilLocal"]',until);
+    const option=at('dialog[open] details').filter({has:page.locator('[name="reason"]')});
+    if(await option.count()&&!await option.evaluate(element=>element.open))await option.locator("summary").click();
+    if(await at('dialog[open] [name="reason"]').isVisible())await fill('dialog[open] [name="reason"]',reason);
+    await submit();await text('dialog[open]',/Saved by Home Assistant/);
+    const saved=(await controls()).find(item=>item.action==="shelve"&&item.target===episode.episode_id);assert.ok(saved);
+    assert.equal(Date.parse(saved.until),Date.parse(until));assert.equal(saved.reason,reason);return saved;
+  };
+
+  await scenario("issues.device-hierarchy",async()=>{
+    const before=await snapshot();await control("bulk");await clean();await go("problems");
+    assert.ok(await at('[data-issue-group]').count());await expandIssues();
+    const devices=await at('[data-issue-device]').evaluateAll(items=>items.map(item=>item.dataset.issueDevice));assert.equal(new Set(devices).size,devices.length);
+    for(const device of await at('[data-issue-device]').all())assert.equal(await device.locator('.issue-device-title').count(),1);
+    const ids=await at('[data-episode]').evaluateAll(items=>items.map(item=>item.dataset.episode));assert.ok(ids.length>40,"Pagination exposes more than40 issues");assert.equal(new Set(ids).size,ids.length);
+    const first=at('[data-episode]').first(),id=await first.getAttribute("data-episode");await first.focus();await page.keyboard.press("Enter");await at('dialog[open]').waitFor();
+    assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),id);await close();
+    await fill('[data-issue-search]',lab.entities.bulk_59);assert.ok(await at('[data-episode]').count());await choose('[data-issue-sort]',"name");
+    await page.reload();await at('[data-issue-search]').waitFor();await noChange(before);
+    return "Real registry device headings, standalone issues, complete Show more, keyboard issue opening, search/sort/refresh and unchanged saved settings.";
+  });
+  await scenario("issues.filter",async()=>{
+    await page.goto("about:blank");await control("importance_cases");
+    await control("bulk");await clean();const before=await snapshot();await go("problems");
+    const modes=await at('[data-issue-sort] option').evaluateAll(items=>items.map(item=>item.value));let all;
+    for(const mode of modes){await choose('[data-issue-sort]',mode);await expandIssues();const ids=await at('[data-episode]').evaluateAll(items=>items.map(item=>item.dataset.episode));assert.ok(ids.length>40);if(all)assert.deepEqual([...ids].sort(),all);else all=[...ids].sort();}
+    const data=await inventory(),nodes=new Map(data.nodes.map(node=>[node.node_id,node])),byId=new Map(data.episodes.map(item=>[item.episode_id,item]));for(const importance of ["high","critical"]){const expected=data.episodes.find(item=>item.importance===importance&&nodes.get(item.anchor)?.name===`Lab ${importance} importance`);assert.ok(expected,`Actual ${importance} situation exists`);assert.ok(all.includes(expected.episode_id),`Rendered results include the configured ${importance} situation`);}
+    await choose('[data-issue-sort]',"importance");await expandIssues();const rank={critical:3,high:2,normal:1,low:0};assert.ok(data.episodes.some(item=>item.importance==="critical")&&data.episodes.some(item=>item.importance==="high"));const groups=await at('.issue-group').evaluateAll(items=>items.map(group=>[...group.querySelector('.issue-group-body').children].map(subject=>[...subject.querySelectorAll('[data-episode]')].map(row=>row.dataset.episode)).filter(ids=>ids.length)));const descending=values=>assert.deepEqual(values,[...values].sort((a,b)=>b-a),"Importance sorts highest first within the hierarchy");descending(groups.map(group=>Math.max(...group.flat().map(id=>rank[byId.get(id).importance]))));for(const group of groups){descending(group.map(subject=>Math.max(...subject.map(id=>rank[byId.get(id).importance]))));for(const subject of group)descending(subject.map(id=>rank[byId.get(id).importance]));}
+    await fill('[data-issue-search]',"Lab standalone reading");
+    for(const mode of ["name","newest","oldest"]){await choose('[data-issue-sort]',mode);await expandIssues();const actual=await at('[data-episode]').evaluateAll(items=>items.map(item=>item.dataset.episode)),expected=[...actual].sort((a,b)=>mode==="name"?nodes.get(byId.get(a).anchor).name.localeCompare(nodes.get(byId.get(b).anchor).name)||a.localeCompare(b):(mode==="newest"?-1:1)*byId.get(a).opened_at.localeCompare(byId.get(b).opened_at)||a.localeCompare(b));assert.equal(actual.length,60);assert.deepEqual(actual,expected,`${mode} orders the complete standalone results`);}
+    await fill('[data-issue-search]',lab.entities.bulk_59);assert.ok(await at('[data-episode]').count());assert.ok((await bodyText()).includes("match"));
+    await fill('[data-issue-search]',"does-not-exist-acceptance");await text('main',/No matching issues/);await click('[data-action="clear-issue-search"]');await expandIssues();
+    assert.deepEqual((await at('[data-episode]').evaluateAll(items=>items.map(item=>item.dataset.episode))).sort(),all);await noChange(before);
+  });
+  await scenario("issues.evidence",async()=>{
+    const configuration=await call("homeostatic/configuration"),setup=structuredClone(configuration.settings),original=setup.monitoring_policies.find(policy=>policy.id==="default_entities");setup.monitoring_policies.push({...structuredClone(original),id:"acceptance_overlap",name:"Second availability rule"});await call("homeostatic/save_settings",{revision:configuration.revision,settings:setup});
+    const issue=await grouped();await clean();const before=await snapshot(),data=await inventory(),nodes=new Map([...data.catalog.candidates,...data.nodes].map(node=>[node.node_id,node]));await openIssue(issue.episode_id);await details();
+    const expected=new Map();for(const finding of issue.reasons.filter(item=>item.node_id!==issue.anchor&&item.status!=="pass")){const check=nodes.get(finding.node_id),id=check?.monitoring_source||finding.node_id;if(!expected.has(id))expected.set(id,new Set());if(check?.monitoring_policy)expected.get(id).add(before.monitoring_policies.find(policy=>policy.id===check.monitoring_policy)?.name);}
+    const ids=await at('dialog[open] [data-evidence-source]').evaluateAll(items=>items.map(item=>item.dataset.evidenceSource));assert.ok(ids.length>1);assert.equal(new Set(ids).size,ids.length);assert.deepEqual([...ids].sort(),[...expected.keys()].sort(),"Each actual contributing source appears once by canonical identity");
+    for(const [id,names] of expected)if(names.size>1)for(const name of names)assert.ok((await at(`dialog[open] [data-evidence-source="${id}"]`).innerText()).includes(name),`Canonical ${id} retains contributing check ${name}`);assert.ok([...expected.values()].some(names=>names.size>1),"Overlapping actual availability checks were exercised");
+    assert.ok(await at('dialog[open] [data-evidence-group]').count());assert.ok(await at('dialog[open] [data-source-link]').count());
+    await at('dialog[open] [data-source-link]').first().click();await at('#sources-detail-title').waitFor();
+    await noChange(before);return "Actual grouped issue contains canonical registered descendants; disclosures expose members and Monitoring links without saves.";
+  });
+  await scenario("issues.recovery",async()=>{
+    const device=await episodeFor("offline","device");await openIssue(device.episode_id);
+    await realState("offline","23");await clean();const partial=await inventory();
+    assert.ok(partial.episodes.some(episode=>partial.nodes.find(node=>node.node_id===episode.anchor)?.entity_id===lab.entities.offline_second),"The still-unavailable sibling remains an issue");
+    await realState("offline_second","12");await clean();const full=await inventory();
+    assert.ok(!full.episodes.some(episode=>{const source=full.nodes.find(node=>node.node_id===episode.anchor);return source?.entity_id===lab.entities.offline_second||source?.entity_id===lab.entities.offline||source?.kind==="device"&&source.attributes?.device?.includes(lab.devices.offline);}));
+    await go("history");await text('main',/Lab offline|Lab secondary/);assert.ok((await query("resolved_history")).episodes.some(row=>row.episode.episode_id===device.episode_id));
+    const shared=await grouped();await realState("offline","23");let remaining=await inventory();const second=remaining.nodes.filter(node=>node.entity_id===lab.entities.offline_second).map(node=>node.node_id);assert.ok(remaining.episodes.some(item=>[item.anchor,...item.recorded,...item.reasons.map(reason=>reason.node_id)].some(id=>second.includes(id))),"Partial grouped recovery retains the outstanding entity");
+    await control("recover");await control("integration_failure",{failed:false});await control("advance",{seconds:5});remaining=await inventory();assert.ok(!remaining.episodes.some(item=>item.episode_id===shared.episode_id));
+  });
+  await scenario("issues.empty",async()=>{
+    await go("problems");await fill('[data-issue-search]',"no-matching-acceptance-source");await text('main',/No matching issues/);await click('[data-action="clear-issue-search"]');
+    let config=await call("homeostatic/configuration");const settings=structuredClone(config.settings);for(const policy of settings.monitoring_policies)policy.enabled=policy.id==="lab_temperature";
+    await call("homeostatic/save_settings",{revision:config.revision,settings});await control("recover");await clean();await text('main',/No open issues/);assert.ok(await at('main [data-page="policies"]').count());
+    config=await call("homeostatic/configuration");for(const policy of settings.monitoring_policies)policy.enabled=false;await call("homeostatic/save_settings",{revision:config.revision,settings});await call("call_service",{domain:"homeostatic",service:"manage_alert",service_data:{automation:lab.entities.automation,operation:"retire"},return_response:true});await clean();await text('main',/Nothing is monitored/);assert.ok(await at('main [data-page="policies"]').count());
+    transport.transformResponse=(packet,request)=>packet.type==="event"&&request?.type==="homeostatic/subscribe"?{...packet,event:{...packet.event,available:false}}:packet;
+    await page.goto(lab.panel_url);await text('.shell',/Monitoring unavailable/);transport.transformResponse=null;await clean();
+    transport.commandModes.set("homeostatic/subscribe","hold");const navigation=page.goto(lab.panel_url);await navigation;await text('.shell',/Connecting|Loading|Waiting/i);transport.release?.();transport.commandModes.clear();await clean();
+    return "Distinct filtered, configured-empty, transport-unavailable and pending-subscription states with their rendered next actions; unavailable/loading replies injected at browser transport.";
+  });
+  await scenario("issues.individual",async()=>{
+    const before=await snapshot(),episode=await episodeFor("temperature","temperature_limit");await openIssue(episode.episode_id);
+    await text('dialog[open]',/Temperature above|87/);assert.ok(await at('dialog[open] [data-acknowledge]').isVisible());assert.ok(await at('dialog[open] [data-shelf]').isVisible());
+    await details();await text('dialog[open]',/Required duration|Duration/);const policy=at('dialog[open] [data-definition-action="open-policy"]');assert.ok(await policy.isVisible());await policy.click();
+    assert.equal(await at(field("name")).inputValue(),before.monitoring_policies.find(item=>item.id==="lab_temperature").name);await click('[data-workspace-return]');await at('dialog[open]').waitFor();
+    await realState("temperature","unknown");await text('dialog[open]',/Waiting for a temperature reading|No temperature reading|unknown/i);assert.ok(!(await read('dialog[open]')).includes("87 °F"));
+    await realState("temperature","87");await text('dialog[open]',/87/);await pause(episode);await openIssue(episode.episode_id);await text('dialog[open]',/Until/);await click('[data-cancel-control]');await cancelTool();
+    await openIssue(episode.episode_id);await click('[data-cancel-control]');await submit();await text('dialog[open]',/selected control has ended/);await noChange(before);await fit('dialog[open]');await realState("temperature","70");await clean();assert.ok(!(await inventory()).episodes.some(item=>item.episode_id===episode.episode_id));
+  });
+  await scenario("issues.compact-popups",async()=>{
+    const before=await snapshot(),data=await inventory(),nodes=new Map([...data.catalog.candidates,...data.nodes].map(node=>[node.node_id,node]));const seen=new Set(),focusFailures=[],focusChecks=[];let update=10;
+    const evidence={device:/Lab offline sensor · unavailable in Home Assistant/,entity:/unavailable/i,battery:/Battery low|12\s*%/,vacuum:/Vacuum error|error/i,ups:/backup power|low reserve|replacement|alarm/i,repair:/Home Assistant Repairs|Repair/i,broken_automation:/light.ui_lab_missing_porch/,situation:/This reported condition remains open/,temperature_limit:/87\s*°F/};
+    for(const episode of data.episodes){const node=nodes.get(episode.anchor),kind=node?.kind;if(seen.has(kind))continue;seen.add(kind);await openIssue(episode.episode_id);const canonical=["temperature_limit","thermostat"].includes(kind)?[...nodes.values()].find(item=>item.kind==="entity"&&item.entity_id===node.entity_id&&!item.monitoring_policy):nodes.get(node.monitoring_source)||node,title=await read('dialog[open] h2');assert.ok([canonical.name,node.name].includes(title),`${kind} preserves exact canonical or recorded source identity: ${title}`);await text('dialog[open]',evidence[kind]);assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),episode.episode_id);assert.equal(await at('dialog[open] [data-acknowledge]').getAttribute("data-acknowledge"),episode.episode_id);
+      if(kind==="device")await text('dialog[open]',/Lab secondary reading · unavailable in Home Assistant/);assert.ok(await at('dialog[open] [data-disclosure="issue-details"]').count()<=1);await details();await fit('dialog[open]');await page.evaluate(()=>new Promise(requestAnimationFrame));const active=at('dialog[open] [data-shelf]'),original=await active.elementHandle(),dialog=await at('dialog[open]').elementHandle(),temperatureBefore=kind==="temperature_limit"?await at('dialog[open] .temperature-issue').textContent():null;await active.focus();const beforeFocus=await active.evaluate(element=>({focused:element.getRootNode().activeElement===element,connected:element.isConnected,target:element.outerHTML}));assert.equal(beforeFocus.focused,true,`${kind} focus precondition`);if(temperatureBefore)await control("advance",{seconds:1});await realState("history",String(++update));if(temperatureBefore)await page.waitForFunction(({dialog,before})=>{const current=dialog.querySelector('.temperature-issue');return current&&current.textContent!==before;},{dialog,before:temperatureBefore});const afterFocus=await active.evaluate((element,previous)=>({focused:element.getRootNode().activeElement===element,connected:element.isConnected,sameDOM:element===previous,previousConnected:previous.isConnected,target:element.outerHTML,actual:element.getRootNode().activeElement?.outerHTML.slice(0,700)}),original);await original.dispose();await dialog.dispose();const result={kind,episode:episode.episode_id,before:beforeFocus,after:afterFocus};focusChecks.push(result);if(!afterFocus.focused)focusFailures.push(result);await writeFile(`${ctx.artifactDir}/issues-popup-focus.json`,JSON.stringify({focusChecks,focusFailures},null,2));await close();}
+    for(const kind of ["device","entity","battery","vacuum","ups","repair","broken_automation","situation","temperature_limit"])assert.ok(seen.has(kind),`Real popup variant ${kind} was exercised`);
+    const popupErrors=[];const popup=async(name,body)=>{await close();try{await body();}catch(error){const screenshot=`${ctx.artifactDir}/issues-popup-${name}.png`,dom=`${ctx.artifactDir}/issues-popup-${name}.txt`;await page.screenshot({path:screenshot,fullPage:true});await writeFile(dom,await bodyText());popupErrors.push({variant:name,error:error.stack||String(error),screenshot,dom});}finally{await writeFile(`${ctx.artifactDir}/issues-popup-diagnostics.json`,JSON.stringify({focusChecks,focusFailures,popupErrors},null,2));await close();}};
+    await popup("integration",async()=>{await control("integration_failure");await clean();const integration=await episodeFor(null,"integration"),current=await inventory(),source=current.catalog.candidates.find(node=>node.node_id===`entry:${lab.fixture_entry_id}`);assert.ok(source);await openIssue(integration.episode_id);await text('dialog[open]',/Connection is retrying/);assert.equal(await read('dialog[open] h2'),`${source.attributes.domain[0]} · ${source.name}`);assert.equal(await at('dialog[open] [data-acknowledge]').getAttribute("data-acknowledge"),integration.episode_id);await details();await fit('dialog[open]');await noChange(before);});
+    await popup("source-only-canonical",async()=>{await control("integration_failure",{failed:false});await page.goto(`${lab.url}/homeostatic/node/${encodeURIComponent(await sourceId("history"))}`);await at('dialog[open] [data-disclosure="issue-details"]').waitFor();assert.equal(await read('dialog[open] h2'),"Lab previously failed sensor");await text('dialog[open]',/Current condition isn't confirmed/);assert.equal(await at('dialog[open] [data-shelf],dialog[open] [data-acknowledge],dialog[open] .problem-progress').count(),0);await details();await fit('dialog[open]');});
+    await popup("source-only-check",async()=>{await control("integration_failure",{failed:false});const current=await inventory(),source=current.nodes.find(node=>node.entity_id===lab.entities.history&&node.monitoring_policy==="default_entities");assert.ok(source);assert.ok(!current.episodes.some(episode=>episode.anchor===source.node_id));await page.goto(`${lab.url}/homeostatic/node/${encodeURIComponent(source.node_id)}`);await at('dialog[open] [data-disclosure="issue-details"]').waitFor();assert.ok(["Lab previously failed sensor",source.name].includes(await read('dialog[open] h2')),"Source-only check retains its exact canonical or recorded name");await text('dialog[open]',/Sensor available/);assert.equal(await at('dialog[open] [data-shelf],dialog[open] [data-acknowledge],dialog[open] .problem-progress').count(),0);await details();await fit('dialog[open]');});
+    await popup("grouped",async()=>{const shared=await grouped();await openIssue(shared.episode_id);assert.equal(await at('dialog[open] [data-disclosure="issue-details"]').count(),1);await details();const recorded=at('dialog[open] [data-disclosure="recorded"]');assert.equal(await recorded.count(),1);const current=await inventory(),members=new Map([...current.catalog.candidates,...current.nodes].map(node=>[node.node_id,node])),expected=[...new Set([shared.anchor,...shared.recorded,...shared.reasons.map(finding=>finding.node_id)].map(id=>members.get(id)?.monitoring_source||id))].sort();assert.deepEqual((await recorded.locator('[data-source-link]').evaluateAll(items=>items.map(item=>item.dataset.sourceLink))).sort(),expected,"Grouped popup preserves exact recorded canonical membership");assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),shared.episode_id);await fit('dialog[open]');});
+    assert.deepEqual({focusFailures,popupErrors},{focusFailures:[],popupErrors:[]},"All popup variants preserve current evidence, identity and action focus");
+  });
+  await scenario("issues.controls",async()=>{
+    const before=await snapshot(),episode=await episodeFor("temperature","temperature_limit");await openIssue(episode.episode_id);await click('[data-acknowledge]');await cancelTool();
+    assert.ok(!(await query("policy")).episodes.find(item=>item.episode_id===episode.episode_id)?.acknowledgment);await openIssue(episode.episode_id);await click('[data-acknowledge]');await submit();await text('dialog[open]',/Awareness recorded/);
+    assert.ok((await query("policy")).episodes.find(item=>item.episode_id===episode.episode_id)?.acknowledgment);await openIssue(episode.episode_id);assert.equal(await at('dialog[open] [data-acknowledge]').count(),0);
+    const saved=await pause(episode);await openIssue(episode.episode_id);await click('[data-cancel-control]');await cancelTool();assert.ok((await controls()).some(item=>item.control_id===saved.control_id));
+    let responses=0;transport.transformResponse=(packet,request)=>{
+      if(request?.type==="call_service"&&request.domain==="homeostatic"&&request.service==="cancel_control"&&packet.type==="result"&&packet.success){responses++;return {...packet,success:false,error:{code:"acceptance_response_lost",message:"Control response deliberately lost"}};}return packet;
+    };
+    await openIssue(episode.episode_id);await click('[data-cancel-control]');await submit();await text('dialog[open]',/may already have been saved/);assert.equal(responses,1);assert.ok(!(await controls()).some(item=>item.control_id===saved.control_id));
+    await realState("history","12");assert.equal(responses,1,"No automatic ambiguous-control retry");await noChange(before);
+  });
+  await scenario("issues.availability-batch",async()=>{
+    const before=await snapshot(),episode=await episodeFor("offline","device"),ids=[await sourceId("offline"),await sourceId("offline_second")];await go("problems");assert.equal(await at('main [data-issue-availability]').count(),0);await expandIssues();assert.equal(await at('main [data-issue-availability]').count(),0);
+    await openIssue(episode.episode_id);await click('dialog[open] [data-issue-availability="remove"]');await details();await text('dialog[open]',/Lab offline|Lab secondary/);await click('dialog[open] [data-issue-availability="cancel"]');await noChange(before);assert.ok(await at('dialog[open]').count());
+    await click('dialog[open] [data-issue-availability="remove"]');const count=rejectSave();await click('dialog[open] [data-issue-availability="confirm"]');await text('dialog[open]',/Gap save rejected/);await noChange(before);assert.equal(count(),1);transport.interceptRequest=null;
+    await click('dialog[open] [data-issue-availability="confirm"]');await at('dialog[open]').waitFor({state:"hidden"});await expectedExclusions(before,ids);assert.equal(await at('main [data-issue-availability]').count(),0);assert.ok(!(await bodyText()).includes("Changes saved."));
+  });
+  await scenario("issues.history",async()=>{
+    await control("bulk");await control("advance",{seconds:61});await control("bulk",{failed:false});await control("recover");const config=await call("homeostatic/configuration"),settings=structuredClone(config.settings);settings.timings.coalesce_count=2;settings.timings.settle=3;await call("homeostatic/save_settings",{revision:config.revision,settings});await control("advance",{seconds:1});await realState("bulk_0","unavailable");await control("advance",{seconds:4});await episodeFor("bulk_0","entity");await realState("bulk_1","unavailable");await realState("bulk_2","unavailable");await control("advance",{seconds:4});await clean();const before=await snapshot(),history=await query("resolved_history");assert.ok(history.episodes.length>20);await go("history");
+    const all=new Set();for(let index=0;index<10;index++){for(const id of await at('[data-history-toggle]').evaluateAll(items=>items.map(item=>item.dataset.historyToggle)))all.add(id);if(!await at('[data-tool="next"]').count()||await at('[data-tool="next"]').isDisabled())break;await click('[data-tool="next"]');}assert.equal(all.size,history.episodes.length);
+    await fill('[data-history-search]',"no-acceptance-match");assert.equal(await at('[data-history-toggle]').count(),0);await fill('[data-history-search]',"");for(const value of await at('[data-history-filter] option').evaluateAll(items=>items.map(item=>item.value))){await choose('[data-history-filter]',value);const visible=await at('[data-history-toggle]').evaluateAll(items=>items.map(item=>item.dataset.historyToggle));assert.ok(visible.every(id=>history.episodes.some(item=>item.episode.episode_id===id&&(!value||item.resolution===value))),`Outcome filter ${value} matches recorded resolutions`);}await choose('[data-history-filter]',"");
+    const ordinary=history.episodes.find(item=>item.resolution==="cleared"&&item.source?.kind==="entity"&&item.source.name.includes("standalone")),id=ordinary.episode.episode_id;await page.goto(`${lab.url}/homeostatic/history/${encodeURIComponent(id)}`);const row=at(`[data-history-toggle="${id}"]`);await row.waitFor();assert.equal(await row.getAttribute("aria-expanded"),"true");assert.equal(await at('dialog[open]').count(),0);await text(`[data-history-toggle="${id}"]`,ordinary.source.name);await text('.history-content:visible',/Home Assistant reported this entity as unavailable/);const observed=await read('.history-content:visible .history-times dd'),times=await page.evaluate(({start,end})=>[start,end].map(value=>({day:new Date(value).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}),time:new Date(value).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})})),{start:ordinary.episode.opened_at,end:ordinary.resolved_at});for(const value of times)assert.ok(observed.includes(value.day)&&observed.includes(value.time),"Recorded opened and ended times appear in the observed range");assert.ok(observed.includes("1 min"));await realState("history","13");assert.equal(await row.getAttribute("aria-expanded"),"true");await row.click();
+    const joined=history.episodes.find(item=>item.resolution==="absorbed"&&item.absorbed_into);assert.ok(joined,"Real coalescing produces a retained entry with a related-issue link");await page.goto(`${lab.url}/homeostatic/history/${encodeURIComponent(joined.episode.episode_id)}`);await at(`[data-history-toggle="${joined.episode.episode_id}"][aria-expanded="true"]`).waitFor();await text('.history-content:visible',/Recovery was not established/);const link=at('.history-content:visible [data-open-episode],.history-content:visible [data-history]').first();await link.click();if(await at('dialog[open]').count())await at('dialog[open] [data-shelf]').waitFor();else await at(`[data-history-toggle="${joined.absorbed_into}"][aria-expanded="true"]`).waitFor();await noChange(before);
+  });
+
+  await scenario("sources.tree-layout",async()=>{
+    await control("bulk");await clean();const before=await snapshot();await tree();await fill('[data-sources-search]',"Lab");
+    const metrics=await at('.config-nav-row').evaluateAll(rows=>rows.filter(row=>row.getClientRects().length).map(row=>{
+      const pick=row.querySelector('.config-pick'),title=pick?.querySelector('.source-row-title'),button=row.querySelector('.config-toggle');if(!pick||!title)return null;
+      const range=document.createRange();range.selectNodeContents(title.firstChild);const line=range.getClientRects()[0],arrow=button?.querySelector('.disclosure')?.getBoundingClientRect();return {fits:pick.scrollWidth<=pick.clientWidth+1,aligned:!arrow||Math.abs(arrow.top+arrow.height/2-line.top-line.height/2)<=4,full:!button||button.getBoundingClientRect().height>=row.getBoundingClientRect().height-1};
+    }).filter(Boolean));assert.ok(metrics.length>20);assert.ok(metrics.every(item=>item.fits&&item.aligned&&item.full));assert.equal(await at('.source-issue-count').filter({hasText:/\d/}).count(),0);await noChange(before);
+  });
+  await scenario("sources.tree",async()=>{
+    const before=await snapshot();await source("offline");const selected=await at('[data-sources-select][aria-current]').getAttribute("data-sources-select");assert.equal(selected,`source:${await sourceId("offline")}`);await tree();await fill('[data-sources-search]',"Lab");while(await at('[data-source-more]').count())await at('[data-source-more]').first().click();assert.ok(await at(`[data-sources-select="source:${await sourceId("bulk_59")}"]`).count());await fill('[data-sources-search]',"");
+    const toggle=at('[data-sources-toggle]').first();await toggle.focus();const initial=await toggle.getAttribute("aria-expanded");await toggle.click();assert.notEqual(await toggle.getAttribute("aria-expanded"),initial);await page.keyboard.press("ArrowRight");assert.equal(await toggle.getAttribute("aria-expanded"),"true");await page.keyboard.press("ArrowLeft");assert.equal(await toggle.getAttribute("aria-expanded"),"false");
+    await fill('[data-sources-search]',lab.entities.offline);assert.equal(await at(`[data-sources-select="${selected}"]`).getAttribute("aria-current"),"true");await go("policies");await tree();assert.equal(await at('[data-sources-search]').inputValue(),lab.entities.offline);assert.equal(await at(`[data-sources-select="${selected}"]`).getAttribute("aria-current"),"true");await at(`[data-sources-select="${selected}"]`).click();await text('#sources-detail-title',/^Lab offline sensor$/);await noChange(before);return `Pointer and keyboard disclosure, search and navigation retain selected source ${selected}.`;
+  });
+  await scenario("sources.monitoring-inspector",async()=>{
+    await control("bulk");await clean();const before=await snapshot();await tree();await fill('[data-sources-search]',"Lab");
+    const known={monitored:await sourceId("offline"),unmonitored:await sourceId("unmonitored")};
+    for(const mode of ["all","monitored","unmonitored"]){await choose('[data-sources-monitoring]',mode);for(const [coverage,key] of [["monitored","offline"],["unmonitored","unmonitored"]]){await fill('[data-sources-search]',lab.entities[key]);assert.equal(await at(`[data-sources-select="source:${known[coverage]}"]`).count(),mode==="all"||mode===coverage?1:0,`${mode} filters the known ${coverage} entity correctly`);if(mode==="all"||mode===coverage)await text(`[data-sources-select="source:${known[coverage]}"]`,coverage==="monitored"?/Monitored/:/Not monitored/);}}
+    await source("unmonitored");await text('.source-monitoring-status',/not monitor|not monitored/i);assert.equal(await at('.source-policy-links [data-definition-id]').count(),0);
+    await source("offline");await text('.config-detail',/Unavailable in Home Assistant/);assert.ok(await at('.source-policy-links [data-definition-id]').count());assert.ok(await at('[data-availability-action="stop"]').isVisible());
+    const id=await sourceId("offline");await page.goto(`${lab.url}/homeostatic/sources/${encodeURIComponent(`source:${id}`)}/history`);await at('#source-history-title').waitFor();await click('[data-sources-view="source"]');await noChange(before);
+  });
+  await scenario("sources.compact-inspector-details",async()=>{
+    const before=await snapshot();await source("temperature");await text('.config-detail',/87/);assert.equal(await at('.config-detail [data-shelf],.config-detail [data-acknowledge],.config-detail .source-monitoring-explanation').count(),0);assert.ok(await at('.source-policy-links [data-definition-id]').count());
+    await source("offline","device");assert.ok(await at('.source-monitoring-explanation').count());await click('.source-monitoring-explanation > summary');await text('.config-detail',/entity|reading|availability/i);
+    const data=await inventory(),battery=data.catalog.candidates.find(item=>item.kind==="battery"&&item.entity_id===lab.entities.battery);assert.ok(battery);await tree();await fill('[data-sources-search]',"Lab battery");await at(`[data-sources-select="source:${battery.node_id}"]`).click();await text('.config-detail',/12|Battery/);await click('.source-monitoring-explanation > summary');
+    await click('.source-navigation [data-sources-view="history"]');await at('#source-history-title').waitFor();await click('[data-sources-view="source"]');await at('.config-detail [data-page="policies"]').click();await at('h1').filter({hasText:"Monitoring policies"}).waitFor();await tree();await noChange(before);
+  });
+  await scenario("sources.monitoring-toolbar",async()=>{
+    const before=await snapshot(),selected=await source("offline");await tree();await fill('[data-sources-search]',"");const size=await at('.sources-tools').boundingBox();await click('[data-sources-filters]');await at('#sources-more-filters').waitFor({state:"visible"});assert.equal((await at('.sources-tools').boundingBox()).height,size.height);
+    await check('[data-sources-disabled]',true);await text('[data-sources-filters]',/1/);await at('[data-sources-disabled]').focus();await realState("history","14");assert.equal(await at('[data-sources-disabled]').evaluate(element=>element.getRootNode().activeElement===element),true);
+    await page.keyboard.press("Escape");assert.equal(await at('[data-sources-filters]').evaluate(element=>element.getRootNode().activeElement===element),true);await click('[data-sources-filters]');await at('[data-sources-search]').click();assert.equal(await at('#sources-more-filters').isVisible(),false);
+    for(const grouping of ["location","integration"]){await choose('[data-sources-group]',grouping);assert.equal(await at('#sources-detail-title').textContent(),"Lab offline sensor");assert.equal(await at(`[data-sources-select="source:${selected}"]`).getAttribute("aria-current"),"true");}await at('[data-sources-toggle][aria-expanded="false"]').first().click();await click('[data-action="collapse-sources"]');assert.equal(await at('[data-sources-toggle][aria-expanded="true"]').count(),0);assert.equal(await at('[data-action="collapse-sources"]').isDisabled(),true);assert.equal(await at('#sources-detail-title').textContent(),"Lab offline sensor");await realState("history","16");assert.equal(await at('#sources-detail-title').textContent(),"Lab offline sensor");
+    await fill('[data-sources-search]',lab.entities.offline);assert.equal(await at('[data-action="collapse-sources"]').isDisabled(),true);await go("policies");await tree();assert.equal(await at('[data-sources-search]').inputValue(),lab.entities.offline);assert.equal(await at(`[data-sources-select="source:${selected}"]`).getAttribute("aria-current"),"true");await noChange(before);
+  });
+  await scenario("sources.temperature-monitoring",async()=>{
+    await control("temperature_device");
+    const config=await call("homeostatic/configuration"),settings=structuredClone(config.settings),first=settings.monitoring_policies.find(policy=>policy.id==="lab_temperature");
+    first.parameters.duration_seconds=60;settings.monitoring_policies.push({...structuredClone(first),id:"acceptance_second_temperature",name:"Second temperature rule",parameters:{unit:"°F",minimum:50,maximum:null,duration_seconds:0}});
+    await realState("temperature","70");await call("homeostatic/save_settings",{revision:config.revision,settings});await control("advance",{seconds:1});await realState("temperature","87");await clean();
+    const before=await snapshot(),canonical=await source("temperature");await text('.config-detail',/Lab temperature limits/);await text('[data-temperature-check]',/Waiting/);assert.equal(await at('[data-temperature-check]').count(),2);await text('[data-temperature-check]',/Within limits/);await text('[data-temperature-check]',/1 minute/);
+    for(const grouping of ["integration","location"]){await tree();await choose('[data-sources-group]',grouping);await fill('[data-sources-search]',lab.entities.temperature);assert.equal(await at(`[data-sources-select="source:${canonical}"]`).count(),1);await at(`[data-sources-select="source:${canonical}"]`).click();await text('[data-temperature-check]',/Waiting/);}
+    const link=at('.config-detail [data-definition-action="open-policy"][data-definition-id="lab_temperature"]');await link.click();await at(field("name")).waitFor();await click('[data-workspace-return]');await at('#sources-detail-title').waitFor();
+    await control("advance",{seconds:61});await text('[data-temperature-check]',/Temperature needs attention/);
+    await realState("temperature","unknown");await text('.config-detail',/Waiting for a temperature reading|No temperature reading|unknown/i);await realState("temperature","87");await text('.config-detail',/87/);
+    const data=await inventory(),old=data.nodes.find(node=>node.monitoring_policy==="lab_temperature");assert.ok(old);await page.goto(`${lab.url}/homeostatic/sources/${encodeURIComponent(`source:${old.node_id}`)}`);await at('#sources-detail-title').waitFor();await text('.config-detail',/Lab room temperature/);
+    await source("thermostat");await text('.config-detail',/Lab thermostat comfort/);await noChange(before);
+    await source("temperature");await click('[data-availability-action="stop"]');await click('[data-availability-action="confirm"]');await at('[data-availability-action="resume"]').waitFor();await expectedExclusions(before,[canonical]);assert.equal(await at('[data-temperature-check]').count(),2);await text('.source-monitoring-status',/temperature/i);
+    await source("temperature","device");assert.equal(await at('[data-temperature-check]').count(),2);await click('.source-monitoring-explanation > summary');await at('[data-action="more-source-evidence"]').waitFor();await click('[data-action="more-source-evidence"]');await at('[data-action="more-source-evidence"]').waitFor({state:"hidden"});assert.equal(await at('[data-temperature-check]').count(),2);await at(`.source-temperature [data-source-link="${canonical}"]`).first().click();await text('#sources-detail-title',/Lab room temperature/);await fit('.config-detail');
+  });
+  await scenario("sources.details",async()=>{
+    const before=await snapshot();await source("offline","device");await click('.source-monitoring-explanation > summary');await text('.config-detail',/Lab offline|unavailable/i);assert.ok(await at('.config-detail [data-source-link]').count());
+    await at('.config-detail [data-source-link]').first().click();await text('.config-detail',/Unavailable in Home Assistant/);assert.ok(await at('.source-policy-links [data-definition-id]').count());
+    for(const [value,expected] of [["unknown",/Available.*no value|No current value/i],["0",/0/],["unavailable",/Unavailable in Home Assistant/]]){await realState("offline",value);await text('.config-detail',expected);}
+    await control("remove_state",{entity_id:lab.entities.offline});await text('.config-detail',/No current Home Assistant state|No current state|not provided|unavailable/i);await noChange(before);
+  });
+  await scenario("sources.availability",async()=>{
+    const before=await snapshot(),id=await sourceId("offline");await edit("policies","lab_temperature");await fill(field("name"),"Preserved temperature draft");await edit("methods","lab_messages");await fill(field("name"),"Preserved method draft");await source("offline");
+    await click('[data-availability-action="stop"]');await click('[data-availability-action="cancel"]');await noChange(before);await click('[data-availability-action="stop"]');await click('[data-availability-action="confirm"]');await at('[data-availability-action="resume"]').waitFor({timeout:30000});await expectedExclusions(before,[id]);await text('.config-detail',/Unavailable in Home Assistant/);
+    await edit("policies","lab_temperature");assert.equal(await at(field("name")).inputValue(),"Preserved temperature draft");await discard();await edit("methods","lab_messages");assert.equal(await at(field("name")).inputValue(),"Preserved method draft");await discard();await source("offline");await click('[data-availability-action="resume"]');await click('[data-availability-action="confirm"]');await at('[data-availability-action="stop"]').waitFor({timeout:30000});await noChange(before);
+  });
+  await scenario("sources.availability-batch",async()=>{
+    const before=await snapshot(),ids=[await sourceId("offline"),await sourceId("offline_second")];await source("offline","device");await click('[data-availability-action="select"]');for(const id of ids)await check(`[data-availability-select="${id}"]`,true);
+    await click('[data-availability-action="stop-selected"]');await click('[data-availability-action="confirm"]');await at('[data-availability-action="confirm"]').waitFor({state:"hidden"});const after=await expectedExclusions(before,ids);
+    await click('[data-availability-action="select"]');await check(`[data-availability-select="${ids[0]}"]`,true);await click('[data-availability-action="resume-selected"]');await click('[data-availability-action="confirm"]');await at('[data-availability-action="confirm"]').waitFor({state:"hidden"});await expectedExclusions(after,[ids[0]],false);
+    await tree();await fill('[data-sources-search]',"");await click('[data-sources-filters]');await check('[data-sources-excluded]',true);await page.keyboard.press("Escape");assert.equal(await at(`[data-sources-select="source:${ids[0]}"]`).count(),0);assert.ok(await at(`[data-sources-select="source:${ids[1]}"]`).count());
+  });
+  await scenario("sources.availability-conflicts",async()=>{
+    const before=await snapshot(),policy=before.monitoring_policies.find(item=>item.check==="availability"&&item.match?.kind?.includes("entity"));await edit("policies",policy.id);await fill(field("name"),"Affected pending draft");await source("offline");await click('[data-availability-action="stop"]');await click('[data-availability-action="confirm"]');await text('.config-detail',/draft/i);await noChange(before);await click('[data-availability-action="cancel"]');await edit("policies",policy.id);assert.equal(await at(field("name")).inputValue(),"Affected pending draft");await discard();
+    await source("offline");await click('[data-availability-action="stop"]');const config=await call("homeostatic/configuration"),changed=structuredClone(config.settings);changed.timings.coalesce_count+=1;await call("homeostatic/save_settings",{revision:config.revision,settings:changed});await click('[data-availability-action="confirm"]');await text('.config-detail',/changed/i);assert.deepEqual(await snapshot(),changed);
+    if(await at('[data-availability-action="cancel"]').isVisible())await click('[data-availability-action="cancel"]');await clean();await source("offline");await click('[data-availability-action="stop"]');const count=rejectSave();await click('[data-availability-action="confirm"]');await text('.config-detail',/Gap save rejected/);assert.equal(count(),1);assert.deepEqual(await snapshot(),changed);transport.interceptRequest=null;await click('[data-availability-action="confirm"]');await at('[data-availability-action="resume"]').waitFor({timeout:30000});await expectedExclusions(changed,[await sourceId("offline")]);
+  });
+  await scenario("sources.contextual-issue-controls",async()=>{
+    const before=await snapshot();await source("offline");assert.equal(await at('.config-detail [data-shelf],.config-detail [data-acknowledge]').count(),0);const link=at('.config-detail [data-episode]').first(),id=await link.getAttribute("data-episode");assert.ok(id);await link.click();await at(`dialog[open] [data-shelf="${id}"]`).waitFor();
+    await click('[data-acknowledge]');await cancelTool();await openIssue(id);await click('[data-shelf]');await cancelTool();assert.deepEqual(await controls(),[]);await noChange(before);
+  });
+  await scenario("sources.compact-layout",async()=>{
+    const before=await snapshot();await source("offline");await fit('.config-detail');assert.equal(await at('.config-detail details').count(),0);assert.ok(await at('.source-policy-links [data-definition-id]').count());assert.ok(await at('[data-availability-action="stop"]').isVisible());await at('[data-availability-action="stop"]').focus();await realState("history","15");assert.equal(await at('[data-availability-action="stop"]').evaluate(element=>element.getRootNode().activeElement===element),true);await noChange(before);
+  });
+  await scenario("sources.history",async()=>{
+    const before=await snapshot(),id=`entry:${lab.fixture_entry_id}`,past=(await query("resolved_history")).episodes.find(row=>row.episode.recorded?.some(source=>source.includes(lab.registry_ids.history))||row.source?.name?.includes("previously"));assert.ok(past);
+    await control("rename_registry",{entity_id:lab.entities.history,name:"Renamed current sensor"});await control("remove_registry",{entity_id:lab.entities.history});await clean();await page.goto(`${lab.url}/homeostatic/sources/${encodeURIComponent(`source:${id}`)}/history`);await at('#source-history-title').waitFor();
+    const retained=await query("resolved_history");assert.ok(retained.episodes.some(item=>item.episode.episode_id===past.episode.episode_id),"The recorded issue remains in real HA history");assert.ok(await at(`[data-history="${past.episode.episode_id}"]`).count(),`Current integration history must retain the removed child's recorded membership; actual stored source=${JSON.stringify(past.source)}`);
+    await at(`[data-history="${past.episode.episode_id}"]`).click();await at(`[data-history-toggle="${past.episode.episode_id}"][aria-expanded="true"]`).waitFor();await text(`[data-history-toggle="${past.episode.episode_id}"]`,/Lab previously failed sensor/);await text('.history-content:visible',/Home Assistant reported this entity as unavailable/);await page.goBack();await at('#source-history-title').waitFor();await noChange(before);
+  });
+  await scenario("sources.maintenance",async()=>{
+    const before=await snapshot();await source("offline");const target=await at('[data-maintenance]').getAttribute("data-maintenance");assert.equal(target,await sourceId("offline"));await click('[data-maintenance]');assert.equal(await at('dialog[open] button[type="submit"]').isDisabled(),true);await cancelTool();assert.deepEqual(await controls(),[]);
+    await source("offline");await click('[data-maintenance]');await click('dialog[open] [data-duration="30"]');const until=await at('dialog[open] [name="untilLocal"]').inputValue();assert.ok(until);await submit();await text('dialog[open]',/Saved by Home Assistant/);
+    const saved=(await controls()).find(item=>item.action==="maintenance"&&item.target===target);assert.ok(saved);assert.equal(Date.parse(saved.until),Date.parse(until));assert.equal(saved.include_dependents,false);await text('dialog[open]',/Until|Ends/);
+    await click('dialog[open] [data-cancel-control]');await cancelTool();assert.ok((await controls()).some(item=>item.control_id===saved.control_id));await source("offline");await click('[data-cancel-control]');await submit();await text('dialog[open]',/selected control has ended/);assert.ok(!(await controls()).some(item=>item.control_id===saved.control_id));await noChange(before);
+  });
+}

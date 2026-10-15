@@ -1,5 +1,5 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=82";
-import {prepareAvailabilityChange, applyAvailabilityChange, availabilityConfirmation} from "./source-monitoring.mjs?v=82";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=83";
+import {prepareAvailabilityChange, applyAvailabilityChange, availabilityConfirmation} from "./source-monitoring.mjs?v=83";
 
 const identity=source=>source?.monitoring_source||source?.node_id;
 const unavailable=state=>state?.state==="unavailable"&&!state.attributes?.restored;
@@ -26,54 +26,107 @@ export function issueAvailabilitySources(card,episodes) {
   return [...selected.values()].sort((a,b)=>a.name.localeCompare(b.name));
 }
 
-/** Keep the complete batch count beside its group, including collapsed issue rows. */
-export function issueAvailabilityAction(card,group) {
-  const sources=issueAvailabilitySources(card,group.episodes);
-  card.issueAvailabilityGroups.set(group.key,sources);
-  if(!sources.length)return "";
-  const count=sources.length,label=count===1?"Remove this entity from availability monitoring…":"Remove these entities from availability monitoring…";
-  return `<div class="body issue-availability"><p class="small">${count} unavailable ${count===1?"entity":"entities"}</p><button type="button" class="button" data-issue-availability="remove" data-monitoring-group="${esc(group.key)}"${blocked(card)?' disabled':''}>${label}</button></div>`;
+const openedEpisode=card=>card.dialog?.open&&card.detail?.episodeId
+  ?card.current.data?.inventory?.episodes?.find(episode=>episode.episode_id===card.detail.episodeId):null;
+const reviewContext=id=>`issue:${id}`;
+
+function availabilityControls(card,episode) {
+  if(!card.dialog?.open||card.detail?.episodeId!==episode.episode_id)return "";
+  const current=openedEpisode(card);
+  const plan=card.issueAvailabilityEpisode===episode.episode_id?card.issueAvailabilityPlan:null;
+  const error=(card.availabilityContext===reviewContext(episode.episode_id)?card.availabilityError:null)
+    ||(!current&&plan&&!card.scopedBusy?"This issue is no longer current. Close this dialog to review the updated issue list.":null);
+  const action=(mode,label)=>`<button type="button" class="${mode==="remove"?"link":"button"}${mode==="confirm"?" primary":""}" data-issue-availability="${mode}" data-issue-id="${esc(episode.episode_id)}"${(mode==="cancel"?card.scopedBusy||card.settingsBusy:blocked(card)||mode==="confirm"&&!current)?' disabled':''}>${label}</button>`;
+  const content=plan?availabilityConfirmation(plan,(mode,label)=>action(mode,mode==="confirm"&&card.scopedBusy?"Saving…":label))
+    :current&&issueAvailabilitySources(card,[current]).length?action("remove","Remove from availability monitoring…"):"";
+  return `${content}${error?`<p role="alert">${esc(error)}</p>${card.scopedConfiguration?.needsRefresh?action("refresh","Refresh saved monitoring"):""}`:""}`;
 }
 
-/** Keep confirmation and unresolved errors reachable when issue groups change. */
-export function issueAvailabilityFeedback(card) {
-  const error=card.availabilityContext==="issues"?card.availabilityError:null;
-  if(!card.issueAvailabilityPlan&&!error)return "";
-  const action=(mode,label)=>`<button type="button" class="button${mode==="confirm"?" primary":""}" data-issue-availability="${mode}"${(mode==="cancel"?card.scopedBusy||card.settingsBusy:blocked(card))?' disabled':''}>${label}</button>`;
-  return `<section class="body issue-monitoring-feedback" aria-label="Availability monitoring">${card.issueAvailabilityPlan?availabilityConfirmation(card.issueAvailabilityPlan,(mode,label)=>action(mode,mode==="confirm"&&card.scopedBusy?"Saving…":label)):""}${error?`<p role="alert">${esc(error)}</p>${card.scopedConfiguration?.needsRefresh?action("refresh","Refresh saved monitoring"):""}`:""}</section>`;
+/** Keep the exact monitoring decision inside its opened issue. */
+export function issueAvailabilityAction(card,episode) {
+  return `<div class="issue-availability" data-issue-availability-owner="${esc(episode.episode_id)}">${availabilityControls(card,episode)}</div>`;
 }
 
-/** Route explicit batch actions through the existing guarded policy save. */
+/** Update modal controls during saves without fetching issue evidence again. */
+export function renderIssueAvailability(card) {
+  const host=card.dialog?.querySelector?.(".issue-availability"),id=card.detail?.episodeId;
+  if(!card.dialog?.open||!host||!id||host.dataset.issueAvailabilityOwner!==id)return;
+  const episode=openedEpisode(card)||{episode_id:id};
+  const content=availabilityControls(card,episode);
+  if(host.innerHTML===content)return;
+  const state=card.capturePageState?.(host);
+  host.innerHTML=content;
+  if(state)card.restorePageState(state,host);
+}
+
+/** An unsaved review belongs only to the dialog where it was opened. */
+export function resetIssueAvailability(card) {
+  card.issueAvailabilityPlan=null;
+  card.issueAvailabilityEpisode=null;
+  if(card.availabilityContext?.startsWith("issue:")) {
+    card.availabilityContext=null;
+    card.availabilityError=null;
+  }
+}
+
+function focusAvailability(card) {
+  const host=card.dialog?.querySelector?.(".issue-availability");
+  host?.querySelector('[role="alert"], .source-availability-confirm')?.scrollIntoView?.({block:"nearest"});
+  host?.querySelector(card.issueAvailabilityPlan?'[data-issue-availability="confirm"]':'[data-issue-availability="remove"]')?.focus({preventScroll:true});
+}
+
+/** Route this issue's reviewed entities through the guarded policy save. */
 export function editIssueAvailability(card,event) {
   const button=event.target.closest?.("[data-issue-availability]");
   if(!button)return false;
-  const action=button.dataset.issueAvailability;
+  const episode=openedEpisode(card),action=button.dataset.issueAvailability,id=card.detail?.episodeId;
+  if(!card.dialog?.open||!id||button.dataset.issueId!==id||action==="remove"&&!episode)return true;
   if(action==="cancel"?card.scopedBusy||card.settingsBusy:blocked(card))return true;
-  card.availabilityContext="issues";card.availabilityError=null;
+  const context=reviewContext(id);
+  if(action!=="remove"&&card.issueAvailabilityEpisode!==id)return true;
+  card.availabilityContext=context;card.availabilityError=null;
   if(action==="remove") {
+    card.issueAvailabilityEpisode=id;
     card.issueAvailabilityPlan=null;
-    try {
-      card.issueAvailabilityPlan=prepareAvailabilityChange(card,card.issueAvailabilityGroups.get(button.dataset.monitoringGroup)||[]);
-    }catch(error){card.availabilityError=error.message;}
-  }else if(action==="cancel")card.issueAvailabilityPlan=null;
+    try {card.issueAvailabilityPlan=prepareAvailabilityChange(card,issueAvailabilitySources(card,[episode]));}
+    catch(error){card.availabilityError=error.message;}
+  }else if(action==="cancel")resetIssueAvailability(card);
   else if(action==="refresh") {
     card.loadConfiguration().then(()=>{
+      if(!card.dialog.open||card.detail?.episodeId!==id||card.availabilityContext!==context)return;
+      card.issueAvailabilityPlan=null;
       if(card.configError)card.availabilityError=card.configError;
-      else card.issueAvailabilityPlan=null;
-      card.render();
+      else resetIssueAvailability(card);
+      card.render();focusAvailability(card);
+      if(!card.configError&&!openedEpisode(card))card.loadDetail?.();
     });
     return true;
   }else if(action==="confirm") {
-    if(!card.issueAvailabilityPlan)return true;
-    applyAvailabilityChange(card,card.issueAvailabilityPlan).then(saved=>{
-      if(saved||card.issueAvailabilityPlan?.revision!==card.configuration?.revision||card.issueAvailabilityPlan?.catalogRevision!==card.current.data.catalog_revision)card.issueAvailabilityPlan=null;
-      card.render();
-      card.shadowRoot?.querySelector('[data-issue-availability="confirm"], [data-issue-availability="remove"]')?.focus({preventScroll:true});
-    }).catch(error=>{card.availabilityError=error.message||"Could not change monitoring.";card.render();});
+    const plan=card.issueAvailabilityPlan;
+    if(!plan)return true;
+    const currentIds=episode?issueAvailabilitySources(card,[episode]).map(identity).sort():[];
+    if(JSON.stringify(currentIds)!==JSON.stringify(plan.sourceIds)) {
+      card.issueAvailabilityPlan=null;
+      card.availabilityError="Availability changed. Review the current entities before removing monitoring.";
+      card.render();focusAvailability(card);return true;
+    }
+    applyAvailabilityChange(card,plan).then(saved=>{
+      if(!card.dialog.open||card.detail?.episodeId!==id||card.issueAvailabilityPlan!==plan)return;
+      if(saved) {
+        resetIssueAvailability(card);card.detail=null;card.dialog.close();card.render();
+        card.shadowRoot?.querySelector("[data-issue-search]")?.focus({preventScroll:true});
+        return;
+      }
+      if(plan.revision!==card.configuration?.revision||plan.catalogRevision!==card.current.data?.catalog_revision)card.issueAvailabilityPlan=null;
+      card.render();focusAvailability(card);
+    }).catch(error=>{
+      if(!card.dialog.open||card.detail?.episodeId!==id||card.issueAvailabilityPlan!==plan)return;
+      card.availabilityError=error.message||"Could not change monitoring.";
+      card.render();focusAvailability(card);
+    });
     return true;
   }
-  card.render();
-  card.shadowRoot?.querySelector(".issue-monitoring-feedback")?.scrollIntoView?.({block:"center"});
-  card.shadowRoot?.querySelector(card.issueAvailabilityPlan?'[data-issue-availability="confirm"]':'[data-issue-availability="remove"]')?.focus({preventScroll:true});
+  card.render();focusAvailability(card);
+  if(action==="cancel"&&!episode)card.loadDetail?.();
   return true;
 }

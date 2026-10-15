@@ -24,7 +24,7 @@ If you haven't installed Homeostatic yet, start with [Install and first run](ins
 
 A new install watches integration, device and entity availability, Home Assistant's Repairs, and automations that name an entity that no longer exists. Batteries and vacuums start off. Temperature limits, thermostat progress and UPS checks are available when you add a policy and configure its sources and settings. Supplied policies select appropriate named notifications, which start without delivery methods. Notifications are off until you configure delivery and turn sending on.
 
-Each editor saves its own changes: **Save policy**, **Save notification**, **Save delivery method**, or **Save settings**. Homeostatic checks the settings as it saves them. If a setting is invalid or saving fails, your pending edits stay available with an explanation. Other editors keep their drafts. Routine monitoring updates retain your place, focused field and open menu. During a connection interruption, the last view stays visible with a stale warning and actions become read-only until fresh data arrives.
+Each editor saves its own changes: **Save policy**, **Save notification**, **Save delivery method**, or **Save settings**. Homeostatic checks the settings as it saves them. If a setting is invalid or saving fails, your pending edits stay available with an explanation. Other editors keep their drafts. Visiting another Home Assistant page and returning in the same tab also keeps pending edits; reloading or closing the tab ends that draft session. Routine monitoring updates retain your place, focused field and open menu. During a connection interruption, the last view stays visible with a stale warning and actions become read-only until fresh data arrives.
 
 ### Watch a device or an entity
 
@@ -32,7 +32,7 @@ Open **Monitoring** to inspect equipment. Use **Search** to find a source. **Mon
 
 An **Issues** badge marks a source or group with related open issues. Select it to see the issues. A shared problem can appear under several rooms or devices; each selected list includes it once.
 
-To clear unwanted availability warnings together, choose **Remove these entities from availability monitoring…** on an **Open issues** group. The confirmation is brought into view. Confirm the count; **Details** shows the entities and affected policies. Choose **Cancel** to leave monitoring unchanged. The action covers currently unavailable monitored entities in the matching group, including rows beyond **Show more issues**. If you search first, it applies to matching issues. Other checks and Home Assistant entities stay enabled.
+To stop unwanted availability checks, open the finding under its device in **Open issues**, then choose **Remove from availability monitoring…**. Confirm the count; **Details** shows the currently unavailable entities from that issue and the affected policies. Choose **Cancel** or close the issue to leave monitoring unchanged. Removal applies to those entities across the named availability policies, which can also end other availability issues for the same entities. Other checks and Home Assistant entities stay enabled.
 
 For one entity, open its source and choose **Remove this entity from availability monitoring…**. To choose particular members of a device, open the device, choose **Select entities…**, then **Remove selected entities from availability monitoring…**.
 
@@ -211,7 +211,7 @@ Use **Notifications** to manage named timing and delivery choices. Its **Deliver
 
 Open **Notifications → Delivery methods**, select **Add delivery method** and give it a name. The method controls destinations and optional presence rules. Select it under **Send using** in a named notification to give it a schedule. To change an existing method, select **Edit**; **More actions** contains **Duplicate** and **Delete**. Select **Add destination**, choose the delivery type, then choose a configured destination. The editor lists only the destinations selected for this method. For speech, choose the speaker and, when needed, its speech provider. A method can combine several supported destination types. Home Assistant owns the provider accounts and credentials. Unavailable destinations are hidden from new choices by default; an unavailable saved destination stays visible until you replace or remove it.
 
-After you edit a method, its footer offers **Save delivery method** and **Discard changes**. **Delivery methods** returns to the list and retains your pending edits. Saving returns you to the delivery-method list and confirms the saved name. Open its Edit action to make another change or send a test. Saving or discarding affects only this method. Other notification and policy drafts remain pending.
+After you edit a method, its footer offers **Save delivery method** and **Discard changes**. **Delivery methods** returns to the list and retains your pending edits. Saving returns you to the delivery-method list. Open its Edit action to make another change or send a test. Saving or discarding affects only this method. Other notification and policy drafts remain pending.
 
 Fixed methods always use the selected destinations. Open the optional presence settings to choose separate home and away destinations, or the destinations of selected people currently home. Choose fallback destinations or explicitly choose to skip when nobody qualifies or presence is unknown. A current home report qualifies; a named zone counts as away. Missing, restored, unknown and unavailable person states use the fallback when nobody is known to be home. Presence changes alone send nothing. Each new request or reminder uses the evidence available at that time.
 
@@ -312,7 +312,7 @@ Get source, issue and control ids from `homeostatic.inventory` and `homeostatic.
 
 Times are when Homeostatic saw each change. If Home Assistant was down when a device came back, the end time is when Homeostatic noticed after starting. History begins when Homeostatic is installed.
 
-Use **History** to find ended problems by source name, or follow a retained issue link. Existing links to source history still work. `homeostatic.resolved_history` returns the same retained issues for automations.
+Use **History** to find ended problems by source name, or follow a retained issue link. A source's **View history** also includes removed equipment when its original ownership was recorded. Older records without that information remain available in global History. Existing links to source history still work. `homeostatic.resolved_history` returns the same retained issues for automations.
 
 ## Remove Homeostatic
 

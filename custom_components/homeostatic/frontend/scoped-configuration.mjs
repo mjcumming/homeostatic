@@ -227,10 +227,16 @@ function errorText(error) {
 export async function saveScopedConfiguration(card,scope,value) {
   const state=initializeScopedConfiguration(card);
   if(!state||card.scopedBusy||card.settingsBusy||card.configBusy||card.current?.status!=="current")return false;
+  const hass=card._hass,connection=hass.connection,userId=hass.user?.id,admin=hass.user?.is_admin,session=card.panelDraftSession;
+  const current=()=>card._hass.connection===connection&&card._hass.user?.id===userId&&card._hass.user?.is_admin===admin&&card.panelDraftSession===session;
   card.scopedBusy=keyOf(scope);card.settingsBusy=true;status(card,scope);card.render?.();
   let saved=false;
   try {
-    if(state.needsRefresh)rebaseScopedConfiguration(card,await card._hass.callWS({type:"homeostatic/configuration",section:"settings"}));
+    if(state.needsRefresh) {
+      const fresh=await hass.callWS({type:"homeostatic/configuration",section:"settings"});
+      if(!current())return false;
+      rebaseScopedConfiguration(card,fresh);
+    }
     const candidate=proposal(card,scope,value);
     if(scope.kind==="source-availability") {
       if(card.current?.status!=="current")throw new Error("Monitoring is not connected. Reconnect before changing availability monitoring.");
@@ -239,19 +245,22 @@ export async function saveScopedConfiguration(card,scope,value) {
     }
     if(same(candidate,card.configuration.settings))return true;
     const revision=card.configuration.revision;
-    const response=await card._hass.callWS({type:"homeostatic/save_settings",revision,settings:copy(candidate)});
+    const response=await hass.callWS({type:"homeostatic/save_settings",revision,settings:copy(candidate)});
+    if(!current())return false;
     if(response?.saved!==true)throw new Error("The save was not confirmed. Refresh saved settings before trying again.");
     saved=true;acceptSubmitted(card,scope,candidate,value);
-    const fresh=await card._hass.callWS({type:"homeostatic/configuration",section:"settings"});
+    const fresh=await hass.callWS({type:"homeostatic/configuration",section:"settings"});
+    if(!current())return false;
     rebaseScopedConfiguration(card,fresh);
     status(card,scope,null,["notifications","source-availability"].includes(scope.kind)?null:scopedDirty(card,scope)?"Newer edits are still unsaved.":null);
     return true;
   }catch(error) {
+    if(!current())return false;
     const code=error?.code||error?.error?.code;
     state.needsRefresh=saved||!code||code==="stale_configuration";
     status(card,scope,saved?"Changes were saved, but current settings could not be reloaded. Your other drafts are retained. Refresh saved settings before continuing.":errorText(error));
     return false;
   }finally {
-    card.scopedBusy=null;card.settingsBusy=false;card.render?.();
+    if(current()){card.scopedBusy=null;card.settingsBusy=false;card.render?.();}
   }
 }

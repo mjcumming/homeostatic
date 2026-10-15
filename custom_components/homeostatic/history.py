@@ -73,6 +73,12 @@ _RECORD = vol.Schema(
                 vol.Required("node_id"): _TEXT,
                 vol.Required("name"): str,
                 vol.Required("kind"): str,
+                vol.Optional("owner_id"): vol.Any(None, _TEXT),
+                vol.Optional("monitoring_source"): vol.Any(None, _TEXT),
+                vol.Optional("attributes"): {
+                    vol.Optional("integration"): [_TEXT],
+                    vol.Optional("device"): [_TEXT],
+                },
             },
         ),
     }
@@ -127,7 +133,18 @@ class ResolvedHistory:
             resolved_at=now,
             resolution=event.resolution,
             absorbed_into=event.absorbed_into,
-            source={"node_id": source.node_id, "name": source.name, "kind": source.kind}
+            source={
+                "node_id": source.node_id,
+                "name": source.name,
+                "kind": source.kind,
+                "owner_id": source.owner_id,
+                "monitoring_source": source.monitoring_source,
+                "attributes": {
+                    key: list(source.attributes[key])
+                    for key in ("integration", "device")
+                    if key in source.attributes
+                },
+            }
             if source
             else None,
         )

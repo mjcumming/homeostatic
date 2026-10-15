@@ -1,0 +1,2051 @@
+{
+  "observations": [
+    {
+      "width": 1440,
+      "colorScheme": "light",
+      "destination": "problems",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 386,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 406,
+            "right": 502,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 522,
+            "right": 597,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 617,
+            "right": 725,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 745,
+            "right": 818,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "light",
+      "destination": "sources",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 383,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 403,
+            "right": 501,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 521,
+            "right": 596,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 616,
+            "right": 724,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 744,
+            "right": 817,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "light",
+      "destination": "policies",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 383,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 403,
+            "right": 499,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 519,
+            "right": 598,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 618,
+            "right": 726,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 746,
+            "right": 819,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "light",
+      "destination": "notifications",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 383,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 403,
+            "right": 499,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 519,
+            "right": 594,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 614,
+            "right": 725,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 745,
+            "right": 818,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "light",
+      "destination": "history",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 383,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 403,
+            "right": 499,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 519,
+            "right": 594,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 614,
+            "right": 722,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 742,
+            "right": 816,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "light",
+      "destination": "configuration",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 383,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 403,
+            "right": 499,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 519,
+            "right": 594,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 614,
+            "right": 722,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 742,
+            "right": 815,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "light",
+      "destination": "summary-doubled-text",
+      "geometry": {
+        "overflow": false,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "timeWidth": 190,
+        "intrinsicWidth": 188.390625,
+        "timeLeft": 843,
+        "timeRight": 1033,
+        "labelLeft": 307,
+        "labelRight": 1033,
+        "value": "08:00"
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "dark",
+      "destination": "problems",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 386,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 406,
+            "right": 502,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 522,
+            "right": 597,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 617,
+            "right": 725,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 745,
+            "right": 818,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "dark",
+      "destination": "sources",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 383,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 403,
+            "right": 501,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 521,
+            "right": 596,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 616,
+            "right": 724,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 744,
+            "right": 817,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "dark",
+      "destination": "policies",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 383,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 403,
+            "right": 499,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 519,
+            "right": 598,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 618,
+            "right": 726,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 746,
+            "right": 819,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "dark",
+      "destination": "notifications",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 383,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 403,
+            "right": 499,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 519,
+            "right": 594,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 614,
+            "right": 725,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 745,
+            "right": 818,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "dark",
+      "destination": "history",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 383,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 403,
+            "right": 499,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 519,
+            "right": 594,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 614,
+            "right": 722,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 742,
+            "right": 816,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "dark",
+      "destination": "configuration",
+      "geometry": {
+        "width": 1440,
+        "shellScroll": 1184,
+        "shellWidth": 1184,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 280,
+            "right": 383,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Monitoring",
+            "left": 403,
+            "right": 499,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Policies",
+            "left": 519,
+            "right": 594,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "Notifications",
+            "left": 614,
+            "right": 722,
+            "top": 72,
+            "height": 47.296875
+          },
+          {
+            "label": "History",
+            "left": 742,
+            "right": 815,
+            "top": 72,
+            "height": 47.296875
+          }
+        ],
+        "mainLeft": 256,
+        "mainRight": 1440,
+        "mainScroll": 1184,
+        "mainWidth": 1184
+      }
+    },
+    {
+      "width": 1440,
+      "colorScheme": "dark",
+      "destination": "summary-doubled-text",
+      "geometry": {
+        "overflow": false,
+        "navScroll": 1136,
+        "navWidth": 1136,
+        "timeWidth": 190,
+        "intrinsicWidth": 188.390625,
+        "timeLeft": 843,
+        "timeRight": 1033,
+        "labelLeft": 307,
+        "labelRight": 1033,
+        "value": "08:00"
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "light",
+      "destination": "problems",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 308,
+            "right": 360,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "light",
+      "destination": "sources",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 168,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 168,
+            "right": 225,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 225,
+            "right": 309,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 309,
+            "right": 361,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "light",
+      "destination": "policies",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 308,
+            "right": 360,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "light",
+      "destination": "notifications",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 309,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 309,
+            "right": 361,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "light",
+      "destination": "history",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 308,
+            "right": 362,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "light",
+      "destination": "configuration",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 308,
+            "right": 360,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "light",
+      "destination": "summary-doubled-text",
+      "geometry": {
+        "overflow": false,
+        "navScroll": 366,
+        "navWidth": 366,
+        "timeWidth": 190,
+        "intrinsicWidth": 188.390625,
+        "timeLeft": 33,
+        "timeRight": 223,
+        "labelLeft": 33,
+        "labelRight": 357,
+        "value": "08:00"
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "dark",
+      "destination": "problems",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 308,
+            "right": 360,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "dark",
+      "destination": "sources",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 168,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 168,
+            "right": 225,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 225,
+            "right": 309,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 309,
+            "right": 361,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "dark",
+      "destination": "policies",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 308,
+            "right": 360,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "dark",
+      "destination": "notifications",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 309,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 309,
+            "right": 361,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "dark",
+      "destination": "history",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 308,
+            "right": 362,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "dark",
+      "destination": "configuration",
+      "geometry": {
+        "width": 390,
+        "shellScroll": 390,
+        "shellWidth": 390,
+        "navScroll": 366,
+        "navWidth": 366,
+        "navRows": 1,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 308,
+            "right": 360,
+            "top": 96,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 390,
+        "mainScroll": 390,
+        "mainWidth": 390
+      }
+    },
+    {
+      "width": 390,
+      "colorScheme": "dark",
+      "destination": "summary-doubled-text",
+      "geometry": {
+        "overflow": false,
+        "navScroll": 366,
+        "navWidth": 366,
+        "timeWidth": 190,
+        "intrinsicWidth": 188.390625,
+        "timeLeft": 33,
+        "timeRight": 223,
+        "labelLeft": 33,
+        "labelRight": 357,
+        "value": "08:00"
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "light",
+      "destination": "problems",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 64,
+            "top": 141.84375,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "light",
+      "destination": "sources",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 94,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Monitoring",
+            "left": 94,
+            "right": 167,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 64,
+            "top": 160.6875,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "light",
+      "destination": "policies",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 64,
+            "top": 141.84375,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "light",
+      "destination": "notifications",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 94,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Monitoring",
+            "left": 94,
+            "right": 166,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Policies",
+            "left": 166,
+            "right": 223,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Notifications",
+            "left": 223,
+            "right": 308,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 64,
+            "top": 160.6875,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "light",
+      "destination": "history",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 66,
+            "top": 141.84375,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "light",
+      "destination": "configuration",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 64,
+            "top": 141.84375,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "light",
+      "destination": "summary-doubled-text",
+      "geometry": {
+        "overflow": false,
+        "navScroll": 296,
+        "navWidth": 296,
+        "timeWidth": 190,
+        "intrinsicWidth": 188.390625,
+        "timeLeft": 33,
+        "timeRight": 223,
+        "labelLeft": 33,
+        "labelRight": 287,
+        "value": "08:00"
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "dark",
+      "destination": "problems",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 64,
+            "top": 141.84375,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "dark",
+      "destination": "sources",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 94,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Monitoring",
+            "left": 94,
+            "right": 167,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 64,
+            "top": 160.6875,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "dark",
+      "destination": "policies",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 64,
+            "top": 141.84375,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "dark",
+      "destination": "notifications",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 94,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Monitoring",
+            "left": 94,
+            "right": 166,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Policies",
+            "left": 166,
+            "right": 223,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "Notifications",
+            "left": 223,
+            "right": 308,
+            "top": 96,
+            "height": 64.6875
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 64,
+            "top": 160.6875,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "dark",
+      "destination": "history",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 66,
+            "top": 141.84375,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "dark",
+      "destination": "configuration",
+      "geometry": {
+        "width": 320,
+        "shellScroll": 320,
+        "shellWidth": 320,
+        "navScroll": 296,
+        "navWidth": 296,
+        "navRows": 2,
+        "tabs": [
+          {
+            "label": "Open issues",
+            "left": 12,
+            "right": 95,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Monitoring",
+            "left": 95,
+            "right": 167,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Policies",
+            "left": 167,
+            "right": 224,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "Notifications",
+            "left": 224,
+            "right": 308,
+            "top": 96,
+            "height": 45.84375
+          },
+          {
+            "label": "History",
+            "left": 12,
+            "right": 64,
+            "top": 141.84375,
+            "height": 45.84375
+          }
+        ],
+        "mainLeft": 0,
+        "mainRight": 320,
+        "mainScroll": 320,
+        "mainWidth": 320
+      }
+    },
+    {
+      "width": 320,
+      "colorScheme": "dark",
+      "destination": "summary-doubled-text",
+      "geometry": {
+        "overflow": false,
+        "navScroll": 296,
+        "navWidth": 296,
+        "timeWidth": 190,
+        "intrinsicWidth": 188.390625,
+        "timeLeft": 33,
+        "timeRight": 223,
+        "labelLeft": 33,
+        "labelRight": 287,
+        "value": "08:00"
+      }
+    }
+  ],
+  "failures": []
+}
