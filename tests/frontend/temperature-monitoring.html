@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Temperature monitoring preview</title>
+<style>
+:root{--primary-text-color:#182a34;--secondary-text-color:#536575;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--divider-color:#dce4e9;--primary-color:#007eab;color-scheme:light}
+:root[data-theme="dark"]{--primary-text-color:#e4e8ec;--secondary-text-color:#aab8c5;--primary-background-color:#10171e;--card-background-color:#18232d;--secondary-background-color:#263744;--divider-color:#41505c;--primary-color:#57c5ef;color-scheme:dark}
+body{margin:0;font:14px Arial,sans-serif;background:var(--primary-background-color);color:var(--primary-text-color)}
+#controls,#evidence-controls{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}button,select{font:inherit;padding:8px}homeostatic-panel{display:block;width:1200px;max-width:100%;margin:auto}#result,#receipt{margin:12px;white-space:pre-wrap;overflow-wrap:anywhere}#receipt{max-height:220px;overflow:auto}
+</style></head><body>
+<div id="controls"><strong>Temperature monitoring · synthetic data</strong><button id="run">Run temperature checks</button><label>Width <select id="width"><option>1200</option><option>390</option><option>320</option></select></label><label>Theme <select id="theme"><option>light</option><option>dark</option></select></label></div>
+<div id="evidence-controls"><button id="show-device">Show thermostat</button><button id="legacy-link">Open old temperature link</button><label>Captured condition <select id="condition"><option value="waiting">Waiting</option><option value="warn">Duration elapsed</option><option value="unknown">Missing evidence</option></select></label><label><input id="overlap" type="checkbox"> Overlapping policy</label><label><input id="exclude" type="checkbox"> Sensor excluded from availability</label></div><homeostatic-panel></homeostatic-panel><p id="result" role="status">Ready</p><details><summary>Generated acceptance receipt</summary><pre id="receipt"></pre></details>
+<script type="module" src="./temperature-monitoring-scenario.mjs"></script>
+</body></html>

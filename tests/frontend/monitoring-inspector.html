@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Monitoring inspector preview</title>
+<style>
+:root{--primary-text-color:#182a34;--secondary-text-color:#536575;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--divider-color:#dce4e9;--primary-color:#007eab;color-scheme:light}
+:root[data-theme="dark"]{--primary-text-color:#e4e8ec;--secondary-text-color:#aab8c5;--primary-background-color:#10171e;--card-background-color:#18232d;--secondary-background-color:#263744;--divider-color:#41505c;--primary-color:#57c5ef;color-scheme:dark}
+body{margin:0;font:14px Arial,sans-serif;background:var(--primary-background-color);color:var(--primary-text-color)}
+#controls{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}button,select{font:inherit;padding:8px}homeostatic-panel{display:block;width:1200px;max-width:100%;margin:auto}#result,#receipt{margin:12px;white-space:pre-wrap;overflow-wrap:anywhere}#receipt{max-height:220px;overflow:auto}
+</style></head><body>
+<div id="controls"><strong>Monitoring preview · synthetic data</strong><button id="run">Run inspector checks</button><a id="legacy-history" href="/homeostatic/sources/source%3Aentity%3Athird-floor-3/history">Existing entity history link</a><label>Width <select id="width"><option>1200</option><option>390</option><option>320</option></select></label><label>Theme <select id="theme"><option>light</option><option>dark</option></select></label></div>
+<homeostatic-panel></homeostatic-panel><p id="result" role="status">Ready</p><details><summary>Generated acceptance receipt</summary><pre id="receipt"></pre></details>
+<script type="module" src="./monitoring-inspector-scenario.mjs"></script>
+</body></html>

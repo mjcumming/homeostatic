@@ -1,9 +1,15 @@
 # ADR 0068: Act on availability monitoring from Sources
 
-**Status:** Accepted
+**Status:** Accepted; action wording and Issues workflow extended by [ADR 0069](0069-bulk-availability-removal-from-issues.md)
+**Later presentation decision:** [ADR 0071](0071-compact-monitoring-inspector.md) combines policy and technical information in Details and adds visible monitoring coverage and filtering.
+
+**Later decision:** [ADR 0070](0070-saved-monitoring-and-history-navigation.md) supersedes the saved-action Undo and History placement provisions where applicable.
+
 **Date:** 2026-10-14
 
 **Partially supersedes:** ADR 0061's requirement that every source monitoring change open the complete policy editor. Policies remain the configuration owner. This decision preserves the availability meanings in ADR 0025 and ADR 0064.
+
+**Later decision:** [ADR 0073](0073-entity-first-monitoring-details.md) supersedes the applicable entity-detail layout, contextual history placement and availability action wording; existing monitoring and issue semantics remain unchanged.
 
 ## Context
 

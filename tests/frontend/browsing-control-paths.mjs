@@ -4,12 +4,12 @@ export async function runBrowsingControlPaths(context) {
   const {card,root,check,find,settle,click,change,save,runPath,getSaved}=context;
   const go=async page=>{await click(`[data-page="${page}"]`);if(page==="policies"&&root.querySelector('.unified-policy-editor'))await click('[data-definition-action="close"]');};
   await runPath("policies.scope",async()=>{
-    const battery=baseSource("battery:phone","Owner phone","battery",{entity_id:"sensor.owner_phone_battery",attributes:{kind:["battery"],entity:["registry:phone"]}});
+    const battery=baseSource("battery:phone","Owner phone","battery",{entity_id:"sensor.owner_phone_battery",attributes:{kind:["battery"],entity:["registry:phone"],area:["kitchen"],label:["phones"]}});
     card.current.data.inventory.catalog.candidates.push(battery);card.current.data.inventory.nodes.push(battery);
     await go("policies");await click('[data-definition-action="edit"][data-definition-id="policy-1"]');
     await change('[data-definition-field="watch"]',"all_except");await click('[data-definition-action="pick"]');
     await change('[data-definition-picker-search]',"Batt");await change('[data-definition-field="selection"][data-definition-value="battery:phone"]',true);
-    await change('[data-definition-picker-search]',"no result");check(root.textContent.includes("No matching choices"),"Empty search is explicit");
+    await change('[data-definition-picker-search]',"no result");check(root.textContent.includes("No batteries match your search."),"Empty search is explicit");
     await change('[data-definition-picker-search]',"");await change('[data-definition-picker-selected]',true);check(find('[data-definition-field="selection"]').checked,"Selected-only preserves exclusion");
     await click('[data-definition-action="finish-pick"]');await save();check(getSaved().monitoring_policies[0].excluded_sources.includes("battery:phone"),"Exclusion saves canonical source identity");
     for(const [mode,id] of [["selected","registry:phone"],["area","kitchen"],["label","phones"]]) {
@@ -31,8 +31,8 @@ export async function runBrowsingControlPaths(context) {
   });
   await runPath("policies.ups",async()=>{
     const policy=getSaved().monitoring_policies.find(item=>item.check==="ups_reserve");await go("policies");await click(`[data-definition-action="edit"][data-definition-id="${policy.id}"]`);
-    const original=policy.notifications[0].id;await change('[data-row-field="profile"]',"urgent");await click('[data-definition-action="add-row"]');
-    const rows=[...root.querySelectorAll('[data-row-field="profile"]')];await change(`[data-row-field="profile"][data-row-id="${rows[1].dataset.rowId}"]`,"weekly");await save();
+    const original=policy.notifications[0].id;await change('[data-row-field="profile"]',"urgent");
+    await change('.policy-notification-add select',"weekly");await save();
     const saved=getSaved().monitoring_policies.find(item=>item.id===policy.id);check(saved.notifications.some(row=>row.id===original&&row.when==="backup"&&row.profile==="urgent")&&saved.notifications.some(row=>row.when==="mains"&&row.profile==="weekly"),"Both UPS modes save without changing existing row identity");
   });
   const previous=card.current.data;

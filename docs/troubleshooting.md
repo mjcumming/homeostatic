@@ -65,7 +65,7 @@ Overlapping policies operate independently. If two policies intentionally select
 
 Three or more watched devices or entities on the same integration that fail within a minute can be grouped into one issue. The count and time window are under **Settings → Problem grouping**. [How it works](how-it-works.md#how-one-failure-becomes-one-issue) explains grouping.
 
-If the issues are useful but the notifications are too frequent, change the policy's notification entries. Scheduled summaries and dashboard-only monitoring keep issues visible. **Pause alerts** quiets an issue temporarily; the [user guide](guide.md#operator-controls) explains the controls.
+If the issues are useful but the notifications are too frequent, change the policy's notification entries. Scheduled summaries and dashboard-only monitoring keep issues visible. **Pause notifications** quiets an issue temporarily; the [user guide](guide.md#operator-controls) explains the controls.
 
 ## An alert stuck on unknown
 

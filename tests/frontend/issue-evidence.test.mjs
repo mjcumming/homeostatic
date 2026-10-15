@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {integrationProblem,relatedSourceEvidence} from "../../custom_components/homeostatic/frontend/problem.mjs";
-import {relatedEvidenceDetails} from "../../custom_components/homeostatic/frontend/issues-workspace.mjs";
+import {relatedEvidenceDetails,relatedEvidenceMonitoring} from "../../custom_components/homeostatic/frontend/issues-workspace.mjs";
 import {visibleEpisodes} from "../../custom_components/homeostatic/frontend/model.mjs";
 import {issueEvidenceFixture,lyricLocalize,LYRIC_ENTRY,THERMOSTAT_ENTITY} from "./issue-evidence-fixture.mjs";
 
@@ -89,9 +89,9 @@ test("full recovery hides the current issue without changing engine-owned record
   assert.deepEqual(fixture.data,before);
 });
 
-test("nested evidence retains native device and canonical Sources actions",()=>{
+test("disclosed evidence retains native device and canonical Sources actions",()=>{
   const result=evidence(issueEvidenceFixture());
-  const html=relatedEvidenceDetails(result,new Set());
+  const html=relatedEvidenceDetails(result,new Set())+relatedEvidenceMonitoring(result);
   assert.match(html,/3 devices/);
   assert.match(html,/5 entities/);
   assert.match(html,/9 checks/);
@@ -100,6 +100,8 @@ test("nested evidence retains native device and canonical Sources actions",()=>{
   assert.match(html,/data-source-link="entity:registry:thermostat"/);
   assert.doesNotMatch(html,/data-source-link="monitoring:/);
   assert.match(html,/<details/);
+  assert.doesNotMatch(html,/Inspect entity|Inspect device checks|class="button primary"/);
+  assert.doesNotMatch(html,/<details[^>]* open/);
 });
 
 test("evidence names and descriptions are escaped before rendering",()=>{

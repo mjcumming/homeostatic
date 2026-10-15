@@ -34,9 +34,11 @@ from homeassistant.util.hass_dict import HassKey
 
 from . import notification_definitions
 from .battery import observe as battery_observation
+from .catalog import Source
 from .config import Settings, normalize_requirement
 from .const import DEFAULTS, DOMAIN, NAME
 from .device_availability import device_availability
+from .monitoring import TEMPERATURE_CHECKS
 from .monitoring_runtime import (
     contributing_policies,
 )
@@ -50,8 +52,8 @@ from .vacuum import observe as vacuum_observation
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=74"
-PANEL_ELEMENT = "homeostatic-panel-v26"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=82"
+PANEL_ELEMENT = "homeostatic-panel-v34"
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 
@@ -412,6 +414,9 @@ def websocket_node(
             ],
             "integration_evidence": runtime.integration_evidence.view(node_id),
             "entity_status": runtime.entity_status(node_id),
+            "temperature_status": runtime.temperature_status(node_id)
+            if source.kind in TEMPERATURE_CHECKS
+            else None,
             "device_evidence": members,
             "device_availability": device_availability(
                 hass, source.attributes["device"][0]
@@ -430,6 +435,45 @@ def websocket_node(
             else None,
         },
     )
+
+
+def _temperature_checks(
+    runtime: Runtime, source: Source, candidates: dict[str, Source]
+) -> list[dict[str, JSONValue]]:
+    """Expose independent conditions on this entity or its device's entities."""
+    policies = {item.id: item for item in runtime.settings.monitoring_policies}
+    result: list[dict[str, JSONValue]] = []
+    for check in runtime.sources.values():
+        if (
+            check.kind not in TEMPERATURE_CHECKS
+            or not check.watched
+            or check.disabled
+            or check.monitoring_policy is None
+            or not (
+                (source.entity_id is not None and check.entity_id == source.entity_id)
+                or (
+                    source.kind == "device"
+                    and set(source.attributes.get("device", ())).intersection(
+                        check.attributes.get("device", ())
+                    )
+                )
+            )
+        ):
+            continue
+        entity = candidates.get(check.entity_id) if check.entity_id else None
+        result.append(
+            {
+                "node_id": check.node_id,
+                "source_id": entity.node_id if entity is not None else check.node_id,
+                "entity_id": check.entity_id,
+                "source_name": entity.name if entity is not None else check.name,
+                "policy_id": check.monitoring_policy,
+                "policy_name": policies[check.monitoring_policy].name,
+                "check": check.check_id,
+                **runtime.temperature_status(check.node_id),
+            }
+        )
+    return result
 
 
 @websocket_command(
@@ -558,6 +602,8 @@ def websocket_source(
             runtime.settings.monitoring_policies, item, runtime.sources
         )
     }
+    temperature_checks = _temperature_checks(runtime, source, candidates)
+    policy_ids.update(str(item["policy_id"]) for item in temperature_checks)
     evidence = runtime.integration_evidence.view(observed_node) or {}
     if source.kind == "integration" and source.entry_id:
         entry = hass.config_entries.async_get_entry(source.entry_id)
@@ -566,6 +612,7 @@ def websocket_source(
     connection.send_result(
         msg["id"],
         {
+            "temperature_checks": temperature_checks,
             "battery_conditions": [
                 {
                     "policy_id": item.id,

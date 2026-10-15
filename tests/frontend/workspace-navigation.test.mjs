@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {hasWorkspaceDrafts,parseWorkspacePath,workspacePath,workspaceContext,restoreWorkspaceContext,WorkspaceNavigation} from "../../custom_components/homeostatic/frontend/workspace-navigation.mjs";
+import {hasWorkspaceDrafts,parseWorkspacePath,workspacePath,workspaceRoute,workspaceContext,restoreWorkspaceContext,WorkspaceNavigation} from "../../custom_components/homeostatic/frontend/workspace-navigation.mjs";
 
-for(const path of ["/issues","/sources/source%3Aentity%3Alight.deck","/sources/device%3Adeck/history","/episode/a%2Fb","/policies/availability","/notifications/methods/phone","/notifications/profiles/morning","/notifications/methods","/history/closed","/settings/grouping"])
+for(const path of ["/issues","/sources","/sources/source%3Aentity%3Alight.deck","/sources/device%3Adeck/history","/episode/a%2Fb","/policies/availability","/notifications/methods/phone","/notifications/profiles/morning","/notifications/methods","/history","/history/closed","/settings/grouping"])
   test(`round trip ${path}`,()=>assert.equal(workspacePath(parseWorkspacePath(path)),path));
 
 test("older and malformed destinations open Issues",()=>{
@@ -41,4 +41,58 @@ test("retired notification policy links open the ordinary policy editor",()=>{
   assert.deepEqual(parseWorkspacePath("/notifications/policies/device"),{page:"policies",definition:{kind:"policies",id:"device"}});
   assert.equal(workspacePath(parseWorkspacePath("/notifications/policies/device")),"/policies/device");
   assert.deepEqual(parseWorkspacePath("/notifications/profiles/%ZZ"),{page:"notifications",notificationSection:"profiles",definition:null});
+});
+
+test("Back and Forward restore separate History and source contexts without changing drafts",()=>{
+  globalThis.window={addEventListener(){},removeEventListener(){},location:{pathname:"/homeostatic"}};
+  const draft={monitoring_policies:[{id:"lights",name:"Unsaved lights"}],notification_definitions:{methods:{phone:{name:"Unsaved phone"}}}};
+  const card={page:"sources",sourcesSelection:"source:entity:light.deck",sourcesView:"source",sourcesQuery:"deck",sourcesGrouping:"integration",sourcesExpanded:new Set(["integration:mqtt"]),sourcesLimits:new Map(),current:{status:"current"},configuration:{},settingsDraft:draft,renderedCurrent:true,
+    dialog:{close(){}},tools:{query:"",resolution:"",page:0,close(){this.historyId=null;}},render(){},revealSourcesSelection(){},
+    capturePageState(){return {scroll:this.scroll};},restorePageState(value){this.scroll=value.scroll;},scroll:240,shadowRoot:{querySelector(){return null;}}};
+  const nav=new WorkspaceNavigation(card),source=nav.capture();
+  nav.applyPath("/history");
+  card.tools.query="unavailable";card.tools.resolution="removed";card.tools.page=2;card.scroll=600;
+  const history=nav.capture();
+  nav.enabled=true;
+
+  nav.onPop({state:{homeostatic:source}});
+  assert.equal(card.page,"sources");
+  assert.equal(card.sourcesSelection,"source:entity:light.deck");
+  assert.equal(card.sourcesQuery,"deck");
+  assert.deepEqual([...card.sourcesExpanded],["integration:mqtt"]);
+  assert.equal(card.scroll,240);
+  nav.onPop({state:{homeostatic:history}});
+  assert.equal(card.page,"history");
+  assert.deepEqual({query:card.tools.query,resolution:card.tools.resolution,page:card.tools.page},{query:"unavailable",resolution:"removed",page:2});
+  assert.equal(card.scroll,600);
+  assert.equal(card.settingsDraft,draft);
+  assert.equal(card.settingsDraft.monitoring_policies[0].name,"Unsaved lights");
+  assert.equal(card.settingsDraft.notification_definitions.methods.phone.name,"Unsaved phone");
+  delete globalThis.window;
+});
+
+test("a retained History detail returns to the originating source",()=>{
+  globalThis.window={addEventListener(){},removeEventListener(){},location:{pathname:"/fixture"}};
+  const card={page:"sources",sourcesSelection:"source:entity:light.deck",sourcesView:"source",current:{status:"current"},configuration:{},renderedCurrent:false,dialog:{close(){}},tools:{close(){this.historyId=null;}},render(){},revealSourcesSelection(){},shadowRoot:{querySelector(){return null;}}};
+  const nav=new WorkspaceNavigation(card),source=nav.capture();
+  card.page="history";card.tools.historyId="ended-light";nav.finish(source);
+  assert.equal(card.workspaceReturn.label,"Back to source");
+  assert.equal(nav.back(),true);
+  assert.equal(card.page,"sources");
+  assert.equal(card.sourcesSelection,"source:entity:light.deck");
+  assert.equal(card.tools.historyId,null);
+  delete globalThis.window;
+});
+
+test("switching pages does not expose a return route for another page's retained editor",()=>{
+  const selection={kind:"policies",id:"saved-policy"};
+  const card={page:"notifications",definitionSelection:selection,sourcesExcludedOnly:true};
+  assert.equal(workspaceRoute(card).definition,null);
+  assert.equal(card.definitionSelection,selection);
+  card.page="policies";
+  assert.equal(workspaceRoute(card).definition,selection);
+  const context=workspaceContext(card);
+  card.sourcesExcludedOnly=false;
+  restoreWorkspaceContext(card,context);
+  assert.equal(card.sourcesExcludedOnly,true);
 });

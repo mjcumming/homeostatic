@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-15T08:47:15.336245-05:00",
+  "scope": "Simplify the Working on this equipment form and preserve its selected expiry and scope",
+  "status": "Uncommitted local implementation; not installed or released",
+  "environment": {
+    "fixture": "source-history.html",
+    "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 720,
+      "card": 390
+    },
+    "data": "synthetic",
+    "destinations": "mocked"
+  },
+  "results": [
+    {
+      "id": "sources.maintenance",
+      "page": "Sources",
+      "controls": "Equipment maintenance entry, explicit expiry, cancel",
+      "expected": "A source has a reachable maintenance action with exact saved scope and visible expiry.",
+      "fixture": "source-history.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Clicked source maintenance entry, invalid custom time, explicit preset duration, optional reason, dependent-scope choice, Save and End now. Verified collapsed options, no pristine validation warning and retained exact expiry. Verified pending-click suppression, ambiguous failure with no retry, disconnected submission gate, exact mock persisted source/expiry/reason, reopened source control and preservation of an overlapping window on cancellation."
+      ]
+    }
+  ],
+  "visual_review": {
+    "phone": "Inspected the real dialog in a 390px iframe with the screenshot source name; checked initial light and selected-duration dark views. Unsupported cancellation remains visible.",
+    "desktop": "Inspected the same dialog at the default desktop viewport.",
+    "screenshots": [
+      "maintenance-phone-light-2026-10-15.jpg",
+      "maintenance-phone-dark-2026-10-15.jpg"
+    ],
+    "independent_code_review": "No concrete regression found in explicit expiry, preset/custom switching, preserved draft, guarded submission or cancellation."
+  },
+  "validation": {
+    "command": "uv run --no-sync python script/check.py --quick",
+    "environment": "Ubuntu WSL",
+    "exit_code": 0,
+    "frontend_tests_passed": 428
+  },
+  "additional_checks": [
+    "The older history-controls.html runner stopped on its pre-existing assertion that History remains inside Issues. The current interface has an accepted separate History page; this unrelated fixture was left unchanged.",
+    "Manually clicked View details, Pause alerts, entered an explicit local expiry and submitted through the rendered shared form. The isolated fixture confirmed the saved pause and exact chosen end time."
+  ],
+  "limitations": [
+    "Synthetic data and mocked saves; no live Home Assistant changes.",
+    "Physical Safari was not tested.",
+    "This receipt covers maintenance and the shared pause-form save, not full product acceptance."
+  ],
+  "source_sha256": {
+    "custom_components/homeostatic/frontend/history-controls.mjs": "dc05cba793503dd3aeecbb4313bed14f0d38b0b7fe5c5cda9c40a5d85864a2b0",
+    "custom_components/homeostatic/frontend/styles.mjs": "6808522f2dc551162fbc2a562745a845fdbab6a6f9db81dd031a9e43a00d0ed9",
+    "tests/frontend/source-history.html": "5c739848d5b4709c82cb5e4c383df33de54188842d2d8a902a106f5978177917"
+  }
+}

@@ -1,5 +1,18 @@
 # Save performance measurements
 
+## Policy name and temperature-limit saves
+
+The [October 15 isolated measurement](performance/policy-save-2026-10-15.json) uses 6,000 registered entities, 300 devices and two selected temperature sensors. Each case makes three saves through the normal WebSocket handler, with real runtime Store writes and read-back of an approximately 12.3 MB snapshot. Registry storage remains mocked and notifications remain off.
+
+| Edit | Before median | After median |
+| --- | ---: | ---: |
+| Policy name | 1.151 seconds | 0.613 seconds |
+| Temperature limit | 1.379 seconds | 0.785 seconds |
+
+Policy edits previously serialized the full source graph and catalog again even when most display records were unchanged. The correction reuses unchanged serialized source rows and retains catalog output only when both candidates and enrollment rules remain equal. Full discovery, detection evaluation, queued observations, revisions, verified storage and rollback remain in the transaction. Regression scenarios compare the resulting view against full fresh serialization and verify that renames preserve findings while threshold changes replace the applicable detection expectation.
+
+These are three-sample isolated endpoint medians, not a household latency distribution or browser-paint measurement. The reported five-to-ten-second live delay has not been measured with this candidate. Installation and live acceptance are tracked in the [roadmap](roadmap.md#current-work).
+
 ## Historical monitoring-edit measurements
 
 Measured on 2026-10-13 with Python 3.14.7, Home Assistant 2026.9.3 and the published health-tree 0.6.0. The fixture creates 10 integration entries, 300 devices, 6,000 entities and 10 Repairs. The run used the Windows checkout through Ubuntu on WSL. Requests exercised the integration and authenticated WebSocket API, but the inherited Home Assistant test fixture replaced HA Store load/write operations with an in-memory JSON roundtrip. These historical timings include application work and mocked persistence; they do not measure disk I/O or durable-write latency. Notification requests stay off. No household installation participates.

@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UPS monitoring · isolated UI test</title>
 <style>:root{--primary-text-color:#182a34;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--secondary-text-color:#546875;--divider-color:#dce4e9;--primary-color:#007eab;--text-primary-color:#fff}body{margin:0;font:14px Arial,sans-serif;background:var(--primary-background-color)}#controls{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:8px}homeostatic-card{display:block;max-width:1100px;margin:auto}#feedback{white-space:pre-wrap}</style></head>
-<body><div id="controls"><strong>Synthetic UPS signals · no live services</strong><button id="backup">Backup power</button><button id="mains">Mains restored</button><button id="policy">Reserve policy</button><button id="issues">Issues</button><label><input id="phone" type="checkbox">Phone layout</label><button id="run">Run UPS scenario</button><span id="feedback" role="status"></span></div><homeostatic-card></homeostatic-card>
+<body><div id="controls"><strong>Synthetic UPS signals · no live services</strong><button id="backup">Backup power</button><button id="mains">Mains restored</button><button id="policy">Reserve policy</button><button id="issues">Open issues</button><label><input id="phone" type="checkbox">Phone layout</label><button id="run">Run UPS scenario</button><span id="feedback" role="status"></span></div><homeostatic-card></homeostatic-card>
 <script type="module">
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
 import {monitoringExample} from "./monitoring-fixture.mjs";

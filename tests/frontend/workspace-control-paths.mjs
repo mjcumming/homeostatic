@@ -1,7 +1,7 @@
 import {MONITORING_TYPES} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
 
 export async function runWorkspaceControlPaths(context) {
-  const {card,root,check,find,settle,click,change,save,runPath,getSaved,setTestMode}=context;
+  const {card,root,check,find,settle,click,change,save,savedList,runPath,getSaved,setTestMode}=context;
   const saved=()=>getSaved();
   const go=async page=>{await click(`[data-page="${page}"]`);if(page==="policies"&&root.querySelector('.unified-policy-editor'))await click('[data-definition-action="close"]');};
   const name=value=>change('[data-definition-field="name"]',value);
@@ -17,11 +17,26 @@ export async function runWorkspaceControlPaths(context) {
     await methods();await click('[data-definition-action="add"][data-definition-kind="methods"]');await name("Abandoned method");
     check(!root.querySelector('[data-definition-action="test-method"]'),"New method cannot send a test");
     await click('[data-definition-action="discard-scoped"]');check(!Object.values(saved().notification_definitions.methods).some(item=>item.name==="Abandoned method"),"Discard creates no saved method");
-    await menu("methods","phone","duplicate");await name("Phone copy");await save();const id=card.definitionSelection.id;
+    await menu("methods","phone","duplicate");await name("Phone copy");const id=card.definitionSelection.id;await save();
     check(saved().notification_definitions.methods[id].destinations.includes("phone:owner"),"Duplicate saves independently");
+    savedList("methods",id,"Phone copy");await method(id);
     await name("Discard this method name");await click('[data-definition-action="discard-scoped"]');check(find('[data-definition-field="name"]').value==="Phone copy","Discard restores method");
     await menu("methods",id,"delete");await click('[data-definition-action="cancel-delete"]');check(saved().notification_definitions.methods[id],"Cancel retains method");
     await menu("methods",id,"delete");await click('[data-definition-action="confirm-delete"]');await settle();check(!saved().notification_definitions.methods[id],"Confirm removes unused method");
+  });
+  await runPath("methods.completion",async()=>{
+    await methods();await click('[data-definition-action="add"][data-definition-kind="methods"]');await name("Kitchen Echo");
+    const id=card.definitionSelection.id,before=structuredClone(saved());
+    await click('[data-definition-action="destination-open"]');await change('[data-definition-delivery-type]',"voice");
+    await change('[data-definition-delivery-search]',"Kitchen");await click('[data-definition-action="destination-speaker"]');
+    await click('[data-definition-action="destination-add"][data-destination-channel="tts:local:kitchen"]');await save();
+    savedList("methods",id,"Kitchen Echo");
+    check(JSON.stringify(saved().notification_definitions.methods[id].destinations)==='["tts:local:kitchen"]',"Creation saves the selected speaker destination");
+    const expected=structuredClone(before);expected.notification_definitions.methods[id]=structuredClone(saved().notification_definitions.methods[id]);
+    check(JSON.stringify(saved())===JSON.stringify(expected),"Creation changes only the new method and leaves sending off");
+    await click('[data-definition-action="edit"][data-definition-kind="methods"][data-definition-id="'+id+'"]');await settle();
+    check(find('[data-definition-field="name"]').value==="Kitchen Echo"&&Boolean(root.querySelector('[data-definition-action="destination-remove"][data-destination-channel="tts:local:kitchen"]')),"Reopening shows the saved method and selected speaker");
+    check(!root.querySelector(".definition-save-result")&&Boolean(root.querySelector('[data-definition-action="test-method"]')),"Reopening exposes the saved method test without success feedback");
   });
   await runPath("methods.destinations",async()=>{
     await method("phone");
@@ -38,19 +53,22 @@ export async function runWorkspaceControlPaths(context) {
     check(root.activeElement?.dataset.definitionAction==="destination-open","Picker close returns focus");
     await save();const choices=saved().notification_definitions.methods.phone.destinations;
     check(choices.length===5&&choices.includes("sms:family:%2B15551234567")&&choices.includes("tts:local:kitchen"),"Every supported destination type saves selected values");
+    savedList("methods","phone",saved().notification_definitions.methods.phone.name);
   });
   await runPath("methods.presence",async()=>{
-    await click('.method-presence summary');await change('[data-definition-field="mode"]',"home_away");
+    await method("phone");await click('.method-presence summary');await change('[data-definition-field="mode"]',"home_away");
     await change('[data-definition-field="people"][data-person="person.owner"]',true);
     await addDestination("app","phone:owner","home");await addDestination("email","notify:email","away");await addDestination("notification","notify:other","fallback");await save();
     check(JSON.stringify(saved().notification_definitions.methods.phone.people)==="[\"person.owner\"]","Presence Save uses the catalog entity identity, never owner-internal");
     check(saved().notification_definitions.methods.phone.home[0]==="phone:owner"&&saved().notification_definitions.methods.phone.away[0]==="notify:email"&&saved().notification_definitions.methods.phone.fallback[0]==="notify:other","Home/away and fallback save separately");
+    savedList("methods","phone",saved().notification_definitions.methods.phone.name);await method("phone");
     await change('[data-definition-field="mode"]',"home_people");await change('[data-definition-field="people"][data-person="person.owner"]',true);await addDestination("app","phone:owner","person_destinations:person.owner");await change('[data-definition-field="skip"]',true);await save();
     check(JSON.stringify(saved().notification_definitions.methods.phone.people)==="[\"person.owner\"]","Per-person Save retains the full entity identity");
     check(saved().notification_definitions.methods.phone.skip&&saved().notification_definitions.methods.phone.person_destinations["person.owner"][0]==="phone:owner","Per-person destinations and skip save");
+    savedList("methods","phone",saved().notification_definitions.methods.phone.name);
   });
   await runPath("methods.test",async()=>{
-    await name("Dirty method");check(!root.querySelector('[data-definition-action="test-method"]'),"Dirty method cannot send a test");await click('[data-definition-action="discard-scoped"]');
+    await method("phone");await name("Dirty method");check(!root.querySelector('[data-definition-action="test-method"]'),"Dirty method cannot send a test");await click('[data-definition-action="discard-scoped"]');
     for(const [mode,message] of [["requested","Test requested for Owner phone"],["failed","No test requests succeeded"],["skip","test was skipped"],["unavailable","configured destination is unavailable"]]) {
       setTestMode(mode);await click('[data-definition-action="test-method"]');await settle();check(root.textContent.includes(message),`${mode} result is truthful`);
     }

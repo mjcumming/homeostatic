@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=74";
+import {escapeHtml as esc} from "./model.mjs?v=82";
 
 const TYPES={app:"App notification",voice:"Speaker announcement",email:"Email",sms:"SMS",notification:"Other notification"};
 const targetsFor=card=>card.configuration.delivery_targets||card.configuration.notification_destinations||[];
@@ -8,6 +8,7 @@ const ownerFor=(method,field)=>field.startsWith("person_destinations:")?{owner:m
 const valuesFor=(method,field)=>field.startsWith("person_destinations:")?method.person_destinations?.[field.slice(20)]||[]:method[field]||[];
 const providerName=target=>target.provider_name||target.provider||"Default speech provider";
 const displayName=target=>target.destination_name||target.name;
+const choice=(action,name,detail,id,field,extra="",indicator="+")=>`<button type="button" class="delivery-picker-choice" data-definition-action="${action}" data-definition-kind="methods" data-definition-id="${esc(id)}" data-destination-field="${esc(field)}" ${extra}><span class="delivery-picker-copy"><span class="delivery-picker-name">${esc(name)}</span>${detail?`<small>${esc(detail)}</small>`:""}</span><span class="delivery-picker-indicator" aria-hidden="true">${indicator}</span></button>`;
 
 /** Show configured destinations and discover new ones only after a type is chosen. */
 export function destinationChoices(card,method,id,field,label) {
@@ -34,13 +35,14 @@ function picker(card,method,id,field,state) {
     if(!groups.has(key))groups.set(key,[]);
     groups.get(key).push(target);
   }
+  const providers=state.type==="voice"&&state.speaker?groups.get(state.speaker):null;
   const rows=[...groups.values()].filter(items=>items.some(target=>[displayName(target),target.area,providerName(target)].filter(Boolean).join(" ").toLowerCase().includes(query))).map(items=>{
     const target=items[0],name=displayName(target),key=target.destination_id||target.channel;
-    if(target.requires_target&&typeOf(target)==="sms")return `<div class="definition-list-item"><label>${esc(name)}<input type="tel" aria-label="Phone number for ${esc(name)}" placeholder="+15551234567" data-definition-sms-number="${esc(target.channel)}" value="${esc(state.numbers?.[target.channel]||"")}"></label>${button("destination-add-sms","Add recipient",id,field,`data-destination-channel="${esc(target.channel)}"`)}</div>`;
-    const chooser=state.speaker===key&&items.length>1;
-    return `<div class="definition-list-item"><div>${esc(name)}${target.area?`<p class="small">${esc(target.area)}</p>`:""}${chooser?`<fieldset><legend>Speech provider</legend>${items.map(item=>button("destination-add",providerName(item),id,field,`data-destination-channel="${esc(item.channel)}"`)).join("")}</fieldset>`:""}</div>${chooser?"":button(items.length>1?"destination-speaker":"destination-add",items.length>1?"Choose provider":"Add",id,field,`data-destination-channel="${esc(target.channel)}" data-destination-speaker="${esc(key)}"`)}</div>`;
+    if(target.requires_target&&typeOf(target)==="sms")return `<div class="delivery-picker-recipient"><label class="installation-field"><span>${esc(name)}</span><input type="tel" aria-label="Phone number for ${esc(name)}" placeholder="+15551234567" data-definition-sms-number="${esc(target.channel)}" value="${esc(state.numbers?.[target.channel]||"")}"></label>${button("destination-add-sms","Add recipient",id,field,`data-destination-channel="${esc(target.channel)}"`)}</div>`;
+    return choice(items.length>1?"destination-speaker":"destination-add",name,target.area,id,field,`data-destination-channel="${esc(target.channel)}" data-destination-speaker="${esc(key)}"`,items.length>1?"&#8250;":"+");
   }).join("");
-  return `<dialog class="delivery-picker" aria-labelledby="delivery-picker-title"><header><h2 id="delivery-picker-title">Add destination</h2>${button("destination-close","Close",id,field,'aria-label="Close destination picker"')}</header><div class="delivery-picker-body"><label class="installation-field"><span>Delivery type</span><select aria-label="Delivery type" data-definition-delivery-type><option value="">Choose a delivery type</option>${types.map(([type,name])=>`<option value="${type}"${state.type===type?" selected":""}>${name}</option>`).join("")}</select></label>${state.type?`<label class="installation-field"><span>Search destinations</span><input type="search" aria-label="Search destinations" data-definition-delivery-search value="${esc(state.query||"")}"></label><div class="delivery-picker-results">${rows||'<p>No available destinations match.</p>'}</div>`:'<p class="small">Choose how to send the notification.</p>'}${!types.length?'<p>No supported destinations are available. Configure a notification integration in Home Assistant first.</p>':""}${card.settingsError?`<p role="alert" class="config-error">${esc(card.settingsError)}</p>`:""}</div><footer>${button("destination-close","Done",id,field)}</footer></dialog>`;
+  const content=providers?`${button("destination-back","Back to speakers",id,field)}<p class="delivery-picker-speaker">${esc(displayName(providers[0]))}</p><div class="delivery-picker-results">${providers.map(item=>choice("destination-add",providerName(item),"",id,field,`data-destination-channel="${esc(item.channel)}"`)).join("")}</div>`:`<label class="installation-field"><span>Delivery type</span><select aria-label="Delivery type" data-definition-delivery-type><option value="">Choose a delivery type</option>${types.map(([type,name])=>`<option value="${type}"${state.type===type?" selected":""}>${name}</option>`).join("")}</select></label>${state.type?`<label class="installation-field"><span>Search destinations</span><input type="search" aria-label="Search destinations" data-definition-delivery-search value="${esc(state.query||"")}"></label><div class="delivery-picker-results">${rows||'<p>No available destinations match.</p>'}</div>`:'<p class="small">Choose how to send the notification.</p>'}${!types.length?'<p>No supported destinations are available. Configure a notification integration in Home Assistant first.</p>':""}`;
+  return `<dialog class="delivery-picker" aria-labelledby="delivery-picker-title"><header class="delivery-picker-header"><h2 id="delivery-picker-title" tabindex="-1" autofocus>${providers?"Speech provider":"Add destination"}</h2><button type="button" class="delivery-picker-close" data-definition-action="destination-close" data-definition-kind="methods" data-definition-id="${esc(id)}" data-destination-field="${esc(field)}" aria-label="Close destination picker">&#215;</button></header><div class="delivery-picker-body">${content}${card.settingsError?`<p role="alert" class="config-error">${esc(card.settingsError)}</p>`:""}</div></dialog>`;
 }
 
 /** Return focus to the destination control that opened the picker. */
@@ -64,6 +66,13 @@ export function editDestinationPicker(card,event,element,invalidate,renderAfterE
   if(action==="destination-open"){card.deliveryPicker={id,field,type:"",query:"",numbers:{}};card.render();return true;}
   if(action==="destination-close"){card.deliveryPicker=null;card.render();focusDestinationPicker(card,id,field);return true;}
   if(action==="destination-speaker"){if(state)state.speaker=d.destinationSpeaker;card.render();return true;}
+  if(action==="destination-back"){
+    const speaker=state?.speaker;
+    if(state)state.speaker=null;
+    card.render();
+    [...(card.main.querySelectorAll?.('[data-definition-action="destination-speaker"]')||[])].find(item=>item.dataset.destinationSpeaker===speaker)?.focus();
+    return true;
+  }
   const {owner,key}=ownerFor(method,field),channel=d.destinationChannel;
   if(action==="destination-remove")owner[key]=(owner[key]||[]).filter(value=>value!==channel);
   else {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {availabilityMonitoring,prepareAvailabilityChange,applyAvailabilityChange,undoAvailabilityChange} from "../../custom_components/homeostatic/frontend/source-monitoring.mjs";
+import {availabilityMonitoring,availabilityConfirmation,prepareAvailabilityChange,applyAvailabilityChange} from "../../custom_components/homeostatic/frontend/source-monitoring.mjs";
 import {initializeScopedConfiguration,rebaseScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs";
 
 const clone=value=>structuredClone(value);
@@ -40,7 +40,8 @@ test("entity stop reviews and atomically excludes its individual and device role
   assert.deepEqual(savedPolicy(server.value,"other"),before.monitoring_policies[3]);
   assert.deepEqual(calls.map(call=>call.type),["homeostatic/save_settings","homeostatic/configuration"]);
   assert.equal(card.configuration.settings.notifications,false);
-  assert.match(card.availabilityNotice,/does not mean.*recovered/);
+  assert.equal(card.scopedNotice,null);
+  assert.equal(card.availabilityUndo,undefined);
 });
 
 test("selected-member batch deduplicates entities and preserves existing exclusions",async()=>{
@@ -51,7 +52,49 @@ test("selected-member batch deduplicates entities and preserves existing exclusi
   assert.deepEqual(savedPolicy(server.value,"entities").excluded_sources,[A,B]);
   assert.deepEqual(savedPolicy(server.value,"devices").excluded_sources,[A,B,C].sort());
   assert.equal(calls.filter(call=>call.type==="homeostatic/save_settings").length,1);
+  assert.equal(card.scopedNotice,null);
 });
+
+test("a large batch indexes device members once and retains every canonical entity",()=>{
+  const {card}=fixture(),sources=Array.from({length:10000},(_,index)=>entity(`entity:registry:bulk-${index}`,`bulk_${index}`));
+  const memberIds=sources.map(source=>source.entity_id);
+  let memberReads=0;
+  const device={node_id:"monitoring:devices:unit",monitoring_source:"device:unit",monitoring_policy:"devices",kind:"device",watched:true,get availability_entities(){memberReads++;return memberIds;}};
+  card.current.data.inventory.catalog.candidates=sources;
+  card.current.data.inventory.nodes=[device,...sources.map(source=>({...source,node_id:`monitoring:entities:${source.node_id}`,monitoring_source:source.node_id,monitoring_policy:"entities",watched:true}))];
+  const plan=prepareAvailabilityChange(card,[...sources.map(source=>source.node_id),card.current.data.inventory.nodes[1]]);
+  assert.equal(memberReads,1);
+  assert.equal(plan.sources.length,10000);
+  assert.equal(plan.changes.find(change=>change.id==="entities").sourceIds.length,10000);
+  assert.equal(plan.changes.find(change=>change.id==="devices").sourceIds.length,10000);
+  assert.equal(plan.changes.find(change=>change.id==="devices").after.excluded_sources.length,10001);
+});
+
+test("canonical objects retain embedded checks when monitoring scope is indexed",()=>{
+  const {card,sources}=fixture();
+  card.current.data.inventory.nodes=[];
+  sources[0].monitoring_checks=[{kind:"entity",monitoring_source:A,monitoring_policy:{id:"entities"},watched:true}];
+  const plan=prepareAvailabilityChange(card,[A,sources[0]]);
+  assert.deepEqual(plan.sourceIds,[A]);
+  assert.deepEqual(plan.changes.map(change=>change.id),["entities"]);
+});
+
+for(const [ids,heading,confirm] of [[[A],"Remove 1 entity from availability monitoring?","Remove entity from availability monitoring"],[[A,B],"Remove 2 entities from availability monitoring?","Remove entities from availability monitoring"]]) {
+  test(`confirmation leads with ${heading} and collapses names and policies`,()=>{
+    const {card}=fixture(),plan=prepareAvailabilityChange(card,ids);
+    const html=availabilityConfirmation(plan,(mode,label)=>`<button data-mode="${mode}">${label}</button>`);
+    const disclosure=html.match(/<details[^>]*>([\s\S]*?)<\/details>/)[1];
+    assert.ok(html.includes(`<h3>${heading}</h3>`));
+    assert.ok(html.includes(`data-mode="confirm">${confirm}`));
+    assert.match(disclosure,/<summary>Details<\/summary>/);
+    assert.match(disclosure,/sensor.one/);
+    assert.match(disclosure,/<li>entities<\/li>/);
+    assert.match(disclosure,/<li>devices<\/li>/);
+    assert.doesNotMatch(html,/<details[^>]* open/);
+    assert.match(html,/Other checks stay enabled\./);
+    assert.doesNotMatch(html,/recovered|device availability evidence|individual availability/);
+  });
+}
 
 test("browsing and cancelled plans never mutate saved settings or drafts",()=>{
   const {card,server,calls}=fixture(),before=clone(card.settingsDraft);
@@ -122,12 +165,11 @@ for(const reply of [undefined,{saved:false}]) {
     assert.match(card.availabilityError,/not confirmed/);
     assert.equal(card.scopedConfiguration.needsRefresh,true);
     assert.equal(card.availabilityUndo,undefined);
-    assert.equal(card.availabilityNotice,null);
     assert.deepEqual(server.value,before);
   });
 }
 
-test("confirmed save with failed reload says saved without offering uncertain undo",async()=>{
+test("confirmed save with failed reload requires refresh before reporting a confirmed result",async()=>{
   const {card,server}=fixture(),normal=card._hass.callWS;
   card._hass.callWS=async request=>{
     if(request.type==="homeostatic/configuration")throw new Error("Connection lost");
@@ -138,7 +180,6 @@ test("confirmed save with failed reload says saved without offering uncertain un
   assert.match(card.availabilityError,/were saved.*could not be reloaded/);
   assert.equal(card.scopedConfiguration.needsRefresh,true);
   assert.equal(card.availabilityUndo,undefined);
-  assert.equal(card.availabilityNotice,null);
 });
 
 for(const status of ["disconnected","unavailable","error"]) {
@@ -207,28 +248,16 @@ test("resume removes selected explicit exclusions without enrolling other source
   assert.match(plan.summary,/enabled state and eligibility/);
 });
 
-test("undo restores exactly prior exclusions and preserves later unrelated saved changes",async()=>{
-  const {card,server}=fixture(),before=clone(server.value.settings);
+test("saved exclusions remain policy settings after later unrelated changes",async()=>{
+  const {card,server,calls}=fixture();
   assert.equal(await applyAvailabilityChange(card,prepareAvailabilityChange(card,[A])),true);
   server.value.revision="r3";savedPolicy(server.value,"temperature").name="Changed elsewhere";
   rebaseScopedConfiguration(card,clone(server.value));
-  assert.equal(await undoAvailabilityChange(card),true);
-  assert.deepEqual(savedPolicy(server.value,"entities"),before.monitoring_policies[0]);
-  assert.deepEqual(savedPolicy(server.value,"devices"),before.monitoring_policies[1]);
-  assert.equal(savedPolicy(server.value,"temperature").name,"Changed elsewhere");
-  assert.equal(card.availabilityUndo,null);
-});
-
-test("undo refuses a later edit to an affected policy",async()=>{
-  const {card,server,calls}=fixture();
-  assert.equal(await applyAvailabilityChange(card,prepareAvailabilityChange(card,[A])),true);
-  server.value.revision="r3";savedPolicy(server.value,"entities").excluded_sources.push(B);
-  rebaseScopedConfiguration(card,clone(server.value));
-  const count=calls.length;
-  assert.equal(await undoAvailabilityChange(card),false);
-  assert.match(card.availabilityError,/affected policy changed/);
-  assert.equal(calls.length,count);
-  assert.deepEqual(savedPolicy(server.value,"entities").excluded_sources,[A,B]);
+  assert.deepEqual(card.configuration.settings.monitoring_policies[0].excluded_sources,[A]);
+  assert.deepEqual(card.configuration.settings.monitoring_policies[1].excluded_sources,[A,C].sort());
+  assert.equal(card.configuration.settings.monitoring_policies[2].name,"Changed elsewhere");
+  assert.equal(card.availabilityUndo,undefined);
+  assert.equal(calls.filter(call=>call.type==="homeostatic/save_settings").length,1);
 });
 
 test("newer affected edits made during the request remain unsaved",async()=>{

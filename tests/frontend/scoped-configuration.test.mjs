@@ -52,6 +52,7 @@ test("policy save preserves unrelated policy and method drafts",async()=>{
   card.settingsDraft.notification_definitions.methods.phone.name="Pending phone";
   assert.equal(await saveScopedConfiguration(card,{kind:"policy",id:"lights"}),true);
   assert.equal(savedPolicy(server,"lights").name,"Light coverage");
+  assert.equal(card.scopedNotice,null);
   assert.equal(savedPolicy(server,"doors").name,"doors");
   assert.equal(server.value.settings.notification_definitions.methods.phone.name,"Phone");
   assert.equal(card.settingsDraft.notification_definitions.methods.phone.name,"Pending phone");
@@ -64,6 +65,7 @@ test("standalone method save retains policy drafts without applying them",async(
   card.settingsDraft.notification_definitions.methods.phone.name="Saved phone";
   assert.equal(await saveScopedConfiguration(card,{kind:"method",id:"phone"}),true);
   assert.equal(server.value.settings.notification_definitions.methods.phone.name,"Saved phone");
+  assert.equal(card.scopedNotice,null);
   assert.equal(savedPolicy(server,"lights").name,"lights");
   assert.equal(draftPolicy(card,"lights").name,"Pending policy");
 });
@@ -110,10 +112,11 @@ test("save preserves newer policy edits made while request is in flight",async()
   await release();assert.equal(await pending,true);
   assert.equal(savedPolicy(server,"lights").name,"Submitted");
   assert.equal(draftPolicy(card,"lights").name,"Newer");
-  assert.match(card.scopedNotice,/Newer edits/);
+  assert.equal(card.scopedNotice,"Newer edits are still unsaved.");
   card._hass.callWS=original;
   assert.equal(await saveScopedConfiguration(card,{kind:"policy",id:"lights"}),true);
   assert.equal(savedPolicy(server,"lights").name,"Newer");
+  assert.equal(card.scopedNotice,null);
 });
 
 test("validation failure retains every draft and the confirmed configuration",async()=>{
@@ -177,6 +180,7 @@ test("settings save owns general settings and leaves policies methods rules and 
   card.configDraft.push({id:"pending"});
   assert.equal(await saveScopedConfiguration(card,{kind:"settings"}),true);
   assert.equal(server.value.settings.timings.settle,90);
+  assert.equal(card.scopedNotice,null);
   assert.equal(server.value.settings.notifications,false);
   assert.equal(savedPolicy(server,"lights").name,"lights");
   assert.equal(server.value.settings.notification_definitions.methods.phone.name,"Phone");
@@ -251,6 +255,7 @@ test("notification save and discard affect only that profile and preserve indepe
   card.settingsDraft.timings.settle=90;
   assert.equal(await saveScopedConfiguration(card,{kind:"profile",id:"morning"}),true);
   assert.equal(server.value.settings.notification_definitions.profiles.morning.name,"Weekday morning");
+  assert.equal(card.scopedNotice,null);
   assert.equal(server.value.settings.notification_definitions.profiles.evening.name,"Evening");
   assert.equal(server.value.settings.notification_definitions.methods.phone.name,"Phone");
   assert.equal(savedPolicy(server,"doors").name,"doors");

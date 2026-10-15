@@ -57,12 +57,80 @@ test("Sources shows independent battery policy outcomes at 25 percent without a 
     {policy_id:"standard",policy_name:"Standard battery warning",condition:{status:"pass",reason:"battery_ok",message:"Battery reads 25% above the 20% policy.",evidence:{battery_pct:25,threshold:20}}},
   ],members:[{name:"Deck battery level",state:"25",restored:false}]}};
   const html=sourcesBrowser(card);
-  assert.match(html,/<section class="source-condition needs-attention" data-battery-policy="early"><h3>Early battery warning<\/h3><h4>Battery low<\/h4>/);
-  assert.match(html,/<section class="source-condition" data-battery-policy="standard"><h3>Standard battery warning<\/h3><h4>No low battery reported<\/h4>/);
+  assert.match(html,/<section class="source-condition needs-attention" data-battery-policy="early"><h3>Early battery warning<\/h3>/);
+  assert.match(html,/<section class="source-condition" data-battery-policy="standard"><h3>Standard battery warning<\/h3>/);
+  const primary=html.split('<details class="source-section source-monitoring-explanation"')[0];
+  assert.match(primary,/Battery reads 25% under the 30% policy/);
+  assert.doesNotMatch(primary,/Battery reads 25% above the 20% policy/);
   assert.match(html,/at or below 30%/);assert.match(html,/at or below 20%/);
   assert.match(html,/Battery reads 25% under the 30% policy/);assert.match(html,/Battery reads 25% above the 20% policy/);
-  assert.match(html,/Deck battery level<\/td><td>25/);
+  assert.match(html,/<dt>Battery reading<\/dt><dd>25<\/dd>/);
   assert.doesNotMatch(html,/<h3>No low battery reported|Battery monitoring is off|Battery condition unknown/);
   card.sourceDetail.battery_conditions=[];
-  const unwatched=sourcesBrowser(card);assert.match(unwatched,/No enabled battery policy/);assert.match(unwatched,/Deck battery level/);assert.doesNotMatch(unwatched,/No low battery reported/);
+  const unwatched=sourcesBrowser(card);assert.match(unwatched,/<dt>Monitoring<\/dt><dd><span>Not monitored<\/span>/);assert.match(unwatched,/<dt>Battery reading<\/dt><dd>25<\/dd>/);assert.doesNotMatch(unwatched,/No low battery reported/);
+});
+
+function batteryInspectorFixture(members) {
+  const data=monitoringExample(),source=baseSource("battery:registry:battery","Deck battery","battery",{entity_id:"sensor.deck_battery",attributes:{kind:["battery"],device:["camera-0"],entity:["registry:battery"]}});
+  data.inventory.catalog.candidates.push(source);
+  return {current:{status:"current",data},configuration:{revision:"r1",settings:{monitoring_policies:[]}},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesSelection:"source:"+source.node_id,sourceDetail:{nodeId:source.node_id,battery_condition:null,battery_conditions:[],members}};
+}
+
+const batteryDetail=card=>sourcesBrowser(card).split('<section class="config-detail" aria-label="Selected source">')[1];
+
+for(const [state,expected] of [["25","25%"],["unavailable","Unavailable"],["unknown","No value reported"],["missing","No current state"]]) {
+  test("single battery "+state+" is visible without a reading disclosure or repeated source name",()=>{
+    const card=batteryInspectorFixture([{name:"Deck battery",state,unit:"%",restored:false}]);
+    const html=batteryDetail(card),primary=html.split('<details class="source-section source-monitoring-explanation"')[0];
+    const facts=html.match(/<dl class="source-facts">([\s\S]*?)<\/dl>/)?.[1]||"";
+    assert.ok(facts.includes('<dt>Battery reading</dt><dd>'+expected+'</dd>'));
+    assert.match(facts,/<dt>Monitoring<\/dt>[\s\S]*Not monitored/);
+    assert.equal([...primary.matchAll(/Deck battery/g)].length,1);
+    assert.doesNotMatch(primary,/Battery readings \(|No enabled battery policy|Charging can clear|<summary>/);
+    assert.match(primary,/data-page="policies"[^>]*>Configure monitoring/);
+    assert.match(html,/Charging can clear the low-battery condition/);
+    assert.match(primary,/<(?:nav|div) class="source-navigation"/);
+  });
+}
+
+test("paired battery readings stay individually identified and accessible",()=>{
+  const card=batteryInspectorFixture([{name:"Battery percentage",state:"25",unit:"%",restored:false},{name:"Low battery signal",state:"off",restored:false}]);
+  const primary=batteryDetail(card).split('<details class="source-section source-monitoring-explanation"')[0];
+  assert.match(primary,/Battery percentage/);
+  assert.match(primary,/Low battery signal/);
+  assert.match(primary,/25%/);
+  assert.match(primary,/off/);
+  assert.doesNotMatch(primary,/<summary>Battery readings/);
+});
+
+test("battery navigation and retry remain visible when readings fail",()=>{
+  const card=batteryInspectorFixture([]);
+  card.sourceDetail.error="Could not read battery evidence";
+  const html=batteryDetail(card);
+  assert.match(html,/role="alert">Could not read battery evidence/);
+  assert.match(html,/data-action="refresh-source"/);
+  assert.match(html,/href="\/config\/devices\/device\/camera-0"/);
+  assert.match(html,/data-sources-view="history"/);
+  assert.match(html,/data-page="policies"[^>]*>Configure monitoring/);
+  assert.doesNotMatch(html,/No low battery reported/);
+});
+
+test("restored and absent battery readings do not claim a current value",()=>{
+  const card=batteryInspectorFixture([{name:"Deck battery",state:"25",unit:"%",restored:true}]);
+  const restored=batteryDetail(card);
+  assert.match(restored,/<dt>Battery reading<\/dt><dd>Not provided by integration<\/dd>/);
+  assert.doesNotMatch(restored,/<dd>25%<\/dd>/);
+  card.sourceDetail.members=[];
+  const missing=batteryDetail(card);
+  assert.match(missing,/<dt>Battery reading<\/dt><dd>No current state<\/dd>/);
+  assert.doesNotMatch(missing,/No low battery reported/);
+});
+
+test("unknown battery policy evidence remains visible beside an ordinary reading",()=>{
+  const card=batteryInspectorFixture([{name:"Deck battery",state:"25",unit:"%",restored:false}]);
+  card.sourceDetail.battery_conditions=[{policy_id:"incomplete",policy_name:"Battery warning",condition:{status:"unknown",reason:"missing_evidence",message:"Low battery signal has no current state."}}];
+  const primary=batteryDetail(card).split('<details class="source-section source-monitoring-explanation"')[0];
+  assert.match(primary,/<dt>Battery reading<\/dt><dd>25%<\/dd>/);
+  assert.match(primary,/Low battery signal has no current state/);
+  assert.match(primary,/data-battery-policy="incomplete"/);
 });

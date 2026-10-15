@@ -1,11 +1,16 @@
-import {escapeHtml as esc} from "./model.mjs?v=74";
+import {escapeHtml as esc} from "./model.mjs?v=82";
 
 const labels = {available:"Available",partially_available:"Partially available",unavailable:"Unavailable",unknown:"Unknown",disabled:"Disabled"};
+
+/** Name the reported assessment without changing its evidence. */
+export function deviceAvailabilityLabel(value) {
+  return labels[value?.status]||"Unknown";
+}
 
 /** Explain device access independently of monitored entity findings. */
 export function deviceAvailability(value, compact=false) {
   if(!value)return "";
-  const label=labels[value.status]||"Unknown";
+  const label=deviceAvailabilityLabel(value);
   if(compact)return `<p class="device-availability small" aria-label="Device availability">Device availability: ${esc(label)}</p>`;
   const summary=value.status==="disabled"?"This device is disabled in Home Assistant.":
     value.basis==="integration_reports"?value.status==="partially_available"?"Some integrations report this device available; others report it unavailable.":`Reporting integrations agree that this device is ${value.status==="available"?"available":"unavailable"}.`:

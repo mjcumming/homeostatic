@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Later decision:** [ADR 0068](0068-contextual-availability-monitoring-controls.md) adds contextual availability exclusions through the existing policy configuration owner and compacts source details.
 **Implementation status:** See the [roadmap](../roadmap.md#current-work).
+**Later decision:** [ADR 0070](0070-saved-monitoring-and-history-navigation.md) supersedes the saved-action Undo and History placement provisions where applicable.
+
 **Date:** 2026-10-14
 
 **Later decision:** Notification timing ownership, its editor placement and compound inline-method drafts are superseded by [ADR 0066](0066-reusable-notifications-own-timing-and-delivery.md). The historical decision below remains for context.
@@ -10,6 +12,10 @@
 **Partially supersedes:** the prescribed dashboard and source-view layouts in [ADR 0018](0018-source-panel-views.md) and [ADR 0019](0019-accepted-dashboard-baseline.md); primary navigation and Overview routing in [ADR 0022](0022-top-level-notifications-page.md) and [ADR 0047](0047-policies-page.md); the integration-owned editor and cross-page aggregation of pending drafts in [ADR 0031](0031-review-source-settings-together.md); the mandatory source settings presentation in [ADR 0036](0036-compact-sources-evidence-and-choices.md); separate source-enrollment editor presentation in [ADR 0054](0054-reusable-monitoring-policy-editor.md); and the universal Save changes label and global-control placement in [ADR 0059](0059-save-directly-and-test-configured-methods.md). Existing enrollment semantics and saved choices remain until explicitly covered by implementation specifications. This decision preserves ADR 0059's compound inline-method draft and direct-save safeguards.
 
 **Implementation clarification:** [ADR 0063](0063-remove-superseded-configuration-and-ui.md) removes the superseded configuration runtime and UI. Preservation of saved monitoring applies to the unified policy model; it does not require the earlier test schema or its editors.
+
+**Later decision:** [ADR 0072](0072-quiet-save-completion.md) supersedes persistent save-success messages.
+
+**Later decision:** [ADR 0073](0073-entity-first-monitoring-details.md) supersedes the applicable entity-detail layout, contextual history placement and availability action wording; existing monitoring and issue semantics remain unchanged.
 
 ## Context
 

@@ -36,6 +36,126 @@ function change(card,kind,id,field,value,extra={}) {
   assert.equal(editReusable(card,{type:"change",target}),true);
 }
 
+function notificationEditorFixture(kind,existing=true) {
+  const context=fixture(),{card}=context,navigation=[],focused=[];
+  const id=kind==="methods"?"phone":"morning";
+  const profile={name:"Morning",timing:{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]},methods:["phone"]};
+  card.settingsDraft.notification_definitions.profiles={morning:structuredClone(profile)};
+  card.configuration.settings.notification_definitions.profiles={morning:structuredClone(profile)};
+  card.page="notifications";card.notificationSection=kind;
+  if(existing)card.definitionSelection={kind,id};else click(card,"add",kind);
+  const selected=card.definitionSelection.id;
+  change(card,kind,selected,"name","Kitchen Echo");
+  card.settingsDraft.monitoring_policies[0].name="Unrelated draft";
+  card.navigation={capture(){const before={page:card.page,selection:card.definitionSelection};navigation.push(["capture",before]);return before;},finish(before){navigation.push(["finish",before]);}};
+  card.main.querySelectorAll=selector=>selector.includes("data-definition-action")?[{dataset:{definitionKind:kind,definitionId:selected},focus(){focused.push(selected);}}]:[];
+  return {...context,kind,id:selected,navigation,focused};
+}
+
+const nextTurn=()=>new Promise(resolve=>setImmediate(resolve));
+function deferred() {
+  let resolve;
+  const promise=new Promise(complete=>{resolve=complete;});
+  return {promise,resolve};
+}
+
+for(const kind of ["methods","profiles"])for(const existing of [true,false])test(`${existing?"existing":"new"} ${kind} Save returns to its updated list without a success message`,async()=>{
+  const {card,calls,id,navigation,focused}=notificationEditorFixture(kind,existing);
+  const submitted=structuredClone(card.settingsDraft.notification_definitions[kind][id]);
+  card.deliveryPicker={id,field:"destinations"};
+  click(card,"save-scoped",kind,id);await nextTurn();
+  assert.equal(card.page,"notifications");assert.equal(card.notificationSection,kind);
+  assert.equal(card.definitionSelection,null);assert.equal(card.deliveryPicker,null);
+  assert.deepEqual(card.configuration.settings.notification_definitions[kind][id],submitted);
+  assert.equal(card.settingsDraft.monitoring_policies[0].name,"Unrelated draft");
+  assert.equal(card.configuration.settings.monitoring_policies[0].name,"Hall thermostat");
+  assert.equal(calls.filter(call=>call.type==="homeostatic/save_settings").length,1);
+  assert.deepEqual(navigation.map(([action])=>action),["capture","finish"]);
+  assert.equal(navigation[1][1],navigation[0][1]);assert.deepEqual(focused,[id]);
+  assert.doesNotMatch(namedNotifications(card),/definition-save-result|Kitchen Echo saved\.|Changes saved\./);
+  click(card,"edit",kind,id);
+  assert.deepEqual(card.settingsDraft.notification_definitions[kind][id],submitted);
+  assert.doesNotMatch(namedNotifications(card),/Kitchen Echo saved\./);
+});
+
+for(const kind of ["methods","profiles"])for(const failure of ["save","refresh"])test(`${kind} ${failure} failure retains the submitted editor`,async()=>{
+  const {card,id,navigation,focused}=notificationEditorFixture(kind),selection=card.definitionSelection;
+  const original=card._hass.callWS;
+  const failedType=failure==="save"?"homeostatic/save_settings":"homeostatic/configuration";
+  card._hass.callWS=async request=>{if(request.type===failedType)throw Object.assign(Error("Synthetic save failure"),{code:"save_failed"});return original(request);};
+  click(card,"save-scoped",kind,id);await nextTurn();
+  assert.equal(card.definitionSelection,selection);assert.equal(card.page,"notifications");
+  assert.equal(card.settingsDraft.notification_definitions[kind][id].name,"Kitchen Echo");
+  assert.match(card.scopedError,/Synthetic save failure|Changes were saved, but current settings could not be reloaded/);
+  assert.deepEqual(navigation,[]);assert.deepEqual(focused,[]);
+  assert.doesNotMatch(namedNotifications(card),/Kitchen Echo saved\./);
+});
+
+for(const kind of ["methods","profiles"])test(`${kind} removed before the saved settings refresh does not announce a missing definition`,async()=>{
+  const {card,id,navigation,focused}=notificationEditorFixture(kind),selection=card.definitionSelection,original=card._hass.callWS;
+  card._hass.callWS=async request=>{
+    const response=await original(request);
+    if(request.type==="homeostatic/configuration")delete response.settings.notification_definitions[kind][id];
+    return response;
+  };
+  click(card,"save-scoped",kind,id);await nextTurn();
+  assert.equal(card.configuration.settings.notification_definitions[kind][id],undefined);
+  assert.equal(card.settingsDraft.notification_definitions[kind][id],undefined);
+  assert.equal(card.definitionSelection,selection);
+  assert.deepEqual(navigation,[]);assert.deepEqual(focused,[]);
+  assert.doesNotMatch(namedNotifications(card),/Kitchen Echo saved\./);
+});
+
+for(const kind of ["methods","profiles"])for(const [label,move] of [
+  ["another page",card=>{card.page="policies";card.definitionSelection={kind:"policies",id:"policy-1"};}],
+  ["another editor",(card,kind)=>{card.definitionSelection={kind,id:"other"};}],
+  ["newer edits",(card,kind,id)=>{card.settingsDraft.notification_definitions[kind][id].name="Newer unsaved name";}],
+])test(`${kind} Save completion preserves ${label}`,async()=>{
+  const {card,id,navigation,focused}=notificationEditorFixture(kind),entered=deferred(),release=deferred(),original=card._hass.callWS;
+  card._hass.callWS=async request=>{if(request.type==="homeostatic/save_settings"){entered.resolve();await release.promise;}return original(request);};
+  click(card,"save-scoped",kind,id);await entered.promise;
+  move(card,kind,id);
+  const page=card.page,selection=card.definitionSelection,name=card.settingsDraft.notification_definitions[kind][id].name;
+  release.resolve();await nextTurn();
+  assert.equal(card.page,page);assert.equal(card.definitionSelection,selection);
+  assert.equal(card.settingsDraft.notification_definitions[kind][id].name,name);
+  assert.equal(card.configuration.settings.notification_definitions[kind][id].name,"Kitchen Echo");
+  assert.deepEqual(navigation,[]);assert.deepEqual(focused,[]);
+});
+
+for(const kind of ["methods","profiles"])test(`new ${kind} editor has a single title and no premature test instruction`,()=>{
+  const {card}=fixture();card.page="notifications";click(card,"add",kind);
+  const html=namedNotifications(card);
+  assert.match(html,kind==="methods"?/<h1>New delivery method<\/h1>/:/<h1>New notification<\/h1>/);
+  assert.doesNotMatch(html,/Save this delivery method before testing it|data-definition-action="test-method"/);
+});
+
+for(const [label,prepare] of [
+  ["another method",card=>{card.definitionSelection={kind:"methods",id:"email"};}],
+  ["a new method",card=>click(card,"add","methods")],
+  ["a duplicated method",card=>click(card,"duplicate","methods","phone")],
+  ["changed destinations",card=>{card.settingsDraft.notification_definitions.methods.phone.destinations=["notify:email"];card.configuration.settings.notification_definitions.methods.phone.destinations=["notify:email"];}],
+  ["an unsaved edit",card=>change(card,"methods","phone","name","Changed name")],
+])test(`delivery test outcome is hidden for ${label}`,async()=>{
+  const {card}=fixture();card.page="notifications";card.definitionSelection={kind:"methods",id:"phone"};
+  card._hass.callWS=async request=>request.type==="homeostatic/preview_delivery_method"?{preview_token:"test-preview",targets:[{channel:"phone:owner",name:"Owner phone",available:true}],skipped:false}:{requested:["phone:owner"],failed:[],skipped:false};
+  await testDeliveryMethod(card,"phone");assert.match(namedNotifications(card),/Test requested for Owner phone/);
+  prepare(card);
+  assert.doesNotMatch(namedNotifications(card),/Test requested for Owner phone/);
+});
+
+for(const stage of ["preview","request"])test(`late ${stage} test completion never appears in a different editor`,async()=>{
+  const {card}=fixture(),entered=deferred(),release=deferred();
+  card.page="notifications";card.definitionSelection={kind:"methods",id:"phone"};
+  const preview={preview_token:"test-preview",targets:[{channel:"phone:owner",name:"Owner phone",available:true}],skipped:false},result={requested:["phone:owner"],failed:[],skipped:false};
+  const delayedType=stage==="preview"?"homeostatic/preview_delivery_method":"homeostatic/test_delivery_method";
+  card._hass.callWS=async request=>{if(request.type===delayedType){entered.resolve();await release.promise;}return request.type==="homeostatic/preview_delivery_method"?preview:result;};
+  const testing=testDeliveryMethod(card,"phone");await entered.promise;
+  click(card,"edit","methods","email");release.resolve();await testing;
+  assert.deepEqual(card.definitionSelection,{kind:"methods",id:"email"});
+  assert.doesNotMatch(namedNotifications(card),/Test requested for Owner phone/);
+});
+
 test("rendering policies, definitions and setup does not stage changes or send requests",()=>{
   const {card,calls}=fixture(),before=structuredClone(card.settingsDraft);
   card.definitionSelection={kind:"policies",id:"policy-1"};
@@ -212,8 +332,8 @@ test("device exclusions use canonical identities for devices and individual memb
   const rows=card.current.data.inventory.nodes;
   rows.push({...rows.find(source=>source.node_id==="device:standalone"),node_id:"monitoring:policy:device:standalone",monitoring_source:"device:standalone"});
   const choices=policySelectionChoices(card,policy,"all_except");
-  assert.deepEqual(choices.find(item=>item.id==="device:standalone"),{id:"device:standalone",name:"Standalone device",group:"Whole devices"});
-  assert.deepEqual(choices.find(item=>item.id==="entity:registry:standalone"),{id:"entity:registry:standalone",name:"Standalone switch",entity_id:"switch.standalone",group:"Individual device entities"});
+  assert.deepEqual(choices.find(item=>item.id==="device:standalone"),{id:"device:standalone",name:"Standalone device",context:"No area assigned",detail:"",group:"Whole devices"});
+  assert.deepEqual(choices.find(item=>item.id==="entity:registry:standalone"),{id:"entity:registry:standalone",name:"Standalone switch",entity_id:"switch.standalone",context:"No area assigned",detail:"",group:"Individual device entities"});
   assert.equal(choices.filter(item=>item.id==="device:standalone").length,1);
   assert.ok(choices.every(item=>!item.id.startsWith("monitoring:")));
   assert.ok(choices.every(item=>!item.id.startsWith("entity:registry:orphan-")));
@@ -245,7 +365,7 @@ test("excluded sources survive picker search, missing inventory and scoped save"
   assert.deepEqual(policy.excluded_sources,["device:standalone","entity:registry:missing"]);
   assert.deepEqual(policy.match,{kind:["device"]});
   click(card,"finish-pick","policies",policy.id);
-  assert.match(namedPolicies(card),/Standalone device, Unavailable excluded source/);
+  assert.match(namedPolicies(card),/Standalone device<\/span><span class="small">No area assigned[\s\S]*Unavailable excluded source/);
   assert.equal(await saveScopedConfiguration(card,{kind:"policy",id:policy.id}),true);
   assert.deepEqual(calls.find(call=>call.type==="homeostatic/save_settings").settings.monitoring_policies[0].excluded_sources,["device:standalone","entity:registry:missing"]);
 });
@@ -288,7 +408,7 @@ test("area picker groups names by floor and preserves multiple selections throug
   editReusable(card,{type:"input",target:{dataset:{definitionPickerSearch:""},value:"Kitchen"}});
   assert.deepEqual(policy.match.area,["a","b"]);assert.equal(card.policyPicker.query,"Kitchen");
   assert.match(namedPolicies(card),/2 selected/);assert.doesNotMatch(namedPolicies(card),/<legend>Upstairs/);
-  click(card,"finish-pick","policies",policy.id);assert.match(namedPolicies(card),/Kitchen, Bedroom/);
+  click(card,"finish-pick","policies",policy.id);assert.match(namedPolicies(card),/Kitchen<\/span><span class="small">Main floor[\s\S]*Bedroom<\/span><span class="small">Upstairs/);
   change(card,"policies",policy.id,"watch","label");assert.deepEqual(policy.match,{kind:["entity"],label:[]});assert.equal(watchMode(policy),"label");
 });
 
@@ -326,7 +446,7 @@ test("unified problem detail renders policy actions and base source links withou
   data.inventory.episodes=[episode];data.inventory.nodes.push(source);
   const result={source,monitoring_policies:[{id:"policy-1",name:"Entity monitoring"}],explanation:{findings:[],nodes:[]},entity_status:[]};
   const body={innerHTML:"",querySelectorAll:()=>[],querySelector:()=>({addEventListener(){}})};
-  const detail={...card,detailSequence:0,detail:{episodeId:episode.episode_id},configuration:{...card.configuration,monitoring_policy_version:1},shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:{textContent:""}},displaySourceName:item=>item.name,tools:{detailButtons:()=>""},_hass:{callWS:async()=>result}};
+  const detail={...card,detailSequence:0,detail:{episodeId:episode.episode_id},configuration:{...card.configuration,monitoring_policy_version:1},shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:{textContent:""}},displaySourceName:item=>item.name,tools:{detailButtons:()=>""},capturePageState:()=>({}),restorePageState:()=>{},_hass:{callWS:async()=>result}};
   await prototype.loadDetail.call(detail);
   assert.match(body.innerHTML,/data-definition-action="open-policy"/);
   assert.match(body.innerHTML,/Entity monitoring/);
@@ -357,7 +477,7 @@ test("integration picker lists families once and stores domain selection",()=>{
   assert.equal(choices.filter(item=>item.id==="mobile_app").length,1);
   assert.equal(choices.find(item=>item.id==="mobile_app").name,"Mobile App");
   change(card,"policies",policy.id,"watch","selected");click(card,"pick","policies",policy.id);
-  assert.match(namedPolicies(card),/Choose integrations/);assert.match(namedPolicies(card),/<legend>Integrations/);
+  assert.match(namedPolicies(card),/Choose integrations/);assert.match(namedPolicies(card),/<legend class="sr-only">Integrations/);
   assert.doesNotMatch(namedPolicies(card),/One phone|Other phone|Choose sources/);
   change(card,"policies",policy.id,"selection",true,{definitionValue:"mobile_app"});
   assert.deepEqual(policy.match,{kind:["integration"],integration_domain:["mobile_app"]});
@@ -411,7 +531,7 @@ test("policy overflow names are escaped and actions retain the policy identity w
 test("clean policy and method editors have no save footer and discard stays in the existing editor",()=>{
   const {card,calls}=fixture();
   click(card,"edit","policies","policy-1");
-  assert.match(namedPolicies(card),/Edit policy: Hall thermostat/);
+  assert.match(namedPolicies(card),/<h1>Hall thermostat<\/h1>/);
   assert.doesNotMatch(namedPolicies(card),/<footer|>Save policy<|>Discard changes<|>Cancel<|No changes/);
   change(card,"policies","policy-1","name","Changed policy");
   assert.match(namedPolicies(card),/>Save policy</);assert.match(namedPolicies(card),/>Discard changes</);
@@ -465,7 +585,7 @@ test("battery scope waits for complete choices and keeps exclusions when loading
   const {card,policy}=batteryPicker({loaded:false}),before=structuredClone(card.settingsDraft);
   const loading=namedPolicies(card);
   assert.match(loading,/Loading available sources/);
-  assert.match(loading,/Saved exclusion/);
+  assert.match(loading,/1 excluded/);
   assert.doesNotMatch(loading,/No matching choices|Unavailable excluded source|data-definition-value=/);
   card.current.catalogError="Could not read <catalog>";
   const failed=namedPolicies(card);
@@ -484,7 +604,7 @@ test("battery picker searches entity IDs as well as names without changing exclu
   assert.match(html,/data-definition-value="battery:registry:phone" checked/);
   assert.doesNotMatch(html,/No matching choices/);
   editReusable(card,{type:"input",target:{dataset:{definitionPickerSearch:""},value:"No such reading"}});
-  assert.match(namedPolicies(card),/No matching choices/);
+  assert.match(namedPolicies(card),/No batteries match your search/);
   assert.deepEqual(policy,before);assert.deepEqual(calls,[]);
 });
 
@@ -497,7 +617,7 @@ test("catalog arrival fills an open picker and preserves its current search and 
   const html=namedPolicies(card);
   assert.match(html,/data-definition-value="battery:registry:phone" checked/);
   assert.doesNotMatch(html,/Loading available sources|No matching choices/);
-  assert.deepEqual(card.policyPicker,{id:policy.id,query:"Batt",selectedOnly:true});
+  assert.deepEqual(card.policyPicker,{id:policy.id,query:"Batt",selectedOnly:true,showAll:false});
   assert.deepEqual(policy,before);
 });
 
@@ -530,15 +650,72 @@ test("direct Policies entry requests its catalog and retries through the existin
   assert.deepEqual(card.settingsDraft,before);
 });
 
-test("empty policy notifications offer dashboard-only and methods point to named notifications",()=>{
+test("policy and method editors keep controls without repeated setup instructions",()=>{
   const {card}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
   policy.notifications=[];card.definitionSelection={kind:"policies",id:policy.id};
   const html=namedPolicies(card);
-  assert.match(html,/Dashboard only/);
-  assert.match(html,/Manage named notifications and their delivery methods in Notifications/);
+  assert.match(html,/No notifications/);
+  assert.doesNotMatch(html,/Manage named notifications/);
   assert.doesNotMatch(html,/data-row-field="timing:/);
   card.page="notifications";card.definitionSelection={kind:"methods",id:"phone"};card.notificationSection="methods";
-  assert.match(namedNotifications(card),/Timing and reminders are set in the named notifications that use this method/);
+  const method=namedNotifications(card);
+  assert.match(method,/<h1>Edit delivery method: Owner phone<\/h1>/);
+  assert.match(method,/class="button editor-back"[^>]*data-definition-action="close-method"/);
+  assert.match(method,/<legend>Send to/);
+  assert.doesNotMatch(method,/Timing and reminders are set|Choose the destinations this method sends to/);
+});
+
+for(const type of ["device","integration","entity","vacuum","ups_power","ups_reserve","ups_battery_replacement","ups_fault"])test(`${type} omits an empty detection section`,()=>{
+  const {card}=fixture(),policy=newMonitoringPolicy([],type);
+  card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
+  const before=structuredClone(policy),html=namedPolicies(card);
+  assert.doesNotMatch(html,/When it becomes a problem|Uses the reported Home Assistant state/);
+  assert.match(html,/data-definition-field="enabled"/);
+  assert.deepEqual(policy,before);
+});
+
+test("compact policy scopes retain missing selections and all numeric detection fields",()=>{
+  const {card}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
+  policy.match={kind:["entity"],area:["hall","kitchen","missing"]};
+  card.configuration.areas=[{id:"hall",name:"Hall"},{id:"kitchen",name:"Kitchen"}];
+  card.configuration.settings.monitoring_policies=structuredClone(card.settingsDraft.monitoring_policies);
+  const before=structuredClone(policy),list=namedPolicies(card);
+  assert.match(list,/Areas: Hall, Kitchen \+1 more · 1 unavailable/);
+  assert.match(list,/2°F deviation · 60 minute progress window/);
+  assert.match(list,/Custom notification · Immediately → Owner phone/);
+  click(card,"edit","policies",policy.id);click(card,"pick","policies",policy.id);
+  const editor=namedPolicies(card);
+  assert.match(editor,/data-definition-value="missing" checked>[\s\S]*?Unavailable selection/);
+  for(const field of ["margin","progress","worsening","progress_seconds"])assert.ok(editor.includes(`data-definition-field="parameters:${field}"`));
+  assert.deepEqual(policy,before);
+});
+
+test("method lists compact uses and destinations while editors retain every assignment",()=>{
+  const {card}=fixture();card.notificationSection="methods";
+  card.configuration.settings.notification_definitions.methods.phone.destinations=["phone:owner","notify:email","notify:missing"];
+  card.settingsDraft.notification_definitions.methods.phone=structuredClone(card.configuration.settings.notification_definitions.methods.phone);
+  const before=structuredClone(card.settingsDraft),list=namedNotifications(card);
+  assert.match(list,/Owner&#39;s phone, Email \+1 more · 1 unavailable/);
+  assert.match(list,/>3 uses</);
+  assert.doesNotMatch(list,/Used by Hall thermostat|Default reporting|Automation profile/);
+  click(card,"edit","methods","phone");
+  const editor=namedNotifications(card);
+  assert.match(editor,/Used by Hall thermostat, Default reporting, Automation profile · immediate/);
+  assert.match(editor,/notify:missing[\s\S]*Saved destination unavailable/);
+  assert.deepEqual(card.settingsDraft,before);
+});
+
+test("method list omits only a single available destination repeating its name",()=>{
+  const {card}=fixture();card.notificationSection="methods";
+  const method=card.configuration.settings.notification_definitions.methods.phone,target=card.configuration.delivery_targets[0];
+  target.name=method.name;
+  assert.match(namedNotifications(card),/<h3>Owner phone<\/h3><p class="small">3 uses<\/p>/);
+  target.available=false;
+  assert.match(namedNotifications(card),/<p class="method-summary">Owner phone · 1 unavailable<\/p>/);
+  target.available=true;target.name="Kitchen phone";
+  assert.match(namedNotifications(card),/<p class="method-summary">Kitchen phone<\/p>/);
+  target.name=method.name;method.destinations.push("notify:email");
+  assert.match(namedNotifications(card),/<p class="method-summary">Owner phone, Email<\/p>/);
 });
 
 for(const [label,viewport,rect,expectedTop] of [

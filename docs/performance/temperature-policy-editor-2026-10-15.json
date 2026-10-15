@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "started_at": "2026-10-15T16:50:36.058Z",
+  "environment": {
+    "fixture": "temperature-policy-editor.html",
+    "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1280,
+      "height": 720
+    },
+    "theme": "light",
+    "data": "synthetic",
+    "saves": "mocked",
+    "backend_validation": "not exercised",
+    "physical_safari": "untested"
+  },
+  "results": [
+    {
+      "id": "initial-state",
+      "controls": "Saved temperature editor",
+      "expected": "Below 60\u00b0F, no upper bound, 60 minutes and monitoring enabled in the heading; global notifications stay off.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "lower-only",
+      "controls": "Below, Above, duration and Save policy",
+      "expected": "A lower-only policy saves exact bounds and duration and reopens correctly.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 1 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "upper-only",
+      "controls": "Below, Above and Save policy",
+      "expected": "An upper-only policy saves without inventing a lower bound.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 1 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "both-bounds",
+      "controls": "Below, Above and Save policy",
+      "expected": "Both bounds persist independently.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 1 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "missing-bounds",
+      "controls": "Clear both bounds and Save policy",
+      "expected": "Visible validation blocks the request and retains input.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "reversed-bounds",
+      "controls": "Lower bound above upper bound and Save policy",
+      "expected": "Visible validation blocks the request and retains input.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "missing-sensors",
+      "controls": "Remove the only selected sensor and Save policy",
+      "expected": "An empty exact selection is blocked before saving.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "duration-units",
+      "controls": "Minutes, hours and numeric duration",
+      "expected": "Unit-only changes stay clean; edits convert to exact integer seconds.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 2 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "enabled-state",
+      "controls": "Header monitoring switch and Save policy",
+      "expected": "Monitoring state saves independently of global sending.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 2 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "save-and-discard",
+      "controls": "Rejected save, Discard changes, retry",
+      "expected": "Failure keeps the exact draft; discard restores saved settings; deliberate retry saves.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 3 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "scoped-draft",
+      "controls": "Edit a notification, then save the temperature policy",
+      "expected": "Unrelated notification draft survives and remains unsaved.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 1 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "picker-retention",
+      "controls": "Search, scroll, select, Done",
+      "expected": "Selection keeps list scroll, checkbox focus and search query; area context identifies equipment.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+      ]
+    },
+    {
+      "id": "responsive-themes",
+      "controls": "320px, 390px and desktop; light and dark",
+      "expected": "Editor, controls and long picker rows fit within the available width.",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+      ]
+    }
+  ],
+  "completed_at": "2026-10-15T16:50:36.348Z",
+  "summary": {
+    "pass": 13,
+    "fail": 0,
+    "untested": 0
+  },
+  "recorded_at": "2026-10-15T16:55:20.215953+00:00",
+  "source": {
+    "branch": "main",
+    "revision": "00de1bbbc2a0c1c204b8505a289b4fd475e5537c",
+    "dirty": true,
+    "installed": false,
+    "committed": false,
+    "released": false,
+    "sha256": {
+      "custom_components/homeostatic/frontend/reusable-editors.mjs": "73f00d455d8fa07a5f2f2115419017c420b3ac1e390ab6902abbb5b2f889ddce",
+      "custom_components/homeostatic/frontend/styles.mjs": "c5fe231afde189acf2f001b1b3f0a27860409736c1135d0d72e441bee167c271",
+      "custom_components/homeostatic/frontend/homeostatic.js": "2bc91ba81183aceab86676cf7a5062e0f699438499946568a55d557be8a63588",
+      "tests/frontend/temperature-policy-editor-scenario.mjs": "177db3422ecfce700fc54e3023823285fccba1166d1737adfd53c39ae35dc656"
+    }
+  },
+  "additional_verification": [
+    {
+      "id": "native-number-entry",
+      "status": "pass",
+      "evidence": "Browser keyboard entry of 1.5 minutes and -5.5 F preserved intermediate decimals and minus signs. One Save click persisted duration_seconds=90 and minimum=-5.5. Reopening showed 1.5 minutes and -5.5 F."
+    },
+    {
+      "id": "visual-review",
+      "status": "pass",
+      "evidence": "Desktop and 390px light/dark screenshots inspected. Equal optional limits, header switch, minutes, rule, notification note and Save/Discard remain readable and usable."
+    },
+    {
+      "id": "wsl-quick-check",
+      "status": "fail",
+      "evidence": "The implementation passed the required WSL quick check with 606 frontend tests. A later check stopped before frontend tests because concurrently edited tests/test_source_queries.py requires formatting. That unrelated file was preserved. A separate final run of all frontend tests passes 613 cases, including the 39 editor and eight summary cases."
+    },
+    {
+      "id": "independent-review",
+      "status": "pass",
+      "evidence": "Final read-only review found no remaining blocker in duration conversion, validation or native Save click handling."
+    },
+    {
+      "id": "physical-safari",
+      "status": "untested",
+      "reason": "No physical iPhone or iPad was used."
+    },
+    {
+      "id": "live-installation",
+      "status": "untested",
+      "reason": "This task implements local changes only; no deployment or live configuration changes were requested."
+    },
+    {
+      "id": "final-frontend-suite",
+      "status": "pass",
+      "evidence": "All 613 frontend tests passed after the final control/path inventory update."
+    }
+  ],
+  "screenshots": [
+    "temperature-policy-desktop-2026-10-15.jpg",
+    "temperature-policy-phone-light-2026-10-15.jpg",
+    "temperature-policy-phone-dark-2026-10-15.jpg"
+  ]
+}

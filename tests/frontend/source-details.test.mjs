@@ -9,49 +9,65 @@ const detail=card=>sourcesBrowser(card).split('<section class="config-detail" ar
 const heading=html=>html.match(/<header class="source-heading">([\s\S]*?)<\/header>/)?.[1]||"";
 const body=html=>html.split('<div class="source-body">')[1];
 const condition=html=>body(html).split('<section class="source-section">')[0];
-const monitoring=html=>body(html).match(/<details class="source-section source-monitoring-explanation"[^>]*>([\s\S]*?)<\/details>/)?.[1]||"";
+const monitoring=html=>body(html);
 
-test("unavailable entity exposes a scoped stop before collapsed policy explanation",()=>{
-  const card=sourceDetailsFixture("entity",["unavailable"]),html=detail(card);
+test("unavailable entity puts its condition, scoped action and policies directly in view",()=>{
+  const html=detail(sourceDetailsFixture("entity",["unavailable"]));
   assert.match(condition(html),/Unavailable in Home Assistant/);
   assert.match(html,/data-availability-action="stop"/);
-  assert.ok(html.indexOf('data-availability-action="stop"')<html.indexOf('source-monitoring-explanation'));
-  assert.match(html,/<summary>Why this is monitored<\/summary>/);
-  assert.doesNotMatch(html,/<details class="source-section source-monitoring-explanation"[^>]* open/);
+  assert.match(html,/Remove this entity from availability monitoring…/);
+  assert.match(html,/data-definition-id="entities"/);
+  assert.match(html,/data-definition-id="devices"/);
+  assert.doesNotMatch(html,/<dt>Availability<\/dt>|<dt>Monitoring<\/dt>|<summary>Details<\/summary>/);
+  assert.doesNotMatch(html,/source-monitoring-explanation|source-issue-actions|source-technical|data-sources-view="history"/);
+  assert.match(html,/data-action="back-sources">← Back to Monitoring<\/button>/);
 });
 
-test("confirmation names both policy contributions and keeps ordinary actions out of the way",()=>{
+test("short confirmation keeps entity and policy names behind Details",()=>{
   const card=sourceDetailsFixture("entity",["unavailable"]);
   card.availabilityPlan=prepareAvailabilityChange(card,[ENTITY_ID]);card.availabilityContext=ENTITY_ID;
   const html=detail(card);
-  assert.match(html,/data-availability-action="confirm"/);
+  assert.match(html,/class="button primary" data-availability-action="confirm"/);
   assert.doesNotMatch(html,/data-availability-action="stop"/);
   assert.match(html,/<li>Devices<\/li>/);
   assert.match(html,/<li>Entities<\/li>/);
-  assert.match(html,/Other checks and Home Assistant entities stay unchanged/);
+  assert.match(html,/<h3>Remove 1 entity from availability monitoring\?<\/h3>/);
+  assert.match(html,/Stop availability checks for this entity\. Other checks stay enabled\./);
+  assert.match(html,/<details data-ui-key="availability-confirm-details"><summary>Details<\/summary>/);
 });
 
-test("source issue controls identify the entire correlated issue scope",()=>{
+test("a save disables source monitoring controls until its result is known",()=>{
+  const card=sourceDetailsFixture("entity",["unavailable"]);
+  card.availabilityPlan=prepareAvailabilityChange(card,[ENTITY_ID]);card.availabilityContext=ENTITY_ID;
+  card.scopedBusy="source-availability";
+  const html=detail(card);
+  assert.match(html,/data-availability-action="confirm"[^>]* disabled>Saving…/);
+  assert.match(html,/data-availability-action="cancel"[^>]* disabled>Cancel/);
+});
+
+test("an entity opens its related issue without exposing controls for the larger issue",()=>{
   const card=sourceDetailsFixture("entity",["unavailable"]);
   card.current.data.inventory.attention_controls_supported=true;
-  card.current.data.inventory.episodes=[{episode_id:"shared",anchor:"entry:lyric",recorded:["entry:lyric",`monitoring:entities:${ENTITY_ID}`],reasons:[{node_id:`monitoring:entities:${ENTITY_ID}`,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT}];
+  card.current.data.inventory.episodes=[{episode_id:"shared",anchor:"entry:lyric",recorded:["entry:lyric","monitoring:entities:"+ENTITY_ID],reasons:[{node_id:"monitoring:entities:"+ENTITY_ID,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT}];
   card.tools={detailButtons:(...args)=>DashboardTools.prototype.detailButtons.call({},...args)};
   const html=detail(card);
-  assert.match(html,/Room temperature is unavailable/);
-  assert.match(html,/whole issue headed by Lyric, involving 2 sources/);
-  assert.match(html,/data-acknowledge="shared"/);
-  assert.match(html,/data-shelf="shared"/);
-  assert.doesNotMatch(html,/<details class="source-issue-actions"[^>]* open/);
+  assert.match(html,/Unavailable in Home Assistant/);
+  assert.match(html,/data-episode="shared"[^>]*>View issue<\/button>/);
+  assert.match(html,/issue involving 2 sources/);
+  assert.doesNotMatch(html,/data-acknowledge|data-shelf|whole issue headed by|source-issue-actions/);
 });
 
 test("an excluded entity stays unavailable and has an explicit resume action",()=>{
   const card=sourceDetailsFixture("entity",["unavailable"]);
   for(const policy of card.configuration.settings.monitoring_policies)policy.excluded_sources=[ENTITY_ID];
   card.current.data.inventory.nodes=card.current.data.inventory.nodes.filter(item=>!item.monitoring_policy);
+  card.availabilityContext=ENTITY_ID;
   const html=detail(card);
   assert.match(condition(html),/Unavailable in Home Assistant/);
   assert.match(html,/data-availability-action="resume"/);
   assert.doesNotMatch(html,/data-availability-action="stop"/);
+  assert.doesNotMatch(html,/removed from availability monitoring\./);
+  assert.doesNotMatch(html,/Undo|data-availability-action="undo"/);
 });
 
 test("excluded device members remain selectable for resumption without inventing readings",()=>{
@@ -74,17 +90,67 @@ test("availability-exclusion filter retains source ancestors and hides unrelated
   assert.doesNotMatch(tree,/data-sources-select="source:entity:third-floor-humidity"/);
 });
 
-for(const [view,href] of [["entity","/developer-tools/state?entity_id=sensor.3rd_floor_sensor_room_temperature"],["device","/config/devices/device/third-floor"]]) {
-  test(`${view} keeps actions visible and moves reconciliation time into technical details`,()=>{
-    const html=detail(sourceDetailsFixture(view));
-    assert.ok(body(html).includes(`href="${href}"`));
-    assert.doesNotMatch(heading(html),/Homeostatic updated|Entity ID:/);
-    assert.match(body(html),/<details class="source-section source-technical"[^>]*><summary>Technical details<\/summary>/);
-    assert.ok(body(html).includes(new Date(UPDATED_AT).toLocaleString()));
-    assert.match(body(html),/Homeostatic updated/);
-    assert.ok(body(html).indexOf(`href="${href}"`)<body(html).indexOf('source-monitoring-explanation'));
+for(const enabled of [false,true]) {
+  test("source filters keep "+(enabled?"active choices":"additional choices")+" in a native popover",()=>{
+    const card=sourceDetailsFixture();
+    card.sourcesShowDisabled=enabled;card.sourcesExcludedOnly=enabled;
+    const settings=structuredClone(card.configuration.settings),html=sourcesBrowser(card);
+    assert.match(html,/popovertarget="sources-more-filters"/);
+    assert.match(html,/id="sources-more-filters"[^>]*popover/);
+    assert.match(html,/data-sources-disabled/);
+    assert.match(html,/data-sources-excluded/);
+    assert.match(html,enabled?/More filters \(2\)/:/More filters/);
+    assert.doesNotMatch(html,/<details class="sources-filters"/);
+    assert.equal((html.match(/data-sources-disabled[^>]* checked/g)||[]).length,Number(enabled));
+    assert.equal((html.match(/data-sources-excluded[^>]* checked/g)||[]).length,Number(enabled));
+    assert.deepEqual(card.configuration.settings,settings);
   });
 }
+
+for(const kind of ["battery","vacuum","ups"]) {
+  test(`${kind} source has one issue route and one contributing-policy route`,()=>{
+    const card=sourceDetailsFixture("device",["72"]),id=`${kind}:sample`;
+    const source={node_id:id,name:`Office ${kind}`,kind,check_id:kind==="ups"?"ups_power":"availability",watched:true,entity_id:`sensor.office_${kind}`,owner_id:"lyric",attributes:{device:["third-floor"],integration:["lyric"]}};
+    card.current.data.inventory.nodes.push(source);card.current.data.inventory.catalog.candidates.push(source);
+    card.current.data.inventory.episodes=[{episode_id:"condition",anchor:id,recorded:[id],reasons:[{node_id:id,check_id:source.check_id,status:"fail",reason:"unavailable",message:"Recorded condition"}],opened_at:UPDATED_AT}];
+    card.sourcesSelection=`source:${id}`;
+    card.sourceDetail={nodeId:id,members:[{name:"Battery reading",state:"10",restored:false}],monitoring_policies:[{id:"condition-policy",name:"Condition policy"}],battery_condition:{reason:"battery_low",status:"warn",message:"Battery level is 10%"},vacuum_activity:{reason:"vacuum_error",status:"fail",message:"Vacuum needs attention"},entity_status:{reason:"ups_on_battery",status:"warn",message:"Running on backup power",evidence:{power_mode:"backup",readings:{charge:90,runtime:30}}}};
+    const html=detail(card);
+    assert.equal([...html.matchAll(/data-episode="condition"/g)].length,1);
+    assert.equal([...html.matchAll(/data-definition-id="condition-policy"/g)].length,1);
+    assert.equal([...html.matchAll(/href="\/config\/devices\/device\/third-floor"/g)].length,1);
+    assert.doesNotMatch(html,/Problem actions|View monitoring policies|Review the choice in Settings/);
+    assert.match(html,/Recorded condition/);
+  });
+}
+
+test("entity identity links to its verified integration and omits technical metadata",()=>{
+  const html=detail(sourceDetailsFixture("entity"));
+  assert.match(heading(html),/href="\/config\/integrations\/integration\/lyric#config_entry=lyric"/);
+  assert.match(heading(html),/>Go to integration page<\/a>/);
+  assert.doesNotMatch(html,/Homeostatic updated|Entity ID:|source-technical/);
+});
+
+test("entity navigation falls back to its state when no integration owner can be verified",()=>{
+  const card=sourceDetailsFixture("entity");
+  for(const source of [...card.current.data.inventory.nodes,...card.current.data.inventory.catalog.candidates]) {
+    delete source.owner_id;
+    delete source.attributes.integration;
+  }
+  card.current.data.devices=[];
+  const html=detail(card);
+  assert.match(heading(html),/href="\/developer-tools\/state\?entity_id=sensor.3rd_floor_sensor_room_temperature"/);
+  assert.match(heading(html),/>View entity state<\/a>/);
+  assert.doesNotMatch(html,/Go to integration page/);
+});
+
+test("device keeps its evidence timestamp and technical details available",()=>{
+  const html=detail(sourceDetailsFixture("device"));
+  assert.match(html,/href="\/config\/devices\/device\/third-floor"/);
+  assert.match(monitoring(html),/<section class="source-technical"><h3>Technical details<\/h3>/);
+  assert.ok(body(html).includes(new Date(UPDATED_AT).toLocaleString()));
+  assert.match(body(html),/Homeostatic updated/);
+});
 
 test("restored entity explains its retained registration and absent provider",()=>{
   const html=detail(sourceDetailsFixture("entity"));
@@ -129,19 +195,18 @@ for(const [state,expected] of [["missing","No current Home Assistant state"],["u
 
 test("a current entity displays its value and unit without a freshness claim",()=>{
   const html=detail(sourceDetailsFixture("entity",["72"]));
-  assert.match(condition(html),/Current value: 72 °F/);
+  assert.match(condition(html),/72 °F/);
+  assert.doesNotMatch(condition(html),/<dt>Current value<\/dt>/);
   assert.doesNotMatch(condition(html),/last report|last seen|just updated/i);
 });
 
-test("monitoring explains independent entity checks and the named device contribution",()=>{
+test("entity policy links remain visible without repeated monitoring explanations",()=>{
   const html=monitoring(detail(sourceDetailsFixture("entity")));
-  assert.match(html,/<strong>Entities<\/strong>/);
-  assert.match(html,/(individually|own availability|individual.*availability)/i);
-  assert.match(html,/<strong>Devices<\/strong>/);
-  assert.match(html,/3rd Floor Sensor/);
-  assert.match(html,/Uses this entity to assess 3rd Floor Sensor/);
+  assert.match(html,/Edit “Entities” policy/);
+  assert.match(html,/Edit “Devices” policy/);
   assert.match(html,/data-definition-id="entities"/);
   assert.match(html,/data-definition-id="devices"/);
+  assert.doesNotMatch(html,/Checks this entity.s availability individually|Uses this entity to assess/);
 });
 
 test("device monitoring states what the selected entities assess",()=>{
@@ -163,7 +228,7 @@ for(const view of ["entity","device"]) {
     const card=sourceDetailsFixture(view);
     card.sourceDetail={nodeId:card.sourceDetail.nodeId,error:"Could not read Home Assistant"};
     const html=detail(card);
-    assert.match(body(html),/href="\/(developer-tools\/state|config\/devices\/device)/);
+    assert.match(html,/href="\/(developer-tools\/state|config\/(devices\/device|integrations\/integration))/);
     assert.doesNotMatch(heading(html),/Homeostatic updated|Invalid Date/);
     assert.match(body(html),/role="alert">Could not read Home Assistant/);
     assert.match(body(html),/data-action="refresh-source"/);
@@ -179,7 +244,8 @@ test("unmonitored device labels raw inspection without claiming monitoring",()=>
   const card=sourceDetailsFixture("device",["unavailable","missing","off"]);
   card.current.data.inventory.nodes=card.current.data.inventory.nodes.filter(item=>item.monitoring_policy!=="devices");
   const html=detail(card);
-  assert.match(condition(html),/Device availability is not monitored/);
+  assert.match(condition(html),/<dt>Availability<\/dt>/);
+  assert.match(condition(html),/<dt>Monitoring<\/dt><dd><span>Not monitored<\/span>/);
   assert.match(body(html),/Unavailable or missing entities/);
   assert.match(body(html),/1 other entity/);
   assert.doesNotMatch(body(html),/\d+ (?:other )?monitored entit|Entities needing review/);
@@ -215,7 +281,7 @@ test("previously selected source evidence cannot label the new source update tim
   const html=detail(card);
   assert.doesNotMatch(heading(html),/Homeostatic updated/);
   assert.match(body(html),/Reading current Home Assistant values/);
-  assert.match(body(html),/View entity in Home Assistant/);
+  assert.match(heading(html),/Go to integration page/);
 });
 
 test("connectivity off remains an available value without a review finding",()=>{
@@ -242,3 +308,52 @@ for(const view of ["entity","device"]) {
     assert.match(html,/data-cancel-control="saved-maintenance"/);
   });
 }
+
+
+test("ambiguous integration membership keeps entity navigation on its exact state",()=>{
+  const card=sourceDetailsFixture("entity",["72"]);
+  const original=card.current.data.inventory.nodes.find(source=>source.kind==="integration");
+  const second={...original,node_id:"entry:other",entry_id:"other",name:"Other connection"};
+  card.current.data.inventory.nodes.push(second);
+  card.current.data.inventory.catalog.candidates.push(second);
+  for(const source of [...card.current.data.inventory.nodes,...card.current.data.inventory.catalog.candidates].filter(source=>source.node_id===ENTITY_ID||source.monitoring_source===ENTITY_ID)) {
+    delete source.owner_id;source.attributes.integration=["lyric","other"];
+  }
+  const html=detail(card);
+  assert.match(heading(html),/>View entity state<\/a>/);
+  assert.match(heading(html),/entity_id=sensor.3rd_floor_sensor_room_temperature/);
+  assert.doesNotMatch(heading(html),/Go to integration page/);
+});
+
+test("explicit integration ownership resolves multiple membership hints",()=>{
+  const card=sourceDetailsFixture("entity",["72"]);
+  const original=card.current.data.inventory.nodes.find(source=>source.kind==="integration");
+  const second={...original,node_id:"entry:other",entry_id:"other",name:"Other connection"};
+  card.current.data.inventory.nodes.push(second);
+  card.current.data.inventory.catalog.candidates.push(second);
+  for(const source of [...card.current.data.inventory.nodes,...card.current.data.inventory.catalog.candidates].filter(source=>source.node_id===ENTITY_ID||source.monitoring_source===ENTITY_ID))source.attributes.integration=["lyric","other"];
+  assert.match(heading(detail(card)),/lyric#config_entry=lyric/);
+});
+
+
+test("independent issues on one entity retain distinct escaped findings and exact destinations",()=>{
+  const card=sourceDetailsFixture("entity",["unavailable"]);
+  const availability=card.current.data.inventory.nodes.find(source=>source.monitoring_policy==="entities");
+  const temperature={...availability,node_id:"monitoring:temperature:"+ENTITY_ID,kind:"temperature_limit",monitoring_policy:"temperature",check_id:"temperature_limit"};
+  card.current.data.inventory.nodes.push(temperature);
+  card.current.data.inventory.episodes=[
+    {episode_id:"availability-issue",anchor:availability.node_id,recorded:[availability.node_id],reasons:[{node_id:availability.node_id,message:"Reading unavailable <source>",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT},
+    {episode_id:"temperature-issue",anchor:temperature.node_id,recorded:[temperature.node_id],reasons:[{node_id:temperature.node_id,message:"Temperature is low & falling",status:"warn",reason:"temperature_low"}],opened_at:UPDATED_AT},
+  ];
+  const html=detail(card),rows=[...html.matchAll(/<div class="source-related-issue source-entity-issue">([\s\S]*?)<\/div>/g)].map(match=>match[1]);
+  assert.equal(rows.length,2);
+  const unavailable=rows.find(row=>row.includes('data-episode="availability-issue"'));
+  const cold=rows.find(row=>row.includes('data-episode="temperature-issue"'));
+  assert.match(unavailable,/<p>Reading unavailable &lt;source&gt;<\/p>/);
+  assert.match(cold,/<p>Temperature is low &amp; falling<\/p>/);
+  assert.doesNotMatch(unavailable,/Temperature is low|<source>/);
+  assert.doesNotMatch(cold,/Reading unavailable|Temperature is low & falling/);
+  assert.equal((html.match(/data-episode="availability-issue"/g)||[]).length,1);
+  assert.equal((html.match(/data-episode="temperature-issue"/g)||[]).length,1);
+  assert.doesNotMatch(rows.join(""),/data-acknowledge|data-shelf|An issue is open for this entity/);
+});

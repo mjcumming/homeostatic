@@ -2,7 +2,7 @@
 
 Status: Accepted design baseline, October 14, 2026.
 
-This specification consolidates the reviewed Issues, Sources, monitoring-policy and notification workflows. It defines the intended experience and acceptance criteria. The [integration specification](spec.md) owns current behavior. [UI standards](ui-standards.md) owns interaction patterns, [policy and notification editors](policy-editors.md) owns form layout, and the [roadmap](roadmap.md#current-work) owns implementation and acceptance status. The [design decision](adr/0061-issues-first-product-workflows.md) records the approval boundary and earlier interface decisions it supersedes.
+This specification consolidates the reviewed Open issues, Monitoring, monitoring-policy and notification workflows. It defines the intended experience and acceptance criteria. The [integration specification](spec.md) owns current behavior. [UI standards](ui-standards.md) owns interaction patterns, [policy and notification editors](policy-editors.md) owns form layout, and the [roadmap](roadmap.md#current-work) owns implementation and acceptance status. The [design decision](adr/0061-issues-first-product-workflows.md) records the approval boundary and earlier interface decisions it supersedes.
 
 ## Product purpose and audience
 
@@ -14,7 +14,7 @@ The initial redesign serves the administrator who configures monitoring and inve
 
 | Goal | Successful outcome |
 | --- | --- |
-| Find what needs attention | Identify a concrete condition and its affected entities, devices, automations or other named sources from Issues or a notification. |
+| Find what needs attention | Identify a concrete condition and its affected entities, devices, automations or other named sources from Open issues or a notification. |
 | Understand the evidence | Distinguish the current Home Assistant report, the monitoring expectation and the issue that expectation created. |
 | Understand coverage | Identify each check on a source, why it applies and the policy to change. |
 | Understand notifications | Distinguish saved configuration from the evaluated notification behavior for an open issue. |
@@ -42,7 +42,7 @@ One actual source has one navigational identity. Its independent checks and poli
 
 ## Issue identity and investigation groups
 
-Issues opens with meaningful investigation groups and precise issue identities underneath. Equipment hierarchy helps answer where to investigate. Policies answer why a source is watched, what constitutes a problem and what notifications are configured. Policies provide context and filtering; they are not the default investigation hierarchy.
+The Open issues page starts with integration groups, one indented heading per registry device and independently openable findings underneath. Device names appear once; child rows name the capability or check and its observed condition. Reported integration failures and issues spanning several devices or standalone or unknown recorded sources remain directly under the integration, as do entities without a known device. A loaded integration issue confined to one known device joins that device heading. Registry connection ownership keeps all findings for a device under the same integration. Repairs, automations and situations retain their own groups. Integration summaries count affected devices separately from standalone entities, and device headings count their independent issues. Search includes device names; pagination preserves one heading per device and makes partial sets explicit. Monitoring-removal actions follow the findings. Equipment hierarchy helps answer where to investigate. Policies answer why a source is watched, what constitutes a problem and what notifications are configured. Policies provide context and filtering; they are not the default investigation hierarchy.
 
 A device summary can collect entity problems without creating a device issue. An integration group can contain device problems without creating an integration-outage issue. Opening an issue through another source or group reaches the same identity and action state. The engine determines actual correlation, dependency grouping and lifecycle; the interface does not merge issues merely to shorten the queue.
 
@@ -59,7 +59,7 @@ A device summary can collect entity problems without creating a device issue. An
 
 Even every monitored device becoming unavailable does not prove that the integration failed. Separate the integration's evidence, observed affected entities and devices, and potential dependency impact. Use Affected entities for an entity list; name other types accurately. Counts of groups, unique issues, devices, entities and checks remain separate. Global totals count each issue identity once.
 
-The reviewed layout starts with collapsed, compact group summaries on an initial visit. Returning restores prior expansion; search and direct links reveal their target without requiring every branch to be opened. Every advertised affected count leads to its complete set. Preserve selection, expansion and reading position during navigation and updates. Group actions are outside this baseline; acknowledgment and alert pauses act on the named issue.
+The reviewed layout starts with collapsed, compact group summaries on an initial visit. Returning restores prior expansion; search and direct links reveal their target without requiring every branch to be opened. Every advertised affected count leads to its complete set. Preserve selection, expansion and reading position during navigation and updates. Acknowledgment and notification pauses act on the named issue. The group-level monitoring removal below changes only the reviewed policy exclusions.
 
 ### Recovery and monitoring boundaries
 
@@ -71,19 +71,20 @@ The noisy eero case must distinguish missing evidence, current state values and 
 
 ## Navigation and page responsibilities
 
-Issues is the opening page. The primary destinations are Issues, Sources, Policies and Notifications. Retained history is within Issues and reachable from related sources. General configuration has a labelled Settings utility. There is no separate Overview destination.
+Open issues is the opening page. The primary destinations are Open issues, Monitoring, Policies, Notifications and History. The Policies tab opens the Monitoring policies page. Retained history has its own page and remains reachable from issue links and supported source-history routes. General configuration has a labelled Settings utility. There is no separate Overview destination.
 
 | Destination | User task | Required information and actions |
 | --- | --- | --- |
-| Issues | Find, understand and respond to problems | Investigation groups, exact issues, observed conditions, typed affected lists, contributing checks, notification behavior, acknowledge, pause, active controls and retained history. |
-| Sources | Understand a source and its coverage | One source identity, current evidence, applicable checks and policies, related issues and history, contextual policy editing and supported Home Assistant links. |
+| Open issues | Find, understand and respond to problems | Investigation groups, exact issues, observed conditions, typed affected lists, contributing checks, notification behavior, acknowledge, pause, active controls. |
+| Monitoring | Understand a source and its coverage | One source identity, current evidence, applicable checks and policies, related issue links, contextual policy editing and supported Home Assistant links. |
 | Policies | Define monitoring and notification behavior | Supplied and user-created policies together; saved enabled state; scope, detection and notification summaries; add, edit, duplicate, enable/disable, delete and selective restoration. |
 | Notifications | Configure named notifications and inspect their use | Reusable timing and delivery choices, saved policy assignments, destination methods, optional presence, saved-method tests and request outcomes. |
+| History | Review ended problems | Recorded condition, outcome, time range, retention coverage and retained issue details. |
 | Settings utility | Adjust installation-wide behavior | Supported general timing and grouping settings with their scope explained; no duplicate policy, source-selection or method editors. |
 
 Notifications opens with named reusable notifications. Each owns timing and selected delivery methods; policies choose their assignments. Delivery methods is a secondary view. The accepted defaults and preservation boundary are defined in [ADR 0066](adr/0066-reusable-notifications-own-timing-and-delivery.md).
 
-Source details begin with explicit identity and current evidence, then explain checks, coverage and related issues. History and technical data are available on demand. Entity details label Entity, Device when present, Integration when known, and Entity ID. Device details label Device and its integration. Source / Settings / History is not a mandatory template; an empty Settings tab that only redirects elsewhere has no purpose.
+Entity details begin with the name, useful location and plain current condition, followed by concise monitoring coverage, related issues and contributing policies. Omit repeated Availability and Monitoring field labels, unassigned location placeholders, the Details accordion and the history footer. Keep policy editing, availability controls, independent condition findings and supported maintenance visible. Native links beside identity name their actual destinations and known device/integration context. Device and other source details retain the evidence needed to understand their scope. History remains available through its page, issue links and existing source-history routes.
 
 Useful operating context from Overview remains: current-data status, confirmed sending state, a next eligible report when established, and a route to active pauses and maintenance. Keep this compact so it supports the issue workspace.
 
@@ -92,9 +93,9 @@ Useful operating context from Overview remains: current-data status, confirmed s
 | Structure | Benefit | Tradeoff and decision |
 | --- | --- | --- |
 | Issues first | Starts with problems and keeps configuration directly reachable. | Selected through the walkthroughs; the quiet state must still explain operating status. |
-| Operational home | Makes readiness and setup prominent. | Would require combining the issue workspace into Home or maintaining competing starting pages. Useful status is retained in Issues. |
+| Operational home | Makes readiness and setup prominent. | Would require combining the issue workspace into Home or maintaining competing starting pages. Useful status is retained in Open issues. |
 | Daily work plus a Configure area | Reduces primary destinations. | Adds a layer between source investigation, policy edits and notification configuration. |
-| Sources first | Starts with known equipment. | Cross-source issues, Repairs and automations still need a global queue. Sources remains directly reachable. |
+| Sources first | Starts with known equipment. | Cross-source issues, Repairs and automations still need a global queue. Monitoring remains directly reachable. |
 
 The walkthroughs establish the chosen direction. They do not establish measured usability or performance across real installations.
 
@@ -106,11 +107,13 @@ Inspect supplied policies and discovered sources. Enable or create appropriate m
 
 ### Find and respond to a problem
 
-Open Issues or follow a notification directly to its issue. Identify the reported condition, relevant times, affected entities or other named types, and current notification behavior. Inspect a source, open a supported Home Assistant destination, acknowledge the exact issue or pause its alerts with a visible expiry.
+Go to Open issues or follow a notification directly to its issue. Identify the reported condition, relevant times, affected entities or other named types, and current notification behavior. Inspect a source, open a supported Home Assistant destination, acknowledge the exact issue or pause its notifications with a visible expiry.
 
 Acknowledgment stops applicable acknowledgment-dependent reminders; eligible scheduled summaries may continue. A pause names the issue and recipient scope while monitoring continues. Show the confirmed result and remaining behavior. Neither action affects every issue in the investigation group.
 
-If the issue has ended, show its retained outcome. If unavailable or expired, explain that and provide a useful route to Issues. Existing permissions apply; an inaccessible target must not imply new rights or silently redirect to an unrelated page.
+An applicable group also offers Remove these entities from availability monitoring. It selects currently unavailable monitored entities represented by the matching issues, including rows beyond the visible page, and deduplicates them across availability policies. Search limits the action to matching issues. A short confirmation shows the count and says that availability checks will stop; Details contains the entity and policy names. Save the policy exclusions once and show the resulting issue list without a persistent success message. Do not retain an Undo action after saving; later adjustments belong to the saved policy settings. Other checks and Home Assistant state meanings remain unchanged.
+
+If the issue has ended, show its retained outcome. If unavailable or expired, explain that and provide a useful route to Open issues. Existing permissions apply; an inaccessible target must not imply new rights or silently redirect to an unrelated page.
 
 ### Inspect a source and change monitoring
 
@@ -118,9 +121,11 @@ Find a source from an issue, search or grouping. Read its identity, current evid
 
 Use Edit policy in the relevant policy context. The editor title is Edit policy: [name]. It retains the originating source or issue and shows the policy's complete shared scope. Monitoring settings and notification assignments share that policy draft. Selecting a source from an issue does not imply that the whole policy applies only to that source.
 
-Entity details also offer Stop monitoring availability and Resume monitoring through scoped changes to those policies. A device's explicitly selected entity rows can use the same action together. Name the entities and affected policy contributions before saving once, retain unrelated drafts and offer a guarded Undo after confirmation. Resumption removes explicit exclusions; existing policy scope and eligibility still apply. These actions follow [the contextual control decision](adr/0068-contextual-availability-monitoring-controls.md). Current condition and actions lead the page; Why this is monitored, History and Technical details are collapsed initially.
+Entity details offer Remove this entity from availability monitoring and Resume availability monitoring through scoped changes to the owning policies. A device's explicitly selected entity rows can use the same action together. The confirmation names the availability scope and keeps entity/policy details available; unrelated drafts and other check types remain intact. A confirmed save shows the resulting monitoring scope without a persistent success message or Undo. Resumption removes explicit exclusions while preserving policy scope and eligibility. Related issues open their complete view with View issue; acknowledgment and notification pauses are available there with the actual issue scope. This follows the [entity-first decision](adr/0073-entity-first-monitoring-details.md) and preserves the guarded saves in the [contextual control decision](adr/0068-contextual-availability-monitoring-controls.md).
 
 Type is fixed after creation. Selectors follow the monitoring type's actual capabilities. Device availability retains existing eligible-member and connectivity rules; the redesign introduces neither a per-policy device-member picker nor an any-entity-unavailable trigger. Broken automations retains fixed scope and explicit missing-entity-reference detection; it does not become a general automation debugger.
+
+The Monitoring toolbar orders Search, Monitoring status and More filters. All / Monitored / Not monitored remains visible and intersects with search and additional filters. More filters opens an anchored panel without rearranging the toolbar and restores keyboard focus when dismissed. Group by and a stable Collapse groups button sit immediately above the tree. Collapse groups affects only tree expansion. Keep coverage based on actual checks and evidence inputs, preserve navigation state, and allow the selected source to remain inspectable after filtering removes its row.
 
 When a change ends monitoring for a selection, show which contribution ends and which other policies remain. Save policy applies the intended draft and distinguishes Monitoring ended from recovery. Discard changes restores the draft's saved baseline in place. Return restores the originating source or issue and reading position.
 
@@ -155,11 +160,11 @@ Pending or failed feedback belongs beside or directly below the control. Confirm
 
 Match the action to the problem: change an inappropriate expectation, adjust timing or destinations, acknowledge applicable reminders, or pause a named issue temporarily. Show other applicable entries and policies so one adjustment does not imply that all attention has stopped.
 
-Maintenance retains existing semantics: it holds new problems in a supported scope while existing issues and alerts continue. Name actual checks or a server-confirmed scope, expiry and optional reason. Do not imply an equipment-wide operation the runtime cannot perform. Detailed maintenance layout remains follow-up work.
+Maintenance retains existing semantics: it holds new problems in a supported scope while existing issues and notifications continue. Name actual checks or a server-confirmed scope, expiry and optional reason. Do not imply an equipment-wide operation the runtime cannot perform. Detailed maintenance layout remains follow-up work.
 
 ### Investigate a past problem
 
-Open history from Issues or a source. Lead with condition, recorded outcome and useful time or duration. Separate open related problems from retained ended issues. Show Condition cleared, Monitoring ended and Grouped into another issue distinctly. Associations use recorded membership; current device placement must not rewrite the past. When older records identify the issue source but do not record its parent device or integration, source history shows exact source records and explains that other retained outcomes remain available in the full issue history.
+Open History from the top navigation or follow a retained issue link. Existing source-history routes remain supported. Lead with condition, recorded outcome and useful time or duration. Separate open related problems from retained ended issues. Show Condition cleared, Monitoring ended and Grouped into another issue distinctly. Associations use recorded membership; current device placement must not rewrite the past. When older records identify the issue source but do not record its parent device or integration, source history shows exact source records and explains that other retained outcomes remain available in the full issue history.
 
 Retention and collection limits belong in a concise History coverage disclosure. Missing associations or expired records get explicit limitations. Return restores the filtered list or source context.
 
@@ -167,7 +172,7 @@ Retention and collection limits belong in a concise History coverage disclosure.
 
 An unchanged editor has no save footer, disabled Save, Cancel or No changes message. A dirty editor shows Unsaved changes, Discard changes and the scoped Save action. Saving retains validation, authorization, exact-payload, revision, serialization and rollback protections. There is no compulsory review screen.
 
-Successful saving removes dirty controls, gives a concise confirmed result and preserves contextual return. Further edits clear the earlier success message. Discard restores an existing object's unsaved changes in place; it does not undo a completed save. A newly created draft has no saved baseline: Discard abandons it and returns to its origin without creating an empty saved object. Failed or conflicting saves retain the draft. Changes made during an in-flight save remain a newer unsaved draft.
+Successful notification and delivery-method saves return to their matching Notifications list after saved settings are refreshed, with focus on the saved row's Edit action. Navigation elsewhere or newer edits prevent an automatic return. Other editors remove dirty controls and preserve contextual return. Successful saves leave no persistent success message; pending work, newer edits and failures stay explicit. Discard restores an existing object's unsaved changes in place; it does not undo a completed save. A newly created draft has no saved baseline: Discard abandons it and returns to its origin without creating an empty saved object. Failed or conflicting saves retain the draft. Changes made during an in-flight save remain a newer unsaved draft.
 
 Meaningful destinations support browser Back and Forward, direct links and refresh. Navigation preserves current-session drafts and the originating selection, filters, expansion and reading position. It never implicitly saves or discards. Live updates preserve focus, text entry and the problem being inspected. [UI standards](ui-standards.md#navigation-and-continuity) defines details and the limits of draft restoration across reloads.
 
@@ -183,7 +188,7 @@ These are refactor acceptance criteria. Reviewed prototypes establish intent; im
 | Entity without a device; broken automations; Repairs | Each has a useful investigation path and exact identity without invented equipment membership. |
 | One entity has device and entity policy coverage | Display one entity and both contributions, with explicit Entity, Device and Integration labels where known. |
 | Remove one monitoring contribution | Explain the check that ends, preserve other policies and current evidence, and record Monitoring ended rather than recovery. |
-| Resume monitoring after an earlier issue period | Follow engine qualification and identity; prior acknowledgment and pause do not silently transfer to a new issue. |
+| Resume availability monitoring after an earlier issue period | Follow engine qualification and identity; prior acknowledgment and pause do not silently transfer to a new issue. |
 | Edit a shared policy from a source or issue | Show its full scope and one policy draft containing monitoring settings and notification assignments. Clean/dirty/save/discard states and contextual return agree. |
 | Change global sending during a draft | Only global sending changes. The draft stays intact and unsaved; pending, failed and uncertain results never masquerade as confirmed state. |
 | Edit a shared definition during a policy draft | The policy assignment stays unsaved; shared changes name their own scope. Discarding one draft does not erase another saved definition. |
@@ -193,7 +198,7 @@ These are refactor acceptance criteria. Reviewed prototypes establish intent; im
 | Acknowledge and pause | Operate on the exact issue. Applicable reminder/summary behavior, pause scope and expiry remain visible. |
 | Back, Forward, refresh or a direct issue link | Restore the meaningful destination and supported context, or explain a missing target. Never silently substitute Overview. |
 | No visible issues | Distinguish quiet monitored sources, filters, no monitoring, loading and unavailable current data. |
-| History through an affected source | Use recorded membership and expose retention limits. Missing records do not imply that no problem occurred. |
+| History and existing source-history links | Use recorded membership and expose retention limits. Missing records do not imply that no problem occurred. |
 | Keyboard, phone layout and live updates | Complete the same tasks without color-only state, lost focus, discarded input or inaccessible affected lists. |
 | Save failure or concurrent edit | Keep the exact draft, explain the named failure/conflict and avoid overwriting another save. |
 

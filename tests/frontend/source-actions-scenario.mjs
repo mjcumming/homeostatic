@@ -1,5 +1,5 @@
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
-import {initializeScopedConfiguration,rebaseScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=74";
+import {initializeScopedConfiguration,rebaseScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=82";
 import {sourceDetailsFixture,DEVICE_ID,ENTITY_ID,UPDATED_AT} from "./source-details-fixture.mjs";
 import {emptyReceipt,recordResult,receiptSummary} from "./control-path-inventory.mjs";
 
@@ -30,10 +30,11 @@ function detail(id) {
     unavailable_count:selected.filter(item=>item.state==="unavailable").length,unknown_count:0,
     device_availability:id===DEVICE_ID?{status:"available",basis:"entities",reason:"available_entity"}:null};
 }
-card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},states:{},localize:()=>null,async callWS(request){
+card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},states:Object.fromEntries(members.map(member=>[member.entity_id,{state:member.state,attributes:{restored:member.restored}}])),localize:()=>null,async callWS(request){
   calls.push(copy(request));
   if(request.type==="homeostatic/configuration")return configuration();
   if(request.type==="homeostatic/source")return detail(request.node_id);
+  if(request.type==="homeostatic/node")return {source:inventory().inventory.nodes.find(item=>item.node_id===request.node_id),explanation:{findings:inventory().inventory.episodes[0]?.reasons||[]},readiness:{answer:"blocked",nodes:[]},impact:{nodes:[]},integration_evidence:{current:{status:"pass",reason:"loaded"}}};
   if(request.type==="homeostatic/save_settings") {
     if(failNext){const error=failNext;failNext=null;if(error.applied){saved=copy(request.settings);revision++;card.current={status:"current",data:inventory()};}throw error;}
     if(request.revision!==String(revision))throw {code:"stale_configuration",message:"Saved settings changed"};
@@ -42,7 +43,7 @@ card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},states:{},
   throw Error(`Unexpected request in isolated scenario: ${request.type}`);
 }};
 root.addEventListener("click",event=>{if(event.target.closest("a[href]"))event.preventDefault();});
-const frame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+const frame=()=>new Promise(resolve=>{const channel=new MessageChannel();channel.port1.onmessage=()=>{channel.port1.close();channel.port2.close();resolve();};channel.port2.postMessage(null);});
 const check=(value,message)=>{if(!value)throw Error(message);};
 async function settle() {
   for(let index=0;index<40;index++){await frame();if(!card.settingsBusy&&!card.sourceDetail?.loading)return;}
@@ -56,7 +57,7 @@ function disclose(selector) {const target=root.querySelector(selector);check(tar
 function choose(id) {card.sourcesSelection=`source:${id}`;card.sourcesMobileDetail=true;card.sourceDetail=detail(id);card.render();}
 function reset() {
   saved=copy(initial);revision=1;calls=[];failNext=null;
-  Object.assign(card,{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,availabilityPlan:null,availabilitySelected:null,availabilityUndo:null,availabilityNotice:null,availabilityError:null,availabilityContext:null,sourcesExcludedOnly:false,sourcesQuery:"",sourcesExpanded:new Set(base.sourcesExpanded),current:{status:"current",data:inventory()},page:"sources"});
+  Object.assign(card,{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,availabilityPlan:null,issueAvailabilityPlan:null,availabilitySelected:null,availabilityError:null,availabilityContext:null,sourcesExcludedOnly:false,sourcesQuery:"",sourcesExpanded:new Set(base.sourcesExpanded),current:{status:"current",data:inventory()},page:"sources"});
   initializeScopedConfiguration(card);choose(ENTITY_ID);
 }
 function report() {document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);parent.postMessage({type:"homeostatic-acceptance",fixture:"source-actions.html",receipt},location.origin);}
@@ -73,6 +74,23 @@ document.querySelector("#run").onclick=async()=>{
   result.textContent="Running source action checks…";
   receipt=emptyReceipt({fixture:"source-actions.html",browser:navigator.userAgent,build:"working tree",transport:"synthetic settings and source replies; no live calls"});
   try {
+    start("issues.availability-batch");reset();card.page="issues";card.render();await settle();
+    click('[data-issue-availability="remove"]');
+    check(root.activeElement?.dataset.issueAvailability==="confirm","Bulk confirmation receives focus");
+    check(!root.querySelector('.source-availability-confirm details').open,"Entity and policy details start collapsed");
+    click('[data-issue-availability="cancel"]');check(saves().length===0,"Bulk cancel does not save");
+    click('[data-issue-availability="remove"]');click('[data-issue-availability="confirm"]');await settle();
+    check(saves().length===1&&exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID),"Issues action removes both availability contributions in one save");
+    check(!exclusion("entities",entities[1].node_id)&&!exclusion("devices",entities[2].node_id),"Unknown and off siblings remain monitored");
+    check(!root.querySelector('[data-issue-group]')&&!root.querySelector('[data-issue-availability="undo"]'),"Saved removal finishes without Undo after the group disappears");
+    check(!root.querySelector(".issue-monitoring-feedback")&&!root.textContent.includes("Changes saved."),"The completed change leaves no persistent success message");
+    click('.nav [data-page="history"]');await settle();
+    check(root.querySelector('h1').textContent==="History"&&!root.querySelector('.workspace-tabs'),"History opens its own page");
+    check(root.querySelector('.nav [aria-current="page"]').dataset.page==="history","History is the selected top-level tab");
+    click('.nav [data-page="problems"]');await settle();
+    check(exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID)&&saves().length===1,"Navigation preserves the completed policy save");
+    pass(activePath,"Actual group action, short confirmation, collapsed Details, Cancel, one saved entity/device exclusion change and no Undo after the group disappears; top-level History and Issues navigation preserve the save. Unknown/off siblings and notification settings preserved.");
+
     reset();await settle();
     start("sources.availability");
     card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name="Pending temperature";
@@ -83,26 +101,31 @@ document.querySelector("#run").onclick=async()=>{
     click('[data-availability-action="cancel"]');check(saves().length===0,"Cancel must not save");
     click('[data-availability-action="stop"]');click('[data-availability-action="confirm"]');await settle();
     check(saves().length===1&&exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID),"One save excludes exactly the entity in both policies");
-    check(root.querySelector(".source-condition").textContent.includes("Unavailable in Home Assistant"),"Unmonitor must not reinterpret unavailable");
+    const availability=root.querySelector(".source-entity-condition").textContent;
+    check(availability==="Unavailable in Home Assistant","Unmonitor must not reinterpret unavailable");
     check(policy("temperature").name==="Temperature"&&card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name==="Pending temperature","Unrelated policy draft survives unsaved");
     check(saved.notification_definitions.methods.phone.name==="Phone"&&card.settingsDraft.notification_definitions.methods.phone.name==="Pending phone","Unrelated delivery draft survives unsaved");
     choose(DEVICE_ID);await settle();choose(ENTITY_ID);await settle();
     click('[data-availability-action="resume"]');click('[data-availability-action="confirm"]');await settle();
     check(!exclusion("entities",ENTITY_ID)&&!exclusion("devices",ENTITY_ID),"Resume persisted after reopening");
-    click('[data-availability-action="undo"]');await settle();check(exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID),"Undo reverses the confirmed change");
-    pass(activePath,"Actual Stop, Cancel, confirm, reopen, Resume and Undo controls; exact two-policy exclusions; unchanged unavailable state and unrelated unsaved policy/method drafts.");
+    check(!root.querySelector('[data-availability-action="undo"]'),"A completed source save has no Undo control");
+    pass(activePath,"Actual Stop, Cancel, confirm, reopen and Resume controls, with no saved-action Undo; exact two-policy exclusions; unchanged unavailable state and unrelated unsaved policy/method drafts.");
 
     start("sources.availability-batch");reset();choose(DEVICE_ID);await settle();
     click('[data-availability-action="select"]');
-    disclose('[data-ui-key^="source-other-entities:"]');
+    const healthySelection=root.querySelector('[data-availability-select="'+entities[1].node_id+'"]');
+    check(healthySelection?.getClientRects().length&&!healthySelection.closest("details"),"Select entities directly reveals healthy member checkboxes");
     click(`[data-availability-select="${ENTITY_ID}"]`);click(`[data-availability-select="${entities[1].node_id}"]`);
     click('[data-availability-action="stop-selected"]');click('[data-availability-action="confirm"]');await settle();
     check(saves().length===1&&policy("devices").excluded_sources.length===2&&policy("entities").excluded_sources.length===2,"Batch persists only the selected entities");
     check(!exclusion("devices",entities[2].node_id),"Unselected off-valued sibling remains monitored");
-    click('[data-availability-action="select"]');disclose('.source-excluded-members');
+    click('[data-availability-action="select"]');
+    check(root.querySelector(".source-excluded-members")?.getClientRects().length,"Select entities directly reveals excluded members for resumption");
+    const excludedSelection=root.querySelector('[data-availability-select="'+ENTITY_ID+'"]');
+    check(excludedSelection?.getClientRects().length&&!excludedSelection.closest("details"),"Excluded member checkboxes need no additional disclosure");
     click(`[data-availability-select="${ENTITY_ID}"]`);click('[data-availability-action="resume-selected"]');click('[data-availability-action="confirm"]');await settle();
     check(!exclusion("devices",ENTITY_ID)&&exclusion("devices",entities[1].node_id),"Batch resume removes only selected exclusions");
-    click('[data-action="back-sources"]');click('[data-sources-excluded]');
+    if(root.querySelector('[data-action="back-sources"]').getClientRects().length)click('[data-action="back-sources"]');click('[data-sources-filters]');click('[data-sources-excluded]');
     check(!root.querySelector(`[data-sources-select="source:${ENTITY_ID}"]`)&&root.querySelector(`[data-sources-select="source:${entities[1].node_id}"]`),"Exclusion filter reaches the remaining excluded entity");
     pass(activePath,"Device checkboxes select exactly two entities for one save; omitted excluded members remain reachable for selective resumption; exclusion filter retains only excluded branches.");
 
@@ -120,24 +143,32 @@ document.querySelector("#run").onclick=async()=>{
     click('[data-availability-action="confirm"]');await settle();check(!exclusion("devices",ENTITY_ID)&&root.querySelector('[role="alert"]').textContent.includes("Synthetic save rejection"),"Failed save leaves saved scope unchanged");
     click('[data-availability-action="confirm"]');await settle();check(exclusion("devices",ENTITY_ID)&&saves().length===2,"Only deliberate retry saves");
     reset();await settle();click('[data-availability-action="stop"]');failNext={message:"Synthetic response lost",applied:true};
-    click('[data-availability-action="confirm"]');await settle();check(exclusion("devices",ENTITY_ID)&&!root.querySelector('[data-availability-action="undo"]'),"Uncertain response does not claim confirmed Undo");
+    click('[data-availability-action="confirm"]');await settle();check(exclusion("devices",ENTITY_ID)&&!root.querySelector('[data-availability-action="undo"]'),"Uncertain response has no saved-action Undo");
     check(saves().length===1,"Uncertain response never automatically retries");
     click('[data-availability-action="refresh"]');await settle();
     check(saves().length===1&&root.querySelector('[data-availability-action="resume"]'),"Reading newer saved state exposes Resume without a duplicate uncertain save");
-    pass(activePath,"Actual controls block affected drafts, stale settings and changed catalogs; disconnected controls are read-only; rejected saves accept deliberate retry; lost applied-save response has no automatic retry or false Undo and refresh prevents a duplicate write.");
+    pass(activePath,"Actual controls block affected drafts, stale settings and changed catalogs; disconnected controls are read-only; rejected saves accept deliberate retry; lost applied-save response has no automatic retry or false success and refresh prevents a duplicate write.");
 
-    start("sources.contextual-issue-controls");reset();await settle();disclose('.source-issue-actions');
-    check(root.querySelector('.source-issue-actions').textContent.includes("whole issue headed by Lyric, involving 2 sources"),"Whole correlated issue scope is explicit");
-    click('[data-acknowledge="shared"]');check(card.tools.dialog.open&&card.tools.immediate?.target==="shared","Acknowledgment dialog targets the correlated issue");click('[data-tool="close"]');
-    click('[data-shelf="shared"]');check(card.tools.dialog.open&&card.tools.draft?.target==="shared","Pause dialog targets the correlated issue");click('[data-tool="close"]');
-    check(!calls.some(item=>!["homeostatic/source"].includes(item.type)),"Opening and cancelling issue controls does not mutate state");
-    pass(activePath,"Expanded Actions for this issue, read scope, opened and cancelled Acknowledge and Pause dialogs for exact correlated issue id; no action request sent.");
+    start("sources.contextual-issue-controls");reset();await settle();
+    check(!root.querySelector('.config-detail [data-acknowledge],.config-detail [data-shelf]'),"Entity details never control notifications for a broader issue");
+    check(root.querySelector('.source-related-issues').textContent.includes("issue involving 2 sources"),"Related issue states its broader scope");
+    check(root.querySelector('.source-related-issues').textContent.includes("Room temperature is unavailable"),"Related issue names its reported condition before opening it");
+    click('.source-related-issues [data-episode="shared"]');await settle();
+    check(card.dialog.open&&card.detail.episodeId==="shared","View issue opens the exact related issue");
+    check(root.querySelector('.dialog-body [data-acknowledge="shared"]').textContent.includes("Acknowledge issue"),"Acknowledgment label identifies the issue");
+    check(root.querySelector('.dialog-body [data-shelf="shared"]').textContent.includes("Pause notifications"),"Pause label identifies notifications");
+    click('.dialog-body [data-acknowledge="shared"]');check(card.tools.dialog.open&&card.tools.immediate?.target==="shared","Acknowledgment dialog targets the correlated issue");click('[data-tool="close"]');
+    click('.source-related-issues [data-episode="shared"]');await settle();
+    click('.dialog-body [data-shelf="shared"]');check(card.tools.dialog.open&&card.tools.draft?.target==="shared","Pause dialog targets the correlated issue");click('[data-tool="close"]');
+    check(!card.tools.dialog.open,"Cancelling the operator action returns to the source");
+    check(!calls.some(item=>!["homeostatic/source","homeostatic/node"].includes(item.type)),"Opening and cancelling issue controls does not mutate state");
+    pass(activePath,"Entity details show broader issue scope and View issue without local acknowledgment or pause. Opened exact shared issue, checked Acknowledge issue and Pause notifications labels, cancelled both dialogs and returned without sending an action request.");
 
     start("sources.compact-layout");reset();await settle();
-    check(!root.querySelector('.source-monitoring-explanation').open&&!root.querySelector('.source-technical').open,"Secondary details start collapsed");
-    disclose('.source-monitoring-explanation');disclose('.source-technical');
-    const summary=root.querySelector('.source-technical > summary');summary.focus();card.render();await settle();
-    check(root.querySelector('.source-technical').open&&root.activeElement===summary,"Live render retains disclosure and focus");
+    check(!root.querySelector('.source-monitoring-explanation,.source-technical'),"Entity details need no disclosure or technical block");
+    check(root.querySelector('.source-policy-links [data-definition-id="entities"]').getClientRects().length,"Contributing policy is directly visible");
+    const action=root.querySelector('[data-availability-action="stop"]');action.focus();card.render();await settle();
+    check(root.activeElement?.dataset.availabilityAction==="stop","Live render retains focus on the entity action");
     for(const width of [320,390,1200])for(const theme of ["light","dark"]) {
       card.style.width=`${width}px`;document.documentElement.dataset.theme=theme;await frame();
       check(card.scrollWidth<=card.clientWidth+1,`No host overflow at ${width}px ${theme}`);
@@ -146,7 +177,7 @@ document.querySelector("#run").onclick=async()=>{
       click('[data-availability-action="stop"]');check(root.activeElement?.dataset.availabilityAction==="confirm","Focus reaches confirm at each width");click('[data-availability-action="cancel"]');
     }
     card.style.width="390px";document.documentElement.dataset.theme="dark";reset();await settle();
-    pass(activePath,"Actual disclosures retain focus through rerender; Stop review/Cancel work at 320, 390 and 1200 CSS pixels in light and dark; no required horizontal scrolling; primary action meets 44px touch target. Physical Safari untested.");
+    pass(activePath,"Visible entity policy and action retain focus through rerender without Details; Stop review/Cancel work at 320, 390 and 1200 CSS pixels in light and dark; no required horizontal scrolling; primary action meets 44px touch target. Physical Safari untested.");
     result.textContent=`PASS: ${receiptSummary(receipt).pass} source action paths; other inventory paths remain untested by this fixture.`;
   }catch(error){recordResult(receipt,activePath,"fail",error.message);document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);result.textContent=`FAIL: ${activePath}: ${error.message}`;}
   finally{button.disabled=false;report();}

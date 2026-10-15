@@ -165,7 +165,7 @@ function proposal(card,scope,value) {
   if(scope.kind==="source-availability") {
     if(value?.revision!==card.configuration.revision)throw new Error("Saved settings changed. Review the affected policies again before saving.");
     if(!value.changes?.length)throw new Error("No availability monitoring changes were selected.");
-    const ids=new Set();
+    const ids=new Set(),selectedIds=new Set(value.sourceIds||[]);
     for(const change of value.changes) {
       const selected={kind:"policy",id:change.id},saved=policy(current,change.id);
       if(ids.has(change.id)||!saved||saved.check!=="availability")throw new Error("Choose existing availability policies.");
@@ -174,8 +174,9 @@ function proposal(card,scope,value) {
       if(scopedDirty(card,selected))throw new Error(`Save or discard the draft for “${saved.name}” before changing its availability monitoring.`);
       const {excluded_sources:before,...beforeFields}=saved,{excluded_sources:after,...afterFields}=change.after;
       if(!same(beforeFields,afterFields)||after!==undefined&&(!Array.isArray(after)||after.some(id=>typeof id!=="string")))throw new Error("This action can change availability exclusions only.");
-      const changed=new Set([...(before||[]),...(after||[])].filter(id=>(before||[]).includes(id)!==(after||[]).includes(id)));
-      if([...changed].some(id=>!value.sourceIds?.includes(id)))throw new Error("Only the selected entities can change monitoring.");
+      const beforeIds=new Set(before||[]),afterIds=new Set(after||[]);
+      const changed=[...beforeIds,...afterIds].filter(id=>beforeIds.has(id)!==afterIds.has(id));
+      if(changed.some(id=>!selectedIds.has(id)))throw new Error("Only the selected entities can change monitoring.");
       write(candidate,selected,change.after);
     }
   }else if(scope.kind==="notifications") {
@@ -243,7 +244,7 @@ export async function saveScopedConfiguration(card,scope,value) {
     saved=true;acceptSubmitted(card,scope,candidate,value);
     const fresh=await card._hass.callWS({type:"homeostatic/configuration",section:"settings"});
     rebaseScopedConfiguration(card,fresh);
-    status(card,scope,null,scope.kind==="notifications"?null:scope.kind==="source-availability"?"Availability monitoring updated.":scopedDirty(card,scope)?"Changes saved. Newer edits are still unsaved.":"Changes saved.");
+    status(card,scope,null,["notifications","source-availability"].includes(scope.kind)?null:scopedDirty(card,scope)?"Newer edits are still unsaved.":null);
     return true;
   }catch(error) {
     const code=error?.code||error?.error?.code;

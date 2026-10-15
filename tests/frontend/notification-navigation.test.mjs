@@ -5,7 +5,7 @@ import {cardView} from "../../custom_components/homeostatic/frontend/notificatio
 import {parseWorkspacePath,WorkspaceNavigation} from "../../custom_components/homeostatic/frontend/workspace-navigation.mjs";
 const navigate=(card,path)=>(card.navigation??=new WorkspaceNavigation(card)).applyPath(path);
 
-for (const [view,page] of [[undefined,"problems"], ["issues","problems"], ["settings","configuration"], ["problems","problems"], ["configuration","configuration"], ["sources","sources"], ["policies","policies"], ["house","sources"], ["functions","problems"]]) {
+for (const [view,page] of [[undefined,"problems"], ["issues","problems"], ["settings","configuration"], ["problems","problems"], ["configuration","configuration"], ["sources","sources"], ["policies","policies"], ["history","history"], ["house","sources"], ["functions","problems"]]) {
   test(`card view ${view} opens ${page}`,()=>assert.equal(cardView(view),page));
 }
 
@@ -42,7 +42,7 @@ test("expired history explains the limit rather than claiming recovery",async()=
   c.current.data={inventory:{episodes:[],resolved_history:{episodes:[]}}};
   const body={};c.shadowRoot={querySelector(){return body;}};
   await loadDetail.call(c);assert.match(body.innerHTML,/outcome cannot be determined/);
-  assert.match(body.innerHTML,/Open Issues/);assert.match(body.innerHTML,/Open History/);
+  assert.match(body.innerHTML,/<a href="\/homeostatic\/issues">Open issues<\/a>/);assert.match(body.innerHTML,/<a href="\/homeostatic\/history">Open History<\/a>/);
 });
 test("a disconnected notification does not misidentify an issue as resolved",async()=>{
   const c=card("disconnected");c.detail={episodeId:"past"};c.detailSequence=0;

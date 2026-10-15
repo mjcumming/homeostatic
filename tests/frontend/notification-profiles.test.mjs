@@ -38,11 +38,74 @@ test("Notifications manages six named defaults without a policy index or staging
   assert.deepEqual(card.settingsDraft,before);assert.deepEqual(calls,[]);
 });
 
+const notificationListIds=card=>[...namedNotifications(card).matchAll(/data-definition-action="edit" data-definition-kind="profiles" data-definition-id="([^"]+)"/g)].map(match=>match[1]);
+const optionIds=html=>[...html.matchAll(/<option value="([^"]*)"/g)].map(match=>match[1]);
+const policyOptions=card=>namedPolicies(card).match(/<select [^>]*data-row-field="profile">([\s\S]*?)<\/select>/)[1];
+const defaultOrder=["acknowledge","immediate","urgent","morning","evening","weekly"];
+const profile=(name,timing)=>({name,timing,methods:[]});
+
+for(const [label,profiles,expected] of [
+  ["supplied choices",notificationSettings().notification_definitions.profiles,defaultOrder],
+  ["custom identities and misleading names",{
+    immediate:profile("Urgent",{mode:"report",at:"06:00",weekdays:[6]}),
+    morning:profile("First",{mode:"report",at:"18:00",weekdays:[0,1,2,3,4,5,6]}),
+    evening:profile("Last",{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]}),
+    workdays:profile("Daily",{mode:"report",at:"05:00",weekdays:[0,1,2,3,4]}),
+    weekly:profile("Weekly",{mode:"acknowledge",remind_every:3600}),
+    urgent:profile("Morning",{mode:"immediate"}),
+    acknowledge:profile("Immediate",{mode:"window",start:"22:00",end:"08:00"}),
+  },["weekly","urgent","acknowledge","evening","morning","workdays","immediate"]],
+  ["equivalent settings",{
+    z:profile("Same",{mode:"immediate"}),
+    last:profile("Zulu",{mode:"immediate"}),
+    a:profile("Same",{mode:"immediate"}),
+    first:profile("Alpha",{mode:"immediate"}),
+  },["first","a","z","last"]],
+])test("notification lists and pickers use saved timing order for "+label,()=>{
+  const {card,calls}=fixture(),assigned=expected.at(-1);
+  card.configuration.settings.notification_definitions.profiles=structuredClone(profiles);
+  card.configuration.settings.monitoring_policies[0].notifications=[{id:"existing",profile:assigned}];
+  card.settingsDraft=structuredClone(card.configuration.settings);
+  const before=structuredClone(card.configuration.settings),draft=structuredClone(card.settingsDraft);
+  assert.deepEqual(notificationListIds(card),expected);
+  card.definitionSelection={kind:"policies",id:"policy-1"};
+  const options=policyOptions(card);
+  assert.deepEqual(optionIds(options),["",...expected]);
+  assert.ok(options.includes('<option value="'+assigned+'" selected>'));
+  card.definitionSelection=null;
+  card.definitionDelete={kind:"profiles",id:assigned,resolution:expected[0]};
+  const replacements=namedNotifications(card).match(/<select data-definition-delete-resolution>([\s\S]*?)<\/select>/)[1];
+  assert.deepEqual(optionIds(replacements),["","remove-rows",...expected.slice(0,-1)]);
+  assert.ok(replacements.includes('<option value="'+expected[0]+'" selected>'));
+  assert.deepEqual(card.configuration.settings,before);
+  assert.deepEqual(card.settingsDraft,draft);
+  assert.deepEqual(calls,[]);
+});
+
+test("notification ordering changes only after timing is saved",async()=>{
+  const {card,calls}=fixture();
+  change(card,"profiles","weekly","timing:mode","immediate");
+  assert.deepEqual(notificationListIds(card),defaultOrder);
+  card.definitionSelection={kind:"policies",id:"policy-1"};
+  assert.deepEqual(optionIds(policyOptions(card)),["",...defaultOrder]);
+  const assignments=structuredClone(card.configuration.settings.monitoring_policies);
+  assert.deepEqual(calls,[]);
+  assert.equal(await saveScopedConfiguration(card,{kind:"profile",id:"weekly"}),true);
+  const expected=["acknowledge","immediate","weekly","urgent","morning","evening"];
+  assert.deepEqual(notificationListIds(card),expected);
+  assert.deepEqual(optionIds(policyOptions(card)),["",...expected]);
+  assert.deepEqual(card.configuration.settings.monitoring_policies,assignments);
+  assert.equal(card.configuration.settings.notifications,false);
+});
+
 test("a policy chooses a named notification without owning timing or methods",()=>{
   const {card}=fixture();card.page="policies";card.definitionSelection={kind:"policies",id:"policy-1"};
   const html=namedPolicies(card);
   assert.match(html,/data-row-field="profile"/);
   assert.match(html,/<option value="morning" selected>Morning summary/);
+  assert.doesNotMatch(html,/<dd>[^<]*Morning summary/);
+  assert.match(html,/<dt>When<\/dt><dd>08:00 · Every day/);
+  assert.match(html,/<dt>Send to<\/dt><dd>No delivery method selected/);
   assert.doesNotMatch(html,/data-row-field="timing:|data-row-method|new-policy-method|policy-view/);
   choose(card,"notification-1","urgent");
   assert.deepEqual(card.settingsDraft.monitoring_policies[0].notifications,[{id:"notification-1",profile:"urgent"}]);
@@ -56,6 +119,7 @@ test("legacy custom notification is preserved until an explicit named choice",()
   card.definitionSelection={kind:"policies",id:"policy-1"};
   const before=structuredClone(row),html=namedPolicies(card);
   assert.match(html,/Custom notification — keep current settings/);
+  assert.equal((html.match(/<option[^>]*>Custom notification/g)||[]).length,1);
   assert.match(html,/remind every 30 minutes/);
   assert.doesNotMatch(html,/NaN|data-row-field="timing:/);
   assert.deepEqual(row,before);assert.deepEqual(calls,[]);
@@ -63,6 +127,25 @@ test("legacy custom notification is preserved until an explicit named choice",()
   assert.deepEqual(card.settingsDraft.monitoring_policies[0].notifications,[before]);
   choose(card,"legacy","urgent");
   assert.deepEqual(card.settingsDraft.monitoring_policies[0].notifications,[{id:"legacy",profile:"urgent",when:"backup"}]);
+});
+
+for(const [kind,id] of [["profiles","morning"],["methods","phone"]])test(`${kind} shows view tabs only outside its focused editor`,()=>{
+  const {card}=fixture();card.notificationSection=kind;
+  assert.match(namedNotifications(card),/aria-label="Notifications views"/);
+  click(card,"edit",kind,id);
+  const editor=namedNotifications(card);
+  assert.doesNotMatch(editor,/aria-label="Notifications views"|data-definition-action="notification-view"/);
+  assert.equal((editor.match(/class="button editor-back"/g)||[]).length,1);
+  card.definitionSelection={kind,id:"missing"};
+  assert.match(namedNotifications(card),/aria-label="Notifications views"/);
+});
+
+for(const [days,expected] of [[[0,1,2,3,4,5,6],"Every day"],[[0,2,4],"Mon, Wed, Fri"],[[],"No days selected"],[undefined,"No days selected"]])test(`summary weekdays ${JSON.stringify(days)} remain explicit`,()=>{
+  const {card}=fixture();
+  card.settingsDraft.notification_definitions.profiles.morning.timing={mode:"report",at:"08:00",weekdays:days};
+  card.definitionSelection={kind:"policies",id:"policy-1"};
+  assert.ok(namedPolicies(card).includes(`<dt>When</dt><dd>08:00 · ${expected}</dd>`));
+  assert.match(namedPolicies(card),/<dt>Send to<\/dt><dd>No delivery method selected<\/dd>/);
 });
 
 test("multiple choices preserve unrelated rows and UPS conditions",()=>{
@@ -90,7 +173,7 @@ for(const [type,expected] of [
 test("profile timing edits stay independent and discard restores only this notification",()=>{
   const {card}=fixture(),before=structuredClone(card.settingsDraft.notification_definitions.profiles.evening);
   click(card,"edit","profiles","morning");
-  assert.doesNotMatch(namedNotifications(card),/>Back to notifications<|data-definition-action="close"/);
+  assert.match(namedNotifications(card),/class="button editor-back"[^>]*data-definition-action="close"/);
   change(card,"profiles","morning","timing:mode","acknowledge");
   change(card,"profiles","morning","timing:minutes",45);
   assert.deepEqual(card.settingsDraft.notification_definitions.profiles.morning.timing,{mode:"acknowledge",remind_every:2700});
@@ -125,11 +208,27 @@ test("saving a named notification retains unrelated policy and method drafts",as
 test("profile use and deletion prompts name affected policies without silently dropping assignments",()=>{
   const {card}=fixture();
   assert.deepEqual(definitionUses(card.configuration.settings,"profiles","morning"),["Low battery"]);
+  assert.match(namedNotifications(card),/No delivery method selected · 1 use/);
+  assert.doesNotMatch(namedNotifications(card),/Low battery/);
+  click(card,"edit","profiles","morning");
+  assert.match(namedNotifications(card),/<h1>Edit notification: Morning summary<\/h1>/);
+  assert.match(namedNotifications(card),/Changes apply to: Low battery/);
   click(card,"delete","profiles","morning");
   const html=namedNotifications(card);
   assert.match(html,/Low battery|Replace with Evening summary/);
   assert.match(html,/data-definition-action="confirm-delete"[^>]*disabled/);
   assert.equal(card.settingsDraft.monitoring_policies[0].notifications[0].profile,"morning");
+});
+
+test("an empty method library gives one actionable non-sending explanation",()=>{
+  const {card}=fixture();
+  card.configuration.settings.notification_definitions.methods={};
+  card.settingsDraft.notification_definitions.methods={};
+  click(card,"edit","profiles","morning");
+  const html=namedNotifications(card);
+  assert.match(html,/Add a delivery method first\. This notification will not send until a method is assigned\./);
+  assert.equal((html.match(/will not send/g)||[]).length,1);
+  assert.doesNotMatch(html,/No saved delivery methods yet/);
 });
 
 test("profile names and missing methods render safely and stay assigned",()=>{
@@ -141,6 +240,18 @@ test("profile names and missing methods render safely and stay assigned",()=>{
   assert.doesNotMatch(html,/<img/);assert.match(html,/&lt;img/);
   assert.match(html,/Unavailable delivery method/);
   assert.deepEqual(card.settingsDraft.notification_definitions.profiles.morning.methods,["missing"]);
+});
+
+test("a compact policy summary retains unavailable named delivery methods and UPS conditions",()=>{
+  const {card}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
+  policy.check="ups_reserve";
+  policy.notifications=[{id:"mains",profile:"morning",when:"mains"},{id:"backup",profile:"acknowledge",when:"backup"}];
+  card.settingsDraft.notification_definitions.profiles.morning.methods=["missing"];
+  card.configuration.settings=structuredClone(card.settingsDraft);
+  const before=structuredClone(card.settingsDraft),html=namedPolicies(card);
+  assert.match(html,/Mains power: Morning summary · Unavailable delivery method/);
+  assert.match(html,/Backup power: Immediate with acknowledgment/);
+  assert.deepEqual(card.settingsDraft,before);
 });
 
 test("a changed profile schedule never displays its saved next occurrence",()=>{

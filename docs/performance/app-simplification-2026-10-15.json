@@ -1,0 +1,558 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-15T09:58:28.310121-05:00",
+  "scope": "Simplify Sources, Policies, Notifications, History, Settings and their shared navigation",
+  "status": "Uncommitted local implementation; not installed or released",
+  "environments": [
+    {
+      "fixture": "reusable-editors.html",
+      "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "data": "synthetic",
+      "destinations": "mocked"
+    },
+    {
+      "fixture": "history-controls.html",
+      "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": {
+        "width": 1280,
+        "height": 720
+      },
+      "data": "synthetic",
+      "destinations": "mocked"
+    },
+    {
+      "fixture": "source-history.html",
+      "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": {
+        "width": 1280,
+        "height": 720,
+        "card": 390
+      },
+      "data": "synthetic",
+      "destinations": "mocked"
+    }
+  ],
+  "results": [
+    {
+      "id": "navigation.pages",
+      "page": "Navigation",
+      "controls": "Issues, Sources, Policies, Notifications, Settings",
+      "expected": "Each destination opens and retains independent drafts.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 45, 1280px viewport."
+      ]
+    },
+    {
+      "id": "issues.filter",
+      "page": "Issues",
+      "controls": "Search, sort, group expansion, pagination",
+      "expected": "Complete reachable results and correct ordering without changing monitoring.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 57, 1280px viewport."
+      ]
+    },
+    {
+      "id": "issues.empty",
+      "page": "Issues",
+      "controls": "Quiet, filtered, unmonitored, loading, unavailable",
+      "expected": "Distinct truthful states and a useful next action.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 57, 1280px viewport."
+      ]
+    },
+    {
+      "id": "policies.lifecycle",
+      "page": "Policies",
+      "controls": "Add, edit, duplicate, enabled, save, discard, delete",
+      "expected": "Only the named policy changes; supplied and custom policies share controls.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 3 save request(s), mock revision 31, 1280px viewport."
+      ]
+    },
+    {
+      "id": "policies.scope",
+      "page": "Policies",
+      "controls": "All, selected, exclusions, picker search, selected only",
+      "expected": "Catalog loading/error is distinct from no matches; selection survives search.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 5 save request(s), mock revision 54, 1280px viewport."
+      ]
+    },
+    {
+      "id": "policies.detection",
+      "page": "Policies",
+      "controls": "Each supported policy type and its detection fields",
+      "expected": "Units, ranges and validation preserve the intended saved detection.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 13 save request(s), mock revision 44, 1280px viewport."
+      ]
+    },
+    {
+      "id": "policies.restore",
+      "page": "Policies",
+      "controls": "Restore defaults, select, cancel, confirm, save",
+      "expected": "Only selected missing defaults are staged; missing profiles are not referenced.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 1 save request(s), mock revision 45, 1280px viewport."
+      ]
+    },
+    {
+      "id": "policies.notification",
+      "page": "Policies",
+      "controls": "Notification choice, Dashboard only, additional row, remove",
+      "expected": "Named selection changes only this policy and retains stable row identity.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 1 save request(s), mock revision 10, 1280px viewport."
+      ]
+    },
+    {
+      "id": "policies.legacy",
+      "page": "Policies",
+      "controls": "Custom notification, named replacement",
+      "expected": "Legacy data stays unchanged until explicit replacement.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 2 save request(s), mock revision 56, 1280px viewport."
+      ]
+    },
+    {
+      "id": "policies.ups",
+      "page": "Policies",
+      "controls": "Mains/backup condition, notification choice",
+      "expected": "Independent reserve conditions and stable assignment identity survive edits.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 1 save request(s), mock revision 57, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.list",
+      "page": "Notifications",
+      "controls": "Tabs, Edit, More actions",
+      "expected": "Six defaults have equal lifecycle controls and compact reachable menus.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 1, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.create",
+      "page": "Notifications",
+      "controls": "Add notification, discard new",
+      "expected": "A new draft remains unsaved and discard leaves no empty saved object.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 1, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.invalid",
+      "page": "Notifications",
+      "controls": "Required name and Save notification",
+      "expected": "Invalid input prevents a request, retains the draft and identifies the input.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 1, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.save",
+      "page": "Notifications",
+      "controls": "Timing, method choice, Save notification",
+      "expected": "The actual Save button persists only this notification and removes dirty controls.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 1 save request(s), mock revision 2, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.discard",
+      "page": "Notifications",
+      "controls": "Edit then Discard changes",
+      "expected": "Restore this saved notification in place without affecting other drafts.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 2, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.duplicate",
+      "page": "Notifications",
+      "controls": "More actions, Duplicate, Save notification",
+      "expected": "Create an independent saved copy with preserved timing and methods.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 1 save request(s), mock revision 7, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.delete-cancel",
+      "page": "Notifications",
+      "controls": "More actions, Delete, Cancel",
+      "expected": "Cancel leaves definitions and assignments unchanged.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 6, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.delete-replace",
+      "page": "Notifications",
+      "controls": "Delete, replacement, confirm",
+      "expected": "One save removes the definition and redirects uses without changing row ids.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 1 save request(s), mock revision 8, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.delete-remove",
+      "page": "Notifications",
+      "controls": "Delete, remove assignments, confirm",
+      "expected": "Explicit removal preserves unrelated definitions and leaves Dashboard only.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 1 save request(s), mock revision 9, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.delete-draft",
+      "page": "Notifications",
+      "controls": "Delete while a using policy has a draft",
+      "expected": "Block deletion and retain the affected draft and saved references.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 6, 1280px viewport."
+      ]
+    },
+    {
+      "id": "profiles.timing",
+      "page": "Notifications",
+      "controls": "Immediate, acknowledgment, window, report days/time",
+      "expected": "Every timing editor validates and saves its own fields and timezone.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 4 save request(s), mock revision 6, 1280px viewport."
+      ]
+    },
+    {
+      "id": "methods.lifecycle",
+      "page": "Delivery methods",
+      "controls": "Add, edit, duplicate, save, discard, delete",
+      "expected": "Saved shared uses and independent drafts remain correct.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 2 save request(s), mock revision 25, 1280px viewport."
+      ]
+    },
+    {
+      "id": "methods.destinations",
+      "page": "Delivery methods",
+      "controls": "Add destination, type, search, select, remove, close",
+      "expected": "Each supported type is usable; missing saved targets remain repairable.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 1 save request(s), mock revision 26, 1280px viewport."
+      ]
+    },
+    {
+      "id": "methods.presence",
+      "page": "Delivery methods",
+      "controls": "Presence disclosure, people, home/away, fallback/skip",
+      "expected": "Saved behavior resolves current presence without unsolicited sending.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 2 save request(s), mock revision 28, 1280px viewport."
+      ]
+    },
+    {
+      "id": "methods.test",
+      "page": "Delivery methods",
+      "controls": "Send test on saved/dirty/new method",
+      "expected": "Only explicit saved tests request mocked destinations; requested/failed/skipped stay distinct.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 28, 1280px viewport."
+      ]
+    },
+    {
+      "id": "settings.edit",
+      "page": "Settings",
+      "controls": "Timing, Problem grouping, Save, Discard",
+      "expected": "Valid values save only installation settings; invalid values retain inputs.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 2 save request(s), mock revision 49, 1280px viewport."
+      ]
+    },
+    {
+      "id": "sending.switch",
+      "page": "Global sending",
+      "controls": "On/Off during another draft",
+      "expected": "Only confirmed global state changes; monitoring and unrelated drafts persist.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 2 save request(s), mock revision 47, 1280px viewport."
+      ]
+    },
+    {
+      "id": "save.failure",
+      "page": "Saving",
+      "controls": "Rejected Save and retry",
+      "expected": "Keep the exact draft and expose the named error; deliberate retry succeeds once.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 2 save request(s), mock revision 11, 1280px viewport."
+      ]
+    },
+    {
+      "id": "save.conflict",
+      "page": "Saving",
+      "controls": "Save after concurrent saved edit",
+      "expected": "Do not overwrite the newer saved object; retain the conflicting draft.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 1 save request(s), mock revision 23, 1280px viewport."
+      ]
+    },
+    {
+      "id": "save.refresh-failure",
+      "page": "Saving",
+      "controls": "Confirmed Save followed by failed reread",
+      "expected": "Say saved but refresh failed; preserve unrelated drafts.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 2 save request(s), mock revision 21, 1280px viewport."
+      ]
+    },
+    {
+      "id": "save.pending",
+      "page": "Saving",
+      "controls": "Delayed Save, external outage or settings reload, repeated click and reattachment",
+      "expected": "Keep the exact saving editor; guard repeat submissions; distinguish confirmed result, failed/uncertain save and unavailable monitoring while preserving unrelated drafts.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 10 save request(s), mock revision 19, 1280px viewport."
+      ]
+    },
+    {
+      "id": "save.uncertain",
+      "page": "Saving",
+      "controls": "Lost save response, inspect, retry",
+      "expected": "Read current saved state before retry; do not duplicate an applied change.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 1 save request(s), mock revision 22, 1280px viewport."
+      ]
+    },
+    {
+      "id": "updates.retention",
+      "page": "Live updates",
+      "controls": "Unchanged update, disconnect, reconnect",
+      "expected": "Retain DOM, focus, selection and draft; stale view is visibly read-only.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "Rendered controls and saved-state assertions passed; 0 save request(s), mock revision 22, 1280px viewport."
+      ]
+    },
+    {
+      "id": "issues.controls",
+      "page": "Issues",
+      "controls": "Acknowledge, pause, cancel control",
+      "expected": "Exact issue scope, visible expiry, no automatic retry on uncertain result.",
+      "fixture": "history-controls.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Clicked issue group/detail, Pause, expiry/reason fields, submit, Acknowledge and End control; inspected exact mock saved scope, actor, reopened expiry/acknowledgment, duplicate suppression, ambiguous errors, disconnect recovery, resolved-target and non-admin/API gates. No live sends."
+      ]
+    },
+    {
+      "id": "issues.history",
+      "page": "History",
+      "controls": "History search, filter, page, detail",
+      "expected": "Recorded identity and retention limits remain visible.",
+      "fixture": "history-controls.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Clicked History, Next/Previous, outcome filter, search and four retained rows; verified empty results, focus, retained names, escaped text, outcome meaning, related issue navigation and expired-record handling. No mutation was requested."
+      ]
+    },
+    {
+      "id": "sources.tree",
+      "page": "Sources",
+      "controls": "Expand, select, search, filter",
+      "expected": "Expansion and selection stay independent; identity and context persist.",
+      "fixture": "source-history.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Clicked integration/device/entity selections, collapse/expand and Collapse all; dispatched ArrowLeft/Right on the focused rendered toggle; typed entity-ID and no-match searches, changed grouping and Show disabled. Verified independent selection, keyboard focus, retained canonical identity and disabled monitoring copy."
+      ]
+    },
+    {
+      "id": "sources.details",
+      "page": "Sources",
+      "controls": "Members, readings, monitoring, issue links",
+      "expected": "Current evidence and contributing policies are distinguishable.",
+      "fixture": "source-history.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Clicked current device member readings, other-readings disclosure, entity member, native entity link (intercepted in this isolated fixture), Why this is monitored and Technical details disclosures, contributing policy and Sources return. Verified unavailable/no-value/numeric distinctions, separate device/entity contributions, retained reconciliation timestamp, exact policy editor and no configuration mutation. Retry reading and issue navigation were exercised in sources.history."
+      ]
+    },
+    {
+      "id": "sources.history",
+      "page": "Sources",
+      "controls": "History, prior problem, return",
+      "expected": "Recorded membership survives unavailable current source metadata.",
+      "fixture": "source-history.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Clicked Sources, MQTT, History disclosure and cleared/joined/removed rows; followed related issue into Sources and used Back with focus return. Verified recorded ownership/name after current child deletion, retention text, stale read-only/reconnect, actual Retry reading/Retry connection, no mutations and no horizontal overflow at the recorded card width."
+      ]
+    },
+    {
+      "id": "sources.maintenance",
+      "page": "Sources",
+      "controls": "Equipment maintenance entry, explicit expiry, cancel",
+      "expected": "A source has a reachable maintenance action with exact saved scope and visible expiry.",
+      "fixture": "source-history.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Clicked source maintenance entry, invalid custom time, explicit preset duration, optional reason, dependent-scope choice, Save and End now. Verified collapsed options, no pristine validation warning and retained exact expiry. Verified pending-click suppression, ambiguous failure with no retry, disconnected submission gate, exact mock persisted source/expiry/reason, reopened source control and preservation of an overlapping window on cancellation."
+      ]
+    }
+  ],
+  "validation": {
+    "command": "uv run --no-sync python script/check.py --quick",
+    "environment": "Prepared Linux WSL environment",
+    "exit_code": 0,
+    "frontend_tests": {
+      "passed": 467,
+      "failed": 0
+    },
+    "browser_paths": {
+      "passed": 39,
+      "failed": 0
+    },
+    "workflow": "Actual local component with synthetic data and mocked saves and destinations; no live Home Assistant or delivery requests"
+  },
+  "visual_review": {
+    "sizes": "Phone fixtures use a 390px app width inside a 1280x720 browser; desktop uses the available browser width. These are responsive fixture checks, not physical device testing.",
+    "inspected": [
+      "Sources tree and details",
+      "Policies list and editor",
+      "Notifications list and delivery editor",
+      "History list and retained details",
+      "Settings timing and problem grouping",
+      "Light and dark themes"
+    ],
+    "screenshots": [
+      "app-settings-phone-2026-10-15.jpg",
+      "app-settings-grouping-dark-2026-10-15.jpg",
+      "app-method-phone-2026-10-15.jpg",
+      "app-source-phone-2026-10-15.jpg"
+    ],
+    "outcome": "Repeated routes, headings and explanations removed; detailed evidence, filters and advanced settings remain reachable. Focused editors have one visible return action. Source tree return remains reachable when arriving from an issue."
+  },
+  "independent_review": "Separate Sources, editor and Settings reviews; follow-up review caught repeated method names, daily schedule verbosity, redundant editor tabs and stale navigation context. Corrections are included.",
+  "limits": [
+    "Physical Safari remains untested",
+    "No live installation or notification delivery tested",
+    "This bounded presentation and workflow review does not establish full product acceptance or large-installation performance"
+  ],
+  "source_sha256": {
+    "custom_components/homeostatic/frontend/homeostatic.js": "097a2102c213ebbc12fe37d9726c8c9af1986e462ae0ea277fa9d75b5824403a",
+    "custom_components/homeostatic/frontend/history-controls.mjs": "27c14b34d19b93a2f0a70b9890c6a49789f878813443b456d37027b64420d9db",
+    "custom_components/homeostatic/frontend/workspace-navigation.mjs": "4f90b4a374862e110b223377ddb1bb39654f8be0d1f439d2af6aa0cf92afa971",
+    "custom_components/homeostatic/frontend/styles.mjs": "d889d4851c83a601ebdad23b62b9059d1349f4e53b2e0d0dd5372ddeff4aa0b8",
+    "custom_components/homeostatic/frontend/installation-settings.mjs": "2b6c536a48c03e84deb8cd37518549eae7c0d4786310f7a72555bd14ab1a09c2",
+    "custom_components/homeostatic/frontend/reusable-editors.mjs": "21f1d9bbe931c21c67fd893a2e23fe4c45e29d57bd2d06107e16a2a710573a5e",
+    "custom_components/homeostatic/frontend/sources-workspace.mjs": "0115de23db7b29379757cd0d62aa09a03689945d5598a47e38526b2c2921d7a4",
+    "custom_components/homeostatic/frontend/source-history.mjs": "3f07bebf856b18d1a54d5d2beb9cf9736b4a9e5735841cc6cf6146ea4baaaed0",
+    "custom_components/homeostatic/frontend/ups.mjs": "1f28e79f6975fa13bc3c6fd42dc89a6b5434e6e64461df58891275a860586afc"
+  }
+}

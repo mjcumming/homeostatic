@@ -1,18 +1,18 @@
-import {escapeHtml as esc} from "./model.mjs?v=74";
-import {editReusable, namedNotifications, scopedEditorFooter} from "./reusable-editors.mjs?v=74";
+import {escapeHtml as esc} from "./model.mjs?v=82";
+import {editReusable, namedNotifications, scopedEditorFooter} from "./reusable-editors.mjs?v=82";
 
 
 export const TIMINGS = [
   ["Recovery", "settle", "Wait for related failures", "Allow dependencies that are still uncertain to settle before opening a separate problem."],
   ["Detection", "unknown_hold", "Wait for unknown evidence", "Wait this long before a check treats missing or uncertain evidence as stale."],
-  ["Detection", "retry_hold", "Wait before reporting setup retries", "Wait this long before reporting an integration that is retrying setup."],
-  ["Recovery", "clear_hold", "Confirm recovery", "Require passing availability evidence for this long before clearing its check."],
+  ["Detection", "retry_hold", "Report setup problems after", ""],
+  ["Recovery", "clear_hold", "Clear recovered issues after", ""],
   ["Recovery", "rejoin_grace", "Allow reconnecting devices", "Give a dependent source time to recover when its dependency returns."],
-  ["Startup", "startup_grace", "Wait after startup", "After Home Assistant starts, open no new issues and hold notifications for at least this long. Saving a change here doesn't start it."],
+  ["Startup", "startup_grace", "Wait after Home Assistant starts", "Hold new issues and notifications during startup."],
   ["Startup", "startup_quiet_max", "Maximum startup wait", "Stop extending startup quiet time after this limit."],
   ["Grouping", "coalesce_count", "Group related problems", "Minimum number of related problems to combine."],
   ["Grouping", "coalesce_window", "Grouping window", "Look for related problems opened within this time."],
-  ["Notifications", "batch", "Standard alert batching", "Wait before combining standard notification requests."],
+  ["Notifications", "batch", "Standard notification batching", "Wait before combining standard notification requests."],
 ];
 
 const timingField=(path,label,seconds,help="",count=false)=>{
@@ -25,7 +25,7 @@ const field = (path,label,value,type="text",help="",attributes="") => `<label cl
 export function installationSettings(card) {
   const notificationsPage=card.page==="notifications";
   const intro=`<div class="intro"><h1>${notificationsPage?"Notifications":"Settings"}</h1></div>`;
-  if(!card.configuration||!card.settingsDraft)return `${intro}<section class="panel body"><p>${esc(card.configError||"Loading settings…")}</p><button type="button" class="button" data-action="load-configuration">Reload settings</button></section>`;
+  if(!card.configuration||!card.settingsDraft)return `${intro}<section class="panel body"><p role="${card.configError?"alert":"status"}">${esc(card.configError||"Loading settings…")}</p>${card.configError?'<button type="button" class="button" data-action="load-configuration">Retry loading settings</button>':""}</section>`;
   if(notificationsPage) {
     const selection=card.definitionSelection;
     const active=["methods","profiles"].includes(selection?.kind)&&card.settingsDraft.notification_definitions?.[selection.kind]?.[selection.id];
@@ -33,11 +33,11 @@ export function installationSettings(card) {
   }
   const draft=card.settingsDraft,section=card.settingsSection==="grouping"?"grouping":"timing";
   const nav=`<nav class="installation-nav" aria-label="Installation settings">${[["timing","Timing"],["grouping","Problem grouping"]].map(([id,label])=>`<button type="button" data-settings-section="${id}" aria-current="${section===id?'page':'false'}">${label}</button>`).join("")}</nav>`;
-  let body="";
-  if(section==="timing"||section==="grouping") {
-    const rows=TIMINGS.filter(([category,key])=>section==="grouping"?category==="Grouping":category!=="Grouping");
-    body=`<h2>${section==="grouping"?"Problem grouping":"Timing"}</h2><p class="sub">${section==="grouping"?"Combine related failures when they share a dependency.":"Set the waits used for detection, recovery, startup, and notification requests. Zero removes a wait."}</p>`+[...new Set(rows.map(row=>row[0]))].map(group=>`<section class="installation-group"><h3>${group}</h3>${rows.filter(row=>row[0]===group).map(([,key,label,help])=>timingField(`timings.${key}`,label,draft.timings[key],help,key==="coalesce_count")).join("")}</section>`).join("");
-  }
+  const renderRows=rows=>rows.map(([,key,label,help])=>timingField(`timings.${key}`,label,draft.timings[key],help,key==="coalesce_count")).join("");
+  const commonKeys=["retry_hold","clear_hold","startup_grace"];
+  const body=section==="grouping"
+    ? `<p class="sub">Combine related failures that share a dependency.</p>${renderRows(TIMINGS.filter(([category])=>category==="Grouping"))}`
+    : `<p class="sub">These waits apply throughout Homeostatic. Zero removes a wait.</p>${renderRows(commonKeys.map(key=>TIMINGS.find(([,name])=>name===key)))}<details class="source-section" data-ui-key="settings-advanced-timing"><summary>Advanced timing</summary>${renderRows(TIMINGS.filter(([category,key])=>category!=="Grouping"&&!commonKeys.includes(key)))}</details>`;
   return `${intro}<div class="installation-layout">${nav}<section class="panel installation-content"><fieldset class="installation-editor"${card.settingsBusy?' disabled':''}>${body}</fieldset>${card.settingsError?`<p class="config-error" role="alert">${esc(card.settingsError)}</p>`:''}${scopedEditorFooter(card,{kind:"settings"},"Save settings")}</section></div>`;
 }
 

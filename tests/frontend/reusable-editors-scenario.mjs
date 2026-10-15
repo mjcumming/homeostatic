@@ -71,6 +71,12 @@ const more=async(id,action)=>{await profiles();await click(`[popovertarget="noti
 const name=()=>find('[data-definition-field="name"]');
 const changeName=value=>change('[data-definition-field="name"]',value);
 const persistCount=()=>calls.filter(request=>request.type==="homeostatic/save_settings").length;
+const savedList=(kind,id,label)=>{
+  check(card.page==="notifications"&&card.notificationSection===kind&&!card.definitionSelection,"Successful save returns to the matching Notifications list");
+  const edit=find('[data-definition-action="edit"][data-definition-kind="'+kind+'"][data-definition-id="'+id+'"]');
+  check(edit.closest(".definition-list-item").textContent.includes(label)&&!root.querySelector(".definition-save-result")&&!root.textContent.includes("Changes saved."),"The updated row shows the saved name without a success message");
+  check(root.activeElement===edit,"Keyboard focus returns to the saved row's Edit control");
+};
 const publish=()=>{
   document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);
   parent.postMessage({type:"homeostatic-acceptance",fixture:"reusable-editors.html",receipt},location.origin);
@@ -88,6 +94,21 @@ document.querySelector("#run").onclick=async()=>{
       const tabs=[...root.querySelectorAll('nav[aria-label="Notifications views"]>button')].map(button=>button.getBoundingClientRect());
       check(tabs.length===2&&Math.abs(tabs[0].top-tabs[1].top)<1&&Math.abs(tabs[0].width-tabs[1].width)<1,"Equal-column notification tabs");
       check(root.querySelectorAll('[data-definition-action="edit"][data-definition-kind="profiles"]').length===6,"Six named defaults");
+    });
+    await runPath("profiles.ordering",async()=>{
+      const expected=["acknowledge","immediate","urgent","morning","evening","weekly"],before=JSON.stringify(saved);
+      const listed=[...root.querySelectorAll('[data-definition-action="edit"][data-definition-kind="profiles"]')].map(button=>button.dataset.definitionId);
+      check(JSON.stringify(listed)===JSON.stringify(expected),"Saved notifications follow delivery timing");
+      await click('[data-page="policies"]');await click('[data-definition-action="edit"][data-definition-kind="policies"]');
+      const picker=find('[data-row-field="profile"]');
+      check(JSON.stringify([...picker.options].map(option=>option.value))===JSON.stringify(["",...expected]),"Policy picker uses the list order");
+      check(picker.value==="morning","Sorting preserves the assigned notification");
+      await more("morning","delete");
+      const replacement=find('[data-definition-delete-resolution]');
+      check(JSON.stringify([...replacement.options].map(option=>option.value))===JSON.stringify(["","remove-rows","acknowledge","immediate","urgent","evening","weekly"]),"Replacement choices use timing order and exclude the deleted notification");
+      await change('[data-definition-delete-resolution]',"immediate");await click('[data-definition-action="cancel-delete"]');
+      check(JSON.stringify(saved)===before,"Browsing and cancelling sorted choices leaves saved settings unchanged");
+      await profiles();
     });
     await runPath("profiles.create",async()=>{
       await click('[data-definition-action="add"][data-definition-kind="profiles"]');
@@ -107,20 +128,25 @@ document.querySelector("#run").onclick=async()=>{
       await change('[data-definition-field="timing:at"]',"09:00");await change('[data-definition-field="methods"][data-definition-value="phone"]',true);await save();
       check(saved.notification_definitions.profiles.morning.timing.at==="09:00","Save notification persists timing");
       check(saved.monitoring_policies[0].name==="Low battery"&&card.settingsDraft.monitoring_policies[0].name==="Pending battery policy","Unrelated policy draft remains unsaved");
-      check(!root.querySelector('[data-definition-action="save-scoped"]'),"Clean editor has no save footer");
+      savedList("profiles","morning","Morning summary");
+      check(!root.querySelector('[data-definition-action="save-scoped"]'),"Completed save removes the editor footer");
     });
     await runPath("profiles.discard",async()=>{
-      await changeName("Discard this name");await click('[data-definition-action="discard-scoped"]');
+      await edit("morning");await changeName("Discard this name");await click('[data-definition-action="discard-scoped"]');
       check(name().value==="Morning summary"&&card.settingsDraft.monitoring_policies[0].name==="Pending battery policy","Discard restores only this profile");
     });
     await runPath("profiles.timing",async()=>{
       await edit("weekly");
       await change('[data-definition-field="timing:mode"]',"immediate");await save();check(saved.notification_definitions.profiles.weekly.timing.mode==="immediate","Immediate saves");
+      savedList("profiles","weekly","Weekly summary");await edit("weekly");
       await change('[data-definition-field="timing:mode"]',"acknowledge");await change('[data-definition-field="timing:minutes"]',"45");await save();check(saved.notification_definitions.profiles.weekly.timing.remind_every===2700,"Acknowledgment saves minutes as seconds");
+      savedList("profiles","weekly","Weekly summary");await edit("weekly");
       await change('[data-definition-field="timing:mode"]',"window");await change('[data-definition-field="timing:start"]',"07:00");await change('[data-definition-field="timing:end"]',"21:00");await save();check(saved.notification_definitions.profiles.weekly.timing.start==="07:00"&&saved.notification_definitions.profiles.weekly.timing.end==="21:00","Daily hours save");
+      savedList("profiles","weekly","Weekly summary");await edit("weekly");
       await change('[data-definition-field="timing:mode"]',"report");await change('[data-definition-field="timing:at"]',"10:00");
       for(const element of [...root.querySelectorAll('[data-definition-field="timing:weekdays"]')])await change(`[data-definition-field="timing:weekdays"][data-definition-value="${element.dataset.definitionValue}"]`,element.dataset.definitionValue==="6");
       await save();check(saved.notification_definitions.profiles.weekly.timing.at==="10:00"&&JSON.stringify(saved.notification_definitions.profiles.weekly.timing.weekdays)==="[6]","Summary saves selected weekday and time");
+      savedList("profiles","weekly","Weekly summary");
     });
     await runPath("profiles.delete-cancel",async()=>{
       const before=JSON.stringify(saved);await more("weekly","delete");await click('[data-definition-action="cancel-delete"]');check(JSON.stringify(saved)===before,"Cancel preserves saved configuration");
@@ -132,8 +158,10 @@ document.querySelector("#run").onclick=async()=>{
       await click('[data-page="policies"]');await click('[data-definition-action="edit"][data-definition-kind="policies"]');await click('[data-definition-action="discard-scoped"]');
     });
     await runPath("profiles.duplicate",async()=>{
-      await more("morning","duplicate");await changeName("Morning copy");await save();
-      check(saved.notification_definitions.profiles[card.definitionSelection.id].timing.at==="09:00","Duplicate has independently saved timing");
+      await more("morning","duplicate");await changeName("Morning copy");const id=card.definitionSelection.id;await save();
+      check(saved.notification_definitions.profiles[id].timing.at==="09:00","Duplicate has independently saved timing");
+      savedList("profiles",id,"Morning copy");await edit(id);
+      check(name().value==="Morning copy"&&find('[data-definition-field="timing:at"]').value==="09:00","Reopening the copy shows its saved values");
     });
     await runPath("profiles.delete-replace",async()=>{
       const rowId=saved.monitoring_policies[0].notifications[0].id;
@@ -149,26 +177,44 @@ document.querySelector("#run").onclick=async()=>{
       await click('[data-page="policies"]');await click('[data-definition-action="edit"][data-definition-kind="policies"]');
       await change('[data-row-field="profile"]',"urgent");await save();
       check(saved.monitoring_policies[0].notifications[0].profile==="urgent","Policy choice saves through its button");
-      await click('[data-definition-action="add-row"]');
-      check(root.querySelectorAll('[data-row-field="profile"]').length===2,"Additional row is editable");
+      const add='.policy-notification-add select',policyId=card.definitionSelection.id;
+      const otherPolicies=JSON.stringify(saved.monitoring_policies.slice(1)),definitions=JSON.stringify(saved.notification_definitions);
+      check(find(add).value===""&&card.settingsDraft.monitoring_policies[0].notifications.length===1,"Add starts without an implicit assignment");
+      await change(add,"acknowledge");
+      check(root.querySelectorAll('.policy-notification-row').length===2,"Additional row appears only after a choice");
+      check(root.activeElement?.dataset.rowId===card.settingsDraft.monitoring_policies[0].notifications[1].id,"Focus follows the added notification");
       await click('[data-definition-action="remove-row"]');await click('[data-definition-action="discard-scoped"]');
       check(saved.monitoring_policies[0].notifications.length===1,"Discard leaves saved assignments unchanged");
+      await click('[data-definition-action="remove-row"]');
+      check(!root.querySelector('.policy-notification-row')&&root.textContent.includes("No notifications"),"Removing the final notification shows the empty state");
+      check(root.activeElement===find(add),"Focus returns to Add notification");
+      saveMode="reject";await save();
+      check(card.settingsDraft.monitoring_policies[0].notifications.length===0&&saved.monitoring_policies[0].notifications.length===1,"Failed removal save preserves the empty draft and saved assignment");
+      await save();
+      check(saved.monitoring_policies[0].notifications.length===0,"Zero notifications saves");
+      await click('[data-workspace-return]');await click(`[data-definition-action="edit"][data-definition-id="${policyId}"]`);
+      check(!root.querySelector('.policy-notification-row')&&root.textContent.includes("No notifications"),"Reopening retains zero notifications");
+      check(JSON.stringify(saved.monitoring_policies.slice(1))===otherPolicies&&JSON.stringify(saved.notification_definitions)===definitions&&!saved.notifications,"Other policies, definitions and global sending are preserved");
+      await change(add,"urgent");await save();
+      check(saved.monitoring_policies[0].notifications.length===1,"Explicitly adding after empty saves one assignment");
     });
     await runPath("save.failure",async()=>{
       await edit("urgent");await changeName("Urgent edited");saveMode="reject";await save();
       check(name().value==="Urgent edited"&&root.textContent.includes("Synthetic storage rejected"),"Failed save retains input and names error");
       await save();check(saved.notification_definitions.profiles.urgent.name==="Urgent edited","Deliberate retry saves");
+      savedList("profiles","urgent","Urgent edited");
     });
     await runPath("save.pending",async()=>{
-      await changeName("Urgent delayed");saveMode="hold";const before=persistCount();await click('[data-definition-action="save-scoped"]');
+      await edit("urgent");await changeName("Urgent delayed");saveMode="hold";const before=persistCount();await click('[data-definition-action="save-scoped"]');
       check(Boolean(card.scopedBusy)&&root.textContent.includes("Saving"),"Pending save stays visible");
       const pending=root.querySelector('[data-definition-action="save-scoped"]');check(!pending||pending.disabled||pending.closest('fieldset[disabled]'),"Duplicate submit disabled");
       releaseSave();releaseSave=null;await settle();check(persistCount()===before+1&&saved.notification_definitions.profiles.urgent.name==="Urgent delayed","Only one request submitted");
+      savedList("profiles","urgent","Urgent delayed");
       await click('[data-page="policies"]');await click('[data-definition-action="edit"][data-definition-kind="policies"]');await changeName("Unrelated policy draft during outage");
       await profiles();await click('[data-definition-action="notification-view"][data-definition-kind="methods"]');await click('[data-definition-action="edit"][data-definition-kind="methods"][data-definition-id="phone"]');await settle();
       await changeName("Phone saved through outage");saveMode="hold";await click('[data-definition-action="save-scoped"]');
       const editorInput=name(),current=card.current,requests=persistCount();
-      // Ordinary method saves stay in place; this outage is independent of the save.
+      // The outage belongs to monitoring, so its pending editor must remain available.
       card.current={status:"unavailable",data:{schema_version:3,available:false}};card.render();
       check(name()===editorInput&&card.main.inert&&root.textContent.includes("Saving…")&&!card.main.querySelector('.banner'),"An external outage keeps the exact pending editor visible and locked");
       check(root.querySelector('.workspace-status').textContent==="Applying changes…"&&card.current.data.available===false,"Pending editor names the operation without inventing healthy monitoring");
@@ -177,7 +223,7 @@ document.querySelector("#run").onclick=async()=>{
       card.current=current;card.render();check(root.textContent.includes("Saving…")&&!root.textContent.includes("Changes saved."),"A current subscription does not confirm the save");
       card.current={status:"unavailable",data:{schema_version:3,available:false}};card.render();
       releaseSave();releaseSave=null;await settle();
-      check(name()===editorInput&&card.main.inert&&root.textContent.includes("Changes saved.")&&!root.textContent.includes("Saving…"),"Confirmed response before reattachment updates only result, retaining the locked editor");
+      check(name()===editorInput&&card.main.inert&&!root.textContent.includes("Changes saved.")&&!root.textContent.includes("Saving…"),"Confirmed response retains the locked editor without a success message");
       check(root.querySelector('.workspace-status').textContent==="Finishing update…","Confirmed save explains the remaining wait without duplicating success");
       check(saved.notification_definitions.methods.phone.name==="Phone saved through outage"&&card.settingsDraft.monitoring_policies[0].name==="Unrelated policy draft during outage"&&saved.monitoring_policies[0].name!=="Unrelated policy draft during outage","Exact method saves while unrelated policy draft stays unsaved");
       card.current=current;card.render();check(!card.main.inert&&name().value==="Phone saved through outage","Current monitoring restores editing after confirmation");
@@ -192,11 +238,13 @@ document.querySelector("#run").onclick=async()=>{
         check(card.settingsDraft.notification_definitions.methods.phone.name===`Phone ${outcome}`&&card.settingsDraft.monitoring_policies[0].name==="Unrelated policy draft during outage","Failure preserves both drafts");
         card.current=current;card.render();await save();
         check(saved.notification_definitions.methods.phone.name===`Phone ${outcome}`,"Explicit retry inspects and resolves saved state");
+        savedList("methods","phone","Phone "+outcome);
+        await click('[data-definition-action="edit"][data-definition-kind="methods"][data-definition-id="phone"]');await settle();
       }
       await changeName("Phone confirmed before runtime error");saveMode="hold";await click('[data-definition-action="save-scoped"]');
       card.current={status:"unavailable",data:{schema_version:3,available:false}};card.render();releaseSave();releaseSave=null;await settle();
       card.current={status:"unavailable",data:{schema_version:3,available:false,error:"Synthetic runtime storage failure"}};card.render();
-      check(card.main.querySelector('.banner')&&root.textContent.includes("Changes saved.")&&root.textContent.includes("Monitoring unavailable"),"Terminal runtime error after confirmed save is visible without erasing save confirmation");
+      check(card.main.querySelector('.banner')&&!root.textContent.includes("Changes saved.")&&root.textContent.includes("Monitoring unavailable"),"Terminal runtime error stays visible after confirmed save without a success message");
       card.current=current;card.render();
       await changeName("Phone navigation during outage");saveMode="hold";await click('[data-definition-action="save-scoped"]');
       card.current={status:"unavailable",data:{schema_version:3,available:false}};card.render();
@@ -210,14 +258,16 @@ document.querySelector("#run").onclick=async()=>{
     await runPath("save.refresh-failure",async()=>{
       await changeName("Urgent saved without refresh");saveMode="refresh-fail";await save();
       check(saved.notification_definitions.profiles.urgent.name==="Urgent saved without refresh"&&root.textContent.includes("were saved"),"Confirmed save is distinguished from failed reread");
-      await changeName("Urgent restored");await save();
+      await changeName("Urgent restored");await save();savedList("profiles","urgent","Urgent restored");
     });
     await runPath("save.uncertain",async()=>{
-      await changeName("Urgent response lost");saveMode="lost";await save();const before=persistCount();
+      await edit("urgent");await changeName("Urgent response lost");saveMode="lost";await save();const before=persistCount();
       check(saved.notification_definitions.profiles.urgent.name==="Urgent response lost","Synthetic save applied before response loss");
       await save();check(persistCount()===before,"Retry rereads and does not repeat applied save");
+      savedList("profiles","urgent","Urgent response lost");
     });
     await runPath("updates.retention",async()=>{
+      await profiles();
       await click('[data-definition-action="notification-view"][data-definition-kind="methods"]');await click('[data-definition-action="edit"][data-definition-kind="methods"]');await settle();
       const input=name();input.focus();input.setSelectionRange(2,5);card.render();card.render();
       check(name()===input&&root.activeElement===input&&input.selectionStart===2,"Unchanged update retains DOM/focus/selection");
@@ -230,7 +280,7 @@ document.querySelector("#run").onclick=async()=>{
       const before=persistCount();await save();check(persistCount()===before&&root.textContent.includes("Your draft is preserved"),"Reread identifies object conflict before another mutation");
       await click('[data-definition-action="discard-scoped"]');
     });
-    await runWorkspaceControlPaths({card,root,check,find,settle,click,change,save,runPath,getSaved:()=>saved,setTestMode:value=>{testMode=value;}});
+    await runWorkspaceControlPaths({card,root,check,find,settle,click,change,save,savedList,runPath,getSaved:()=>saved,setTestMode:value=>{testMode=value;}});
     await runBrowsingControlPaths({card,root,check,find,settle,click,change,save,runPath,getSaved:()=>saved});
     check(saved.notifications===false,"Ordinary sending finishes off");
     check(calls.every(request=>["homeostatic/configuration","homeostatic/save_settings","homeostatic/preview_delivery_method","homeostatic/test_delivery_method"].includes(request.type)),"Only mocked configuration and deliberate test requests");

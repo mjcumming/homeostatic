@@ -5,25 +5,24 @@ import {sourceHistory} from "../../custom_components/homeostatic/frontend/source
 import {sourcesBrowser} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {sourceHistoryExample} from "./source-history-fixture.mjs";
 
-test("MQTT history identifies evidence, outcomes, times and working detail targets newest first",()=>{
+test("source history keeps ended records concise with exact detail targets newest first",()=>{
   const data=sourceHistoryExample();
   const html=sourceHistory(data,data.inventory.nodes);
-  assert.match(html,/Porch sensor/);
-  assert.match(html,/porch temperature entity as unavailable/);
+  assert.doesNotMatch(html,/Porch sensor|Still open|data-episode=/);
+  assert.match(html,/garage relay entity as unavailable/);
   assert.match(html,/Garage relay before rename/);
   assert.match(html,/Cleared/);
   assert.doesNotMatch(html,/The monitored condition cleared/);
   assert.match(html,/Monitoring ended/);
   assert.match(html,/Joined another problem/);
-  assert.match(html,/Recovery was not established/);
-  assert.match(html,/Still open/);
-  assert.match(html,/Recorded duration/);
-  assert.match(html,/7h 17m/);
+  assert.doesNotMatch(html,/Recovery was not established|Recorded duration|<dl>/);
+  assert.match(html,/7 hr 17 min/);
   assert.match(html,/datetime="2026-09-29T04:17:12Z"/);
   const timeline=html.slice(html.indexOf('<ol class="source-timeline">'));
-  assert.deepEqual([...timeline.matchAll(/data-(?:history|episode)="([^"]+)"/g)].map(match=>match[1]),["cleared","removed","absorbed","open"]);
-  assert.match(html,/30 days, at most 100 across Homeostatic/);
-  assert.match(html,/not when a physical problem ended/);
+  assert.deepEqual([...timeline.matchAll(/data-history="([^"]+)"/g)].map(match=>match[1]),["cleared","removed","absorbed"]);
+  assert.match(html,/30 days, at most 100 ended problems across Homeostatic/);
+  assert.match(html,/<details class="history-information"[^>]*><summary>History information<\/summary>/);
+  assert.match(html,/Times record Homeostatic’s observations/);
   assert.doesNotMatch(html,/>cleared</);
   const tools=Object.assign(Object.create(DashboardTools.prototype),{query:"",resolution:"",page:0});
   const history=tools.historyPanel(data);
@@ -54,18 +53,44 @@ test("history is bounded to the selected source and does not replace historical 
   assert.doesNotMatch(html,/Porch sensor|Renamed garage device|data-episode/);
 });
 
-test("missing history, evidence and timestamps are explicit and unsafe text is escaped",()=>{
+test("missing history does not duplicate open issues or imply no prior problems",()=>{
   const data=sourceHistoryExample();
   delete data.inventory.resolved_history;
-  data.inventory.episodes[0].reasons=[{reason:"raw_internal_code"}];
-  data.inventory.episodes[0].opened_at="invalid";
-  data.inventory.nodes[1].name='<img src=x onerror="alert(1)">';
   const html=sourceHistory(data,data.inventory.nodes);
   assert.match(html,/Ended-problem history is unavailable/);
+  assert.doesNotMatch(html,/data-episode=|No retained problems|History information/);
+});
+
+test("missing retained evidence and timestamps are explicit and unsafe text is escaped",()=>{
+  const data=sourceHistoryExample(),record=data.inventory.resolved_history.episodes[0];
+  record.episode.reasons=[{reason:"raw_internal_code"}];
+  record.episode.opened_at="invalid";
+  record.resolved_at="invalid";
+  record.source.name='<img src=x onerror="alert(1)">';
+  const html=sourceHistory(data,data.inventory.nodes);
   assert.match(html,/No readable finding was recorded/);
   assert.match(html,/Time not recorded/);
   assert.match(html,/&lt;img/);
   assert.doesNotMatch(html,/<img|raw_internal_code|Invalid Date/);
+});
+
+test("source details keep the current issue separate from retained history and disclose coverage once",()=>{
+  const data=sourceHistoryExample();
+  for(const item of data.inventory.resolved_history.episodes)item.source.owner_id="mqtt";
+  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesSelection:"source:entry:mqtt"};
+  const compact=sourcesBrowser(card);
+  assert.equal([...compact.matchAll(/data-episode="open"/g)].length,1);
+  assert.doesNotMatch(compact,/data-history="cleared"|History information|Older child issues/);
+  assert.match(compact,/data-sources-view="history">View history<\/a>/);
+  card.sourcesView="history";
+  const html=sourcesBrowser(card);
+  assert.match(html,/data-sources-view="source">Close history<\/a>/);
+  assert.equal([...html.matchAll(/data-episode="open"/g)].length,1);
+  assert.equal([...html.matchAll(/data-history="cleared"/g)].length,1);
+  assert.equal([...html.matchAll(/<summary>History information<\/summary>/g)].length,1);
+  const information=html.slice(html.indexOf('<details class="history-information"'));
+  assert.match(information,/Older child issues without recorded ownership/);
+  assert.match(information,/data-page="history"/);
 });
 
 test("retained label fallback survives a missing source snapshot",()=>{

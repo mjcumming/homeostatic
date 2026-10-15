@@ -5,7 +5,7 @@ Homeostatic fires events on Home Assistant's event bus so you can build your own
 | Event | Fires when | Notifications need to be on |
 | --- | --- | --- |
 | `homeostatic_episode` | An issue opens, changes or ends | No |
-| `homeostatic_control` | Pause alerts or Working on this equipment starts or ends, or an issue is acknowledged for the first time | No |
+| `homeostatic_control` | Pause notifications or Working on this equipment starts or ends, or an issue is acknowledged for the first time | No |
 | `homeostatic_notification` | Homeostatic requests a notification for one recipient | Yes |
 
 
@@ -13,7 +13,7 @@ The payloads call an issue an *episode*: one occurrence of a problem, from the m
 
 ## Detected facts for owner automations
 
-`homeostatic_episode` and `homeostatic_control` report what Homeostatic detected and what people did about it. They fire whether notifications are on or off, and whatever the reporting choices, quiet hours, summaries, Pause alerts or Acknowledge say. Those appear as fields in the payload and never stop an event. What your automation does with an event is up to you, including things Homeostatic's own notifications wouldn't do.
+`homeostatic_episode` and `homeostatic_control` report what Homeostatic detected and what people did about it. They fire whether notifications are on or off, and whatever the reporting choices, quiet hours, summaries, Pause notifications or Acknowledge say. Those appear as fields in the payload and never stop an event. What your automation does with an event is up to you, including things Homeostatic's own notifications wouldn't do.
 
 An issue reports what Home Assistant told Homeostatic, which isn't always a physical fault (see [Known limitations](troubleshooting.md#known-limitations)). If an automation restarts an integration or power-cycles a device when an issue opens, give it a limit, such as `mode: single` and a delay, so it can't loop.
 
@@ -41,7 +41,7 @@ The `change` field says what happened:
 | `importance` | `low`, `normal`, `high` or `critical`. |
 | `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `battery`, `vacuum`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
 | `opened_at` | When the issue opened, as an ISO 8601 timestamp |
-| `shelved` | Whether Pause alerts was on for the issue |
+| `shelved` | Whether Pause notifications was on for the issue |
 | `maintenance` | Whether the source was covered by Working on this equipment |
 | `acknowledged` | Whether someone had acknowledged the issue |
 | `resolution` | Only on `resolved`. `cleared` means the problem ended. `removed` means Homeostatic stopped watching the source or changed what it checks, which says nothing about the problem. `absorbed` means the issue became part of another issue. History shows these as **Cleared**, **Monitoring ended** and **Joined another problem**. |
@@ -49,13 +49,13 @@ The `change` field says what happened:
 
 ### `homeostatic_control`
 
-`change` is `started` or `ended`. Pausing alerts and starting work on equipment fire both. Acknowledge fires `started` once, the first time an issue is acknowledged, and never fires `ended`: an acknowledgment lasts until the issue ends.
+`change` is `started` or `ended`. Pausing notifications and starting work on equipment fire both. Acknowledge fires `started` once, the first time an issue is acknowledged, and never fires `ended`: an acknowledgment lasts until the issue ends.
 
 | Field | Meaning |
 | --- | --- |
 | `schema_version`, `entry_id` | As for `homeostatic_episode` |
 | `change` | `started` or `ended` |
-| `kind` | `shelve` (Pause alerts), `maintenance` (Working on this equipment) or `acknowledge` |
+| `kind` | `shelve` (Pause notifications), `maintenance` (Working on this equipment) or `acknowledge` |
 | `control_id` | The control's ID, for `homeostatic.cancel_control`. `null` for `acknowledge`. |
 | `episode_id` | The issue, for `shelve` and `acknowledge`. `null` for `maintenance`. |
 | `node_id` | The source, for `maintenance`. `null` otherwise. |
@@ -114,7 +114,7 @@ It catches issues that are critical when they open. An issue whose importance ri
 
 ### `homeostatic_notification`
 
-Homeostatic fires `homeostatic_notification` once for each notification it requests for one recipient, after configured notification timing, delivery windows, Pause alerts and Acknowledge have had their say. It fires only while notifications are on, apart from the withdrawals sent when you turn notifications off (see [Restart and activation](#restart-and-activation)) or remove Homeostatic.
+Homeostatic fires `homeostatic_notification` once for each notification it requests for one recipient, after configured notification timing, delivery windows, Pause notifications and Acknowledge have had their say. It fires only while notifications are on, apart from the withdrawals sent when you turn notifications off (see [Restart and activation](#restart-and-activation)) or remove Homeostatic.
 
 Homeostatic's built-in sender listens for this event too. It handles `phone:` Companion app targets, `notify:` notification entities, `satellite:` announcements, `tts:` provider/player pairs, and `sms:` notification actions with recipient targets. Other channels are for your own automation. Installations set up with the Companion notifications blueprint use a channel called `event`. An event records a delivery request; it doesn't establish receipt, reading or speech heard.
 

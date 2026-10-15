@@ -28,15 +28,19 @@ Each editor saves its own changes: **Save policy**, **Save notification**, **Sav
 
 ### Watch a device or an entity
 
-Open **Sources** to inspect equipment. Use **Find a source** to search, or **Group by** to browse by integration, Home Assistant location, or [TopoMation](https://github.com/mjcumming/topomation) location. Source details put the current condition and actions first. Expand **Why this is monitored** for the contributing policies and their editors. **Technical details** contains the entity ID and the time Homeostatic last updated its view.
+Open **Monitoring** to inspect equipment. Use **Search** to find a source. **Monitoring status** shows **All**, **Monitored** or **Not monitored**; it starts at All and changes only the displayed list. **More filters** opens the additional browsing choices. Above the tree, **Group by** selects integration, Home Assistant location or [TopoMation](https://github.com/mjcumming/topomation) location; **Collapse groups** closes the tree branches. Selecting an entity shows its name, location, current condition and what Homeostatic monitors. Policy links and availability controls stay visible. **View issue** opens a related issue, including its complete scope and notification controls. Links beside the source name take you to the named Home Assistant page.
 
-For an entity you no longer want to watch, choose **Stop monitoring availability…**. Review the named policies and confirm. This excludes the entity from its individual availability checks and from device availability evidence in those policies. Other checks remain as configured, and the Home Assistant entity stays enabled. To change several entities together, open their device, choose **Select entities…**, and select the members before stopping them.
+An **Issues** badge marks a source or group with related open issues. Select it to see the issues. A shared problem can appear under several rooms or devices; each selected list includes it once.
 
-Use the **Availability exclusions** filter to find excluded sources. **Resume monitoring…** removes the named exclusions; each policy's enabled state and selection still apply. A confirmed change also offers **Undo**. If a save's result cannot be confirmed, **Refresh saved monitoring** reads the saved scope before another action. Stopping monitoring does not repair the underlying problem or turn an unavailable entity into an available one.
+To clear unwanted availability warnings together, choose **Remove these entities from availability monitoring…** on an **Open issues** group. The confirmation is brought into view. Confirm the count; **Details** shows the entities and affected policies. Choose **Cancel** to leave monitoring unchanged. The action covers currently unavailable monitored entities in the matching group, including rows beyond **Show more issues**. If you search first, it applies to matching issues. Other checks and Home Assistant entities stay enabled.
+
+For one entity, open its source and choose **Remove this entity from availability monitoring…**. To choose particular members of a device, open the device, choose **Select entities…**, then **Remove selected entities from availability monitoring…**.
+
+Saving changes the policies and finishes the action. To change monitoring later, edit the affected policies. The **Availability exclusions** filter in Monitoring helps you find excluded entities and their policies. Existing policy selections still apply. If a save's result cannot be confirmed, **Refresh saved monitoring** reads the saved scope before another action.
 
 Changing exclusions that alter a device's monitored evidence ends its previous issue as monitoring ended; the revised selection may open another issue. Home Assistant removing, disabling or restoring an already excluded entity preserves the continuing device issue, its acknowledgment and any pause.
 
-In **Policies**, edit the device or entity availability policy. Under **Watch**, choose all eligible sources, **All except these**, or selected sources. Where supported, you can also select areas or labels. The **Choose devices** or **Choose entities** picker accepts several selections. Search by name or entity ID; selections stay in place when you filter. Policies loads its choices when you open it. If loading fails, use **Retry loading sources**; your selections remain in the draft. Broad, area and label selections include future matching sources.
+In **Policies**, edit the device or entity availability policy. Under **Watch**, choose all eligible sources, **All except these**, or selected sources. Where supported, you can also select areas or labels. The **Choose devices** or **Choose entities** picker accepts several selections. Names include their area and floor where available. Search by name, area, floor or entity ID; selections stay in place when you filter. Area and label choices show how many matching sources they contain and initially hide empty choices. A selected area or label stays visible if its matching sources disappear. Use **Show all areas** or **Show all labels** to select an empty group for future equipment. Select **Done** to return to the policy, then **Save policy** to apply your choices. Policies loads its choices when you open it. If loading fails, use **Retry loading sources**; your selections remain in the draft. Broad, area and label selections include future matching sources.
 
 Automatic availability monitoring watches enabled operational entities, including those without a device. Diagnostic and configuration entities are left out. To monitor one of those individually, use **Selected entities** and choose it explicitly. A device check uses enabled operational entities together; it does not fall back to diagnostics when none exist. Buttons and hidden operational entities remain eligible. Disabled entities, devices and integrations do not acquire availability checks. Saved monitoring choices resume when they are enabled again.
 
@@ -46,15 +50,15 @@ Edit the integration availability policy to watch all integrations or selected i
 
 ### Add or edit a monitoring policy
 
-Supplied policies and policies you create appear together in **Policies**. Each row shows its saved state and offers **Edit**. Change **Enabled** inside the policy editor. Open **More actions** (the three-dot button) for **Duplicate** and **Delete**.
+Supplied policies and policies you create appear together in **Policies**. Each row shows its saved state and offers **Edit**. Change **Policy enabled** beside the editor heading; it takes effect when you save. Open **More actions** (the three-dot button) for **Duplicate** and **Delete**.
 
 1. Select **Add policy**, choose its **Monitoring type**, then select **Continue**.
 2. Give the policy a name and choose what to **Watch**. The available source choices and detection fields depend on its monitoring type.
-3. Set the supported detection parameters and choose whether the policy is **Enabled**.
+3. Set the supported detection parameters and choose whether **Policy enabled** is on.
 4. Choose the [named notification](#choose-when-each-policy-reports), or **Dashboard only** for monitoring without requests.
 5. Select **Save policy**.
 
-The monitoring type stays fixed after creation. To watch a different kind of problem, add a policy. **Duplicate** retains the type and copies the settings into an independent disabled policy. Names, sources, detection settings and notification assignments remain editable. Pending edits stay available while you move between Policies and Notifications. **Save policy** applies only that policy. Edit shared timing and delivery choices in **Notifications**, where **Save notification** or **Save delivery method** applies only the named definition to its saved uses. Unrelated drafts stay unsaved.
+The monitoring type stays fixed after creation. To watch a different kind of problem, add a policy. **Duplicate** retains the type and copies the settings into an independent disabled policy. Names, sources, detection settings and notification assignments remain editable. Pending edits stay available while you move between Policies and Notifications. **Save policy** applies only that policy. Edit shared timing and delivery choices in **Notifications**, where **Save notification** or **Save delivery method** applies only the named definition to its saved uses and returns you to its list. Unrelated drafts stay unsaved.
 
 Renaming keeps current issues. Changing source selection or detection settings ends the affected monitoring and begins fresh evaluation. Disabling or deleting a policy ends its monitoring; History records **Monitoring ended**, without claiming that the problem cleared.
 
@@ -66,11 +70,11 @@ Deleting a supplied policy leaves it deleted through restarts and updates. Updat
 
 ### Exclude something
 
-Some sources go unavailable as a matter of course, such as a TV's media player while the TV is off at the wall. Open a contributing policy from **Sources**, choose **All except these** under **Watch**, select the sources to leave out, then select **Save policy**. New eligible sources still join automatically. Excluded sources stay in the saved list if they disappear, so they remain excluded if they return. Remove an exclusion to include that source again.
+Some sources go unavailable as a matter of course, such as a TV's media player while the TV is off at the wall. Open a contributing policy from **Monitoring**, choose **All except these** under **Watch**, select the sources to leave out, then select **Save policy**. New eligible sources still join automatically. Excluded sources stay in the saved list if they disappear, so they remain excluded if they return. Remove an exclusion to include that source again.
 
 An integration policy can exclude an individual configured connection. A device policy can exclude a whole device or particular entity members; excluding all eligible members leaves that device without an availability check. Each exclusion belongs to that policy. Other policies keep their own scope, including any individual entity checks. Disable a policy if you no longer want any of its checks.
 
-To quiet an existing issue temporarily while keeping monitoring, use [Pause alerts](#pause-alerts).
+To quiet an existing issue temporarily while keeping monitoring, use [Pause notifications](#pause-notifications).
 
 ### Helpers and groups
 
@@ -82,9 +86,9 @@ How long Homeostatic waits before opening or clearing an issue is set under **Se
 
 Batteries are watched separately from device availability. A device can be available with its battery at 5%, and a battery reading can sit at 80% on a device that dropped off the network an hour ago.
 
-Homeostatic finds battery level sensors, low-battery binary sensors and charging sensors by their Home Assistant device class, and lists each battery in **Sources**. None are watched until you choose them.
+Homeostatic finds battery level sensors, low-battery binary sensors and charging sensors by their Home Assistant device class, and lists each battery in **Monitoring**. None are watched until you choose them.
 
-Open the battery policy in **Policies**, choose selected batteries under **Watch**, and enable it. Check the entities paired with each battery in **Sources** first. When a device has more than one battery signal, Homeostatic lists them as separate batteries.
+Open the battery policy in **Policies**, choose selected batteries under **Watch**, and enable it. Check the entities paired with each battery in **Monitoring** first. When a device has more than one battery signal, Homeostatic lists them as separate batteries.
 
 To watch every battery, now and in future, choose **All batteries**. Set **Battery level at or below (%)**, add any notifications, then select **Save policy**. The starting threshold is 20%.
 
@@ -98,13 +102,13 @@ For low reserve, configure both power modes together: select **Morning summary**
 
 A UPS reserve policy can overlap a battery policy. Each continues to use its own detection and notifications. Disable or edit either policy if that overlap is unwanted.
 
-Issues groups open conditions under the UPS, newest first by default. Open **View issues** to acknowledge or pause one condition. Mains restoration can leave reserve low; charging does not clear a replacement warning or fault. If reserve becomes critical on backup power after an earlier acknowledgment, Homeostatic requests acknowledgment again and keeps any existing alert pause.
+The **Open issues** page groups open conditions under the UPS, newest first by default. Open **View issues** to acknowledge or pause one condition. Mains restoration can leave reserve low; charging does not clear a replacement warning or fault. If reserve becomes critical on backup power after an earlier acknowledgment, Homeostatic requests acknowledgment again and keeps any existing alert pause.
 
 Runtime is an estimate supplied by the UPS. Missing readings remain visible, and a disabled diagnostic entity must be enabled in Home Assistant before it can supply evidence. Homeostatic does not shut down equipment or control UPS outlets. UPS availability and physical power wiring remain separate from these reported conditions.
 
 ## Watch vacuums
 
-A vacuum is watched separately from whether Home Assistant can reach it. Homeostatic lists each vacuum entity in **Sources**. None are watched until you choose them.
+A vacuum is watched separately from whether Home Assistant can reach it. Homeostatic lists each vacuum entity in **Monitoring**. None are watched until you choose them.
 
 In **Policies**, edit the vacuum policy, choose selected vacuums or **All vacuums**, then enable it. Add any notification entries, then select **Save policy**. All vacuums includes matching sources added later.
 
@@ -116,7 +120,7 @@ A fault that never becomes the error activity stays an alert you write yourself.
 
 ## Watch temperature limits
 
-In **Policies**, select **Add policy** and choose **Temperature limits**. Select a temperature sensor or a group of temperature sensors, then enter a **Minimum**, a **Maximum**, or both, with the **Temperature unit**. Enter **Must persist for (seconds)** before enabling the policy. Zero means an immediate issue. Choose at least one temperature limit and review the duration before enabling the policy.
+In **Policies**, select **Add policy** and choose **Temperature limits**. Select a temperature sensor or a group of temperature sensors and choose the **Temperature unit**. Enter **Below (optional)**, **Above (optional)**, or both; leave a limit blank when it does not apply. Enter how long the condition must last in **For at least**. The duration starts in minutes, with hours and seconds also available. Zero means no waiting period. Review the rule shown below the fields, set **Policy enabled** beside the heading, then select **Save policy**.
 
 A reading below the minimum or above the maximum must stay outside the range for the chosen duration before opening an issue. Equality is allowed. A reading back within the range clears the issue. A direct jump from below the minimum to above the maximum keeps the same issue because no in-range reading was seen. To monitor cold and warm conditions separately, create two policies with separate notification entries.
 
@@ -138,7 +142,9 @@ Missing or invalid readings leave an existing issue open. They interrupt an unco
 
 ## What an availability problem means
 
-Issues opens with the newest problems first, across investigation groups and within each group. You can change the sort order. It hides availability entries that currently contain only missing evidence, or available states awaiting recovery confirmation. Sources retains those gaps and any unresolved problem; a missing reading does not establish recovery. Groups with a current warning or failure remain visible. If an integration is loaded but related devices or entities still need attention, the issue leads with their reported condition and shows the integration's loaded state as context. Its details count devices, entities and checks separately. Each device appears once, with its affected entity readings beneath it; several checks on the same source remain visible without repeating the source. Start with the affected source or device links to investigate. The integration connection remains available as a secondary link. Disabled entities stay browsable without availability checks.
+When an issue lists unavailable entities on one device, **Open device in Home Assistant** takes you to that device. Expand **Affected entities** to see their names; select a name to inspect it in Monitoring. **Monitoring details** contains check counts and policy controls. **Connection details** contains the integration status and links. An issue spanning several devices lists each device by name.
+
+**Open issues** groups findings by integration, then shows each affected device once with its individual findings indented beneath it. Open a finding to inspect or act on that issue. Entities without a device stay under their integration. Integration problems and shared problems affecting several devices also stay at that level. The newest finding puts its device group first by default; you can change the sort order. Search also matches device names. Show more issues reveals remaining findings without repeating a device heading. It hides availability entries that currently contain only missing evidence, or available states awaiting recovery confirmation. Monitoring retains those gaps and any unresolved problem; a missing reading does not establish recovery. Groups with a current warning or failure remain visible. If an integration is loaded but related devices or entities still need attention, the issue leads with their reported condition and shows the integration's loaded state as context. Its details count devices, entities and checks separately. Each device appears once, with its affected entity readings beneath it; several checks on the same source remain visible without repeating the source. Start with the affected source or device links to investigate. The integration connection remains available as a secondary link. Disabled entities stay browsable without availability checks.
 
 Home Assistant has no single health status that runs from an integration down to its devices and entities. It has separate signals, and Homeostatic reads each one for what it says:
 
@@ -152,11 +158,11 @@ Watching a source tells Homeostatic you expect it to stay available. Availabilit
 
 - a watched integration fails to set up, is retrying setup, or needs you to sign in again
 - a watched entity is unavailable, or every selected entity in a watched device is unavailable
-- a watched source lacking usable evidence for longer than **Wait for unknown evidence**, retained in Sources even when no current warning or failure appears in Issues
+- a watched source lacking usable evidence for longer than **Wait for unknown evidence**, retained in Monitoring even when no current warning or failure appears in Open issues
 
 Issue details explain what Home Assistant reported and list the entities involved, with relevant source, device or log links. They do not contain raw diagnostic data or copy controls. They do not name a physical cause, because Home Assistant does not report one. [Known limitations](troubleshooting.md#known-limitations) lists what Homeostatic can't see.
 
-Device details in Sources also show Homeostatic's availability assessment using enabled operational entities:
+Device details in Monitoring also show Homeostatic's availability assessment using enabled operational entities:
 
 | Status | When |
 | --- | --- |
@@ -175,7 +181,7 @@ The Repairs policy watches all Home Assistant Repairs. Its editor has no scope d
 
 Every Repair Home Assistant raises becomes an issue, whichever integration raised it. That includes an automation that fails to set up or calls an action that doesn't exist, a YAML setting that's going away, and an integration asking you to do something before an upgrade. The issue uses the Repair's own title and says which integration raised it and how serious Home Assistant considers it. **Fix in Home Assistant** opens the automation when Home Assistant links one, and the Repairs page otherwise.
 
-The issue ends when Home Assistant stops reporting the Repair, or when you select **Ignore** on it in Home Assistant. Ended Repairs go into History like any other issue, and Acknowledge and Pause alerts work on them. **Working on this equipment** doesn't apply, because a Repair isn't equipment.
+The issue ends when Home Assistant stops reporting the Repair, or when you select **Ignore** on it in Home Assistant. Ended Repairs go into History like any other issue, and Acknowledge issue and Pause notifications work on them. **Working on this equipment** doesn't apply, because a Repair isn't equipment.
 
 Edit the **Repairs** policy to change its monitoring or notification assignment. It starts enabled with **Morning summary**; delivery remains unconfigured until you select a method and enable sending.
 
@@ -187,7 +193,7 @@ An automation stays on when a trigger, condition, or action names an entity that
 
 Homeostatic opens one issue for that automation. The issue uses the automation's name, lists the missing entity ids, and **Fix in Home Assistant** opens the automation in the editor. The issue ends when the automation no longer names a missing entity, the automation is removed, or the entity exists again. If the automation has other triggers, those can still run.
 
-The **Broken automations** policy checks all automations for references to missing entities, including automations added later. Its editor has no scope dropdown. The policy starts enabled. Change **Enabled** in the policy editor, then select **Save policy**. Turning Repairs off leaves this policy on.
+The **Broken automations** policy checks all automations for references to missing entities, including automations added later. Its editor has no scope dropdown. The policy starts enabled. Change **Policy enabled** in the policy editor, then select **Save policy**. Turning Repairs off leaves this policy on.
 
 The **Broken automations** policy selects **Morning summary**. Change its notification assignment in the policy; configure the shared timing and delivery in **Notifications**.
 
@@ -205,7 +211,7 @@ Use **Notifications** to manage named timing and delivery choices. Its **Deliver
 
 Open **Notifications → Delivery methods**, select **Add delivery method** and give it a name. The method controls destinations and optional presence rules. Select it under **Send using** in a named notification to give it a schedule. To change an existing method, select **Edit**; **More actions** contains **Duplicate** and **Delete**. Select **Add destination**, choose the delivery type, then choose a configured destination. The editor lists only the destinations selected for this method. For speech, choose the speaker and, when needed, its speech provider. A method can combine several supported destination types. Home Assistant owns the provider accounts and credentials. Unavailable destinations are hidden from new choices by default; an unavailable saved destination stays visible until you replace or remove it.
 
-After you edit a method, its footer offers **Save delivery method** and **Discard changes**. **Delivery methods** returns to the list and retains your pending edits. Saving or discarding affects only this method. Other notification and policy drafts remain pending.
+After you edit a method, its footer offers **Save delivery method** and **Discard changes**. **Delivery methods** returns to the list and retains your pending edits. Saving returns you to the delivery-method list and confirms the saved name. Open its Edit action to make another change or send a test. Saving or discarding affects only this method. Other notification and policy drafts remain pending.
 
 Fixed methods always use the selected destinations. Open the optional presence settings to choose separate home and away destinations, or the destinations of selected people currently home. Choose fallback destinations or explicitly choose to skip when nobody qualifies or presence is unknown. A current home report qualifies; a named zone counts as away. Missing, restored, unknown and unavailable person states use the fallback when nobody is known to be home. Presence changes alone send nothing. Each new request or reminder uses the evidence available at that time.
 
@@ -213,7 +219,7 @@ Only destinations with identified email or SMS support appear as those types. Un
 
 ### Choose when each policy reports
 
-Open a policy in **Policies** and find **Notifications**. Choose a named notification or **Dashboard only**. Its summary shows the timing and selected methods; **No delivery method selected** means it cannot send yet. Save the assignment with **Save policy**. Use **Add another notification** when the same policy needs independent reporting, such as an immediate phone request and a daily summary.
+Open a policy in **Policies** and find **Notifications**. Use **Add notification** to choose a saved notification. Each entry groups its timing under **When** and its delivery methods under **Send to**; **No delivery method selected** means it cannot send yet. Add more entries for independent reporting, such as an immediate phone request and a daily summary. Use **Remove** beside any entry, including the last one. **No notifications** keeps issues visible in Open issues without sending notifications for this policy. **Save policy** saves your choices.
 
 Open **Notifications** to edit a shared choice or select **Add notification**. The supplied choices are **Immediate**, **Immediate with acknowledgment**, **Urgent**, **Morning summary**, **Evening summary** and **Weekly summary**. Their starting times and policy assignments are listed in the [reference](reference.md#policy-notifications). Set **When to notify**, choose the required time or reminder interval, and select saved delivery methods under **Send using**. **Save notification** applies to its listed saved policy uses. Other drafts remain pending.
 
@@ -245,7 +251,7 @@ After a Home Assistant restart, Homeostatic holds notifications until your integ
 
 Problems on the same device share one continuing message when their notification instructions and destinations match. The findings remain separate issues with their own history and controls. As one clears, the message silently updates to show the others; it is withdrawn when the last one ends. Different schedules, repeat settings, conditions or destinations remain separate. Scheduled reports keep their own timing and contents.
 
-Tapping a notification about one issue opens that issue in the panel. If it has ended, you see its entry in History. Tapping a device message or summary opens **Issues**. You need to be signed in to the Home Assistant server that sent it, and the panel is for administrators only.
+Tapping a notification about one issue opens that issue in the panel. If it has ended, you see its entry in History. Tapping a device message or summary opens **Open issues**. You need to be signed in to the Home Assistant server that sent it, and the panel is for administrators only.
 
 A Companion app notification about an open issue or device has an **Acknowledge** button where supported. It acknowledges exactly the issues shown in that request and stops their acknowledgment reminders. A later problem on the device is not acknowledged by that earlier button and can request attention. Issues remain open until their evidence clears. On an iPhone, the phone asks to be unlocked first. Only the phone's linked user can acknowledge with it. Dismissing a notification does not acknowledge it.
 
@@ -253,33 +259,35 @@ When an issue clears, Homeostatic updates or withdraws its phone notification us
 
 ## Operator controls
 
-Three controls handle problems you already know about. They're in the issue and source details in the panel, for administrators.
+Temperature issue details show the sensor, reported reading and observed duration. Use **Edit policy** to change its monitoring settings. **Details** holds the complete limits and optional links to the temperature reading and Monitoring.
 
-### Acknowledge
+Administrators can acknowledge an issue or pause its notifications from the full issue view. From an entity, use **View issue** to see the complete scope first. Equipment maintenance is available in supported source details.
 
-**Acknowledge…** on an open issue records that someone has seen it, for everyone who gets its notifications. It stops acknowledgment reminders, and the issue shows when it was acknowledged. The issue stays open until the problem clears. You can also acknowledge from the phone notification (see [When a notification arrives](#when-a-notification-arrives)).
+### Acknowledge issue
 
-### Pause alerts
+**Acknowledge issue…** on an open issue records that someone has seen it, for everyone who gets its notifications. It stops acknowledgment reminders, and the issue shows when it was acknowledged. The issue stays open until the problem clears. You can also acknowledge from the phone notification (see [When a notification arrives](#when-a-notification-arrives)).
 
-**Pause alerts…** on an open issue holds new notifications for that issue until an end time you choose, up to seven days ahead. It holds them for everyone, including immediate notifications, reminders and escalations. Other issues on the same equipment still notify. The issue stays open and visible, its existing notification stays on the phone, and it still clears as usual. You can extend a pause but not shorten it; to end it early, use **End now…**.
+### Pause notifications
+
+**Pause notifications…** on an open issue holds new notifications for that issue until an end time you choose, up to seven days ahead. It holds them for everyone, including immediate notifications, reminders and escalations. Other issues on the same equipment still notify. The issue stays open and visible, its existing notification stays on the phone, and it still clears as usual. You can extend a pause but not shorten it; to end it early, use **Resume notifications…**.
 
 ### Working on this equipment
 
-For planned work, like replacing a Zigbee coordinator or rewiring the garage, open **Sources**, select the integration or entity you're working on, and select **Working on this equipment…**. Devices don't have the button. To cover a device, choose its integration and tick **Also cover equipment that depends on this**.
+For planned work, like replacing a Zigbee coordinator or rewiring the garage, open **Monitoring**, select the integration or entity you're working on, and select **Working on this equipment…**. Devices don't have the button. To cover a device, choose its integration and tick **Also cover equipment that depends on this**.
 
-1. Choose **30 minutes**, **2 hours** or **4 hours**, or enter an end time up to seven days ahead.
-2. Tick **Also cover equipment that depends on this** if the work takes down what's behind it too. For an integration, that's the devices and entities you watch on it.
+1. Choose **30 minutes**, **2 hours** or **4 hours**, or open **Choose an end time…** for a custom time up to seven days ahead.
+2. Open **More options** to add a reason or tick **Also cover equipment that depends on this** if the work takes down what's behind it too. For an integration, that's the devices and entities you watch on it.
 3. Select **Start maintenance** to apply the window. The result shows the covered equipment and expiry.
 
 Until the end time, Homeostatic doesn't open new issues for that equipment. Issues that were already open stay open and keep notifying, and alerts from automations carry on as usual. If something is still broken when the window ends, its issue opens then. If it recovered during the window, nothing opens.
 
 ### End a control early
 
-Active controls are listed in the issue or source details, with their end times. **End now…** ends one. Ending a pause lets any notifications that fell due go out straight away. Ending maintenance lets issues open for anything still broken.
+Active controls are listed in the issue or source details, with their end times. Use **Resume notifications…** to end a pause or **End maintenance…** to end equipment maintenance. Due notifications can proceed under the issue’s notification rules and quiet hours. Ending maintenance lets issues open for anything still broken.
 
 ### From an automation
 
-Each control is also an action: `homeostatic.acknowledge`, `homeostatic.shelve` (Pause alerts), `homeostatic.preview_maintenance`, `homeostatic.start_maintenance` and `homeostatic.cancel_control`. For example, a script could put an irrigation controller's integration into maintenance while it winterizes the system:
+Each control is also an action: `homeostatic.acknowledge`, `homeostatic.shelve` (Pause notifications), `homeostatic.preview_maintenance`, `homeostatic.start_maintenance` and `homeostatic.cancel_control`. For example, a script could put an irrigation controller's integration into maintenance while it winterizes the system:
 
 ```yaml
 action: homeostatic.start_maintenance
@@ -304,7 +312,7 @@ Get source, issue and control ids from `homeostatic.inventory` and `homeostatic.
 
 Times are when Homeostatic saw each change. If Home Assistant was down when a device came back, the end time is when Homeostatic noticed after starting. History begins when Homeostatic is installed.
 
-A single source's history is under **History for this source** in **Sources**. `homeostatic.resolved_history` returns the same list for automations.
+Use **History** to find ended problems by source name, or follow a retained issue link. Existing links to source history still work. `homeostatic.resolved_history` returns the same retained issues for automations.
 
 ## Remove Homeostatic
 

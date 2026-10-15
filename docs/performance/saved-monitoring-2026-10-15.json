@@ -1,0 +1,554 @@
+{
+  "schema_version": 1,
+  "started_at": "2026-10-15T12:08:32.099Z",
+  "environment": {
+    "fixture": "source-actions.html",
+    "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+    "build": "working tree",
+    "transport": "synthetic settings and source replies; no live calls"
+  },
+  "results": [
+    {
+      "id": "navigation.pages",
+      "page": "Navigation",
+      "controls": "Issues, Sources, Policies, Notifications, Settings",
+      "expected": "Each destination opens and retains independent drafts.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "navigation.history",
+      "page": "Navigation",
+      "controls": "Back, Forward, direct link, refresh",
+      "expected": "Restore the meaningful destination or explain a missing target.",
+      "fixture": "workspace.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "issues.evidence",
+      "page": "Issues",
+      "controls": "Group, issue, related-source disclosure",
+      "expected": "Canonical members and all contributing checks remain reachable.",
+      "fixture": "issue-evidence.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "issues.recovery",
+      "page": "Issues",
+      "controls": "Partial and full recovery",
+      "expected": "Outstanding members remain; full recovery removes the active problem.",
+      "fixture": "issue-evidence.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "issues.filter",
+      "page": "Issues",
+      "controls": "Search, sort, group expansion, pagination",
+      "expected": "Complete reachable results and correct ordering without changing monitoring.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "issues.empty",
+      "page": "Issues",
+      "controls": "Quiet, filtered, unmonitored, loading, unavailable",
+      "expected": "Distinct truthful states and a useful next action.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "issues.controls",
+      "page": "Issues",
+      "controls": "Acknowledge, pause, cancel control",
+      "expected": "Exact issue scope, visible expiry, no automatic retry on uncertain result.",
+      "fixture": "history-controls.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "issues.availability-batch",
+      "page": "Issues",
+      "controls": "Remove group entities, details, cancel, confirm",
+      "expected": "One guarded save commits policy exclusions; a concise result remains without Undo after the group disappears.",
+      "fixture": "source-actions.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Actual group action, short confirmation, collapsed Details, Cancel, one saved entity/device exclusion change and no Undo after the group disappears; top-level History and Issues navigation preserve the save. Unknown/off siblings and notification settings preserved."
+      ]
+    },
+    {
+      "id": "issues.history",
+      "page": "History",
+      "controls": "History search, filter, page, detail",
+      "expected": "Recorded identity and retention limits remain visible.",
+      "fixture": "history-controls.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "sources.tree",
+      "page": "Sources",
+      "controls": "Expand, select, search, filter",
+      "expected": "Expansion and selection stay independent; identity and context persist.",
+      "fixture": "source-history.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "sources.details",
+      "page": "Sources",
+      "controls": "Members, readings, monitoring, issue links",
+      "expected": "Current evidence and contributing policies are distinguishable.",
+      "fixture": "source-history.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "sources.availability",
+      "page": "Sources",
+      "controls": "Stop availability, cancel, confirm, resume",
+      "expected": "Only reviewed saved policy exclusions change; unrelated drafts and HA state remain intact.",
+      "fixture": "source-actions.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Actual Stop, Cancel, confirm, reopen and Resume controls, with no saved-action Undo; exact two-policy exclusions; unchanged unavailable state and unrelated unsaved policy/method drafts."
+      ]
+    },
+    {
+      "id": "sources.availability-batch",
+      "page": "Sources",
+      "controls": "Select members, stop selected, resume selected, exclusions filter",
+      "expected": "One save affects only selected entities; excluded members remain reachable.",
+      "fixture": "source-actions.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Device checkboxes select exactly two entities for one save; omitted excluded members remain reachable for selective resumption; exclusion filter retains only excluded branches."
+      ]
+    },
+    {
+      "id": "sources.availability-conflicts",
+      "page": "Sources",
+      "controls": "Dirty affected policy, stale review, save failure, deliberate retry",
+      "expected": "Block unsafe scope changes and preserve saved settings and drafts.",
+      "fixture": "source-actions.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Actual controls block affected drafts, stale settings and changed catalogs; disconnected controls are read-only; rejected saves accept deliberate retry; lost applied-save response has no automatic retry or false success and refresh prevents a duplicate write."
+      ]
+    },
+    {
+      "id": "sources.contextual-issue-controls",
+      "page": "Sources",
+      "controls": "Issue scope disclosure, acknowledge and pause dialogs, cancel",
+      "expected": "Controls identify the whole correlated issue and preserve its exact identity.",
+      "fixture": "source-actions.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Expanded Actions for this issue, read scope, opened and cancelled Acknowledge and Pause dialogs for exact correlated issue id; no action request sent."
+      ]
+    },
+    {
+      "id": "sources.compact-layout",
+      "page": "Sources",
+      "controls": "Collapsed details, retained focus, phone/desktop and themes",
+      "expected": "Condition and actions remain visible; secondary details are reachable without horizontal scroll.",
+      "fixture": "source-actions.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Actual disclosures retain focus through rerender; Stop review/Cancel work at 320, 390 and 1200 CSS pixels in light and dark; no required horizontal scrolling; primary action meets 44px touch target. Physical Safari untested."
+      ]
+    },
+    {
+      "id": "sources.history",
+      "page": "Sources",
+      "controls": "History, prior problem, return",
+      "expected": "Recorded membership survives unavailable current source metadata.",
+      "fixture": "source-history.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "sources.maintenance",
+      "page": "Sources",
+      "controls": "Equipment maintenance entry, explicit expiry, cancel",
+      "expected": "A source has a reachable maintenance action with exact saved scope and visible expiry.",
+      "fixture": "source-history.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "policies.lifecycle",
+      "page": "Policies",
+      "controls": "Add, edit, duplicate, enabled, save, discard, delete",
+      "expected": "Only the named policy changes; supplied and custom policies share controls.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "policies.scope",
+      "page": "Policies",
+      "controls": "All, selected, exclusions, picker search, selected only",
+      "expected": "Catalog loading/error is distinct from no matches; selection survives search.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "policies.detection",
+      "page": "Policies",
+      "controls": "Each supported policy type and its detection fields",
+      "expected": "Units, ranges and validation preserve the intended saved detection.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "policies.restore",
+      "page": "Policies",
+      "controls": "Restore defaults, select, cancel, confirm, save",
+      "expected": "Only selected missing defaults are staged; missing profiles are not referenced.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "policies.notification",
+      "page": "Policies",
+      "controls": "Notification choice, Dashboard only, additional row, remove",
+      "expected": "Named selection changes only this policy and retains stable row identity.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "policies.legacy",
+      "page": "Policies",
+      "controls": "Custom notification, named replacement",
+      "expected": "Legacy data stays unchanged until explicit replacement.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "policies.ups",
+      "page": "Policies",
+      "controls": "Mains/backup condition, notification choice",
+      "expected": "Independent reserve conditions and stable assignment identity survive edits.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.list",
+      "page": "Notifications",
+      "controls": "Tabs, Edit, More actions",
+      "expected": "Six defaults have equal lifecycle controls and compact reachable menus.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.create",
+      "page": "Notifications",
+      "controls": "Add notification, discard new",
+      "expected": "A new draft remains unsaved and discard leaves no empty saved object.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.invalid",
+      "page": "Notifications",
+      "controls": "Required name and Save notification",
+      "expected": "Invalid input prevents a request, retains the draft and identifies the input.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.save",
+      "page": "Notifications",
+      "controls": "Timing, method choice, Save notification",
+      "expected": "The actual Save button persists only this notification and removes dirty controls.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.discard",
+      "page": "Notifications",
+      "controls": "Edit then Discard changes",
+      "expected": "Restore this saved notification in place without affecting other drafts.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.duplicate",
+      "page": "Notifications",
+      "controls": "More actions, Duplicate, Save notification",
+      "expected": "Create an independent saved copy with preserved timing and methods.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.delete-cancel",
+      "page": "Notifications",
+      "controls": "More actions, Delete, Cancel",
+      "expected": "Cancel leaves definitions and assignments unchanged.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.delete-replace",
+      "page": "Notifications",
+      "controls": "Delete, replacement, confirm",
+      "expected": "One save removes the definition and redirects uses without changing row ids.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.delete-remove",
+      "page": "Notifications",
+      "controls": "Delete, remove assignments, confirm",
+      "expected": "Explicit removal preserves unrelated definitions and leaves Dashboard only.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.delete-draft",
+      "page": "Notifications",
+      "controls": "Delete while a using policy has a draft",
+      "expected": "Block deletion and retain the affected draft and saved references.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "profiles.timing",
+      "page": "Notifications",
+      "controls": "Immediate, acknowledgment, window, report days/time",
+      "expected": "Every timing editor validates and saves its own fields and timezone.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "methods.lifecycle",
+      "page": "Delivery methods",
+      "controls": "Add, edit, duplicate, save, discard, delete",
+      "expected": "Saved shared uses and independent drafts remain correct.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "methods.destinations",
+      "page": "Delivery methods",
+      "controls": "Add destination, type, search, select, remove, close",
+      "expected": "Each supported type is usable; missing saved targets remain repairable.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "methods.picker-layout",
+      "page": "Delivery methods",
+      "controls": "Compact speaker rows, provider view, Back, Close and native Escape",
+      "expected": "The full editor keeps one scrolling picker body, reachable choices and exact draft selections at phone and desktop widths.",
+      "fixture": "delivery-picker-layout.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "methods.presence",
+      "page": "Delivery methods",
+      "controls": "Presence disclosure, people, home/away, fallback/skip",
+      "expected": "Saved behavior resolves current presence without unsolicited sending.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "methods.test",
+      "page": "Delivery methods",
+      "controls": "Send test on saved/dirty/new method",
+      "expected": "Only explicit saved tests request mocked destinations; requested/failed/skipped stay distinct.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "settings.edit",
+      "page": "Settings",
+      "controls": "Timing, Problem grouping, Save, Discard",
+      "expected": "Valid values save only installation settings; invalid values retain inputs.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "sending.switch",
+      "page": "Global sending",
+      "controls": "On/Off during another draft",
+      "expected": "Only confirmed global state changes; monitoring and unrelated drafts persist.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "save.failure",
+      "page": "Saving",
+      "controls": "Rejected Save and retry",
+      "expected": "Keep the exact draft and expose the named error; deliberate retry succeeds once.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "save.conflict",
+      "page": "Saving",
+      "controls": "Save after concurrent saved edit",
+      "expected": "Do not overwrite the newer saved object; retain the conflicting draft.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "save.refresh-failure",
+      "page": "Saving",
+      "controls": "Confirmed Save followed by failed reread",
+      "expected": "Say saved but refresh failed; preserve unrelated drafts.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "save.pending",
+      "page": "Saving",
+      "controls": "Delayed Save, external outage or settings reload, repeated click and reattachment",
+      "expected": "Keep the exact saving editor; guard repeat submissions; distinguish confirmed result, failed/uncertain save and unavailable monitoring while preserving unrelated drafts.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "save.uncertain",
+      "page": "Saving",
+      "controls": "Lost save response, inspect, retry",
+      "expected": "Read current saved state before retry; do not duplicate an applied change.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "updates.retention",
+      "page": "Live updates",
+      "controls": "Unchanged update, disconnect, reconnect",
+      "expected": "Retain DOM, focus, selection and draft; stale view is visibly read-only.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "layout.menus",
+      "page": "Responsive",
+      "controls": "More actions at viewport edge, Escape, outside click",
+      "expected": "Both actions stay visible; dismissal restores appropriate focus.",
+      "fixture": "mobile-layout.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "layout.keyboard",
+      "page": "Accessibility",
+      "controls": "Tab, Shift+Tab, Enter, Space, Escape",
+      "expected": "Complete navigation, editors and dialogs with visible focus and correct return.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "layout.themes",
+      "page": "Accessibility",
+      "controls": "Light, dark, enlarged text, 320px and desktop",
+      "expected": "No clipping, required horizontal scroll or unreadable control state.",
+      "fixture": "mobile-layout.html",
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    },
+    {
+      "id": "layout.safari",
+      "page": "Physical Safari",
+      "controls": "Actual iOS device workflow",
+      "expected": "Record device/browser and exercise touch, keyboard, menus and safe areas.",
+      "fixture": null,
+      "requirement": "../../docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": []
+    }
+  ]
+}

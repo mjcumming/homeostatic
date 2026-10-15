@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-15T16:40:49.992920+00:00",
+  "scope": "History entries expand inline, with one copy of each recorded condition and observed interval; retain source and related-issue navigation.",
+  "source": {
+    "branch": "main",
+    "revision": "00de1bbbc2a0c1c204b8505a289b4fd475e5537c",
+    "dirty": true,
+    "module": "79",
+    "file_sha256": {
+      "custom_components/homeostatic/frontend/history-controls.mjs": "e9690a8e3152b938d90aef041856a8b3859f5361cb3550202febebf1cc6e95b9",
+      "custom_components/homeostatic/frontend/styles.mjs": "81cc185da440bb637f4f960c8f5d5fe42af156d63ab27479a74306405bd647b6",
+      "custom_components/homeostatic/frontend/workspace-navigation.mjs": "add420cbce20edb964283f9bfedf95fc12ddd545450dfe83d9a6bce86c889649",
+      "tests/frontend/history-navigation.test.mjs": "ab6e6838eebd1206929284f5f4bcf824e2fff83ca934664fb9f07d35b833412c",
+      "tests/frontend/history-controls.html": "a216d273250f6697012f5fb5dd3a6e5162632ba9bc44d06483369f16067891ef",
+      "tests/frontend/source-history.html": "a26b8d07d1ae08bb875e70d6c14518ef4f2437f8438e29d3eb3b7f5a6884eefd",
+      "tests/frontend/control-path-inventory.mjs": "76f1984809fed41256095e231d4668a12e5072e06fe49f4f96ad94d25274ba32",
+      "tests/frontend/model.test.mjs": "6114ded5f0164e2daa09774b8e356ce4920d772d436f6ec5039ed3987c0155c3"
+    }
+  },
+  "status": {
+    "implemented": true,
+    "committed_by_this_task": false,
+    "released_by_this_task": false,
+    "installed_by_this_task": false
+  },
+  "checks": {
+    "required_quick": {
+      "command": "uv run --no-sync python script/check.py --quick",
+      "environment": "Prepared WSL Python 3.14 and Node environment",
+      "status": "fail",
+      "lint_and_format": "pass",
+      "frontend_tests": {
+        "total": 597,
+        "passed": 568,
+        "failed": 29
+      },
+      "failure_scope": "Three Sources presentation assertions in model.test.mjs and 26 temperature-policy-editor.test.mjs cases; these surfaces changed concurrently outside this task. History tests passed. An earlier working-tree run passed all 544 frontend tests before these concurrent changes and the final History routing regressions."
+    },
+    "focused_history_navigation": {
+      "status": "pass",
+      "tests": 18,
+      "command": "node --test tests/frontend/history-navigation.test.mjs"
+    },
+    "diff_whitespace": "pass",
+    "keyboard": {
+      "status": "pass",
+      "evidence": "Enter expands the row; Space collapses it; aria-expanded follows the visible state."
+    },
+    "phone_layout": {
+      "status": "pass",
+      "light": {
+        "viewport_width": 390,
+        "content_width": 375,
+        "content_scroll_width": 375,
+        "row_height": 66.6875
+      },
+      "dark": {
+        "viewport_width": 390,
+        "content_width": 390,
+        "content_scroll_width": 390
+      }
+    },
+    "design_detector": {
+      "status": "reviewed",
+      "warnings": 3,
+      "scope": "history-controls.mjs, styles.mjs, workspace-navigation.mjs",
+      "disposition": "Existing warning-state side border and selected-navigation underlines outside the changed History styles; no History finding."
+    }
+  },
+  "browser_runs": [
+    {
+      "started_at": "2026-10-15T16:37:15.270Z",
+      "environment": {
+        "fixture": "history-controls.html",
+        "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "data": "synthetic",
+        "destinations": "mocked"
+      },
+      "results": [
+        {
+          "id": "issues.controls",
+          "page": "Open issues",
+          "controls": "Acknowledge, pause, cancel control",
+          "expected": "Exact issue scope, visible expiry, no automatic retry on uncertain result.",
+          "fixture": "history-controls.html",
+          "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+          "status": "pass",
+          "evidence": [
+            "Clicked issue group/detail, Pause, expiry/reason fields, submit, Acknowledge and End control; inspected exact mock saved scope, actor, reopened expiry/acknowledgment, duplicate suppression, ambiguous errors, disconnect recovery, resolved-target and non-admin/API gates. No live sends."
+          ]
+        },
+        {
+          "id": "issues.history",
+          "page": "History",
+          "controls": "Search, filter, page, inline expand/collapse and related issue",
+          "expected": "Concise distinct findings, recorded times and identity remain visible; links reveal their entry without a history modal.",
+          "fixture": "history-controls.html",
+          "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+          "status": "pass",
+          "evidence": [
+            "Clicked History, Next/Previous, outcome filter, search and inline expansion/collapse; verified empty results, retained keyboard focus, saved names, escaped text, concise distinct outcomes, related open and retained issue navigation across pages, reconnect and expired-record handling. No mutation was requested."
+          ]
+        }
+      ]
+    },
+    {
+      "started_at": "2026-10-15T16:31:34.462Z",
+      "environment": {
+        "fixture": "source-history.html",
+        "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+        "viewport": {
+          "width": 1280,
+          "height": 720,
+          "card": 390
+        },
+        "data": "synthetic",
+        "destinations": "mocked"
+      },
+      "results": [
+        {
+          "id": "sources.tree",
+          "page": "Monitoring",
+          "controls": "Expand, select, search, filter",
+          "expected": "Expansion and selection stay independent; identity and context persist.",
+          "fixture": "source-history.html",
+          "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+          "status": "pass",
+          "evidence": [
+            "Clicked integration/device/entity selections, collapse/expand and Collapse all; dispatched ArrowLeft/Right on the focused rendered toggle; typed entity-ID and no-match searches, changed grouping and Show disabled. Verified independent selection, keyboard focus, retained canonical identity and disabled monitoring copy."
+          ]
+        },
+        {
+          "id": "sources.details",
+          "page": "Monitoring",
+          "controls": "Members, readings, monitoring, issue links",
+          "expected": "Current evidence and contributing policies are distinguishable.",
+          "fixture": "source-history.html",
+          "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+          "status": "pass",
+          "evidence": [
+            "Clicked current device member readings, other-readings disclosure, entity member, native entity link (intercepted in this isolated fixture), Why this is monitored and Technical details disclosures, contributing policy and Monitoring return. Verified unavailable/no-value/numeric distinctions, separate device/entity contributions, retained reconciliation timestamp, exact policy editor and no configuration mutation. Retry reading and issue navigation were exercised in sources.history."
+          ]
+        },
+        {
+          "id": "sources.history",
+          "page": "Monitoring",
+          "controls": "History, prior problem, return",
+          "expected": "Recorded membership survives unavailable current source metadata.",
+          "fixture": "source-history.html",
+          "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+          "status": "pass",
+          "evidence": [
+            "Clicked Monitoring, MQTT, History disclosure and cleared/joined/removed rows; followed related issue into Monitoring and used Back with focus return. Verified recorded ownership/name after current child deletion, retention text, stale read-only/reconnect, actual Retry reading/Retry connection, no mutations and no horizontal overflow at the recorded card width."
+          ]
+        },
+        {
+          "id": "sources.maintenance",
+          "page": "Monitoring",
+          "controls": "Equipment maintenance entry, explicit expiry, cancel",
+          "expected": "A source has a reachable maintenance action with exact saved scope and visible expiry.",
+          "fixture": "source-history.html",
+          "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+          "status": "pass",
+          "evidence": [
+            "Clicked source maintenance entry, invalid custom time, explicit preset duration, optional reason, dependent-scope choice, Save and End now. Verified collapsed options, no pristine validation warning and retained exact expiry. Verified pending-click suppression, ambiguous failure with no retry, disconnected submission gate, exact mock persisted source/expiry/reason, reopened source control and preservation of an overlapping window on cancellation."
+          ]
+        }
+      ]
+    }
+  ],
+  "browser_run_boundary": "Synthetic fixtures with mocked destinations. Source-history run predates the final routing-only corrections and concurrent Monitoring edits. The History fixture was rerun after the routing corrections at 390px. Focused tests cover route changes and restoration after expansion.",
+  "screenshots": [
+    "history-inline-desktop-light-2026-10-15.jpg",
+    "history-inline-phone-dark-2026-10-15.jpg"
+  ],
+  "untested": [
+    "Physical iPhone/iPad Safari",
+    "Live Home Assistant installation",
+    "Full release validation"
+  ]
+}

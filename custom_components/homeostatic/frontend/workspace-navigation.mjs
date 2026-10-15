@@ -45,15 +45,15 @@ export function workspaceRoute(card) {
     page,
     source:page === "sources" ? card.sourcesSelection : null,
     sourcesView:card.sourcesView,
-    definition:["policies","notifications"].includes(page) ? card.definitionSelection : null,
+    definition:page === "policies" && card.definitionSelection?.kind === "policies" || page === "notifications" && ["profiles","methods"].includes(card.definitionSelection?.kind) ? card.definitionSelection : null,
     notificationSection:card.notificationSection || "profiles",
     settingsSection:card.settingsSection,
-    historyId:card.tools?.historyId || null,
+    historyId:page === "history" ? card.tools?.historyId || null : null,
     detail:card.detail ? {...card.detail} : null,
   };
 }
 
-const viewFields = ["sourcesQuery","sourcesGrouping","sourcesNeedsReview","sourcesShowDisabled","sourcesMobileDetail","issueQuery","issueSort","notificationSection","settingsSection"];
+const viewFields = ["sourcesQuery","sourcesGrouping","sourcesNeedsReview","sourcesShowDisabled","sourcesExcludedOnly","sourcesMonitoring","sourcesMobileDetail","issueQuery","issueSort","notificationSection","settingsSection"];
 const setFields = ["sourcesExpanded","issueGroupsExpanded"];
 const mapFields = ["sourcesLimits","issueGroupLimits"];
 
@@ -136,9 +136,11 @@ export class WorkspaceNavigation {
 
   updateReturn() {
     const route=workspaceRoute(this.card);
-    const focused=route.detail || route.definition || route.source || route.historyId;
-    const origin = focused ? this.entries.get(this.origins.get(this.currentId)) : null;
-    this.card.workspaceReturn = origin ? {id:origin.id,label:origin.route.detail?.episodeId ? "Back to issue" : origin.route.page === "sources" ? "Back to source" : ({policies:"Back to Policies",notifications:"Back to Notifications",history:"Back to history"})[origin.route.page] || "Back to Issues"} : null;
+    const focused=route.detail || route.definition || route.source && this.card.sourcesMobileDetail || route.historyId;
+    const candidate = focused ? this.entries.get(this.origins.get(this.currentId)) : null;
+    const inlineHistory = route.page === "history" && candidate?.route.page === "history" && !candidate.route.detail;
+    const origin = inlineHistory ? null : route.page === "sources" && !candidate?.route.detail && !candidate?.route.historyId ? null : candidate;
+    this.card.workspaceReturn = origin ? {id:origin.id,label:origin.route.detail?.episodeId ? "Back to issue" : origin.route.page === "sources" ? origin.route.source ? "Back to source" : "Back to Monitoring" : ({policies:"Back to Policies",notifications:"Back to Notifications",history:"Back to history"})[origin.route.page] || "Back to Open issues"} : null;
     const control = this.card.shadowRoot?.querySelector("[data-workspace-return]");
     if(control){control.hidden = !origin;control.textContent = this.card.workspaceReturn?.label || "Back";}
   }
@@ -180,7 +182,7 @@ export class WorkspaceNavigation {
         card.revealSourcesSelection?.();
       }
       card.render();
-      if(cached?.pageState)card.restorePageState(cached.pageState);
+      if(cached?.pageState && !route.historyId)card.restorePageState(cached.pageState);
       this.entries.set(this.currentId,{id:this.currentId,route,context:workspaceContext(card),pageState:cached?.pageState || null});
       if(route.detail?.episodeId) {
         if(card.isConnected && card.current.status === "current")card.openDetail(route.detail);
@@ -190,8 +192,9 @@ export class WorkspaceNavigation {
         else card.pendingNode=route.detail.nodeId;
       }
       if(route.historyId) {
-        if(card.current.status === "current")card.tools.showHistory(route.historyId);
+        if(card.current.status === "current")card.tools.showHistory(route.historyId, {focus:!cached?.pageState});
         else card.pendingHistory=route.historyId;
+        if(cached?.pageState)card.restorePageState(cached.pageState);
       }
       if(card.current.status === "current" && !card.configuration && !card.configBusy)card.loadConfiguration?.();
       this.updateReturn();

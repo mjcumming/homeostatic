@@ -1,0 +1,335 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-10-15T12:19:46.688Z",
+  "base_commit": "00de1bbbc2a0c1c204b8505a289b4fd475e5537c",
+  "branch": "main",
+  "build": "uncommitted working tree",
+  "base_version": "1.8.0b7",
+  "asset_token": "76",
+  "changes": [
+    "No Undo after confirmed monitoring policy saves",
+    "History restored as a separate top-level page",
+    "Theme primary save actions and hover surfaces restricted to hover input"
+  ],
+  "validation": {
+    "frontend_tests": 428,
+    "staged_javascript_syntax": "passed",
+    "served_frontend_files": 22,
+    "all_hashes_match": true,
+    "installed_files": 69,
+    "focused_dashboard_lifecycle_test": "passed",
+    "quick_checks": "passed in WSL"
+  },
+  "installation": {
+    "entry_state": "loaded",
+    "panel_name": "homeostatic-panel-v28",
+    "outbox": 0,
+    "home_assistant": "2026.10.0",
+    "notifications": false,
+    "core": "RUNNING",
+    "policy_count": 7,
+    "storage_schema": 3,
+    "messages": 0,
+    "profile_count": 6,
+    "module_url": "/homeostatic_static/homeostatic.js?v=76",
+    "saved_settings_unchanged": true,
+    "homeostatic_errors": 0,
+    "existing_exclusions_preserved": true,
+    "monitoring_available": true,
+    "additional_rollback_copy": "omitted at user request"
+  },
+  "visual_review": {
+    "browser": "Codex in-app Chromium",
+    "screenshots": [
+      "issues-phone-light-2026-10-15.jpg",
+      "issues-phone-dark-2026-10-15.jpg"
+    ],
+    "data": "synthetic issues and saved policy responses",
+    "layout_receipt": "issues-layout-2026-10-15.json",
+    "physical_safari": "untested",
+    "saved_control_receipt": "saved-monitoring-2026-10-15.json",
+    "installed_screen": "Runtime, panel registration and served assets verified through authenticated API; actual phone screen not directly inspected.",
+    "viewport": "390x700 light and dark",
+    "status": "passed for isolated browser fixtures",
+    "guarded_control_paths_passed": 6
+  },
+  "files": [
+    {
+      "path": "__init__.py",
+      "sha256": "cf2498d8a5fda4a998b716b8591ece9ff1b720f5a51863afd526780acb496c99"
+    },
+    {
+      "path": "attention.py",
+      "sha256": "b1170298ca60da431d74d7fe1781c0972173e1fc9939c082c72041c6e982c9a9"
+    },
+    {
+      "path": "automation_alerts.py",
+      "sha256": "036e20e5c4cc97979e922a30c4984b4f5cad94e6ee5048741fdd695f5a23e651"
+    },
+    {
+      "path": "battery.py",
+      "sha256": "182838dfa7b1625e01887eccaf5503ff8de6b67149e5bfe4e9b46f2f8d2b129c"
+    },
+    {
+      "path": "broken_automations.py",
+      "sha256": "76fdc711676054ccfc7a3422f547508685b9800b51f14bcfafeb7ac8a382b1f0"
+    },
+    {
+      "path": "catalog.py",
+      "sha256": "2bc2055046312710e2b959af73321a807957dd0a0b54265bdbcae8d68908e22f"
+    },
+    {
+      "path": "config_flow.py",
+      "sha256": "e5f69e5f789b56252c3eaac842ad98d69c51f3c9919bc0bac6d660bd05e14026"
+    },
+    {
+      "path": "config.py",
+      "sha256": "d70c8d1c897ce48906499479e4a2b60d127da1625b727931705adaf6a05b678a"
+    },
+    {
+      "path": "const.py",
+      "sha256": "57a0fabd30bfd88da581a1bd5719df463eee724406fdc4530bf95867631787d2"
+    },
+    {
+      "path": "controls.py",
+      "sha256": "d3c24fb1efbc3a41abdc99bcefcbaed1956bcdb1de729a2aa310c255099506b4"
+    },
+    {
+      "path": "dashboard.py",
+      "sha256": "7ede873b37687b4ad91f9f70295b554e9707c963ea075b126c5b707d728f8061"
+    },
+    {
+      "path": "definitions.py",
+      "sha256": "ee68cd193a23c9b56ad85c6c49d5c969aa747ea7e7269a6f988b15299e7782f1"
+    },
+    {
+      "path": "delivery.py",
+      "sha256": "db865340fe4c0e8a3cf478e653e41e5960fb34a54b4040e031cfd537c27c8030"
+    },
+    {
+      "path": "device_availability.py",
+      "sha256": "a12deb604b6490c931d773c46b474c52d5d60a084ec04a3568b508115a93cb2b"
+    },
+    {
+      "path": "enrollment.py",
+      "sha256": "567897c629fc5e9fca02dfad3b9b1e6b60527f32a75c981f241fbb162bcf5dc6"
+    },
+    {
+      "path": "event.py",
+      "sha256": "0a3310309d2c13fbfa2abd4cf1e68814aff16f03be8e1f03578fd592422ce0fd"
+    },
+    {
+      "path": "evidence.py",
+      "sha256": "9ab92d2c51a1fae74eb609cde0f3692b81632ab01f759c4d01450d8172325423"
+    },
+    {
+      "path": "facts.py",
+      "sha256": "ad5c7eaa79bea36b4edca8f8dc88da5395e6232ac33856d23cd629df8bc8a102"
+    },
+    {
+      "path": "function_model.py",
+      "sha256": "ed8e31249e42cae26edaa2154450057850f60cfb79ec52d2967ef53958d2b4ec"
+    },
+    {
+      "path": "history.py",
+      "sha256": "22d8375d17f8740e106a9c9f30841dec95ef333565faa9cc01e0692348fb90d1"
+    },
+    {
+      "path": "manifest.json",
+      "sha256": "1610f34d64d5b7835fc7da9ef09859394bf99c74ebb42b77222e56054cd14462"
+    },
+    {
+      "path": "monitoring_runtime.py",
+      "sha256": "21f7aa1af1cf3573e520e421e4bb56fbc97b78d16dcb12b36e40f1877515648a"
+    },
+    {
+      "path": "monitoring.py",
+      "sha256": "9ca4948b275a0bb6fe7bff0e6d54e132c170c45ce0bd9825ede08ea8bbf95ae8"
+    },
+    {
+      "path": "notification_definitions.py",
+      "sha256": "ba25b80018c0a406b620807b132c6c74d0146933e70743cebf9262d2024616e0"
+    },
+    {
+      "path": "notification_grouping.py",
+      "sha256": "a5185591114657bfee1209176635ca5a4414f96a144e7db67b045648fe59e86c"
+    },
+    {
+      "path": "notification_people.py",
+      "sha256": "18e96aa686cc8e15b356d0239bd7b96c1258d20276a70df3aa90b2438cfa04a6"
+    },
+    {
+      "path": "notification_routes.py",
+      "sha256": "d1a062742a162cd17f150e0fa06bab794acd20ece768c5df5757a0797bbd93dc"
+    },
+    {
+      "path": "phone_actions.py",
+      "sha256": "bbc6dd47541842a3ac342cbff44256c8b0d6eaf6c453be1b90cb4f5fa2dfea32"
+    },
+    {
+      "path": "policy_defaults.py",
+      "sha256": "1fa1cded62862f4c90f31b044b3620652f97893c3ac468e3d1acab1f7f7bc5e5"
+    },
+    {
+      "path": "repairs.py",
+      "sha256": "e469fe798ea6d7445663ea1731e1339215f084599ee067bfae2da0595c0a8e2d"
+    },
+    {
+      "path": "rules.py",
+      "sha256": "d778afcc66c322f85a461b4d805ec39b4e6b6009a5b96fb3fa4aa46cb109d66d"
+    },
+    {
+      "path": "runtime.py",
+      "sha256": "3913a2964460aacabcaaf5fd0426af0198b43ada95c114af292673dccadd212e"
+    },
+    {
+      "path": "sensor.py",
+      "sha256": "cf6c1fb2efd4bb9e64255090e9bdce7bfbeccf72a174269e2ec161a0a20a9944"
+    },
+    {
+      "path": "serialization.py",
+      "sha256": "ae1f0bdac1ac97f1e6d5d2e2e6cfe541f71cf20bc1da73d69b073398f8b3feae"
+    },
+    {
+      "path": "services.py",
+      "sha256": "6eb0e2b687c72a8aac81b9cdcf2d7401f40fcb24608663f48bd1bb356131fc81"
+    },
+    {
+      "path": "services.yaml",
+      "sha256": "4bd66bac0111e416b451794ebf9c2d4adceb5e577363e89a4543cbcefff4f8f3"
+    },
+    {
+      "path": "situation_reports.py",
+      "sha256": "2e9025a4074c46cbc92a99c53dd32c2f6f8013b116e177a670e2af0327545a5d"
+    },
+    {
+      "path": "strings.json",
+      "sha256": "5a7b7b1d8b7541ec93234a8ecfc3996501dc15384166d23649d680fea5545d06"
+    },
+    {
+      "path": "temperature.py",
+      "sha256": "5b5e543082086fd714074f2cf2381139daaf945eceb0e45dbf2d5c5315ee9ae9"
+    },
+    {
+      "path": "ups_parameters.py",
+      "sha256": "e348553ea19d0af80de6f8b4ecf4ca856fd3472fa2996e6c94415006c06b03fb"
+    },
+    {
+      "path": "ups.py",
+      "sha256": "669f9f9af8b4b4bb11d5d94e0c0f3648a0629bebdca31c780f9ec9d59530ac53"
+    },
+    {
+      "path": "vacuum.py",
+      "sha256": "b3ddd33e7c3e0e954bf1dfb8361e83bfe84150d50feea8f14bfd2c4cd0d028f7"
+    },
+    {
+      "path": "brand/dark_icon.png",
+      "sha256": "cafc59ad017206e00d12914c8337cad8138e2934ff6fca3ca596bba9d295b377"
+    },
+    {
+      "path": "brand/dark_icon@2x.png",
+      "sha256": "1a3309f8c526a09252e5ff656445e4425ec89b59f4514e5b956dbd86bf4306d9"
+    },
+    {
+      "path": "brand/icon.png",
+      "sha256": "d4740e57a8d672e1c76c19eb551ab06a0003fd87d5099e67d996375769c8d957"
+    },
+    {
+      "path": "brand/icon@2x.png",
+      "sha256": "ac577f00ee3c2e98505c9cdcf3eb5af4eb60ff8d63a6afb97481b049259b5139"
+    },
+    {
+      "path": "frontend/configuration.mjs",
+      "sha256": "fa529cae3519925d7981690486c40e2b16f973a56cc54da57b7d4dacca289a49"
+    },
+    {
+      "path": "frontend/delivery-picker.mjs",
+      "sha256": "e728fd5583b55f88eb483cb800efae8516010e62007e66d42f5c104ba5ec7b1e"
+    },
+    {
+      "path": "frontend/device-availability.mjs",
+      "sha256": "1f456cdbb15cfc231930173c120e6ebfe84c3ee51ac21e32fdd28c104de5de2c"
+    },
+    {
+      "path": "frontend/evidence.mjs",
+      "sha256": "85a2923ef58f13224f363fee44bdda531ec4b3f5a5cfe76fc0f8ce5d85a5fde8"
+    },
+    {
+      "path": "frontend/history-controls.mjs",
+      "sha256": "b7f428a6c845a3b106ae70413e4b96e42a13a64fb00f1f269f8d58210d063878"
+    },
+    {
+      "path": "frontend/homeostatic.js",
+      "sha256": "c815e3a8d57ebe2e98dd9fc270465789d8a17c27e8572d440f11943b729fb17b"
+    },
+    {
+      "path": "frontend/installation-settings.mjs",
+      "sha256": "152d6a26509ca090345ea48d0d46a866e3c8764bf06b821d91d6d49b281df0e4"
+    },
+    {
+      "path": "frontend/issue-monitoring.mjs",
+      "sha256": "516679770970a413e3139cdde5b30b56ff60243d3dc84de2ed8a0a6850576820"
+    },
+    {
+      "path": "frontend/issues-workspace.mjs",
+      "sha256": "46d10726563ffd8b7c39dcd195d5685241f340cbd5abc34b5908945cc321fc89"
+    },
+    {
+      "path": "frontend/model.mjs",
+      "sha256": "31b02fd5f5114f04e9adbcff09c29c8f40479db72d7af1b968bb96ef3e41e593"
+    },
+    {
+      "path": "frontend/notification-navigation.mjs",
+      "sha256": "9c4e39558ee71e6a2c7b7af70191d65c16a3f80659cfe9b0638e0dfb50288f29"
+    },
+    {
+      "path": "frontend/package.json",
+      "sha256": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8"
+    },
+    {
+      "path": "frontend/problem.mjs",
+      "sha256": "8fb2bd8ef20b143d49dd68d2b52c46c42c88f3858efe0fda2d52a08f3c811822"
+    },
+    {
+      "path": "frontend/reporting.mjs",
+      "sha256": "fce290e1fd7bc544fcdd90661c93e850e188ad98e9c4e7fce2983652496df694"
+    },
+    {
+      "path": "frontend/reusable-editors.mjs",
+      "sha256": "2e3e9afe73897bb0292ae2c310809a30e3722017c91e7f1939b2740a169a66b4"
+    },
+    {
+      "path": "frontend/scoped-configuration.mjs",
+      "sha256": "1c612ff64ff5182c54a46a739d5dcae7026bce35aa54d3e06094587bed6e588b"
+    },
+    {
+      "path": "frontend/source-history.mjs",
+      "sha256": "5590a8a56e0e8536a33b664ddc57b5727310c6665e50f8b354a4724ab8d31456"
+    },
+    {
+      "path": "frontend/source-monitoring.mjs",
+      "sha256": "f86f34fc26ab8ed1e375157fdbc61e329c9172be8f3b749bd34a72fbb32543f9"
+    },
+    {
+      "path": "frontend/sources-workspace.mjs",
+      "sha256": "b54b904368de420c98f747198fd33afbf5596fbda040cd8d57e46b4a92f21735"
+    },
+    {
+      "path": "frontend/styles.mjs",
+      "sha256": "95e3041cf1285cd133ad2d55dd28ab4f17ce486c721bff39be0bc509f2fa0d2b"
+    },
+    {
+      "path": "frontend/ups.mjs",
+      "sha256": "2adf6de9710b37471ac292758d462329108b444983f7d99f8733ac84821a3cdc"
+    },
+    {
+      "path": "frontend/workspace-navigation.mjs",
+      "sha256": "2e6902abdc544891e682be8cdfe3026cf9f50c686af15c317703a6d3f22337d7"
+    },
+    {
+      "path": "translations/en.json",
+      "sha256": "5a7b7b1d8b7541ec93234a8ecfc3996501dc15384166d23649d680fea5545d06"
+    }
+  ],
+  "publication": "No commit, push, tag or release"
+}

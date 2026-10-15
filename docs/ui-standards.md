@@ -45,14 +45,14 @@ Each editor names its object and save scope. Use Save policy, Save notification,
 | Unchanged | Show saved values and contextual navigation; no dirty-state controls. |
 | Changed | Show Unsaved changes, Discard changes and the scoped Save action. |
 | Saving | Identify the submitted scope, prevent duplicate submission and preserve any newer draft edits. |
-| Saved | Remove the dirty controls when no newer edits remain. Show a concise confirmed result and contextual return. |
-| Edited again after saving | Clear the previous success feedback and restore dirty controls. |
+| Saved | Notifications and delivery-method editors return to their matching list and focus the saved object's Edit action. Other editors remove dirty controls and retain contextual return. Do not leave persistent saved messages or success banners. Newer edits or navigation during saving prevent an automatic return. |
+| Edited again after saving | Restore dirty controls. |
 | Discarded | Restore an existing object's saved baseline in place and remove dirty controls. For a new object, abandon the unsaved draft and return to its origin. Earlier completed saves remain saved. |
 | Failed or conflicted | Retain the draft, name the error and keep correction or reconciliation available. |
 
 Show Unsaved changes beside the editing task. Field labels stay visible; placeholders supplement labels. Provide required indicators, units and supported ranges next to inputs. Put validation beside the field and an error summary where useful. Move focus to the relevant error after submission; keep the draft and correctable input intact.
 
-Save validates and applies the submitted draft once. Keep concurrency and rollback protection behind that action, with no compulsory review screen. Show Saving while pending. Do not attribute changes typed after submission to the completed save; retain them as a newer draft. If applying succeeds but refreshing fails, say that settings were saved and current data could not be refreshed.
+Save validates and applies the submitted draft once. A confirmed policy save finishes the action; do not retain an Undo control or a separate reversal record. Keep concurrency and rollback protection behind that action, with no compulsory review screen. Show Saving while pending. Do not attribute changes typed after submission to the completed save; retain them as a newer draft. If applying succeeds but refreshing fails, say that settings were saved and current data could not be refreshed.
 
 Discard changes restores only the named existing object's unsaved scope in place. It does not undo a completed save. A new object's draft counts as unsaved; discarding it returns to its origin and leaves no empty saved object. Back and ordinary navigation preserve the current-session draft with a visible route to resume it. Monitoring settings and notification assignments belong to one policy editor and draft. Refresh preserves a draft when the chosen storage mechanism supports it; otherwise use the browser's supported unsaved-change protection. Do not promise recovery across a restart unless implemented and tested. Cancel is reserved for abandoning a bounded dialog or nested edit whose scope is explicit.
 
@@ -68,7 +68,7 @@ Delete identifies the object and consequences. An assigned notification or metho
 
 ## Action hierarchy and color
 
-Use Home Assistant's theme colors and component conventions. Map product roles to shared tokens rather than assigning one-off colors in each page. Review both light and dark themes.
+Use Home Assistant's theme colors and component conventions. Map product roles to shared tokens rather than assigning one-off colors in each page. Keep navigation labels and status text neutral, with readable contrast on colored surfaces. Review both light and dark themes.
 
 | Role | Visual treatment | Meaning |
 | --- | --- | --- |
@@ -77,11 +77,11 @@ Use Home Assistant's theme colors and component conventions. Map product roles t
 | Destructive action | Explicit label and danger treatment where appropriate | An action such as Delete policy with consequences described in context. |
 | Switch On | Accent track, consistent thumb position and On text | Confirmed enabled state. |
 | Switch Off | Neutral track, opposite thumb position and Off text | Confirmed disabled state. Off is not itself an error. |
-| Selected navigation | Subtle accent surface or indicator, with semantic selection | The current destination or item. |
+| Selected navigation | Subtle accent surface or indicator, neutral text and semantic selection | The current destination or item. |
 | Focus | Distinct visible outline | Keyboard focus; it remains distinguishable from selected state. |
-| Warning | Warning token plus specific text/icon | A condition requiring attention or a material evidence limitation. |
-| Error | Error token plus specific text/icon | A failed operation or established problem condition, according to its meaning. |
-| Success | Success token plus text | A confirmed successful operation or a specifically established state. |
+| Warning | Warning surface or icon with specific neutral text | A condition requiring attention or a material evidence limitation. |
+| Error | Error surface or icon with specific neutral text | A failed operation or established problem condition, according to its meaning. |
+| Success | Success surface or icon with neutral text | A confirmed successful operation or a specifically established state. |
 | Neutral status | Readable neutral text | Not monitored, dashboard-only, disabled by choice, or other ordinary context. |
 
 Blue does not mean Off. A filled Turn on button would describe an available action, but it must never be the only indication of present state. Replace alternating Turn on/Turn off status buttons with the consistent switch pattern where immediate toggling is supported. Show policy status explicitly regardless of control styling.
@@ -94,9 +94,9 @@ Use the Home Assistant font family and a shared type scale. The initial proposed
 
 Essential conditions, action labels and validation use body size or larger. Supporting text contains secondary context; it is never the sole location for a warning or required instruction. Editable fields on narrow touch layouts use at least 16 CSS pixels. Use tabular figures for aligned counts and times, and ordinary text for prose.
 
-Use a 4-pixel spacing basis with a shared set of 4, 8, 12, 16, 24 and 32 pixels. Use smaller gaps within a control or row and larger gaps between tasks. Related content should be visibly closer together than unrelated sections. Use theme surfaces and shared border-radius roles; reserve elevation for overlays. Avoid cards nested inside cards and large empty bordered panels around a few lines of content.
+Use a 4-pixel spacing basis with a shared set of 4, 8, 12, 16, 24 and 32 pixels. Use smaller gaps within a control or row and larger gaps between tasks. Related content should be visibly closer together than unrelated sections. Use theme surfaces and shared border-radius roles; reserve elevation for overlays. Avoid cards nested inside cards and large empty bordered panels around a few lines of content. Source, issue and action dialogs share 24-pixel desktop and 16-pixel narrow insets, 16-pixel section gaps and a visible header while scrolling. Issue and non-entity source dialogs can use one optional Details region for supporting information. Entity details keep policies and relevant actions visible without a Details disclosure. State each active control and expiry once. Preserve affected-member disclosures and the destination picker's single scrolling body.
 
-Use consistent row anatomy: name and useful context, current condition or saved state, then applicable actions. Prefer quiet separators over repeated boxes. Keep primary actions visible; put infrequent actions such as Duplicate and Delete in a labelled menu. A policy name that opens its editor is a link, not an unexplained badge-shaped button.
+Keep page content, headings, field labels and row text left-aligned. Use consistent row anatomy: name and useful context, current condition or saved state, then applicable actions. Prefer quiet separators over repeated boxes. Keep primary actions visible; put infrequent actions such as Duplicate and Delete in a labelled menu. A policy name that opens its editor is a link, not an unexplained badge-shaped button.
 
 ## Navigation and continuity
 
@@ -112,7 +112,13 @@ On narrow screens, the list and detail become successive views with a clear retu
 
 Names describe real sources. Use available friendly names and location to disambiguate; keep raw identifiers in secondary or technical detail unless no useful name exists. Within a device, shorten repeated prefixes where the child stays identifiable. Do not fabricate a room, name or relationship.
 
-Entity details explicitly label Entity, Device when present, and Integration when known. Entity ID and the Homeostatic reconciliation timestamp belong in a collapsed Technical details disclosure. Device details label Device and its integration. A bare device name above an entity does not explain the relationship. Keep the condition and relevant actions ahead of collapsed policy explanations and history. Use Entity availability for the entity availability policy in examples; actual saved policy names remain user-defined.
+Source details share compact spacing and a clear reading order. Entity details lead with the name, meaningful location and current Home Assistant condition in plain language. Show actual monitoring coverage in a concise sentence, followed by related issues, policy links and contextual availability actions. Omit unassigned location placeholders, repeated type labels and Availability/Monitoring fact grids. Keep current evidence distinct from monitoring coverage: an excluded entity can still be unavailable in Home Assistant. Keep missing evidence, independent condition checks, supported equipment maintenance and active equipment controls visible. Entity details have no Details disclosure, raw technical block or history footer. Native links near identity name their actual destination and preserve known device/integration context. Other source types retain useful evidence and affected-member disclosures. Use Entity availability for the entity availability policy in examples; actual saved policy names remain user-defined.
+
+The Monitoring toolbar presents Search, Monitoring status and More filters in that order. More filters opens a labelled anchored panel without rearranging the toolbar; its active state stays visible, Escape dismisses it and returns focus, and updates preserve its controls. Group by and a stable Collapse groups button belong immediately above the tree. Collapse groups affects only tree expansion. On narrow screens, keep these controls with the tree view and retain the selected source when returning from details.
+
+The Monitoring tree uses an Issues badge and omits numerical totals. Selected details list each related issue once; a shared issue can appear in several groups. The badge never asserts that a containing device or integration is unavailable.
+
+Open issues indents each device beneath its integration and each individual finding beneath that device. Group by Home Assistant device identity, never by its name. Show the device name once and use capability or check labels for its findings. Integration summaries name affected devices; device summaries count their independent issues. A reported integration failure or an issue spanning several devices, standalone sources or unknown recorded sources remains at integration level. A loaded integration issue whose complete recorded membership belongs to one device joins that device heading. Registry connection ownership determines its integration. Entities without a known device remain directly reachable. Pagination retains one heading per device and identifies any partially shown set. Keep availability-monitoring removal after the findings as a secondary group action.
 
 Counts name their unit and scope: investigation groups, unique issues, devices, distinct entities or checks. Deduplicate real entity identity before displaying an entity total. Independent policy checks retain their own identities in check details. An investigation group can contain several issues; one engine issue can contain several recorded findings. Label those measures separately and make each advertised set inspectable. An issue shown in multiple contexts contributes once to the global issue total.
 
@@ -122,11 +128,11 @@ Counts name their unit and scope: investigation groups, unique issues, devices, 
 | Separate check | Checked by [policy name], with the check type and its purpose. |
 | Included with device | Used by this device's availability check, with the responsible policy. |
 | Not selected | Not included in this check; show any other checks separately. |
-| Problem actions | Direct actions such as View issue, Acknowledge issue or Pause alerts. |
+| Problem actions | Direct actions such as View issue, Acknowledge issue or Pause notifications. |
 | Change monitoring leading to a generic policy list | Edit policy beside its name, or a choice among the applicable policies. The editor title is Edit policy: [name]. |
 | Delivered | Notification requested, Request failed or another outcome supported by the provider evidence. |
 
-Use sentence case, plain verbs and one consistent term for each concept. Explain technical distinctions at the point they affect a decision. Avoid generic Next step paragraphs when a named action is available. Help and optional integration promotion must not occupy the main path through every task.
+Use notification consistently for outgoing messages and their controls. Use Acknowledge issue because it records awareness of the issue; use Pause notifications because it temporarily holds messages for that issue. Name contextual removal and resumption as availability monitoring so the label does not imply that independent condition checks stop. Related issues in entity details open the complete issue before showing issue controls. Use sentence case, plain verbs and one consistent term for each concept. Explain technical distinctions at the point they affect a decision. Avoid generic Next step paragraphs when a named action is available. Help and optional integration promotion must not occupy the main path through every task.
 
 ## Issue and history presentation
 
@@ -149,8 +155,8 @@ For a source, explain configured behavior per check. For an open issue, show eac
 | Action | Required explanation |
 | --- | --- |
 | Acknowledge issue | Records awareness and stops acknowledgment-dependent repeats; other applicable notification behavior can continue. |
-| Pause alerts | Applies to this issue and every recipient until the specified time; the issue remains open. |
-| Start maintenance | Holds new problems for the supported selected scope until the specified time; current issues and their alerts continue. |
+| Pause notifications | Applies to this issue and every recipient until the specified time; the issue remains open. |
+| Start maintenance | Holds new problems for the supported selected scope until the specified time; current issues and their notifications continue. |
 | End pause or maintenance | Ends this named control; other overlapping controls can remain effective. |
 | Send test | Uses this saved unchanged method and current presence. It can request a test while ordinary issue notifications are off. |
 

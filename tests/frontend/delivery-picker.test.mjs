@@ -16,6 +16,7 @@ function click(card,action,extra={}) {
 function input(card,key,value) {
   assert.equal(editReusable(card,{type:"input",target:{dataset:{[key]:""},value}}),true);
 }
+const pickerHtml=card=>namedNotifications(card).match(/<dialog class="delivery-picker"[\s\S]*?<\/dialog>/)?.[0]||"";
 
 test("method editor shows configured destinations only and no test catalog",()=>{
   const {card}=fixture();const html=namedNotifications(card);
@@ -27,8 +28,8 @@ test("method editor shows configured destinations only and no test catalog",()=>
 test("new method remains solely in editor and cannot be tested before save",()=>{
   const {card}=fixture();click(card,"add");
   const id=card.definitionSelection.id,html=namedNotifications(card);
-  assert.match(html,/New delivery method/);assert.match(html,/Save this delivery method before testing/);
-  assert.doesNotMatch(html,/>Send test<|definition-list"|data-definition-action="duplicate"/);
+  assert.match(html,/New delivery method/);
+  assert.doesNotMatch(html,/Save this delivery method before testing|>Send test<|definition-list"|data-definition-action="duplicate"/);
   click(card,"discard-scoped",{definitionId:id});assert.equal(card.settingsDraft.notification_definitions.methods[id],undefined);
   assert.equal(card.definitionSelection,null);
 });
@@ -43,6 +44,43 @@ test("type-first picker hides unselected categories and groups speaker providers
   click(card,"destination-add",{destinationChannel:"tts:b:kitchen"});
   assert.deepEqual(card.settingsDraft.notification_definitions.methods.home.destinations,["phone:one","tts:b:kitchen"]);
   assert.equal(card.deliveryPicker,null);
+});
+
+test("speaker choices are compact rows with one accessible close control",()=>{
+  const {card}=fixture();click(card,"destination-open");input(card,"definitionDeliveryType","voice");
+  const html=pickerHtml(card);
+  assert.match(html,/<header class="delivery-picker-header">/);
+  assert.match(html,/aria-label="Close destination picker"/);
+  assert.equal((html.match(/data-definition-action="destination-close"/g)||[]).length,1);
+  assert.match(html,/<button[^>]*class="[^"]*delivery-picker-choice[^>]*data-definition-action="destination-speaker"/);
+  assert.match(html,/<span class="delivery-picker-copy"><span class="delivery-picker-name">Kitchen speaker<\/span>/);
+  assert.match(html,/aria-hidden="true"/);
+  assert.doesNotMatch(html,/<footer|>Done<|Choose provider|<fieldset|data-definition-action="destination-add"/);
+});
+
+test("provider view contains only the selected speaker and Back retains the search and draft",()=>{
+  const {card,calls}=fixture();
+  card.configuration.delivery_targets.push({channel:"tts:a:office",type:"voice",name:"Office speaker",destination_id:"office",provider_name:"Local voice",available:true});
+  const before=structuredClone(card.settingsDraft);
+  click(card,"destination-open");input(card,"definitionDeliveryType","voice");input(card,"definitionDeliverySearch","Kitchen");
+  click(card,"destination-speaker",{destinationSpeaker:"kitchen"});
+  let html=pickerHtml(card);
+  assert.match(html,/>Speech provider<\/h2>/);assert.match(html,/Kitchen speaker/);
+  assert.match(html,/Back to speakers/);assert.match(html,/Local voice/);assert.match(html,/Cloud voice/);
+  assert.equal((html.match(/data-definition-action="destination-add"/g)||[]).length,2);
+  assert.doesNotMatch(html,/Office speaker|data-definition-delivery-type|data-definition-delivery-search|data-definition-action="destination-speaker"/);
+  click(card,"destination-back");html=pickerHtml(card);
+  assert.equal(card.deliveryPicker.speaker,null);assert.equal(card.deliveryPicker.query,"Kitchen");assert.equal(card.deliveryPicker.type,"voice");
+  assert.match(html,/>Add destination<\/h2>/);assert.match(html,/data-definition-action="destination-speaker"/);
+  assert.doesNotMatch(html,/Cloud voice|Office speaker|data-definition-action="destination-back"/);
+  assert.deepEqual(card.settingsDraft,before);assert.equal(calls.length,0);
+});
+
+test("closing provider selection does not add a speaker or persist any choices",()=>{
+  const {card,calls}=fixture(),before=structuredClone(card.settingsDraft);
+  click(card,"destination-open");input(card,"definitionDeliveryType","voice");click(card,"destination-speaker",{destinationSpeaker:"kitchen"});
+  click(card,"destination-close");
+  assert.equal(card.deliveryPicker,null);assert.deepEqual(card.settingsDraft,before);assert.equal(calls.length,0);
 });
 
 test("picker filters friendly names and areas without changing configured choices",()=>{

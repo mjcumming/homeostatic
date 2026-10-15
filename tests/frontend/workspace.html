@@ -53,6 +53,8 @@ document.querySelector("#run").onclick=async()=>{
   check(!root.querySelector('[data-page="overview"]'),"Overview removed from navigation");
   click('[data-page="policies"]');click('[data-definition-action="edit"][data-definition-id="policy-1"]');
   check(!root.querySelector('[data-definition-action="save-scoped"]'),"Clean policy has no save actions");
+  check(root.querySelectorAll("main h1").length===1,"Editor has one page title");
+  check([...root.querySelectorAll("[data-workspace-return],.editor-back")].filter(button=>button.getBoundingClientRect().width>0).length===1,"Editor has one visible return route");
   input('[data-definition-field="name"][data-definition-id="policy-1"]',"Changed thermostat");
   check(root.querySelector('[data-definition-action="save-scoped"]'),"Dirty policy has Save policy");
   change('[data-notifications-switch]',true);await settle();

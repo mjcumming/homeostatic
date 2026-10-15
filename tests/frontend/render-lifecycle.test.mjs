@@ -113,11 +113,11 @@ test("an external outage retains the exact pending editor until confirmed save a
   assert.equal(main.inert,true);
   assert.equal(card.current.data.available,false);
   assert.equal(status.textContent,"Applying changes…");
-  card.configuration.settings=structuredClone(draft);card.scopedBusy=null;card.settingsBusy=false;card.scopedNotice="Changes saved.";
+  card.configuration.settings=structuredClone(draft);card.scopedBusy=null;card.settingsBusy=false;card.scopedNotice=null;
   prototype.renderPage.call(card);
   assert.equal(main.writes,1);
   assert.equal(main.inert,true);
-  assert.match(main.querySelector("[data-scoped-editor]").outerHTML,/Changes saved/);
+  assert.doesNotMatch(main.querySelector("[data-scoped-editor]").outerHTML,/Changes saved/);
   assert.doesNotMatch(main.querySelector("[data-scoped-editor]").outerHTML,/Saving…/);
   assert.equal(status.textContent,"Finishing update…");
   card.current=current;prototype.renderPage.call(card);
@@ -125,7 +125,7 @@ test("an external outage retains the exact pending editor until confirmed save a
   assert.equal(status.hidden,true);
   assert.equal(card.retainedSave,null);
   assert.equal(card.settingsDraft,draft);
-  assert.match(main.innerHTML,/Changes saved/);
+  assert.doesNotMatch(main.innerHTML,/Changes saved/);
 });
 
 for(const state of ["unavailable","disconnected","loading","error"]) {
@@ -170,16 +170,37 @@ for(const change of ["different-editor","different-page","global-save"]) {
   });
 }
 
-test("a runtime error after confirmed save ends reload retention without erasing confirmation",()=>{
+test("a runtime error after confirmed save ends reload retention and remains visible",()=>{
   const {card,main}=pendingMethod();
   card.current={status:"unavailable",data:{available:false}};prototype.renderPage.call(card);
-  card.scopedBusy=null;card.settingsBusy=false;card.scopedNotice="Changes saved.";
+  card.scopedBusy=null;card.settingsBusy=false;card.scopedNotice=null;
   card.current={status:"unavailable",data:{available:false,error:"Storage unavailable"}};
   prototype.renderPage.call(card);
   assert.equal(card.retainedSave,null);
   assert.match(main.innerHTML,/Monitoring unavailable/);
-  assert.match(main.innerHTML,/Changes saved/);
+  assert.doesNotMatch(main.innerHTML,/Changes saved/);
   assert.doesNotMatch(main.innerHTML,/Saving…/);
+});
+
+test("newer unsaved edits stay explicit during a confirmed save's remaining runtime outage",()=>{
+  const {card,main,status}=pendingMethod(),current=card.current;
+  card.current={status:"unavailable",data:{available:false}};prototype.renderPage.call(card);
+  card.configuration.settings=structuredClone(card.settingsDraft);
+  card.settingsDraft.notification_definitions.methods.phone.name="Newer phone";
+  card.scopedBusy=null;card.settingsBusy=false;card.scopedNotice="Newer edits are still unsaved.";
+  prototype.renderPage.call(card);
+  assert.equal(main.inert,true);
+  assert.equal(status.textContent,"Finishing update…");
+  assert.match(main.querySelector("[data-scoped-editor]").outerHTML,/Newer edits are still unsaved/);
+  card.current={status:"unavailable",data:{available:false,error:"Storage unavailable"}};
+  prototype.renderPage.call(card);
+  assert.equal(card.retainedSave,null);
+  assert.match(main.innerHTML,/Monitoring unavailable/);
+  assert.match(main.innerHTML,/Newer edits are still unsaved/);
+  assert.doesNotMatch(main.innerHTML,/Changes saved|Saving…/);
+  card.current=current;prototype.renderPage.call(card);
+  assert.match(main.innerHTML,/Newer phone|Save delivery method/);
+  assert.equal(card.settingsDraft.notification_definitions.methods.phone.name,"Newer phone");
 });
 
 test("settings section history navigation ends retention even though save scope is shared",()=>{
@@ -210,6 +231,7 @@ test("unchanged issue details retain disclosures and exclude raw diagnostic cont
     current:{status:"current",data:fixture.data},detail:{episodeId:LYRIC_EPISODE},detailSequence:0,
     shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:label},
     displaySourceName:source=>source.name,tools:{detailButtons:()=>""},
+    capturePageState:()=>({}),restorePageState:()=>{},
     _hass:{localize:lyricLocalize,callWS:async()=>issueEvidenceReply(fixture,"homeostatic/node",LYRIC_ENTRY)},
   };
   await prototype.loadDetail.call(detail);

@@ -80,7 +80,7 @@ An automation can name an entity that has been deleted or renamed. Home Assistan
 
 After startup, and again when automations reload, Homeostatic reads the entity ids saved in each automation's triggers, conditions, and actions. An id that is in neither the entity registry nor the state machine opens one issue for that automation. Removing an entity, or changing its id, checks the automations that still name it. Creating the entity again checks the open issues that named it.
 
-The issue stays out of the dependency map. **Working on this equipment** does not apply. Acknowledge and Pause alerts do. The decision record on [automations that name a missing entity](adr/0050-flag-automations-that-name-missing-entities.md) explains the choices.
+The issue stays out of the dependency map. **Working on this equipment** does not apply. Acknowledge issue and Pause notifications do. The decision record on [automations that name a missing entity](adr/0050-flag-automations-that-name-missing-entities.md) explains the choices.
 
 ## Timing
 
@@ -101,11 +101,11 @@ Ending an issue:
 - A vacuum error ends as soon as the activity is cleaning, docked, idle, paused, or returning. Unavailable, unknown, and restored states leave it open.
 - When an integration recovers, devices and entities that are still reconnecting get a minute (**Allow reconnecting devices**) before they count as failures of their own.
 
-Sending notifications: policies select named notifications whose shared definitions own timing and delivery methods. Immediate delivery requests attention when an eligible issue opens; acknowledgment reminders stop on acknowledgment or recovery. Daily-hours delivery holds requests outside its window and uses **Standard alert batching** during open hours. Scheduled summaries include eligible open issues at their chosen times, including acknowledged problems. No assignment means dashboard-only monitoring. Unconfigured destinations or global sending off prevent requests.
+Sending notifications: policies select named notifications whose shared definitions own timing and delivery methods. Immediate delivery requests attention when an eligible issue opens; acknowledgment reminders stop on acknowledgment or recovery. Daily-hours delivery holds requests outside its window and uses **Standard notification batching** during open hours. Scheduled summaries include eligible open issues at their chosen times, including acknowledged problems. No assignment means dashboard-only monitoring. Unconfigured destinations or global sending off prevent requests.
 
 ## Restarts
 
-Homeostatic saves its state, including open issues, history, paused alerts, equipment work and reminder timers, and picks up where it left off after a restart. An issue that was open before the restart continues as the same issue. It isn't reported again as new.
+Homeostatic saves its state, including open issues, history, notification pauses, equipment work and reminder timers, and picks up where it left off after a restart. An issue that was open before the restart continues as the same issue. It isn't reported again as new.
 
 While Home Assistant starts, states it restores from before the restart count as unknown, neither working nor failed. For the first two minutes (**Wait after startup**), Homeostatic opens no new issues. After that, anything still failing opens an issue as usual.
 

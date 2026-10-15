@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-15 03:23:36 UTC",
+  "base_commit": "00de1bbbc2a0c1c204b8505a289b4fd475e5537c",
+  "branch": "main",
+  "build": "uncommitted working tree",
+  "environment": {
+    "fixture": "tests/frontend/delivery-picker-layout.html",
+    "browser": "Chrome 155 on Windows",
+    "data": "20 synthetic speakers with two providers each, a long speaker name, app and SMS destinations",
+    "transport": "No service or save requests allowed"
+  },
+  "quick_checks": "passed",
+  "frontend_tests": 421,
+  "results": [
+    {
+      "id": "methods.picker-layout",
+      "status": "pass",
+      "runs": [
+        {
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "theme": "dark",
+          "evidence": [
+            "Automatic geometry and selection checks passed. Native Escape still needs a real keystroke.",
+            "Real Escape keystroke closed the picker, preserved draft choices, and returned focus; no service calls."
+          ]
+        },
+        {
+          "viewport": {
+            "width": 320,
+            "height": 640
+          },
+          "theme": "light",
+          "evidence": [
+            "Automatic geometry and selection checks passed. Native Escape still needs a real keystroke.",
+            "Real Escape keystroke closed the picker, preserved draft choices, and returned focus; no service calls."
+          ]
+        },
+        {
+          "viewport": {
+            "width": 1280,
+            "height": 900
+          },
+          "theme": "light",
+          "evidence": [
+            "Automatic geometry and selection checks passed. Native Escape still needs a real keystroke.",
+            "Real Escape keystroke closed the picker, preserved draft choices, and returned focus; no service calls."
+          ]
+        }
+      ],
+      "checks": [
+        "Full production delivery-method editor nesting",
+        "Title and 44px Close control on one row",
+        "Compact left-aligned rows with wrapping long names",
+        "One scrolling body; last speaker reachable and uncovered",
+        "Separate provider view, Back, exact provider selection and direct app selection",
+        "Close and native Escape retain drafts and return focus",
+        "No saved settings or notification requests changed"
+      ]
+    },
+    {
+      "id": "layout.visual-review",
+      "status": "untested",
+      "evidence": [
+        "No screenshot was returned. Browser screenshot API and supported CDP Page.captureScreenshot repeatedly timed out, including after bringing the page forward and testing both phone and desktop dimensions. Geometry and accessibility-tree checks do not establish visual acceptance."
+      ]
+    },
+    {
+      "id": "layout.safari",
+      "status": "untested",
+      "evidence": [
+        "No physical iPhone or iPad run."
+      ]
+    }
+  ],
+  "scope": "Only the destination-picker path was exercised in this fixture. Unit and quick checks cover the complete current frontend. Earlier receipts retain their own scope.",
+  "live_installation": "not changed",
+  "publication": "not committed, pushed or released",
+  "files_sha256": {
+    "tests/frontend/delivery-picker-layout.html": "25daab644773e452c040ba6b3a2610b895a74cbcb166cb45b5f3b2c4e0a296e3",
+    "custom_components/homeostatic/frontend/styles.mjs": "e46e98dda70f3b3fe0b35281917a72d57517c7447dd8e3251d7b9ee45ad75015",
+    "tests/frontend/delivery-picker-layout-scenario.mjs": "8606fe3463cbb79408d20e13aa78c08ba658ef722a53d687594aa49827d5ef9c",
+    "custom_components/homeostatic/frontend/delivery-picker.mjs": "9448dd308f9c569dff372922c3864a10df99a758b22d2f58338da0307b973201"
+  }
+}

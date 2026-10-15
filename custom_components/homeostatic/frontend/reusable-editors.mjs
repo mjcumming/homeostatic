@@ -1,6 +1,6 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=74";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=74";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=74";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=82";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=82";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=82";
 
 export const POLICY_CHECKS = {
   availability: "HA availability", battery: "Battery condition", vacuum: "Vacuum error",
@@ -23,7 +23,7 @@ const select = (kind,id,field,label,value,choices) => `<label class="installatio
 export function scopedEditorFooter(card,scope,label) {
   initializeScopedConfiguration(card);
   const key=scope.id?`${scope.kind}:${scope.id}`:scope.kind,status=card.scopedStatusScope===key;
-  const feedback=`${status&&card.scopedError?`<p class="config-error" role="alert">${esc(card.scopedError)}</p>`:""}${status&&card.scopedNotice?`<p role="status">${esc(card.scopedNotice)}</p>`:""}`;
+  const feedback=`${status&&card.scopedError&&!(scope.kind==="policy"&&card.policyValidation?.id===scope.id)?`<p class="config-error" role="alert">${esc(card.scopedError)}</p>`:""}${status&&card.scopedNotice?`<p role="status">${esc(card.scopedNotice)}</p>`:""}`;
   const kind={policy:"policies",method:"methods",profile:"profiles",settings:"settings"}[scope.kind],disabled=card.scopedBusy?"disabled":"";
   const actions=scopedDirty(card,scope)?`<footer class="installation-actions"><span class="small">Unsaved changes</span><div class="actions">${button("discard-scoped","Discard changes",kind,scope.id||"",disabled)}${button("save-scoped",card.scopedBusy===key?"Saving…":label,kind,scope.id||"",disabled,"primary")}</div></footer>`:"";
   return `<div data-scoped-editor="${esc(key)}" data-scope-kind="${esc(scope.kind)}" data-scope-id="${esc(scope.id||"")}" data-save-label="${esc(label)}">${feedback}${actions}</div>`;
@@ -32,22 +32,27 @@ export function scopedEditorFooter(card,scope,label) {
 function editableMethod(card,id) {
   return card.settingsDraft.notification_definitions.methods[id];
 }
+const compactNames=names=>names.slice(0,2).join(", ")+(names.length>2?` +${names.length-2} more`:"");
+const useCount=uses=>uses.length?`${uses.length} ${uses.length===1?"use":"uses"}`:"Not used yet";
 function policyScopeSummary(card,policy) {
   const mode=watchMode(policy);
   if(mode==="all")return watchChoices(policy).all;
   const field=mode==="selected"?sourceField(policy):mode,choices=policySelectionChoices(card,policy,mode);
   const values=mode==="all_except"?policy.excluded_sources||[]:policy.match[field]||[];
-  const names=values.map(id=>choices.find(item=>item.id===id)?.name||(mode==="all_except"?"Unavailable excluded source":"Unavailable selection"));
-  if(mode==="all_except")return names.length?`All ${sourceNoun(policy)} except: ${names.join(", ")}`:`All ${sourceNoun(policy)}; no exclusions`;
-  const summary=names.length?`${mode==="selected"?"Selected "+sourceNoun(policy):mode==="area"?"Areas":"Labels"}: ${names.join(", ")}`:"No sources selected";
+  const names=values.map(id=>choiceSummary(choices.find(item=>item.id===id),mode==="all_except"?"Unavailable excluded source":"Unavailable selection"));
+  const unavailable=values.filter(id=>!choices.some(item=>item.id===id)).length;
+  const selection=compactNames(names)+(unavailable&&names.length>2?` · ${unavailable} unavailable`:"");
+  if(mode==="all_except")return names.length?`All ${sourceNoun(policy)} except: ${selection}`:`All ${sourceNoun(policy)}; no exclusions`;
+  const summary=names.length?`${mode==="selected"?"Selected "+sourceNoun(policy):mode==="area"?"Areas":"Labels"}: ${selection}`:"No sources selected";
   return `${summary}${policy.excluded_sources?.length?`; ${policy.excluded_sources.length} excluded`:""}`;
 }
 function policyDetectionSummary(policy) {
   const p=policy.parameters||{};
   if(policy.check==="battery")return `Battery at or below ${p.threshold??20}%`;
-  if(policy.check==="temperature_limit")return [p.minimum!==undefined?`Below ${p.minimum}${p.unit}`:"",p.maximum!==undefined?`Above ${p.maximum}${p.unit}`:"",p.duration_seconds?`for ${p.duration_seconds} seconds`:""].filter(Boolean).join(" · ")||"Temperature bounds need configuration";
+  if(policy.check==="temperature_limit")return [p.minimum!=null?`Below ${p.minimum}${p.unit}`:"",p.maximum!=null?`Above ${p.maximum}${p.unit}`:"",p.duration_seconds?`for ${formatPolicyDuration(p.duration_seconds)}`:""].filter(Boolean).join(" · ")||"Temperature bounds need configuration";
   if(policy.check==="thermostat")return `${p.margin}${p.unit} deviation · ${p.progress_seconds/60} minute progress window`;
-  return {availability:"Reported Home Assistant availability",repair:"Reported Home Assistant Repairs",broken_automation:"References to missing entities",vacuum:"Reported vacuum error",ups_power:"UPS running on backup power",ups_reserve:"Reported low reserve warning and configured thresholds",ups_battery_replacement:"Reported battery replacement warning",ups_fault:"Reported UPS fault"}[policy.check]||POLICY_CHECKS[policy.check];
+  if(policy.check==="ups_reserve")return [p.charge_low!==undefined?`Charge at or below ${p.charge_low}%`:"",p.runtime_low_minutes!==undefined?`Runtime at or below ${p.runtime_low_minutes} minutes`:""].filter(Boolean).join(" · ");
+  return "";
 }
 function rowDefinition(definitions,row) {
   return row.profile ? definitions.profiles?.[row.profile] : row;
@@ -58,20 +63,38 @@ function reminderMinutes(value) {
   return parts.length?parts.reduce((total,[,amount,unit])=>total+Number(amount)*{s:1/60,m:1,h:60,d:1440}[unit],0):Number(value)/60;
 }
 function timingSummary(timing={mode:"immediate"}) {
-  if(timing.mode==="report")return `${timing.at} · ${(timing.weekdays||[]).map(day=>DAYS[day].slice(0,3)).join(", ")}`;
+  if(timing.mode==="report") {
+    const days=timing.weekdays||[];
+    return `${timing.at} · ${DAYS.every((_,day)=>days.includes(day))?"Every day":days.map(day=>DAYS[day].slice(0,3)).join(", ")||"No days selected"}`;
+  }
   if(timing.mode==="acknowledge")return `Immediately; remind every ${reminderMinutes(timing.remind_every)} minutes until acknowledged`;
   if(timing.mode==="window")return `${timing.start}–${timing.end} daily; hold outside these hours`;
   return "Immediately";
+}
+function notificationChoices(profiles) {
+  const order={acknowledge:0,immediate:1,window:2,report:3};
+  return Object.entries(profiles).sort(([leftId,left],[rightId,right])=>{
+    const a=left.timing,b=right.timing;
+    return order[a.mode]-order[b.mode]
+      || (a.mode==="report"&&b.mode==="report"?b.weekdays.length-a.weekdays.length||a.at.localeCompare(b.at):0)
+      || left.name.localeCompare(right.name)||leftId.localeCompare(rightId);
+  });
 }
 function notificationSummary(definitions,row) {
   const entry=rowDefinition(definitions,row);
   if(!entry)return "Unavailable notification";
   const methods=(entry.methods||[]).map(id=>definitions.methods?.[id]?.name||"Unavailable method").join(", ");
-  return `${row.profile?entry.name:"Custom notification"} · ${timingSummary(entry.timing)} → ${methods||"No delivery method selected"}`;
+  return `${timingSummary(entry.timing)} → ${methods||"No delivery method selected"}`;
 }
 function savedNotificationSummary(card,policy) {
   if(!policy.notifications?.length)return "Dashboard only";
-  return policy.notifications.map(row=>notificationSummary(card.configuration.settings.notification_definitions,row)).join("; ");
+  const definitions=card.configuration.settings.notification_definitions;
+  return policy.notifications.map(row=>{
+    const entry=rowDefinition(definitions,row);
+    const methodStatus=!entry?.methods?.length?" · No delivery method selected":entry.methods.some(id=>!definitions.methods?.[id])?" · Unavailable delivery method":"";
+    const summary=row.profile?entry?`${entry.name}${methodStatus}`:"Unavailable notification":`Custom notification · ${notificationSummary(definitions,row)}`;
+    return `${row.when?`${row.when==="backup"?"Backup power":"Mains power"}: `:""}${summary}`;
+  }).join("; ");
 }
 
 export function nextDefinitionId(existing,prefix) {
@@ -158,19 +181,29 @@ function nextPolicySummary(card,row,scope) {
 export function notificationRowsEditor(card,rows,scope) {
   const definitions=card.settingsDraft.notification_definitions,profiles=card.configuration.settings.notification_definitions?.profiles||{};
   const reserve=card.settingsDraft.monitoring_policies.find(item=>item.id===scope.slice(7))?.check==="ups_reserve";
+  const choices=current=>notificationChoices(profiles).map(([id,profile])=>option(id,profile.name,current)).join("");
   const choice=(row,index)=> {
-    const attr=field=>`data-row-scope="${esc(scope)}" data-row-id="${esc(row?.id||"")}" data-row-field="${field}"`;
-    const current=row?.profile||"";
-    const options=Object.entries(profiles).map(([id,profile])=>option(id,profile.name,current)).join("");
-    const entry=row&&rowDefinition(definitions,row);
-    return `<div class="definition-notification-row">${reserve&&row?`<label>When reserve is low<select ${attr("when")}>${[["mains","Mains power confirmed"],["backup","Backup power confirmed"]].map(([id,name])=>option(id,name,row.when||"mains")).join("")}</select></label>`:""}<label class="installation-field"><span>${rows.length>1?`Notification ${index+1}`:"Notification"}</span><select ${attr("profile")}>${option("",row&&!row.profile?"Custom notification — keep current settings":"Dashboard only",current)}${row?.profile&&!profiles[row.profile]?option(row.profile,"Unavailable notification",current):""}${options}</select></label>${row?`<p class="small">${esc(notificationSummary(definitions,row))}</p>${entry?.timing?.mode==="report"?`<p class="small">${esc(nextPolicySummary(card,row,scope))}</p>`:""}${rows.length>1||!row.profile?button("remove-row","Remove notification","",row.id,`data-row-scope="${esc(scope)}"`):""}`:""}</div>`;
+    const attr=field=>`data-row-scope="${esc(scope)}" data-row-id="${esc(row.id)}" data-row-field="${field}"`;
+    const current=row.profile||"",entry=rowDefinition(definitions,row);
+    const methods=entry?.methods?.map(id=>definitions.methods?.[id]?.name||"Unavailable method").join(", ");
+    const name=entry?.name||(row.profile?"Unavailable notification":"Custom notification");
+    return `<div class="policy-notification-row"><div class="policy-notification-controls"><label class="installation-field"><span class="sr-only">Notification ${index+1}</span><select ${attr("profile")}>${option("",row.profile?"Dashboard only":"Custom notification — keep current settings",current)}${row.profile&&!profiles[row.profile]?option(row.profile,"Unavailable notification",current):""}${choices(current)}</select></label>${button("remove-row","Remove","",row.id,`data-row-scope="${esc(scope)}" aria-label="${esc(`Remove notification ${index+1}: ${name}`)}"`)}</div>${reserve?`<label class="installation-field policy-notification-condition"><span>When reserve is low</span><select ${attr("when")}>${[["mains","Mains power confirmed"],["backup","Backup power confirmed"]].map(([id,name])=>option(id,name,row.when||"mains")).join("")}</select></label>`:""}${entry?`<dl class="policy-notification-facts"><div><dt>When</dt><dd>${esc(timingSummary(entry.timing))}</dd></div><div><dt>Send to</dt><dd>${esc(methods||"No delivery method selected")}</dd></div></dl>${entry.timing?.mode==="report"?`<p class="policy-notification-next">${esc(nextPolicySummary(card,row,scope))}</p>`:""}`:`<p class="policy-notification-next">Choose an available notification or remove this assignment.</p>`}</div>`;
   };
-  return `${rows.length?rows.map(choice).join(""):choice(null,0)}${rows.length?button("add-row","Add another notification","","",`data-row-scope="${esc(scope)}"${Object.keys(profiles).length?"":" disabled"}`):""}<p class="small">Manage named notifications and their delivery methods in Notifications.</p>`;
+  return `<div class="policy-notifications">${rows.length?rows.map(choice).join(""):`<div class="policy-notification-empty"><strong>No notifications</strong><p>Issues still appear in Open issues.</p></div>`}<label class="installation-field policy-notification-add"><span>Add notification</span><select data-row-scope="${esc(scope)}" data-row-id="" data-row-field="profile"${Object.keys(profiles).length?"":" disabled"}>${option("","Choose a notification…","")}${choices("")}</select></label>${Object.keys(profiles).length?"":`<p class="policy-notification-next">Create a notification in Notifications to add it here.</p>`}</div>`;
 }
 
 function methodSummary(card,method) {
   if(method.mode!=="fixed")return METHOD_MODES[method.mode];
-  return (method.destinations||[]).map(channel=>card.configuration.delivery_targets?.find(target=>target.channel===channel)).map(target=>target?.destination_name||target?.name).filter(Boolean).join(", ")||METHOD_MODES[method.mode];
+  const destinations=method.destinations||[],targets=card.configuration.delivery_targets;
+  if(!destinations.length)return "No destinations selected";
+  if(!targets)return `${destinations.length} saved ${destinations.length===1?"destination":"destinations"}`;
+  const names=destinations.map(channel=>{
+    const target=targets.find(item=>item.channel===channel);
+    return target?.destination_name||target?.name||(channel.startsWith("sms:")?`SMS ${decodeURIComponent(channel.split(":").slice(2).join(":"))}`:"Unavailable destination");
+  });
+  const unavailable=destinations.filter(channel=>{const target=targets.find(item=>item.channel===channel);return target?target.available===false:!channel.startsWith("sms:");}).length;
+  if(names.length===1&&names[0]===method.name&&!unavailable)return "";
+  return compactNames(names)+(unavailable?` · ${unavailable} unavailable`:"");
 }
 
 
@@ -193,67 +226,150 @@ function sourceField(policy) {
 export function watchMode(policy) {
   return policy.match.area?"area":policy.match.label?"label":policy.match[sourceField(policy)]||policy.match.integration?"selected":Object.hasOwn(policy,"excluded_sources")?"all_except":"all";
 }
+function completeSelectionCatalog(card) {
+  const data=card.current?.data;
+  return Boolean(data?.inventory?.catalog)&&!(data.schema_version===3&&!data.catalog_loaded);
+}
+function policySources(card,policy) {
+  if(!completeSelectionCatalog(card))return [];
+  return inventoryRows(card.current.data).filter(source=>source.kind===sourceKind(policy)&&(policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature")));
+}
+function sourceContext(card,source) {
+  if(source.kind==="integration")return "";
+  const areaId=source.attributes?.area?.[0];
+  if(!areaId)return "No area assigned";
+  const area=card.configuration.areas?.find(item=>item.id===areaId);
+  if(!area)return "Area unavailable";
+  const floor=card.configuration.floors?.find(item=>item.id===area.floor_id);
+  return [area.name,floor?.name].filter(Boolean).join(" · ");
+}
+function contextualChoices(card,sources,identify,group) {
+  const originals=new Map((card.current?.data?.inventory?.catalog?.candidates||[]).map(source=>[source.node_id,source]));
+  const choices=[...new Map(sources.map(source=>{
+    source=originals.get(source.monitoring_source||source.node_id)||source;
+    const id=identify(source);
+    return [id,{id,name:source.name,context:sourceContext(card,source),...(source.entity_id?{entity_id:source.entity_id}:{}),group:group(source)}];
+  }).filter(([id])=>id)).values()];
+  const counts=new Map(),identities=new Map();
+  for(const item of choices){const key=JSON.stringify([item.name,item.context]),identity=JSON.stringify([item.name,item.context,item.entity_id]);counts.set(key,(counts.get(key)||0)+1);identities.set(identity,(identities.get(identity)||0)+1);}
+  return choices.map(item=>({...item,detail:counts.get(JSON.stringify([item.name,item.context]))>1?item.entity_id&&identities.get(JSON.stringify([item.name,item.context,item.entity_id]))===1?item.entity_id:item.id:""}));
+}
+function choiceSummary(item,fallback) {
+  if(!item)return fallback;
+  return [item.name,item.context,...(item.count===undefined?[item.detail]:[])].filter(Boolean).join(" · ");
+}
+function sourceCount(policy,count) {
+  const noun=sourceNoun(policy),singular={batteries:"battery",entities:"entity","UPS devices":"UPS device","temperature sensors":"temperature sensor"}[noun]||noun.slice(0,-1);
+  return count===null?"Matching sources not loaded":count===0?`No ${noun} currently found`:`${count} ${count===1?singular:noun}`;
+}
 export function policySelectionChoices(card,policy,mode) {
-  if(mode==="area"||mode==="label")return (card.configuration[mode==="area"?"areas":"labels"]||[]).map(item=>({...item,group:mode==="area"?(card.configuration.floors||[]).find(floor=>floor.id===item.floor_id)?.name||"Other areas":"Labels"}));
-  const inventory=card.current?.data?.inventory?.catalog?inventoryRows(card.current.data):[];
+  if(mode==="area"||mode==="label") {
+    const complete=completeSelectionCatalog(card),stale=complete&&card.current.data.catalog_stale;
+    const counts=new Map(),field=sourceField(policy);
+    const sources=policySources(card,policy).filter(source=>!source.disabled&&(policy.check!=="availability"||(source.kind!=="entity"||!source.attributes?.entity_category?.length)&&(source.kind!=="device"||source.availability_entities?.length)));
+    for(const source of sources)for(const id of source.attributes?.[mode]||[]) {
+      const identities=counts.get(id)||new Set();
+      identities.add(source.attributes?.[field]?.[0]||source.monitoring_source||source.node_id);counts.set(id,identities);
+    }
+    return (card.configuration[mode==="area"?"areas":"labels"]||[]).map(item=>{
+      const floor=mode==="area"?card.configuration.floors?.find(floor=>floor.id===item.floor_id):null;
+      const count=complete?counts.get(item.id)?.size||0:null;
+      return {...item,count,context:floor?.name||"",detail:stale?(count===0?`No ${sourceNoun(policy)} in last loaded list`:`${sourceCount(policy,count)} (last known)`):sourceCount(policy,count),group:mode==="area"?floor?.name||"Areas without a floor":"Labels"};
+    });
+  }
+  const inventory=completeSelectionCatalog(card)?inventoryRows(card.current.data):[];
   if(mode==="all_except") {
     const kind=sourceKind(policy);
-    return [...new Map(inventory.filter(source=>source.kind===kind||kind==="device"&&source.kind==="entity"&&source.attributes?.device?.length).filter(source=>(policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature"))).map(source=>{
-      const id=source.monitoring_source||source.node_id;
-      return [id,{id,name:source.name,...(source.entity_id?{entity_id:source.entity_id}:{}),group:kind==="device"?(source.kind==="device"?"Whole devices":"Individual device entities"):kind==="integration"?"Integration connections":"Sources"}];
-    })).values()];
+    const sources=inventory.filter(source=>source.kind===kind||kind==="device"&&source.kind==="entity"&&source.attributes?.device?.length).filter(source=>(policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature")));
+    return contextualChoices(card,sources,source=>source.monitoring_source||source.node_id,source=>kind==="device"?(source.kind==="device"?"Whole devices":"Individual device entities"):kind==="integration"?"Integration connections":"Sources");
   }
   if(policyType(policy)==="integration") {
     const domains=[...new Set(inventory.filter(source=>source.kind==="integration").flatMap(source=>source.attributes?.integration_domain||source.attributes?.domain||[]))];
     return domains.map(id=>({id,name:card._hass?.localize?.(`component.${id}.title`)||({mobile_app:"Mobile App",esphome:"ESPHome",nut:"Network UPS Tools (NUT)"})[id]||id.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase()),group:"Integrations"}));
   }
   const field=sourceField(policy),noun=sourceNoun(policy),group=noun[0].toUpperCase()+noun.slice(1);
-  return [...new Map(inventory.filter(source=>source.kind===sourceKind(policy)&&(policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature"))).map(source=>{
-    const id=source.attributes?.[field]?.[0];
-    return [id,{id,name:source.name,...(source.entity_id?{entity_id:source.entity_id}:{}),group}];
-  }).filter(([id])=>id)).values()];
+  return contextualChoices(card,policySources(card,policy),source=>source.attributes?.[field]?.[0],()=>group);
 }
 function watchEditor(card,policy) {
   if(policy.check==="repair")return '<p>Watches all Home Assistant Repairs.</p>';
   if(policy.check==="broken_automation")return '<p>Checks all automations for references to entities that no longer exist.</p>';
-  const mode=watchMode(policy),choices=watchChoices(policy),field=mode==="selected"?sourceField(policy):mode,excluding=mode==="all_except";
+  const mode=watchMode(policy),choices=watchChoices(policy),field=mode==="selected"?sourceField(policy):mode,excluding=mode==="all_except",grouped=["area","label"].includes(mode);
   const noun=mode==="area"?"areas":mode==="label"?"labels":excluding&&sourceKind(policy)==="device"?"devices or entities":excluding&&sourceKind(policy)==="integration"?"integration connections":sourceNoun(policy);
-  const data=card.current?.data,sourceChoices=["selected","all_except"].includes(mode);
-  const catalogPending=sourceChoices&&data?.schema_version===3&&!data.catalog_loaded;
-  const catalogStale=sourceChoices&&data?.catalog_stale;
-  const catalogStatus=catalogPending||catalogStale?`<p class="note" role="status">${card.current.catalogError?`Could not ${catalogPending?"load":"update"} available sources: ${esc(card.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry loading sources</button>`:catalogPending?"Loading available sources…":"Updating available sources. You can keep using the previous complete list until the update finishes."}</p>`:"";
-  const values=excluding?policy.excluded_sources||[]:policy.match[field]||[],items=catalogPending?[]:policySelectionChoices(card,policy,mode);
-  const names=values.map(id=>items.find(item=>item.id===id)?.name||(catalogPending?excluding?"Saved exclusion":"Saved selection":excluding?"Unavailable excluded source":"Unavailable selection"));
+  const data=card.current?.data,catalogPending=mode!=="all"&&!completeSelectionCatalog(card),catalogStale=mode!=="all"&&data?.catalog_stale;
+  const catalogStatus=catalogPending||catalogStale?`<p class="note" role="status">${card.current?.catalogError?`Could not ${catalogPending?"load":"update"} available sources: ${esc(card.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry loading sources</button>`:catalogPending?"Loading available sources…":"Updating available sources. You can keep using the previous complete list until the update finishes."}</p>`:"";
+  const values=excluding?policy.excluded_sources||[]:policy.match[field]||[],items=policySelectionChoices(card,policy,mode);
+  const fallback=catalogPending?excluding?"Saved exclusion":"Saved selection":excluding?"Unavailable excluded source":"Unavailable selection";
+  const selectedItems=values.map(id=>items.find(item=>item.id===id)||{id,name:fallback,detail:id});
   const oldConnections=policyType(policy)==="integration"&&policy.match.integration;
   const picker=card.policyPicker?.id===policy.id?card.policyPicker:null;
-  const filtered=picker?items.filter(item=>(!picker.selectedOnly||values.includes(item.id))&&[item.name,item.entity_id].filter(Boolean).join(" ").toLocaleLowerCase().includes(picker.query.trim().toLocaleLowerCase())):[];
+  const unavailable=values.filter(id=>!catalogPending&&!items.some(item=>item.id===id)).map(id=>({id,name:excluding?"Unavailable excluded source — clear to include if it returns":"Unavailable selection — clear to remove",detail:id,group:"Unavailable selections"}));
+  const filtered=picker?[...items.filter(item=>(!picker.selectedOnly||values.includes(item.id))&&(!grouped||picker.showAll||item.count!==0||values.includes(item.id))&&[item.name,item.context,item.detail,item.entity_id,item.id].filter(Boolean).join(" ").toLocaleLowerCase().includes(picker.query.trim().toLocaleLowerCase())),...unavailable]:[];
   const groups=[...new Set(filtered.map(item=>item.group))];
   const verb=excluding?"excluded":"selected",choose=excluding?`Exclude ${noun}`:`Choose ${noun}`;
   const description=excluding?`Includes current and future ${sourceNoun(policy)}, except the sources chosen here. Exclusions apply only to this policy.`:mode==="selected"?policyType(policy)==="integration"?"Includes all current and future connections for each selected integration.":`Only the selected ${sourceNoun(policy)} are included.`:`Includes current and future matching ${sourceNoun(policy)} in any selected ${mode==="area"?"area":"label"}.`;
   const excludedChoices=!excluding&&policy.excluded_sources?.length?policySelectionChoices(card,policy,"all_except"):[];
-  const additionalExclusions=!excluding&&policy.excluded_sources?.length?`<p class="small">This scope also excludes: ${policy.excluded_sources.map(id=>esc(excludedChoices.find(item=>item.id===id)?.name||"Unavailable excluded source")).join(", ")}. Saved exclusions remain in effect.</p>`:"";
+  const additionalExclusions=!excluding&&policy.excluded_sources?.length?`<p class="small">This scope also excludes: ${policy.excluded_sources.map(id=>esc(choiceSummary(excludedChoices.find(item=>item.id===id),"Unavailable excluded source"))).join(", ")}. Saved exclusions remain in effect.</p>`:"";
   const availabilityNote=policy.check==="availability"&&["entity","device"].includes(sourceKind(policy))?'<p class="small">Diagnostic and configuration entities are excluded unless individually selected. Disabled sources are not monitored.</p>':"";
-  return `${select("policies",policy.id,"watch","Watch",mode,choices)}${catalogStatus}${mode!=="all"?`<div class="policy-selection"><p>${oldConnections?"Saved individual connections. Choose integrations to replace this selection.":names.length?esc(names.slice(0,2).join(", "))+(names.length>2?` +${names.length-2} more`:""):excluding?"No exclusions":"Nothing selected"}</p>${button("pick",choose,"policies",policy.id)}${picker?`<section class="policy-picker" aria-label="${choose}">${excluding?'<p>Check sources to exclude them from this policy.</p>':""}<label class="installation-field"><span>Search ${noun}</span><input type="search" data-definition-picker-search value="${esc(picker.query)}"></label><label class="installation-toggle"><input type="checkbox" data-definition-picker-selected${checked(picker.selectedOnly)}>Show ${verb} only</label><p role="status">${values.length} ${verb}</p><div class="policy-picker-options">${groups.map(group=>`<fieldset><legend>${esc(group)}</legend>${filtered.filter(item=>item.group===group).sort((a,b)=>a.name.localeCompare(b.name)).map(item=>`<label class="installation-toggle"><input type="checkbox" ${attrs("policies",policy.id,"selection")} data-definition-value="${esc(item.id)}"${checked(values.includes(item.id))}>${esc(item.name)}</label>`).join("")}</fieldset>`).join("")||(catalogPending?"":'<p>No matching choices.</p>')}${values.filter(id=>!catalogPending&&!items.some(item=>item.id===id)).map(id=>`<label class="installation-toggle"><input type="checkbox" ${attrs("policies",policy.id,"selection")} data-definition-value="${esc(id)}" checked>${excluding?"Unavailable excluded source — clear to include if it returns":"Unavailable selection — clear to remove"}</label>`).join("")}</div>${button("finish-pick","Done","policies",policy.id)}</section>`:""}<p class="small">${description}</p></div>`:`<p class="small">Includes current and future ${sourceNoun(policy)}.</p>`}${additionalExclusions}${availabilityNote}`;
+  const row=item=>`<label class="policy-picker-choice"><input type="checkbox" ${attrs("policies",policy.id,"selection")} data-definition-value="${esc(item.id)}"${checked(values.includes(item.id))}><span class="policy-picker-copy"><span>${esc(item.name)}</span>${!grouped&&item.context?`<span class="policy-picker-context">${esc(item.context)}</span>`:""}${item.detail?`<span class="policy-picker-detail">${esc(item.detail)}</span>`:""}</span></label>`;
+  const results=groups.map(group=>`<fieldset>${grouped&&mode==="area"||groups.length>1?`<legend>${esc(group)}</legend>`:`<legend class="sr-only">${esc(group)}</legend>`}${filtered.filter(item=>item.group===group).sort((a,b)=>a.name.localeCompare(b.name)||(a.context||"").localeCompare(b.context||"")||a.id.localeCompare(b.id)).map(row).join("")}</fieldset>`).join("");
+  const empty=picker?.query.trim()?`No ${noun} match your search.`:picker?.selectedOnly?`No ${noun} ${verb}.`:grouped?`No ${noun} with matching ${sourceNoun(policy)}. Use Show all ${noun} to choose for future sources.`:`No ${noun} available to choose.`;
+  const searchLabel=grouped||sourceKind(policy)==="integration"?`Search ${noun}`:"Search by name or area";
+  const pickerBody=picker?`<section class="policy-picker" aria-label="${choose}">${excluding?'<p>Check sources to exclude them from this policy.</p>':""}<label class="policy-picker-search"><span>${searchLabel}</span><input type="search" data-definition-picker-search value="${esc(picker.query)}"></label><div class="policy-picker-tools"><label><input type="checkbox" data-definition-picker-selected${checked(picker.selectedOnly)}>Show ${verb} only</label>${grouped?`<label><input type="checkbox" data-definition-picker-all${checked(picker.showAll)}>Show all ${noun}</label>`:""}</div><div class="policy-picker-options">${results||(catalogPending?"":`<p>${esc(empty)}</p>`)}</div><footer class="policy-picker-footer"><span role="status">${values.length} ${verb}</span>${button("finish-pick","Done","policies",policy.id)}</footer></section>`:"";
+  const summary=oldConnections?'<p>Saved individual connections. Choose integrations to replace this selection.</p>':selectedItems.length?`<ul class="policy-selected-sources" aria-label="${excluding?"Excluded":"Selected"} ${esc(noun)}">${selectedItems.map(item=>`<li><span>${esc(item.name)}</span>${item.context?`<span class="small">${esc(item.context)}</span>`:""}${item.detail?`<span class="small">${esc(item.detail)}</span>`:""}</li>`).join("")}</ul>`:`<p>${excluding?"No exclusions":"None selected"}</p>`;
+  const selectionAction=mode!=="all"&&!picker?button("pick",values.length?"Change selection":choose,"policies",policy.id,`aria-label="${esc(choose)}"`):"";
+  return `<div class="policy-watch-controls">${select("policies",policy.id,"watch","Include",mode,choices)}${selectionAction}</div>${catalogStatus}${mode!=="all"?`<div class="policy-selection">${picker?pickerBody:`<div class="policy-selection-summary">${summary}</div>`}<p class="small">${description}</p></div>`:`<p class="small">Includes current and future ${sourceNoun(policy)}.</p>`}${additionalExclusions}${availabilityNote}`;
+}
+
+const DURATION_UNITS={minutes:60,hours:3600,seconds:1};
+function formatPolicyDuration(seconds) {
+  const unit=seconds>0&&seconds%3600===0?"hours":seconds>0&&seconds%60===0?"minutes":"seconds",value=seconds/DURATION_UNITS[unit];
+  return `${value} ${value===1?unit.slice(0,-1):unit}`;
+}
+function temperatureValidation(policy) {
+  const p=policy.parameters;
+  if(p.minimum==null&&p.maximum==null)return {field:"minimum",message:"Enter at least one limit: Below, Above, or both."};
+  for(const field of ["minimum","maximum"])if(p[field]!=null&&!Number.isFinite(p[field]))return {field,message:"Enter a valid temperature limit."};
+  if(p.minimum!=null&&p.maximum!=null&&p.minimum>p.maximum)return {field:"minimum",message:"Below must be less than or equal to Above."};
+  if(!Number.isInteger(p.duration_seconds)||p.duration_seconds<0||p.duration_seconds>31536000)return {field:"duration_seconds",message:"Enter a duration from 0 to 365 days that equals a whole number of seconds."};
+  return null;
+}
+function policyFieldError(card,id,field) {
+  return card.policyValidation?.id===id&&card.policyValidation.field===field?`aria-invalid="true" aria-describedby="policy-error-${esc(id)}"`:"";
+}
+function temperatureRule(policy) {
+  const p=policy.parameters;
+  const bounds=[p.minimum!=null?`below ${p.minimum}${p.unit}`:"",p.maximum!=null?`above ${p.maximum}${p.unit}`:""].filter(Boolean).join(" or ");
+  return temperatureValidation(policy)?"Enter a lower limit, an upper limit, or both, and a valid duration.":`${policy.enabled?"Open an issue":"When enabled, open an issue"} when the temperature ${p.duration_seconds?"stays":"is"} ${bounds}${p.duration_seconds?` for ${formatPolicyDuration(p.duration_seconds)}`:", without waiting"}.`;
+}
+function temperatureFields(card,policy) {
+  const {id,parameters:p}=policy,key=`${id}:duration_seconds`;
+  const unit=card.policyDurationUnits?.[key]||(p.duration_seconds==null||p.duration_seconds%60===0?"minutes":"seconds");
+  const duration=p.duration_seconds==null?"":p.duration_seconds/DURATION_UNITS[unit];
+  const summary=temperatureRule(policy);
+  const error=card.policyValidation?.id===id?`<p class="config-error" role="alert" id="policy-error-${esc(id)}">${esc(card.policyValidation.message)}</p>`:"";
+  return `<div class="policy-temperature-unit">${select("policies",id,"parameters:unit","Temperature unit",p.unit,{"°F":"°F","°C":"°C",K:"K"})}</div><div class="policy-limits">${[["minimum","Below (optional)"],["maximum","Above (optional)"]].map(([field,label])=>input("policies",id,`parameters:${field}`,label,p[field],"number",`step="any" ${policyFieldError(card,id,field)}`)).join("")}</div><p class="small policy-help">Enter either limit or both. Leave a limit blank if it does not apply.</p><div class="policy-duration">${input("policies",id,"parameters:duration_seconds","For at least",duration,"number",`data-duration-unit="${unit}" min="0" max="${31536000/DURATION_UNITS[unit]}" step="any" required ${policyFieldError(card,id,"duration_seconds")}`)}${select("policies",id,"duration-unit:duration_seconds","Duration unit",unit,{minutes:"Minutes",hours:"Hours",seconds:"Seconds"})}</div><p class="small policy-help">The timer resets when the temperature returns within the limits. Use 0 for no waiting period.</p>${error}<p class="policy-rule" role="status">${esc(summary)}</p>`;
 }
 
 function policyFields(card,policy) {
   const {id,check,parameters}=policy;
   const inventory=card.current?.data?.inventory?.catalog?inventoryRows(card.current.data):[];
-  let parameterFields='<p class="sub">Uses the reported Home Assistant state and configured timing.</p>';
+  let parameterFields="";
   if(check==="battery")parameterFields=input("policies",id,"parameters:threshold","Battery level at or below (%)",parameters.threshold??20,"number",'min="0" max="100" step="1" required');
   if(check==="ups_reserve") {
     const selected=inventory.filter(source=>source.kind==="ups"&&!policy.excluded_sources?.includes(source.monitoring_source||source.node_id)&&Object.entries(policy.match||{}).every(([field,values])=>values.some(value=>source.attributes?.[field]?.includes(value))));
     const hasRole=role=>selected.some(source=>(source.ups_entities||[]).some(([key])=>key===role));
     const fields=[...(hasRole("charge")||parameters.charge_low!==undefined?[["charge_low","Raise at or below (%)"],["charge_clear","Clear at or above (%)"]]:[]),...(hasRole("runtime")||parameters.runtime_low_minutes!==undefined?[["runtime_low_minutes","Raise at or below (minutes)"],["runtime_clear_minutes","Clear at or above (minutes)"]]:[])];
-    parameterFields=fields.map(([field,label])=>input("policies",id,`parameters:${field}`,label,parameters[field],"number",'min="0" step="any"')).join("")+`<p class="small">Optional numeric thresholds supplement the UPS warning. Set both raise and clear values for each measurement. Without a custom threshold, a reported device low setpoint is used when readable.</p><p class="small">Charging alone does not clear low reserve.</p>`;
+    parameterFields=fields.length?fields.map(([field,label])=>input("policies",id,`parameters:${field}`,label,parameters[field],"number",'min="0" step="any"')).join("")+`<p class="small">Optional thresholds supplement the UPS warning. Set both raise and clear values. Leave them blank to use the device’s low setpoint when available. Charging alone does not clear low reserve.</p>`:"";
   }
-  if(check==="thermostat"||check==="temperature_limit") {
-    parameterFields=select("policies",id,"parameters:unit","Temperature unit",parameters.unit,{"°F":"°F","°C":"°C"});
-    const fields=check==="thermostat"?[["margin","Deviation from target"],["progress","Required progress"],["worsening","Worsening threshold"],["progress_seconds","Progress window (seconds)"]]:[["minimum","Minimum (optional)"],["maximum","Maximum (optional)"],["duration_seconds","Must persist for (seconds)"]];
-    parameterFields+=fields.map(([field,label])=>input("policies",id,`parameters:${field}`,label,parameters[field],"number",`step="any" ${["minimum","maximum"].includes(field)?"":'min="0" required'}`)).join("");
-    parameterFields+=`<p class="small">${check==="thermostat"?"Deviation and progress are differences in the selected unit. Heating and cooling are evaluated separately.":"Choose a minimum, a maximum, or both. Qualification restarts when evidence no longer satisfies the limit."}</p>`;
+  if(check==="temperature_limit")parameterFields=temperatureFields(card,policy);
+  if(check==="thermostat") {
+    parameterFields=select("policies",id,"parameters:unit","Temperature unit",parameters.unit,{"°F":"°F","°C":"°C",K:"K"});
+    const fields=[["margin","Deviation from target"],["progress","Required progress"],["worsening","Worsening threshold"],["progress_seconds","Progress window (seconds)"]];
+    parameterFields+=fields.map(([field,label])=>input("policies",id,`parameters:${field}`,label,parameters[field],"number",'step="any" min="0" required')).join("");
+    parameterFields+='<p class="small">Deviation and progress are differences in the selected unit. Heating and cooling are evaluated separately.</p>';
   }
-  return `${input("policies",id,"name","Name",policy.name,"text","required")}<div class="policy-type"><span>Monitoring type</span><strong>${esc(MONITORING_TYPES[policyType(policy)])}</strong></div>${watchEditor(card,policy)}${["repair","broken_automation"].includes(check)?"":`<h3>When it becomes a problem</h3>${parameterFields}`}<h3>Notifications</h3>${notificationRowsEditor(card,policy.notifications,`policy:${id}`)}<label class="installation-toggle"><input type="checkbox" ${attrs("policies",id,"enabled")}${checked(policy.enabled)}>Enabled</label>`;
+  const notificationStatus=card.configuration.settings.notifications===false?'<p class="policy-notification-status">Notifications are turned off globally. This policy can still monitor and show issues.</p>':"";
+  return `<div class="policy-identity">${input("policies",id,"name","Policy name",policy.name,"text","required")}<div class="policy-type"><span>Monitoring type</span><strong>${esc(MONITORING_TYPES[policyType(policy)])}</strong></div></div><section class="policy-section"><h3>${esc(sourceNoun(policy)[0].toUpperCase()+sourceNoun(policy).slice(1))}</h3>${watchEditor(card,policy)}</section>${parameterFields?`<section class="policy-section"><h3>When it becomes a problem</h3>${parameterFields}</section>`:""}<section class="policy-section"><h3>Notifications</h3>${notificationStatus}${notificationRowsEditor(card,policy.notifications,`policy:${id}`)}</section>`;
 }
 
 export function namedPolicies(card) {
@@ -264,22 +380,22 @@ export function namedPolicies(card) {
   const missing=templates.filter(template=>!policies.some(policy=>policy.id===template.id));
   if(card.policyCreating)return `<section class="definition-editor installation-editor"><h2>Add policy</h2><p>Choose the monitoring type. It stays fixed after creation.</p><label class="installation-field"><span>Monitoring type</span><select data-definition-template>${Object.entries(MONITORING_TYPES).map(([id,name])=>option(id,name,card.definitionTemplate||"device")).join("")}</select></label>${button("create","Continue","policies")}${button("close","Cancel","policies")}</section>`;
   if(active) {
-    return `<section class="definition-editor installation-editor unified-policy-editor" aria-label="Edit monitoring policy"><header><h2>Edit policy: ${esc(active.name)}</h2>${button("close","Back to policies","policies",active.id)}</header>${policyFields(card,active)}${deletePrompt(card)}${scopedEditorFooter(card,{kind:"policy",id:active.id},"Save policy")}</section>`;
+    return `<section class="definition-editor installation-editor unified-policy-editor" aria-label="Edit monitoring policy"><header><div><h1>${esc(active.name)}</h1><p class="small">Changes take effect when you save.</p></div><label class="method-switch policy-enabled"><input type="checkbox" role="switch" aria-label="Policy enabled" ${attrs("policies",active.id,"enabled")}${checked(active.enabled)}><span>Policy ${active.enabled?"enabled":"disabled"}</span></label>${button("close","Back to policies","policies",active.id,"","editor-back")}</header>${policyFields(card,active)}${deletePrompt(card)}${scopedEditorFooter(card,{kind:"policy",id:active.id},"Save policy")}</section>`;
   }
   const list=policies.map(draft=>{
     const saved=card.configuration.settings.monitoring_policies?.find(item=>item.id===draft.id),policy=saved||draft;
     const state=saved?(saved.enabled?"On":"Off"):"Not saved";
-    const pending=scopedDirty(card,{kind:"policy",id:policy.id});
+    const pending=scopedDirty(card,{kind:"policy",id:policy.id}),detection=policyDetectionSummary(policy);
     const menuId=`policy-actions-${policy.id}`;
-    return `<article class="definition-list-item"><div><h3>${esc(policy.name)} <span class="small">${state}</span></h3><p class="small">${esc(MONITORING_TYPES[policyType(policy)])} · ${esc(policyScopeSummary(card,policy))}</p><p class="small">${esc(policyDetectionSummary(policy))}</p><p class="small">${esc(savedNotificationSummary(card,policy))}</p>${pending?`<p class="source-setting-pending" role="status">Unsaved changes · continue editing to apply</p>`:""}</div><div class="actions">${button("edit","Edit policy","policies",policy.id)}<button type="button" class="button policy-actions-trigger" data-definition-action="policy-actions" popovertarget="${esc(menuId)}" aria-label="More actions for ${esc(policy.name)}" title="More actions"${card.settingsBusy||card.configBusy?" disabled":""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><div id="${esc(menuId)}" class="policy-actions-popover" popover role="group" aria-label="More actions for ${esc(policy.name)}">${button("duplicate","Duplicate","policies",policy.id)}${button("delete","Delete","policies",policy.id)}</div></div></article>`;
+    return `<article class="definition-list-item"><div><h3>${esc(policy.name)} <span class="small">${state}</span></h3><p class="small">${esc(MONITORING_TYPES[policyType(policy)])} · ${esc(policyScopeSummary(card,policy))}</p>${detection?`<p class="small">${esc(detection)}</p>`:""}<p class="small">${esc(savedNotificationSummary(card,policy))}</p>${pending?`<p class="source-setting-pending" role="status">Unsaved changes</p>`:""}</div><div class="actions">${button("edit","Edit policy","policies",policy.id)}<button type="button" class="button policy-actions-trigger" data-definition-action="policy-actions" popovertarget="${esc(menuId)}" aria-label="More actions for ${esc(policy.name)}" title="More actions"${card.settingsBusy||card.configBusy?" disabled":""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><div id="${esc(menuId)}" class="policy-actions-popover" popover role="group" aria-label="More actions for ${esc(policy.name)}">${button("duplicate","Duplicate","policies",policy.id)}${button("delete","Delete","policies",policy.id)}</div></div></article>`;
   }).join("");
-  return `<section class="reusable-definitions"><div class="policy-check-head"><h2>Monitoring policies</h2><div class="actions">${button("restore","Restore defaults","policies","",missing.length?"":"disabled")}${button("add","Add policy","policies")}</div></div>${card.policyRestoring?`<section class="policy-picker" aria-label="Restore default policies"><h3>Restore defaults</h3><p>Choose deleted policies to restore, then edit and save each restored policy.</p>${missing.map(policy=>`<label class="installation-toggle"><input type="checkbox" data-definition-restore="${esc(policy.id)}"${checked(card.policyRestoreIds?.includes(policy.id))}>${esc(policy.name)}</label>`).join("")}${button("confirm-restore","Restore selected","policies","",card.policyRestoreIds?.length?"":"disabled")}${button("cancel-restore","Cancel","policies")}</section>`:""}<div class="definition-list">${list||'<p>No policies. Add a policy or restore defaults to start monitoring.</p>'}</div>${deletePrompt(card)}${card.scopedError?`<p class="config-error" role="alert">${esc(card.scopedError)}</p>`:""}</section>`;
+  return `<section class="reusable-definitions"><div class="policy-check-head"><div class="actions">${missing.length?button("restore","Restore defaults","policies"):""}${button("add","Add policy","policies","","","primary")}</div></div>${card.policyRestoring?`<section class="policy-picker" aria-label="Restore default policies"><h3>Restore defaults</h3><p>Choose deleted policies to restore, then edit and save each restored policy.</p>${missing.map(policy=>`<label class="installation-toggle"><input type="checkbox" data-definition-restore="${esc(policy.id)}"${checked(card.policyRestoreIds?.includes(policy.id))}>${esc(policy.name)}</label>`).join("")}${button("confirm-restore","Restore selected","policies","",card.policyRestoreIds?.length?"":"disabled")}${button("cancel-restore","Cancel","policies")}</section>`:""}<div class="definition-list">${list||'<p>No policies yet.</p>'}</div>${deletePrompt(card)}${card.scopedError?`<p class="config-error" role="alert">${esc(card.scopedError)}</p>`:""}</section>`;
 }
 
 function methodFields(card,id,method,allowTest=true) {
   const people=card.configuration.notification_people||[];
   const personId=person=>person.entity_id||person.id;
-  let body='<p class="small">Timing and reminders are set in the named notifications that use this method.</p>'+input("methods",id,"name","Name",method.name,"text","required");
+  let body=input("methods",id,"name","Name",method.name,"text","required");
   if(!card.configuration.delivery_targets)return body+`<p role="status">${esc(card.deliveryError||"Loading notification destinations…")}</p>${card.deliveryError?button("load-delivery","Retry loading destinations","methods",id):""}`;
   if(method.mode==="fixed")body+=destinationChoices(card,method,id,"destinations","Send to");
   body+=`<details class="method-presence" data-ui-key="method-presence-${esc(id)}"${method.mode!=="fixed"?" open":""}><summary>Change destinations based on who’s home <span class="small">Optional</span></summary>${select("methods",id,"mode","Presence selection",method.mode,METHOD_MODES)}`;
@@ -287,21 +403,24 @@ function methodFields(card,id,method,allowTest=true) {
     body+=`<fieldset><legend>People whose presence is checked</legend>${people.map(person=>`<label class="installation-toggle"><input type="checkbox" ${attrs("methods",id,"people")} data-person="${esc(personId(person))}"${checked((method.people||[]).includes(personId(person)))}>${esc(person.name||personId(person))}</label>`).join("")||'<p>No Home Assistant people are configured.</p>'}</fieldset>`;
     if(method.mode==="home_away")body+=destinationChoices(card,method,id,"home","When someone is home")+destinationChoices(card,method,id,"away","When everyone is away");
     else body+=(method.people||[]).map(person=>destinationChoices(card,method,id,`person_destinations:${person}`,people.find(item=>personId(item)===person)?.name||person)).join("");
-    body+=`<h3>No qualifying recipient or unknown presence</h3><label class="installation-toggle"><input type="checkbox" ${attrs("methods",id,"skip")}${checked(method.skip)}>Skip this request</label>${method.skip?'<p class="small">No request is sent when presence cannot select a recipient.</p>':destinationChoices(card,method,id,"fallback","Fallback destinations")}<p class="small">Presence is checked when sending. Unknown presence uses the fallback or skips the request.</p>`;
+    body+=`<h3>When no recipient can be chosen</h3><p class="small">Includes unknown presence. Presence is checked when sending.</p><label class="installation-toggle"><input type="checkbox" ${attrs("methods",id,"skip")}${checked(method.skip)}>Skip notification</label>${method.skip?"":destinationChoices(card,method,id,"fallback","Send to instead")}`;
   }
   return body+'</details>'+(allowTest?methodTest(card,id,method):'');
 }
 
 function methodTest(card,id,method) {
   const saved=card.configuration.settings.notification_definitions?.methods?.[id];
+  if(!saved)return "";
+  const test=card.deliveryMethodTest,showResult=test?.id===id&&test.signature===JSON.stringify(saved);
   if(JSON.stringify(saved)!==JSON.stringify(method))return '<p class="note">Save this delivery method before testing it.</p>';
-  return `<div class="method-test">${button("test-method",card.deliveryMethodBusy?"Sending test…":"Send test","methods",id,card.deliveryMethodBusy?"disabled":"")}<p class="small">Sends only to this method’s saved destinations, using current presence when configured.</p>${card.deliveryMethodError?`<p class="error" role="alert">${esc(card.deliveryMethodError)}</p>`:""}${card.deliveryMethodNotice?`<p role="status">${esc(card.deliveryMethodNotice)}</p>`:""}</div>`;
+  return `<div class="method-test">${button("test-method",card.deliveryMethodBusy&&test?.id===id?"Sending test…":"Send test","methods",id,card.deliveryMethodBusy?"disabled":"")}<p class="small">Sends only to this method’s saved destinations, using current presence when configured.</p>${showResult&&card.deliveryMethodError?`<p class="error" role="alert">${esc(card.deliveryMethodError)}</p>`:""}${showResult&&card.deliveryMethodNotice?`<p role="status">${esc(card.deliveryMethodNotice)}</p>`:""}</div>`;
 }
 
 export async function testDeliveryMethod(card,id) {
   const current=card.settingsDraft.notification_definitions?.methods?.[id],saved=card.configuration.settings.notification_definitions?.methods?.[id];
   if(!saved||card.scopedBusy||card.deliveryMethodBusy||card.settingsBusy||card.configBusy||JSON.stringify(current)!==JSON.stringify(saved))return;
   const revision=card.configuration.revision,signature=JSON.stringify(saved);
+  card.deliveryMethodTest={id,signature};
   card.deliveryMethodBusy=true;card.deliveryMethodError=null;card.deliveryMethodNotice=null;card.render();
   try {
     const preview=await card._hass.callWS({type:"homeostatic/preview_delivery_method",method_id:id,revision});
@@ -323,9 +442,11 @@ function deletePrompt(card) {
   const item=isPolicy?card.settingsDraft.monitoring_policies.find(policy=>policy.id===id)||card.configuration.settings.monitoring_policies?.find(policy=>policy.id===id):card.configuration.settings.notification_definitions?.[kind]?.[id]||card.settingsDraft.notification_definitions[kind]?.[id];
   if(!item)return "";
   const uses=isPolicy?[]:definitionUses(card.configuration.settings,kind,id);
+  const definitions=card.configuration.settings.notification_definitions?.[kind]||{};
+  const replacements=isProfile?notificationChoices(definitions):Object.entries(definitions);
   const noun=isProfile?"notification":"delivery method";
   const removal=isProfile?"Remove this notification from affected policies":"Remove this method from affected notifications";
-  return `<section class="settings-preview" role="region" aria-label="Confirm deletion"><h3>Delete ${esc(item.name)}?</h3>${isPolicy?'<p>Deleting this policy ends its monitoring and pending requests. Other policies keep monitoring their selections.</p>':uses.length?`<p>Used by ${uses.map(esc).join(", ")}. Choose a replacement or explicitly remove these assignments.${isProfile?" Policies with no remaining notification stay on the dashboard.":" Named notifications with no delivery method remain unconfigured."}</p><label class="installation-field"><span>Replace or remove assignments</span><select data-definition-delete-resolution>${option("","Choose an action",request.resolution)}${option("remove-rows",removal,request.resolution)}${Object.entries(card.configuration.settings.notification_definitions?.[kind]||{}).filter(([other])=>other!==id).map(([other,value])=>option(other,`Replace with ${value.name}`,request.resolution)).join("")}</select></label>`:'<p>This definition has no assignments.</p>'}${button("confirm-delete",isPolicy?"Delete policy":uses.length?`Delete ${noun} and update its uses`:`Delete ${noun}`,kind,id,card.scopedBusy||uses.length&&!request.resolution?"disabled":"")}${button("cancel-delete","Cancel",kind,id)}</section>`;
+  return `<section class="settings-preview" role="region" aria-label="Confirm deletion"><h3>Delete ${esc(item.name)}?</h3>${isPolicy?'<p>Deleting this policy ends its monitoring and pending requests. Other policies keep monitoring their selections.</p>':uses.length?`<p>Used by ${uses.map(esc).join(", ")}. Choose a replacement or explicitly remove these assignments.${isProfile?" Policies with no remaining notification stay on the dashboard.":" Named notifications with no delivery method remain unconfigured."}</p><label class="installation-field"><span>Replace or remove assignments</span><select data-definition-delete-resolution>${option("","Choose an action",request.resolution)}${option("remove-rows",removal,request.resolution)}${replacements.filter(([other])=>other!==id).map(([other,value])=>option(other,`Replace with ${value.name}`,request.resolution)).join("")}</select></label>`:'<p>This definition has no assignments.</p>'}${button("confirm-delete",isPolicy?"Delete policy":uses.length?`Delete ${noun} and update its uses`:`Delete ${noun}`,kind,id,card.scopedBusy||uses.length&&!request.resolution?"disabled":"")}${button("cancel-delete","Cancel",kind,id)}</section>`;
 }
 
 function notificationProfileFields(card,id,profile) {
@@ -337,7 +458,7 @@ function notificationProfileFields(card,id,profile) {
   else if(timing.mode==="report")body+=input(kind,id,"timing:at",`Summary time · ${zone}`,timing.at,"time","required")+`<fieldset class="policy-weekdays"><legend>Days</legend>${DAYS.map((day,index)=>`<label class="installation-toggle"><input type="checkbox" ${attrs(kind,id,"timing:weekdays")} data-definition-value="${index}"${checked(timing.weekdays.includes(index))}>${day}</label>`).join("")}</fieldset><p class="small">Includes open problems, even after acknowledgment. Empty summaries are skipped.</p>`;
   else body+='<p class="small">Notify when the problem begins, including overnight.</p>';
   const methods=card.configuration.settings.notification_definitions.methods||{};
-  body+=`<fieldset><legend>Send using</legend>${Object.entries(methods).map(([methodId,method])=>`<label class="installation-toggle"><input type="checkbox" ${attrs(kind,id,"methods")} data-definition-value="${esc(methodId)}"${checked(profile.methods.includes(methodId))}>${esc(method.name)}</label>`).join("")||'<p>No saved delivery methods yet. Add one in Delivery methods.</p>'}${profile.methods.filter(method=>!methods[method]).map(method=>`<label class="installation-toggle"><input type="checkbox" ${attrs(kind,id,"methods")} data-definition-value="${esc(method)}" checked>Unavailable delivery method — clear to remove</label>`).join("")}</fieldset>${profile.methods.length?"":'<p class="note">No delivery method selected. This notification will not send until a method is assigned.</p>'}`;
+  body+=`<fieldset><legend>Send using</legend>${Object.entries(methods).map(([methodId,method])=>`<label class="installation-toggle"><input type="checkbox" ${attrs(kind,id,"methods")} data-definition-value="${esc(methodId)}"${checked(profile.methods.includes(methodId))}>${esc(method.name)}</label>`).join("")}${profile.methods.filter(method=>!methods[method]).map(method=>`<label class="installation-toggle"><input type="checkbox" ${attrs(kind,id,"methods")} data-definition-value="${esc(method)}" checked>Unavailable delivery method — clear to remove</label>`).join("")}${profile.methods.length?"":`<p class="note">${Object.keys(methods).length?"No delivery method selected.":"Add a delivery method first."} This notification will not send until a method is assigned.</p>`}</fieldset>`;
   return body;
 }
 
@@ -346,32 +467,33 @@ function notificationProfiles(card) {
   const id=card.definitionSelection?.kind==="profiles"?card.definitionSelection.id:null,active=items[id];
   if(active) {
     const uses=definitionUses(card.configuration.settings,"profiles",id);
-    return `<section class="definition-editor installation-editor notification-profile-editor" aria-label="Edit notification"><header><h2>${saved[id]?"Edit notification":"New notification"}: ${esc(active.name)}</h2></header>${notificationProfileFields(card,id,active)}<p class="method-usage">${uses.length?`Changes apply to: ${uses.map(esc).join(", ")}.`:"No policies use this notification yet."}</p>${deletePrompt(card)}${scopedEditorFooter(card,{kind:"profile",id},"Save notification")}</section>`;
+    return `<section class="definition-editor installation-editor notification-profile-editor" aria-label="Edit notification"><header><h1>${saved[id]?`Edit notification: ${esc(active.name)}`:"New notification"}</h1>${button("close","Back to notifications","profiles",id,"","editor-back")}</header>${notificationProfileFields(card,id,active)}<p class="method-usage">${uses.length?`Changes apply to: ${uses.map(esc).join(", ")}.`:"No policies use this notification yet."}</p>${deletePrompt(card)}${scopedEditorFooter(card,{kind:"profile",id},"Save notification")}</section>`;
   }
-  const list=Object.entries(saved).map(([profileId,profile])=>{
+  const list=notificationChoices(saved).map(([profileId,profile])=>{
     const uses=definitionUses(card.configuration.settings,"profiles",profileId),menuId=`notification-actions-${profileId}`;
-    return `<article class="definition-list-item"><div><h3>${esc(profile.name)}</h3><p>${esc(timingSummary(profile.timing))}</p><p class="small">${profile.methods.map(method=>esc(card.configuration.settings.notification_definitions.methods[method]?.name||"Unavailable method")).join(", ")||"No delivery method selected"}${uses.length?` · Used by ${uses.map(esc).join(", ")}`:""}${scopedDirty(card,{kind:"profile",id:profileId})?" · Unsaved changes":""}</p></div><div class="actions">${button("edit","Edit notification","profiles",profileId)}<button type="button" class="button policy-actions-trigger" data-definition-action="policy-actions" popovertarget="${esc(menuId)}" aria-label="More actions for ${esc(profile.name)}" title="More actions"${card.scopedBusy?" disabled":""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><div id="${esc(menuId)}" class="policy-actions-popover" popover role="group" aria-label="More actions for ${esc(profile.name)}">${button("duplicate","Duplicate","profiles",profileId)}${button("delete","Delete","profiles",profileId)}</div></div></article>`;
+    return `<article class="definition-list-item"><div><h3>${esc(profile.name)}</h3><p>${esc(timingSummary(profile.timing))}</p><p class="small">${profile.methods.map(method=>esc(card.configuration.settings.notification_definitions.methods[method]?.name||"Unavailable method")).join(", ")||"No delivery method selected"} · ${useCount(uses)}${scopedDirty(card,{kind:"profile",id:profileId})?" · Unsaved changes":""}</p></div><div class="actions">${button("edit","Edit notification","profiles",profileId)}<button type="button" class="button policy-actions-trigger" data-definition-action="policy-actions" popovertarget="${esc(menuId)}" aria-label="More actions for ${esc(profile.name)}" title="More actions"${card.scopedBusy?" disabled":""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><div id="${esc(menuId)}" class="policy-actions-popover" popover role="group" aria-label="More actions for ${esc(profile.name)}">${button("duplicate","Duplicate","profiles",profileId)}${button("delete","Delete","profiles",profileId)}</div></div></article>`;
   }).join("");
   const unsaved=Object.entries(items).filter(([profileId])=>!saved[profileId]).map(([profileId,profile])=>`<p class="note">Unsaved notification: ${esc(profile.name)} ${button("edit","Continue editing","profiles",profileId)}</p>`).join("");
-  return `<section class="reusable-definitions"><div class="policy-check-head"><div><p class="sub">Choose when to notify and which delivery methods to use. Policies select these named notifications.</p></div>${button("add","Add notification","profiles","","","primary")}</div><div class="definition-list">${list||'<p>No saved notifications yet.</p>'}</div>${unsaved}${deletePrompt(card)}${card.scopedError?`<p class="config-error" role="alert">${esc(card.scopedError)}</p>`:""}</section>`;
+  return `<section class="reusable-definitions"><div class="policy-check-head">${button("add","Add notification","profiles","","","primary")}</div><div class="definition-list">${list||'<p>No saved notifications yet.</p>'}</div>${unsaved}${deletePrompt(card)}${card.scopedError?`<p class="config-error" role="alert">${esc(card.scopedError)}</p>`:""}</section>`;
 }
 
 export function namedNotifications(card) {
   initializeScopedConfiguration(card);
   const view=card.definitionSelection?.kind==="methods"?"methods":card.definitionSelection?.kind==="profiles"?"profiles":card.notificationSection==="methods"?"methods":"profiles";
-  const nav=`<nav class="installation-nav" aria-label="Notifications views">${button("notification-view","Notifications","profiles","",`aria-current="${view==="profiles"?"page":"false"}"`)}${button("notification-view","Delivery methods","methods","",`aria-current="${view==="methods"?"page":"false"}"`)}</nav>`;
+  const selection=card.definitionSelection,editing=selection?.kind===view&&Boolean(card.settingsDraft.notification_definitions[view]?.[selection.id]);
+  const nav=editing?"":`<nav class="installation-nav" aria-label="Notifications views">${button("notification-view","Notifications","profiles","",`aria-current="${view==="profiles"?"page":"false"}"`)}${button("notification-view","Delivery methods","methods","",`aria-current="${view==="methods"?"page":"false"}"`)}</nav>`;
   if(view==="profiles")return nav+notificationProfiles(card);
   const definitions=card.settingsDraft.notification_definitions;
   const kind="methods",items=definitions.methods;
   const active=card.definitionSelection?.kind===kind?items[card.definitionSelection.id]:null,id=active?card.definitionSelection.id:null;
   const saved=card.configuration.settings.notification_definitions?.methods||{};
   const list=Object.entries(saved).map(([itemId,item])=>{
-    const menuId=`method-actions-${itemId}`,uses=definitionUses(card.configuration.settings,kind,itemId);
-    return `<article class="definition-list-item"><div><h3>${esc(item.name)}</h3><p class="method-summary">${esc(methodSummary(card,item))}</p><p class="small">${uses.length?`Used by ${uses.map(esc).join(", ")}`:"No notifications use this method yet"}${scopedDirty(card,{kind:"method",id:itemId})?" · Unsaved changes":""}</p></div><div class="actions">${button("edit","Edit delivery method",kind,itemId)}<button type="button" class="button policy-actions-trigger" data-definition-action="policy-actions" popovertarget="${esc(menuId)}" aria-label="More actions for ${esc(item.name)}" title="More actions"${card.scopedBusy?" disabled":""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><div id="${esc(menuId)}" class="policy-actions-popover" popover role="group" aria-label="More actions for ${esc(item.name)}">${button("duplicate","Duplicate",kind,itemId)}${button("delete","Delete",kind,itemId)}</div></div></article>`;
+    const menuId=`method-actions-${itemId}`,uses=definitionUses(card.configuration.settings,kind,itemId),summary=methodSummary(card,item);
+    return `<article class="definition-list-item"><div><h3>${esc(item.name)}</h3>${summary?`<p class="method-summary">${esc(summary)}</p>`:""}<p class="small">${useCount(uses)}${scopedDirty(card,{kind:"method",id:itemId})?" · Unsaved changes":""}</p></div><div class="actions">${button("edit","Edit delivery method",kind,itemId)}<button type="button" class="button policy-actions-trigger" data-definition-action="policy-actions" popovertarget="${esc(menuId)}" aria-label="More actions for ${esc(item.name)}" title="More actions"${card.scopedBusy?" disabled":""}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button><div id="${esc(menuId)}" class="policy-actions-popover" popover role="group" aria-label="More actions for ${esc(item.name)}">${button("duplicate","Duplicate",kind,itemId)}${button("delete","Delete",kind,itemId)}</div></div></article>`;
   }).join("");
   const unsaved=Object.entries(items).filter(([itemId])=>!saved[itemId]).map(([itemId,item])=>`<p class="note">Unsaved delivery method: ${esc(item.name)} ${button("edit","Continue editing",kind,itemId)}</p>`).join("");
   const uses=active?definitionUses(card.configuration.settings,kind,id):[];
-  const editor=active?`<div class="method-breadcrumb">${button("close-method","‹ Delivery methods",kind,id)}</div><section class="definition-editor installation-editor delivery-method-editor" aria-label="Edit delivery method"><header><h2>${saved[id]?"Edit delivery method":"New delivery method"}: ${esc(active.name)}</h2><p class="sub">Choose the destinations this method sends to.</p></header>${methodFields(card,id,active,false)}<p class="method-usage">${uses.length?`Used by ${uses.map(esc).join(", ")}.`:"No notifications use this method yet."}</p>${methodTest(card,id,active)}${scopedEditorFooter(card,{kind:"method",id},"Save delivery method")}</section>`:`<div class="policy-check-head"><div><h2>Delivery methods</h2><p class="sub">Choose where notifications go. Choose timing and reminders in Notifications.</p></div>${button("add","Add delivery method",kind,"","","primary")}</div><div class="definition-list method-list">${list||'<p>No saved delivery methods yet. Add a method to choose where notifications go.</p>'}</div>${unsaved}`;
+  const editor=active?`<section class="definition-editor installation-editor delivery-method-editor" aria-label="Edit delivery method"><header><h1>${saved[id]?`Edit delivery method: ${esc(active.name)}`:"New delivery method"}</h1>${button("close-method","Back to delivery methods",kind,id,"","editor-back")}</header>${methodFields(card,id,active,false)}<p class="method-usage">${uses.length?`Used by ${uses.map(esc).join(", ")}.`:"No notifications use this method yet."}</p>${methodTest(card,id,active)}${scopedEditorFooter(card,{kind:"method",id},"Save delivery method")}</section>`:`<div class="policy-check-head">${button("add","Add delivery method",kind,"","","primary")}</div><div class="definition-list method-list">${list||'<p>No saved delivery methods yet.</p>'}</div>${unsaved}`;
   return `${nav}<section class="reusable-definitions notification-methods">${editor}${deletePrompt(card)}${!active&&card.scopedError?`<p class="config-error" role="alert">${esc(card.scopedError)}</p>`:""}</section>`;
 }
 
@@ -391,16 +513,35 @@ export function restoreMethodDialogs(card) {
 }
 
 function invalidate(card) {
+  card.policyValidation=null;
   card.settingsError=null;
   card.scopedError=null;card.scopedNotice=null;
+  card.deliveryMethodTest=null;
 }
 
 function renderAfterEdit(card,element) {
   const dataset={...element.dataset},start=element.selectionStart,end=element.selectionEnd;
+  const options=card.main?.querySelector?.(".policy-picker-options"),scroll=options?{top:options.scrollTop,left:options.scrollLeft}:null;
   card.render();
-  const replacement=[...(card.main?.querySelectorAll?.("[data-definition-field],[data-row-field],[data-definition-picker-search],[data-definition-picker-selected],[data-definition-delivery-search]")||[])].find(item=>Object.entries(dataset).every(([key,value])=>item.dataset[key]===value));
-  replacement?.focus?.({preventScroll:true});
+  const replacement=[...(card.main?.querySelectorAll?.("[data-definition-field],[data-row-field],[data-definition-picker-search],[data-definition-picker-selected],[data-definition-picker-all],[data-definition-delivery-search]")||[])].find(item=>Object.entries(dataset).every(([key,value])=>item.dataset[key]===value));
+  (replacement||(element.closest?.(".policy-picker")?card.main?.querySelector?.("[data-definition-picker-search]"):null))?.focus?.({preventScroll:true});
   if(start!==null&&start!==undefined)replacement?.setSelectionRange?.(start,end);
+  const next=card.main?.querySelector?.(".policy-picker-options");
+  if(next&&scroll){next.scrollTop=scroll.top;next.scrollLeft=scroll.left;}
+}
+
+async function saveEditor(card,scope) {
+  const selection=card.definitionSelection,page=card.page;
+  const saved=await saveScopedConfiguration(card,scope);
+  if(!saved||card.current?.status!=="current"||page!=="notifications"||card.page!==page||card.definitionSelection!==selection||
+    !["method","profile"].includes(scope.kind)||scopedDirty(card,scope))return;
+  const kind=scope.kind==="method"?"methods":"profiles",definition=card.configuration.settings.notification_definitions?.[kind]?.[scope.id];
+  if(!definition)return;
+  const previous=card.navigation?.capture();
+  card.notificationSection=kind;card.definitionSelection=null;card.deliveryPicker=null;
+  card.scopedNotice=null;card.render();card.navigation?.finish(previous);
+  const edit=[...(card.main.querySelectorAll?.('[data-definition-action="edit"]')||[])].find(element=>element.dataset.definitionKind===kind&&element.dataset.definitionId===scope.id);
+  edit?.scrollIntoView?.({block:"nearest"});edit?.focus?.({preventScroll:true});
 }
 
 export function editReusable(card,event) {
@@ -419,24 +560,30 @@ export function editReusable(card,event) {
   const policies=draft.monitoring_policies||[];
   let definitions=draft.notification_definitions;
   const kind=d.definitionKind,id=d.definitionId,action=d.definitionAction;
+  let notificationFocus;
   if(editDestinationPicker(card,event,element,invalidate,renderAfterEdit))return true;
   if(event.type==="click") {
     if(action==="save-scoped"||action==="discard-scoped") {
       const scope={kind:{policies:"policy",methods:"method",profiles:"profile",settings:"settings"}[kind],...(id?{id}:{})};
       if(card.scopedBusy)return true;
       if(action==="save-scoped") {
-        if([...(card.main.querySelectorAll?.(".installation-editor input, .installation-editor select")||[])].some(input=>!input.reportValidity()))return true;
         const policy=scope.kind==="policy"?policies.find(item=>item.id===id):null;
+        const validation=policy?.check==="temperature_limit"?temperatureValidation(policy):null;
+        if(validation) {
+          card.policyValidation={id,...validation};card.scopedStatusScope=`policy:${id}`;card.scopedError=validation.message;card.scopedNotice=null;card.render();
+          card.main.querySelector?.(`[data-definition-field="parameters:${validation.field}"]`)?.focus?.();return true;
+        }
+        if([...(card.main.querySelectorAll?.(".installation-editor input, .installation-editor select")||[])].some(input=>!input.reportValidity()))return true;
         if(policy&&Object.values(policy.match||{}).some(values=>Array.isArray(values)&&!values.length)) {
           card.scopedStatusScope=`policy:${id}`;card.scopedError="Choose at least one source, area, or label, or choose All.";card.scopedNotice=null;card.render();return true;
         }
-        void saveScopedConfiguration(card,scope);
+        void saveEditor(card,scope);
       }
       else {
         const exists=scope.kind==="policy"?card.configuration.settings.monitoring_policies?.some(policy=>policy.id===id):["method","profile"].includes(scope.kind)?Boolean(card.configuration.settings.notification_definitions?.[scope.kind==="method"?"methods":"profiles"]?.[id]):true;
         discardScopedConfiguration(card,scope);
         if(!exists)card.definitionSelection=null;
-        card.deliveryPicker=null;card.render();
+        card.deliveryPicker=null;card.policyValidation=null;card.render();
       }
       return true;
     }
@@ -474,8 +621,8 @@ export function editReusable(card,event) {
     if(action==="open-policy"){card.detailSequence=(card.detailSequence||0)+1;card.detail=null;card.dialog?.close();card.definitionSelection=id?{kind:"policies",id}:null;card.page="policies";card.render();return true;}
     if(action==="close"){card.definitionSelection=null;card.policyCreating=false;card.policyPicker=null;card.render();return true;}
     if(action==="add"&&kind==="policies"){card.policyCreating=true;card.definitionSelection=null;card.render();return true;}
-    if(action==="pick"){const policy=policies.find(item=>item.id===id);if(policyType(policy)==="integration"&&policy.match.integration){policy.match={kind:["integration"],integration_domain:[]};}card.policyPicker={id,query:"",selectedOnly:false};card.render();return true;}
-    if(action==="finish-pick"){card.policyPicker=null;card.render();return true;}
+    if(action==="pick"){const policy=policies.find(item=>item.id===id);if(policyType(policy)==="integration"&&policy.match.integration){policy.match={kind:["integration"],integration_domain:[]};}card.policyPicker={id,query:"",selectedOnly:false,showAll:false};card.render();card.main?.querySelector?.("[data-definition-picker-search]")?.focus({preventScroll:true});return true;}
+    if(action==="finish-pick"){card.policyPicker=null;card.render();card.main?.querySelector?.('[data-definition-action="pick"]')?.focus({preventScroll:true});return true;}
     if(action==="restore"){card.policyRestoring=true;card.policyRestoreIds=[];card.render();return true;}
     if(action==="cancel-restore"){card.policyRestoring=false;card.render();return true;}
     if(action==="delete"){card.definitionDelete={kind,id,resolution:"",before:kind==="policies"?structuredClone(policies.find(item=>item.id===id)):null};card.render();return true;}
@@ -514,14 +661,10 @@ export function editReusable(card,event) {
       const value=kind==="policies"?undefined:{delete:true,...(resolution==="remove-rows"?{removeReferences:true}:resolution?{replacement:resolution}:{})};
       void saveScopedConfiguration(card,scope,value).then(success=>{if(success){card.definitionDelete=null;card.definitionSelection=null;}card.render();});
       return true;
-    }else if(action==="add-row") {
-      const rows=rowsFor(card,d.rowScope);
-      const reserve=d.rowScope.startsWith("policy:")&&policies.find(item=>item.id===d.rowScope.slice(7))?.check==="ups_reserve";
-      const profile=Object.keys(card.configuration.settings.notification_definitions?.profiles||{})[0];
-      if(profile)rows.push({id:nextRowId(draft),profile,...(reserve?{when:rows.some(row=>row.when==="mains")?"backup":"mains"}:{})});
     }else if(action==="remove-row") {
       const rows=rowsFor(card,d.rowScope),index=rows.findIndex(row=>row.id===id);
       if(index>=0)rows.splice(index,1);
+      notificationFocus={scope:d.rowScope,id:(rows[index]||rows[index-1])?.id||""};
     }else if(action==="add-sms") {
       const target=[...card.main.querySelectorAll("[data-sms-method]")].find(item=>item.dataset.smsMethod===id&&item.dataset.smsField===d.smsField&&item.dataset.smsService===d.smsService);
       if(!/^\+?[0-9]{5,15}$/.test(target?.value||"")){card.settingsError="Enter an SMS recipient with 5–15 digits, optionally starting with +.";card.render();return true;}
@@ -531,6 +674,7 @@ export function editReusable(card,event) {
     }else return false;
   }else {
     if(d.definitionPickerSearch!==undefined){card.policyPicker.query=element.value;renderAfterEdit(card,element);return true;}
+    if(d.definitionPickerAll!==undefined){card.policyPicker.showAll=element.checked;renderAfterEdit(card,element);return true;}
     if(d.definitionPickerSelected!==undefined){card.policyPicker.selectedOnly=element.checked;renderAfterEdit(card,element);return true;}
     if(d.definitionRestore!==undefined){card.policyRestoreIds=element.checked?[...card.policyRestoreIds,d.definitionRestore]:card.policyRestoreIds.filter(value=>value!==d.definitionRestore);card.render();return true;}
     if(d.definitionTemplate!==undefined){card.definitionTemplate=element.value;return true;}
@@ -540,9 +684,12 @@ export function editReusable(card,event) {
       if(d.rowField==="profile") {
         if(element.value) {
           if(!card.configuration.settings.notification_definitions?.profiles?.[element.value])return true;
-          const value={id:row?.id||nextRowId(draft),profile:element.value,...(row?.when?{when:row.when}:{})};
-          if(index>=0)rows[index]=value;else rows.push(value);
-        }else if(row?.profile)rows.splice(index,1);
+          const reserve=d.rowScope.startsWith("policy:")&&policies.find(item=>item.id===d.rowScope.slice(7))?.check==="ups_reserve";
+          const when=row?.when||(reserve?(rows.some(item=>item.when==="mains")?"backup":"mains"):null);
+          const value={id:row?.id||nextRowId(draft),profile:element.value,...(when?{when}:{})};
+          if(index>=0)rows[index]=value;
+          else {rows.push(value);element.value="";notificationFocus={scope:d.rowScope,id:value.id};}
+        }else if(row?.profile){rows.splice(index,1);notificationFocus={scope:d.rowScope,id:(rows[index]||rows[index-1])?.id||""};}
       }else if(row&&d.rowField==="when")row.when=element.value;
       else return false;
     }else if(d.definitionField) {
@@ -576,18 +723,33 @@ export function editReusable(card,event) {
       }else if(field.startsWith("match:")) {
         const key=field.slice(6),values=element.value.split(",").map(value=>value.trim()).filter(Boolean);
         if(values.length)item.match[key]=values;else delete item.match[key];
+      }else if(kind==="policies"&&field==="duration-unit:duration_seconds") {
+        if(Object.hasOwn(DURATION_UNITS,element.value)) {
+          card.policyDurationUnits??={};card.policyDurationUnits[`${id}:duration_seconds`]=element.value;
+          renderAfterEdit(card,element);
+        }
+        return true;
       }else if(field.startsWith("parameters:")) {
         const key=field.slice(11);
         if(key==="unit"&&item.parameters.unit!==element.value) {
-          const toC=element.value==="°C";
-          const keys=item.check==="thermostat"?["margin","progress","worsening"]:["minimum","maximum"];
+          const from=item.parameters.unit,to=element.value,difference=item.check==="thermostat";
+          const keys=difference?["margin","progress","worsening"]:["minimum","maximum"];
           for(const threshold of keys)if(typeof item.parameters[threshold]==="number") {
-            const value=item.parameters[threshold],offset=item.check==="thermostat"?0:32;
-            item.parameters[threshold]=toC?(value-offset)*5/9:value*9/5+offset;
+            const value=item.parameters[threshold];
+            const celsius=from==="°F"?(value-(difference?0:32))*5/9:from==="K"&&!difference?value-273.15:value;
+            item.parameters[threshold]=to==="°F"?celsius*9/5+(difference?0:32):to==="K"&&!difference?celsius+273.15:celsius;
           }
         }
+        if(key==="duration_seconds"&&Object.hasOwn(DURATION_UNITS,d.durationUnit)) {
+          card.policyDurationUnits??={};card.policyDurationUnits[`${id}:duration_seconds`]=d.durationUnit;
+        }
         if(element.type==="checkbox")item.parameters[key]=element.checked;
-        else if(element.value==="")delete item.parameters[key];else item.parameters[key]=element.type==="number"?Number(element.value):element.value;
+        else if(element.value==="")delete item.parameters[key];
+        else if(key==="duration_seconds"&&Object.hasOwn(DURATION_UNITS,d.durationUnit)) {
+          const seconds=Number(element.value)*DURATION_UNITS[d.durationUnit],nearest=Math.round(seconds);
+          const exact=d.durationUnit!=="seconds"&&seconds>=0&&seconds<=31536000&&nearest>0&&Math.abs(seconds-nearest)<=Number.EPSILON*Math.max(1,Math.abs(seconds))*4;
+          item.parameters[key]=exact?nearest:seconds;
+        }else item.parameters[key]=element.type==="number"?Number(element.value):element.value;
       }else if(field==="check") {
         return true;
       }else if(field==="mode") {
@@ -603,10 +765,35 @@ export function editReusable(card,event) {
       }
     }else return false;
   }
-  invalidate(card);renderAfterEdit(card,element);
+  invalidate(card);
+  const editingTemperature=event.type!=="click"&&kind==="policies"&&element.type==="number"&&policies.find(item=>item.id===id&&item.check==="temperature_limit");
+  if(editingTemperature) {
+    // Keep native intermediate input such as a leading minus or trailing decimal.
+    const rule=card.main?.querySelector?.(".policy-rule");
+    if(rule)rule.textContent=temperatureRule(editingTemperature);
+    card.main?.querySelector?.(".policy-section .config-error")?.remove?.();
+    for(const field of card.main?.querySelectorAll?.('.unified-policy-editor [aria-invalid="true"]')||[]) {
+      field.removeAttribute("aria-invalid");field.removeAttribute("aria-describedby");
+    }
+    const footer=card.main?.querySelector?.("[data-scoped-editor]");
+    if(footer) {
+      const template=document.createElement("template");
+      template.innerHTML=scopedEditorFooter(card,{kind:"policy",id},"Save policy");
+      if(!footer.isEqualNode(template.content.firstElementChild))footer.replaceWith(template.content);
+    }
+    card.renderedContent=null;
+    return true;
+  }
+  renderAfterEdit(card,element);
+  if(notificationFocus) {
+    const target=[...(card.main?.querySelectorAll?.('[data-row-field="profile"]')||[])].find(item=>item.dataset.rowScope===notificationFocus.scope&&item.dataset.rowId===notificationFocus.id);
+    const focus=target?.disabled?card.main?.querySelector?.('[data-definition-action="save-scoped"]'):target;
+    focus?.focus?.({preventScroll:true});
+  }
   if(event.type==="click"&&kind==="methods"&&["add","duplicate"].includes(action)) {
     card.main.querySelector?.('.notifications-content')?.scrollIntoView?.({block:"nearest"});
-    card.main.querySelector?.('.delivery-method-editor [data-definition-field="name"]')?.focus({preventScroll:true});
+    const name=card.main.querySelector?.('.delivery-method-editor [data-definition-field="name"]');
+    name?.focus({preventScroll:true});name?.select?.();
   }
   return true;
 }

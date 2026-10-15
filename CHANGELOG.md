@@ -2,9 +2,81 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep Open issues removal actions usable after the first click. Bring confirmation into view, retain it when returning from a source, and allow cancellation or a fresh review without saving.
+
+- Group Open issues by registry device beneath every integration, with each device named once and its individual findings indented underneath. Preserve separate issue actions, standalone entities, shared integration findings, search and bounded pagination.
+
+- Make policy notifications compact, with grouped timing and delivery details, an explicit Add notification choice and Remove on every row. Removing the last entry shows No notifications and saves that choice. Adding back to an empty UPS reserve policy supplies its required power condition.
+
+- Reduce policy-save work by reusing unchanged serialized source and catalog presentation, while preserving current discovery, detection, queued observations, verified storage and rollback.
+
+- Simplify Monitoring to one Issues badge on affected tree rows, with no numerical tree totals. Selecting a row lists each related issue once and explains shared issues across groups.
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
+
+- Keep Monitoring tree arrows beside the first line of the source name. Align wrapped device details beneath that name and keep issue badges within narrow rows.
+
+- Explain individual temperature issues with their reported reading, limits and duration instead of “Limited in Home Assistant.” Keep the source name, acknowledgment and pause actions prominent, with compact policy links and optional navigation under Details.
+
+- Avoid a full inventory scan on every acknowledgment and operator action when the inventory is current. Preserve queued evidence, due timers and verified storage before confirming success.
+
+- Show temperature policies, waiting intervals and current findings on their sensor and device. Keep temperature checks out of the separate Other sources group while preserving existing issue links and independent policy timing.
+
+- Omit unset temperature limits from policy summaries instead of displaying null as a temperature.
+
+### Changed
+
+- Simplify entity details to the current condition, actual monitoring coverage and visible policy actions. Open the complete related issue for acknowledgment and notification pauses; place destination-specific Home Assistant links beside the source identity and keep history on its own page.
+
+- Separate Monitoring search and filters from tree grouping and collapse controls. Keep More filters in an anchored panel, name the status filter clearly, and make Collapse groups apply visibly to the tree.
+
+- Use Pause notifications and Acknowledge issue consistently, and name availability monitoring in removal and resumption actions so other checks remain clear.
+
+- Use compact source and issue dialogs throughout Homeostatic, with consistent spacing and clear action dialogs. Entity details keep policies and actions visible; issue and other source dialogs retain supporting details where useful. Show acknowledgment and active controls once without nested panels.
+
+- Give battery and device details a compact layout with direct single readings and optional evidence under Details, and open Policies from battery monitoring configuration. Entity details state current evidence and monitoring in plain language.
+
+- Put policy enablement beside the editor heading, bring labels next to their controls, and give temperature policies equal optional lower and upper limits. Show duration in minutes by default with exact unit conversion, a live rule summary, nearby validation and global sending status. Preserve sensor-picker scroll and focus, and use readable durations in policy summaries.
+
+- Keep all monitoring states browsable with a visible All / Monitored / Not monitored filter. Show actual entity coverage and preserve inspection when filtering hides the selected source.
+
+- Expand History entries directly in the list with concise recorded conditions and times. Remove the history dialog, repeated findings and generic clearing explanations while preserving source links, related issues and navigation.
+
+- Clarify policy source choices with area context and searchable names, locations and identities. Show relevant area and label counts, retain selected empty groups, and compact the picker with full-width search and keyboard focus return.
+
+- Order the Notifications list and notification pickers by saved delivery timing, with acknowledgment reminders first and scheduled summaries ordered by frequency and time.
+
+- Return to the matching Notifications list after saving a notification or delivery method, with a named confirmation beside its row. Keep failed saves and newer edits in the editor, simplify new-method headings, and keep test feedback tied to the method and saved destinations it tested.
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+
+- Simplify Sources, Policies, Notifications, History and Settings: remove repeated actions and explanations, shorten list summaries, keep one editor return route, and put optional filters, technical timings and history information behind disclosures.
+
+- Simplify the Issues list to one clickable entry per issue, with a recognizable name, condition and short opening time. Move recorded sources into issue details and remove duplicate list actions and reporting status.
+
+- Simplify Working on this equipment with one explanation, explicit duration choices and optional custom time and settings. Show date errors only after editing and keep the chosen expiry during live updates.
+
+- Simplify grouped availability issue details with one device action, collapsed entity lists, linked entity names and optional monitoring and connection details. Preserve standalone source names, mixed conditions and contributing checks.
+
+- Restore History as a separate top-level page and remove Undo after saved monitoring changes. Use the shared accent for final Save actions and restrict hover surfaces to devices with hover input.
+
+- Register new panel and generated-card versions with the updated frontend so an open Home Assistant session can load the corrected controls without reusing its old component.
+
+- Compact the destination picker on phones: left-aligned selectable rows, a separate speech-provider step, one Close control and one scrolling area. Keep editor header styles inside their own editor.
+
+- Remove unwanted availability monitoring directly from an Issues group in one batch, including matching issues beyond the visible page. Show a short count-based confirmation with entity and policy details collapsed, and report the saved policy change without retaining Undo.
+- Simplify source removal wording and confirmation while preserving other checks and existing save safeguards.
+
 ## [1.8.0b7] - 2026-10-14
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Require health-tree 0.7.0 for compatible device notification grouping.
 - Put source conditions and actions first, collapse policy explanations and technical details, and compact the phone header. Add scoped Stop monitoring availability, Resume, Undo, selected-device-member actions and an availability-exclusions filter. Related issue controls identify their complete scope.
@@ -34,6 +106,10 @@
 
 ### Fixed
 
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
+
 - Preserve a device's open issue, acknowledgment, pauses and reporting clocks through entity additions, removals, disablement and re-enablement while monitored members remain, including across restarts. Saved exclusions that change its evidence still replace the affected check. Reject malformed saved continuity metadata and restore it with issue controls after a failed save.
 - Keep unrelated check identities, open issues, acknowledgment, pauses and reporting clocks intact when excluding individual sources. Preserve existing persisted check IDs through a validated storage-envelope upgrade; stop/resume saves retain unrelated drafts and expose safe refresh after an uncertain response.
 - Use Home Assistant person entity IDs for delivery-method presence choices, preserving separate internal person and user identities.
@@ -62,6 +138,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Focus delivery-method editing on selected destinations, with aligned fields, a searchable destination dialog, optional presence controls, visible save/cancel actions, and a More actions menu. Retain drafts when returning to the list and confirm before discarding method edits. Use the same form inside policies.
 - Apply ordinary monitoring edits without restarting the integration; Save changes waits for verified storage and an updated dashboard.
 - Refresh the complete source catalog with up to four pages in flight. Retained editors save the complete draft and keep newer edits made during a save.
@@ -70,6 +149,10 @@
 - Use plain tree rows with neutral labels, consistent child indentation, whole-row hover and selection, and wrapping secondary counts in Sources.
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Omit availability issues awaiting recovery confirmation from Overview and Issues, while keeping their source details available. Describe loaded integrations with outstanding related-source problems accurately and list the affected sources in details.
 - Keep disabled entities browsable without attaching availability checks, preventing disabled Sun sensors and other optional entities from becoming stale issues.
@@ -80,11 +163,19 @@
 
 ### Fixed
 
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
+
 - Answer saved policy configuration directly in the WebSocket handler, avoiding an additional task queued behind monitoring work. Delivery discovery remains asynchronous and separate.
 
 ## [1.8.0b4] - 2026-10-13
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Load saved policies without rediscovering notification destinations, people or automations. Discover delivery choices when a method editor opens, retaining drafts on discovery failure.
 - Create and edit delivery methods inside a policy. Keep the policy selected, restore only the method's pre-open draft on Cancel, select the method on Use method, and save the complete draft once. Show the policies affected by shared-method edits.
@@ -93,6 +184,10 @@
 
 ### Fixed
 
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
+
 - Reuse compiled notification policies during ordinary evidence updates, reconciliation with unchanged sources, and diagnostic reads. Rebuild after source or settings changes, preserving attention clocks.
 - Group consecutive sources with identical notification choices into shared rules, preserving source override order, condition exceptions, independent schedules, acknowledgment, and saved delivery identity.
 - Serialize saved health snapshots and compare read-back data outside the Home Assistant event loop, keeping the UI and API responsive during large snapshot saves while preserving write verification and queued evidence.
@@ -100,6 +195,9 @@
 ## [1.8.0b2] - 2026-10-13
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Save configuration through one Save changes action throughout the dashboard, including retained editors. Maintenance also applies directly from its completed form. Keep validation, stale-revision protection and rollback within the action, preserve pending edits on failure, and remove separate review screens.
 - Select integrations by integration name, covering all current and future connections. Keep monitoring type fixed, name source pickers for their type, and remove single-choice scope dropdowns from Repairs and Broken automations.
@@ -114,6 +212,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Show supplied and user-created monitoring policies in one editable list. Fix the monitoring type at creation, support independent duplicates and overlapping policies, and allow deletion and selective restoration of supplied defaults.
 - Configure notification timing inside each policy. Add several entries with immediate delivery, optional acknowledgment reminders or scheduled summaries; select one or more reusable delivery methods for each. Remove the separate schedule library and default-assignment editor.
 - Use capability-based source selectors and detection fields, including configurable battery thresholds and independently evaluated overlapping battery policies. UPS reserve and generic battery policies can coexist without ownership transfer.
@@ -127,6 +228,10 @@
 ## [1.7.1] - 2026-10-13
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Continue health checks when a device identifier has extra fields, including a HomeKit bridge. UPS matching still uses the integration and device id.
 
@@ -151,6 +256,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Pin published health-tree 0.6.0 for independent notification routes and explicit renewed attention.
 
 ## [1.6.0] - 2026-10-04
@@ -163,6 +271,9 @@
 ## [1.5.0] - 2026-10-04
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - In Sources grouped by Home Assistant location, a floor lists its areas. Devices and entities appear under the area they belong to.
 - Give monitoring policies their own **Policies** page. It lists Integrations, Devices, Batteries, Vacuums, and Repairs as on or off. Repairs stay on until turned off. Settings keeps Timing and Problem grouping. A narrower match, such as an area or a label, is added under **Other policies**.
@@ -177,12 +288,18 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Open a device issue only when every entity you selected on the device is unavailable, or its connectivity sensor reports disconnected, following Home Assistant's device availability proposal. One unavailable entity on a device whose other entities still report no longer opens a device issue. Issues still open for a partly unavailable device end when Homeostatic first starts after the update, and History lists them as **Monitoring ended** rather than **Cleared**.
 - Add a maintainer page, Home Assistant states, on how Home Assistant reports entity, device and integration state and how Homeostatic reads it.
 
 ## [1.3.1] - 2026-10-01
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Make the device issue's monitoring choices easier to scan on a phone, keep the expanded list within the dialog, and explain that stopping a check opens a draft to review and save in Sources.
 - Show why an entity exclusion could not be staged when several direct monitoring rules apply.
@@ -196,6 +313,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Replace the separate automation failure cards with ordinary Repair issues. Repairs now support Acknowledge, Pause alerts, History and notifications.
 - Open the README with what goes wrong in a Home Assistant install and how Homeostatic tells you about it.
 
@@ -207,6 +327,9 @@
 - Set household functions aside. Saved definitions are kept but inactive. Function readiness sensors and event entities are disabled, so automations that use them stop updating, and the function card view now opens Overview. The function services, previews and the Function status light blueprint are gone.
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Show Home Assistant automation validation and missing-action Repair errors in Overview and Issues, with a link back to Home Assistant.
 - Group watched device availability findings under a failed watched integration when both report problems.
@@ -222,11 +345,18 @@
 
 ### Fixed
 
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
+
 - Clear built-in phone notifications when requests turn off and accept battery condition reporting exceptions.
 
 ## [1.1.5] - 2026-10-01
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Show all five Homeostatic demo screenshots directly in the README.
 - Treat a current `off` report from a device's connectivity-class binary sensor
@@ -238,6 +368,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Explain equipment issues, household situations, and reporting choices through concrete examples in the README.
 - Make TopoMation's optional house tree discoverable beside the Sources grouping control, with a direct link to the integration.
 
@@ -245,12 +378,18 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Simplify cleared device History details to an availability summary and compact
   observed time range. Remove the redundant original finding dropdown.
 
 ## [1.1.2] - 2026-09-30
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Pin the published health-tree 0.5.1 release in the integration manifest and
   package lockfile.
@@ -261,6 +400,9 @@
 ## [1.1.1] - 2026-09-30
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Group each Home Assistant connection with its sole registry-owned device in
   Sources, while keeping connection and device evidence and monitoring choices
@@ -295,6 +437,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Discover reviewable battery maintenance sources from HA battery and charging
   entity classes. A selected battery warns at 20% or on an explicit low report;
   confirmed charging clears the condition without claiming replacement.
@@ -310,6 +455,10 @@
   Technical details.
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Keep the Sources catalog loaded when an inventory signal finds no actual
   changes. Browsing-location changes still refresh the catalog so their names
@@ -352,6 +501,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Rewrite the README for a Home Assistant user arriving cold: the problem in house
   terms, what the panel, issues, functions, alerts, and notifications give you, how
   the dependency graph and Health Tree work, and an honest note on what availability
@@ -359,6 +511,10 @@
   stale phone-acknowledgment limit, and list the alert blueprint first.
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Show the current entity's name as plain text in its Source evidence instead of
   a link that reopened the same page. Other entity names still open their Sources.
@@ -399,6 +555,10 @@
 
 ### Fixed
 
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
+
 - Separate group monitoring policies from individual source selections in Settings.
   Show readable group scopes, direct individual choices to Sources, and keep the
   complete rule editor under Advanced rule details. Existing monitoring choices
@@ -411,6 +571,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Make the integration name prominent in device problem details, with affected entities immediately below it and working entities kept in the collapsed selection. Space the monitoring and Sources links apart, wrapping them on narrow screens.
 
 ## [0.1.0b16] - 2026-09-28
@@ -421,11 +584,17 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Document the owner-agreed five reporting preferences in ADR 0026 and draft the Notifications/Sources interface: retain Notifications for shared settings, put assignments in Sources Settings, and remove old level filters and quiet-hour controls from the new workflow. Include wireframes, migration safeguards, and prototype acceptance cases. Implement per-profile recipients and shared destinations, weekly household defaults, recurring open-problem summaries, per-source/check preferences, and an Overview forecast. Preserve existing policies until reviewed migration. Both immediate choices include overnight; acknowledgement reminders repeat every 30 minutes.
 
 ## [0.1.0b15] - 2026-09-28
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Follow Home Assistant availability semantics in passive checks: an `unknown` entity value does not create an issue, and an `unavailable` entity raises a warning. Buttons remain eligible for device summaries; an unpressed Identify button no longer raises a device issue. Device choices with no eligible entity remain saved without an open availability check.
 - Explain in the README which selected Home Assistant entity states produce a device availability warning and what the summary cannot prove.
@@ -437,6 +606,9 @@
 ## [0.1.0b14] - 2026-09-28
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Rewrite the README as a short landing page with badges, HACS and manual installation, and a quick start; move the full reference to `docs/guide.md` and developer setup to `docs/development.md`. Add `hacs.json` for installation as a HACS custom repository.
 - Use Home Assistant's “entity” terminology for selectable and monitored sources in Sources and device problem details, while retaining “reading” for physical measurements and the act of retrieving values.
@@ -468,6 +640,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Sources now keeps one tree beside Source, Settings, and History views for the selected item. Empty integration names receive readable labels and repeated page headings are removed.
 
 - Monitoring setup now uses an integration → device → entity tree without nested paging, clearer saved-policy summaries, and integration-level device defaults. New installations leave device summaries unmonitored until selected; an individual device can override its integration's device default. Existing saved monitoring choices are preserved until reviewed and saved.
@@ -480,6 +655,10 @@
 
 ### Fixed
 
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
+
 - Remove automatically selected registry entities and device summaries from monitoring when HA removes their backing evidence; end active episodes as removed while keeping explicit selections visible as unknown.
 
 - Make Explore's empty locations concise, keep its discovered inventory secondary, and return from Monitoring or Settings to the selected location. Function setup now points to the Homeostatic integration entry instead of the general integrations list.
@@ -487,6 +666,9 @@
 - Contain scrolling at the top and bottom of dashboard pop-up panels so the page behind them stays put.
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Shorten open-problem details to one condition, current retry or recovery state, next action, and open-since time. Show confirmed function effects only when present, group attention controls, and keep error reports and raw data under Technical details.
 - Split the Home screen into a global Overview with issue and monitoring counts and three recent items, plus an Issues page for the full open list.
@@ -502,6 +684,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Introduce the project through household functions, useful problem explanations, attention controls and visible evidence limits in the README.
 
 - Yield between bounded groups of ordered observations so outage processing can share the Home Assistant loop while retaining every captured transition.
@@ -510,6 +695,10 @@
 ## [0.1.0b11] - 2026-09-26
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Explain availability as a selected monitoring expectation, with current member names and states, rather than a diagnosis of physical failure. Use the same rules for every integration.
 - Add persistent Ignore availability through the existing preview-and-save editor. Entity exclusions also apply to device summaries, survive renames and reload, and retire changed summary episodes as removed rather than recovered.
@@ -528,6 +717,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Simplify problem details to a directly visible Pause alerts action for that problem only. Keep equipment maintenance on source details, and group diagnostic copying and optional raw data under Technical details.
 - Reorganized the dashboard into Home, Explore, Monitoring, History, and Settings with distinct purposes. Monitoring now leads with selected HA checks and evidence to review, History holds resolved problems and the current-run monitoring log, and Settings groups monitoring choices with links to native function, situation, and alert options. Source rows name what HA checks and what those checks cannot establish.
 
@@ -539,6 +731,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Monitoring activity distinguishes the scope found at load from later changes, groups arrivals by reconciliation, shows affected sources and current evidence by integration and device, and opens those sources in Coverage.
 - Equipment maintenance now starts from a plain-language device action with short duration choices, a custom end time, and a readable preview of the equipment and functions covered. The preview still gates submission and existing problems remain visible.
 - Problem details now summarize monitoring, check limits, current assessment and configured household impact before the optional raw diagnostic record.
@@ -547,10 +742,17 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Group Browse the house by current Home Assistant devices, place entities without a device in a secondary Area signals section, and show configured functions through their direct requirements. Floor and area branches can be collapsed without changing monitoring or dependency meaning.
 - Summarize watched integration instances, device-associated entities and entities without an HA device in native setup/options preview, while stating that registry association does not prove physical hardware.
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Replace the unbounded Coverage inventory table with a gap-first integration, Home Assistant device and capability hierarchy. Groups with missing evidence open automatically and provide specific guidance and function impact; the full discovered catalog remains searchable with a 50-result render bound. Remove the Coverage self-link and unrelated notification/control JSON.
 - Version dashboard custom elements as well as module files so an already-open Home Assistant app replaces the obsolete enrollment JSON view after an upgrade. Monitoring changes move from the household overview to Coverage, where owner-readable explanations keep what changed, why and when primary and the complete payload remains in a secondary technical record.
@@ -559,15 +761,25 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Replace raw enrollment-event JSON on the overview with concise recent activity, grouped enrollment bursts, current evidence context and source or coverage navigation. Complete payloads remain available under technical details.
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Stop monitoring automatically enrolled config entries when Home Assistant confirms their deletion, including entries deleted before an upgrade. Their active episodes resolve as removed instead of remaining as permanent missing connections. Explicit requirements and missing entity evidence retain their existing unknown semantics.
 
 ## [0.1.0b7] - 2026-09-25
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Entity problem cards and details now identify the light or sensor, explain the missing reading or control path, suggest a relevant first check and link to native entity/device details. Current evidence distinguishes unknown, missing, restored, disabled and recovering states; a known connection problem remains separate from the device symptom.
 
@@ -579,12 +791,18 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Combine redundant runtime refreshes while retaining every captured transition, reuse unchanged inventory and index state-event lookup. Deadline, storage, shutdown and notification ordering retain their existing contracts.
 - Offer compact dashboard updates that resend catalog metadata only when it changes, with an explicit baseline on connection/reload and compatibility for existing full-snapshot clients. House and coverage tables search the full catalog while rendering at most 50 source rows per page.
 
 ## [0.1.0b5] - 2026-09-25
 
 ### Changed
+
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
 
 - Rebuilt problem cards and details around the reported problem, confirmed household impact, a relevant action and recovery progress. NuHeat and receiver timeouts, explicit sign-in requests, disabled connections and recovery have distinct guidance. Maintenance, alert controls, raw errors and diagnostic policy data move out of the main reading path; active controls remain visible by expiry.
 - Version frontend module URLs together so a refreshed client loads a consistent release.
@@ -598,9 +816,16 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - House browsing now follows Home Assistant's floor-to-area hierarchy, preserves empty registry locations, summarizes child areas at the floor level, and distinguishes areas without a floor from sources without an area.
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Problem cards and details separate current integration activity from the last reported failure, preserving timestamped context through retries and reloads without changing health or alert decisions. Disabled entries remain unknown but have a distinct, neutral presentation.
 - Overview summaries omit raw exceptions; integration identity, recovery progress, next steps and reported-error details remain accessible. Expanded details stay open during live updates.
@@ -613,15 +838,26 @@
 
 ### Fixed
 
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
+
 - Integration problem cards and details now explain setup, retry, authentication and disabled states, preserve HA's reported error, and link to the relevant integration entry or filtered logs. Empty dependency text and unrelated notification/verification detail no longer obscure the next step.
 
 ## [0.1.0b2] - 2026-09-25
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Pin published HealthTree 0.3.0, including atomic graph registration and the correction for spurious stale episodes after grouped problems dissolve.
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Enrollment-only previews skip health graph construction. Function previews and runtime graph changes use atomic HealthTree registration, preserving monitored healthy sources and explicit evidence gaps. Synthetic large-catalog validation is documented separately from the live pilot.
 
@@ -664,6 +900,9 @@
 
 ### Changed
 
+- Clarify navigation with Open issues and Monitoring, align notification lists and editors with page headings, and use theme-based selected navigation and labeled issue counts.
+- Explain shared issue counts in Monitoring with their device, entity or connection scope, so one issue involving several devices is distinguishable from separate issues.
+
 - Documented agreed dashboard and optional TopoMation product direction, enrollment behavior, location/dependency boundaries, and acceptance walkthroughs; implementation remains planned.
 - Added a first dashboard design review with draft notification text for all ten library stories, evidence requirements, and presentation findings; no runtime or notification behavior changed.
 
@@ -681,6 +920,10 @@
 - CI uses the reviewed HealthTree baseline including accepted situation ADRs.
 
 ### Fixed
+
+- Show canonical equipment names in policy selections, with each selected source on its own row and room and floor beneath the name. Use the policy name as the editor heading and keep the selection action beside Include.
+
+- Complete saves without persistent success messages across policy, notification, delivery-method, settings and contextual monitoring views. Preserve pending application, newer unsaved edits and failure feedback.
 
 - Keep a return path after opening coverage or house details from an embedded Homeostatic card with page tabs hidden, including the generated dashboard.
 

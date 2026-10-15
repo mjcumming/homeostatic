@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shared issue counts · synthetic fixture</title>
+<style>
+:root{--primary-text-color:#212121;--primary-background-color:#fafafa;--card-background-color:#fff;--secondary-background-color:#e5e5e5;--secondary-text-color:#606060;--divider-color:#dedede;--primary-color:#03a9f4;--text-primary-color:#fff}body{margin:0;background:var(--primary-background-color);color:var(--primary-text-color);font:16px Arial,sans-serif}#controls{padding:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}button,select{font:inherit;min-height:44px}homeostatic-card{display:block;width:100%;max-width:1100px;margin:auto}#feedback{padding:0 12px}
+:root[data-theme="dark"]{--primary-text-color:#e4e8ec;--primary-background-color:#10171e;--card-background-color:#18232d;--secondary-background-color:#263744;--secondary-text-color:#aab8c5;--divider-color:#41505c;--primary-color:#57c5ef;color-scheme:dark}#receipt{white-space:pre-wrap;overflow-wrap:anywhere}
+</style></head><body>
+<div id="controls"><strong>Synthetic counts · no live connection</strong><label>Example <select id="variant"><option value="shared">One shared issue</option><option value="independent">Six independent issues</option><option value="locations">Shared issue across rooms</option></select></label><label>Width <select id="width"><option>1600</option><option selected>1100</option><option>390</option><option>320</option></select></label><label>Theme <select id="theme"><option>light</option><option>dark</option></select></label><button id="run">Check counts</button><button id="run-layout">Check tree layout</button></div>
+<p id="feedback" role="status"></p><details><summary>Layout acceptance receipt</summary><pre id="receipt"></pre></details><homeostatic-card></homeostatic-card>
+<script type="module">
+import "../../custom_components/homeostatic/frontend/homeostatic.js";
+import {sourcesTree,sourcePaths} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
+import {sharedIssueCountsFixture,locationIssueFixture} from "./shared-issue-counts-fixture.mjs";
+import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
+const card=document.querySelector("homeostatic-card"),variant=document.querySelector("#variant"),width=document.querySelector("#width"),theme=document.querySelector("#theme"),feedback=document.querySelector("#feedback"),query=new URLSearchParams(location.search);
+variant.value=["independent","locations"].includes(query.get("variant"))?query.get("variant"):"shared";width.value=query.has("phone")?"390":query.get("width")||"1100";theme.value=query.get("theme")||"light";
+card.navigation.enabled=false;
+card.loadSource=()=>Promise.resolve();
+card._hass={user:{is_admin:true},localize:()=>null,config:{time_zone:"America/Chicago"},async callWS(request){
+  if(request.type!=="homeostatic/node")throw Error("Live requests are forbidden in this synthetic fixture.");
+  const data=card.current.data,source=data.inventory.nodes.find(item=>item.node_id===request.node_id);
+  const findings=data.inventory.episodes.flatMap(item=>item.reasons).filter(item=>item.node_id===request.node_id);
+  return {source,explanation:{findings},entity_status:{current:{status:"warn",reason:"unavailable",message:"Synthetic entity unavailable",evidence:{}},findings},device_evidence:null};
+}};
+function show() {
+  const {data,devices}=variant.value==="locations"?locationIssueFixture():sharedIssueCountsFixture(variant.value);
+  if(variant.value!=="locations") {
+  devices[0].name="Front Hallway";devices[1].name="Front Hallway Chandelier with a long equipment name";
+  for(const device of devices)data.devices.find(item=>item.id===device.attributes.device[0]).name=device.name;
+  data.floors=[{id:"main",name:"Main floor"}];data.areas=[{id:"hall",name:"Front hallway",floor_id:"main"}];
+  for(const source of data.inventory.nodes.filter(source=>source.kind!=="integration"))source.attributes={...source.attributes,area:["hall"],floor:["main"]};
+  }
+  card.current={status:"current",data};card.sourcesSelection=null;card.sourcesMobileDetail=false;card.sourcesQuery="";
+  card.sourcesGrouping=variant.value==="locations"?"location":query.get("group")||"integration";
+  card.sourcesExpanded=new Set([...sourcePaths(sourcesTree(data,card.sourcesGrouping)).values()].filter(item=>item.node.type==="location"||item.node.family).map(item=>item.node.key));
+  card.style.maxWidth=`${width.value}px`;document.documentElement.dataset.theme=theme.value;card.setConfig({view:"sources"});card.render();
+  feedback.textContent="Select a row to see its distinct issues, or expand it to inspect sources.";
+}
+variant.onchange=width.onchange=theme.onchange=show;
+document.querySelector("#run").onclick=()=>{
+  const root=card.shadowRoot,rows=[...root.querySelectorAll(".config-pick")];
+  const badge=id=>rows.find(row=>row.dataset.sourcesSelect===id)?.querySelector(".source-issue-count")?.textContent;
+  const expected="Issues";
+  const valid=variant.value==="locations"?
+    ["location:floor:main","location:area:front","location:area:kitchen","location:area:mud"].every(id=>badge(id)===expected)&&!badge("location:area:living"):
+    badge("source:entry:scope")===expected&&Array.from({length:6},(_,index)=>badge(`source:device:scope-${index}`)).every(value=>value===expected);
+  const shell=root.querySelector(".shell"),fits=shell.scrollWidth<=shell.clientWidth+1;
+  feedback.textContent=valid&&fits?`PASS: ${expected}; affected branches are marked without numerical tree totals; no horizontal overflow.`:"FAIL: count or viewport mismatch.";
+  if(!valid||!fits)throw Error(feedback.textContent);
+};
+document.querySelector("#run-layout").onclick=async()=>{
+  show();
+  const receipt=emptyReceipt({browser:navigator.userAgent,width:Number(width.value),theme:theme.value,grouping:card.sourcesGrouping,data:"synthetic",fixture:"shared-issue-counts.html"});
+  receipt.results=receipt.results.filter(row=>row.id==="sources.tree-layout");
+  const check=(value,message)=>{if(!value)throw Error(message);};
+  const root=card.shadowRoot,device="source:device:scope-0";
+  const settle=async()=>{for(let index=0;index<20;index++)await Promise.resolve();};
+  const toggle=()=>root.querySelector(`[data-sources-toggle="${device}"]`);
+  try {
+    for(const row of root.querySelectorAll(".config-nav-row")) {
+      const pick=row.querySelector(".config-pick"),title=pick.querySelector(".source-row-title"),button=row.querySelector(".config-toggle"),meta=pick.querySelector("small");
+      const range=document.createRange();range.selectNodeContents(title.firstChild);
+      const first=range.getClientRects()[0],text=title.getBoundingClientRect(),box=pick.getBoundingClientRect(),secondary=meta?.getBoundingClientRect();
+      if(button) {
+        const arrow=button.querySelector(".disclosure").getBoundingClientRect();
+        check(Math.abs(arrow.top+arrow.height/2-first.top-first.height/2)<=4,`Arrow aligns with first name line: ${title.textContent}`);
+        check(button.getBoundingClientRect().height>=row.getBoundingClientRect().height-1,"Disclosure keeps its full row-height target");
+      }
+      if(secondary&&secondary.top>=text.bottom-1)check(Math.abs(secondary.left-text.left)<=1,"Wrapped inventory details start beneath the name");
+      check(pick.scrollWidth<=pick.clientWidth+1&&text.right<=box.right+1,"Names and issue counts fit their row");
+    }
+    check(root.querySelector(".config-rail").scrollWidth<=root.querySelector(".config-rail").clientWidth+1,"Tree has no horizontal overflow");
+    const beforeSelection=card.sourcesSelection;
+    toggle().click();await settle();
+    check(toggle().getAttribute("aria-expanded")==="true"&&card.sourcesSelection===beforeSelection,"Expand reveals children without selecting");
+    check(root.querySelector('[data-sources-select="source:entity:scope-0-0"]'),"Expanded entities are reachable");
+    root.querySelector(`[data-sources-select="${device}"]`).click();await settle();
+    check(card.sourcesSelection===device&&toggle().getAttribute("aria-expanded")==="true","Selecting keeps the branch expanded");
+    const back=root.querySelector('[data-action="back-sources"]');
+    if(back?.getClientRects().length){back.click();await settle();}
+    check(toggle().getClientRects().length,"Disclosure remains reachable after returning to the tree");
+    toggle().click();await settle();
+    check(toggle().getAttribute("aria-expanded")==="false"&&card.sourcesSelection===device,"Collapse preserves selection");
+    recordResult(receipt,"sources.tree-layout","pass","First-line arrow alignment, full-height target, wrapping, no overflow and independent expansion/selection passed.");
+    feedback.textContent=`PASS: tree alignment and controls at ${width.value}px in ${theme.value} theme.`;
+  } catch(error) {
+    recordResult(receipt,"sources.tree-layout","fail",error.message);feedback.textContent=`FAIL: ${error.message}`;
+  }
+  document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);
+  parent.postMessage({type:"homeostatic-acceptance",fixture:"shared-issue-counts.html",receipt},location.origin);
+};
+show();
+</script></body></html>

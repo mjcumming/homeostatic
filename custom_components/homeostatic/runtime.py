@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from functools import partial
 from operator import ne
 from time import perf_counter
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from health_tree.engine import Engine
@@ -171,6 +171,7 @@ class Runtime:
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
         self.temperature_monitors: dict[str, TemperatureMonitor] = {}
+        self.temperature_observations: dict[str, Observation] = {}
         self.ups_monitors: dict[str, UpsMonitor] = {}
         self._ups_saved: dict[str, Any] = {}
         self._temperature_saved: dict[str, Any] = {}
@@ -1473,7 +1474,7 @@ class Runtime:
             try:
                 await self._drain_pending()
                 now = dt_util.utcnow()
-                self._handle(self._evaluate(now), now)
+                self._handle(self._evaluate(now, reconcile=False), now)
                 self._prune_controls(now)
                 try:
                     response = self._apply_control(action, data, user_id, now, context)
@@ -1554,20 +1555,41 @@ class Runtime:
             for node_id in removed:
                 events.extend(self.engine.remove(node_id, now))
         if discover:
+            rules = enrollment_rules(self.settings.monitoring_policies)
+            rules_changed = (
+                self._compiled_settings is None
+                or rules
+                != enrollment_rules(self._compiled_settings.monitoring_policies)
+            )
             if (
                 first
                 or sources != self.sources
                 or self.candidates != previous_candidates
                 or self.targets != previous_targets
                 or tuple(self.enrollment_changes) != previous_changes
+                or rules_changed
             ):
                 self.inventory_revision += 1
+                previous_nodes = {
+                    cast(str, row["node_id"]): row
+                    for row in cast(
+                        list[dict[str, JSONValue]],
+                        self.inventory_static.get("nodes", []),
+                    )
+                }
+                # Small policy edits leave most public source records unchanged.
+                # Reusing those rows also leaves the rollback view untouched.
                 self.inventory_static = {
-                    "nodes": [json_object(source) for source in sources.values()],
-                    "catalog": report(
-                        self.candidates,
-                        (*enrollment_rules(self.settings.monitoring_policies),),
-                    ),
+                    "nodes": [
+                        previous_nodes[identity]
+                        if identity in previous_nodes
+                        and source == self.sources.get(identity)
+                        else json_object(source)
+                        for identity, source in sources.items()
+                    ],
+                    "catalog": report(self.candidates, rules)
+                    if first or rules_changed or self.candidates != previous_candidates
+                    else self.inventory_static["catalog"],
                     "enrollment_changes": list(self.enrollment_changes),
                     "targets": list(self.targets),
                 }
@@ -1633,6 +1655,11 @@ class Runtime:
         self.temperature_monitors = {
             key: value
             for key, value in self.temperature_monitors.items()
+            if key in sources
+        }
+        self.temperature_observations = {
+            key: value
+            for key, value in self.temperature_observations.items()
             if key in sources
         }
         self._temperature_deadlines = {
@@ -1758,6 +1785,8 @@ class Runtime:
             source = self.sources[observation.node_id]
             if source.kind == "ups" and source.node_id in self.ups_monitors:
                 self.ups_monitors[source.node_id].latest = observation
+            if source.kind in TEMPERATURE_CHECKS:
+                self.temperature_observations[source.node_id] = observation
             if source.kind == "integration":
                 self.integration_evidence.observe(observation, source.name)
             elif source.kind in {
@@ -2780,6 +2809,21 @@ class Runtime:
                 ),
             }
         )
+
+    def temperature_status(self, node_id: str) -> dict[str, JSONValue]:
+        """Present captured temperature evidence without advancing qualification."""
+        current = self.temperature_observations.get(node_id)
+        monitor = self.temperature_monitors.get(node_id)
+        deadline = self._temperature_deadlines.get(node_id)
+        return {
+            "observation": json_object(current) if current is not None else None,
+            "qualifying_since": monitor.since.isoformat()
+            if monitor is not None
+            and monitor.since is not None
+            and deadline is not None
+            else None,
+            "next_deadline": deadline.isoformat() if deadline is not None else None,
+        }
 
     def entity_status(self, node_id: str) -> dict[str, JSONValue] | None:
         """Present captured HA state alongside current public library answers."""

@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-15T11:14:49.015767-05:00",
+  "scope": "Clarify unique issue counts and related branch membership in Monitoring",
+  "status": "Implemented locally; not installed, committed or released",
+  "live_diagnosis": {
+    "integration": "Alexa Media",
+    "unique_open_issues": 1,
+    "related_devices": 6,
+    "rendered_updated_badge": "1 issue across 6 devices",
+    "access": "Read-only public Homeostatic subscription; no live changes"
+  },
+  "regression_cases": {
+    "passed": 7,
+    "cases": [
+      "One issue across six devices",
+      "Six independent issues",
+      "Aliases and repeated membership do not inflate scope; impact alone is excluded",
+      "Recorded membership survives partial recovery",
+      "Mixed devices and loose entities",
+      "Standalone entities",
+      "Connection-only membership"
+    ],
+    "additional_assertions": [
+      "Search retains complete branch counts",
+      "Issue links preserve their original identities",
+      "No input data changes"
+    ]
+  },
+  "rendered_checks": [
+    {
+      "variant": "shared",
+      "layout": "desktop",
+      "status": "pass"
+    },
+    {
+      "variant": "shared",
+      "layout": "390px phone",
+      "status": "pass"
+    },
+    {
+      "variant": "independent",
+      "layout": "390px phone",
+      "status": "pass"
+    }
+  ],
+  "visual_result": "Desktop and phone screenshots inspected; scope labels remain readable with no horizontal overflow.",
+  "required_quick": {
+    "passed": 478,
+    "failed": 19,
+    "failure_scope": "All failures occur in the separately added tests/frontend/policy-picker.test.mjs for pending policy-picker implementation.",
+    "log": "tmp/shared-issue-counts-quick.log"
+  },
+  "screenshots": [
+    "shared-issue-counts-desktop.jpg",
+    "shared-issue-counts-phone.jpg"
+  ],
+  "remaining": [
+    "Resolve unrelated policy-picker failures before treating the current entire checkout as a validated installation candidate.",
+    "Install and verify the correction when authorized; installed build remains module v78.",
+    "Physical Safari was not tested."
+  ]
+}

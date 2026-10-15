@@ -1,0 +1,111 @@
+{
+  "scope": "Open issues device hierarchy across integrations",
+  "date": "2026-10-15",
+  "status": "pass",
+  "source": {
+    "branch": "main",
+    "head": "00de1bbbc2a0c1c204b8505a289b4fd475e5537c",
+    "dirty": true,
+    "installed": false,
+    "committed": false,
+    "health_tree_changes": false
+  },
+  "checks": {
+    "command": "uv run --no-sync python script/check.py --quick",
+    "environment": "WSL; prepared Python 3.14 environment; Node 24.22.0",
+    "lint": "pass",
+    "format": "pass",
+    "frontend_tests": {
+      "passed": 714,
+      "failed": 0
+    },
+    "full_python_suite": "not run; no Python behavior changed"
+  },
+  "browsers": [
+    {
+      "fixture": "device-issues.html",
+      "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": {
+        "width": 1200,
+        "height": 900
+      },
+      "theme": "light",
+      "build": "working tree",
+      "transport": "synthetic inventory; no live services",
+      "physical_safari": "untested",
+      "status": "pass",
+      "results": [
+        {
+          "id": "issues.device-hierarchy",
+          "page": "Open issues",
+          "controls": "Expand integrations, device findings, keyboard open, search, sort, Show more and refresh",
+          "expected": "Each registry device is named once above its independent findings; standalone and shared issues remain reachable, original action targets are preserved and browsing never saves settings.",
+          "fixture": "device-issues.html",
+          "requirement": "../../docs/ui-standards.md#component-review-checklist",
+          "status": "pass",
+          "evidence": [
+            "Three integration families; single device heading; independent findings; equal names, standalone and shared issue identities. Focusable issue button, exact check query and acknowledgment identity, and detail close; no attention action invoked. Parent-name search, three sort choices, 40-to-45 pagination and unchanged refresh retention. Bulk action follows evidence; review and Cancel preserve saved policies; no mutations or live services; current viewport fits."
+          ]
+        }
+      ],
+      "evidence": [
+        "Three integration families; single device heading; independent findings; equal names, standalone and shared issue identities.",
+        "Focusable issue button, exact check query and acknowledgment identity, and detail close; no attention action invoked.",
+        "Parent-name search, three sort choices, 40-to-45 pagination and unchanged refresh retention.",
+        "Bulk action follows evidence; review and Cancel preserve saved policies; no mutations or live services; current viewport fits."
+      ]
+    },
+    {
+      "fixture": "device-issues.html",
+      "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "build": "working tree",
+      "transport": "synthetic inventory; no live services",
+      "physical_safari": "untested",
+      "status": "pass",
+      "results": [
+        {
+          "id": "issues.device-hierarchy",
+          "page": "Open issues",
+          "controls": "Expand integrations, device findings, keyboard open, search, sort, Show more and refresh",
+          "expected": "Each registry device is named once above its independent findings; standalone and shared issues remain reachable, original action targets are preserved and browsing never saves settings.",
+          "fixture": "device-issues.html",
+          "requirement": "../../docs/ui-standards.md#component-review-checklist",
+          "status": "pass",
+          "evidence": [
+            "Three integration families; single device heading; independent findings; equal names, standalone and shared issue identities. Focusable issue button, exact check query and acknowledgment identity, and detail close; no attention action invoked. Parent-name search, three sort choices, 40-to-45 pagination and unchanged refresh retention. Bulk action follows evidence; review and Cancel preserve saved policies; no mutations or live services; current viewport fits."
+          ]
+        }
+      ],
+      "evidence": [
+        "Three integration families; single device heading; independent findings; equal names, standalone and shared issue identities.",
+        "Focusable issue button, exact check query and acknowledgment identity, and detail close; no attention action invoked.",
+        "Parent-name search, three sort choices, 40-to-45 pagination and unchanged refresh retention.",
+        "Bulk action follows evidence; review and Cancel preserve saved policies; no mutations or live services; current viewport fits."
+      ]
+    }
+  ],
+  "keyboard": {
+    "open": "pass",
+    "close": "pass",
+    "target": "ball-player"
+  },
+  "physical_safari": "untested",
+  "live_services": "none; synthetic data with mutation requests forbidden",
+  "screenshots": [
+    "device-grouping-desktop-2026-10-15.jpg",
+    "device-grouping-phone-dark-2026-10-15.jpg"
+  ],
+  "sha256": {
+    "custom_components/homeostatic/frontend/issues-workspace.mjs": "273752e96be531eb990c4a158e619991a0cfde1f1fd3e72179514fa44ecd02a8",
+    "custom_components/homeostatic/frontend/homeostatic.js": "b1ccae5e72238bd6f07f1fcfc38fde9acff1c20a55b27cc71b720a5b2101c7ac",
+    "custom_components/homeostatic/frontend/styles.mjs": "3355c269dbfd13b36a0c0efd834c47f462f075ffc0fa63bab359ee37c0210448",
+    "tests/frontend/device-issues.test.mjs": "d1e36b4d54cab22d6a74034ea7a732d4157bd0811431db50c5fd90252485d15d",
+    "tests/frontend/device-issues-scenario.mjs": "e33277c7a7f09d8f7ed7dd46379762e4f04ebdd31c1bcb0ab9ba0d713fbb5e64",
+    "tests/frontend/device-issues.html": "26e3524827527ffbeab1926ef480dd831da334e5ff82c3d7c1d9ac76cd01b2c7"
+  }
+}

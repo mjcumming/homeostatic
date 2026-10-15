@@ -29,13 +29,13 @@ const states={restored:["restored","restored","restored"],mixed:["unavailable","
 let card;
 function verify() {
   const heading=root.querySelector(".source-heading"),body=root.querySelector(".source-body"),technical=root.querySelector(".source-technical"),checks=[
-    inputs.disabled.checked&&!card.sourcesShowDisabled||Boolean(root.querySelector(".source-actions a[href]")),
-    inputs.disabled.checked&&!card.sourcesShowDisabled||Boolean(technical?.querySelector(".source-updated"))&&!technical.open,
+    inputs.disabled.checked&&!card.sourcesShowDisabled||Boolean(root.querySelector(".source-native-navigation a[href],.source-navigation a[href]")),
+    inputs.disabled.checked&&!card.sourcesShowDisabled||(inputs.view.value==="entity"?!technical:Boolean(technical?.querySelector(".source-updated"))&&!technical.open),
     !heading?.textContent.includes("Homeostatic updated"),
     !body?.textContent.includes("Observed "),
     !body?.textContent.includes("Restored state"),
     !body?.textContent.includes("Waiting for a current Home Assistant state"),
-    inputs.disabled.checked&&!card.sourcesShowDisabled||root.querySelectorAll(".source-policy").length>0,
+    inputs.disabled.checked&&!card.sourcesShowDisabled||root.querySelectorAll(".source-policy,.source-policy-links [data-definition-id]").length>0,
     !inputs.disabled.checked||!card.sourcesShowDisabled||body?.textContent.includes("Monitoring paused while disabled. Saved monitoring choices resume when re-enabled."),
   ];
   document.querySelector("#result").textContent=checks.every(Boolean)?"PASS: source title, evidence and policy details":"FAIL: source detail scenario";

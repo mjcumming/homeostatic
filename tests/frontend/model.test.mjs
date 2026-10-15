@@ -1,6 +1,7 @@
 import {editInstallation,installationSettings} from "../../custom_components/homeostatic/frontend/installation-settings.mjs";
 import {filterSources, sourcePaths, sourcesBrowser, sourcesTree} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
+import {sharedIssueCountsFixture,locationIssueFixture} from "./shared-issue-counts-fixture.mjs";
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import {historyAccount, historyName, historyPage, observedRange, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
@@ -657,7 +658,7 @@ test("saved control names and reasons render as text", () => {
   const html=controlsPanel(data);
   assert.ok(!html.includes("<img"));
   assert.match(html,/&lt;img/);
-  assert.match(html,/Existing problems and alerts remain active/);
+  assert.match(html,/Existing problems and notifications remain active/);
 });
 
 
@@ -849,10 +850,10 @@ test("Sources uses Topomation nesting and keeps unplaced sources reachable",()=>
   ]})[0]?.type,"location");
   const card={current:{data},topomation,sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(),sourcesSelection:null};
-  assert.match(sourcesBrowser(card),/<option value="topomation">TopoMation<\/option>/);
+  assert.match(sourcesBrowser(card),/<option value="topomation">TopoMation locations<\/option>/);
   assert.doesNotMatch(sourcesBrowser(card),/Explore TopoMation|sources-topomation-note/);
   card.sourcesGrouping="topomation";
-  assert.match(sourcesBrowser(card),/<option value="topomation" selected>TopoMation<\/option>/);
+  assert.match(sourcesBrowser(card),/<option value="topomation" selected>TopoMation locations<\/option>/);
   card.sourcesGrouping="integration";
   card.topomation=null;
   assert.doesNotMatch(sourcesBrowser(card),/<option value="topomation"/);
@@ -884,6 +885,46 @@ test("Sources badges count open issues rather than every evidence gap",()=>{
   assert.equal((html.match(/data-sources-select=/g)??[]).length,0);
   assert.doesNotMatch(html,/first 20/i);
 });
+
+function issueScopeCard(data) {
+  const paths=sourcePaths(sourcesTree(data));
+  return {current:{status:"current",data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+    sourcesExpanded:new Set(paths.keys()),sourcesSelection:null,sourcesView:"source"};
+}
+
+function issueScopeBadge(html,key) {
+  const row=html.split(`data-sources-select="${escapeHtml(key)}"`)[1]?.split("</button>")[0]||"";
+  return row.match(/<span class="source-issue-count">([^<]+)<\/span>/)?.[1]||"";
+}
+
+for(const variant of ["shared","independent","aliases","partial"]) {
+  test(`Monitoring ${variant} issues keep group indicators and distinct source links`,()=>{
+    const {data,devices,episodes}=sharedIssueCountsFixture(variant),card=issueScopeCard(data),before=structuredClone(data);
+    const html=sourcesBrowser(card);
+    assert.equal(issueScopeBadge(html,"source:entry:scope"),"Issues");
+    for(const device of devices) {
+      assert.equal(issueScopeBadge(html,`source:${device.node_id}`),"Issues");
+      card.sourcesSelection=`source:${device.node_id}`;
+      const selected=sourcesBrowser(card).split('<section class="config-detail"')[1];
+      const expected=episodes.filter(item=>item.anchor===device.node_id||item.recorded.includes(device.node_id)).map(item=>item.episode_id);
+      assert.deepEqual([...selected.matchAll(/data-episode="([^"]+)"/g)].map(match=>match[1]),expected);
+    }
+    assert.equal(issueScopeBadge(html,"source:entity:impact"),"");
+    card.sourcesQuery="Speaker 1 reading 1";
+    const filtered=sourcesBrowser(card);
+    assert.equal(issueScopeBadge(filtered,"source:entry:scope"),"Issues");
+    assert.equal(issueScopeBadge(filtered,"source:device:scope-0"),"Issues");
+    assert.doesNotMatch(filtered,/data-sources-select="source:device:scope-1"/);
+    assert.deepEqual(data,before);
+  });
+}
+
+for(const variant of ["mixed","loose","connections"]) {
+  test(`Monitoring ${variant} scope preserves loose members without inventing or double-counting devices`,()=>{
+    const {data}=sharedIssueCountsFixture(variant),card=issueScopeCard(data),tree=sourcesTree(data);
+    assert.equal(issueScopeBadge(sourcesBrowser(card),tree[0].key),"Issues");
+  });
+}
 
 test("Sources bounds a large opened branch while full search reaches the last entity",()=>{
   const data=monitoringExample();
@@ -929,20 +970,21 @@ test("Sources keeps one detail view with inline history and no empty settings ta
   assert.match(source,/Reading current Home Assistant values/);
   assert.doesNotMatch(source,/No current availability gap/);
   assert.equal((source.match(/<h2>Sources<\/h2>/g)??[]).length,0);
-  assert.doesNotMatch(source,/data-sources-view=|sources-views/);
-  assert.match(source,/<summary>History for this source<\/summary>/);
+  assert.doesNotMatch(source,/sources-views/);
+  assert.match(source,/data-sources-view="history">View history<\/a>/);
+  assert.doesNotMatch(source,/Ended-problem history is unavailable/);
   card.sourcesView="settings";
   const settings=sourcesBrowser(card);
   assert.match(settings,/Reading current Home Assistant values/);
   assert.doesNotMatch(settings,/Loading monitoring choices|Save changes/);
   card.sourcesView="history";
   const history=sourcesBrowser(card);
-  assert.match(history,/No problems in retained history/);
+  assert.match(history,/Ended-problem history is unavailable/);
   assert.doesNotMatch(history,/Edit monitoring/);
   card.sourcesSelection="source:entity:registry:camera-1-1";
   const entity=sourcesBrowser(card);
-  assert.match(entity,/<summary>Technical details<\/summary><p class="source-entity-id">Entity ID: sensor\.camera_1_001<\/p>/);
-  assert.match(entity,/Entity · Integration: Frigate \/ Device: Back Porch/);
+  assert.doesNotMatch(entity,/<h3>Technical details<\/h3>|Entity ID:/);
+  assert.match(entity,/<p class="config-path">Frigate \/ Back Porch<\/p>/);
 });
 
 
@@ -952,7 +994,7 @@ test("removed device history uses its saved name and explains the monitoring lim
   assert.equal(historyName(item),"Former controller");
   assert.equal(historyName({...item,source:{name:"device:opaque-id"}}),"Former controller");
   assert.equal(historyPage({episodes:[item]},"former controller").total,1);
-  assert.deepEqual(historyAccount(item),["Home Assistant reported every monitored entity on this device as unavailable.","Monitoring ended without an observed recovery.",""]);
+  assert.deepEqual(historyAccount(item),["Home Assistant reported every monitored entity on this device as unavailable.","Monitoring ended without an observed recovery."]);
   assert.equal(historyName({...item,episode:{...item.episode,labels:{}}}),"Name not recorded");
 });
 
@@ -978,7 +1020,7 @@ test("Sources combines registry-owned one-device connections without merging the
     sourcesExpanded:new Set([family.key]),sourcesSelection:family.key,sourcesView:"source"};
   const html=sourcesBrowser(card);
   assert.match(html,/Family Room/);
-  assert.match(html,/Home Theater <span class="source-issue-count">· 1 issue<\/span><\/span><small>Device · No entities/);
+  assert.match(html,/Home Theater <span class="source-issue-count">Issues<\/span><\/span><small>Device/);
   assert.equal((html.match(/data-sources-select="source:entry:theater"/g)||[]).length,1);
   assert.ok(sourcePaths(filterSources(tree,"Receiver setup")).has("source:device:family"));
   data.inventory.nodes=data.inventory.nodes.filter(node=>!node.node_id.includes("theater"));
@@ -1071,7 +1113,7 @@ for (const grouping of ["integration","location","topomation"]) {
         sourcesExpanded:new Set(),sourcesSelection:selection,sourcesView:"source",topomation:{locations:[{id:"house",name:"House"}]}};
       const html=sourcesBrowser(card);
       assert.doesNotMatch(html,/<button[^>]*data-sources-select[^>]*aria-current="true"/);
-      assert.match(html,/Choose a source/);
+      assert.match(html,/Select an item/);
     });
   }
 }
@@ -1104,49 +1146,55 @@ test("Sources selects only the paired device when viewing its connection",()=>{
   assert.deepEqual(current.map(match=>match[1]),["source:device:first"]);
 });
 
-test("Sources starts collapsed and puts scope and issue counts beside names",()=>{
+test("Sources starts collapsed with issue indicators and source kinds beside names",()=>{
   const data=monitoringExample();
   const device=data.inventory.nodes.find(row=>row.node_id==="device:camera-0");
   const separate=data.inventory.nodes.find(row=>row.node_id==="entity:registry:camera-0-1");
   const unselected=data.inventory.nodes.find(row=>row.node_id==="entity:registry:camera-0-2");
-  device.availability_entities=device.availability_entities.filter(id=>id!==unselected.entity_id);
+  const entityOnly=data.inventory.nodes.find(row=>row.node_id==="entity:registry:camera-0-4");
+  const disabled=data.inventory.nodes.find(row=>row.node_id==="entity:registry:camera-0-5");
+  device.availability_entities=device.availability_entities.filter(id=>![unselected.entity_id,entityOnly.entity_id].includes(id));
   separate.watched=true;
+  entityOnly.watched=true;disabled.disabled=true;
   data.inventory.episodes=[{episode_id:"camera-issue",anchor:device.node_id,opened_at:"2026-09-30T12:00:00Z",reasons:[]}];
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
-    sourcesExpanded:new Set(),sourcesSelection:null,sourcesView:"source"};
+    sourcesExpanded:new Set(),sourcesSelection:null,sourcesView:"source",sourcesShowDisabled:true};
   const closed=sourcesBrowser(card);
-  assert.match(closed,/Frigate <span class="source-issue-count">· 1 issue<\/span><\/span><small>Integration · 26 devices/);
+  assert.match(closed,/Frigate <span class="source-issue-count">Issues<\/span><\/span><small>Integration/);
   assert.doesNotMatch(closed,/data-sources-select="source:device:camera-0"/);
-  assert.doesNotMatch(closed,/Collapse all/);
+  assert.match(closed,/data-action="collapse-sources" disabled>Collapse groups/);
   card.sourcesExpanded.add("source:entry:frigate");
   card.sourcesExpanded.add("source:device:camera-0");
   const opened=sourcesBrowser(card);
-  assert.match(opened,/Back Deck <span class="source-issue-count">· 1 issue<\/span><\/span><small>Device · 6 entities/);
-  assert.match(opened,/Back Deck signal 000<\/span><small>Entity · Not monitored/);
-  assert.match(opened,/Back Deck signal 001<\/span><small>Entity · Device and entity checks/);
-  assert.match(opened,/Back Deck signal 002<\/span><small>Entity · Not monitored/);
-  assert.match(opened,/Back Deck signal 003<\/span><small>Entity · Device check/);
-  assert.match(opened,/data-action="collapse-sources">Collapse all/);
+  assert.match(opened,/Back Deck <span class="source-issue-count">Issues<\/span><\/span><small>Device/);
+  assert.match(opened,/Back Deck signal 000<\/span><small>Not monitored/);
+  assert.match(opened,/Back Deck signal 001<\/span><small>Monitored<\/small>/);
+  assert.match(opened,/Back Deck signal 002<\/span><small>Not monitored/);
+  assert.match(opened,/Back Deck signal 003<\/span><small>Monitored<\/small>/);
+  assert.match(opened,/Back Deck signal 004<\/span><small>Monitored<\/small>/);
+  assert.match(opened,/Back Deck signal 005<\/span><small>Disabled in Home Assistant<\/small>/);
+  assert.match(opened,/data-action="collapse-sources">Collapse groups/);
   card.sourcesQuery="Back Deck signal 003";
-  assert.match(sourcesBrowser(card),/Back Deck <span class="source-issue-count">· 1 issue<\/span><\/span><small>Device · 6 entities/);
+  assert.match(sourcesBrowser(card),/Back Deck <span class="source-issue-count">Issues<\/span><\/span><small>Device/);
 });
 
 test("Sources starts with source selection rather than setup documentation",()=>{
   const card={current:{data:monitoringExample()},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(),sourcesSelection:null,sourcesView:"source"};
   const closed=sourcesBrowser(card);
-  assert.match(closed,/Choose a source/);
-  assert.match(closed,/Inspect its current evidence, related issues and monitoring policies/);
+  assert.match(closed,/Select an item/);
+  assert.match(closed,/See its status, issues and monitoring\./);
+  assert.match(closed,/<label class="coverage-search">Search<input/);
+  assert.match(closed,/aria-label="Monitoring tree"/);
   assert.doesNotMatch(closed,/sources-explainer|New installations|diagnostic entities/);
 });
 
 test("cleared device history explains HA evidence without claiming a physical repair", () => {
   const item={resolution:"cleared",source:{kind:"device",name:"Family Room Frigate"},episode:{form:"root",reasons:[{check_id:"availability",reason:"some_unavailable",message:"Family Room Frigate: some unavailable"}]}};
-  const [reported,ending,limit]=historyAccount(item);
-  assert.equal(reported,"Home Assistant reported an availability problem with Family Room Frigate.");
+  const [reported,ending]=historyAccount(item);
+  assert.equal(reported,"Home Assistant reported some monitored entities on this device as unavailable.");
   assert.equal(ending,"");
-  assert.equal(limit,"");
-  assert.doesNotMatch([reported,ending,limit].join(" "),/physical repair|confirmed recovery/);
+  assert.doesNotMatch([reported,ending].join(" "),/physical repair|confirmed recovery/);
 });
 
 test("history observation range shows the elapsed time without seconds", () => {
@@ -1161,7 +1209,7 @@ test("selected device access can be available beside an unavailable monitored en
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${id}`,sourcesView:"source",
     sourceDetail:{nodeId:id,device_availability:{status:"available",basis:"entities"},members:[{name:"Required sensor",node_id:"sensor.required",state:"unavailable"}],total:1,unavailable_count:1,unknown_count:0}};
   const html=sourcesBrowser(card);
-  assert.match(html,/Device availability: Available/);
+  assert.match(html,/<dt>Availability<\/dt><dd>Available<\/dd>/);
   assert.match(html,/1 of 1 monitored entity is unavailable/);
   assert.match(html,/Required sensor/);
   assert.doesNotMatch(html,/Home Assistant cannot currently report|Next step:/);
@@ -1173,7 +1221,7 @@ test("Sources treats a current connectivity off report as available",()=>{
     sourceDetail:{nodeId:id,device_availability:{status:"available",basis:"entities",reason:"entity_available"},members:[{name:"Camera Connectivity",node_id:"binary_sensor.camera_connectivity",state:"off",connectivity:true}],total:1,unavailable_count:0,unknown_count:0}};
   const html=sourcesBrowser(card);
   assert.match(html,/Monitored entities are available/);
-  assert.match(html,/Device availability: Available/);
+  assert.match(html,/<dt>Availability<\/dt><dd>Available<\/dd>/);
   assert.match(html,/<td>off<\/td>/);
   assert.doesNotMatch(html,/Entities needing review|Disconnected|Connection reports disconnected/);
 });
@@ -1185,8 +1233,8 @@ test("entity detail shows HA state and monitoring once; device rows navigate",()
     sourcesSelection:`source:${entityId}`,sourceDetail:{nodeId:entityId,members:[member],total:1,unavailable_count:1,unknown_count:0}};
   const entity=sourcesBrowser(card);
   assert.match(entity,/Unavailable in Home Assistant/);
-  assert.match(entity,/This entity contributes to its device’s availability check\./);
-  assert.match(entity,/View monitoring policies/);
+  assert.match(entity,/Homeostatic uses this entity to monitor device availability\./);
+  assert.match(entity,/Configure monitoring/);
   assert.doesNotMatch(entity,/<h3>Home Assistant entities<\/h3>|This entity has no separate check|Next step:/);
   assert.equal((entity.match(/Back Porch signal 001/g)??[]).length,1);
   assert.doesNotMatch(entity,/data-source-link="entity:registry:camera-1-1"/);
@@ -1205,8 +1253,9 @@ test("device details put unavailable entities first and collapse other readings"
   const html=sourcesBrowser(card);
   assert.match(html,/1 of 2 monitored entities are unavailable/);
   assert.match(html,/Entities needing review.*Broken sensor/s);
-  assert.match(html,/<details class="source-section"[^>]*><summary>1 other monitored entity<\/summary>.*Working sensor/s);
-  assert.match(html,/Open device in Home Assistant/);
+  assert.match(html,/<details class="source-section source-monitoring-explanation"[^>]*><summary>Details<\/summary>.*<h3>1 other monitored entity<\/h3>.*Working sensor/s);
+  assert.doesNotMatch(html.split('<details class="source-section source-monitoring-explanation"')[0],/Working sensor/);
+  assert.match(html,/href="\/config\/devices\/device\/camera-1">Go to device page/);
   assert.doesNotMatch(html,/Home Assistant cannot currently report|Next step:/);
 });
 
@@ -1214,10 +1263,10 @@ test("entity details separate availability from its current value",()=>{
   const data=monitoringExample(),id="entity:registry:camera-1-1";
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
     sourcesSelection:`source:${id}`,sourceDetail:{nodeId:id,members:[{node_id:id,name:"Back Porch signal 001",state:"18",unit:"%"}],total:1}};
-  assert.match(sourcesBrowser(card),/Available in Home Assistant.*Current value: 18%/s);
+  assert.match(sourcesBrowser(card),/<p class="source-entity-condition">Available in Home Assistant<\/p>.*<p class="source-current-value">18%<\/p>/s);
   card.sourceDetail.members[0].state="unknown";
   assert.match(sourcesBrowser(card),/Home Assistant reports no value/);
-  assert.doesNotMatch(sourcesBrowser(card),/Current value: unknown|Unavailable in Home Assistant/);
+  assert.doesNotMatch(sourcesBrowser(card),/<dt>Current value<\/dt><dd>unknown<\/dd>|Unavailable in Home Assistant/);
 });
 
 
@@ -1247,7 +1296,7 @@ test("selected device refresh coalesces reads and notices access changes",async(
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?availability-test");
-  const card=Object.create(elements.get("homeostatic-card-v22").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v30").prototype);
   const data=monitoringExample(),entity="sensor.excluded",nodeId="device:camera-0",pending=[];
   Object.assign(card,{page:"sources",sourcesView:"source",current:{status:"current",data},sourcesGrouping:"integration",sourcesSelection:`source:${nodeId}`,sourceDetail:null,sourceSequence:0,
     render(){},_hass:{states:{[entity]:{state:"off",attributes:{}}},callWS(){return new Promise(resolve=>pending.push(resolve));}}});
@@ -1282,7 +1331,7 @@ test("policy configuration loads without delivery discovery and discovery preser
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?configuration-test");
-  const card=Object.create(elements.get("homeostatic-card-v22").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v30").prototype);
   const calls=[],pending=[];
   Object.assign(card,{page:"policies",render(){},_hass:{connection:{},callWS(request){calls.push(request);return new Promise((resolve,reject)=>pending.push({resolve,reject}));}}});
   const settings={monitoring_policies:[{id:"one",name:"Saved policy"}],notification_definitions:{methods:{}}};
@@ -1350,7 +1399,7 @@ test("Sources defaults to hidden and explains disabled monitoring when revealed"
   source.disabled=true;
   const card={current:{data},sourcesGrouping:"integration",sourcesExpanded:new Set(),sourcesSelection:`source:${source.node_id}`};
   assert.doesNotMatch(sourcesBrowser(card),/data-sources-disabled checked|Monitoring paused while disabled/);
-  assert.match(sourcesBrowser(card),/Show disabled sources/);
+  assert.match(sourcesBrowser(card),/Include disabled sources/);
   card.sourcesShowDisabled=true;
   assert.match(sourcesBrowser(card),/data-sources-disabled checked/);
   assert.match(sourcesBrowser(card),/Monitoring paused while disabled\. Saved monitoring choices resume when re-enabled\./);
@@ -1359,3 +1408,31 @@ test("Sources defaults to hidden and explains disabled monitoring when revealed"
   source.disabled=false;
   assert.match(sourcesBrowser(card),/data-sources-select="source:entry:other-0"/);
 });
+
+for(const [name,expected,badge] of [
+  ["Main Floor",["shared","kitchen-one","kitchen-two","mud"],"Issues"],
+  ["Front Entry",["shared"],"Issues"],
+  ["Kitchen",["shared","kitchen-one","kitchen-two"],"Issues"],
+  ["Mud Room",["mud"],"Issues"],
+  ["Living Room",[],""],
+]) {
+  test(`Location ${name} lists its distinct issues without suggesting additive totals`,()=>{
+    const {data}=locationIssueFixture(),card=issueScopeCard(data);
+    card.sourcesGrouping="location";
+    const paths=sourcePaths(sourcesTree(data,"location"));
+    card.sourcesExpanded=new Set(paths.keys());
+    const node=[...paths.values()].find(item=>item.node.name===name&&item.node.type==="location").node;
+    card.sourcesSelection=node.key;
+    const html=sourcesBrowser(card),detail=html.split('<section class="config-detail"')[1];
+    assert.equal(issueScopeBadge(html,node.key),badge);
+    assert.deepEqual([...detail.matchAll(/data-episode="([^"]+)"/g)].map(match=>match[1]).sort(),[...expected].sort());
+    const navigation=html.split('<nav class="config-rail"')[1].split("</nav>")[0];
+    assert.doesNotMatch(navigation,/\d+ (?:issues?|devices?|entities|items)\b|issues? across/);
+    card.sourcesQuery="Front Entry";
+    const filtered=sourcesBrowser(card),floor=[...paths.values()].find(item=>item.node.name==="Main Floor").node;
+    assert.equal(issueScopeBadge(filtered,floor.key),"Issues");
+    assert.equal(card.sourcesSelection,node.key);
+    data.inventory.episodes=[];
+    assert.doesNotMatch(sourcesBrowser(card),/source-issue-count/);
+  });
+}

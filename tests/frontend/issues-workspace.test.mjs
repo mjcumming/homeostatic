@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {issueGroups,issuesWorkspace} from "../../custom_components/homeostatic/frontend/issues-workspace.mjs";
+import {recordedIssueSources, issueGroups,issuesWorkspace} from "../../custom_components/homeostatic/frontend/issues-workspace.mjs";
 import {canonicalSources,canonicalSourceSelection,sourcesTree,sourcePaths,sourcesBrowser} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {baseSource,monitoringExample} from "./monitoring-fixture.mjs";
 
@@ -32,7 +32,10 @@ test("investigation grouping keeps independent issue IDs and starts collapsed",(
   assert.deepEqual(groups[0].episodes.map(item=>item.episode_id),["issue-0","issue-1","issue-2"]);
   assert.equal(groups[0].devices.size,1);
   assert.equal(groups[0].entities.size,1);
-  assert.doesNotMatch(issuesWorkspace(card),/data-episode=/);
+  const closed=issuesWorkspace(card);
+  assert.doesNotMatch(closed,/data-episode=/);
+  assert.match(closed,/<h1>Open issues<\/h1><p class="page-description">Problems that need attention\.<\/p>/);
+  assert.match(closed,/<span class="small">1 affected device<\/span><span class="issue-count">3 issues<\/span>/);
   card.issueGroupsExpanded.add("integration:matter");
   assert.equal((issuesWorkspace(card).match(/data-episode=/g)||[]).length,3);
   assert.doesNotMatch(issuesWorkspace(card),/Matter failed|integration failed/i);
@@ -45,7 +48,7 @@ test("a hundred independent eero issues remain reachable with explicit paginatio
   data.inventory.episodes=data.inventory.nodes.slice(1).map((source,index)=>({...episode(`client-${index}`,source.node_id),opened_at:new Date(Date.UTC(2026,9,14,0,index*5)).toISOString()}));
   const card=issueCard(data);card.issueGroupsExpanded.add("integration:eero");
   const initial=issuesWorkspace(card);
-  assert.match(initial,/100 issues · 100 devices/);
+  assert.match(initial,/<span class="small">100 affected devices<\/span><span class="issue-count">100 issues<\/span>/);
   assert.match(initial,/Showing 40 of 100/);
   assert.equal((initial.match(/data-episode=/g)||[]).length,40);
   card.issueGroupLimits.set("integration:eero",120);
@@ -54,7 +57,7 @@ test("a hundred independent eero issues remain reachable with explicit paginatio
   assert.doesNotMatch(all,/data-issue-more=/);
   card.issueQuery="Client 99";
   const match=issuesWorkspace(card);
-  assert.match(match,/1 issue · 1 device/);
+  assert.match(match,/<span class="small">1 affected device<\/span><span class="issue-count">1 issue<\/span>/);
   assert.doesNotMatch(match,/100 devices/);
 });
 
@@ -69,8 +72,11 @@ test("engine groups retain recorded members and do not count dependent impact as
   assert.equal(group.entities.size,1);
   const card=issueCard(data);card.issueGroupsExpanded.add(group.key);
   const html=issuesWorkspace(card);
-  assert.match(html,/data-source-link="entity:table"/);
-  assert.match(html,/data-source-link="device:table"/);
+  assert.match(html,/data-episode="grouped"/);
+  assert.doesNotMatch(html,/data-source-link=|Recorded findings/);
+  const details=recordedIssueSources(data,data.inventory.episodes[0]);
+  assert.match(details,/data-source-link="entity:table"/);
+  assert.match(details,/data-source-link="device:table"/);
   assert.doesNotMatch(html,/Unrelated impact/);
 });
 
@@ -82,18 +88,20 @@ test("canonical source rows preserve check aliases and all policy contributions"
   assert.equal(paths.get("source:monitoring:entities:entity:table").node,entity);
   assert.equal(canonicalSourceSelection(tree,"source:monitoring:extra:entity:table"),"source:entity:table");
   const card=sourceCard(data),html=sourcesBrowser(card);
-  assert.match(html,/Entity · Integration: Matter \/ Device: Back Deck Table Light/);
-  assert.match(html,/Entity ID: light.table/);
+  assert.match(html,/<p class="config-path">Matter<\/p>/);
+  assert.match(html,/id="sources-detail-title"[^>]*>Back Deck Table Light<\/h2>/);
+  assert.doesNotMatch(html,/Entity ID: light.table/);
   assert.match(html,/Unavailable in Home Assistant/);
-  assert.match(html,/Edit policy “Device availability”/);
-  assert.match(html,/Edit policy “Entity availability”/);
-  assert.match(html,/Edit policy “Extra light”/);
-  assert.match(html,/Uses this entity to assess Back Deck Table Light\./);
-  assert.doesNotMatch(html,/data-sources-view=|Save changes|Separate check/);
+  assert.match(html,/Edit “Device availability” policy/);
+  assert.match(html,/Edit “Entity availability” policy/);
+  assert.match(html,/Edit “Extra light” policy/);
+  assert.match(html,/Homeostatic monitors this entity’s availability\./);
+  assert.doesNotMatch(html,/sources-views|Save changes|Separate check/);
+  assert.doesNotMatch(html,/data-sources-view="history">View history<\/a>/);
   data.inventory.nodes=data.inventory.nodes.filter(source=>source.monitoring_policy!=="entities");
   const changed=sourcesBrowser(card);
-  assert.doesNotMatch(changed,/Edit policy “Entity availability”/);
-  assert.match(changed,/Edit policy “Extra light”/);
+  assert.doesNotMatch(changed,/Edit “Entity availability” policy/);
+  assert.match(changed,/Edit “Extra light” policy/);
   assert.match(changed,/Unavailable in Home Assistant/);
 });
 

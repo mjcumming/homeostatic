@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=74";
+import {escapeHtml as esc} from "./model.mjs?v=82";
 
 export const UPS_CHECK_NAMES = {
   ups_power:"Backup power", ups_reserve:"Low reserve",
@@ -32,5 +32,5 @@ export function upsSourceSummary(card,source,status,hasEpisode) {
   const bindings=Object.fromEntries(source.ups_entities||[]);
   const runtime=Number.isFinite(problem.runtime)?"":source.ups_disabled_entities?.includes(bindings.runtime)?`Enable ${bindings.runtime} in Home Assistant to read runtime`:bindings.runtime?"Runtime reading unavailable":"Runtime monitoring is not supported by the discovered entities";
   const link=source.attributes?.device?.[0]?`/config/devices/device/${encodeURIComponent(source.attributes.device[0])}`:null;
-  return `<section class="source-condition"><h3>${esc(problem.headline)}</h3><p>${esc(problem.mode)}</p>${problem.readings?`<p>${esc(problem.readings)}</p>`:""}${runtime?`<p class="small">${esc(runtime)}</p>`:""}<p>${source.watched?"Monitoring is on":"Not monitored"}</p></section><div class="source-actions"><button type="button" class="link" data-page="policies">View monitoring policies</button>${link?`<a class="link" href="${esc(link)}">Open device in Home Assistant</a>`:""}</div>`;
+  return `<section class="source-condition"><h3>${esc(problem.headline)}</h3><p>${esc(problem.mode)}</p>${problem.readings?`<p>${esc(problem.readings)}</p>`:""}${runtime?`<p class="small">${esc(runtime)}</p>`:""}<p>${source.watched?"Monitoring is on":"Not monitored"}</p></section>${link?`<div class="source-actions"><a class="link" href="${esc(link)}">Open device in Home Assistant</a></div>`:""}`;
 }

@@ -8,26 +8,30 @@ export const lyricLocalize = key => key === "component.lyric.title" ? "Honeywell
 
 /** Recorded issue membership survives while current findings recover independently. */
 export function issueEvidenceFixture({state="active",variant="devices"}={}) {
-  const integration=baseSource(LYRIC_ENTRY,"Lyric connection","integration",{
-    entry_id:"lyric",watched:true,attributes:{domain:["lyric"]},
+  const phone=variant==="phone",owner=phone?"synthetic-mobile-app":"lyric",domain=phone?"mobile_app":"lyric";
+  const entryId=phone?`entry:${owner}`:LYRIC_ENTRY;
+  const integration=baseSource(entryId,phone?"Michael’s iPhone":"Lyric connection","integration",{
+    entry_id:owner,watched:true,attributes:{domain:[domain]},
   });
-  const deviceDefinitions=[
+  const deviceDefinitions=phone?[
+    ["synthetic-iphone","Michael’s iPhone",["Activity","Average Active Pace","Current Cadence","Current Pace","Distance","Floors Ascended","Floors Descended","Steps","Battery Level","Connection Type"]],
+  ]:[
     ["third-floor","3rd Floor Sensor",["Temperature","Humidity"]],
     ["second-floor","2nd Floor Sensor",["Temperature","Humidity"]],
     ["thermostat","Main Floor Thermostat",[""]],
   ];
   const devices=[],entities=[];
   for(const [id,name,readings] of deviceDefinitions) {
-    devices.push(baseSource(`device:${id}`,name,"device",{owner_id:"lyric",attributes:{device:[id],integration:["lyric"],integration_domain:["lyric"]}}));
+    devices.push(baseSource(`device:${id}`,name,"device",{owner_id:owner,attributes:{device:[id],integration:[owner],integration_domain:[domain]}}));
     for(const reading of readings) {
-      const suffix=reading?`-${reading.toLowerCase()}`:"";
+      const suffix=reading?`-${reading.toLowerCase().replaceAll(" ","-")}`:"";
       entities.push(baseSource(`entity:registry:${id}${suffix}`,`${name}${reading?` ${reading}`:""}`,"entity",{
         entity_id:`${reading?"sensor":"climate"}.${id.replaceAll("-","_")}${suffix.replaceAll("-","_")}`,
-        owner_id:"lyric",attributes:{device:[id],integration:["lyric"],integration_domain:["lyric"],domain:[reading?"sensor":"climate"]},
+        owner_id:owner,attributes:{device:[id],integration:[owner],integration_domain:[domain],domain:[reading?"sensor":"climate"]},
       }));
     }
   }
-  const policies=[
+  const policies=phone?[{id:"entities",name:"Entity availability"}]:[
     {id:"devices",name:"Device availability"},
     {id:"entities",name:"Entity availability"},
     {id:"thermostat-extra",name:"Thermostat availability"},
@@ -37,7 +41,7 @@ export function issueEvidenceFixture({state="active",variant="devices"}={}) {
     monitoring_policy:policy.id,watched:true,
     ...(source.kind==="device"?{availability_entities:entities.filter(entity=>entity.attributes.device[0]===source.attributes.device[0]).map(entity=>entity.entity_id)}:{}),
   });
-  const checks=[...devices.map(source=>check(source,policies[0])),...entities.map(source=>check(source,policies[1])),
+  const checks=phone?entities.map(source=>check(source,policies[0])):[...devices.map(source=>check(source,policies[0])),...entities.map(source=>check(source,policies[1])),
     check(entities.find(source=>source.node_id===THERMOSTAT_ENTITY),policies[2])];
   const canonical=[integration,...devices,...entities];
   if(variant==="standalone") {
@@ -59,23 +63,23 @@ export function issueEvidenceFixture({state="active",variant="devices"}={}) {
     related.at(-1).reason="stale";
     related.at(-1).message="No recent thermostat reading has been reported.";
   }
-  const byId=new Map(checks.map(source=>[source.node_id,source]));
+  const recoveredSources=new Set(phone?checks.slice(0,4).map(source=>source.node_id):checks.filter(source=>source.attributes.device?.includes("third-floor")).map(source=>source.node_id));
   const findings=related.map(finding=>state==="recovered"||
-    state==="partial"&&byId.get(finding.node_id)?.attributes.device?.includes("third-floor")
+    state==="partial"&&recoveredSources.has(finding.node_id)
       ? {...finding,status:"pass",reason:"available",message:"Home Assistant reports a current state."}
       : finding);
-  const episode={episode_id:LYRIC_EPISODE,anchor:LYRIC_ENTRY,form:"group",importance:"normal",
-    opened_at:"2026-10-14T20:45:00Z",recorded:[LYRIC_ENTRY,...checks.map(source=>source.node_id)],
+  const episode={episode_id:phone?"synthetic-phone-group":LYRIC_EPISODE,anchor:entryId,form:"group",importance:"normal",
+    opened_at:"2026-10-14T20:45:00Z",recorded:[entryId,...checks.map(source=>source.node_id)],
     impact:[],reasons:findings};
   const sources=variant==="aliases"?canonical.filter(source=>source.node_id!==THERMOSTAT_ENTITY):canonical;
   const nodes=[...sources,...checks];
   const current={status:"pass",reason:"loaded",message:"Home Assistant reports the connection loaded.",observed_at:UPDATED_AT};
   const data={
     schema_version:3,available:true,catalog_loaded:true,entry_id:"synthetic",updated_at:UPDATED_AT,
-    functions:[],areas:[],floors:[],devices:devices.map(source=>({id:source.attributes.device[0],name:source.name,config_entry_id:"lyric"})),
+    functions:[],areas:[],floors:[],devices:devices.map(source=>({id:source.attributes.device[0],name:source.name,config_entry_id:owner})),
     readiness:{answer:"unknown",nodes:[]},evidence_gaps:0,coverage:{no_checks:[],never_observed:[],stale:[]},
     inventory:{nodes,catalog:{candidates:sources},episodes:[episode],operator_controls:[],enrollment_changes:[],
-      notification_requests:[],integration_evidence:{[LYRIC_ENTRY]:{current,last_failure:null}},entity_status:{},
+      notification_requests:[],integration_evidence:{[entryId]:{current,last_failure:null}},entity_status:{},
       resolved_history:{episodes:[],retention:{max_episodes:100,max_age_days:30},started_at:UPDATED_AT}},
     policy:{notifications_enabled:false,routes:{},episodes:[]},
   };

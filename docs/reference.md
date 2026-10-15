@@ -39,7 +39,7 @@ Edit these under **Settings → Timing** and **Settings → Problem grouping** i
 | Maximum startup wait | `startup_quiet_max` | 600 (10 min) | After a Home Assistant start, notifications are held until watched integrations finish loading, but never longer than this |
 | Group related problems | `coalesce_count` | 3 | How many sources that share a direct dependency have to fail together before they're grouped into one issue on that dependency |
 | Grouping window | `coalesce_window` | 60 (1 min) | How close together those failures have to start |
-| Standard alert batching | `batch` | 30 | How long normal notifications, including daily-hours delivery such as Urgent, wait to combine eligible problems. Immediate and scheduled-summary delivery use their own timing. |
+| Standard notification batching | `batch` | 30 | How long normal notifications, including daily-hours delivery such as Urgent, wait to combine eligible problems. Immediate and scheduled-summary delivery use their own timing. |
 
 A watched source that fails opens an issue straight away, subject to the waits above. There's no separate delay before raising an issue.
 
@@ -52,7 +52,7 @@ These values aren't configurable.
 | Automation alert acknowledgment repeat | Every 30 minutes for the `acknowledge` reporting choice. Named notifications have their own configurable intervals. |
 | Recheck of Home Assistant's registries | Every 60 seconds, plus whenever a registry changes |
 | History | The latest 100 ended issues from the last 30 days |
-| Pause alerts and maintenance | End time in the future and at most seven days away. Reason up to 500 characters. |
+| Pause notifications and maintenance | End time in the future and at most seven days away. Reason up to 500 characters. |
 | Alerts from automations | Up to 1000 active per installation. Retired ones don't count. Name up to 200 characters, message up to 2000, alert key up to 100. |
 | Alert report timeout | 60 to 86400 seconds, default 300. The alert blueprint's minimum is 300. |
 | Phone Acknowledge button | Works for 30 days after the notification is sent. The latest 2000 are kept. |
@@ -170,7 +170,7 @@ Read-only actions return a response and change nothing. Call them in **Developer
 | [`preview_policy`](#homeostaticpreview_policy) | Preview | What a notification policy would send now |
 | [`preview_maintenance`](#homeostaticpreview_maintenance) | Preview | What maintenance would cover |
 | [`acknowledge`](#homeostaticacknowledge) | Change | Acknowledge an issue |
-| [`shelve`](#homeostaticshelve) | Change | Pause alerts for an issue |
+| [`shelve`](#homeostaticshelve) | Change | Pause notifications for an issue |
 | [`start_maintenance`](#homeostaticstart_maintenance) | Change | Start Working on this equipment |
 | [`cancel_control`](#homeostaticcancel_control) | Change | End a pause or maintenance early |
 | [`report_alert`](#homeostaticreport_alert) | Change | Report an alert's state from an automation |
@@ -330,7 +330,7 @@ data:
 
 ### `homeostatic.shelve`
 
-The action behind **Pause alerts**.
+The action behind **Pause notifications**.
 
 | Field | Required | Value |
 | --- | --- | --- |

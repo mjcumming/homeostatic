@@ -219,7 +219,7 @@ export function batteryProblem(source, status, openProblem = true) {
   if (source?.kind !== "battery") return null;
   const reason = source.disabled ? "disabled" : status?.current?.reason ?? "battery_evidence_missing";
   const definitions = {
-    battery_low:["Battery low", "Home Assistant reports a low battery. Conflicting battery signals, if present, are shown in Technical details.",
+    battery_low:["Battery low", "Home Assistant reports a low battery.",
       "Check the battery and its device. Charge or replace it as appropriate for that device.", "uncertain", "Needs battery attention"],
     charging:["Battery charging", "Home Assistant reports that this battery is charging. Its low condition has cleared for now.",
       "Check that the level rises if you need assurance of recovery.", "recovering", "Charging"],

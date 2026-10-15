@@ -1,11 +1,44 @@
-import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=74";
+import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=82";
 
-import {deviceEntityName} from "./device-availability.mjs?v=74";
+import {deviceEntityName} from "./device-availability.mjs?v=82";
+import {issueAvailabilityAction, issueAvailabilityFeedback} from "./issue-monitoring.mjs?v=82";
 
 const count = (value, singular, plural = `${singular}s`) => `${value} ${value === 1 ? singular : plural}`;
 const sourceId = source => source?.monitoring_source || source?.node_id;
 const sourceType = source => ({integration:"Integration connection",device:"Device",entity:"Entity",battery:"Battery",vacuum:"Vacuum",ups:"UPS",broken_automation:"Automation",repair:"Repair",situation:"Situation"}[source?.kind] || "Source");
 const inventoryMap = data => new Map(inventoryRows(data).map(source=>[source.node_id,source]));
+
+function deviceContext(source, nodes, devices) {
+  const canonical = nodes.get(source?.monitoring_source) || source;
+  if (!canonical || ["integration","repair","broken_automation","situation"].includes(canonical.kind)) return null;
+  const ids = canonical.attributes?.device || source?.attributes?.device || [];
+  if (ids.length !== 1) return null;
+  const deviceId = ids[0], device = nodes.get(`device:${deviceId}`), registry = devices.get(deviceId);
+  return {key:`device:${deviceId}`,deviceId,ownerId:registry?.config_entry_id || device?.owner_id || device?.attributes?.integration?.[0],name:device?.name || registry?.name || (canonical.kind === "device" ? canonical.name : null) || "Device details unavailable"};
+}
+
+function episodeDevice(data, episode, nodes, devices) {
+  const anchor = nodes.get(episode.anchor);
+  let subject = deviceContext(anchor, nodes, devices);
+  const current = data.inventory.integration_evidence?.[episode.anchor]?.current || episode.reasons?.find(finding=>finding.node_id === episode.anchor);
+  if (anchor?.kind === "integration" && current?.reason === "loaded") {
+    const members = episodeSourceIds(episode).filter(id=>id !== episode.anchor).map(id=>deviceContext(nodes.get(id),nodes,devices));
+    if (members.length && members.every(member=>member && member.deviceId === members[0]?.deviceId)) subject = members[0];
+  }
+  const members = episodeSourceIds(episode).filter(id=>anchor?.kind !== "integration" || id !== episode.anchor);
+  return subject && members.every(id=>deviceContext(nodes.get(id),nodes,devices)?.deviceId === subject.deviceId) ? subject : null;
+}
+
+/** Present registry-owned findings together while keeping each issue addressable once. */
+export function issueDeviceGroups(data, episodes, nodes = inventoryMap(data), devices = new Map((data.devices || []).map(device=>[device.id,device]))) {
+  const groups = new Map();
+  for (const episode of episodes) {
+    const owner = episodeDevice(data,episode,nodes,devices) || {key:`issue:${episode.episode_id}`,deviceId:null,name:null};
+    if (!groups.has(owner.key)) groups.set(owner.key,{...owner,episodes:[]});
+    groups.get(owner.key).episodes.push(episode);
+  }
+  return [...groups.values()];
+}
 
 /** Keep recorded issue membership separate from dependency impact. */
 export function episodeSourceIds(episode) {
@@ -31,11 +64,13 @@ function context(source, nodes, localize) {
 
 /** Group existing issues for investigation without changing their identities. */
 export function issueGroups(data, localize = () => null) {
-  const nodes = inventoryMap(data), groups = new Map(), seen = new Set();
+  const nodes = inventoryMap(data), groups = new Map(), seen = new Set(), devices = new Map((data.devices || []).map(device=>[device.id,device]));
   for (const episode of visibleEpisodes(data)) {
     if (seen.has(episode.episode_id)) continue;
     seen.add(episode.episode_id);
-    const source = nodes.get(episode.anchor), owner = context(source, nodes, localize);
+    const source = nodes.get(episode.anchor), device = episodeDevice(data,episode,nodes,devices);
+    const subject = device?.ownerId ? nodes.get(`entry:${device.ownerId}`) || nodes.get(`device:${device.deviceId}`) : null;
+    const owner = context(subject || nodes.get(source?.monitoring_source) || source, nodes, localize);
     if (!groups.has(owner.key)) groups.set(owner.key,{...owner,episodes:[],devices:new Set(),entities:new Set()});
     const group = groups.get(owner.key);
     group.episodes.push(episode);
@@ -48,7 +83,7 @@ export function issueGroups(data, localize = () => null) {
   return [...groups.values()].sort((a,b) => a.name.localeCompare(b.name));
 }
 
-function affectedSources(data, episode) {
+export function recordedIssueSources(data, episode, expanded = new Set()) {
   const nodes = inventoryMap(data), members = new Map();
   for (const id of episodeSourceIds(episode)) {
     const source = nodes.get(id), canonical = sourceId(source) || id;
@@ -56,7 +91,7 @@ function affectedSources(data, episode) {
     members.get(canonical).findings.push(...(episode.reasons || []).filter(finding => finding.node_id === id && finding.message).map(finding => finding.message));
   }
   if (members.size < 2) return "";
-  return `<details class="issue-members" data-ui-key="members:${esc(episode.episode_id)}"><summary>Recorded findings (${members.size})</summary><ul class="problem-evidence">${[...members.values()].map(({source,id,findings}) => `<li>${source ? `<span class="small">${sourceType(source)}</span> <button type="button" class="link" data-source-link="${esc(id)}">${esc(source.name || source.entity_id || id)}</button>` : `<span>${esc(id)}</span><span class="small"> · Source details unavailable</span>`}${[...new Set(findings)].map(message => `<p>${esc(message)}</p>`).join("")}</li>`).join("")}</ul></details>`;
+  return `<details class="issue-members" data-disclosure="recorded"${expanded.has("recorded") ? " open" : ""}><summary>Recorded sources (${members.size})</summary><ul class="problem-evidence">${[...members.values()].map(({source,id,findings}) => `<li>${source ? `<span class="small">${sourceType(source)}</span> <button type="button" class="link" data-source-link="${esc(id)}">${esc(source.name || source.entity_id || id)}</button>` : `<span>${esc(id)}</span><span class="small"> · Source details unavailable</span>`}${[...new Set(findings)].map(message => `<p>${esc(message)}</p>`).join("")}</li>`).join("")}</ul></details>`;
 }
 
 function ordered(episodes, sort, nodes) {
@@ -68,12 +103,14 @@ function ordered(episodes, sort, nodes) {
   });
 }
 
-/** Render a compact issue queue with complete, disclosed issue membership. */
+/** Render one entry per issue, with evidence available in its details. */
 export function issuesWorkspace(card) {
+  card.issueAvailabilityGroups=new Map();
   const data = card.current.data, nodes = inventoryMap(data), groups = issueGroups(data,key => card._hass?.localize?.(key));
+  const devices = new Map((data.devices || []).map(device=>[device.id,device]));
   const query = (card.issueQuery || "").trim().toLocaleLowerCase(), expanded = card.issueGroupsExpanded || new Set(), sort = card.issueSort || "newest";
   const total = groups.reduce((sum, group) => sum + group.episodes.length,0);
-  const filtered = groups.map(group => ({...group,episodes:group.episodes.filter(episode => !query || [group.name,...episodeSourceIds(episode).flatMap(id => {const source=nodes.get(id);return [source?.name,source?.entity_id];}),...(episode.reasons || []).map(finding => finding.message)].filter(Boolean).join(" ").toLocaleLowerCase().includes(query))})).filter(group => group.episodes.length);
+  const filtered = groups.map(group => ({...group,episodes:group.episodes.filter(episode => !query || [group.name,...episodeSourceIds(episode).flatMap(id => {const source=nodes.get(id);return [source?.name,source?.entity_id,deviceContext(source,nodes,devices)?.name];}),...(episode.reasons || []).map(finding => finding.message)].filter(Boolean).join(" ").toLocaleLowerCase().includes(query))})).filter(group => group.episodes.length);
   const visible = filtered.reduce((sum, group) => sum + group.episodes.length,0);
   const ranked = filtered.map(group => ({...group,episodes:ordered(group.episodes,sort,nodes)}));
   const leaders = ordered(ranked.map(group=>group.episodes[0]),sort,nodes);
@@ -81,37 +118,59 @@ export function issuesWorkspace(card) {
   ranked.sort((a,b)=>sort === "name" ? a.name.localeCompare(b.name) : rank.get(a.episodes[0].episode_id)-rank.get(b.episodes[0].episode_id));
   const rows = ranked.map(group => {
     const open = query || expanded.has(group.key), limit = card.issueGroupLimits?.get(group.key) || 40;
-    const episodes = group.episodes, shown = open ? episodes.slice(0,limit) : [];
-    const devices=new Set(),entities=new Set();
-    for(const episode of group.episodes)for(const id of episodeSourceIds(episode)){const source=nodes.get(id);if(source?.entity_id)entities.add(source.entity_id);for(const device of source?.attributes?.device||[])devices.add(device);}
-    const scope = [count(group.episodes.length,"issue"),devices.size ? count(devices.size,"device") : "",entities.size ? count(entities.size,"entity","entities") : ""].filter(Boolean).join(" · ");
-    return `<section class="issue-group panel" data-ui-key="group:${esc(group.key)}"><h2><button type="button" class="issue-group-toggle" data-issue-group="${esc(group.key)}" aria-expanded="${Boolean(open)}"><span>${esc(group.name)}</span><span class="small">${esc(scope)}</span></button></h2>${open ? `<div class="issue-group-body">${group.kind === "integration" ? '<p class="small">Issues reported within this integration. Each issue below keeps its own actions.</p>' : ""}${shown.map(episode => `<div data-ui-key="issue:${esc(episode.episode_id)}">${card.issueRow(data,episode)}${affectedSources(data,episode)}</div>`).join("")}${episodes.length > shown.length ? `<div class="body"><button type="button" class="button" data-issue-more="${esc(group.key)}">Show more issues</button><span class="small">Showing ${shown.length} of ${episodes.length}</span></div>` : ""}</div>` : ""}</section>`;
+    const episodes = group.episodes, subjects = issueDeviceGroups(data,episodes,nodes,devices);
+    if (sort === "name") subjects.sort((a,b)=>(a.name || nodes.get(a.episodes[0].anchor)?.name || "").localeCompare(b.name || nodes.get(b.episodes[0].anchor)?.name || ""));
+    let remaining = open ? limit : 0, shownCount = 0;
+    const findings = subjects.map(subject=>{
+      const shown = subject.episodes.slice(0,remaining);
+      remaining -= shown.length;shownCount += shown.length;
+      if (!shown.length) return "";
+      const rows = shown.map(episode=>`<div data-ui-key="issue:${esc(episode.episode_id)}">${card.issueRow(data,episode,nodes,subject.deviceId ? subject : null)}</div>`).join("");
+      if (!subject.deviceId) return rows;
+      return `<section class="issue-device" data-ui-key="${esc(subject.key)}" data-issue-device="${esc(subject.deviceId)}"><div class="issue-device-heading"><h3 class="issue-device-title">${esc(subject.name)}</h3><span class="small">${esc(count(subject.episodes.length,"issue"))}</span></div><div class="issue-device-findings">${rows}</div>${shown.length < subject.episodes.length ? `<p class="small issue-device-partial">Showing ${shown.length} of ${subject.episodes.length} issues for this device</p>` : ""}</section>`;
+    }).join("");
+    const affectedDevices=new Set(),standaloneEntities=new Set();
+    for(const episode of episodes)for(const id of episodeSourceIds(episode)){const source=nodes.get(id),canonical=nodes.get(source?.monitoring_source)||source,ids=canonical?.attributes?.device||source?.attributes?.device||[];if(source?.entity_id&&!ids.length)standaloneEntities.add(source.entity_id);for(const device of ids)affectedDevices.add(device);}
+    const scope = [affectedDevices.size ? count(affectedDevices.size,"affected device") : "",standaloneEntities.size ? count(standaloneEntities.size,"entity without a device","entities without a device") : ""].filter(Boolean).join(" · ");
+    return `<section class="issue-group panel" data-ui-key="group:${esc(group.key)}"><h2><button type="button" class="issue-group-toggle" data-issue-group="${esc(group.key)}" aria-expanded="${Boolean(open)}"><span>${esc(group.name)}</span><span class="issue-group-meta">${scope ? `<span class="small">${esc(scope)}</span>` : ""}<span class="issue-count">${esc(count(episodes.length,"issue"))}</span></span></button></h2>${open ? `<div class="issue-group-body">${findings}${episodes.length > shownCount ? `<div class="body"><button type="button" class="button" data-issue-more="${esc(group.key)}">Show more issues</button><span class="small">Showing ${shownCount} of ${episodes.length}</span></div>` : ""}</div>` : ""}${issueAvailabilityAction(card,group)}</section>`;
   }).join("");
   const visibleIds=new Set(groups.flatMap(group=>group.episodes.map(episode=>episode.episode_id)));
   const hidden = data.inventory.episodes.filter(episode=>!visibleIds.has(episode.episode_id));
   const monitored = data.inventory.nodes.filter(source => source.watched).length;
-  const empty = query ? `<h2>No matching issues</h2><p>Try another source name, entity ID or reported condition.</p><button type="button" class="link" data-action="clear-issue-search">Clear search</button>` : hidden.length ? `<h2>No current issues</h2><p>Sources shows current monitoring evidence and any pending recovery confirmation.</p><button type="button" class="link" data-page="sources">View sources</button>` : `<h2>${monitored ? "No open issues" : data.catalog_loaded === false ? "No open issues reported" : "Nothing is monitored"}</h2><p>${monitored ? "No open problems are reported by the current monitoring." : data.catalog_loaded === false ? "Open Policies to inspect the configured monitoring scope." : "Choose a monitoring policy to start checking sources."}</p><button type="button" class="link" data-page="policies">View policies</button>`;
-  return `<div class="intro"><h1>Issues</h1><div class="actions"><button type="button" class="link" data-page="history">History</button></div></div><div class="issues-toolbar"><label>Find an issue<input type="search" data-issue-search value="${esc(card.issueQuery || "")}" placeholder="Source, entity ID or condition"></label><label>Sort issues<select data-issue-sort>${[["newest","Newest first"],["oldest","Longest open"],["name","Source name"],["importance","Importance"]].map(([value,label]) => `<option value="${value}"${sort === value ? " selected" : ""}>${label}</option>`).join("")}</select></label></div><p class="small">${query ? `${visible} of ${total} issues match` : `${count(total,"open issue")} in ${count(groups.length,"investigation group")}`}</p>${rows || `<section class="panel body">${empty}</section>`}`;
+  const empty = query ? `<h2>No matching issues</h2><p>Try another source name, entity ID or reported condition.</p><button type="button" class="link" data-action="clear-issue-search">Clear search</button>` : hidden.length ? `<h2>No current issues</h2><p>Monitoring shows current status and any pending recovery confirmation.</p><button type="button" class="link" data-page="sources">View monitoring</button>` : `<h2>${monitored ? "No open issues" : data.catalog_loaded === false ? "No open issues reported" : "Nothing is monitored"}</h2><p>${monitored ? "No open problems are reported by the current monitoring." : data.catalog_loaded === false ? "Open Policies to inspect the configured monitoring scope." : "Choose a monitoring policy to start checking sources."}</p><button type="button" class="link" data-page="policies">View policies</button>`;
+  return `<div class="intro"><div><h1>Open issues</h1><p class="page-description">Problems that need attention.</p></div></div>${issueAvailabilityFeedback(card)}<div class="issues-toolbar"><label><span>Find an issue</span><input type="search" data-issue-search value="${esc(card.issueQuery || "")}" placeholder="Find an issue"></label><label><span>Sort issues</span><select data-issue-sort>${[["newest","Newest first"],["oldest","Longest open"],["name","Source name"],["importance","Importance"]].map(([value,label]) => `<option value="${value}"${sort === value ? " selected" : ""}>${label}</option>`).join("")}</select></label></div><p class="small">${query ? `${visible} of ${total} issues match` : `${count(total,"open issue")}`}</p>${rows || `<section class="panel body">${empty}</section>`}`;
 }
 
 
-/** Show each affected source once, with every contributing check reachable. */
-export function relatedEvidenceDetails(evidence, expanded = new Set()) {
+const describeEvidence = member => [...new Set(member.findings.map(item => item.description))].map(esc).join("; ");
+const evidenceChecks = member => `<ul>${member.findings.map(({finding,policy,description})=>`<li>${esc(policy || finding.check_id || "Check")} · ${esc(description)}${finding.message ? `<p class="small">${esc(finding.message)}</p>` : ""}</li>`).join("")}</ul>`;
+
+/** Keep the affected set reachable without repeating every reading initially. */
+export function relatedEvidenceDetails(evidence, expanded = new Set(), {singleDevice = false} = {}) {
   if (!evidence?.groups.length) return "";
-  const {devices,entities,sources,checks} = evidence.counts;
-  const totals = [devices ? count(devices,"device") : "",entities ? count(entities,"entity","entities") : "",count(checks,"check")].filter(Boolean).join(" · ");
-  const describe = member => [...new Set(member.findings.map(item => item.description))].map(esc).join("; ");
-  const contributions = member => member.findings.length > 1 ? `<details data-disclosure="checks:${esc(member.id)}"${expanded.has(`checks:${member.id}`) ? " open" : ""}><summary>${count(new Set(member.findings.map(({finding})=>JSON.stringify([finding.node_id,finding.check_id || ""]))).size,"contributing check")}</summary><ul>${member.findings.map(({finding,policy,description})=>`<li>${esc(policy || finding.check_id || "Check")} · ${esc(description)}${finding.message ? `<p class="small">${esc(finding.message)}</p>` : ""}</li>`).join("")}</ul></details>` : "";
+  const contributions = member => member.findings.length > 1 ? `<details data-disclosure="checks:${esc(member.id)}"${expanded.has(`checks:${member.id}`) ? " open" : ""}><summary>${count(new Set(member.findings.map(({finding})=>JSON.stringify([finding.node_id,finding.check_id || ""]))).size,"contributing check")}</summary>${evidenceChecks(member)}</details>` : "";
   const groups = evidence.groups.map(group => {
-    const own = group.members.filter(member=>member.kind === "device");
     const children = group.members.filter(member=>member.kind !== "device");
+    const sharedUnavailable = group.deviceId && children.length > 0 && children.every(member=>member.kind === "entity" && member.findings.every(({finding})=>finding.reason === "unavailable"));
     const childrenList = children.map(member => {
       const name = group.deviceId ? deviceEntityName(member.name,group.name) : member.name;
       const label = name === "Selected entity" ? ({climate:"Thermostat",sensor:"Reading",binary_sensor:"Sensor"}[member.source?.entity_id?.split(".")[0]] || "Entity") : name;
-      return `<li data-evidence-source="${esc(member.id)}"><div class="affected-reading"><strong>${esc(label)}</strong><span>${describe(member)}</span></div>${contributions(member)}${member.source ? `<button type="button" class="link" data-source-link="${esc(member.id)}">Inspect ${member.kind === "entity" ? "entity" : "source"}</button>` : ""}</li>`;
+      return `<li data-evidence-source="${esc(member.id)}"><div class="affected-reading"><strong>${member.source ? `<button type="button" class="link" data-source-link="${esc(member.id)}">${esc(label)}</button>` : esc(label)}</strong>${sharedUnavailable ? "" : `<span>${describeEvidence(member)}</span>`}</div>${contributions(member)}</li>`;
     }).join("");
-    const title = group.deviceId || own.length ? `<h4>${esc(group.name)}</h4>` : "";
-    return `<section class="affected-source" data-evidence-group="${esc(group.id)}">${title}${own.map(member=>`<div data-evidence-source="${esc(member.id)}"><p>${describe(member)}</p>${contributions(member)}</div>`).join("")}${group.deviceId ? `<div class="actions"><a class="button primary" href="/config/devices/device/${encodeURIComponent(group.deviceId)}">Open device</a>${group.sourceId ? `<button type="button" class="link" data-source-link="${esc(group.sourceId)}">Inspect device checks</button>` : ""}</div>` : own.length && group.sourceId ? `<button type="button" class="button" data-source-link="${esc(group.sourceId)}">Inspect device checks</button>` : ""}${childrenList ? `<ul class="affected-readings">${childrenList}</ul>` : ""}</section>`;
+    if (!group.deviceId && children.length) return `<section class="affected-source" data-evidence-group="${esc(group.id)}"><ul class="affected-readings">${childrenList}</ul></section>`;
+    const deviceLink = group.deviceId ? `/config/devices/device/${encodeURIComponent(group.deviceId)}` : null;
+    const title = deviceLink ? singleDevice ? "" : `<h4><a href="${deviceLink}" aria-label="${esc(`Open ${group.name} in Home Assistant`)}">${esc(group.name)}</a></h4>` : group.members.some(member=>member.kind === "device") ? `<h4>${esc(group.name)}</h4>` : "";
+    const unit = children.every(member=>member.kind === "entity") ? "entities" : "sources";
+    const label = sharedUnavailable && !singleDevice ? `${count(children.length,"unavailable entity","unavailable entities")}` : `Affected ${unit} (${children.length})`;
+    return `<section class="affected-source" data-evidence-group="${esc(group.id)}">${title}${childrenList ? `<details class="affected-entities" data-disclosure="entities:${esc(group.id)}"${expanded.has(`entities:${group.id}`) ? " open" : ""}><summary>${esc(label)}</summary><ul class="affected-readings">${childrenList}</ul></details>` : `<p>${group.members.map(describeEvidence).join("; ")}</p>`}</section>`;
   }).join("");
-  return `<section class="detail related-evidence"><h3>Affected sources (${sources})</h3><p class="small">${esc(totals)}</p>${groups}</section>`;
+  return `<section class="detail related-evidence">${groups}</section>`;
+}
+
+/** Keep check counts and alternate device investigation in optional detail. */
+export function relatedEvidenceMonitoring(evidence) {
+  if (!evidence?.groups.length) return "";
+  const {devices,entities,checks} = evidence.counts;
+  const totals = [devices ? count(devices,"device") : "",entities ? count(entities,"entity","entities") : "",count(checks,"check")].filter(Boolean).join(" · ");
+  return `<p class="small">${esc(totals)}</p>${evidence.groups.map(group=>`${group.sourceId ? `<p><button type="button" class="link" data-source-link="${esc(group.sourceId)}">View ${esc(group.name)} in Monitoring</button></p>` : ""}${group.members.filter(member=>member.kind === "device").map(member=>`<div data-evidence-source="${esc(member.id)}">${evidenceChecks(member)}</div>`).join("")}`).join("")}`;
 }

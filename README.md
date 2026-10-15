@@ -31,7 +31,7 @@ It covers:
 
 ## What it watches
 
-A new install watches integration availability, enabled operational entities and their devices, Home Assistant's Repairs, and automations that name an entity that no longer exists. Diagnostic and configuration entities require explicit individual selection; disabled sources stay out of availability monitoring. **Policies** shows these supplied policies alongside policies you add. Batteries and vacuums start off; temperature, thermostat and UPS checks need setup. Use **Sources** to inspect equipment and open the policies that watch it.
+A new install watches integration availability, enabled operational entities and their devices, Home Assistant's Repairs, and automations that name an entity that no longer exists. Diagnostic and configuration entities require explicit individual selection; disabled sources stay out of availability monitoring. **Policies** shows these supplied policies alongside policies you add. Batteries and vacuums start off; temperature, thermostat and UPS checks need setup. Use **Monitoring** to inspect equipment and open the policies that watch it.
 
 - A battery policy opens an issue at your chosen level, initially 20%, or when the device reports a low warning. It's tracked apart from whether the device is available.
 - A vacuum issue opens when Home Assistant reports the vacuum's activity as error. Cleaning, docked, idle, paused, or returning ends it. Its notification message names the area Home Assistant assigned when there is one.
@@ -70,14 +70,14 @@ Homeostatic adds a sidebar panel for administrators:
 
 | Page | What it's for |
 | --- | --- |
-| Issues | Problems needing review, with their details and controls |
-| Sources | Inspect equipment and open the policies that watch it. |
+| Open issues | Problems needing review, with their details and controls |
+| Monitoring | Inspect equipment and open the policies that watch it. |
 | Policies | Edit, duplicate, disable or delete supplied and custom policies. Choose sources, detection settings and notifications. |
 | Notifications | Reusable delivery methods with their own tests, and the global notification switch |
 | Settings utility | Timing and problem grouping |
-| History, within Issues | Ended issues from the last 30 days |
+| History | Ended issues from the last 30 days |
 
-If you use [TopoMation](https://github.com/mjcumming/topomation), Sources can also show your devices by its locations (property, buildings, floors, rooms) as well as by Home Assistant's floors and areas.
+If you use [TopoMation](https://github.com/mjcumming/topomation), Monitoring can also show your devices by its locations (property, buildings, floors, rooms) as well as by Home Assistant's floors and areas.
 
 ## How it works
 
@@ -159,7 +159,7 @@ From the same demo house as above.
 
 <img src="docs/images/issue.png" alt="A Zigbee issue with its reported condition, next step and notification status" width="720"/>
 
-<img src="docs/images/sources.png" alt="Sources page with monitored Zigbee devices and the failed connection" width="720"/>
+<img src="docs/images/sources.png" alt="Monitoring page with monitored Zigbee devices and the failed connection" width="720"/>
 
 
 <img src="docs/images/history.png" alt="History page with three ended availability problems" width="720"/>
@@ -175,8 +175,8 @@ view: issues
 
 | `view` | Shows |
 | --- | --- |
-| `issues` | Issues |
-| `sources` | Sources |
+| `issues` | Open issues |
+| `sources` | Monitoring |
 | `policies` | Policies |
 | `notifications` | Notifications |
 | `settings` | Settings |

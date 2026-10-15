@@ -1,0 +1,137 @@
+{
+  "change": "Monitoring tree disclosure alignment",
+  "date": "2026-10-15",
+  "source": {
+    "repository": "homeostatic",
+    "revision": "00de1bbbc2a0c1c204b8505a289b4fd475e5537c",
+    "working_tree": "dirty; unrelated edits preserved"
+  },
+  "scope": [
+    "Disclosure alignment with first name line",
+    "Wrapped inventory details",
+    "Narrow issue badges",
+    "Independent expansion and selection"
+  ],
+  "regression_before_fix": "Browser scenario failed: Arrow aligns with first name line: Synthetic Speakers 1 issue across 6 devices",
+  "checks": {
+    "quick": "WSL .venv/bin/python script/check.py --quick passed: lint, format and 630 frontend tests",
+    "layout_detector": "No findings",
+    "browser": [
+      {
+        "schema_version": 1,
+        "started_at": "2026-10-15T17:41:25.729Z",
+        "environment": {
+          "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+          "width": 320,
+          "theme": "dark",
+          "data": "synthetic",
+          "fixture": "shared-issue-counts.html"
+        },
+        "results": [
+          {
+            "id": "sources.tree-layout",
+            "page": "Monitoring",
+            "controls": "Wrapped names, issue badges, inventory counts, expand and select",
+            "expected": "Disclosure arrows stay beside the first name line; wrapped details stay under that name and controls retain independent behavior.",
+            "fixture": "shared-issue-counts.html",
+            "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+            "status": "pass",
+            "evidence": [
+              "First-line arrow alignment, full-height target, wrapping, no overflow and independent expansion/selection passed."
+            ]
+          }
+        ]
+      },
+      {
+        "schema_version": 1,
+        "started_at": "2026-10-15T17:42:16.849Z",
+        "environment": {
+          "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+          "width": 1600,
+          "theme": "light",
+          "data": "synthetic",
+          "fixture": "shared-issue-counts.html"
+        },
+        "results": [
+          {
+            "id": "sources.tree-layout",
+            "page": "Monitoring",
+            "controls": "Wrapped names, issue badges, inventory counts, expand and select",
+            "expected": "Disclosure arrows stay beside the first name line; wrapped details stay under that name and controls retain independent behavior.",
+            "fixture": "shared-issue-counts.html",
+            "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+            "status": "pass",
+            "evidence": [
+              "First-line arrow alignment, full-height target, wrapping, no overflow and independent expansion/selection passed."
+            ]
+          }
+        ]
+      },
+      {
+        "schema_version": 1,
+        "started_at": "2026-10-15T17:43:38.785Z",
+        "environment": {
+          "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+          "width": 320,
+          "theme": "dark",
+          "grouping": "location",
+          "data": "synthetic",
+          "fixture": "shared-issue-counts.html"
+        },
+        "results": [
+          {
+            "id": "sources.tree-layout",
+            "page": "Monitoring",
+            "controls": "Wrapped names, issue badges, inventory counts, expand and select",
+            "expected": "Disclosure arrows stay beside the first name line; wrapped details stay under that name and controls retain independent behavior.",
+            "fixture": "shared-issue-counts.html",
+            "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+            "status": "pass",
+            "evidence": [
+              "First-line arrow alignment, full-height target, wrapping, no overflow and independent expansion/selection passed."
+            ]
+          }
+        ]
+      },
+      {
+        "schema_version": 1,
+        "started_at": "2026-10-15T17:44:03.502Z",
+        "environment": {
+          "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
+          "width": 1600,
+          "theme": "light",
+          "grouping": "location",
+          "data": "synthetic",
+          "fixture": "shared-issue-counts.html"
+        },
+        "results": [
+          {
+            "id": "sources.tree-layout",
+            "page": "Monitoring",
+            "controls": "Wrapped names, issue badges, inventory counts, expand and select",
+            "expected": "Disclosure arrows stay beside the first name line; wrapped details stay under that name and controls retain independent behavior.",
+            "fixture": "shared-issue-counts.html",
+            "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+            "status": "pass",
+            "evidence": [
+              "First-line arrow alignment, full-height target, wrapping, no overflow and independent expansion/selection passed."
+            ]
+          }
+        ]
+      }
+    ],
+    "additional_observed": [
+      "1100px light integration layout passed",
+      "390px light integration layout passed",
+      "Enter expands and Space collapses Front Hallway with visible keyboard focus"
+    ]
+  },
+  "preview": "tree-alignment-preview-2026-10-15.png",
+  "status": {
+    "implementation": "complete locally",
+    "commit": "not committed",
+    "release": "not released",
+    "installation": "not deployed",
+    "physical_safari": "untested"
+  }
+}
