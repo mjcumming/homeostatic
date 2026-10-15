@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=73";
+import {escapeHtml as esc} from "./model.mjs?v=74";
 
 const TYPES={app:"App notification",voice:"Speaker announcement",email:"Email",sms:"SMS",notification:"Other notification"};
 const targetsFor=card=>card.configuration.delivery_targets||card.configuration.notification_destinations||[];
@@ -48,7 +48,7 @@ export function focusDestinationPicker(card,id,field) {
   [...(card.main.querySelectorAll?.('[data-definition-action="destination-open"]')||[])].find(element=>element.dataset.definitionId===id&&element.dataset.destinationField===field)?.focus({preventScroll:true});
 }
 
-/** Handle only delivery-picker events; configuration writes still use the shared draft. */
+/** Keep destination choices in their delivery method draft. */
 export function editDestinationPicker(card,event,element,invalidate,renderAfterEdit) {
   const d=element.dataset||{},action=d.definitionAction,state=card.deliveryPicker;
   if(event.type!=="click") {

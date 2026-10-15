@@ -1,35 +1,28 @@
 """Home Assistant Repairs become ordinary issues with one reporting choice."""
 
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 import voluptuous as vol
-from health_tree.policy import Policy
-from health_tree.types import (
-    Episode,
-    EpisodeOpened,
-    Finding,
-    Importance,
-    PolicyContext,
-    Status,
-)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic import repairs as repairs_module
-from custom_components.homeostatic import reporting
-from custom_components.homeostatic.attention import build_policy
-from custom_components.homeostatic.automation_alerts import AutomationAlerts
-from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
-from custom_components.homeostatic.repairs import Repairs, node_id, profile
-from custom_components.homeostatic.rules import parse_rules
+from custom_components.homeostatic.repairs import Repairs, node_id
+from tests.policy_helpers import bound_identity, monitoring_policy
 from tests.test_lifecycle import start_monitor
-from tests.test_reporting import PEOPLE
-from tests.test_reporting import configured as configured
+
+POLICY = monitoring_policy("repair", {"kind": ["repair"]}, check="repair")
+
+
+@pytest.fixture(autouse=True)
+def monitor_source_type(config_data: dict[str, Any]) -> None:
+    """Select this producer explicitly through the current policy model."""
+    config_data["monitoring_policies"].append(POLICY)
+
 
 DECK = "automation.deck_service_not_found_light.turn_on"
 
@@ -55,7 +48,11 @@ def raise_deck_repair(hass: HomeAssistant) -> str:
 
 def open_for(runtime: Any, node: str) -> list[dict[str, Any]]:
     """Open issues anchored on one source."""
-    return [row for row in runtime.episodes.values() if row["anchor"] == node]
+    return [
+        row
+        for row in runtime.episodes.values()
+        if row["anchor"] == bound_identity(POLICY, node)
+    ]
 
 
 async def test_repair_opens_an_issue_and_clears_with_ha(
@@ -65,10 +62,10 @@ async def test_repair_opens_an_issue_and_clears_with_ha(
     runtime = await start_monitor(hass, config_entry)
     node = raise_deck_repair(hass)
     await hass.async_block_till_done()
-    source = runtime.sources[node]
+    source = runtime.sources[bound_identity(POLICY, node)]
     assert (source.kind, source.name, source.fix_url) == (
         "repair",
-        "Deck lights uses an unknown action",
+        "Deck lights uses an unknown action · repair",
         "/config/automation/edit/deck",
     )
     [episode] = open_for(runtime, node)
@@ -83,7 +80,7 @@ async def test_repair_opens_an_issue_and_clears_with_ha(
     last = runtime.history.snapshot()["episodes"][-1]
     assert (last["resolution"], last["source"]["kind"]) == ("cleared", "repair")
     await runtime.async_refresh()
-    assert node not in runtime.sources
+    assert bound_identity(POLICY, node) not in runtime.sources
     assert not runtime.repairs.records
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
@@ -103,7 +100,7 @@ async def test_ignoring_a_repair_ends_its_issue(
         "reason"
     ] in {"reported", "ignored"}
     await runtime.async_refresh()
-    assert node not in runtime.sources
+    assert bound_identity(POLICY, node) not in runtime.sources
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
@@ -137,14 +134,18 @@ async def test_unknown_repair_uses_integration_name_and_repairs_page(
         translation_key="own_issue",
     )
     await hass.async_block_till_done()
-    zha = runtime.sources[node_id("zha", "zha.unrelated_repair")]
+    zha = runtime.sources[
+        bound_identity(POLICY, node_id("zha", "zha.unrelated_repair"))
+    ]
     assert (zha.name, zha.fix_url) == (
-        "Zigbee Home Automation repair",
+        "Zigbee Home Automation repair · repair",
         "/config/repairs",
     )
     assert (
-        runtime.sources[node_id("not_a_real_integration", "mystery")].name
-        == "not_a_real_integration repair"
+        runtime.sources[
+            bound_identity(POLICY, node_id("not_a_real_integration", "mystery"))
+        ].name
+        == "not_a_real_integration repair · repair"
     )
     assert node_id(DOMAIN, "own_issue") not in runtime.sources
     assert await hass.config_entries.async_unload(config_entry.entry_id)
@@ -232,99 +233,3 @@ def test_stored_repairs_are_validated() -> None:
         repairs.restore({node_id("zha", "a"): {**row, "url": "https://example.com"}})
     repairs.restore({node_id("zha", "a"): row})
     assert repairs.snapshot() == {node_id("zha", "a"): row}
-
-
-async def test_repairs_share_one_reporting_choice(hass: HomeAssistant) -> None:
-    """The choice defaults to the morning summary and is absent for custom policies."""
-    policy = reporting.generate(hass, reporting.defaults(), [])
-    assert reporting.choices(policy)["repairs"] == "morning"
-    assert profile(policy) == "morning"
-    weekly = reporting.generate(hass, {**reporting.defaults(), "repairs": "weekly"}, [])
-    assert profile(weekly) == "weekly"
-    legacy = {**policy, "generated": {**policy["generated"]}}
-    legacy["generated"]["choices"] = {
-        key: value
-        for key, value in policy["generated"]["choices"].items()
-        if key != "repairs"
-    }
-    assert profile(legacy) == "morning"
-    custom = {key: value for key, value in policy.items() if key != "generated"}
-    assert profile(custom) is None
-    with pytest.raises(ValueError, match="six reporting preferences"):
-        reporting.generate(hass, {**reporting.defaults(), "repairs": "hourly"}, [])
-    repairs = Repairs()
-    repairs.restore(
-        {
-            node_id("zha", "a"): {
-                "domain": "zha",
-                "issue_id": "a",
-                "name": "Repair",
-                "integration": "ZHA",
-                "severity": "warning",
-                "url": "/config/repairs",
-                "state": "active",
-            }
-        }
-    )
-    [source] = repairs.sources(weekly).values()
-    assert (
-        repairs.sources(
-            weekly,
-            parse_rules(
-                [
-                    {
-                        "id": "repairs_off",
-                        "action": "exclude",
-                        "match": {"kind": "repair"},
-                        "checks": ["repair"],
-                    }
-                ]
-            ),
-        )
-        == {}
-    )
-    assert source.alert_profile == "weekly"
-    assert (
-        source.node(Settings.from_data({})).labels["homeostatic_alert_profile"]
-        == "weekly"
-    )
-    [unlabelled] = repairs.sources(custom).values()
-    assert (
-        "homeostatic_alert_profile"
-        not in unlabelled.node(Settings.from_data({})).labels
-    )
-
-
-async def test_repair_profile_label_routes_the_issue(
-    hass: HomeAssistant, configured: dict[str, Any]
-) -> None:
-    """A Repair follows the shared Repairs choice, not the household default."""
-    configured["repairs"] = "immediate"
-    data = reporting.generate(hass, configured, PEOPLE)
-    composed = AutomationAlerts().policy(Settings.from_data({"policy": data}))
-    policy = Policy(build_policy(composed, timedelta(seconds=30)))
-    now = datetime(2026, 10, 1, 23, tzinfo=UTC)
-    key = node_id("automation", DECK)
-    episode = Episode(
-        episode_id="repair",
-        form="root",
-        anchor=key,
-        status=Status.FAIL,
-        importance=Importance.NORMAL,
-        reasons=(
-            Finding(
-                node_id=key,
-                check_id="repair",
-                status=Status.FAIL,
-                reason="reported",
-                since=now,
-            ),
-        ),
-        recorded=frozenset(),
-        impact=frozenset(),
-        opened_at=now,
-        updated_at=now,
-        labels={"homeostatic_alert_profile": "immediate"},
-    )
-    [delivery] = policy.handle(EpisodeOpened(episode=episode), now, PolicyContext())
-    assert (delivery.recipient, delivery.loudness.value) == ("person:owner", "urgent")

@@ -14,6 +14,7 @@ from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.dashboard import DATA_DASHBOARD
 from custom_components.homeostatic.evidence import IntegrationEvidence
+from tests.policy_helpers import availability_policies, bound_identity
 from tests.test_lifecycle import start_monitor
 
 
@@ -37,12 +38,15 @@ async def test_failure_retry_reload_and_confirmed_recovery(
     )
     source.add_to_hass(hass)
     config_data.update(
-        entities=[], config_entries=[source.entry_id], notifications=False
+        monitoring_policies=availability_policies(integrations=[source.entry_id]),
+        notifications=False,
     )
     config_data["timings"].update(clear_hold=10, retry_hold=0)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
-    node_id = f"entry:{source.entry_id}"
+    node_id = bound_identity(
+        config_data["monitoring_policies"][0], f"entry:{source.entry_id}"
+    )
     client = await hass_ws_client(hass)
     source._async_set_state(hass, state, "Connection timed out")
     await hass.async_block_till_done()
@@ -87,30 +91,31 @@ async def test_failure_retry_reload_and_confirmed_recovery(
     await client.close()
 
 
-async def test_disabled_condition_survives_held_unknown_and_unenrollment(
+async def test_disabled_source_stays_browsable_without_evidence_issue(
     hass: HomeAssistant,
     config_data: dict[str, Any],
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """Library stale findings preserve the distinct HA disabled condition."""
+    """Disabled entries remain in Sources without a stale issue or evidence record."""
     source = MockConfigEntry(
         domain="test", title="Music", disabled_by=ConfigEntryDisabler.USER
     )
     source.add_to_hass(hass)
     config_data.update(
-        entities=[], config_entries=[source.entry_id], notifications=False
+        monitoring_policies=availability_policies(integrations=[source.entry_id]),
+        notifications=False,
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     node_id = f"entry:{source.entry_id}"
     freezer.tick(timedelta(seconds=31))
     await runtime.async_refresh()
-    assert next(iter(runtime.episodes.values()))["reasons"][0]["reason"] == "stale"
-    assert runtime.integration_evidence.view(node_id)["current"]["reason"] == "disabled"
-    assert runtime.integration_evidence.view(node_id)["last_failure"] is None
-    assert runtime.readiness == "unknown"
+    assert not runtime.episodes
+    assert runtime.candidates[node_id].disabled
+    assert not runtime.candidates[node_id].watched
+    assert runtime.integration_evidence.view(node_id) is None
     hass.config_entries.async_update_entry(
-        entry, data={**config_data, "config_entries": []}
+        entry, data={**config_data, "monitoring_policies": []}
     )
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()

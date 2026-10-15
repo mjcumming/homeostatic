@@ -431,3 +431,17 @@ async def async_send(
             )
         return
     raise HomeAssistantError("Unsupported notification destination")
+
+
+def unavailable_destinations(hass: HomeAssistant, policy: dict[str, Any]) -> list[str]:
+    """Report configured built-in destinations that no longer accept requests."""
+    configured = {
+        channel
+        for recipient in policy["recipients"].values()
+        for channel in recipient["channels"]
+        if channel.startswith(("phone:", "notify:"))
+    }
+    if not configured:
+        return []
+    available = {route.channel for route in destinations(hass) if route.available}
+    return sorted(configured - available)

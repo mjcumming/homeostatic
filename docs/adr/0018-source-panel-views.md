@@ -6,6 +6,8 @@
 
 **Supersedes:** ADR 0017's decision to show evidence and monitoring together without detail views. Its one-tree navigation, source identity, grouping, and guarded monitoring changes remain in force.
 
+**Later decision:** Mandatory source subtabs and primary History placement are superseded by [ADR 0061](0061-issues-first-product-workflows.md). The historical decision remains below; unaffected behavior and persistence safeguards remain in force. Replacement UI implementation is pending.
+
 ## Context
 
 The locally implemented Sources page repeats its title and places evidence and monitoring in one long panel. During the owner walkthrough, this made the selected source and its available actions hard to scan. The owner asked for one persistent tree with Source, Settings, and History views in the right panel.

@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: quick-checks
         name: Homeostatic quick checks
-        entry: uv run python script/check.py --quick
+        entry: uv run --no-sync python script/check.py --quick
         language: system
         pass_filenames: false
         always_run: true

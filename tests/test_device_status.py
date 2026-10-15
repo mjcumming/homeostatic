@@ -16,6 +16,11 @@ from custom_components.homeostatic.device_availability import (
     device_availability,
     summarize_device_availability,
 )
+from tests.policy_helpers import (
+    availability_policies,
+    bound_identity,
+    monitoring_policy,
+)
 from tests.test_lifecycle import start_monitor
 
 
@@ -97,9 +102,9 @@ def test_entity_fallback_scenarios(
             "off",
             False,
             {},
-            "unavailable",
-            "connectivity_disconnected",
-            id="disconnected-overrides-other-state",
+            "available",
+            "entity_available",
+            id="off-is-an-available-value",
         ),
         pytest.param("on", False, {}, "available", "entity_available", id="connected"),
         pytest.param(
@@ -116,7 +121,7 @@ def test_entity_fallback_scenarios(
             {},
             "disabled",
             "disabled",
-            id="disabled-precedes-disconnection",
+            id="disabled-overrides-current-values",
         ),
         pytest.param(
             "off",
@@ -128,18 +133,20 @@ def test_entity_fallback_scenarios(
         ),
     ],
 )
-def test_connectivity_report_precedes_generic_entity_fallback(
+def test_connectivity_values_follow_entity_availability(
     connection_state: str,
     disabled: bool,
     reports: dict[str, str],
     expected: str,
     reason: str,
 ) -> None:
-    """A typed connection report has meaning beyond an ordinary on/off value."""
+    """A connectivity device class does not turn an available value into a fault."""
     result = summarize_device_availability(
         {
             "binary_sensor.connection": State(
-                "binary_sensor.connection", connection_state
+                "binary_sensor.connection",
+                connection_state,
+                {"device_class": "connectivity"},
             ),
             "sensor.temperature": State("sensor.temperature", "72"),
         },
@@ -147,25 +154,23 @@ def test_connectivity_report_precedes_generic_entity_fallback(
         reports=reports,
         attached_entries=frozenset({"owner"}),
         loaded_entries=frozenset({"owner"}),
-        connectivity_entities=frozenset({"binary_sensor.connection"}),
     )
     assert result["status"] == expected
     assert result["reason"] == reason
-    assert result["disconnected_count"] == (1 if connection_state == "off" else 0)
+    assert result["available_count"] == 2
 
 
-def test_restored_connectivity_off_is_not_disconnection_evidence() -> None:
-    """A restored value cannot create a current connection finding."""
+def test_restored_connectivity_off_is_missing_current_evidence() -> None:
+    """A restored value cannot establish current availability."""
     result = summarize_device_availability(
         {
             "binary_sensor.connection": State(
                 "binary_sensor.connection", "off", {"restored": True}
             )
         },
-        connectivity_entities=frozenset({"binary_sensor.connection"}),
     )
     assert result["status"] == "unknown"
-    assert result["disconnected_entity_ids"] == []
+    assert result["restored_count"] == 1
 
 
 @pytest.mark.parametrize(
@@ -277,7 +282,7 @@ def test_invalid_report_is_rejected() -> None:
 
 
 async def test_registry_evidence_lifecycle(hass: HomeAssistant) -> None:
-    """Use all enabled categories while ignoring disabled members and old states."""
+    """Use operational entities while excluding diagnostic, configuration and disabled members."""
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     owner.add_to_hass(hass)
     devices, entities = dr.async_get(hass), er.async_get(hass)
@@ -316,18 +321,48 @@ async def test_registry_evidence_lifecycle(hass: HomeAssistant) -> None:
     hass.states.async_set(config.entity_id, "unknown")
     hass.states.async_set(disabled.entity_id, "off")
     result = device_availability(hass, device.id)
-    assert result["status"] == "available"
-    assert result["entity_count"] == 3
-    assert result["available_count"] == 1
-    assert result["unavailable_count"] == 2
+    assert result["status"] == "unavailable"
+    assert result["entity_ids"] == [ordinary.entity_id]
+    assert result["entity_count"] == 1
+    assert result["available_count"] == 0
+    assert result["unavailable_count"] == 1
     hass.states.async_set(config.entity_id, "unavailable")
     assert device_availability(hass, device.id)["status"] == "unavailable"
     hass.states.async_remove(config.entity_id)
+    assert device_availability(hass, device.id)["status"] == "unavailable"
+    hass.states.async_remove(ordinary.entity_id)
     assert device_availability(hass, device.id)["status"] == "unknown"
     devices.async_update_device(device.id, disabled_by=dr.DeviceEntryDisabler.USER)
     assert device_availability(hass, device.id)["status"] == "disabled"
     devices.async_remove_device(device.id)
     assert device_availability(hass, device.id)["reason"] == "device_missing"
+
+
+@pytest.mark.parametrize("category", [EntityCategory.DIAGNOSTIC, EntityCategory.CONFIG])
+@pytest.mark.parametrize("state", ["unavailable", "off", "unknown"])
+async def test_non_operational_only_device_has_no_availability_assessment(
+    hass: HomeAssistant, category: EntityCategory, state: str
+) -> None:
+    """Diagnostic or configuration values neither fail nor establish device availability."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "non-operational")}
+    )
+    entity = er.async_get(hass).async_get_or_create(
+        "sensor",
+        "test",
+        "status",
+        config_entry=owner,
+        device_id=device.id,
+        entity_category=category,
+    )
+    hass.states.async_set(entity.entity_id, state)
+    result = device_availability(hass, device.id)
+    assert result["status"] == "unknown"
+    assert result["reason"] == "no_entities"
+    assert result["entity_count"] == 0
+    assert result["entity_ids"] == []
 
 
 async def test_device_display_preserves_monitoring_issue(
@@ -343,22 +378,16 @@ async def test_device_display_preserves_monitoring_issue(
     selected = entities.async_get_or_create(
         "sensor", "test", "selected", config_entry=owner, device_id=device.id
     )
-    excluded = entities.async_get_or_create(
-        "sensor", "test", "excluded", config_entry=owner, device_id=device.id
+    sibling = entities.async_get_or_create(
+        "sensor", "test", "sibling", config_entry=owner, device_id=device.id
     )
     hass.states.async_set(selected.entity_id, "unavailable")
-    hass.states.async_set(excluded.entity_id, "off")
+    hass.states.async_set(sibling.entity_id, "off")
     config_data.update(
-        entities=[],
-        config_entries=[],
         notifications=False,
-        rules=[
-            {"id": "devices", "action": "attach", "match": {"kind": "device"}},
-            {
-                "id": "exclude",
-                "action": "exclude",
-                "match": {"entity": f"registry:{excluded.id}"},
-            },
+        monitoring_policies=[
+            monitoring_policy("devices", {"kind": ["device"]}),
+            *availability_policies(entities=[f"registry:{selected.id}"]),
         ],
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -369,7 +398,7 @@ async def test_device_display_preserves_monitoring_issue(
     source = (await client.receive_json())["result"]
     assert source["device_availability"]["status"] == "available"
     assert source["device_availability"]["entity_count"] == 2
-    assert source["entity_status"]["current"]["reason"] == "all_unavailable"
+    assert source["entity_status"]["current"]["reason"] == "available"
     episode_ids = set(runtime.episodes)
     assert len(episode_ids) == 1
     await client.send_json({"id": 2, "type": "homeostatic/node", "node_id": node_id})
@@ -381,10 +410,10 @@ async def test_device_display_preserves_monitoring_issue(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_watched_connectivity_report_keeps_device_issue_open(
+async def test_connectivity_off_is_not_an_availability_issue(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """A disconnected selected sensor opens and sustains one device issue."""
+    """The Sources assessment and monitoring both treat current off as available."""
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     owner.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(
@@ -410,10 +439,8 @@ async def test_watched_connectivity_report_keeps_device_issue_open(
     hass.states.async_set(connection.entity_id, "on")
     hass.states.async_set(motion.entity_id, "off")
     config_data.update(
-        entities=[],
-        config_entries=[],
         notifications=False,
-        rules=[{"id": "devices", "action": "attach", "match": {"kind": "device"}}],
+        monitoring_policies=[monitoring_policy("devices", {"kind": ["device"]})],
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
@@ -422,20 +449,25 @@ async def test_watched_connectivity_report_keeps_device_issue_open(
 
     hass.states.async_set(connection.entity_id, "off")
     await hass.async_block_till_done()
-    assert device_availability(hass, device.id)["status"] == "unavailable"
+    assert device_availability(hass, device.id)["status"] == "available"
     assert (
-        runtime.entity_status(node_id)["current"]["reason"]
-        == "connectivity_disconnected"
+        runtime.entity_status(
+            bound_identity(config_data["monitoring_policies"][0], node_id)
+        )["current"]["reason"]
+        == "available"
     )
-    assert runtime.device_evidence(node_id)["members"][0]["connectivity"] is True
-    episode_id = next(iter(runtime.episodes))
+    assert all(
+        "connectivity" not in member
+        for member in runtime.device_evidence(node_id)["members"]
+    )
+    assert not runtime.episodes
 
     hass.states.async_set(motion.entity_id, "unavailable")
     await hass.async_block_till_done()
-    assert list(runtime.episodes) == [episode_id]
+    assert not runtime.episodes
     hass.states.async_set(motion.entity_id, "on")
     await hass.async_block_till_done()
-    assert list(runtime.episodes) == [episode_id]
+    assert not runtime.episodes
 
     hass.states.async_set(connection.entity_id, "on")
     await hass.async_block_till_done()
@@ -459,7 +491,7 @@ async def test_empty_devices_remain_browsable(
         identifiers={("test", "empty")},
         disabled_by=dr.DeviceEntryDisabler.USER if disabled else None,
     )
-    config_data.update(entities=[], config_entries=[], notifications=False, rules=[])
+    config_data.update(monitoring_policies=[], notifications=False)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     node_id = f"device:{device.id}"

@@ -26,6 +26,7 @@ from custom_components.homeostatic.dashboard import _settings_review_token
 from custom_components.homeostatic.monitoring import parse_policies
 from custom_components.homeostatic.monitoring_runtime import contributing_policies
 from custom_components.homeostatic.runtime import Runtime
+from tests.policy_helpers import current_config
 
 
 def test_source_policy_links_follow_real_checks_and_independent_ownership() -> None:
@@ -189,7 +190,7 @@ def test_notification_rows_are_local_to_each_policy() -> None:
         )
     ]
     settings = Settings.from_data(
-        {"monitoring_policies": policies, "notification_definitions": definitions}
+        current_config(policies, notification_definitions=definitions)
     )
     assert [
         item.notifications[0]["timing"]["mode"] for item in settings.monitoring_policies
@@ -197,7 +198,7 @@ def test_notification_rows_are_local_to_each_policy() -> None:
     policies[0]["notifications"][0]["id"] = 1
     with pytest.raises(ValueError, match="stable ids"):
         Settings.from_data(
-            {"monitoring_policies": policies, "notification_definitions": definitions}
+            current_config(policies, notification_definitions=definitions)
         )
 
 
@@ -275,8 +276,8 @@ def test_missing_delivery_method_configuration_rejected() -> None:
     policy["notifications"] = [
         {"id": "row", "timing": {"mode": "immediate"}, "methods": ["phone"]}
     ]
-    with pytest.raises(ValueError, match="Create delivery methods"):
-        Settings.from_data({"monitoring_policies": [policy]})
+    with pytest.raises(ValueError, match="method"):
+        Settings.from_data(current_config([policy]))
 
 
 async def test_rename_and_detection_edit_have_distinct_lifecycles(
@@ -549,36 +550,6 @@ async def test_disabled_policy_preview_does_not_report_retired_issue(
     )
     review = runtime.preview_policy(candidate.policy, settings=candidate)
     assert review["deliveries"] == []
-    assert await hass.config_entries.async_unload(config_entry.entry_id)
-
-
-async def test_temperature_policy_respects_explicit_source_exclusion(
-    hass: HomeAssistant, config_entry: MockConfigEntry
-) -> None:
-    """An explicit excluded source cannot be silently re-enrolled by a policy."""
-    hass.states.async_set(
-        "sensor.temperature",
-        "0",
-        {"device_class": "temperature", "unit_of_measurement": "°C"},
-    )
-    configure(hass, config_entry, [limit_policy()])
-    hass.config_entries.async_update_entry(
-        config_entry,
-        data={
-            **config_entry.data,
-            "rules": [
-                {
-                    "id": "excluded",
-                    "action": "exclude",
-                    "match": {"entity": ["entity_id:sensor.temperature"]},
-                    "checks": ["availability"],
-                }
-            ],
-        },
-    )
-    runtime = await start_monitor(hass, config_entry)
-    assert not runtime.temperature_monitors
-    assert not runtime.episodes
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 

@@ -5,10 +5,16 @@ from typing import Any
 
 import pytest
 from homeassistant.components import persistent_notification
-from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.const import DEFAULTS, DOMAIN, EVENT_NOTIFICATION
+from tests.policy_helpers import (
+    current_config,
+    immediate_notification,
+    monitoring_policy,
+    notification_definitions_data,
+)
 
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
@@ -22,8 +28,16 @@ def custom_integrations(enable_custom_integrations: None) -> None:
 def config_data() -> dict[str, Any]:
     """Short explicit durations keep lifecycle tests clear without sleeping."""
     return {
-        "entities": ["entity_id:sensor.observed"],
-        "config_entries": [],
+        **current_config(
+            [
+                monitoring_policy(
+                    "observed",
+                    {"kind": ["entity"], "entity": ["entity_id:sensor.observed"]},
+                    notifications=immediate_notification(),
+                )
+            ]
+        ),
+        "notification_definitions": notification_definitions_data(),
         "notifications": True,
         "consumer": "automation.homeostatic_test_consumer",
         "timings": {
@@ -63,5 +77,12 @@ def notification_consumer(hass: HomeAssistant) -> Generator[None]:
             )
 
     cancel = hass.bus.async_listen(EVENT_NOTIFICATION, consume)
+
+    @callback
+    def notify_service(call: ServiceCall) -> None:
+        """Accept requests in the isolated HA service registry."""
+
+    hass.services.async_register("notify", "homeostatic_test", notify_service)
     yield
     cancel()
+    hass.services.async_remove("notify", "homeostatic_test")

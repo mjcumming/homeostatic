@@ -1,4 +1,4 @@
-"""Policy-owned notification timing, reusable methods, and attention routes."""
+"""Reusable named notifications, delivery methods, and attention routes."""
 
 import hashlib
 import json
@@ -20,11 +20,45 @@ _CHANNEL = re.compile(
 )
 
 
+def default_profiles() -> dict[str, dict[str, Any]]:
+    """Provide editable notification choices without selecting destinations."""
+    return {
+        "immediate": {
+            "name": "Immediate",
+            "timing": {"mode": "immediate"},
+            "methods": [],
+        },
+        "acknowledge": {
+            "name": "Immediate with acknowledgment",
+            "timing": {"mode": "acknowledge", "remind_every": 1800},
+            "methods": [],
+        },
+        "urgent": {
+            "name": "Urgent",
+            "timing": {"mode": "window", "start": "08:00", "end": "22:00"},
+            "methods": [],
+        },
+        **{
+            identity: {
+                "name": name,
+                "timing": {"mode": "report", "at": at, "weekdays": weekdays},
+                "methods": [],
+            }
+            for identity, name, at, weekdays in (
+                ("morning", "Morning summary", "08:00", list(range(7))),
+                ("evening", "Evening summary", "18:00", list(range(7))),
+                ("weekly", "Weekly summary", "08:00", [6]),
+            )
+        },
+    }
+
+
 def defaults(timezone: str = "UTC") -> dict[str, Any]:
-    """Provide empty notification choices without adding destinations or sends."""
+    """Provide named choices without adding destinations or enabling sends."""
     return {
         "timezone": timezone,
         "methods": {},
+        "profiles": default_profiles(),
         "default": [],
         "repairs": [],
         "broken_automations": [],
@@ -97,7 +131,7 @@ def _method(key: str, value: object) -> None:
 
 
 def _timing(value: object) -> None:
-    """Validate the timing owned by one notification entry."""
+    """Validate timing for a named notification or a saved inline entry."""
     if not isinstance(value, dict):
         raise ValueError("Provide timing settings on each notification entry")
     mode = value.get("mode")
@@ -106,8 +140,12 @@ def _timing(value: object) -> None:
         fields.add("remind_every")
     elif mode == "report":
         fields.update(("at", "weekdays"))
+    elif mode == "window":
+        fields.update(("start", "end"))
     elif mode != "immediate":
-        raise ValueError("Choose immediate, acknowledgment, or scheduled reporting")
+        raise ValueError(
+            "Choose immediate, acknowledgment, window, or scheduled reporting"
+        )
     if set(value) != fields:
         raise ValueError("Provide the settings for the selected timing")
     if mode == "acknowledge":
@@ -117,12 +155,17 @@ def _timing(value: object) -> None:
             raise ValueError("Use a positive reminder interval") from err
         if interval.total_seconds() <= 0:
             raise ValueError("Reminders must have a positive interval")
-    if mode == "report":
-        if not isinstance(value["at"], str) or not re.fullmatch(
-            r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", value["at"]
+    for field in (
+        ("at",) if mode == "report" else ("start", "end") if mode == "window" else ()
+    ):
+        if not isinstance(value[field], str) or not re.fullmatch(
+            r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", value[field]
         ):
-            raise ValueError("Use a local HH:MM report time")
-        time.fromisoformat(value["at"])
+            raise ValueError("Use a local HH:MM notification time")
+        time.fromisoformat(value[field])
+    if mode == "window" and value["start"] == value["end"]:
+        raise ValueError("Choose different start and end times for the delivery window")
+    if mode == "report":
         days = value["weekdays"]
         if (
             not isinstance(days, list)
@@ -135,7 +178,10 @@ def _timing(value: object) -> None:
 
 def validate(value: object) -> dict[str, Any]:
     """Copy a complete definition set and reject dangling or ambiguous references."""
-    if not isinstance(value, dict) or set(value) - {"automation_profiles"} != {
+    if not isinstance(value, dict) or set(value) - {
+        "automation_profiles",
+        "profiles",
+    } != {
         "timezone",
         "methods",
         "default",
@@ -146,14 +192,29 @@ def validate(value: object) -> dict[str, Any]:
         raise ValueError("Provide the complete notification definitions")
     data = deepcopy(value)
     data.setdefault("automation_profiles", {})
+    data.setdefault("profiles", {})
     try:
         ZoneInfo(data["timezone"])
     except (ZoneInfoNotFoundError, TypeError, ValueError) as err:
         raise ValueError("Choose an IANA timezone") from err
-    if any(not isinstance(data[key], dict) for key in ("methods", "assignments")):
+    if any(
+        not isinstance(data[key], dict)
+        for key in ("methods", "profiles", "assignments")
+    ):
         raise ValueError("Definitions and source assignments must be mappings")
     for key, value in data["methods"].items():
         _method(key, value)
+    for key, value in data["profiles"].items():
+        profile = _named(key, value)
+        if set(profile) != {"name", "timing", "methods"}:
+            raise ValueError(
+                "Provide a name, timing, and delivery methods for each notification"
+            )
+        _timing(profile["timing"])
+        if any(
+            method not in data["methods"] for method in _strings(profile["methods"])
+        ):
+            raise ValueError("A notification references a missing delivery method")
     identities: dict[str, dict[str, Any]] = {}
 
     def rows(items: object) -> None:
@@ -161,10 +222,9 @@ def validate(value: object) -> dict[str, Any]:
             raise ValueError("Notification rows must be a list")
         seen: set[str] = set()
         for row in items:
-            if (
-                not isinstance(row, dict)
-                or set(row) - {"id", "timing", "methods", "when"}
-                or not {"id", "timing", "methods"} <= set(row)
+            if not isinstance(row, dict) or set(row) - {"when"} not in (
+                {"id", "profile"},
+                {"id", "timing", "methods"},
             ):
                 raise ValueError(
                     "Pair timing with delivery methods on each notification entry"
@@ -177,8 +237,18 @@ def validate(value: object) -> dict[str, Any]:
             ):
                 raise ValueError("Give notification rows distinct stable ids")
             seen.add(identity)
-            _timing(row["timing"])
-            methods = _strings(row["methods"], empty=False)
+            if "profile" in row:
+                if (
+                    not isinstance(row["profile"], str)
+                    or row["profile"] not in data["profiles"]
+                ):
+                    raise ValueError(
+                        "A notification row references a missing named notification"
+                    )
+                methods = data["profiles"][row["profile"]]["methods"]
+            else:
+                _timing(row["timing"])
+                methods = _strings(row["methods"], empty=False)
             if "when" in row and (
                 not isinstance(row["when"], str)
                 or row["when"] not in {"mains", "backup"}
@@ -229,6 +299,24 @@ def validate(value: object) -> dict[str, Any]:
                 raise ValueError("Choose a condition for each exception")
             rows(items)
     return data
+
+
+def resolve_rows(
+    definitions: dict[str, Any], rows: list[dict[str, Any]] | tuple[dict[str, Any], ...]
+) -> list[dict[str, Any]]:
+    """Resolve validated references without changing saved row identities or conditions."""
+    return [
+        {
+            **{key: value for key, value in row.items() if key != "profile"},
+            **{
+                key: deepcopy(definitions["profiles"][row["profile"]][key])
+                for key in ("timing", "methods")
+            },
+        }
+        if "profile" in row
+        else deepcopy(row)
+        for row in rows
+    ]
 
 
 def _hash(value: object) -> str:
@@ -292,13 +380,9 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
             ),
         ]
     )
-    if "immediate" in data["automation_profiles"]:
-        scopes.append(
-            ({"checks": ["vacuum"]}, data["automation_profiles"]["immediate"])
-        )
     scopes.append(({}, data["default"]))
     identities = {row["id"]: row for _, rows in scopes for row in rows}
-    recipients = {
+    recipients: dict[str, Any] = {
         f"method:{key}": {"channels": [f"method:{key}"]} for key in data["methods"]
     }
     digests: dict[str, Any] = {}
@@ -307,14 +391,39 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
         rules.append(
             {
                 "route": identity,
+                "match": {"checks": ["availability"], "status": ["unknown"]},
+                "loudness": "record",
+            }
+        )
+        rules.append(
+            {
+                "route": identity,
                 "match": {"category": ["temperature"], "status": ["unknown"]},
                 "loudness": "record",
             }
         )
-        schedule = row["timing"]
-        targets = [f"method:{method}" for method in row["methods"]]
+        effective = resolve_rows(data, [row])[0]
+        schedule = effective["timing"]
+        targets = [f"method:{method}" for method in effective["methods"]]
+        if schedule["mode"] == "window":
+            targets = []
+            owner = (
+                ["profile", row["profile"]]
+                if "profile" in row
+                else ["inline", identity]
+            )
+            for method in effective["methods"]:
+                recipient = f"window:{_hash([*owner, method])}"
+                recipients[recipient] = {
+                    "channels": [f"method:{method}"],
+                    "quiet_hours": {"start": schedule["end"], "end": schedule["start"]},
+                }
+                targets.append(recipient)
+        loudness = {"report": "digest", "window": "notify"}.get(
+            schedule["mode"], "urgent"
+        )
         digest_id = f"entry:{identity}"
-        if schedule["mode"] == "report":
+        if targets and schedule["mode"] == "report":
             digests[digest_id] = {
                 "at": schedule["at"],
                 "weekdays": schedule["weekdays"],
@@ -328,7 +437,7 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
                 "loudness": "record",
             }
             selected_row = next((item for item in rows if item["id"] == identity), None)
-            if selected_row is not None:
+            if selected_row is not None and targets:
                 when = selected_row.get("when")
                 if when is not None:
                     rules.append(
@@ -344,9 +453,7 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
                                 ],
                             },
                             "to": targets,
-                            "loudness": "urgent"
-                            if schedule["mode"] != "report"
-                            else "digest",
+                            "loudness": loudness,
                             **(
                                 {
                                     "require_acknowledgment": True,
@@ -364,7 +471,7 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
                     )
                     rules.append(rule)
                     continue
-                rule.update(to=targets, loudness="urgent")
+                rule.update(to=targets, loudness=loudness)
                 if schedule["mode"] == "acknowledge":
                     rule.update(
                         require_acknowledgment=True,
@@ -386,63 +493,6 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
         "hash": _hash(policy),
     }
     return policy
-
-
-def convert_legacy(value: dict[str, Any]) -> dict[str, Any]:
-    """Convert intact legacy choices without changing destinations or enabling sends."""
-    result = defaults(value["timezone"])
-    for person, channels in value["people"].items():
-        if channels:
-            result["methods"][f"person:{person}"] = {
-                "name": person,
-                "mode": "fixed",
-                "destinations": list(channels),
-            }
-
-    def timing(profile: str) -> dict[str, Any]:
-        settings = value["profiles"][profile]
-        if profile == "immediate":
-            return {"mode": "immediate"}
-        if profile == "acknowledge":
-            return {"mode": "acknowledge", "remind_every": "30m"}
-        return {
-            "mode": "report",
-            "at": settings["at"],
-            "weekdays": [settings["weekday"]]
-            if "weekday" in settings
-            else list(range(7)),
-        }
-
-    def rows(profile: str) -> list[dict[str, Any]]:
-        if profile == "dashboard":
-            return []
-        methods = [
-            f"person:{person}"
-            for person in value["profiles"][profile]["people"]
-            if f"person:{person}" in result["methods"]
-        ]
-        return (
-            [{"id": f"legacy:{profile}", "timing": timing(profile), "methods": methods}]
-            if methods
-            else []
-        )
-
-    for key in ("default", "repairs", "broken_automations"):
-        result[key] = rows(value.get(key, "morning"))
-    result["automation_profiles"] = {
-        profile: rows(profile) for profile in (*value["profiles"], "dashboard")
-    }
-    result["assignments"] = {
-        node: {
-            "default": rows(assignment.get("default", value["default"])),
-            "checks": {
-                check: rows(profile)
-                for check, profile in assignment.get("checks", {}).items()
-            },
-        }
-        for node, assignment in value["assignments"].items()
-    }
-    return validate(result)
 
 
 def method_channels(method: dict[str, Any]) -> list[str]:
@@ -495,47 +545,3 @@ def resolve_channels(
             )
         )
     return list(method["fallback"])
-
-
-def remove_definition(
-    value: dict[str, Any],
-    kind: str,
-    identity: str,
-    *,
-    replacement: str | None = None,
-    remove_rows: bool = False,
-) -> dict[str, Any]:
-    """Delete a shared definition only with explicit treatment of every reference."""
-    data = validate(value)
-    if kind != "methods" or identity not in data[kind]:
-        raise ValueError("Choose an existing delivery method")
-    if replacement is not None and (
-        replacement == identity or replacement not in data[kind]
-    ):
-        raise ValueError("Choose a different existing replacement")
-    collections = [data[key] for key in ("default", "repairs", "broken_automations")]
-    collections.extend(data["automation_profiles"].values())
-    for assignment in data["assignments"].values():
-        collections.extend(assignment.get("checks", {}).values())
-        if "default" in assignment:
-            collections.append(assignment["default"])
-    for rows in collections:
-        for row in list(rows):
-            used = identity in row["methods"]
-            if not used:
-                continue
-            if replacement is None:
-                if not remove_rows:
-                    raise ValueError(
-                        "Replace the definition or explicitly remove affected notification rows"
-                    )
-                rows.remove(row)
-            else:
-                row["methods"] = list(
-                    dict.fromkeys(
-                        replacement if item == identity else item
-                        for item in row["methods"]
-                    )
-                )
-    del data[kind][identity]
-    return validate(data)

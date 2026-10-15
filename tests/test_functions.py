@@ -18,10 +18,10 @@ from pytest_homeassistant_custom_component.common import (
     async_mock_service,
 )
 
-from custom_components.homeostatic.config import Settings, data_from_input
+from custom_components.homeostatic.config import Settings, normalize_definitions
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.function_model import preview
-from custom_components.homeostatic.rules import DEFAULT_RULES
+from tests.policy_helpers import bound_identity, current_config, monitoring_policy
 from tests.test_lifecycle import start_monitor
 
 
@@ -92,7 +92,7 @@ def function(identity: str = "lighting", **fields: Any) -> dict[str, Any]:
 def test_invalid_function_graph(functions: list[dict[str, Any]]) -> None:
     """Invalid requirements are rejected before a running model is touched."""
     with pytest.raises(ValueError):
-        Settings.from_data({"functions": functions})
+        Settings.from_data({**current_config(), **({"functions": functions})})
 
 
 @pytest.mark.parametrize(
@@ -101,7 +101,7 @@ def test_invalid_function_graph(functions: list[dict[str, Any]]) -> None:
 def test_external_declarations_reject_invented_checks(value: Any) -> None:
     """External declarations do not imply an unsupported evidence producer."""
     with pytest.raises(ValueError):
-        Settings.from_data({"external_capabilities": value})
+        Settings.from_data({**current_config(), **({"external_capabilities": value})})
 
 
 @pytest.mark.parametrize(
@@ -116,7 +116,7 @@ def test_external_declarations_reject_invented_checks(value: Any) -> None:
 def test_invalid_form_references(hass: HomeAssistant, row: dict[str, Any]) -> None:
     """Malformed or wrong-domain references stay on the configuration form."""
     with pytest.raises((ValueError, vol.Invalid)):
-        data_from_input(hass, {"functions": [row]})
+        normalize_definitions(hass, {"functions": [row]})
 
 
 async def test_full_function_graph(
@@ -129,38 +129,42 @@ async def test_full_function_graph(
         "light", "test", "light", config_entry=owner
     )
     hass.states.async_set(source.entity_id, "off")
-    data = data_from_input(
+    data = normalize_definitions(
         hass,
         {
-            "rules": [
-                *DEFAULT_RULES,
-                {
-                    "id": "entity_availability",
-                    "action": "attach",
-                    "match": {"kind": "entity"},
-                },
-            ],
             "functions": [
                 function("room", requires=["function:lighting"], importance="critical"),
                 function(requires=[source.entity_id, f"entry:{owner.entry_id}"]),
             ],
         },
     )
+    data = current_config(
+        [
+            monitoring_policy("integrations", {"kind": ["integration"]}),
+            monitoring_policy("entities", {"kind": ["entity"]}),
+        ],
+        **data,
+    )
     data["timings"] = config_data["timings"]
     entry = MockConfigEntry(domain=DOMAIN, data=data)
     runtime = await start_monitor(hass, entry)
     assert runtime.readiness == "ready"
     assert runtime.sources["function:lighting"].requirements == (
-        f"entity:registry:{source.id}",
-        f"entry:{owner.entry_id}",
+        bound_identity(data["monitoring_policies"][1], f"entity:registry:{source.id}"),
+        bound_identity(data["monitoring_policies"][0], f"entry:{owner.entry_id}"),
     )
     owner._async_set_state(hass, ConfigEntryState.SETUP_ERROR, "controller stopped")
     await hass.async_block_till_done()
     result = runtime.query("functions", {})["functions"]
     assert result[0]["readiness"]["answer"] == "blocked"
     assert result[0]["requirements"][0]["monitoring"] == "composite"
-    assert result[1]["requirements"][0]["effective_importance"] == "critical"
-    assert result[1]["requirements"][0]["affected_functions"] == [
+    impact = runtime.engine.impact(
+        bound_identity(data["monitoring_policies"][1], f"entity:registry:{source.id}")
+    )
+    assert impact.importance.value == "critical"
+    assert [
+        item.node_id for item in impact.nodes if item.node_id.startswith("function:")
+    ] == [
         "function:lighting",
         "function:room",
     ]
@@ -168,10 +172,10 @@ async def test_full_function_graph(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_excluded_owned_requirement_stays_unknown(
+async def test_unmonitored_owned_requirement_stays_unknown(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """An excluded entity must not look ready through its healthy owning entry."""
+    """An unmonitored requirement stays unknown despite its healthy owning entry."""
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     owner.add_to_hass(hass)
     entity = er.async_get(hass).async_get_or_create(
@@ -180,15 +184,9 @@ async def test_excluded_owned_requirement_stays_unknown(
     hass.states.async_set(entity.entity_id, "1")
     reference = f"entity:registry:{entity.id}"
     config_data.update(
-        entities=[],
         notifications=False,
-        rules=[
-            *DEFAULT_RULES,
-            {
-                "id": "exclude",
-                "action": "exclude",
-                "match": {"entity": f"registry:{entity.id}"},
-            },
+        monitoring_policies=[
+            monitoring_policy("integrations", {"kind": ["integration"]})
         ],
         functions=[function(requires=[reference])],
     )
@@ -197,9 +195,9 @@ async def test_excluded_owned_requirement_stays_unknown(
     assert runtime.readiness == "unknown"
     assert runtime.sources[reference].node(runtime.settings).depends_on == ()
     report = runtime.query("functions", {})["functions"][0]["requirements"][0]
-    assert report["monitoring"] == "excluded"
+    assert report["monitoring"] == "unwatched"
     assert report["present"] is True
-    assert report["excluded_by"] == ["exclude"]
+    assert report["attached_by"] == []
     assert runtime.evidence_gaps == 1
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -209,9 +207,8 @@ async def test_external_missing_and_empty_requirements(
 ) -> None:
     """Declared external, missing, and draft capabilities are explicit unknowns."""
     config_data.update(
-        entities=[],
         notifications=False,
-        rules=[],
+        monitoring_policies=[],
         external_capabilities=[
             {"id": "network", "name": "Backyard network", "importance": "high"}
         ],
@@ -300,10 +297,9 @@ async def test_scoped_automation_candidates_and_persisted_decisions(
     hass.states.async_set(entity.entity_id, "off")
     calls = async_mock_service(hass, "light", "turn_on")
     await setup_automation(hass)
-    data = data_from_input(
+    data = normalize_definitions(
         hass,
         {
-            "rules": DEFAULT_RULES,
             "functions": [
                 function(
                     automations=["automation.room_automation"],
@@ -313,6 +309,13 @@ async def test_scoped_automation_candidates_and_persisted_decisions(
                 function("independent"),
             ],
         },
+    )
+    data = current_config(
+        [
+            monitoring_policy("integrations", {"kind": ["integration"]}),
+            monitoring_policy("entities", {"kind": ["entity"]}),
+        ],
+        **data,
     )
     data["timings"] = config_data["timings"]
     entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -327,7 +330,7 @@ async def test_scoped_automation_candidates_and_persisted_decisions(
     assert candidates["entity:entity_id:binary_sensor.motion"]["active"] is False
     assert result[1]["candidates"] == []
     assert runtime.sources["function:lighting"].requirements == (
-        f"entity:registry:{entity.id}",
+        bound_identity(data["monitoring_policies"][1], f"entity:registry:{entity.id}"),
     )
     assert result[0]["requirements"][0]["provenance"] == "owner_confirmed_candidate"
     assert not result[0]["candidate_discovery_complete"]
@@ -341,7 +344,7 @@ async def test_scoped_automation_candidates_and_persisted_decisions(
     await hass.async_block_till_done()
     restored = entry.runtime_data
     assert restored.sources["function:lighting"].requirements == (
-        f"entity:registry:{entity.id}",
+        bound_identity(data["monitoring_policies"][1], f"entity:registry:{entity.id}"),
     )
     decisions = {
         item["node_id"]: item
@@ -382,7 +385,6 @@ async def test_registry_targets_remain_suggestions(
     }
     await setup_automation(hass, {f"{target_type}_id": identities[target_type]})
     config_data.update(
-        entities=[],
         notifications=False,
         functions=[function(automations=["entity_id:automation.room_automation"])],
     )
@@ -406,7 +408,6 @@ async def test_missing_automation_preserves_confirmation(
 ) -> None:
     """Removing an automation cannot silently remove a previously required capability."""
     config_data.update(
-        entities=[],
         notifications=False,
         functions=[
             function(
@@ -445,7 +446,7 @@ async def test_reject_own_integration_requirement(hass: HomeAssistant) -> None:
     entry = MockConfigEntry(domain=DOMAIN)
     entry.add_to_hass(hass)
     with pytest.raises(vol.Invalid, match="itself"):
-        data_from_input(
+        normalize_definitions(
             hass, {"functions": [function(requires=[f"entry:{entry.entry_id}"])]}
         )
 
@@ -455,7 +456,10 @@ async def test_unmatched_entry_preview(hass: HomeAssistant) -> None:
     entry = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     entry.add_to_hass(hass)
     settings = Settings.from_data(
-        {"rules": [], "functions": [function(requires=[f"entry:{entry.entry_id}"])]}
+        {
+            **current_config(),
+            **({"functions": [function(requires=[f"entry:{entry.entry_id}"])]}),
+        }
     )
     result = preview(hass, settings, {})
     assert result["functions"][0]["requirements"][0]["present"] is True
@@ -482,8 +486,15 @@ async def test_preview_observes_integration_state(
     )
     settings = Settings.from_data(
         {
-            "rules": DEFAULT_RULES,
-            "functions": [function(requires=[f"entry:{owner.entry_id}"])],
+            **current_config(),
+            **(
+                {
+                    "monitoring_policies": [
+                        monitoring_policy("integrations", {"kind": ["integration"]})
+                    ],
+                    "functions": [function(requires=[f"entry:{owner.entry_id}"])],
+                }
+            ),
         }
     )
     with patch.object(hass.config_entries.flow, "async_progress", return_value=flows):
@@ -531,7 +542,7 @@ async def test_own_health_suggestion_is_filtered(
 
 async def test_form_retains_missing_automation_identity(hass: HomeAssistant) -> None:
     """Missing registry-backed automation identities remain editable after removal."""
-    data = data_from_input(
+    data = normalize_definitions(
         hass,
         {
             "functions": [
@@ -541,6 +552,6 @@ async def test_form_retains_missing_automation_identity(hass: HomeAssistant) -> 
             ]
         },
     )
-    settings = Settings.from_data(data)
+    settings = Settings.from_data({**current_config(), **(data)})
     assert settings.functions[0].automations == ("registry:missing",)
     assert settings.functions[0].reject == ("entity:registry:missing_target",)

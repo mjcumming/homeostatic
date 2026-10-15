@@ -2,7 +2,6 @@
 
 from typing import Any
 
-from .attention import policy_data
 from .const import DEFAULTS
 from .notification_definitions import defaults
 
@@ -17,7 +16,12 @@ def policy_templates() -> list[dict[str, Any]]:
             "match": {"kind": [kind]} if kind else {},
             "parameters": {"threshold": 20} if check == "battery" else {},
             "enabled": enabled,
-            "notifications": [],
+            "notifications": [
+                {
+                    "id": "default",
+                    "profile": "evening" if check == "vacuum" else "morning",
+                }
+            ],
         }
         for identity, name, check, kind, enabled in (
             (
@@ -49,14 +53,10 @@ def initial_settings(timezone: str) -> dict[str, Any]:
         "monitoring_policy_version": 1,
         "monitoring_policies": policy_templates(),
         "notification_definitions": defaults(timezone),
-        "rules": [],
-        "entities": [],
-        "config_entries": [],
         "functions": [],
         "situations": [],
         "external_capabilities": [],
         "notifications": False,
         "consumer": None,
         "timings": dict(DEFAULTS),
-        "policy": policy_data(),
     }

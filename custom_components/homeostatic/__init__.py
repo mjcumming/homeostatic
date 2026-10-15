@@ -100,25 +100,20 @@ async def async_remove_entry(
     hass: HomeAssistant, entry: HomeostaticConfigEntry
 ) -> None:
     """Remove this installation's snapshot and outstanding in-app messages."""
+    async_remove_dashboard(hass)
     store = Store[dict[str, Any]](hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}")
     data = await store.async_load()
-    if data is not None:
-        if data.get("schema_version") == 2:
-            for message in data["delivery"]["messages"].values():
-                hass.bus.async_fire(
-                    EVENT_NOTIFICATION,
-                    {
-                        **message,
-                        "delivery_id": f"{entry.entry_id}:removed:{message['recipient']}:{message['episode_id']}",
-                        "action": "resolve",
-                        "resolution": "removed",
-                        "silent": True,
-                    },
-                )
-        else:
-            for episode_id in data.get("notifications", []):
-                persistent_notification.async_dismiss(
-                    hass, f"{DOMAIN}_{entry.entry_id}_{episode_id}"
-                )
+    if data is not None and data.get("schema_version") in (2, 3):
+        for message in data["delivery"]["messages"].values():
+            hass.bus.async_fire(
+                EVENT_NOTIFICATION,
+                {
+                    **message,
+                    "delivery_id": f"{entry.entry_id}:removed:{message['recipient']}:{message['episode_id']}",
+                    "action": "resolve",
+                    "resolution": "removed",
+                    "silent": True,
+                },
+            )
     persistent_notification.async_dismiss(hass, f"{DOMAIN}_{entry.entry_id}_error")
     await store.async_remove()

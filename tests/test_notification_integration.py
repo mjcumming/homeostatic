@@ -23,7 +23,7 @@ async def test_scheduled_method_signature_tracks_destinations_but_not_names(
     data["methods"] = {
         "mail": {"name": "Email", "mode": "fixed", "destinations": ["notify:mail"]}
     }
-    data["default"] = [
+    config_data["monitoring_policies"][0]["notifications"] = [
         {
             "id": "daily",
             "timing": {"mode": "report", "at": "08:00", "weekdays": list(range(7))},
@@ -69,12 +69,10 @@ async def test_presence_change_replay_and_original_target_cleanup(
             "skip": False,
         }
     }
-    data["default"] = [
+    config_data["monitoring_policies"][0]["notifications"] = [
         {"id": "immediate", "timing": {"mode": "immediate"}, "methods": ["household"]}
     ]
-    config_data.update(
-        consumer=None, notification_definitions=data, policy=definitions.generate(data)
-    )
+    config_data.update(consumer=None, notification_definitions=data)
     send = AsyncMock()
     monkeypatch.setattr(runtime_module, "async_send", send)
     hass.states.async_set("person.owner", "home")
@@ -106,12 +104,10 @@ async def test_name_only_method_edit_does_not_notify_again(
     data["methods"] = {
         "mail": {"name": "Email", "mode": "fixed", "destinations": ["notify:mail"]}
     }
-    data["default"] = [
+    config_data["monitoring_policies"][0]["notifications"] = [
         {"id": "now", "timing": {"mode": "immediate"}, "methods": ["mail"]}
     ]
-    config_data.update(
-        consumer=None, notification_definitions=data, policy=definitions.generate(data)
-    )
+    config_data.update(consumer=None, notification_definitions=data)
     send = AsyncMock()
     monkeypatch.setattr(runtime_module, "async_send", send)
     hass.states.async_set("sensor.observed", "42")
@@ -128,7 +124,6 @@ async def test_name_only_method_edit_does_not_notify_again(
         options={
             **config_data,
             "notification_definitions": renamed,
-            "policy": definitions.generate(renamed),
         },
     )
     await hass.config_entries.async_reload(entry.entry_id)
@@ -150,13 +145,11 @@ async def test_edit_only_restarts_affected_notification_row(
         "mail": {"name": "Email", "mode": "fixed", "destinations": ["notify:mail"]},
         "other": {"name": "Other", "mode": "fixed", "destinations": ["notify:other"]},
     }
-    data["default"] = [
+    config_data["monitoring_policies"][0]["notifications"] = [
         {"id": "mail_now", "timing": {"mode": "immediate"}, "methods": ["mail"]},
         {"id": "other_now", "timing": {"mode": "immediate"}, "methods": ["other"]},
     ]
-    config_data.update(
-        consumer=None, notification_definitions=data, policy=definitions.generate(data)
-    )
+    config_data.update(consumer=None, notification_definitions=data)
     send = AsyncMock()
     monkeypatch.setattr(runtime_module, "async_send", send)
     hass.states.async_set("sensor.observed", "42")
@@ -177,7 +170,6 @@ async def test_edit_only_restarts_affected_notification_row(
         options={
             **config_data,
             "notification_definitions": changed,
-            "policy": definitions.generate(changed),
         },
     )
     await hass.config_entries.async_reload(entry.entry_id)

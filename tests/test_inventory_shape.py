@@ -12,7 +12,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.enrollment import evaluate, inventory
-from custom_components.homeostatic.rules import parse_rules
+from custom_components.homeostatic.monitoring_runtime import enrollment_rules
+from tests.policy_helpers import current_config, monitoring_policy
 
 
 def test_selective_enrollment_preserves_large_inventory(hass: HomeAssistant) -> None:
@@ -84,12 +85,16 @@ def test_selective_enrollment_preserves_large_inventory(hass: HomeAssistant) -> 
         and entity.entity_category is None
     ][:3]
     references = [f"registry:{entity.id}" for entity in selected]
-    rules = [
-        {"id": "controllers", "action": "attach", "match": {"kind": "integration"}},
-        {"id": "selected", "action": "attach", "match": {"entity": references}},
-    ]
-    sources = inventory(hass, Settings.from_data({"rules": rules}), {})
-    evaluated = evaluate(sources, parse_rules(rules))
+    settings = Settings.from_data(
+        current_config(
+            [
+                monitoring_policy("controllers", {"kind": ["integration"]}),
+                monitoring_policy("selected", {"entity": references}),
+            ]
+        )
+    )
+    sources = inventory(hass, settings, {})
+    evaluated = evaluate(sources, enrollment_rules(settings.monitoring_policies))
     watched = [source for source in evaluated.values() if source.watched]
     assert len(devices.devices) == 695
     assert len(registry.entities) == 6651
@@ -99,7 +104,12 @@ def test_selective_enrollment_preserves_large_inventory(hass: HomeAssistant) -> 
     assert {source.node_id for source in device_sources} == {
         f"device:{device.id}" for device in devices.devices
     }
-    assert sum(bool(source.availability_entities) for source in device_sources) == 418
+    assert sum(bool(source.availability_entities) for source in device_sources) == 195
+    assert all(
+        registry.async_get(entity_id).entity_category is None
+        for source in device_sources
+        for entity_id in source.availability_entities
+    )
     assert sum(source.kind == "vacuum" for source in sources.values()) == 4
     assert len(sources) == 7361
     assert len(watched) == 13

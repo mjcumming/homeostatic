@@ -9,7 +9,6 @@ Lookup tables for Homeostatic's timings, entities, actions, card, dashboard and 
 - [Fixed limits](#fixed-limits)
 - [Policy notifications](#policy-notifications)
 - [Reporting choices for automation alerts](#reporting-choices)
-- [Monitoring rules](#monitoring-rules)
 - [Node ids](#node-ids)
 - [Entities](#entities)
 - [Actions](#actions)
@@ -21,9 +20,9 @@ Lookup tables for Homeostatic's timings, entities, actions, card, dashboard and 
 
 ## Setup
 
-Adding Homeostatic creates one integration entry. Integration, device and entity availability, Repairs and broken-automation policies start enabled. Battery and vacuum policies start disabled. Temperature, thermostat and UPS policies require setup. Every supplied policy starts with no notification entries, and global notification requests are off. Change monitoring, timing and notifications in the Homeostatic panel and select **Save changes**. Settings are validated during saving; failed saves retain your pending edits. Homeostatic has no **Configure** form in Home Assistant.
+Adding Homeostatic creates one integration entry. Integration, device and entity availability, Repairs and broken-automation policies start enabled. Battery and vacuum policies start disabled. Temperature, thermostat and UPS policies require setup. Supplied policies select named notifications without configured delivery methods, and global sending is off. Save monitoring and assignment changes in their policy editor, shared timing in the notification editor, delivery changes in the method editor, and installation timing in Settings. Settings are validated during saving; failed saves retain your pending edits. Homeostatic has no **Configure** form in Home Assistant.
 
-Use a fresh setup to test the unified policy editor in this testing release. Updating an existing installation does not automatically convert or reset its saved monitoring and notification settings.
+Updates preserve supported policies and notification assignments, including Custom notification settings and Dashboard only. Earlier pre-policy test configurations remain unsupported; see [Upgrade and roll back](install.md#7-upgrade-and-roll-back).
 
 ## Timings
 
@@ -34,13 +33,13 @@ Edit these under **Settings → Timing** and **Settings → Problem grouping** i
 | Wait for related failures | `settle` | 120 (2 min) | While an integration is still loading or its state is unknown, a device or entity on it waits up to this long before opening an issue of its own, so a failing integration and what's on it end up as one issue |
 | Confirm recovery | `clear_hold` | 120 (2 min) | How long an integration, device or entity has to stay available before its issue clears. Alerts and batteries clear at once. |
 | Allow reconnecting devices | `rejoin_grace` | 60 (1 min) | After a failed integration comes back, how long its devices and entities get to recover before they can open issues of their own |
-| Wait for unknown evidence | `unknown_hold` | 900 (15 min) | How long a watched source can have no current reading, or an alert can be unknown, before Homeostatic opens an issue for it |
+| Wait for unknown evidence | `unknown_hold` | 900 (15 min) | How long missing evidence must persist before Homeostatic records an unresolved problem. Availability evidence gaps remain in Sources without an Issues entry or notification; condition-specific checks retain their own rules |
 | Wait before reporting setup retries | `retry_hold` | 120 (2 min) | An integration in setup retry is a warning at first and becomes a failure once it has been retrying this long |
 | Wait after startup | `startup_grace` | 120 (2 min) | After Home Assistant starts, no new issues open for this long, and notifications wait at least this long. Saving a change in the panel doesn't start it. |
 | Maximum startup wait | `startup_quiet_max` | 600 (10 min) | After a Home Assistant start, notifications are held until watched integrations finish loading, but never longer than this |
 | Group related problems | `coalesce_count` | 3 | How many sources that share a direct dependency have to fail together before they're grouped into one issue on that dependency |
 | Grouping window | `coalesce_window` | 60 (1 min) | How close together those failures have to start |
-| Standard alert batching | `batch` | 30 | How long a `notify` message waits in a custom notification policy. Policy notification entries and automation reporting choices don't use it. |
+| Standard alert batching | `batch` | 30 | How long normal notifications, including daily-hours delivery such as Urgent, wait to combine eligible problems. Immediate and scheduled-summary delivery use their own timing. |
 
 A watched source that fails opens an issue straight away, subject to the waits above. There's no separate delay before raising an issue.
 
@@ -50,7 +49,7 @@ These values aren't configurable.
 
 | What | Value |
 | --- | --- |
-| Automation alert acknowledgment repeat | Every 30 minutes for the `acknowledge` reporting choice. Policy notification entries have their own configurable intervals. |
+| Automation alert acknowledgment repeat | Every 30 minutes for the `acknowledge` reporting choice. Named notifications have their own configurable intervals. |
 | Recheck of Home Assistant's registries | Every 60 seconds, plus whenever a registry changes |
 | History | The latest 100 ended issues from the last 30 days |
 | Pause alerts and maintenance | End time in the future and at most seven days away. Reason up to 500 characters. |
@@ -60,24 +59,40 @@ These values aren't configurable.
 
 ## Policy notifications
 
-Each policy has zero or more independent notification entries. Each entry contains timing and one or more reusable delivery methods. No entries means dashboard-only monitoring.
+Policies select reusable named notifications. **Notifications** owns each name, timing and selected delivery methods. No assignment means **Dashboard only**. A notification with no delivery method remains unconfigured and sends nothing.
 
-| Setting | Value |
+| Supplied notification | Starting timing | Supplied policy assignments |
+| --- | --- | --- |
+| Immediate | When eligible, including overnight | Available for explicit selection |
+| Immediate with acknowledgment | Immediately, then every 30 minutes until acknowledged or recovered | Temperature-limit templates; UPS low reserve on backup power |
+| Urgent | Daily 08:00–22:00; hold outside those hours until the next opening | Thermostat, UPS backup-power and UPS fault templates |
+| Morning summary | Daily at 08:00 | Availability, Repairs, broken automations and batteries; UPS replacement and reserve on mains power |
+| Evening summary | Daily at 18:00 | Vacuums |
+| Weekly summary | Sunday at 08:00 | Available for explicit selection |
+
+All times use the Home Assistant installation time zone. Required source and detection setup keeps templates disabled. Template assignments select only definitions that still exist; reserve assignments retain their confirmed mains or backup condition. Existing assignments remain unchanged. Defaults never choose destinations or enable sending.
+
+| Setting in a named notification | Value |
 | --- | --- |
-| When to notify | **Immediately** or **Scheduled summary** |
-| Remind until acknowledged | Optional for immediate delivery; requires a positive interval in minutes |
-| Summary time | Required local time for a scheduled summary, in the displayed installation time zone |
-| Days | One or more weekdays for a scheduled summary |
-| Delivery methods | One or more saved methods; each method may be used by several entries |
-| When reserve is low | UPS reserve entries select confirmed mains or backup power |
+| When to notify | **Immediately**, **Immediately, with acknowledgment**, **During daily hours** or **Scheduled summary** |
+| Remind every (minutes) | Positive interval for acknowledgment reminders |
+| Start and End | Distinct local times for a daily delivery window |
+| Summary time and Days | One local time and one or more weekdays |
+| Send using | Saved delivery methods; an empty choice sends nothing |
 
-Immediate delivery includes overnight. Scheduled summaries include eligible open problems after immediate delivery or acknowledgment. Recovery removes a problem from future summaries, and empty summaries are skipped. Timing belongs to the entry; changing a shared method can affect every policy that uses it. The **Enable notifications** switch in **Notifications** controls sending without removing entries or stopping monitoring. A saved unchanged delivery method has a **Send test** action in its editor; it uses only that method's configured destinations and current presence rules.
+An open-hour window includes its start and excludes its end. Requests held outside it are eligible at the next opening only if the problem remains open. Scheduled summaries include eligible open problems after immediate delivery or acknowledgment, and omit ended problems and empty summaries. A saved policy assignment shows the running schedule's next summary when the assignment, effective timing and time zone still match its draft.
+
+A shared notification edit applies to its saved policy uses. A policy assignment edit affects only that policy. Supported older assignments appear as **Custom notification — keep current settings** and retain their timing and methods until explicitly replaced or removed. Deleting a shared definition requires replacement or explicit reference removal; removing the last method keeps a named notification unconfigured, while an older custom assignment left without any method is removed.
+
+The **Notifications** switch controls sending independently of editor drafts and monitoring. A saved unchanged delivery method has a **Send test** action using only its configured destinations and current presence rules. Immediate Companion app requests use critical alerts on iPhone and the **Homeostatic urgent** channel on Android; normal daytime-window delivery uses normal notification priority.
 
 The policy editor keeps **Monitoring type** fixed after creation. Duplication retains the type and starts the copy disabled. The available source selectors and detection settings depend on that type. Battery policies start with a configurable 20% threshold. Supplied and custom policies share the same edit, duplicate, enable, disable and delete actions. **Restore defaults** restores only selected deleted policies; updates preserve edits and deletions.
 
+**Watch** offers all eligible sources, **All except these**, selected sources, areas or labels where supported by the monitoring type. All except these keeps future eligible sources included and preserves missing exclusions. Device exclusions can remove a device or selected entity members from that policy's evidence. Automatic availability excludes diagnostic and configuration entities; exact individual entity selection opts them in. Disabled sources remain ineligible.
+
 ## Reporting choices
 
-These `profile` values belong to the [`report_alert`](#homeostaticreport_alert) action and the alert blueprint. Monitoring policies use the [notification entries](#policy-notifications) above. Automation-owned alerts retain their reporting selection and configured delivery mapping.
+These `profile` values belong to the [`report_alert`](#homeostaticreport_alert) action and the alert blueprint. Monitoring policies use the [notification entries](#policy-notifications) above. Automation-owned alerts retain their reporting selection and saved delivery mapping. The current editors do not create automation reporting profiles; new alerts can use Dashboard only.
 
 | Choice | `profile` value | Starting timing |
 | --- | --- | --- |
@@ -89,34 +104,6 @@ These `profile` values belong to the [`report_alert`](#homeostaticreport_alert) 
 | Dashboard only | `dashboard` | Never sent |
 
 Choosing a profile does not create a delivery method or turn on notification requests. See [Alerts from automations](automation-situations.md) for the automation interface.
-
-## Monitoring rules
-
-The [`preview_rules`](#homeostaticpreview_rules) action accepts catalog rules in the format below. These low-level rules are separate from the complete monitoring policies edited in **Policies**, which also carry names, detection settings and notification entries.
-
-| Field | Required | Value |
-| --- | --- | --- |
-| `id` | Yes | Unique: lowercase letters, digits and `_`, starting with a letter |
-| `action` | Yes | `attach` (**Watch**) or `exclude` (**Leave unmonitored**) |
-| `checks` | No | `[availability]` (default), `[battery]`, `[vacuum]`, `[repair]`, or `[broken_automation]`. One check per rule. `[repair]` is the broad exclusion that turns Repairs off. `[broken_automation]` is the broad exclusion that turns Broken automations off. |
-| `enabled` | No | `true` (default) or `false` to pause the rule |
-| `match` | Yes | Conditions, below |
-| `overridable` | No | Set by Sources on an integration's **Only devices I choose** choice, so a single device can still be watched |
-
-| Match field | Meaning | Value |
-| --- | --- | --- |
-| `kind` | Source type | `integration`, `device`, `entity`, `battery`, `vacuum`, `repair`, or `broken_automation` |
-| `domain` | Domain | An entity domain such as `light`, or the integration's domain for an integration |
-| `device_class` | Device class | The entity's device class, such as `temperature` |
-| `integration` | Integration instance ID | A config entry id |
-| `integration_domain` | Integration type | An integration domain, such as `zha` |
-| `device` | Device ID | A device registry id |
-| `entity` | Entity ID or stable reference | An entity id. Saved as `registry:<id>` so renames don't break it. |
-| `area` | Area ID | The entity's area, or its device's area if the entity has none |
-| `floor` | Floor ID | The floor of that area |
-| `label` | Label ID | A label on the entity, its device or its area |
-
-Every field in a rule has to match, and a list of values means any of them. A rule without `kind` never matches devices, and a rule with an empty `match` matches integrations and entities. An `exclude` rule wins over any `attach` rule, whatever the order, except that a rule watching one exact device wins over the integration's **Only devices I choose** default.
 
 ## Node ids
 
@@ -171,7 +158,7 @@ Read-only actions return a response and change nothing. Call them in **Developer
 
 | Action | Kind | Purpose |
 | --- | --- | --- |
-| [`inventory`](#homeostaticinventory) | Read | Everything Homeostatic knows: sources, rules, open issues, controls, history |
+| [`inventory`](#homeostaticinventory) | Read | Sources, contributing policies, open issues, controls and history |
 | [`explain`](#homeostaticexplain) | Read | Why a source is in its current state |
 | [`readiness`](#homeostaticreadiness) | Read | Readiness of chosen sources |
 | [`impact`](#homeostaticimpact) | Read | What depends on a source |
@@ -180,7 +167,6 @@ Read-only actions return a response and change nothing. Call them in **Developer
 | [`policy`](#homeostaticpolicy) | Read | Notification decisions for current issues |
 | [`operator_controls`](#homeostaticoperator_controls) | Read | Active pauses and maintenance |
 | [`resolved_history`](#homeostaticresolved_history) | Read | Ended issues from the last 30 days |
-| [`preview_rules`](#homeostaticpreview_rules) | Preview | What a set of monitoring rules would watch |
 | [`preview_policy`](#homeostaticpreview_policy) | Preview | What a notification policy would send now |
 | [`preview_maintenance`](#homeostaticpreview_maintenance) | Preview | What maintenance would cover |
 | [`acknowledge`](#homeostaticacknowledge) | Change | Acknowledge an issue |
@@ -287,26 +273,6 @@ No fields. Returns `started_at`, `retention` (`max_episodes: 100`, `max_age_days
 
 ```yaml
 action: homeostatic.resolved_history
-```
-
-### `homeostatic.preview_rules`
-
-| Field | Required | Value |
-| --- | --- | --- |
-| `rules` | Yes | A complete list of [monitoring rules](#monitoring-rules). Entity ids are resolved for the preview. |
-
-Returns how many sources would be watched, each rule's match count, and each candidate source with the rules that attach or exclude it. Nothing is saved.
-
-```yaml
-action: homeostatic.preview_rules
-data:
-  rules:
-    - id: integration_availability
-      action: attach
-      match: {kind: integration}
-    - id: garage_devices
-      action: attach
-      match: {kind: device, area: garage}
 ```
 
 ### `homeostatic.preview_policy`
@@ -493,38 +459,34 @@ navigation: false
 
 | Option | Default | Value |
 | --- | --- | --- |
-| `view` | `overview` | The page the card shows, below |
+| `view` | `issues` | The page the card shows, below |
 | `navigation` | `true` | `false` hides the page tabs. If you open another page from the card, a back button returns to the configured view. |
 
 | `view` | Shows |
 | --- | --- |
-| `overview` | Overview |
-| `issues` | Issues, without page tabs |
+| `issues` | Issues |
 | `sources` | Sources |
 | `policies` | Policies |
 | `notifications` | Notifications |
 | `settings` | Settings |
 | `history` | History |
 
-The older view names `problems`, `configuration`, `house` and `coverage` still load, and `functions` opens Overview.
+Older view names route to supported destinations. `overview`, `problems` and `functions` open Issues; source-browsing aliases open Sources. These aliases do not retain the former page implementations.
 
 ## Dashboard strategy
 
 Homeostatic registers a dashboard strategy named **Homeostatic**. Choose it under **Settings → Dashboards → Add dashboard**.
 
-It builds seven panel views, each one card with `navigation: false`:
+It builds four panel views, each one card with `navigation: false`. Settings is a utility and History is reached from Issues:
 
 | View | Path | Card `view` |
 | --- | --- | --- |
-| Overview | `overview` | `overview` |
 | Issues | `issues` | `issues` |
 | Sources | `sources` | `sources` |
 | Policies | `policies` | `policies` |
 | Notifications | `notifications` | `notifications` |
-| Settings | `settings` | `settings` |
-| History | `history` | `history` |
 
-A Homeostatic dashboard you already added keeps the views it was created with. Add it again to include Policies. The sidebar panel includes Policies.
+A Homeostatic dashboard you already added keeps the views it was created with. Supported older view identifiers open their replacement destinations. The sidebar panel uses the current navigation.
 
 ## Panel addresses
 
@@ -532,7 +494,7 @@ The sidebar panel is at `/homeostatic`, for administrators only. Notifications l
 
 | Address | Opens |
 | --- | --- |
-| `/homeostatic` | Overview |
+| `/homeostatic` | Issues |
 | `/homeostatic/issues` | Issues |
 | `/homeostatic/episode/<issue id>` | That issue, or its History entry if it has ended |
 | `/homeostatic/history` | History |
@@ -562,7 +524,7 @@ The automation reevaluates when any evidence entity changes, when Home Assistant
 
 ### Homeostatic Companion notifications
 
-[`companion_notification.yaml`](../blueprints/automation/homeostatic/companion_notification.yaml), an automation blueprint. Sends Homeostatic notification events to a Companion app phone. It's only for installations that were already set up to send through a consumer automation. New installations use the built-in sender, and saving the Notifications page replaces a consumer route.
+[`companion_notification.yaml`](../blueprints/automation/homeostatic/companion_notification.yaml), an automation blueprint. Sends Homeostatic notification events to a Companion app phone. It consumes notification-request events for a selected recipient. Built-in delivery methods request their own deliveries; avoid routing the same recipient through both paths.
 
 | Input | Default | Value |
 | --- | --- | --- |

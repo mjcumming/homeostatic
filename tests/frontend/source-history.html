@@ -2,38 +2,212 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sources History preview</title>
 <style>:root{--primary-text-color:#e8ecef;--primary-background-color:#111;--card-background-color:#1c1c1c;--secondary-background-color:#282828;--secondary-text-color:#aaa;--divider-color:#3e3e3e;--primary-color:#4abde5;--text-primary-color:#102530}body{margin:0;background:var(--primary-background-color);color:var(--primary-text-color);font:14px Arial,sans-serif}#controls{padding:12px;display:flex;gap:14px;flex-wrap:wrap}button{padding:8px}homeostatic-card{display:block;max-width:390px;margin:auto}</style></head>
 <body><div id="controls"><strong>Synthetic MQTT history · no live connection</strong><label><input id="wide" type="checkbox"> Desktop width</label><button id="run">Run history scenario</button><span id="feedback" role="status"></span></div><homeostatic-card></homeostatic-card>
+<details><summary>Machine-readable acceptance receipt</summary><pre id="receipt"></pre></details>
 <script type="module">
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
 import {sourceHistoryExample} from "./source-history-fixture.mjs";
-const card=document.querySelector("homeostatic-card"),data=sourceHistoryExample();
-card._hass={user:{is_admin:false},localize:()=>null,async callWS(){throw Error("This history preview does not request live data.");}};
-card.current={status:"current",data};card.page="sources";card.sourcesSelection="source:entry:mqtt";card.sourcesView="history";card.sourcesMobileDetail=true;card.render();
-document.querySelector("#wide").onchange=event=>{card.style.maxWidth=event.target.checked?"1200px":"390px";};
-window.addEventListener("error",event=>{document.querySelector("#feedback").textContent=`FAIL: ${event.message}`;});
-document.querySelector("#run").onclick=()=>{
-  const expect=(value,message)=>{if(!value)throw Error(message);};
-  const root=card.shadowRoot;
-  expect(root.querySelector(".nav button:last-child").dataset.page==="history","History must be the last top-level destination");
-  root.querySelector('[data-history="cleared"]').click();
-  expect(card.tools.dialog.open,"History details must open");
-  expect(card.tools.body.querySelector("h3").textContent==="Issue cleared","Cleared history must identify the outcome");
-  expect(card.tools.body.querySelector(".history-times dt").textContent==="Observed","History must label its observation range");
-  expect(card.tools.body.querySelector(".history-times dd").textContent.includes("7 hr 17 min"),"History must show the approximate duration");
-  expect(!card.tools.body.textContent.includes("physical repair"),"Observed times must not claim a physical repair");
-  expect(!card.tools.body.querySelector("details"),"The saved finding must not appear in a duplicate dropdown");
-  expect(!card.tools.body.textContent.includes("Last recorded evidence") && !card.tools.body.textContent.includes("Historical evidence;"),"History must avoid redundant or misleading evidence copy");
-  card.tools.close();
-  root.querySelector('[data-history="absorbed"]').click();
-  expect(card.tools.body.textContent.includes("Recovery was not established"),"Absorption must not claim recovery");
-  expect(card.tools.body.querySelector("h3").textContent==="Joined another problem","Absorption must use its own ending label");
-  expect(card.tools.body.querySelector('[data-open-episode="open"]'),"Absorption must retain its related problem link");
-  card.tools.close();
-  root.querySelector('[data-history="removed"]').click();
-  expect(card.tools.body.querySelector("h3").textContent==="Monitoring ended","Removal must not look like clearance");
-  card.tools.close();
-  data.updated_at="2026-09-29T12:01:00Z";card.render();
-  expect(root.querySelectorAll(".source-timeline li").length===4,"Live rendering must retain all four records");
-  expect(root.querySelector(".config-detail").scrollWidth<=root.querySelector(".config-detail").clientWidth,"Phone details must not overflow horizontally");
-  document.querySelector("#feedback").textContent="PASS: details, related problem link, live render and phone width";
+import {notificationSettings} from "./notification-profiles-fixture.mjs";
+import {sourceDetailsFixture,DEVICE_ID,ENTITY_ID} from "./source-details-fixture.mjs";
+import {newMonitoringPolicy} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
+import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
+const card=document.querySelector('homeostatic-card'),feedback=document.querySelector('#feedback');
+let data,publish,failSource=false,failControl=false,holdControl=null,receipt,richDetails=null;
+const settings=notificationSettings();
+settings.monitoring_policies=[{...newMonitoringPolicy([],"device",settings.notification_definitions.profiles),id:"devices",name:"Devices"},{...newMonitoringPolicy([],"entity",settings.notification_definitions.profiles),id:"entities",name:"Entities"}];
+const calls=[],listeners=new Map();
+function reset(){data=sourceHistoryExample();data.inventory.attention_controls_supported=true;for(const item of data.inventory.resolved_history.episodes)item.source.owner_id='mqtt';}
+reset();
+const connection={addEventListener(name,handler){listeners.set(name,handler);},removeEventListener(name){listeners.delete(name);},async subscribeMessage(handler){publish=handler;queueMicrotask(()=>handler(data));return()=>{};}};
+card.sourcesGrouping='integration';
+card.setConfig({view:'issues'});
+card.hass={connection,user:{id:'history-fixture',is_admin:true},localize:()=>null,states:{},async callWS(request){
+  calls.push(structuredClone(request));
+  if(request.type==='call_service'){
+    if(failControl)throw Error('Synthetic control response could not be confirmed');
+    if(holdControl)await holdControl.promise;
+    const fields=request.service_data;
+    if(request.service==='start_maintenance'){
+      const control={control_id:'saved-maintenance',action:'maintenance',target:fields.node_id,until:fields.until,reason:fields.reason,include_dependents:fields.include_dependents};
+      data.inventory.operator_controls.push(control);
+      return {response:{control,node_ids:[fields.node_id],functions:[],existing_episode_ids:[],until:fields.until,existing_alerts_continue:true}};
+    }
+    if(request.service==='cancel_control'){
+      data.inventory.operator_controls=data.inventory.operator_controls.filter(control=>control.control_id!==fields.control_id);
+      return {response:{cancelled_control_id:fields.control_id}};
+    }
+    throw Error('Unexpected mocked service: '+request.service);
+  }
+  if(request.type==='homeostatic/configuration')return {revision:'1',settings:structuredClone(settings)};
+  if(request.type==='topomation/locations/list')return {locations:[]};
+  if(request.type==='homeostatic/source'||request.type==='homeostatic/node'){
+    if(failSource&&request.type==='homeostatic/source')throw Error('Synthetic source read failed');
+    const source=data.inventory.nodes.find(item=>item.node_id===request.node_id);
+    const members=richDetails?(source.kind==='device'?richDetails.members:richDetails.members.filter(member=>member.node_id===source.node_id)):[];
+    return {...(richDetails?{...richDetails,nodeId:source.node_id,members,total:members.length}:{}),source,readiness:{answer:'blocked',nodes:[]},explanation:{findings:data.inventory.episodes[0]?.reasons||[],nodes:[]},impact:{nodes:[]}};
+  }
+  throw Error('Unexpected request in isolated history fixture: '+request.type);
+}};
+const root=card.shadowRoot;
+const flush=async()=>{for(let i=0;i<24;i++)await Promise.resolve();};
+const expect=(value,message)=>{if(!value)throw Error(message);};
+const click=async(selector,scope=root)=>{const element=scope.querySelector(selector);expect(element,`Missing rendered control: ${selector}`);expect(!element.disabled&&!element.closest('[inert]'),`Disabled control: ${selector}`);element.scrollIntoView({block:'nearest'});const box=element.getBoundingClientRect(),hit=root.elementFromPoint(box.x+box.width/2,box.y+box.height/2);expect(box.width>0&&box.height>0&&(hit===element||element.contains(hit)),`Hidden or covered control: ${selector}`);element.click();await flush();};
+const openDisclosure=async selector=>{const element=root.querySelector(selector);expect(element,`Missing disclosure: ${selector}`);if(!element.open)await click('summary',element);};
+const close=async()=>{if(card.tools.dialog.open)await click('[data-tool="close"]',card.tools.dialog);if(card.dialog.open)await click('[data-action="close"]',card.dialog);};
+async function mqtt(){await close();await click('[data-page="sources"]');if(card.sourcesMobileDetail&&root.querySelector('[data-action="back-sources"]'))await click('[data-action="back-sources"]');await click('[data-sources-select="source:entry:mqtt"]');const disclosure=root.querySelector('[data-ui-key="source-history:source:entry:mqtt"]');expect(disclosure,'Selected integration has source history');if(!disclosure.open)await click('summary',disclosure);}
+const change=async(selector,value)=>{const field=root.querySelector(selector);expect(field,`Missing field: ${selector}`);field.focus();if(field.type==='checkbox')field.checked=value;else field.value=value;field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));await flush();};
+function report(){document.querySelector('#receipt').textContent=JSON.stringify(receipt,null,2);parent.postMessage({type:'homeostatic-acceptance',fixture:'source-history.html',receipt},location.origin);}
+document.querySelector('#wide').onchange=event=>{card.style.maxWidth=event.target.checked?'1200px':'390px';};
+document.querySelector('#run').onclick=async()=>{
+  receipt=emptyReceipt({fixture:'source-history.html',browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight,card:card.getBoundingClientRect().width},data:'synthetic',destinations:'mocked'});
+  feedback.textContent='Running…';document.querySelector('#run').disabled=true;
+  try{
+    await close();reset();richDetails=null;failSource=false;failControl=false;holdControl=null;calls.length=0;publish(data);await flush();await mqtt();
+    expect(root.querySelectorAll('.source-timeline li').length===4,'Selected integration has all four recorded problems');
+    expect(root.querySelector('.source-body').textContent.includes('up to 30 days'),'Retained-history limit is visible');
+    await click('[data-history="cleared"]');
+    expect(card.tools.dialog.open&&card.tools.body.querySelector('h3').textContent==='Issue cleared','Cleared outcome opens from the rendered history row');
+    expect(card.tools.body.querySelector('.history-times dt').textContent==='Observed','History labels the observed interval');
+    expect(card.tools.body.querySelector('.history-times dd').textContent.includes('7 hr 17 min'),'Observed duration is compact');
+    expect(!card.tools.body.querySelector('details'),'Saved finding is not duplicated in a disclosure');
+    await close();expect(card.sourcesSelection==='source:entry:mqtt'&&root.querySelector('#sources-detail-title').textContent.toLowerCase()==='mqtt','Closing history retains source context');
+    await click('[data-history="absorbed"]');
+    expect(card.tools.body.textContent.includes('Recovery was not established'),'Joined problems do not claim recovery');
+    expect(card.tools.body.querySelector('h3').textContent==='Joined another problem','Absorption has its own ending label');
+    await click('[data-open-episode="open"]',card.tools.body);
+    expect(card.dialog.open&&root.querySelector('#detail-title').textContent==='Porch sensor','Related problem opens the current source detail');
+    await click('[data-source-link="device:porch"]',card.dialog);
+    expect(root.querySelector('#sources-detail-title').textContent==='Porch sensor','View in Sources reaches the linked source');
+    await click('[data-action="back-sources"]');
+    expect(root.activeElement?.dataset.sourcesSelect==='source:device:porch','Back to sources returns keyboard focus to its selected tree row');
+    await mqtt();await click('[data-history="removed"]');
+    expect(card.tools.body.querySelector('h3').textContent==='Monitoring ended','Removal is distinct from clearance');
+    expect(card.tools.dialog.querySelector('h2').textContent==='Garage relay before rename','Historical identity remains the recorded name');
+    await close();
+    data.inventory.nodes=data.inventory.nodes.filter(source=>source.node_id!=='device:garage');
+    data.inventory.catalog.candidates=data.inventory.catalog.candidates.filter(source=>source.node_id!=='device:garage');
+    data.devices=data.devices.filter(device=>device.id!=='garage');
+    data.updated_at='2026-09-29T12:01:00Z';publish(data);await flush();
+    expect(root.querySelectorAll('.source-timeline li').length===4,'Recorded ownership preserves history after current child metadata disappears');
+    await click('[data-history="removed"]');expect(card.tools.dialog.querySelector('h2').textContent==='Garage relay before rename','Removed current metadata does not erase historical name');
+    listeners.get('disconnected')();await flush();
+    expect(card.tools.body.textContent.includes('unavailable'),'Open history explains disconnected evidence');
+    expect(root.querySelector('main').inert&&!root.querySelector('.workspace-status').hidden,'Retained source view is visibly stale and read-only');
+    publish(data);await flush();
+    expect(card.tools.body.querySelector('h3')?.textContent==='Monitoring ended','Fresh subscribed data restores selected history');
+    await close();expect(!root.querySelector('main').inert,'Fresh data restores source controls');
+    failSource=true;data.updated_at='2026-09-29T12:02:00Z';publish(data);await flush();
+    expect(root.querySelector('[role="alert"]')?.textContent.includes('Synthetic source read failed'),'Source read failure remains explicit');
+    failSource=false;await click('[data-action="refresh-source"]');
+    expect(!root.querySelector('[data-action="refresh-source"]'),'Rendered Retry reading control reloads source evidence');
+    expect(root.querySelectorAll('.source-timeline li').length===4,'Retry preserves the source history');
+    publish({...data,schema_version:999});await flush();await click('[data-action="retry"]');
+    expect(card.current.status==='current'&&root.querySelectorAll('.source-timeline li').length===4,'Rendered Retry connection restores the source and its recorded history');
+    const detail=root.querySelector('.config-detail');expect(detail.scrollWidth<=detail.clientWidth,'Source details do not overflow at the recorded fixture width');
+    expect(!calls.some(call=>call.type==='call_service'||call.type==='homeostatic/save_settings'),'History and retry navigation issue no mutation requests');
+    recordResult(receipt,'sources.history','pass','Clicked Sources, MQTT, History disclosure and cleared/joined/removed rows; followed related issue into Sources and used Back with focus return. Verified recorded ownership/name after current child deletion, retention text, stale read-only/reconnect, actual Retry reading/Retry connection, no mutations and no horizontal overflow at the recorded card width.');
+    await mqtt();
+    try{
+      expect(root.querySelector('.config-detail [data-maintenance]'),'Eligible integration source details have a maintenance entry');
+      await openDisclosure('[data-ui-key="source-equipment:source:entry:mqtt"]');
+      await click('.config-detail [data-maintenance]');
+      expect(card.tools.dialog.querySelector('h2').textContent==='Working on this equipment','Source entry opens equipment maintenance');
+      expect(card.tools.body.querySelector('[type="submit"]').disabled,'Maintenance requires explicit expiry');
+      expect(card.tools.body.textContent.includes('Existing problems and alerts continue'),'Maintenance explains existing problem scope');
+      await click('[data-duration="30"]',card.tools.body);
+      expect(card.tools.body.querySelector('[name="untilLocal"]').value,'Duration choice populates an explicit local expiry');
+      await click('details summary',card.tools.body);await change('[name="reason"]','Replacing coordinator');
+      await change('[name="includeDependents"]',true);await change('[name="includeDependents"]',false);
+      publish(data);await flush();expect(card.tools.body.querySelector('[name="reason"]').value==='Replacing coordinator','Publication retains maintenance draft');
+      failControl=true;let before=calls.filter(call=>call.type==='call_service').length;
+      await click('[type="submit"]',card.tools.body);
+      expect(calls.filter(call=>call.type==='call_service').length===before+1&&card.tools.body.textContent.includes('may already have been saved'),'Ambiguous maintenance failure never auto-retries');
+      failControl=false;listeners.get('disconnected')();await flush();
+      expect(card.tools.body.querySelector('[type="submit"]').disabled,'Disconnected maintenance cannot submit');
+      publish(data);await flush();
+      let release;holdControl={promise:new Promise(resolve=>{release=resolve;})};before=calls.filter(call=>call.type==='call_service').length;
+      card.tools.body.querySelector('[type="submit"]').click();card.tools.body.querySelector('[type="submit"]').click();await flush();
+      expect(calls.filter(call=>call.type==='call_service').length===before+1,'Repeated save click sends one maintenance request');
+      release();await flush();holdControl=null;
+      expect(card.tools.body.textContent.includes('Saved by Home Assistant')&&card.tools.body.textContent.includes('Replacing coordinator'),'Saved result includes confirmed reason');
+      const saved=data.inventory.operator_controls.find(control=>control.control_id==='saved-maintenance');
+      expect(saved?.target==='entry:mqtt'&&saved.include_dependents===false&&Date.parse(saved.until)>Date.now(),'Mock persisted maintenance has exact source, explicit expiry and selected-only scope');
+      await close();publish(data);await flush();await mqtt();
+      expect(root.querySelector('.config-detail').textContent.includes('Replacing coordinator'),'Reopened source displays saved maintenance');
+      expect(root.querySelector('.config-detail [data-cancel-control="saved-maintenance"]'),'Saved source control exposes End now');
+      data.inventory.operator_controls.push({...saved,control_id:'other-maintenance',reason:'Separate overlapping work'});publish(data);await flush();
+      await openDisclosure('[data-ui-key="source-equipment:source:entry:mqtt"]');
+      await click('.config-detail [data-cancel-control="saved-maintenance"]');
+      expect(card.tools.body.textContent.includes('Other overlapping maintenance windows remain active'),'Ending maintenance explains remaining overlap');
+      await click('[type="submit"]',card.tools.body);
+      expect(data.inventory.operator_controls.length===1&&data.inventory.operator_controls[0].control_id==='other-maintenance','Cancel removes exactly selected control and keeps overlapping window');
+      await close();publish(data);await flush();await mqtt();
+      expect(!root.querySelector('.config-detail [data-cancel-control="saved-maintenance"]')&&root.querySelector('.config-detail [data-cancel-control="other-maintenance"]'),'Reopened source reflects exact cancellation');
+      recordResult(receipt,'sources.maintenance','pass','Clicked source maintenance entry, explicit duration, reason, dependent-scope choice, Save and End now. Verified pending-click suppression, ambiguous failure with no retry, disconnected submission gate, exact mock persisted source/expiry/reason, reopened source control and preservation of an overlapping window on cancellation.');
+    }catch(error){recordResult(receipt,'sources.maintenance','fail',error.message);await close();}finally{report();}
+    const browsingMutations=calls.filter(call=>call.type==='call_service'||call.type==='homeostatic/save_settings').length;
+    const rich=sourceDetailsFixture('device',['unavailable','unknown','72']);
+    richDetails=rich.sourceDetail;data=rich.current.data;
+    const disabled={...data.inventory.nodes.find(source=>source.node_id===DEVICE_ID),node_id:'device:disabled',name:'Disabled sensor',disabled:true,attributes:{integration:['lyric'],device:['disabled']}};
+    data.inventory.nodes.push(disabled);data.inventory.catalog.candidates.push(disabled);data.devices.push({id:'disabled',name:'Disabled sensor'});
+    publish(data);await flush();
+    try{
+      await click('[data-page="sources"]');
+      if(card.sourcesMobileDetail&&root.querySelector('[data-action="back-sources"]'))await click('[data-action="back-sources"]');
+      await click('[data-sources-select="source:entry:lyric"]');await click('[data-action="back-sources"]');
+      const integrationToggle='[data-sources-toggle="source:entry:lyric"]';
+      const selected=card.sourcesSelection;
+      if(root.querySelector(integrationToggle).getAttribute('aria-expanded')==='true')await click(integrationToggle);
+      expect(card.sourcesSelection===selected,'Collapsing a branch does not change selection');
+      root.querySelector(integrationToggle).focus();root.querySelector(integrationToggle).dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));await flush();
+      expect(root.querySelector(integrationToggle).getAttribute('aria-expanded')==='true'&&root.activeElement===root.querySelector(integrationToggle),'Right arrow expands and retains keyboard focus');
+      root.querySelector(integrationToggle).dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));await flush();
+      expect(root.querySelector(integrationToggle).getAttribute('aria-expanded')==='false'&&card.sourcesSelection===selected,'Left arrow collapses without selecting a different source');
+      await click(integrationToggle);await click(`[data-sources-select="source:${DEVICE_ID}"]`);await click('[data-action="back-sources"]');
+      await change('[data-sources-search]','sensor.3rd_floor_sensor_room_temperature');
+      expect(root.querySelector(`[data-sources-select="source:${ENTITY_ID}"]`),'Entity-ID search finds the child source');
+      expect(root.activeElement===root.querySelector('[data-sources-search]'),'Source search retains keyboard focus');
+      await click(`[data-sources-select="source:${ENTITY_ID}"]`);
+      expect(root.querySelector('#sources-detail-title').textContent.includes('Room temperature'),'Clicking searched source opens its identity');
+      await click('[data-action="back-sources"]');await change('[data-sources-search]','no such source');
+      expect(root.querySelector('.config-tree').textContent.includes('No matching sources'),'Empty search is explicit');
+      await change('[data-sources-search]','');await change('[data-sources-group]','location');
+      expect(card.sourcesSelection===`source:${ENTITY_ID}`,'Grouping preserves canonical selected source');
+      await change('[data-sources-group]','integration');await change('[data-sources-search]','Disabled sensor');
+      expect(!root.querySelector('[data-sources-select="source:device:disabled"]'),'Disabled source is excluded by default');
+      await change('[data-sources-disabled]',true);
+      await click('[data-sources-select="source:device:disabled"]');
+      expect(root.querySelector('.source-body').textContent.includes('Monitoring paused while disabled'),'Disabled source explains monitoring status');
+      await click('[data-action="back-sources"]');await change('[data-sources-disabled]',false);await change('[data-sources-search]','');
+      await click('[data-action="collapse-sources"]');expect(root.querySelectorAll('[data-sources-toggle][aria-expanded="true"]').length===0,'Collapse all closes branches');
+      recordResult(receipt,'sources.tree','pass','Clicked integration/device/entity selections, collapse/expand and Collapse all; dispatched ArrowLeft/Right on the focused rendered toggle; typed entity-ID and no-match searches, changed grouping and Show disabled. Verified independent selection, keyboard focus, retained canonical identity and disabled monitoring copy.');
+    }catch(error){recordResult(receipt,'sources.tree','fail',error.message);throw error;}finally{report();}
+    try{
+      await change('[data-sources-search]','3rd Floor Sensor');await click(`[data-sources-select="source:${DEVICE_ID}"]`);
+      expect(root.querySelector('.source-body').textContent.includes('1 of 3 monitored entities are unavailable'),'Device summary identifies confirmed unavailable membership');
+      expect(root.querySelector('.source-readings').textContent.includes('Unavailable'),'Current unavailable member is visible');
+      const other=[...root.querySelectorAll('.source-section summary')].find(item=>item.textContent.includes('other monitored entities'));
+      expect(other,'Other member readings disclosure is rendered');await click('summary',other.parentElement);
+      expect(root.querySelector('.source-body').textContent.includes('Available · no value')&&root.querySelector('.source-body').textContent.includes('72'),'Member readings distinguish no-value and current numeric state');
+      await openDisclosure(`[data-ui-key="source-monitoring:source:${DEVICE_ID}"]`);
+      expect(root.querySelector('.source-policy').textContent.includes('Assesses this device using its selected entities'),'Device policy contribution is explicit');
+      await click(`[data-source-link="${ENTITY_ID}"]`);
+      expect(root.querySelector('.config-path').textContent.includes('3rd Floor Sensor'),'Member navigation retains parent device context');
+      await openDisclosure(`[data-ui-key="source-monitoring:source:${ENTITY_ID}"]`);
+      expect(root.querySelector('.source-body').textContent.includes('Checks this entity\'s availability individually')&&root.querySelector('.source-body').textContent.includes('Uses this entity to assess'),'Entity shows independent entity/device policy contributions');
+      const native=root.querySelector('.source-actions a[href]');expect(native?.getAttribute('href').includes('sensor.3rd_floor_sensor_room_temperature'),'Native entity link uses exact entity identity');
+      let nativeHref=null;const intercept=event=>{const link=event.target.closest('a[href]');if(link){event.preventDefault();nativeHref=link.getAttribute('href');}};root.addEventListener('click',intercept);
+      await click('.source-actions a[href]');root.removeEventListener('click',intercept);expect(nativeHref.includes('sensor.3rd_floor_sensor_room_temperature'),'Rendered native link requests the expected mocked destination');
+      expect(!root.querySelector('.source-heading').textContent.includes('Homeostatic updated'),'Technical timestamps do not crowd the source heading');
+      await openDisclosure(`[data-ui-key="source-technical:source:${ENTITY_ID}"]`);
+      expect(root.querySelector('.source-technical .source-updated').textContent.includes('Homeostatic updated'),'Technical details retain the named reconciliation timestamp');
+      await click('[data-definition-action="open-policy"][data-definition-id="entities"]');
+      expect(root.querySelector('.unified-policy-editor h2')?.textContent==='Edit policy: Entities','Policy link opens the exact contributing policy editor');
+      await click('[data-page="sources"]');expect(root.querySelector('#sources-detail-title').textContent.includes('Room temperature'),'Returning from policy keeps source context');
+      expect(calls.filter(call=>call.type==='call_service'||call.type==='homeostatic/save_settings').length===browsingMutations,'Read-only source and policy navigation preserves saved state');
+      recordResult(receipt,'sources.details','pass','Clicked current device member readings, other-readings disclosure, entity member, native entity link (intercepted in this isolated fixture), Why this is monitored and Technical details disclosures, contributing policy and Sources return. Verified unavailable/no-value/numeric distinctions, separate device/entity contributions, retained reconciliation timestamp, exact policy editor and no configuration mutation. Retry reading and issue navigation were exercised in sources.history.');
+    }catch(error){recordResult(receipt,'sources.details','fail',error.message);throw error;}finally{report();}
+    const checked=receipt.results.filter(item=>item.status!=='untested');feedback.textContent=checked.map(item=>`${item.status.toUpperCase()}: ${item.id}`).join(' · ');
+  }catch(error){if(receipt.results.find(item=>item.id==='sources.history').status==='untested')recordResult(receipt,'sources.history','fail',error.message);feedback.textContent='FAIL: '+error.stack;}finally{document.querySelector('#run').disabled=false;report();}
 };
+if(new URLSearchParams(location.search).has('run'))document.querySelector('#run').click();
 </script></body></html>

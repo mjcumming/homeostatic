@@ -1,6 +1,6 @@
 # ADR 0045: Open a device issue only when every selected entity is unavailable
 
-**Status:** Accepted
+**Status:** Accepted; diagnostic fallback, the all-enabled Sources assessment and connectivity-off availability exceptions are superseded by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md)
 **Date:** 2026-10-02
 **Supersedes:** ADR 0025's rule that a device summary warns when any selected member is unavailable.
 

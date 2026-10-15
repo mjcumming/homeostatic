@@ -17,22 +17,21 @@ from custom_components.homeostatic.catalog import Source
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.enrollment import evaluate, inventory
-from custom_components.homeostatic.rules import DEFAULT_RULES, parse_rules
+from custom_components.homeostatic.monitoring import parse_policies
+from custom_components.homeostatic.monitoring_runtime import enrollment_rules
 from custom_components.homeostatic.vacuum import observe
+from tests.policy_helpers import (
+    availability_policies,
+    bound_identity,
+    current_config,
+    monitoring_policy,
+)
 from tests.test_lifecycle import start_monitor
 
 
-def vacuum_rules() -> list[dict[str, Any]]:
+def vacuum_policies() -> list[dict[str, Any]]:
     """Select discovered vacuum errors independently of availability."""
-    return [
-        *DEFAULT_RULES,
-        {
-            "id": "vacuum_error",
-            "action": "attach",
-            "match": {"kind": "vacuum"},
-            "checks": ["vacuum"],
-        },
-    ]
+    return [monitoring_policy("vacuum_error", {"kind": ["vacuum"]}, check="vacuum")]
 
 
 def vacuum_source(area_id: str | None, *, disabled: bool = False) -> Source:
@@ -160,21 +159,19 @@ async def test_default_rules_list_a_vacuum_without_watching_it(
     hass.states.async_set(
         entity.entity_id, "error", {"friendly_name": "Downstairs robot"}
     )
-    discovered = inventory(hass, Settings.from_data({"rules": DEFAULT_RULES}), {})
+    discovered = inventory(hass, Settings.from_data(current_config()), {})
     vacuum_id = f"vacuum:registry:{entity.id}"
     vacuum = discovered[vacuum_id]
     entity_source = discovered[f"entity:registry:{entity.id}"]
     assert vacuum.kind == "vacuum"
     assert vacuum.check_id == "vacuum"
     assert vacuum.entity_id == entity.entity_id
-    assert not evaluate(discovered, parse_rules(DEFAULT_RULES))[vacuum_id].watched
-    assert not evaluate(discovered, parse_rules(DEFAULT_RULES))[
-        entity_source.node_id
-    ].watched
-    selected = evaluate(discovered, parse_rules(vacuum_rules()))
+    assert not evaluate(discovered, ())[vacuum_id].watched
+    assert not evaluate(discovered, ())[entity_source.node_id].watched
+    selected = evaluate(discovered, enrollment_rules(parse_policies(vacuum_policies())))
     assert selected[vacuum_id].watched
     assert not selected[entity_source.node_id].watched
-    assert vacuum.node(Settings.from_data({})).depends_on == ()
+    assert vacuum.node(Settings.from_data(current_config())).depends_on == ()
 
 
 async def test_vacuum_error_opens_clears_and_survives_an_integration_failure(
@@ -199,10 +196,14 @@ async def test_vacuum_error_opens_clears_and_survives_an_integration_failure(
     hass.states.async_set(
         entity.entity_id, "docked", {"friendly_name": "Downstairs robot"}
     )
-    config_data.update(entities=[], notifications=False, rules=vacuum_rules())
+    config_data.update(
+        notifications=False,
+        monitoring_policies=vacuum_policies()
+        + availability_policies(integrations=[owner.entry_id]),
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
-    vacuum_id = f"vacuum:registry:{entity.id}"
+    vacuum_id = bound_identity(vacuum_policies()[0], f"vacuum:registry:{entity.id}")
     assert runtime.sources[vacuum_id].watched
     assert runtime.sources[vacuum_id].node(runtime.settings).depends_on == ()
     assert not runtime.episodes
@@ -261,6 +262,8 @@ async def test_vacuum_error_opens_clears_and_survives_an_integration_failure(
     await hass.async_block_till_done()
     assert {item["anchor"] for item in runtime.episodes.values()} == {
         vacuum_id,
-        f"entry:{owner.entry_id}",
+        bound_identity(
+            config_data["monitoring_policies"][1], f"entry:{owner.entry_id}"
+        ),
     }
     assert await hass.config_entries.async_unload(entry.entry_id)

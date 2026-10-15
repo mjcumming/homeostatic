@@ -3,7 +3,7 @@ const observed = "2026-09-29T14:20:00Z";
 
 const source = (node_id, name, kind, extra = {}) => ({
   node_id, name, kind, requirements: [], attributes: {}, attached_by: ["demo_selection"],
-  excluded_by: [], watched: true, entity_id: null, entry_id: null, owner_id: null,
+  watched: true, entity_id: null, entry_id: null, owner_id: null,
   ...extra,
 });
 
@@ -43,7 +43,7 @@ const livingTemperature = source("entity:living_temperature", "Living room tempe
 });
 const excluded = source("entity:bench_test", "Workbench test plug", "entity", {
   entity_id: "switch.workbench_test", owner_id: "wifi", watched: false,
-  excluded_by: ["demo_exclusion"], attributes: {domain: ["switch"], area: ["office"]},
+  attributes: {domain: ["switch"], area: ["office"]},
 });
 const device = (id, name, owner_id, area, member) => source(`device:${id}`, name, "device", {
   owner_id, attributes: {device: [id], area: [area], integration_domain: [owner_id === "zigbee" ? "zha" : "unifi"]},
@@ -108,22 +108,19 @@ export const snapshot = {
     reports: [{name: "weekly", next_at: "2026-10-04T14:00:00Z", episodes: []}]},
 };
 
-const reporting = {
-  timezone: "America/Chicago", default: "weekly", people: {alex: ["phone:alex"]},
-  profiles: {immediate: {people: ["alex"]}, acknowledge: {people: ["alex"]},
-    morning: {at: "08:00", people: ["alex"]}, evening: {at: "18:00", people: ["alex"]},
-    weekly: {at: "09:00", weekday: 6, people: ["alex"]}},
-  assignments: {[zigbee.node_id]: {default: "acknowledge", checks: {}}},
+const notificationDefinitions = {
+  timezone:"America/Chicago",default:[],repairs:[],broken_automations:[],assignments:{},automation_profiles:{},
+  methods:{alex:{name:"Alex's phone",mode:"fixed",destinations:["phone:alex"]}},
 };
 
 export const configuration = {
-  revision: 1, rules: [], settings: {reporting, simple_notifications: null, notifications: true,
-    consumer: "automation.willow_demo_notifications", timings: {batch: 30},
-    policy: {timezone: "America/Chicago", recipients: {}, rules: []}},
-  alerts: {notifications: true, consumer: "automation.willow_demo_notifications"},
-  notification_people: [{id: "alex", name: "Alex", user_id: "demo-alex", administrator: true}],
-  notification_destinations: [{channel: "phone:alex", name: "Alex’s phone", user_id: "demo-alex", available: true}],
-  consumers: [{entity_id: "automation.willow_demo_notifications", name: "Willow House notifications", state: "on"}],
+  revision:"demo",settings:{notifications:true,consumer:null,
+    timings:{settle:120,unknown_hold:900,retry_hold:120,clear_hold:120,rejoin_grace:60,startup_grace:120,startup_quiet_max:600,coalesce_count:3,coalesce_window:60,batch:30},
+    monitoring_policies:[{id:"integrations",name:"Integrations",enabled:true,check:"availability",match:{kind:["integration"]},parameters:{},notifications:[{id:"integration-alert",timing:{mode:"acknowledge",remind_every:3600},methods:["alex"]}]}],
+    notification_definitions:notificationDefinitions,
+    policy:{timezone:"America/Chicago",recipients:{},rules:[]}},
+  notification_people:[{id:"alex-internal",entity_id:"person.alex",name:"Alex",user_id:"demo-alex",administrator:true}],
+  delivery_targets:[{channel:"phone:alex",name:"Alex's phone",type:"App",available:true}],
 };
 
 export function nodeDetail(nodeId) {

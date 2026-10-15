@@ -15,7 +15,7 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.runtime import Runtime
-from tests.test_attention import owner_policy
+from tests.policy_helpers import monitoring_policy
 from tests.test_lifecycle import start_monitor
 
 
@@ -40,7 +40,11 @@ def slow_integration(
     slow = MockConfigEntry(domain="slow_radio", title="Slow radio")
     slow.add_to_hass(hass)
     slow.mock_state(hass, ConfigEntryState.SETUP_IN_PROGRESS)
-    config_data["config_entries"] = [slow.entry_id]
+    config_data["monitoring_policies"].append(
+        monitoring_policy(
+            "slow", {"kind": ["integration"], "integration": [slow.entry_id]}
+        )
+    )
     return slow
 
 
@@ -49,12 +53,14 @@ def alerting(events: list[Any]) -> list[dict[str, Any]]:
     return [event.data for event in events if not event.data["silent"]]
 
 
-async def test_slow_integration_holds_then_one_summary(
+async def test_slow_integration_holds_then_releases_each_standalone_subject(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """Problems found while an integration loads arrive as one summary."""
+    """Held standalone findings keep their subject, members and saved request ID."""
     slow = slow_integration(hass, config_data)
-    config_data["entities"].append("entity_id:sensor.second")
+    config_data["monitoring_policies"][0]["match"]["entity"].append(
+        "entity_id:sensor.second"
+    )
     hass.states.async_set("sensor.observed", "unavailable")
     hass.states.async_set("sensor.second", "unavailable")
     events = async_capture_events(hass, EVENT_NOTIFICATION)
@@ -63,14 +69,37 @@ async def test_slow_integration_holds_then_one_summary(
     assert len(runtime.episodes) == 2
     assert runtime.startup_quiet
     assert not events
-    assert runtime.delivery.outbox  # held durably, not dropped
+    assert len(runtime.delivery.outbox) == 2
+    expected = {
+        f"entity:entity_id:{runtime.sources[str(episode['anchor'])].entity_id}": [
+            identity
+        ]
+        for identity, episode in runtime.episodes.items()
+    }
+    held = {
+        item["notification_subject"]: (item["delivery_id"], item["tag"])
+        for item in runtime.delivery.outbox
+    }
+    assert {
+        item["notification_subject"]: item["episodes"]
+        for item in runtime.delivery.outbox
+    } == expected
 
     slow.mock_state(hass, ConfigEntryState.LOADED)
     await hass.async_block_till_done()
     assert not runtime.startup_quiet
     loud = alerting(events)
-    assert [item["action"] for item in loud] == ["summary"]
-    assert sorted(loud[0]["episodes"]) == sorted(runtime.episodes)
+    assert [item["action"] for item in loud] == ["open", "open"]
+    assert len(events) == 2
+    assert {item["notification_subject"]: item["episodes"] for item in loud} == expected
+    assert {
+        item["notification_subject"]: (item["delivery_id"], item["tag"])
+        for item in loud
+    } == held
+    assert not runtime.delivery.outbox
+    await runtime.async_refresh()
+    await hass.async_block_till_done()
+    assert len(events) == 2
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -83,6 +112,8 @@ async def test_hold_ends_at_the_cap(
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await fresh_start(hass, entry)
+    [episode] = runtime.episodes
+    [held] = runtime.delivery.outbox
     freezer.tick(timedelta(seconds=599))
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
@@ -92,7 +123,17 @@ async def test_hold_ends_at_the_cap(
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert not runtime.startup_quiet
-    assert [item["action"] for item in alerting(events)] == ["summary"]
+    assert len(events) == 1
+    [released] = alerting(events)
+    assert released["action"] == "open"
+    assert released["notification_subject"] == "entity:entity_id:sensor.observed"
+    assert released["episodes"] == [episode]
+    assert released["delivery_id"] == held["delivery_id"]
+    assert released["tag"] == held["tag"]
+    assert not runtime.delivery.outbox
+    await runtime.async_refresh()
+    await hass.async_block_till_done()
+    assert len(events) == 1
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -107,7 +148,20 @@ async def test_setup_retry_does_not_hold(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await fresh_start(hass, entry)
     assert not runtime.startup_quiet
-    assert [item["action"] for item in alerting(events)] == ["summary"]
+    episode = next(
+        identity
+        for identity, problem in runtime.episodes.items()
+        if runtime.sources[str(problem["anchor"])].entity_id == "sensor.observed"
+    )
+    assert len(events) == 1
+    [released] = alerting(events)
+    assert released["action"] == "open"
+    assert released["notification_subject"] == "entity:entity_id:sensor.observed"
+    assert released["episodes"] == [episode]
+    assert not runtime.delivery.outbox
+    await runtime.async_refresh()
+    await hass.async_block_till_done()
+    assert len(events) == 1
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -135,17 +189,27 @@ async def test_minimum_hold_is_the_startup_grace(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_restart_folds_overdue_reminder_and_resends_nothing_else(
+async def test_restart_sends_one_due_reminder_for_the_existing_subject(
     hass: HomeAssistant, config_data: dict[str, Any], freezer: FrozenDateTimeFactory
 ) -> None:
     """A known problem is not re-announced; an overdue reminder is sent once."""
-    config_data["policy"] = owner_policy()
+    config_data["monitoring_policies"][0]["notifications"] = [
+        {
+            "id": "repeat",
+            "timing": {"mode": "acknowledge", "remind_every": "1h"},
+            "methods": ["test"],
+        }
+    ]
     hass.states.async_set("sensor.observed", "unavailable")
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     assert not runtime.startup_quiet  # already running: no hold
     assert [item["action"] for item in alerting(events)] == ["open"]
+    original = alerting(events)[0]
+    [episode] = runtime.episodes
+    assert original["notification_subject"] == "entity:entity_id:sensor.observed"
+    assert original["episodes"] == [episode]
     assert await hass.config_entries.async_unload(entry.entry_id)
 
     freezer.tick(timedelta(minutes=90))  # HA was down past the hourly reminder
@@ -153,12 +217,20 @@ async def test_restart_folds_overdue_reminder_and_resends_nothing_else(
     restarted = await fresh_start(hass, entry)
     assert not restarted.startup_quiet  # nothing watched was still loading
     loud = alerting(events)
-    assert [item["action"] for item in loud] == ["summary"]
-    assert loud[0]["episodes"] == list(restarted.episodes)
-    freezer.tick(timedelta(minutes=20))  # before the two-hour escalation
+    assert [item["action"] for item in loud] == ["remind"]
+    assert list(restarted.episodes) == [episode]
+    assert loud[0]["episodes"] == [episode]
+    assert loud[0]["notification_subject"] == original["notification_subject"]
+    assert loud[0]["tag"] == original["tag"]
+    assert loud[0]["delivery_id"] != original["delivery_id"]
+    assert not restarted.delivery.outbox
+    freezer.tick(timedelta(minutes=20))  # before the next hourly reminder
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert len(alerting(events)) == 1  # no burst of catch-up reminders
+    assert [item["delivery_id"] for item in alerting(events)] == [
+        loud[0]["delivery_id"]
+    ]
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

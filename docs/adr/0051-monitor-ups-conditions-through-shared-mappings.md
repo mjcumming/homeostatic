@@ -1,6 +1,7 @@
 # ADR 0051: Monitor UPS conditions through shared integration mappings
 
-**Status:** Accepted; mandatory battery-ownership transfer superseded for the unified policy redesign by [ADR 0058](0058-unified-policy-lifecycle.md); replacement implementation pending
+**Status:** Accepted; mandatory battery-ownership transfer superseded for the unified policy redesign by [ADR 0058](0058-unified-policy-lifecycle.md)
+**Implementation status:** See the [roadmap](../roadmap.md#current-work).
 **Date:** 2026-10-05
 **Updated:** 2026-10-13
 

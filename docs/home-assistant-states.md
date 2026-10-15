@@ -43,7 +43,7 @@ Since Core doesn't model device availability, the only written design is [archit
 - **Available** when any enabled entity has a state other than `unavailable`.
 - **Unavailable** when every enabled entity is `unavailable`.
 
-"Partially available" comes only from integration reports that disagree, never from entity states. Homeostatic follows this rule for the device status in Sources (ADR 0035, with ADR 0038 adding connectivity sensors) and, over each device's selected entities, for device issues (ADR 0045).
+"Partially available" comes only from integration reports that disagree, never from entity states. Homeostatic retains that distinction and the proposal's vocabulary. Its entity fallback uses enabled operational entities and the missing-evidence rules below. Neither monitoring nor the Sources assessment treats a current connectivity `off` state as unavailable. ADR 0064 supersedes the earlier all-enabled fallback and connectivity exception.
 
 ## How integrations use it
 
@@ -56,6 +56,8 @@ Both patterns are in Core, so Homeostatic can't assume either. An unavailable en
 
 ## How Homeostatic reads each signal
 
+Automatic entity availability selects enabled operational entities, including those without a device. Home Assistant's [entity categories](https://developers.home-assistant.io/docs/core/entity/) identify diagnostics and configuration entities; broad, area and label availability selection leaves both out. Exact entity selection opts that entity in. Battery, UPS and temperature checks retain their configured diagnostic inputs. Registry categories and explicit `disabled_by` fields determine eligibility; no state value implies disablement. These selection rules were reviewed against Home Assistant documentation and registry definitions on October 14, 2026.
+
 **Entities.**
 
 | Home Assistant reports | Homeostatic reads it as | Result |
@@ -66,9 +68,11 @@ Both patterns are in Core, so Homeostatic can't assume either. An unavailable en
 | `unavailable` with `restored: true` | Missing information while the integration loads | An issue only if it lasts past **Wait for unknown evidence** |
 | No state at all | Missing information | Same as restored |
 
-**Devices.** A watched device's check uses its selected entities: enabled ordinary entities, including buttons and hidden ones, or diagnostic entities when the device has no ordinary ones, less any the owner excluded. Configuration entities are never selected. The check warns when a selected connectivity sensor reports `off` or every selected entity is unavailable, passes when any selected entity has a current state, and is unknown when no selected entity has a current state and they aren't all unavailable. The device status in Sources counts every enabled entity, so the two can differ without any exclusion. The status reads Available while the issue is open when only a configuration entity or an unselected diagnostic entity still reports, and Unavailable with no issue when an unselected connectivity sensor reports `off`. ADR 0045 records the decision.
+**Devices.** A device availability check uses enabled operational members, including buttons and hidden entities, minus that policy's excluded members. Diagnostic and configuration entities never supply this check, and there is no diagnostic fallback. No eligible members means no check. It warns when every selected member is unavailable, passes when any member has a current state, and is unknown when current evidence is absent or restored without every member being unavailable. Current `unknown`, `off` and `idle` pass, including `off` from connectivity sensors. Each independently monitored entity retains its own findings. A passing device or sibling does not clear an entity's unavailable or missing evidence.
 
-**Integrations.** A loaded config entry passes. Setup retry is a warning that becomes a failure after **Wait before reporting setup retries**. Setup errors, migration errors, failed unloads and a pending sign-in are failures. Disabled, not-yet-loaded and loading entries are missing information.
+The separate device assessment in Sources also uses enabled operational entities and these state meanings. Policy-specific evidence and counts honor that policy's exclusions; canonical device details combine its enabled device checks. Read-only inspection of a device without a policy shows operational evidence without enrolling it. An inventory assessment may differ from a policy with exclusions, but diagnostics and connectivity off values cannot invent an availability failure. ADR 0064 records this boundary.
+
+**Integrations.** A loaded config entry passes. Setup retry is a warning that becomes a failure after **Wait before reporting setup retries**. Setup errors, migration errors, failed unloads and a pending sign-in are failures. Disabled config entries remain visible in Sources but are outside availability monitoring. Not-yet-loaded and loading entries are missing information. Core uses `disabled_by` to skip entry setup and propagates disablement to device and entity registries; an unloaded entry alone is not disabled. Homeostatic has no separate Supervisor add-on runtime check, and does not interpret stopped add-ons or disabled automatic startup as disablement.
 
 **Severity.** `unavailable` is a warning because it says Home Assistant can't reach something, not why: the device, its battery, the network, a hub, a cloud service or a reload. Integration setup failures are failures because Home Assistant reports them as errors.
 
@@ -92,9 +96,9 @@ The [UPS decision](adr/0051-monitor-ups-conditions-through-shared-mappings.md) r
 
 ## Limits that follow
 
-- A watched entity that an integration marks unavailable by mode looks like lost contact. Exclude it, or don't watch it on its own.
+- A watched entity that an integration marks unavailable by mode looks like lost contact. Exclude it from the relevant policies if that absence is expected.
 - `available` doesn't prove the device works. A sensor can stay available with a frozen value (ADR 0005).
-- One failed entity on a device whose other selected entities have states doesn't open a device issue. Watch that entity on its own if it matters.
+- A current sibling can make the device check pass while an independently monitored entity remains unavailable. Broad entity availability covers enabled operational entities, so their individual issues remain visible.
 
 ## Keeping this page right
 

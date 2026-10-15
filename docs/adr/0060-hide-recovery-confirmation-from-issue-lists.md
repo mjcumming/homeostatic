@@ -1,6 +1,7 @@
 # ADR 0060: Keep recovery confirmation out of issue lists
 
-**Status:** Accepted; implemented locally, not deployed by this change
+**Status:** Accepted; evidence-gap list visibility is partially superseded by [ADR 0065](0065-separate-availability-evidence-gaps-from-issues.md)
+**Implementation status:** See the [roadmap](../roadmap.md#current-work).
 **Date:** 2026-10-13
 
 **Complements:** [ADR 0041](0041-group-watched-devices-under-failed-integrations.md), which preserves individual findings under an integration, and [ADR 0025](0025-follow-home-assistant-availability-semantics.md), which distinguishes availability evidence from values and monitoring scope. Their grouping and evidence rules remain in force.

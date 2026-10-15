@@ -7,7 +7,6 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-import voluptuous as vol
 from freezegun.api import FrozenDateTimeFactory
 from health_tree.types import EpisodeOpened
 from homeassistant.components import persistent_notification
@@ -22,8 +21,14 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.homeostatic.config import Settings, data_from_input
+from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
+from tests.policy_helpers import (
+    availability_policies,
+    current_config,
+    immediate_notification,
+    monitoring_policy,
+)
 from tests.test_lifecycle import start_monitor
 
 
@@ -33,7 +38,9 @@ async def test_retry_attempt_preserves_failure_duration(
     """A failed retry attempt must not restart the warning period."""
     source = MockConfigEntry(domain="test", state=ConfigEntryState.SETUP_RETRY)
     source.add_to_hass(hass)
-    config_data.update(entities=[], config_entries=[source.entry_id])
+    config_data.update(
+        monitoring_policies=availability_policies(integrations=[source.entry_id])
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     onset = deepcopy(runtime.retry_since)
@@ -145,7 +152,7 @@ async def test_saved_function_does_not_enroll_sources(
 ) -> None:
     """Dormant definitions neither create checks nor publish entities."""
     registered = er.async_get(hass).async_get_or_create("sensor", "test", "controller")
-    config_data["entities"] = []
+    config_data["monitoring_policies"] = []
     config_data["functions"] = [
         {
             "id": "garage",
@@ -207,12 +214,31 @@ async def test_situation_does_not_block_function(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
+@pytest.mark.parametrize(
+    "notification_choices",
+    [
+        pytest.param(
+            {
+                "assignments": {
+                    "situation:door": {
+                        "default": immediate_notification(),
+                        "checks": {},
+                    }
+                }
+            },
+            id="explicit-situation-route",
+        ),
+        pytest.param({"default": immediate_notification()}, id="saved-current-default"),
+    ],
+)
 async def test_situation_unknown_restart_and_clear(
-    hass: HomeAssistant, config_data: dict[str, Any]
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    notification_choices: dict[str, Any],
 ) -> None:
     """Loss of the reporting entity cannot clear an active situation."""
     config_data.update(
-        entities=[],
+        monitoring_policies=[],
         situations=[
             {
                 "id": "door",
@@ -221,6 +247,7 @@ async def test_situation_unknown_restart_and_clear(
             }
         ],
     )
+    config_data["notification_definitions"].update(notification_choices)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     hass.states.async_set("binary_sensor.door_rule", "on")
@@ -240,12 +267,15 @@ async def test_situation_unknown_restart_and_clear(
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_notification_activation_is_one_summary(
+async def test_notification_activation_keeps_each_standalone_subject(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """Activating existing problems sends one summary, then live changes."""
+    """Activation reports each standalone source and recovery clears only that source."""
     config_data["notifications"] = False
-    config_data["entities"] = ["entity_id:sensor.observed", "entity_id:sensor.other"]
+    config_data["monitoring_policies"][0]["match"]["entity"] = [
+        "entity_id:sensor.observed",
+        "entity_id:sensor.other",
+    ]
     hass.states.async_set("sensor.observed", "unavailable")
     hass.states.async_set("sensor.other", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -253,58 +283,63 @@ async def test_notification_activation_is_one_summary(
     runtime = await start_monitor(hass, entry)
     assert len(runtime.episodes) == 2
     assert not events
+    expected = {
+        f"entity:entity_id:{runtime.sources[str(episode['anchor'])].entity_id}": [
+            identity
+        ]
+        for identity, episode in runtime.episodes.items()
+    }
     options = {**config_data, "notifications": True}
     hass.config_entries.async_update_entry(entry, options=options)
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
-    assert [event.data["action"] for event in events] == ["summary"]
-    assert len(events[0].data["episodes"]) == 2
+    runtime = entry.runtime_data
+    assert [event.data["action"] for event in events] == ["activate", "activate"]
+    assert all(not event.data["silent"] for event in events)
+    assert {
+        event.data["notification_subject"]: event.data["episodes"] for event in events
+    } == expected
+    by_subject = {event.data["notification_subject"]: event.data for event in events}
+    assert len({item["tag"] for item in by_subject.values()}) == 2
+    assert not runtime.delivery.outbox
     hass.states.async_set("sensor.observed", "42")
     await hass.async_block_till_done()
-    assert [event.data["action"] for event in events] == ["summary", "update"]
+    assert [event.data["action"] for event in events] == [
+        "activate",
+        "activate",
+        "resolve",
+    ]
+    assert events[-1].data["silent"]
+    assert (
+        events[-1].data["tag"] == by_subject["entity:entity_id:sensor.observed"]["tag"]
+    )
+    assert events[-1].data["episodes"] == []
+    remaining = expected["entity:entity_id:sensor.other"]
+    assert list(runtime.episodes) == remaining
+    assert {message["tag"] for message in runtime.delivery.messages.values()} == {
+        by_subject["entity:entity_id:sensor.other"]["tag"]
+    }
+    delivered = [event.data["delivery_id"] for event in events]
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
-    assert [event.data["action"] for event in events] == ["summary", "update"]
+    assert list(entry.runtime_data.episodes) == remaining
+    assert [event.data["delivery_id"] for event in events] == delivered
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_disabled_consumer_is_a_visible_gap(
+async def test_direct_methods_do_not_require_an_automation_consumer(
     hass: HomeAssistant, config_entry: MockConfigEntry
 ) -> None:
-    """A disabled consumer must not leave notification coverage looking complete."""
+    """Direct notification methods keep coverage when an unrelated automation is disabled."""
     hass.states.async_set("sensor.observed", "42")
     runtime = await start_monitor(hass, config_entry)
     assert not runtime.consumer_missing
     hass.states.async_set("automation.homeostatic_test_consumer", "off")
     await hass.async_block_till_done()
-    assert runtime.consumer_missing
-    assert runtime.evidence_gaps == 1
-    assert runtime.query("coverage", {})["notification_consumer_missing"] is True
+    assert not runtime.consumer_missing
+    assert runtime.evidence_gaps == 0
+    assert runtime.query("coverage", {})["notification_consumer_missing"] is False
     assert await hass.config_entries.async_unload(config_entry.entry_id)
-
-
-async def test_form_binds_stable_definitions(hass: HomeAssistant) -> None:
-    """Native structured input stores stable source ids and defaults to quiet."""
-    registered = er.async_get(hass).async_get_or_create("binary_sensor", "test", "door")
-    data = data_from_input(
-        hass,
-        {
-            "functions": [
-                {
-                    "id": "door_hardware",
-                    "name": "Door sensor",
-                    "entities": [registered.entity_id],
-                }
-            ],
-            "situations": [
-                {"id": "open_door", "name": "Door open", "entity": registered.entity_id}
-            ],
-        },
-    )
-    settings = Settings.from_data(data)
-    assert settings.functions[0].entities == (f"registry:{registered.id}",)
-    assert settings.situations[0].entity == f"registry:{registered.id}"
-    assert not settings.notifications
 
 
 @pytest.mark.parametrize(
@@ -360,62 +395,39 @@ async def test_form_binds_stable_definitions(hass: HomeAssistant) -> None:
 def test_invalid_definitions(data: dict[str, Any]) -> None:
     """Reject invalid graph/configuration inputs at the boundary."""
     with pytest.raises(ValueError):
-        Settings.from_data(data)
+        Settings.from_data(current_config(**data))
 
 
-@pytest.mark.parametrize(
-    "data",
-    [
-        pytest.param({"functions": {}}, id="object-not-list"),
-        pytest.param({"functions": [42]}, id="row-not-object"),
-        pytest.param(
-            {"functions": [{"id": "a", "name": "A", "entities": "sensor.a"}]},
-            id="entities-not-list",
-        ),
-        pytest.param(
-            {
-                "situations": [
-                    {"id": "a", "name": "A", "entity": "sensor.homeostatic_owned"}
-                ]
-            },
-            id="self-reference",
-        ),
-        pytest.param({"notifications": True}, id="no-consumer"),
-        pytest.param(
-            {"notifications": True, "consumer": "sensor.a"}, id="invalid-consumer"
-        ),
-    ],
-)
-async def test_bad_form_input_is_rejected(
-    hass: HomeAssistant, data: dict[str, Any]
-) -> None:
-    """Invalid structured input cannot create an unusable integration entry."""
-    er.async_get(hass).async_get_or_create(
-        "sensor", DOMAIN, "owned", suggested_object_id="homeostatic_owned"
-    )
-    with pytest.raises((ValueError, vol.Invalid)):
-        data_from_input(hass, data)
-
-
-async def test_pending_openings_are_summarized_once(
+async def test_activation_replaces_pending_opening_once_for_its_subject(
     hass: HomeAssistant, config_data: dict[str, Any], freezer: FrozenDateTimeFactory
 ) -> None:
-    """A pre-activation batch timer must not replay a summarized opening."""
+    """A pre-activation batch timer cannot replay an already activated subject."""
     config_data["notifications"] = False
     config_data["timings"]["batch"] = 10
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    await start_monitor(hass, entry)
+    runtime = await start_monitor(hass, entry)
+    [episode] = runtime.episodes
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     hass.config_entries.async_update_entry(
         entry, options={**config_data, "notifications": True}
     )
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
+    assert len(events) == 1
+    activation = events[0].data
+    assert activation["action"] == "activate"
+    assert activation["notification_subject"] == "entity:entity_id:sensor.observed"
+    assert activation["episodes"] == [episode]
+    assert not activation["silent"]
     freezer.tick(timedelta(seconds=11))
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
-    assert [event.data["action"] for event in events] == ["summary"]
+    assert [event.data["delivery_id"] for event in events] == [
+        activation["delivery_id"]
+    ]
+    assert not entry.runtime_data.delivery.outbox
+    assert list(entry.runtime_data.episodes) == [episode]
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -447,7 +459,7 @@ async def test_outbox_replays_same_id_after_ack_failure(
     saves = iter((original_save, fail_acknowledgement))
 
     async def save_once() -> None:
-        await next(saves)()
+        await next(saves, original_save)()
 
     with patch.object(runtime, "_save", side_effect=save_once):
         hass.states.async_set("sensor.observed", "unavailable")
@@ -464,29 +476,6 @@ async def test_outbox_replays_same_id_after_ack_failure(
     assert [event.data["action"] for event in events] == actions
     assert (events[0].data["delivery_id"] == events[1].data["delivery_id"]) is same_id
     assert not runtime.delivery.outbox
-    assert await hass.config_entries.async_unload(config_entry.entry_id)
-
-
-async def test_original_store_migrates_without_new_episode(
-    hass: HomeAssistant, config_entry: MockConfigEntry, hass_storage: dict[str, Any]
-) -> None:
-    """The initial development store upgrades and withdraws legacy native messages."""
-    hass.states.async_set("sensor.observed", "unavailable")
-    runtime = await start_monitor(hass, config_entry)
-    episode_id = next(iter(runtime.episodes))
-    assert await hass.config_entries.async_unload(config_entry.entry_id)
-    data = hass_storage[f"{DOMAIN}.{config_entry.entry_id}"]["data"]
-    data["schema_version"] = 1
-    del data["delivery"], data["notifications_enabled"]
-    assert await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
-    restored = config_entry.runtime_data
-    assert list(restored.episodes) == [episode_id]
-    assert restored.snapshot()["schema_version"] == 2
-    assert (
-        runtime.notification_id(episode_id)
-        not in hass.data[persistent_notification.DOMAIN]
-    )
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
@@ -554,24 +543,48 @@ async def test_invalid_current_envelope_is_preserved(
 
 
 @pytest.mark.parametrize(
-    "selection",
+    "selection,available",
     [
-        pytest.param({"entities": ["registry:SELF"]}, id="entity"),
-        pytest.param({"config_entries": ["monitor"]}, id="integration"),
+        pytest.param(
+            {
+                "monitoring_policies": [
+                    monitoring_policy(
+                        "self", {"kind": ["entity"], "entity": ["registry:SELF"]}
+                    )
+                ]
+            },
+            True,
+            id="entity",
+        ),
+        pytest.param(
+            {
+                "monitoring_policies": [
+                    monitoring_policy(
+                        "self", {"kind": ["integration"], "integration": ["monitor"]}
+                    )
+                ]
+            },
+            True,
+            id="integration",
+        ),
         pytest.param(
             {
                 "situations": [
                     {"id": "bad", "name": "Self alert", "entity": "registry:SELF"}
                 ]
             },
+            False,
             id="situation",
         ),
     ],
 )
-async def test_stored_self_bindings_cannot_start(
-    hass: HomeAssistant, config_data: dict[str, Any], selection: dict[str, Any]
+async def test_stored_self_bindings_never_monitor_owned_sources(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    selection: dict[str, Any],
+    available: bool,
 ) -> None:
-    """Externally edited storage cannot bypass self-monitoring validation."""
+    """Raw policy selectors omit owned sources; invalid situation bindings fail closed."""
     import json
 
     entry = MockConfigEntry(domain=DOMAIN, entry_id="monitor", data=config_data)
@@ -588,26 +601,12 @@ async def test_stored_self_bindings_cannot_start(
     await hass.async_start()
     await hass.async_block_till_done()
     runtime = entry.runtime_data
-    assert not runtime.available
-    assert "own" in runtime.error or "itself" in runtime.error
-    assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-async def test_remove_original_store_cleans_legacy_message(
-    hass: HomeAssistant, config_entry: MockConfigEntry, hass_storage: dict[str, Any]
-) -> None:
-    """Removing an unloaded original development entry cleans its native message."""
-    hass.states.async_set("sensor.observed", "unavailable")
-    runtime = await start_monitor(hass, config_entry)
-    episode_id = next(iter(runtime.episodes))
-    assert await hass.config_entries.async_unload(config_entry.entry_id)
-    data = hass_storage[f"{DOMAIN}.{config_entry.entry_id}"]["data"]
-    data["schema_version"] = 1
-    assert await hass.config_entries.async_remove(config_entry.entry_id)
-    assert (
-        runtime.notification_id(episode_id)
-        not in hass.data[persistent_notification.DOMAIN]
+    assert runtime.available is available
+    assert not any(
+        source.entity_id == registered.entity_id for source in runtime.sources.values()
     )
+    assert f"entry:{entry.entry_id}" not in runtime.sources
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_stop_during_save_cannot_rearm_timer(

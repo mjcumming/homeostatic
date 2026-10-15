@@ -1,6 +1,7 @@
 # ADR 0029: Load revision-bound catalog pages on demand
 
-**Status:** Proposed; implemented locally for review
+**Status:** Proposed
+**Implementation status:** See the [roadmap](../roadmap.md#current-work).
 
 **Date:** 2026-09-29
 

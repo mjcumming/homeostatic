@@ -6,15 +6,13 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.homeostatic import dashboard, notification_definitions
 from custom_components.homeostatic.const import DOMAIN
+from tests.policy_helpers import monitoring_policy
 from tests.test_lifecycle import start_monitor
 
 
@@ -54,8 +52,6 @@ async def test_monitoring_save_preserves_other_episodes_clocks_and_history(
     for entity in entities:
         hass.states.async_set(entity, "unavailable")
     config_data.update(
-        entities=[f"entity_id:{entity}" for entity in entities],
-        rules=[],
         monitoring_policy_version=1,
         monitoring_policies=[
             policy("edited", entities[:2]),
@@ -137,12 +133,14 @@ async def test_monitoring_save_preserves_other_episodes_clocks_and_history(
         await client.close()
 
 
+@pytest.mark.parametrize("edit", ["monitoring", "profile", "method"])
 @pytest.mark.parametrize("failure", ["write", "verification", "rollback"])
 async def test_in_place_save_rolls_back_failed_durable_application(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
     hass_ws_client: WebSocketGenerator,
     failure: str,
+    edit: str,
 ) -> None:
     """A failed write or verification restores options, state and exact delivery ids."""
     hass.states.async_set("sensor.observed", "unavailable")
@@ -152,7 +150,18 @@ async def test_in_place_save_rolls_back_failed_durable_application(
     configuration = (await client.receive_json())["result"]
     before = deepcopy(runtime.snapshot())
     draft = configuration["settings"]
-    draft["rules"] = [{"id": "off", "action": "exclude", "match": {"kind": ["entity"]}}]
+    targets = {
+        "monitoring": draft["monitoring_policies"][0],
+        "profile": draft["notification_definitions"]["profiles"]["morning"],
+        "method": draft["notification_definitions"]["methods"]["test"],
+    }
+    targets[edit].update(
+        {
+            "monitoring": {"enabled": False},
+            "profile": {"name": "Renamed"},
+            "method": {"destinations": ["service:changed_test"]},
+        }[edit]
+    )
     save = runtime.store.async_save
     calls = 0
 
@@ -199,22 +208,34 @@ async def test_in_place_save_rolls_back_failed_durable_application(
         response = await client.receive_json()
     assert response["error"]["code"] == "apply_failed"
     assert not config_entry.options
-    assert runtime.settings.rules is None
+    assert runtime.settings.monitoring_policies[0].enabled
     assert runtime.snapshot()["episodes"] == before["episodes"]
     assert runtime.snapshot()["delivery"] == before["delivery"]
+    assert (
+        runtime.snapshot()["monitoring_identities"] == before["monitoring_identities"]
+    )
+    assert runtime.snapshot()["monitoring_scopes"] == before["monitoring_scopes"]
     assert runtime.available == (failure != "rollback")
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     await client.close()
 
 
+@pytest.mark.parametrize("edit", ["monitoring", "profile", "method"])
 async def test_save_keeps_observations_queued_during_io(
     hass: HomeAssistant,
     config_data: dict[str, Any],
     hass_ws_client: WebSocketGenerator,
+    edit: str,
 ) -> None:
     """A transient outage captured during a save is observed before current recovery."""
     config_data.update(
-        entities=["entity_id:sensor.observed", "entity_id:sensor.other"],
+        monitoring_policies=[
+            monitoring_policy(
+                identity,
+                {"kind": ["entity"], "entity": [f"entity_id:sensor.{identity}"]},
+            )
+            for identity in ("observed", "other")
+        ],
         notifications=False,
     )
     hass.states.async_set("sensor.observed", "1")
@@ -225,14 +246,18 @@ async def test_save_keeps_observations_queued_during_io(
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     configuration = (await client.receive_json())["result"]
     draft = configuration["settings"]
-    draft["rules"] = [
-        *configuration["rules"],
+    targets = {
+        "monitoring": draft["monitoring_policies"][0],
+        "profile": draft["notification_definitions"]["profiles"]["morning"],
+        "method": draft["notification_definitions"]["methods"]["test"],
+    }
+    targets[edit].update(
         {
-            "id": "off",
-            "action": "exclude",
-            "match": {"entity": ["entity_id:sensor.observed"]},
-        },
-    ]
+            "monitoring": {"enabled": False},
+            "profile": {"name": "Renamed"},
+            "method": {"destinations": ["service:changed_test"]},
+        }[edit]
+    )
     save = runtime.store.async_save
     calls = 0
 
@@ -278,7 +303,7 @@ async def test_concurrent_saves_serialize_and_reject_the_later_stale_draft(
     await first.send_json({"id": 1, "type": "homeostatic/configuration"})
     configuration = (await first.receive_json())["result"]
     draft = configuration["settings"]
-    draft["rules"] = [{"id": "off", "action": "exclude", "match": {"kind": ["entity"]}}]
+    draft["monitoring_policies"][0]["enabled"] = False
     saving, release = asyncio.Event(), asyncio.Event()
     save = runtime.store.async_save
 
@@ -350,76 +375,6 @@ async def test_validation_cannot_overwrite_an_external_revision_change(
     await client.close()
 
 
-async def test_rule_save_preserves_summary_exclusions_and_retires_changed_expectations(
-    hass: HomeAssistant,
-    config_data: dict[str, Any],
-    hass_ws_client: WebSocketGenerator,
-) -> None:
-    """Stop checking changes selected membership without claiming recovery."""
-    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
-    owner.add_to_hass(hass)
-    device = dr.async_get(hass).async_get_or_create(
-        config_entry_id=owner.entry_id, identifiers={("test", "device")}
-    )
-    members = [
-        er.async_get(hass).async_get_or_create(
-            "sensor", "test", name, config_entry=owner, device_id=device.id
-        )
-        for name in ("one", "two")
-    ]
-    for member in members:
-        hass.states.async_set(member.entity_id, "unavailable")
-    config_data.update(
-        entities=[],
-        notifications=False,
-        rules=[{"id": "devices", "action": "attach", "match": {"kind": ["device"]}}],
-    )
-    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    runtime = await start_monitor(hass, entry)
-    old_issue = next(iter(runtime.episodes))
-    client = await hass_ws_client(hass)
-    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
-    current = (await client.receive_json())["result"]
-    rules = [
-        *current["rules"],
-        {
-            "id": "exclude_one",
-            "action": "exclude",
-            "match": {"entity": [f"registry:{members[0].id}"]},
-            "checks": ["availability"],
-        },
-    ]
-    with patch.object(
-        hass.config_entries,
-        "async_reload",
-        side_effect=AssertionError("must apply in place"),
-    ):
-        await client.send_json(
-            {
-                "id": 2,
-                "type": "homeostatic/save_configuration",
-                "revision": current["revision"],
-                "rules": rules,
-            }
-        )
-        assert (await client.receive_json())["result"] == {"saved": True}
-    assert entry.runtime_data is runtime
-    assert runtime.sources[f"device:{device.id}"].availability_entities == (
-        members[1].entity_id,
-    )
-    assert runtime.candidates[f"entity:registry:{members[0].id}"].excluded_by == (
-        "exclude_one",
-    )
-    assert old_issue not in runtime.episodes
-    assert len(runtime.episodes) == 1
-    assert runtime.history.snapshot()["episodes"][0]["resolution"] == "removed"
-    assert runtime.device_exclusions[f"device:{device.id}"] == (
-        f"entity:registry:{members[0].id}",
-    )
-    assert await hass.config_entries.async_unload(entry.entry_id)
-    await client.close()
-
-
 async def test_failed_outbox_cleanup_never_reuses_a_published_delivery_id(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
@@ -434,7 +389,7 @@ async def test_failed_outbox_cleanup_never_reuses_a_published_delivery_id(
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     configuration = (await client.receive_json())["result"]
     draft = configuration["settings"]
-    draft["rules"] = [{"id": "off", "action": "exclude", "match": {"kind": ["entity"]}}]
+    draft["monitoring_policies"][0]["enabled"] = False
     requested: list[str] = []
 
     @callback
@@ -498,7 +453,7 @@ async def test_stopping_during_save_cannot_report_applied_or_leave_listeners(
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     configuration = (await client.receive_json())["result"]
     draft = configuration["settings"]
-    draft["rules"] = [{"id": "off", "action": "exclude", "match": {"kind": ["entity"]}}]
+    draft["monitoring_policies"][0]["enabled"] = False
     save = runtime.store.async_save
     stops: list[asyncio.Task[None]] = []
     calls = 0

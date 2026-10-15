@@ -1,7 +1,7 @@
 """Bounded, durable correlation for explicit Companion acknowledgment actions."""
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 from uuid import uuid4
 
 import voluptuous as vol
@@ -20,9 +20,24 @@ SCHEMA = vol.Schema(
             vol.Required("user_id"): str,
             vol.Required("delivery_id"): str,
             vol.Required("expires_at"): str,
+            vol.Optional("episodes"): vol.All(
+                [vol.All(str, vol.Length(min=1))], vol.Length(min=1), vol.Unique()
+            ),
         }
     }
 )
+
+
+class PhoneActionRecord(TypedDict):
+    """The recipient and exact issue occurrences shown in one delivered message."""
+
+    episode_id: str
+    recipient: str
+    channel: str
+    user_id: str
+    delivery_id: str
+    expires_at: str
+    episodes: NotRequired[list[str]]
 
 
 class PhoneActions:
@@ -30,7 +45,7 @@ class PhoneActions:
 
     def __init__(self) -> None:
         """Prepare an empty adapter-owned registry."""
-        self.records: dict[str, dict[str, str]] = {}
+        self.records: dict[str, PhoneActionRecord] = {}
 
     def restore(self, value: Any) -> None:
         """Validate only adapter-owned callback state."""
@@ -54,12 +69,23 @@ class PhoneActions:
     def prepare(
         self, hass: HomeAssistant, payload: dict[str, Any], channel: str, now: datetime
     ) -> str | None:
-        """Create a private action reference for one active individual delivery."""
-        if "episodes" in payload or payload.get("action") in {
+        """Bind a private action to the exact active issues in one delivery."""
+        if payload.get("action") in {
             "resolve",
             "summary",
             "digest",
         }:
+            return None
+        episodes = payload.get("episodes")
+        subject = payload.get("notification_subject")
+        if ("episodes" in payload or "notification_subject" in payload) and (
+            not isinstance(subject, str)
+            or not subject.startswith(("device:", "entity:"))
+            or not isinstance(episodes, list)
+            or not episodes
+            or any(not isinstance(episode, str) or not episode for episode in episodes)
+            or len(episodes) != len(set(episodes))
+        ):
             return None
         episode_id = payload.get("episode_id")
         route = next((r for r in destinations(hass) if r.channel == channel), None)
@@ -83,11 +109,13 @@ class PhoneActions:
             "delivery_id": payload["delivery_id"],
             "expires_at": (now + RETENTION).isoformat(),
         }
+        if isinstance(episodes, list):
+            self.records[token]["episodes"] = list(episodes)
         return token
 
     async def authorize(
         self, hass: HomeAssistant, event: Event[Any], now: datetime
-    ) -> dict[str, str] | None:
+    ) -> PhoneActionRecord | None:
         """Trust HA's authenticated context, never client-supplied actor/device fields."""
         token = event.data.get("action")
         if not isinstance(token, str):

@@ -9,11 +9,12 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from .catalog import Source, device_observation, entity_observation, entry_observation
-from .config import Settings, entity_reference, resolve_entity, rule_data
+from .config import Settings, entity_reference, resolve_entity
 from .const import DOMAIN
 from .definitions import Function
 from .enrollment import evaluate, inventory
-from .rules import Attributes, parse_rules
+from .monitoring_runtime import enrollment_rules
+from .rules import Attributes
 from .serialization import json_object
 
 
@@ -178,15 +179,12 @@ def requirement(
         "provenance": "owner_confirmed_candidate"
         if source.node_id in function.accept
         else "owner_declared",
-        "monitoring": "excluded"
-        if source.excluded_by
-        else "watched"
+        "monitoring": "watched"
         if source.watched
         else "composite"
         if source.requirements
         else "unwatched",
         "attached_by": list(source.attached_by),
-        "excluded_by": list(source.excluded_by),
         "readiness": json_object(engine.readiness([source.node_id])),
         "explanation": json_object(engine.explain(source.node_id)),
         "effective_importance": impact.importance.value,
@@ -262,7 +260,7 @@ def preview(
     if not settings.functions:
         return result
     candidates = evaluate(
-        inventory(hass, settings, known), parse_rules(rule_data(hass, settings))
+        inventory(hass, settings, known), enrollment_rules(settings.monitoring_policies)
     )
     sources, _ = compose(hass, settings, candidates)
     engine = Engine(settings.engine_settings())

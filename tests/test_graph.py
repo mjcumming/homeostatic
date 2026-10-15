@@ -17,6 +17,12 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
+from tests.policy_helpers import (
+    availability_policies,
+    bound_identity,
+    current_config,
+    monitoring_policy,
+)
 from tests.test_lifecycle import start_monitor
 
 
@@ -31,17 +37,32 @@ async def test_parent_failure_correlates_child(
     registered = er.async_get(hass).async_get_or_create(
         "sensor", "test", "test", config_entry=source
     )
-    config_data["entities"] = [f"registry:{registered.id}"]
+    config_data["monitoring_policies"] = availability_policies(
+        entities=[f"registry:{registered.id}"], integrations=[source.entry_id]
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     hass.states.async_set(registered.entity_id, "unavailable")
     runtime = await start_monitor(hass, entry)
     assert len(runtime.episodes) == 1
     episode = next(iter(runtime.episodes.values()))
-    assert episode["anchor"] == f"entry:{source.entry_id}"
-    assert episode["recorded"] == [f"entity:registry:{registered.id}"]
+    assert episode["anchor"] == bound_identity(
+        config_data["monitoring_policies"][1], f"entry:{source.entry_id}"
+    )
+    assert episode["recorded"] == [
+        bound_identity(
+            config_data["monitoring_policies"][0], f"entity:registry:{registered.id}"
+        )
+    ]
     assert runtime.readiness == "blocked"
     assert (
-        runtime.engine.explain(f"entity:registry:{registered.id}").findings[0].reason
+        runtime.engine.explain(
+            bound_identity(
+                config_data["monitoring_policies"][0],
+                f"entity:registry:{registered.id}",
+            )
+        )
+        .findings[0]
+        .reason
         == "unavailable"
     )
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -52,7 +73,9 @@ async def test_rename_retains_identity(
 ) -> None:
     """Changing an entity id updates the observed source without losing its episode."""
     registered = er.async_get(hass).async_get_or_create("sensor", "test", "test")
-    config_data["entities"] = [f"registry:{registered.id}"]
+    config_data["monitoring_policies"] = availability_policies(
+        entities=[f"registry:{registered.id}"]
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     hass.states.async_set(registered.entity_id, "unavailable")
     runtime = await start_monitor(hass, entry)
@@ -78,14 +101,20 @@ async def test_registry_removal_stays_unknown(
 ) -> None:
     """Deleting a selected registry entry does not reduce the required scope."""
     registered = er.async_get(hass).async_get_or_create("sensor", "test", "test")
-    config_data["entities"] = [f"registry:{registered.id}"]
+    config_data["monitoring_policies"] = availability_policies(
+        entities=[f"registry:{registered.id}"]
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     hass.states.async_set(registered.entity_id, "42")
     runtime = await start_monitor(hass, entry)
     er.async_get(hass).async_remove(registered.entity_id)
     await hass.async_block_till_done()
     assert runtime.readiness == "unknown"
-    assert runtime.targets == [f"entity:registry:{registered.id}"]
+    assert runtime.targets == [
+        bound_identity(
+            config_data["monitoring_policies"][0], f"entity:registry:{registered.id}"
+        )
+    ]
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -96,7 +125,9 @@ async def test_disabled_entity(
     registered = er.async_get(hass).async_get_or_create(
         "sensor", "test", "test", disabled_by=er.RegistryEntryDisabler.USER
     )
-    config_data["entities"] = [f"registry:{registered.id}"]
+    config_data["monitoring_policies"] = availability_policies(
+        entities=[f"registry:{registered.id}"]
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     hass.states.async_set(registered.entity_id, "42")
     runtime = await start_monitor(hass, entry)
@@ -110,8 +141,9 @@ async def test_retry_timer_and_recovery(
     """A deadline escalates retry before the periodic reconciliation interval."""
     source = MockConfigEntry(domain="test", state=ConfigEntryState.SETUP_RETRY)
     source.add_to_hass(hass)
-    config_data["entities"] = []
-    config_data["config_entries"] = [source.entry_id]
+    config_data["monitoring_policies"] = availability_policies(
+        integrations=[source.entry_id]
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     assert runtime.readiness == "degraded"
@@ -130,8 +162,7 @@ async def test_explicit_missing_entry(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
     """Selected missing integrations are visible requirements with no evidence."""
-    config_data["entities"] = []
-    config_data["config_entries"] = ["missing"]
+    config_data["monitoring_policies"] = availability_policies(integrations=["missing"])
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     assert runtime.readiness == "unknown"
@@ -143,8 +174,9 @@ async def test_pending_reauth(hass: HomeAssistant, config_data: dict[str, Any]) 
     """An active HA reauthentication flow changes the producer observation."""
     source = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     source.add_to_hass(hass)
-    config_data["entities"] = []
-    config_data["config_entries"] = [source.entry_id]
+    config_data["monitoring_policies"] = availability_policies(
+        integrations=[source.entry_id]
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     with patch.object(
         hass.config_entries.flow,
@@ -163,7 +195,7 @@ async def test_scope_change_removes_source(
     """Explicit unenrollment removes its episode, notification, and query target."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
-    runtime.settings = Settings.from_data({"entities": [], "config_entries": []})
+    runtime.settings = Settings.from_data(current_config())
     await runtime.async_refresh()
     assert not runtime.sources
     assert not runtime.episodes
@@ -178,11 +210,12 @@ async def test_entry_removed_from_scope_unsubscribes(
     """Reconciliation removes lifecycle subscriptions for unenrolled entries."""
     source = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     source.add_to_hass(hass)
-    config_data["entities"] = []
-    config_data["config_entries"] = [source.entry_id]
+    config_data["monitoring_policies"] = availability_policies(
+        integrations=[source.entry_id]
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
-    runtime.settings = Settings.from_data({})
+    runtime.settings = Settings.from_data(current_config())
     await runtime.async_refresh()
     source._async_set_state(hass, ConfigEntryState.SETUP_ERROR, None)
     await hass.async_block_till_done()
@@ -199,15 +232,9 @@ async def test_deleted_auto_enrolled_entry_is_removed(
     )
     source.add_to_hass(hass)
     config_data.update(
-        entities=[],
         notifications=False,
-        rules=[
-            {
-                "id": "integrations",
-                "action": "attach",
-                "match": {"kind": "integration"},
-                "checks": ["availability"],
-            }
+        monitoring_policies=[
+            monitoring_policy("integrations", {"kind": ["integration"]})
         ],
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -241,15 +268,9 @@ async def test_deleted_auto_enrolled_entry_is_removed_after_restart(
     )
     source.add_to_hass(hass)
     config_data.update(
-        entities=[],
         notifications=False,
-        rules=[
-            {
-                "id": "integrations",
-                "action": "attach",
-                "match": {"kind": "integration"},
-                "checks": ["availability"],
-            }
+        monitoring_policies=[
+            monitoring_policy("integrations", {"kind": ["integration"]})
         ],
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -273,7 +294,7 @@ async def test_deleted_auto_enrolled_entry_is_removed_after_restart(
 
 @pytest.mark.parametrize(
     "data",
-    [{"entities": []}, {"notifications": False}],
+    [{"monitoring_policies": []}, {"notifications": False}],
     ids=["empty-enrollment", "notifications-disabled"],
 )
 async def test_record_only(

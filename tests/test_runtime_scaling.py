@@ -21,6 +21,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.dashboard import DATA_DASHBOARD, SIGNAL_DASHBOARD
 from custom_components.homeostatic.runtime import Runtime
+from tests.policy_helpers import bound_identity, monitoring_policy
 from tests.test_lifecycle import start_monitor
 
 
@@ -145,15 +146,13 @@ async def test_registered_inventory_runtime_load(
     """Measure normal traffic, outage, recovery, reconciliation and reload."""
     shape = populate(hass)
     matches = {
-        "device_group": {"device": list(shape.devices[:3])},
-        "all_entities": {"kind": "entity"},
+        "device_group": {"kind": ["entity"], "device": list(shape.devices[:3])},
+        "all_entities": {"kind": ["entity"]},
     }
     config_data.update(
-        entities=[],
-        config_entries=[],
-        rules=[
-            {"id": "controllers", "action": "attach", "match": {"kind": "integration"}},
-            {"id": "capabilities", "action": "attach", "match": matches[scope]},
+        monitoring_policies=[
+            monitoring_policy("controllers", {"kind": ["integration"]}),
+            monitoring_policy("capabilities", matches[scope]),
         ],
         notifications=False,
     )
@@ -198,9 +197,8 @@ async def test_registered_inventory_runtime_load(
     )
     await changes(hass, shape.entities[:60], "unavailable")
     assert len(runtime.episodes) == 1
-    assert (
-        next(iter(runtime.episodes.values()))["anchor"]
-        == f"entry:{shape.owners[0].entry_id}"
+    assert next(iter(runtime.episodes.values()))["anchor"] == bound_identity(
+        config_data["monitoring_policies"][0], f"entry:{shape.owners[0].entry_id}"
     )
     episode_id = next(iter(runtime.episodes))
     started = perf_counter()
@@ -235,15 +233,11 @@ async def test_one_capability_per_device_runtime_load(
         assert registered is not None
         representatives.append(f"registry:{registered.id}")
     config_data.update(
-        entities=[],
-        config_entries=[],
-        rules=[
-            {"id": "controllers", "action": "attach", "match": {"kind": "integration"}},
-            {
-                "id": "representatives",
-                "action": "attach",
-                "match": {"entity": representatives},
-            },
+        monitoring_policies=[
+            monitoring_policy("controllers", {"kind": ["integration"]}),
+            monitoring_policy(
+                "representatives", {"kind": ["entity"], "entity": representatives}
+            ),
         ],
         notifications=False,
     )

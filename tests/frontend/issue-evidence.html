@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Grouped Lyric issue evidence</title>
+<style>
+:root{--primary-text-color:#182a34;--secondary-text-color:#536575;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--divider-color:#dce4e9;--primary-color:#007eab;--text-primary-color:#fff;color-scheme:light}
+:root[data-theme="dark"]{--primary-text-color:#e4e8ec;--secondary-text-color:#aab8c5;--primary-background-color:#10171e;--card-background-color:#18232d;--secondary-background-color:#263744;--divider-color:#41505c;--primary-color:#57c5ef;color-scheme:dark}
+body{margin:0;font:14px Arial,sans-serif;background:var(--primary-background-color);color:var(--primary-text-color)}
+#controls{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:12px}label{display:flex;gap:6px;align-items:center}select,button{font:inherit;padding:7px}#feedback{margin:0;padding:0 12px 10px}iframe{display:block;border:1px solid var(--divider-color);margin:0 auto;width:calc(100% - 24px);max-width:1200px;height:844px;box-sizing:content-box}
+homeostatic-panel{display:block}body.embedded #controls,body.embedded #feedback,body.embedded iframe,body:not(.embedded) homeostatic-panel{display:none}
+</style></head><body>
+<div id="controls"><strong>Synthetic Lyric issue · no live services</strong>
+<label>Current evidence <select id="state"><option value="active">Unavailable readings</option><option value="partial">One device recovered</option><option value="recovered">All readings recovered</option></select></label>
+<label>Variant <select id="variant"><option value="devices">3 devices, overlapping thermostat policies</option><option value="standalone">Also a standalone entity</option><option value="aliases">Canonical thermostat metadata absent</option><option value="missing">An unknown recorded source</option><option value="mixed">Mixed conditions</option></select></label>
+<label><input type="checkbox" id="narrow" checked>390px phone viewport</label><label><input type="checkbox" id="dark">Dark theme</label>
+<button id="run" type="button">Run browser checks</button></div>
+<p id="feedback" role="status"></p><details><summary>Acceptance receipt</summary><pre id="receipt"></pre></details><iframe title="Isolated Homeostatic issue viewport"></iframe><homeostatic-panel></homeostatic-panel>
+<script type="module">
+import "../../custom_components/homeostatic/frontend/homeostatic.js";
+import {emptyNotificationDefinitions} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
+import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
+import {visibleEpisodes} from "../../custom_components/homeostatic/frontend/model.mjs";
+import {issueEvidenceFixture,issueEvidenceReply,lyricLocalize,LYRIC_EPISODE,THERMOSTAT_ENTITY} from "./issue-evidence-fixture.mjs";
+
+const params=new URLSearchParams(location.search),embedded=params.has("embedded");
+if(!embedded) {
+  const frame=document.querySelector("iframe"),feedback=document.querySelector("#feedback");
+  const inputs=Object.fromEntries(["state","variant","narrow","dark"].map(id=>[id,document.getElementById(id)]));
+  inputs.state.value=params.get("state")||"active";inputs.variant.value=params.get("variant")||"devices";
+  inputs.narrow.checked=!params.has("wide");inputs.dark.checked=params.has("dark");
+  const refresh=()=>{
+    const next=new URLSearchParams({embedded:"1",state:inputs.state.value,variant:inputs.variant.value});
+    if(inputs.dark.checked)next.set("dark","1");
+    frame.style.width=inputs.narrow.checked?"390px":"calc(100% - 24px)";
+    frame.src=`issue-evidence.html?${next}`;feedback.textContent="The modal uses the real card in an isolated browser viewport.";
+  };
+  Object.values(inputs).forEach(input=>input.addEventListener("change",refresh));
+  document.querySelector("#run").addEventListener("click",async()=>{
+    const receipt=emptyReceipt({fixture:"issue-evidence.html",browser:navigator.userAgent,viewport:{width:frame.clientWidth,height:frame.clientHeight},data:"synthetic",destinations:"none"});
+    try{feedback.textContent=await frame.contentWindow.runIssueEvidenceChecks();for(const id of ["issues.evidence","issues.recovery"])recordResult(receipt,id,"pass",feedback.textContent);}
+    catch(error){feedback.textContent="FAIL: "+error.message;recordResult(receipt,"issues.evidence","fail",error.message);}
+    document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);parent.postMessage({type:"homeostatic-acceptance",fixture:"issue-evidence.html",receipt},location.origin);
+  });
+  refresh();
+} else {
+  document.body.classList.add("embedded");
+  document.documentElement.dataset.theme=params.has("dark")?"dark":"light";
+  const card=document.querySelector("homeostatic-panel"),calls=[];
+  let fixture;
+  card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},states:{},localize:lyricLocalize,
+    async callWS(request) {
+      calls.push(structuredClone(request));
+      if(["homeostatic/node","homeostatic/source"].includes(request.type))return issueEvidenceReply(fixture,request.type,request.node_id);
+      throw Error("Only read-only source queries are allowed in this fixture: "+request.type);
+    }};
+  const check=(condition,message)=>{if(!condition)throw Error(message);};
+  async function show(state="active",variant="devices") {
+    fixture=issueEvidenceFixture({state,variant});
+    card.current={status:"current",data:fixture.data};card.page="problems";
+    card.configuration={settings:{notifications:false,monitoring_policies:fixture.policies,notification_definitions:emptyNotificationDefinitions("America/Chicago")}};
+    card.settingsDraft=structuredClone(card.configuration.settings);
+    card.issueGroupsExpanded=new Set();card.sourceDetail=null;
+    if(state!=="recovered"){card.detail=null;card.dialog.close();}
+    card.render();
+    if(state!=="recovered") {
+      const group=card.shadowRoot.querySelector('[data-issue-group="integration:lyric"]');check(group,"Reachable Lyric group");group.click();
+      const issue=card.shadowRoot.querySelector(`[data-episode="${LYRIC_EPISODE}"]`);check(issue,"Reachable exact issue action");issue.click();
+      for(let turn=0;turn<12;turn++)await Promise.resolve();
+    } else await card.loadDetail();
+  }
+  card.shadowRoot.addEventListener("click",event=>{
+    const link=event.target.closest("a[href]");
+    if(link){event.preventDefault();card.dataset.lastFixtureNavigation=link.getAttribute("href");}
+  });
+  window.runIssueEvidenceChecks=async()=>{
+    const root=card.shadowRoot;
+    await show();
+    const body=root.querySelector(".dialog-body");
+    check(root.querySelector(".problem-headline")?.textContent==="Unavailable readings from 3 devices","Grouped issue headline");
+    check(body.querySelectorAll("[data-evidence-group]").length===3,"Three device groups");
+    check(body.querySelectorAll("[data-evidence-source]").length===8,"Eight canonical sources");
+    check(body.innerText.includes("5 entities")&&body.innerText.includes("9 checks"),"Distinct entity and check counts");
+    check(!body.querySelector('.next-action a.primary[href*="/config/integrations"]'),"A loaded connection is not the primary action");
+    check(body.querySelector('[data-evidence-source="entity:registry:thermostat"] strong')?.textContent==="Thermostat","Same-name thermostat has a distinct entity label");
+    const disclosure=body.querySelector(`[data-disclosure="checks:${THERMOSTAT_ENTITY}"]`);
+    check(disclosure,"Overlapping policy disclosure");disclosure.querySelector("summary").click();await card.loadDetail();
+    check(body.querySelector(`[data-disclosure="checks:${THERMOSTAT_ENTITY}"]`).open,"Disclosure survives refresh");
+    check(body.scrollWidth<=body.clientWidth+1,"Modal has no horizontal overflow");
+    check(card.dialog.getBoundingClientRect().right<=innerWidth+1,"Modal fits its viewport");
+    const source=root.querySelector('[data-source-link="device:third-floor"]');
+    check(source,"Device Sources action");source.click();for(let turn=0;turn<12;turn++)await Promise.resolve();
+    check(card.page==="sources"&&card.sourcesSelection==="source:device:third-floor","Sources action targets the canonical device");
+    check(card.sourceDetail?.nodeId==="device:third-floor"&&!card.sourceDetail.error,"Sources action reads synthetic evidence");
+    await show("partial");
+    check(root.querySelector(".problem-headline")?.textContent==="Unavailable readings from 2 devices","Partial recovery headline");
+    check(body.querySelectorAll("[data-evidence-group]").length===2,"Recovered device no longer counted");
+    check(visibleEpisodes(fixture.data).length===1,"Partial recovery stays visible");
+    await show("recovered");
+    check(visibleEpisodes(fixture.data).length===0,"Fully recovered issue hidden from active queue");
+    check(!body.querySelector("[data-evidence-group]"),"No stale affected evidence after full recovery");
+    check(root.querySelector(".problem-headline")?.textContent.includes("confirming recovery"),"Retained issue explains recovery confirmation");
+    check(calls.every(call=>["homeostatic/node","homeostatic/source"].includes(call.type)),"Only read-only fixture queries");
+    await show(params.get("state")||"active",params.get("variant")||"devices");
+    return "PASS: grouped evidence, distinct counts, canonical Sources action, disclosure refresh, partial/full recovery and viewport fit; no service calls.";
+  };
+  await show(params.get("state")||"active",params.get("variant")||"devices");
+}
+</script></body></html>

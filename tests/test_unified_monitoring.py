@@ -15,13 +15,18 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.homeostatic.catalog import Source
-from custom_components.homeostatic.const import DOMAIN, EVENT_EPISODE
+from custom_components.homeostatic.const import (
+    DOMAIN,
+    EVENT_EPISODE,
+    EVENT_NOTIFICATION,
+)
 from custom_components.homeostatic.monitoring import parse_policies
 from custom_components.homeostatic.monitoring_runtime import (
     assignments,
     contributing_policies,
     ordinary_sources,
 )
+from tests.policy_helpers import immediate_notification
 from tests.test_battery import battery_device
 from tests.test_broken_automations import DECK as BROKEN_DECK
 from tests.test_controls import action, end
@@ -427,3 +432,43 @@ async def test_episode_fact_marks_maintenance_on_policy_condition(
     await hass.async_block_till_done()
     assert [fact.data["change"] for fact in facts] == ["resolved"]
     assert facts[0].data["maintenance"] is True
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "kind", "check", "failed_state"),
+    [
+        pytest.param(
+            "sensor.dashboard", "entity", "availability", "unavailable", id="entity"
+        ),
+        pytest.param("vacuum.dashboard", "vacuum", "vacuum", "error", id="vacuum"),
+    ],
+)
+async def test_empty_equipment_policy_does_not_inherit_situation_routes(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    entity_id: str,
+    kind: str,
+    check: str,
+    failed_state: str,
+) -> None:
+    """Saved situation defaults and automation profiles never enable equipment delivery."""
+    config_data["monitoring_policies"] = [policy("equipment", check, {"kind": [kind]})]
+    config_data["notification_definitions"]["default"] = immediate_notification()
+    config_data["notification_definitions"]["automation_profiles"]["immediate"] = [
+        {**immediate_notification()[0], "id": "automation_now"}
+    ]
+    config_data["situations"] = [
+        {"id": "water", "name": "Water", "entity": "entity_id:binary_sensor.water"}
+    ]
+    hass.states.async_set("binary_sensor.water", "off")
+    hass.states.async_set(entity_id, failed_state)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    assert len(runtime.episodes) == 1
+    assert not events
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert len(entry.runtime_data.episodes) == 1
+    assert not events
+    assert await hass.config_entries.async_unload(entry.entry_id)

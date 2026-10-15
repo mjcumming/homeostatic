@@ -1,4 +1,4 @@
-export const baseSource = (node_id,name,kind,fields = {}) => ({node_id,name,kind,attributes:{},watched:false,attached_by:[],excluded_by:[],requirements:[],...fields});
+export const baseSource = (node_id,name,kind,fields = {}) => ({node_id,name,kind,attributes:{},watched:false,attached_by:[],requirements:[],...fields});
 
 /** A large synthetic inventory, including missing owners and shared devices. */
 export function monitoringExample() {
@@ -12,7 +12,7 @@ export function monitoringExample() {
     for (let entity = 0; entity < (device === 1 ? 105 : 6); entity++) {
       const entity_id = `sensor.camera_${device}_${String(entity).padStart(3,"0")}`;
       if (entity !== 0) members.push(entity_id);
-      rows.push(baseSource(`entity:registry:${id}-${entity}`,`${name} signal ${String(entity).padStart(3,"0")}`,"entity",{entity_id,owner_id:"frigate",excluded_by:entity === 0 ? ["optional"] : [],attributes:{domain:["sensor"],device:[id],entity:[`registry:${id}-${entity}`]}}));
+      rows.push(baseSource(`entity:registry:${id}-${entity}`,`${name} signal ${String(entity).padStart(3,"0")}`,"entity",{entity_id,owner_id:"frigate",attributes:{domain:["sensor"],device:[id],entity:[`registry:${id}-${entity}`]}}));
     }
     rows.push(baseSource(`device:${id}`,name,"device",{watched:true,attached_by:["devices"],attributes:{device:[id],integration:["frigate"]},availability_entities:members}));
   }

@@ -18,14 +18,10 @@ from custom_components.homeostatic import notification_definitions
 from custom_components.homeostatic.catalog import Source
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.enrollment import inventory
-from custom_components.homeostatic.monitoring import parse_policies
-from custom_components.homeostatic.monitoring_runtime import (
-    transfer_batteries,
-    ups_sources,
-)
 from custom_components.homeostatic.runtime import Runtime
 from custom_components.homeostatic.ups import MAPPINGS, UpsMonitor, measurement
 from custom_components.homeostatic.ups_parameters import ReserveParameters
+from tests.policy_helpers import current_config
 
 NOW = datetime(2026, 10, 13, tzinfo=UTC)
 SCENARIOS = yaml.safe_load(
@@ -146,7 +142,7 @@ async def test_longer_device_identifiers_do_not_stop_discovery(
         hass.states.async_set(entity.entity_id, "50", {"unit_of_measurement": "%"})
     found = [
         source
-        for source in inventory(hass, Settings.from_data({}), {}).values()
+        for source in inventory(hass, Settings.from_data(current_config()), {}).values()
         if source.kind == "ups"
     ]
     assert len(found) == 4
@@ -176,64 +172,15 @@ async def test_registry_mapping_and_pairing(hass: HomeAssistant, platform: str) 
                 original_device_class="battery" if role == "charge" else None,
             )
             hass.states.async_set(entity.entity_id, "50", {"unit_of_measurement": "%"})
-    sources = inventory(hass, Settings.from_data({}), {})
+    sources = inventory(hass, Settings.from_data(current_config()), {})
     ups = [source for source in sources.values() if source.kind == "ups"]
     assert len(ups) == 8
     assert {source.ups_name for source in ups} == {"office UPS", "network UPS"}
     assert all(source.watched is False for source in ups)
     assert all(len(source.ups_entities) == 3 for source in ups)
-    assert all(source.node(Settings.from_data({})).depends_on == () for source in ups)
-
-
-def test_reviewed_battery_transfer() -> None:
-    """The same percentage needs an explicit ownership transfer before enrollment."""
-    source = Source(
-        node_id="ups:reserve",
-        name="Office",
-        kind="ups",
-        check_id="ups_reserve",
-        ups_entities=(("charge", "sensor.charge"),),
-        attributes={"kind": ("ups",)},
-        ups_name="Office",
-    )
-    battery = Source(
-        node_id="battery:charge",
-        name="Battery",
-        kind="battery",
-        battery_level_entity="sensor.charge",
-    )
-    definitions = [
-        {
-            "id": "reserve",
-            "name": "Reserve",
-            "check": "ups_reserve",
-            "match": {"kind": "ups"},
-            "enabled": True,
-        }
-    ]
-    policies = parse_policies(definitions)
-    candidates = {source.node_id: source, battery.node_id: battery}
-    with pytest.raises(ValueError, match="transfer"):
-        transfer_batteries(policies, candidates, ups_sources(policies, candidates))
-    policies = parse_policies(
-        [{**definitions[0], "parameters": {"replace_battery_check": True}}]
-    )
-    transferred = transfer_batteries(
-        policies, candidates, ups_sources(policies, candidates)
-    )
-    assert transferred[battery.node_id].watched is False
-    assert candidates[battery.node_id].watched is True
-    disabled = parse_policies(
-        [
-            {
-                **definitions[0],
-                "enabled": False,
-                "parameters": {"replace_battery_check": True},
-            }
-        ]
-    )
-    assert (
-        transfer_batteries(disabled, candidates, {})[battery.node_id].watched is False
+    assert all(
+        source.node(Settings.from_data(current_config())).depends_on == ()
+        for source in ups
     )
 
 
@@ -307,8 +254,6 @@ async def test_runtime_reserve_escalation_and_restart(
         entry,
         data={
             **entry.data,
-            "entities": [],
-            "rules": [],
             "monitoring_policies": [reserve, power],
             "notification_definitions": definitions,
         },

@@ -28,10 +28,7 @@ class Source:
     watched: bool = True
     attributes: Attributes = field(default_factory=dict)
     attached_by: tuple[str, ...] = ()
-    excluded_by: tuple[str, ...] = ()
     availability_entities: tuple[str, ...] = ()
-    connectivity_entities: tuple[str, ...] = ()
-    ignored_availability: tuple[str, ...] = ()
     report_timeout: int | None = None
     alert_profile: str | None = None
     automation_url: str | None = None
@@ -224,9 +221,9 @@ def device_observation(
     """Summarize HA availability across one device's selected entities.
 
     The device counts as unavailable only when every selected entity is
-    unavailable or a selected connectivity sensor reports disconnected. Any
+    unavailable. Any
     selected entity with a current state, including an HA `unknown` value, makes
-    the device available (ADR 0045, following HA architecture discussion 1400).
+    the device available.
     """
     signatures = tuple(entity_state_signature(state)[0] for state in states)
     value_unknown = sum(
@@ -235,23 +232,13 @@ def device_observation(
         and not state.attributes.get("restored")
         for state in states
     )
-    disconnected = tuple(
-        state.entity_id
-        for state in states
-        if state is not None
-        and state.entity_id in source.connectivity_entities
-        and not state.attributes.get("restored")
-        and state.state == "off"
-    )
-    available = signatures.count(Status.PASS) - value_unknown - len(disconnected)
+    available = signatures.count(Status.PASS) - value_unknown
     unavailable = signatures.count(Status.WARN)
-    unknown = len(signatures) - available - unavailable - len(disconnected)
+    unknown = len(signatures) - available - unavailable
     if source.disabled:
         status, reason = Status.UNKNOWN, "disabled"
     elif not signatures:
         status, reason = Status.UNKNOWN, "source_missing"
-    elif disconnected:
-        status, reason = Status.WARN, "connectivity_disconnected"
     elif signatures.count(Status.PASS):
         status, reason = Status.PASS, "available"
     elif unavailable == len(signatures):
@@ -273,8 +260,6 @@ def device_observation(
             "available": available,
             "unavailable": unavailable,
             "unknown": unknown,
-            "disconnected_count": len(disconnected),
-            "disconnected_entities": list(disconnected),
             "physical_freshness_verified": False,
         },
     )

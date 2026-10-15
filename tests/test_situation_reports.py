@@ -21,8 +21,9 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.homeostatic.config import Settings, data_from_input
+from custom_components.homeostatic.config import Settings, normalize_definitions
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
+from tests.policy_helpers import current_config, immediate_notification
 from tests.test_blueprint import load_example
 from tests.test_lifecycle import start_monitor
 
@@ -32,6 +33,10 @@ NODE = "situation:basement_water"
 @pytest.fixture
 def report_entry(config_data: dict[str, Any]) -> MockConfigEntry:
     """Declare a finite-lived producer beside the existing availability source."""
+    config_data["notification_definitions"]["assignments"][NODE] = {
+        "default": immediate_notification(),
+        "checks": {},
+    }
     config_data["situations"] = [
         {
             "id": "basement_water",
@@ -213,15 +218,20 @@ async def test_report_storage_failure_does_not_publish(
 def test_invalid_report_configuration(extra: dict[str, Any]) -> None:
     """Producer ownership and finite evidence lifetime are explicit."""
     with pytest.raises(ValueError, match="report_timeout"):
-        Settings.from_data({"situations": [{"id": "leak", "name": "Leak", **extra}]})
+        Settings.from_data(
+            {
+                **current_config(),
+                **({"situations": [{"id": "leak", "name": "Leak", **extra}]}),
+            }
+        )
 
 
-async def test_native_options_accept_reporter(hass: HomeAssistant) -> None:
-    """The native options conversion preserves a report-only declaration."""
-    data = data_from_input(
+async def test_reporter_definition_normalization(hass: HomeAssistant) -> None:
+    """Definition normalization preserves a report-only declaration."""
+    data = normalize_definitions(
         hass, {"situations": [{"id": "leak", "name": "Leak", "report_timeout": 300}]}
     )
-    situation = Settings.from_data(data).situations[0]
+    situation = Settings.from_data({**current_config(), **(data)}).situations[0]
     assert situation.entity is None
     assert situation.report_timeout == 300
 
@@ -249,7 +259,7 @@ async def setup_blueprint(
     await hass.async_block_till_done()
 
 
-async def test_blueprint_water_delivery_clear_and_disabled_expiry(
+async def test_blueprint_water_clear_and_disabled_expiry(
     hass: HomeAssistant, report_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
 ) -> None:
     """An owner blueprint drives open/unknown/clear and expires when disabled."""

@@ -1,6 +1,6 @@
 .PHONY: quick check
 quick:
-	uv run python script/check.py --quick
+	uv run --no-sync python script/check.py --quick
 
 check:
-	uv run python script/check.py
+	uv run --no-sync python script/check.py

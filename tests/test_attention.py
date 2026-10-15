@@ -17,20 +17,30 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.homeostatic import async_setup_entry
 from custom_components.homeostatic.attention import (
-    DEFAULT_POLICY,
     build_policy,
     duration,
     policy_data,
 )
-from custom_components.homeostatic.config import Settings, data_from_input
+from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.delivery import DeliveryState
+from tests.policy_helpers import current_config
 from tests.test_lifecycle import start_monitor
+
+EXAMPLE_POLICY: dict[str, Any] = {
+    "timezone": "UTC",
+    "recipients": {"owner": {"channels": ["event"]}},
+    "digests": {},
+    "rules": [
+        {"match": {"importance": ["critical"]}, "loudness": "urgent", "to": ["owner"]},
+        {"match": {}, "loudness": "notify", "to": ["owner"]},
+    ],
+}
 
 
 def owner_policy(*, quiet: bool = False) -> dict[str, Any]:
     """A normal reminder becomes urgent after two hours."""
-    data = deepcopy(DEFAULT_POLICY)
+    data = deepcopy(EXAMPLE_POLICY)
     data["rules"] = [
         {
             "match": {},
@@ -122,10 +132,10 @@ def test_invalid_duration(value: Any) -> None:
 )
 def test_invalid_policy(field: str, value: Any) -> None:
     """Owner errors fail validation rather than changing routing silently."""
-    data = deepcopy(DEFAULT_POLICY)
+    data = deepcopy(EXAMPLE_POLICY)
     data[field] = value
     with pytest.raises((ValueError, vol.Invalid)):
-        Settings.from_data({"policy": data})
+        build_policy(data, timedelta(0))
 
 
 def test_all_match_fields_and_detached_settings() -> None:
@@ -151,57 +161,21 @@ def test_all_match_fields_and_detached_settings() -> None:
     assert len(config.rules[0].match.status or ()) == 2
 
 
-async def test_policy_data_preserves_owner_data(hass: HomeAssistant) -> None:
-    """Stored policy keeps the choices made in the panel."""
+def test_saved_raw_policy_cannot_override_current_notification_settings() -> None:
+    """An inert old field cannot change routing or cause a configuration reload."""
     data = owner_policy()
-    assert data_from_input(hass, {"policy": data})["policy"] == data
+    assert Settings.from_data(current_config(policy=data)) == Settings.from_data(
+        current_config()
+    )
 
 
-async def test_reminder_quiet_escalation_and_restart(
+async def test_policy_preview_does_not_mutate_runtime(
     hass: HomeAssistant,
     config_data: dict[str, Any],
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """A quiet reminder waits; urgent escalation then repeats across restart."""
-    freezer.move_to(datetime(2026, 9, 25, 21, tzinfo=UTC))
-    config_data["policy"] = owner_policy(quiet=True)
-    hass.states.async_set("sensor.observed", "unavailable")
-    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    events = async_capture_events(hass, EVENT_NOTIFICATION)
-    runtime = await start_monitor(hass, entry)
-    assert [event.data["action"] for event in events] == ["open"]
-    assert events[0].data["channels"] == ["event"]
-    freezer.tick(timedelta(hours=1))
-    await runtime.async_refresh()
-    assert len(events) == 1
-    detail = runtime.query("policy", {})
-    assert detail["episodes"][0]["pending"]
-    assert await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done()
-    freezer.tick(timedelta(hours=1))
-    await entry.runtime_data.async_refresh()
-    freezer.tick(timedelta(hours=1))
-    await entry.runtime_data.async_refresh()
-    freezer.tick(timedelta(hours=1))
-    await entry.runtime_data.async_refresh()
-    await hass.async_block_till_done()
-    assert [event.data["action"] for event in events] == [
-        "open",
-        "escalate",
-        "remind",
-        "remind",
-    ]
-    assert len({event.data["delivery_id"] for event in events}) == 4
-    assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-async def test_activation_rebases_and_preview_does_not_mutate(
-    hass: HomeAssistant,
-    config_data: dict[str, Any],
-    freezer: FrozenDateTimeFactory,
-) -> None:
-    """An old problem keeps its age but gets a fresh attention period."""
-    config_data.update(notifications=False, policy=owner_policy())
+    """A policy simulation retains issue age and leaves runtime and deliveries untouched."""
+    config_data.update(notifications=False)
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
@@ -220,7 +194,6 @@ async def test_activation_rebases_and_preview_does_not_mutate(
     assert result["episodes"][0]["loudness"] == "notify"
     assert result["episodes"][0]["opened_at"] == episode["opened_at"]
     assert runtime.snapshot() == before
-    assert runtime.snapshot() == before
     assert not events
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(
@@ -230,25 +203,6 @@ async def test_activation_rebases_and_preview_does_not_mutate(
             blocking=True,
             return_response=True,
         )
-    hass.config_entries.async_update_entry(
-        entry, options={**config_data, "notifications": True}
-    )
-    assert await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done()
-    assert [event.data["action"] for event in events] == ["summary"]
-    assert events[0].data["loudness"] == "notify"
-    freezer.tick(timedelta(hours=1))
-    await entry.runtime_data.async_refresh()
-    await hass.async_block_till_done()
-    assert [event.data["action"] for event in events] == [
-        "summary",
-        "resolve",
-        "remind",
-    ]
-    freezer.tick(timedelta(hours=1))
-    await entry.runtime_data.async_refresh()
-    await hass.async_block_till_done()
-    assert events[-1].data["action"] == "escalate"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -259,14 +213,18 @@ async def test_digest_membership_and_resolution(
 ) -> None:
     """A scheduled digest remains accurate as its problems resolve across restart."""
     freezer.move_to(datetime(2026, 9, 25, 11, tzinfo=UTC))
-    config_data["entities"] = ["entity_id:sensor.observed", "entity_id:sensor.other"]
-    data = deepcopy(DEFAULT_POLICY)
-    data["timezone"] = "America/Chicago"
-    data["digests"] = {"morning": {"at": "08:00", "to": "owner"}}
-    data["rules"] = [
-        {"match": {}, "loudness": "digest", "digest": "morning", "remind_every": "1d"}
+    config_data["monitoring_policies"][0]["match"]["entity"] = [
+        "entity_id:sensor.observed",
+        "entity_id:sensor.other",
     ]
-    config_data["policy"] = data
+    config_data["notification_definitions"]["timezone"] = "America/Chicago"
+    config_data["monitoring_policies"][0]["notifications"] = [
+        {
+            "id": "morning",
+            "timing": {"mode": "report", "at": "08:00", "weekdays": list(range(7))},
+            "methods": ["test"],
+        }
+    ]
     hass.states.async_set("sensor.observed", "unavailable")
     hass.states.async_set("sensor.other", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -289,34 +247,6 @@ async def test_digest_membership_and_resolution(
     await hass.async_block_till_done()
     assert events[-1].data["action"] == "resolve"
     assert all(event.data["tag"] == tag for event in events)
-    assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-async def test_policy_change_withdraws_removed_route(
-    hass: HomeAssistant,
-    config_data: dict[str, Any],
-) -> None:
-    """Editing routing clears old tags and activates only the new recipient."""
-    hass.states.async_set("sensor.observed", "unavailable")
-    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    events = async_capture_events(hass, EVENT_NOTIFICATION)
-    await start_monitor(hass, entry)
-    data = {
-        "timezone": "UTC",
-        "recipients": {"backup": {"channels": ["phone"]}},
-        "rules": [{"match": {}, "loudness": "urgent", "to": "backup"}],
-    }
-    hass.config_entries.async_update_entry(
-        entry, options={**config_data, "policy": data}
-    )
-    assert await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done()
-    assert [(event.data["recipient"], event.data["action"]) for event in events] == [
-        ("owner", "open"),
-        ("owner", "resolve"),
-        ("backup", "summary"),
-    ]
-    assert events[-1].data["channels"] == ["phone"]
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -435,10 +365,10 @@ def test_summary_alerts_only_for_authorized_members() -> None:
     assert state.outbox[-1]["episodes"] == ["normal"]
 
 
-async def test_invalid_stored_policy_is_a_configuration_error(
+async def test_unsupported_stored_schema_is_a_configuration_error(
     hass: HomeAssistant,
 ) -> None:
-    """Malformed persisted YAML reports a configuration failure before monitoring."""
+    """A pre-policy test configuration fails visibly without resetting settings."""
     entry = MockConfigEntry(domain=DOMAIN, data={"policy": {"unexpected": True}})
     with pytest.raises(ConfigEntryError, match="Invalid Homeostatic configuration"):
         await async_setup_entry(hass, entry)

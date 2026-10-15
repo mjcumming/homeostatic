@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/initial-integration", "codex/pilot"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

@@ -2,7 +2,7 @@
 const titles = {nuheat: "NuHeat", denonavr: "Denon AVR", music_assistant: "Music Assistant"};
 const timeout = /\b(?:ConnectTimeoutError|ReadTimeoutError|ConnectTimeout|ReadTimeout|TimeoutException|TimeoutError)\b|\b(?:connection|request) timed out\b/i;
 
-export function integrationProblem(source, findings, localize = () => null, evidence = null, openProblem = true) {
+export function integrationProblem(source, findings, localize = () => null, evidence = null, openProblem = true, nodes = new Map()) {
   if (source?.kind !== "integration") return null;
   const finding = findings.find((item) => item.node_id === source.node_id || !item.node_id);
   const current = evidence?.current ?? finding ?? {reason: "unknown"};
@@ -58,22 +58,72 @@ export function integrationProblem(source, findings, localize = () => null, evid
       : "Check whether you can use the device or service directly. If you can, review its Home Assistant connection.";
   }
   const relatedFindings = openProblem ? findings.filter(item => item.node_id && item.node_id !== source.node_id && item.status !== "pass") : [];
+  const relatedEvidence = relatedSourceEvidence(relatedFindings, nodes);
   if (current.reason === "loaded" && relatedFindings.length) {
-    const count = new Set(relatedFindings.map(item => item.node_id)).size;
-    headline = `${count} related ${count === 1 ? "source needs" : "sources need"} attention`;
-    summary = `Home Assistant reports this integration loaded. This issue remains open for ${count === 1 ? "a related source" : `${count} related sources`}.`;
-    nextStep = "Review the affected sources below.";
+    headline = relatedEvidence.headline;
+    summary = `Home Assistant reports ${integration} loaded. ${relatedEvidence.unavailableOnly ? "Its monitored readings below are unavailable." : "Its related sources still need attention."}`;
+    nextStep = relatedEvidence.groups.every(group => group.deviceId) ? "Open an affected device to investigate its readings." : "Review the affected sources below.";
     tone = "uncertain";
-    progress = "Related sources need attention";
+    progress = "Checks need attention";
   }
-  return {headline, summary, nextStep, tone, progress, relatedFindings, timedOut, reported, missingDetail,
+  return {headline, summary, nextStep, tone, progress, relatedFindings, relatedEvidence, timedOut, reported, missingDetail,
     historical: Boolean(report && !errorState), reportedAt: report?.observed_at ?? null,
     currentReason: current.reason, observedAt: evidence?.current?.observed_at ?? null,
     integration, integrationUrl,
     integrationLabel: current.reason === "auth_required" ? "Sign in again" : domain === "denonavr" ? "Review receiver connection" : domain ? `Review ${integration} connection` : "Review connections",
-    needsAction: relatedFindings.length > 0 || !["loaded", "unload_in_progress"].includes(current.reason),
+    needsAction: !["loaded", "unload_in_progress"].includes(current.reason),
     logsUrl: domain ? `/config/logs?filter=${encodeURIComponent(domain)}` : null,
   };
+}
+
+
+const counted = (value, singular, plural = `${singular}s`) => `${value} ${value === 1 ? singular : plural}`;
+const evidenceDescriptions = {
+  all_unavailable:"All selected entities unavailable", some_unavailable:"Some selected entities unavailable",
+  unavailable:"Unavailable in Home Assistant", stale:"No recent availability evidence",
+  source_missing:"No current state found", value_unknown:"Value unknown",
+  incomplete_evidence:"Current availability not confirmed", restored_state:"Waiting for a fresh reading",
+};
+
+/** Resolve independent checks to source identities without changing issue membership. */
+export function relatedSourceEvidence(findings, nodes = new Map()) {
+  const members = new Map(), groups = new Map(), checks = new Set();
+  for (const finding of findings) {
+    if (!finding.node_id || finding.status === "pass") continue;
+    const binding = nodes.get(finding.node_id);
+    const id = binding?.monitoring_source || finding.node_id;
+    const canonical = nodes.get(id);
+    const source = canonical || binding;
+    const aliasLabel = source?.kind === "entity" ? ({climate:"Thermostat",sensor:"Sensor",binary_sensor:"Sensor",light:"Light",switch:"Switch"}[source.entity_id?.split(".")[0]] || "Entity") : "Source details unavailable";
+    const name = canonical?.name || (binding?.monitoring_source ? aliasLabel : source?.name) || "Source details unavailable";
+    if (!members.has(id)) members.set(id,{id,name,kind:source?.kind || "source",source,findings:[]});
+    const prefix = `${binding?.name || name}: `;
+    const message = finding.message?.startsWith(prefix) ? finding.message.slice(prefix.length) : finding.message;
+    const policy = binding?.monitoring_policy ? (canonical && binding.name?.startsWith(`${name} · `) ? binding.name.slice(name.length + 3) : binding.monitoring_policy.name || binding.monitoring_policy) : null;
+    const description = Object.hasOwn(evidenceDescriptions,finding.reason) ? evidenceDescriptions[finding.reason] : message || finding.reason?.replaceAll("_", " ") || "Current evidence missing";
+    members.get(id).findings.push({finding,policy,description});
+    checks.add(JSON.stringify([finding.node_id,finding.check_id || ""]));
+  }
+  for (const member of members.values()) {
+    const deviceId = ["device","entity"].includes(member.kind) ? member.source?.attributes?.device?.[0] : null;
+    const device = deviceId ? nodes.get(`device:${deviceId}`) : null;
+    const id = deviceId ? `device:${deviceId}` : member.id;
+    if (!groups.has(id)) groups.set(id,{
+      id,deviceId:deviceId || null,sourceId:device?.node_id || (member.kind === "device" ? member.id : null),
+      name:device?.name || (member.kind === "device" ? member.name : deviceId ? "Device details unavailable" : member.name),
+      kind:deviceId ? "device" : member.kind,members:[],
+    });
+    groups.get(id).members.push(member);
+  }
+  const rows = [...groups.values()].sort((a,b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  for (const group of rows) group.members.sort((a,b) => Number(b.kind === "device") - Number(a.kind === "device") || a.name.localeCompare(b.name));
+  const counts = {devices:rows.filter(group => group.kind === "device").length,
+    entities:[...members.values()].filter(member => member.kind === "entity").length,sources:members.size,checks:checks.size};
+  const unavailableOnly = members.size > 0 && [...members.values()].every(member => ["device","entity"].includes(member.kind) && member.findings.every(({finding}) => ["unavailable","all_unavailable","some_unavailable"].includes(finding.reason)));
+  const headline = unavailableOnly && rows.every(group => group.kind === "device")
+    ? `Unavailable readings from ${counted(counts.devices,"device")}`
+    : `${counted(counts.sources,"source")} ${counts.sources === 1 ? "needs" : "need"} attention`;
+  return {groups:rows,counts,unavailableOnly,headline};
 }
 
 

@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from typing import Any, cast
 
+from health_tree.delivery_groups import DeliveryGroup, DeliveryGroups
 from health_tree.types import Delivery, JSONValue, Loudness, Notification
 
 
@@ -17,6 +18,7 @@ class DeliveryState:
         self.outbox: list[dict[str, JSONValue]] = []
         self.summarized: set[str] = set()
         self.attempted: set[str] = set()
+        self.groups = DeliveryGroups()
 
     @property
     def episode_ids(self) -> set[str]:
@@ -26,7 +28,7 @@ class DeliveryState:
     def restore(self, data: dict[str, Any]) -> None:
         """Reject malformed delivery state before mutating it."""
         if (
-            set(data)
+            set(data) - {"delivery_groups"}
             not in (
                 {"sequence", "messages", "outbox", "summarized"},
                 {"sequence", "messages", "outbox", "summarized", "attempted"},
@@ -77,11 +79,15 @@ class DeliveryState:
             isinstance(item, str) for item in attempts
         ):
             raise ValueError("Invalid delivery attempts")
+        groups = DeliveryGroups()
+        if "delivery_groups" in data:
+            groups.restore(data["delivery_groups"])
         self.sequence = data["sequence"]
         self.messages = {key: dict(value) for key, value in messages.items()}
         self.outbox = [dict(value) for value in outbox]
         self.summarized = set(summarized)
         self.attempted = set(attempts)
+        self.groups = groups
 
     def snapshot(self) -> dict[str, Any]:
         """Return the adapter-owned durable state."""
@@ -91,7 +97,110 @@ class DeliveryState:
             "outbox": list(self.outbox),
             "summarized": sorted(self.summarized),
             "attempted": sorted(self.attempted),
+            "delivery_groups": self.groups.snapshot(),
         }
+
+    def record_group(
+        self,
+        update: DeliveryGroup,
+        contents: dict[tuple[str, str], dict[str, JSONValue]],
+        *,
+        resolve_channels: Callable[[tuple[str, ...]], tuple[str, ...]] | None = None,
+    ) -> None:
+        """Render the library's exact authorized members as one device message."""
+        group = f"device_{update.key}"
+        previous_members = {
+            key: payload
+            for key, payload in self.messages.items()
+            if payload.get("group") == group
+        }
+        previous = next(iter(previous_members.values()), None)
+        active = {
+            f"{member.recipient}:{member.episode_id}{self._route_suffix(member)}"
+            for member in update.members
+        }
+        for change in update.changes:
+            if not isinstance(change, Notification):
+                continue
+            key = f"{change.recipient}:{change.episode_id}{self._route_suffix(change)}"
+            if key not in active:
+                continue
+            prior = self.messages.get(key)
+            same_audience = prior is not None and prior.get("group") == group
+            old_channels = cast(
+                list[JSONValue],
+                prior.get("_target_channels", prior["channels"])
+                if prior is not None and same_audience
+                else [],
+            )
+            channels = (
+                old_channels
+                if change.silent and same_audience
+                else list(resolve_channels(change.channels))
+                if resolve_channels
+                else list(change.channels)
+            )
+            self.messages[key] = {
+                **contents[(change.episode_id, change.route)],
+                "recipient": change.recipient,
+                "route": change.route,
+                "channels": cast(list[JSONValue], channels),
+                "_target_channels": list(dict.fromkeys([*old_channels, *channels])),
+                "loudness": change.loudness.value,
+                "silent": change.silent,
+                "action": change.cause,
+                "digest": change.digest,
+                "previously_reported": change.previously_reported,
+                "group": group,
+                "tag": f"homeostatic_{self.entry_id}_{group}",
+            }
+            self.summarized.discard(key)
+            if prior is not None and prior.get("group") != group:
+                old_group = prior.get("group")
+                if old_group:
+                    self._group(str(old_group), "update", True, prior)
+                else:
+                    self.outbox = [
+                        item for item in self.outbox if item["tag"] != prior["tag"]
+                    ]
+                    self.enqueue(
+                        {
+                            **prior,
+                            "action": "resolve",
+                            "silent": True,
+                            "resolution": "replaced",
+                            "message": "Moved to device notification.",
+                        }
+                    )
+        for key in previous_members.keys() - active:
+            self.messages.pop(key, None)
+            self.summarized.discard(key)
+        alerting = [
+            change
+            for change in update.changes
+            if isinstance(change, Notification) and not change.silent
+        ]
+        resolution = next(
+            (
+                change.resolution
+                for change in reversed(update.changes)
+                if not isinstance(change, Notification)
+            ),
+            "replaced"
+            if any(
+                (str(item["episode_id"]), str(item.get("route", ""))) in contents
+                for item in previous_members.values()
+            )
+            else "notifications_disabled",
+        )
+        self._group(
+            group,
+            alerting[-1].cause if alerting else "update",
+            update.silent,
+            previous,
+            resolution,
+            alert_episodes={change.episode_id for change in alerting},
+        )
 
     def enqueue(self, payload: dict[str, JSONValue]) -> None:
         """Assign an id once, preserved if a crash replays the request."""
@@ -223,7 +332,7 @@ class DeliveryState:
             if not (
                 item["episode_id"] == delivery.episode_id
                 and item["recipient"] == delivery.recipient
-                and item.get("route", "") == getattr(delivery, "route", "")
+                and item.get("route", "") == delivery.route
             )
         ]
         if old_group:
@@ -242,8 +351,8 @@ class DeliveryState:
 
     @staticmethod
     def _route_suffix(delivery: Delivery) -> str:
-        """Keep legacy identities intact while separating independent assignments."""
-        route = getattr(delivery, "route", "")
+        """Distinguish independent routes while keeping their notification tags stable."""
+        route = delivery.route
         return f"_route_{route}" if route else ""
 
     def _group(
@@ -255,6 +364,7 @@ class DeliveryState:
         resolution: str = "replaced",
         *,
         alert_episode: str | None = None,
+        alert_episodes: set[str] | None = None,
     ) -> None:
         """Replace one summary when its authorized membership changes."""
         members = [
@@ -269,25 +379,39 @@ class DeliveryState:
         }
         if not silent and alert_episode is not None:
             alerting.add(alert_episode)
+        if not silent and alert_episodes:
+            alerting.update(alert_episodes)
         # Superseded unsent summaries cannot resurrect a removed member on replay.
         self.outbox = [item for item in self.outbox if item["tag"] != tag]
         if not members:
             assert previous is not None
+            standalone = group.startswith("device_") and str(
+                previous.get("notification_subject", "")
+            ).startswith("entity:")
             self.enqueue(
                 {
                     **previous,
                     "channels": previous.get("_target_channels", previous["channels"]),
-                    "episode_id": group,
+                    "episode_id": previous["episode_id"] if standalone else group,
                     "episodes": [],
                     "action": "resolve",
                     "silent": True,
                     "resolution": resolution,
-                    "message": "Summary cleared.",
+                    "message": "Monitoring ended."
+                    if resolution == "removed"
+                    else "Notifications disabled; the problem may still be open."
+                    if resolution == "notifications_disabled"
+                    else "Monitoring continues in another notification."
+                    if resolution == "replaced"
+                    else "All reported problems ended.",
                 }
             )
             return
         members.sort(key=lambda item: bool(item.get("previously_reported", False)))
         first = members[0]
+        standalone = group.startswith("device_") and str(
+            first.get("notification_subject", "")
+        ).startswith("entity:")
         noisy = [item for item in members if item["episode_id"] in alerting]
         history = list(
             dict.fromkeys(
@@ -318,16 +442,25 @@ class DeliveryState:
                 **first,
                 "channels": cast(list[JSONValue], channels),
                 "_target_channels": cast(list[JSONValue], history),
-                "episode_id": group,
-                "episodes": [item["episode_id"] for item in members],
+                "episode_id": first["episode_id"] if standalone else group,
+                "episodes": list(
+                    dict.fromkeys(str(item["episode_id"]) for item in members)
+                ),
+                "routes": list(
+                    dict.fromkeys(str(item.get("route", "")) for item in members)
+                ),
                 "action": action,
                 "silent": not noisy,
                 "_alerting": [item["episode_id"] for item in noisy],
                 "loudness": max(
                     Loudness(str(item["loudness"])) for item in noisy or members
                 ).value,
-                "title": f"Homeostatic: {len(members)} open problems",
-                "message": "\n".join(
+                "title": first["notification_subject_name"]
+                if group.startswith("device_")
+                else f"Homeostatic: {len(members)} open problems",
+                "message": first["message"]
+                if standalone and len(members) == 1
+                else "\n".join(
                     (
                         (
                             "Still outstanding: "
@@ -351,12 +484,16 @@ class DeliveryState:
                         }
                     ),
                 ),
-                "cause": None,
+                "cause": first.get("cause")
+                if standalone and len(members) == 1
+                else None,
             }
         )
 
     def deactivate(self, *, routes: set[str] | None = None) -> None:
         """Withdraw selected requests without claiming that their problems recovered."""
+        for update in self.groups.deactivate(routes=routes):
+            self.record_group(update, {})
         self.outbox = [
             payload
             for payload in self.outbox

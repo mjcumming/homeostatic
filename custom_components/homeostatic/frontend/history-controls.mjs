@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=73";
-import {UPS_CHECK_NAMES} from "./ups.mjs?v=73";
+import {escapeHtml as esc} from "./model.mjs?v=74";
+import {UPS_CHECK_NAMES} from "./ups.mjs?v=74";
 
 const date = (value) => value ? new Date(value).toLocaleString() : "Unknown";
 export function observedRange(start, end) {
@@ -20,7 +20,7 @@ export function observedRange(start, end) {
 export const RESOLUTIONS = {
   cleared: ["Cleared", ""],
   removed: ["Monitoring ended", "This source left monitoring. Recovery was not established."],
-  absorbed: ["Joined another problem", "This episode became part of another problem. Recovery was not established."],
+  absorbed: ["Joined another problem", "This problem became part of another problem. Recovery was not established."],
 };
 
 export function historyPage(history, query = "", resolution = "", page = 0) {
@@ -69,7 +69,7 @@ export function controlAllowed(current, admin, draft) {
 
 export const historyName = (item) => [item.source?.name, item.episode.labels?.name]
   .find((name) => name && name !== item.episode.anchor) || "Name not recorded";
-const historyRows = (rows) => rows.map((item) => `<button type="button" class="row" data-history="${esc(item.episode.episode_id)}"><span class="row-main">${esc(historyName(item))}<small>${esc(RESOLUTIONS[item.resolution]?.[0] ?? "Episode ended")} · ${esc(date(item.resolved_at))}</small></span></button>`).join("");
+const historyRows = (rows) => rows.map((item) => `<button type="button" class="row" data-history="${esc(item.episode.episode_id)}"><span class="row-main">${esc(historyName(item))}<small>${esc(RESOLUTIONS[item.resolution]?.[0] ?? "Problem ended")} · ${esc(date(item.resolved_at))}</small></span></button>`).join("");
 
 export function historyAccount(item) {
   const finding = item.episode.reasons?.find((reason) => reason.check_id !== null) ?? item.episode.reasons?.[0];
@@ -136,7 +136,11 @@ export class DashboardTools {
     card.shadowRoot.append(this.dialog);
     this.body = this.dialog.querySelector(".dialog-body");
     this.dialog.addEventListener("close", () => {if (!this.dialog.open) this.clearSelection();});
-    card.shadowRoot.addEventListener("click", (event) => this.clicked(event));
+    card.shadowRoot.addEventListener("click", (event) => {
+      const previous=card.navigation?.capture();
+      this.clicked(event);
+      card.navigation?.finish(previous);
+    });
     card.shadowRoot.addEventListener("input", (event) => this.input(event));
     this.dialog.addEventListener("submit", (event) => {event.preventDefault(); this.immediate ? this.executeImmediate() : this.execute();});
   }
@@ -161,14 +165,14 @@ export class DashboardTools {
 
   historyNote(history) {
     if (!history) return "Resolved history is unavailable from this integration version.";
-    return `Up to ${esc(history.retention.max_episodes)} ended episodes within ${esc(history.retention.max_age_days)} days. Collection began ${esc(date(history.started_at))}. Earlier history is not reconstructed.`;
+    return `Up to ${esc(history.retention.max_episodes)} ended problems within ${esc(history.retention.max_age_days)} days. Collection began ${esc(date(history.started_at))}. Earlier history is not reconstructed.`;
   }
 
   historyPanel(data) {
     const history = data.inventory.resolved_history;
     const result = historyPage(history, this.query, this.resolution, this.page);
     this.page = result.page;
-    return `<section class="panel"><div class="panel-head"><h2>Ended problems</h2></div><div class="body"><p class="small">${this.historyNote(history)}</p><div class="tool-fields"><label>Search history<input type="search" data-history-search value="${esc(this.query)}"></label><label>Outcome<select data-history-filter><option value="">All outcomes</option>${Object.entries(RESOLUTIONS).map(([value, [label]]) => `<option value="${value}"${value === this.resolution ? " selected" : ""}>${label}</option>`).join("")}</select></label></div></div>${historyRows(result.rows)}${!result.total ? '<div class="body"><p>No matching ended problems in the retained history.</p></div>' : ""}<div class="body actions"><button type="button" class="button" data-tool="previous"${result.page === 0 ? " disabled" : ""}>Previous</button><span role="status">Page ${result.page + 1} of ${result.pages} · ${result.total} episodes</span><button type="button" class="button" data-tool="next"${result.page + 1 === result.pages ? " disabled" : ""}>Next</button></div></section>`;
+    return `<section class="panel"><div class="panel-head"><h2>Ended problems</h2></div><div class="body"><p class="small">${this.historyNote(history)}</p><div class="tool-fields"><label>Search history<input type="search" data-history-search value="${esc(this.query)}"></label><label>Outcome<select data-history-filter><option value="">All outcomes</option>${Object.entries(RESOLUTIONS).map(([value, [label]]) => `<option value="${value}"${value === this.resolution ? " selected" : ""}>${label}</option>`).join("")}</select></label></div></div>${historyRows(result.rows)}${!result.total ? '<div class="body"><p>No matching ended problems in the retained history.</p></div>' : ""}<div class="body actions"><button type="button" class="button" data-tool="previous"${result.page === 0 ? " disabled" : ""}>Previous</button><span role="status">Page ${result.page + 1} of ${result.pages} · ${result.total} problems</span><button type="button" class="button" data-tool="next"${result.page + 1 === result.pages ? " disabled" : ""}>Next</button></div></section>`;
   }
 
   detailButtons(source, episode, data) {
@@ -232,16 +236,16 @@ export class DashboardTools {
     this.card.detailSequence++;
     this.card.dialog.close();
     this.historyId = id;
-    this.dialog.querySelector("h2").textContent = "Ended episode";
+    this.dialog.querySelector("h2").textContent = "Ended problem";
     if (current.status !== "current") {
       this.body.innerHTML = "<p>History is unavailable while monitoring is disconnected.</p>";
     } else {
       const history = current.data.inventory.resolved_history;
       const item = history?.episodes.find((row) => row.episode.episode_id === id);
-      if (!item) this.body.innerHTML = "<p>This episode is no longer in retained history.</p>";
+      if (!item) this.body.innerHTML = "<p>This problem is no longer in retained history.</p>";
       else {
         this.dialog.querySelector("h2").textContent = historyName(item);
-        const [label] = RESOLUTIONS[item.resolution] ?? ["Episode ended"];
+        const [label] = RESOLUTIONS[item.resolution] ?? ["Problem ended"];
         const [reported, ending, limit] = historyAccount(item);
         const open = current.data.inventory.episodes.some((row) => row.episode_id === item.absorbed_into);
         const retained = history.episodes.some((row) => row.episode.episode_id === item.absorbed_into);

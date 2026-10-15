@@ -10,11 +10,11 @@ import {emptyNotificationDefinitions,newMonitoringPolicy} from "../../custom_com
 const card=document.querySelector("homeostatic-card"),data=monitoringExample(),feedback=document.querySelector("#feedback");
 const definitions=emptyNotificationDefinitions("America/Chicago");
 definitions.methods.phone={name:"Owner's phone",mode:"fixed",destinations:["phone:owner"]};
-const reserve={...newMonitoringPolicy([],"ups_reserve"),id:"reserve",name:"Office UPS reserve",enabled:true,parameters:{charge_low:10,charge_clear:20},notifications:[{id:"mains",when:"mains",schedule:"morning",methods:["phone"]},{id:"backup",when:"backup",schedule:"acknowledge",methods:["phone"]}]};
-const sources=["ups_power","ups_reserve"].map(check=>({node_id:check,name:`Office UPS · ${check==="ups_power"?"Backup power":"Low reserve"}`,kind:"ups",check_id:check,ups_name:"Office UPS",ups_platform:"nut",ups_entities:[["status","sensor.office_status"],["charge","sensor.office_charge"],["runtime","sensor.office_runtime"]],attributes:{kind:["ups"],device:["office"],integration_domain:["nut"]},watched:true,disabled:false,requirements:[],attached_by:["reserve"],excluded_by:[],monitoring_policy:check==="ups_reserve"?"reserve":"power"}));
+const reserve={...newMonitoringPolicy([],"ups_reserve"),id:"reserve",name:"Office UPS reserve",enabled:true,parameters:{charge_low:10,charge_clear:20},notifications:[{id:"mains",when:"mains",timing:{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]},methods:["phone"]},{id:"backup",when:"backup",timing:{mode:"acknowledge",remind_every:3600},methods:["phone"]}]};
+const sources=["ups_power","ups_reserve"].map(check=>({node_id:check,name:`Office UPS · ${check==="ups_power"?"Backup power":"Low reserve"}`,kind:"ups",check_id:check,ups_name:"Office UPS",ups_platform:"nut",ups_entities:[["status","sensor.office_status"],["charge","sensor.office_charge"],["runtime","sensor.office_runtime"]],attributes:{kind:["ups"],device:["office"],integration_domain:["nut"]},watched:true,disabled:false,requirements:[],attached_by:["reserve"],monitoring_policy:check==="ups_reserve"?"reserve":"power"}));
 const episodes=sources.map(source=>({episode_id:`issue:${source.node_id}`,anchor:source.node_id,form:"root",status:"warn",importance:"normal",reasons:[],recorded:[source.node_id],impact:[source.node_id],labels:{},annotations:{},opened_at:"2026-10-13T12:00:00Z",updated_at:"2026-10-13T12:00:00Z",due_at:null}));
 data.inventory.nodes=sources;data.inventory.catalog.candidates=sources;data.devices=[{id:"office",name:"Office UPS"}];data.functions=[];data.inventory.operator_controls=[];data.inventory.attention_controls_supported=true;data.inventory.notification_requests=[];
-const settings={monitoring_policies:[reserve],notification_definitions:definitions,timings:{},notifications:false,consumer:null,policy:{timezone:"America/Chicago",recipients:{},rules:[]},reporting:null,simple_notifications:null};
+const settings={monitoring_policies:[reserve],notification_definitions:definitions,timings:{},notifications:false,consumer:null};
 card._hass={user:{is_admin:true},states:{},localize(){return null;},async callWS(request){
   if(request.type==="homeostatic/configuration")return card.configuration;
   if(request.type==="homeostatic/node") {
@@ -23,7 +23,7 @@ card._hass={user:{is_admin:true},states:{},localize(){return null;},async callWS
   }
   throw Error("Unexpected request in isolated UPS fixture: "+request.type);
 }};
-card.current={status:"current",data};card.configuration={revision:"fixture",rules:[],settings,areas:[],floors:[],labels:[],notification_people:[],delivery_targets:[]};card.configDraft=[];card.settingsDraft=structuredClone(settings);card.page="problems";
+card.current={status:"current",data};card.configuration={revision:"fixture",settings,areas:[],floors:[],labels:[],notification_people:[],delivery_targets:[]};card.settingsDraft=structuredClone(settings);card.page="problems";
 function mode(backup) {
   data.inventory.episodes=backup?episodes:[episodes[1]];
   data.inventory.ups_status=Object.fromEntries(sources.map(source=>[source.node_id,{status:source.check_id==="ups_power"&&!backup?"pass":"warn",reason:source.check_id==="ups_power"?(backup?"ups_on_battery":"ups_on_mains"):(backup?"ups_reserve_critical":"ups_reserve_low"),message:source.check_id==="ups_power"?(backup?"Running on backup power":"Mains power reported"):(backup?"Low reserve on backup power":"Mains restored; reserve still low"),observed_at:"2026-10-13T12:00:00Z",evidence:{power_mode:backup?"backup":"mains",readings:{charge:8,runtime:3}}}]));
@@ -40,17 +40,18 @@ document.querySelector("#run").onclick=()=>{
   try {
     card.page="problems";mode(true);
     const root=card.shadowRoot,expect=(value,message)=>{if(!value)throw Error(message);};
-    expect(root.querySelectorAll(".ups-issue-group").length===1,"UPS equipment must be grouped");
-    expect(root.querySelector(".ups-issue-group strong").textContent.includes("Low reserve"),"Urgent reserve must lead");
-    const details=root.querySelector(".ups-issue-group details");details.open=true;
+    expect(root.querySelectorAll(".issue-group").length===1,"UPS conditions must share one investigation group");
+    root.querySelector("[data-issue-group]").click();
+    expect(root.textContent.includes("Low reserve on backup power"),"Reserve condition must remain visible");
+    expect(root.querySelectorAll("[data-episode]").length===2,"Each UPS condition must retain its issue action");
     mode(false);
-    expect(root.querySelector(".ups-issue-group details").open,"Live updates must retain disclosure");
+    expect(root.querySelector("[data-issue-group]").getAttribute("aria-expanded")==="true","Live updates must retain the expanded group");
     expect(root.textContent.includes("Mains restored; reserve still low"),"Partial recovery must remain visible");
     card.page="policies";card.definitionSelection={kind:"policies",id:"reserve"};card.render();
     expect(root.querySelectorAll('[data-row-field="when"]').length===2,"Both reserve modes must be visible");
     expect(root.querySelector('[data-definition-field="parameters:charge_clear"]'),"Recovery threshold must be editable");
     expect(root.querySelector(".definition-editor").scrollWidth<=root.querySelector(".definition-editor").clientWidth+1,"Editor must fit its viewport");
-    feedback.textContent="PASS: grouped issues, urgent reserve, partial recovery, retained disclosure and both mode schedules.";
+    feedback.textContent="PASS: grouped issues, independent conditions, partial recovery, retained group and both notification modes.";
   }catch(error){feedback.textContent="FAIL: "+error.message;}
 };
 window.addEventListener("error",event=>{feedback.textContent="ERROR: "+event.message;});

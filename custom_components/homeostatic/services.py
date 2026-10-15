@@ -35,7 +35,6 @@ SERVICES = (
     "impact",
     "coverage",
     "rollup",
-    "preview_rules",
 )
 
 
@@ -95,8 +94,6 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
                 )
         elif service == "preview_policy":
             fields = {vol.Required("policy"): dict}
-        elif service == "preview_rules":
-            fields = {vol.Required("rules"): list}
         elif service in {"explain", "impact"}:
             fields = {vol.Required("node_id"): cv.string}
         elif service in {"readiness", "rollup"}:

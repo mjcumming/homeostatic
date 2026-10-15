@@ -1,6 +1,7 @@
 # ADR 0056: Deliver through Home Assistant methods with optional presence selection
 
-**Status:** Accepted; implemented in the working tree with isolated transport validation; live-provider trials pending
+**Status:** Accepted
+**Implementation status:** See the [roadmap](../roadmap.md#current-work).
 **Date:** 2026-10-12
 
 **Later decision:** Required preview-before-test UI and generic destination presentation is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.

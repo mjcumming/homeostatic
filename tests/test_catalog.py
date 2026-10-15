@@ -9,6 +9,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.catalog import Source, entry_observation
 from custom_components.homeostatic.config import Settings
+from tests.policy_helpers import current_config
 
 NOW = datetime(2026, 9, 25, 8, tzinfo=UTC)
 SOURCE = Source(
@@ -32,7 +33,9 @@ SOURCE = Source(
 def test_entry_states(state: ConfigEntryState, status: Status) -> None:
     """Transient states do not claim a working or dead physical device."""
     entry = MockConfigEntry(state=state)
-    result = entry_observation(SOURCE, entry, NOW, None, Settings.from_data({}), False)
+    result = entry_observation(
+        SOURCE, entry, NOW, None, Settings.from_data(current_config()), False
+    )
     assert result.status is status
     assert result.reason == state.value
 
@@ -46,7 +49,7 @@ def test_retry_hold(elapsed: int, status: Status) -> None:
         entry,
         NOW,
         NOW - timedelta(seconds=elapsed),
-        Settings.from_data({}),
+        Settings.from_data(current_config()),
         False,
     )
     assert result.status is status
@@ -57,7 +60,9 @@ def test_disabled_entry() -> None:
     entry = MockConfigEntry(
         state=ConfigEntryState.LOADED, disabled_by=ConfigEntryDisabler.USER
     )
-    result = entry_observation(SOURCE, entry, NOW, None, Settings.from_data({}), False)
+    result = entry_observation(
+        SOURCE, entry, NOW, None, Settings.from_data(current_config()), False
+    )
     assert result.status is Status.UNKNOWN
     assert result.reason == "disabled"
 
@@ -65,14 +70,18 @@ def test_disabled_entry() -> None:
 def test_reauthentication() -> None:
     """An explicit pending reauth overrides the loaded lifecycle state."""
     entry = MockConfigEntry(state=ConfigEntryState.LOADED)
-    result = entry_observation(SOURCE, entry, NOW, None, Settings.from_data({}), True)
+    result = entry_observation(
+        SOURCE, entry, NOW, None, Settings.from_data(current_config()), True
+    )
     assert result.status is Status.FAIL
     assert result.reason == "auth_required"
 
 
 def test_missing_entry() -> None:
     """A deleted selection remains an unknown requirement."""
-    result = entry_observation(SOURCE, None, NOW, None, Settings.from_data({}), False)
+    result = entry_observation(
+        SOURCE, None, NOW, None, Settings.from_data(current_config()), False
+    )
     assert result.status is Status.UNKNOWN
     assert result.reason == "source_missing"
 
@@ -160,6 +169,8 @@ def test_reported_entry_error(
         disabled_by=disabled,
         data={"password": "must-not-be-exposed"},
     )
-    result = entry_observation(SOURCE, entry, NOW, None, Settings.from_data({}), reauth)
+    result = entry_observation(
+        SOURCE, entry, NOW, None, Settings.from_data(current_config()), reauth
+    )
     assert result.message == f"Controller: {expected}"
     assert "must-not-be-exposed" not in str(result)

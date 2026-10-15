@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Source detail scenario</title>
+<style>
+:root{--primary-text-color:#182a34;--secondary-text-color:#536575;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--divider-color:#dce4e9;--primary-color:#007eab;color-scheme:light}
+:root[data-theme="dark"]{--primary-text-color:#e4e8ec;--secondary-text-color:#aab8c5;--primary-background-color:#10171e;--card-background-color:#18232d;--secondary-background-color:#263744;--divider-color:#41505c;--primary-color:#57c5ef;color-scheme:dark}
+body{margin:0;padding:20px;font:14px Arial,sans-serif;background:var(--primary-background-color);color:var(--primary-text-color)}
+.fixture-controls{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:0 auto 18px;max-width:1400px}
+.fixture-controls label{display:flex;gap:8px;align-items:center}.fixture-controls select{padding:8px}
+homeostatic-card{display:block;max-width:1400px;margin:auto}#result,#action{max-width:1400px;margin:12px auto}
+</style></head><body>
+<div class="fixture-controls">
+<label>Page <select id="view"><option value="device">Device</option><option value="entity">Entity</option></select></label>
+<label>Evidence <select id="evidence"><option value="restored">No longer provided</option><option value="mixed">Unavailable, no provider and available</option><option value="unknown">Available with no value</option><option value="available">Current values</option><option value="missing">Missing states</option></select></label>
+<label><input id="disabled" type="checkbox">Disable selected source</label>
+<label>Theme <select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+<label><input id="narrow" type="checkbox">Narrow layout</label>
+</div>
+<homeostatic-card></homeostatic-card><p id="result" role="status"></p><p id="action" role="status"></p>
+<script type="module">
+import {styles} from "../../custom_components/homeostatic/frontend/styles.mjs";
+import {sourcesBrowser} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
+import {DEVICE_ID,sourceDetailsFixture} from "./source-details-fixture.mjs";
+
+const params=new URLSearchParams(location.search),host=document.querySelector("homeostatic-card"),root=host.attachShadow({mode:"open"});
+const inputs=Object.fromEntries(["view","evidence","theme","narrow","disabled"].map(id=>[id,document.getElementById(id)]));
+for(const id of ["view","evidence","theme"])inputs[id].value=params.get(id)||inputs[id].value;
+inputs.narrow.checked=params.has("narrow");
+const states={restored:["restored","restored","restored"],mixed:["unavailable","restored","72"],unknown:["unknown","72","49"],available:["72","49","71"],missing:["missing","missing","missing"]};
+let card;
+function verify() {
+  const heading=root.querySelector(".source-heading"),body=root.querySelector(".source-body"),technical=root.querySelector(".source-technical"),checks=[
+    inputs.disabled.checked&&!card.sourcesShowDisabled||Boolean(root.querySelector(".source-actions a[href]")),
+    inputs.disabled.checked&&!card.sourcesShowDisabled||Boolean(technical?.querySelector(".source-updated"))&&!technical.open,
+    !heading?.textContent.includes("Homeostatic updated"),
+    !body?.textContent.includes("Observed "),
+    !body?.textContent.includes("Restored state"),
+    !body?.textContent.includes("Waiting for a current Home Assistant state"),
+    inputs.disabled.checked&&!card.sourcesShowDisabled||root.querySelectorAll(".source-policy").length>0,
+    !inputs.disabled.checked||!card.sourcesShowDisabled||body?.textContent.includes("Monitoring paused while disabled. Saved monitoring choices resume when re-enabled."),
+  ];
+  document.querySelector("#result").textContent=checks.every(Boolean)?"PASS: source title, evidence and policy details":"FAIL: source detail scenario";
+}
+function render() {
+  document.documentElement.dataset.theme=inputs.theme.value;
+  host.style.width=inputs.narrow.checked?"360px":"";
+  card.sourcesMobileDetail=inputs.narrow.checked;
+  root.innerHTML=`<style>${styles}</style>${sourcesBrowser(card)}`;
+  verify();
+}
+function reset() {card=sourceDetailsFixture(inputs.view.value,states[inputs.evidence.value]);const id=card.sourcesSelection.slice(7);card.current.data.inventory.nodes.filter(item=>item.node_id===id||item.monitoring_source===id).forEach(item=>item.disabled=inputs.disabled.checked);render();}
+root.addEventListener("change",event=>{if(event.target.matches("[data-sources-disabled]")){card.sourcesShowDisabled=event.target.checked;render();}});
+for(const input of Object.values(inputs))input.addEventListener("change",reset);
+root.addEventListener("click",event=>{
+  const link=event.target.closest("a[href]");
+  if(link){event.preventDefault();document.querySelector("#action").textContent=`Fixture navigation: ${link.getAttribute("href")}`;return;}
+  const toggle=event.target.closest("[data-sources-toggle]");
+  if(toggle){const id=toggle.dataset.sourcesToggle;card.sourcesExpanded.has(id)?card.sourcesExpanded.delete(id):card.sourcesExpanded.add(id);render();return;}
+  const selection=event.target.closest("[data-sources-select],[data-source-link]");
+  if(selection){
+    const id=selection.dataset.sourceLink||selection.dataset.sourcesSelect.replace(/^source:/,"");
+    const all=sourceDetailsFixture("device",states[inputs.evidence.value]);
+    if(id===DEVICE_ID){inputs.view.value="device";card=all;}
+    else {
+      const member=all.sourceDetail.members.find(item=>item.node_id===id);
+      if(!member)return;
+      inputs.view.value="entity";card=sourceDetailsFixture("entity",states[inputs.evidence.value]);
+      card.sourcesSelection=`source:${id}`;card.sourceDetail={...card.sourceDetail,nodeId:id,members:[member],unavailable_count:Number(member.state==="unavailable"&&!member.restored),unknown_count:Number(member.restored||member.state==="missing")};
+    }
+    render();return;
+  }
+  const policy=event.target.closest("[data-definition-id]");
+  if(policy)document.querySelector("#action").textContent=`Fixture policy: ${policy.dataset.definitionId}`;
+});
+reset();
+</script></body></html>

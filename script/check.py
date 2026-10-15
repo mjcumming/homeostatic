@@ -34,18 +34,10 @@ def main() -> None:
         (
             "node",
             "--test",
-            "tests/frontend/battery.test.mjs",
-            "tests/frontend/vacuum.test.mjs",
-            "tests/frontend/ups.test.mjs",
-            "tests/frontend/model.test.mjs",
-            "tests/frontend/reporting.test.mjs",
-            "tests/frontend/reusable-editors.test.mjs",
-            "tests/frontend/delivery-picker.test.mjs",
-            "tests/frontend/source-settings.test.mjs",
-            "tests/frontend/save-flow.test.mjs",
-            "tests/frontend/source-history.test.mjs",
-            "tests/frontend/notification-navigation.test.mjs",
-            "tests/frontend/readme-demo.test.mjs",
+            *(
+                str(path.relative_to(root))
+                for path in sorted((root / "tests/frontend").glob("*.test.mjs"))
+            ),
         ),
     ):
         result = subprocess.run(command, cwd=root, check=False)

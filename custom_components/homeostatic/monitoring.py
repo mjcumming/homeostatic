@@ -38,20 +38,27 @@ class MonitoringPolicy:
     parameters: Mapping[str, Any]
     enabled: bool
     notifications: tuple[dict[str, Any], ...]
+    excluded_sources: tuple[str, ...] = ()
 
-    def matches(self, metadata: Attributes) -> bool:
-        """Apply the same exact group selection semantics as catalog rules."""
+    def matches(self, metadata: Attributes, *, source_id: str | None = None) -> bool:
+        """Apply positive scope, registry eligibility, and exact source exclusions."""
         return CatalogRule(
-            id=self.id, action="attach", match=self.match, enabled=self.enabled
-        ).matches(metadata)
+            id=self.id,
+            match=self.match,
+            checks=(self.check,),
+            enabled=self.enabled,
+            excluded_sources=self.excluded_sources,
+        ).matches(metadata, source_id=source_id)
 
-    def detection_key(self) -> str:
-        """Identify detection edits without including names or delivery choices."""
+    def detection_key(self, *, member_exclusions: tuple[str, ...] = ()) -> str:
+        """Identify detection edits affecting this check's selected evidence."""
         payload = {
             "check": self.check,
             "match": dict(self.match),
             "parameters": dict(self.parameters),
         }
+        if member_exclusions:
+            payload["excluded_sources"] = member_exclusions
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[
             :16
         ]
@@ -66,6 +73,11 @@ class MonitoringPolicy:
             "parameters": dict(self.parameters),
             "enabled": self.enabled,
             "notifications": [dict(row) for row in self.notifications],
+            **(
+                {"excluded_sources": list(self.excluded_sources)}
+                if self.excluded_sources
+                else {}
+            ),
         }
 
 
@@ -84,6 +96,7 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
             "parameters",
             "enabled",
             "notifications",
+            "excluded_sources",
         }:
             raise ValueError("Unknown monitoring policy field")
         identity, name, check = row.get("id"), row.get("name"), row.get("check")
@@ -119,6 +132,7 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
             parameters = {"threshold": float(threshold)}
         elif parameters:
             raise ValueError("This check has no configurable detection parameters")
+        excluded = parse_excluded_sources(row.get("excluded_sources", []))
         enabled = row.get("enabled", False)
         if type(enabled) is not bool:
             raise ValueError("Monitoring enabled must be boolean")
@@ -144,7 +158,35 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
                 parameters=parameters,
                 enabled=enabled,
                 notifications=tuple(notifications),
+                excluded_sources=excluded,
             )
         )
         ids.add(identity)
     return tuple(result)
+
+
+def parse_excluded_sources(value: object) -> tuple[str, ...]:
+    """Validate and normalize canonical policy exclusion identities."""
+    if not isinstance(value, list) or any(
+        not isinstance(source, str)
+        or not source.startswith(
+            (
+                "entry:",
+                "device:",
+                "entity:registry:",
+                "entity:entity_id:",
+                "battery:registry:",
+                "battery:entity_id:",
+                "vacuum:registry:",
+                "vacuum:entity_id:",
+                "ups:",
+                "repair:",
+                "broken_automation:",
+            )
+        )
+        or not source.rsplit(":", 1)[-1]
+        or any(character.isspace() for character in source)
+        for source in value
+    ):
+        raise ValueError("Choose canonical source identities to exclude")
+    return tuple(sorted(set(value)))

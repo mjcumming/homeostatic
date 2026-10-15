@@ -1,7 +1,7 @@
 """Delivery discovery scenarios use provider identity and stable saved routes."""
 
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -109,7 +109,11 @@ def test_voice_discovery_groups_speakers_and_keeps_saved_unavailable_routes(
         speaker.entity_id, "off", {"friendly_name": "Kitchen speaker"}
     )
     hass.services.async_register("tts", "speak", AsyncMock())
-    targets = notification_routes.delivery_targets(hass)
+    targets = [
+        row
+        for row in notification_routes.delivery_targets(hass)
+        if row["type"] == "voice"
+    ]
     assert {row["destination_id"] for row in targets} == {speaker.id}
     assert {row["provider_name"] for row in targets} == {"Local speech", "Cloud speech"}
     assert all(
@@ -123,7 +127,11 @@ def test_voice_discovery_groups_speakers_and_keeps_saved_unavailable_routes(
     hass.states.async_set(
         speaker.entity_id, "unavailable", {"friendly_name": "Kitchen speaker"}
     )
-    unavailable = notification_routes.delivery_targets(hass)
+    unavailable = [
+        row
+        for row in notification_routes.delivery_targets(hass)
+        if row["type"] == "voice"
+    ]
     assert {row["channel"] for row in unavailable} == {
         row["channel"] for row in targets
     }
@@ -165,3 +173,93 @@ async def test_generic_notification_saved_route_sends_without_a_phone_target(
         await notification_routes.async_send(
             hass, "service:living_room", title="Test", message="Hello", tag="test"
         )
+
+
+@pytest.mark.parametrize(
+    "channels",
+    [
+        pytest.param([], id="empty"),
+        pytest.param(["method:phone"], id="reusable-method"),
+        pytest.param(["event:custom"], id="external-consumer"),
+        pytest.param(["method:phone", "service:messages"], id="indirect-routes"),
+    ],
+)
+def test_no_direct_destinations_skips_discovery(
+    hass: HomeAssistant, channels: list[str]
+) -> None:
+    """Policies without directly reported destinations do not scan HA providers."""
+    policy = {"recipients": {"recipient": {"channels": channels}}}
+    with patch.object(
+        notification_routes,
+        "destinations",
+        side_effect=AssertionError("No direct destination needs discovery"),
+    ):
+        assert notification_routes.unavailable_destinations(hass, policy) == []
+
+
+def test_mixed_direct_destinations_keep_live_availability(
+    hass: HomeAssistant,
+) -> None:
+    """Indirect channels do not hide missing direct targets or cache their recovery."""
+    policy = {
+        "recipients": {
+            "first": {
+                "channels": [
+                    "method:shared",
+                    "phone:chosen",
+                    "notify:chosen",
+                    "phone:missing",
+                ]
+            },
+            "second": {"channels": ["phone:chosen", "service:messages"]},
+        }
+    }
+    available = [
+        Destination(
+            channel=channel, name="Synthetic target", user_id=None, available=True
+        )
+        for channel in ("phone:chosen", "notify:chosen")
+    ]
+    unavailable = [
+        Destination(
+            channel=channel, name="Synthetic target", user_id=None, available=False
+        )
+        for channel in ("phone:chosen", "notify:chosen", "notify:unselected")
+    ]
+    with patch.object(
+        notification_routes,
+        "destinations",
+        side_effect=[available, unavailable, available],
+    ) as discovery:
+        assert notification_routes.unavailable_destinations(hass, policy) == [
+            "phone:missing"
+        ]
+        assert notification_routes.unavailable_destinations(hass, policy) == [
+            "notify:chosen",
+            "phone:chosen",
+            "phone:missing",
+        ]
+        assert notification_routes.unavailable_destinations(hass, policy) == [
+            "phone:missing"
+        ]
+    assert discovery.call_count == 3
+
+
+def test_direct_notify_destination_tracks_state_and_disablement(
+    hass: HomeAssistant,
+) -> None:
+    """Actual notify registry and state changes remain visible on each read."""
+    registry = er.async_get(hass)
+    entity = registry.async_get_or_create("notify", "test", "saved_target")
+    channel = f"notify:{entity.id}"
+    policy = {"recipients": {"recipient": {"channels": [channel, "method:shared"]}}}
+    hass.states.async_set(entity.entity_id, "unknown")
+    assert notification_routes.unavailable_destinations(hass, policy) == []
+    hass.states.async_set(entity.entity_id, "unavailable")
+    assert notification_routes.unavailable_destinations(hass, policy) == [channel]
+    hass.states.async_set(entity.entity_id, "unknown")
+    assert notification_routes.unavailable_destinations(hass, policy) == []
+    registry.async_update_entity(
+        entity.entity_id, disabled_by=er.RegistryEntryDisabler.USER
+    )
+    assert notification_routes.unavailable_destinations(hass, policy) == [channel]

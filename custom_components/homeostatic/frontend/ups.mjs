@@ -1,4 +1,4 @@
-import {escapeHtml as esc, sourceMap} from "./model.mjs?v=73";
+import {escapeHtml as esc} from "./model.mjs?v=74";
 
 export const UPS_CHECK_NAMES = {
   ups_power:"Backup power", ups_reserve:"Low reserve",
@@ -24,33 +24,6 @@ export function upsProblem(source,status,hasEpisode=true) {
   return {headline,context:"UPS",tone:normal?(hasEpisode?"recovering":"neutral"):reason==="ups_evidence_missing"?"uncertain":"failure",currentReason:reason,nextStep,deviceUrl:device?`/config/devices/device/${encodeURIComponent(device)}`:null,summary:[numbers.join(" · "),recovery].filter(Boolean).join(" "),
     readings:numbers.join(" · "),mode:mode==="backup"?"Running on backup power":mode==="mains"?"Mains power reported":"Power mode unknown",
     runtime:readings.runtime,condition:UPS_CHECK_NAMES[source.check_id]||"UPS condition"};
-}
-
-/** Group presentation while retaining condition-specific issue controls. */
-export function groupedUpsIssues(data,episodes,renderIssue) {
-  const sources=sourceMap(data),groups=new Map(),items=[];
-  for(const episode of episodes) {
-    const source=sources.get(episode.anchor);
-    if(source?.kind!=="ups"){items.push({episode});continue;}
-    const device=source.attributes?.device?.[0]||source.node_id;
-    if(!groups.has(device)){const group={device,name:source.ups_name||source.name,episodes:[]};groups.set(device,group);items.push(group);}
-    groups.get(device).episodes.push(episode);
-  }
-  const priority=episode=>{
-    const observed=data.inventory.ups_status?.[episode.anchor];
-    if(observed?.status==="pass")return 5;
-    if(observed?.status==="unknown")return 4;
-    const reason=observed?.reason;
-    const check=sources.get(episode.anchor)?.check_id;
-    return check==="ups_fault"||reason==="ups_reserve_critical"?0:check==="ups_power"?1:check==="ups_reserve"?2:3;
-  };
-  return items.map(item=>{
-    if(item.episode)return renderIssue(item.episode);
-    const ordered=[...item.episodes].sort((a,b)=>priority(a)-priority(b)||a.opened_at.localeCompare(b.opened_at));
-    const lead=ordered[0],source=sources.get(lead.anchor),problem=upsProblem(source,data.inventory.ups_status?.[lead.anchor]);
-    const others=ordered.slice(1).map(episode=>{const condition=UPS_CHECK_NAMES[sources.get(episode.anchor)?.check_id],status=data.inventory.ups_status?.[episode.anchor]?.status;return condition?condition+(status==="pass"?" · confirming recovery":status==="unknown"?" · current evidence missing":""):null;}).filter(Boolean);
-    return `<article class="ups-issue-group" data-ui-key="ups:${esc(item.device)}"><header><h3>${esc(item.name)}</h3><span class="small">${ordered.length} open ${ordered.length===1?"issue":"issues"}</span></header><p><strong>${esc(problem.headline)}</strong></p>${problem.readings?`<p>${esc(problem.readings)}</p>`:""}${others.length?`<p class="small">${esc(others.join(" · "))}</p>`:""}<details data-ui-key="ups-conditions:${esc(item.device)}"><summary>View issues</summary>${ordered.map(renderIssue).join("")}</details></article>`;
-  }).join("");
 }
 
 /** Explain current evidence and link configuration to its owning editor. */

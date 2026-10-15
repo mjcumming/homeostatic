@@ -6,6 +6,8 @@
 
 **Supersedes:** ADR 0019's five-page navigation and placement of Notifications inside Settings.
 
+**Later decision:** Primary navigation and Overview notification routing are superseded by [ADR 0061](0061-issues-first-product-workflows.md). The historical decision remains below; unaffected behavior and persistence safeguards remain in force. Replacement UI implementation is pending.
+
 ## Context
 
 Choosing people, destinations, quiet hours, and whether notification requests are active is a distinct household task. Nesting it in Settings makes the task harder to find and makes the Overview notification status lead through an unrelated settings section.

@@ -13,8 +13,8 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.const import DOMAIN
+from tests.policy_helpers import monitoring_policy
 from tests.test_lifecycle import start_monitor
-from tests.test_unified_monitoring import entry_for, policy
 
 SCENARIOS = json.loads(
     (Path(__file__).parent / "fixtures/disabled-availability.json").read_text()
@@ -22,17 +22,13 @@ SCENARIOS = json.loads(
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=[row["id"] for row in SCENARIOS])
-@pytest.mark.parametrize(
-    "unified", [False, True], ids=["catalog-rules", "named-policy"]
-)
 async def test_disabled_availability_scenario(
     hass: HomeAssistant,
     config_data: dict[str, Any],
     freezer: FrozenDateTimeFactory,
     scenario: dict[str, Any],
-    unified: bool,
 ) -> None:
-    """Disabled sensors stay browsable beyond the stale hold in either model."""
+    """Disabled sensors stay browsable beyond the stale hold with named policies."""
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     owner.add_to_hass(hass)
     registry = er.async_get(hass)
@@ -48,19 +44,17 @@ async def test_disabled_availability_scenario(
             "user": er.RegistryEntryDisabler.USER,
         }[scenario["disabled_by"]],
     )
-    definitions = [policy("entities", "availability", {"kind": ["entity"]})]
-    entries = {
-        False: MockConfigEntry(
-            domain=DOMAIN,
-            data={
-                **config_data,
-                "entities": [f"registry:{entity.id}"],
-                "notifications": False,
-            },
-        ),
-        True: entry_for(config_data, definitions),
-    }
-    runtime = await start_monitor(hass, entries[unified])
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            **config_data,
+            "monitoring_policies": [
+                monitoring_policy("entities", {"kind": ["entity"]})
+            ],
+            "notifications": False,
+        },
+    )
+    runtime = await start_monitor(hass, entry)
     watched = [
         source
         for source in runtime.sources.values()
@@ -76,4 +70,4 @@ async def test_disabled_availability_scenario(
     await hass.async_block_till_done()
     await runtime.async_refresh()
     assert len(runtime.episodes) == 1
-    assert await hass.config_entries.async_unload(entries[unified].entry_id)
+    assert await hass.config_entries.async_unload(entry.entry_id)

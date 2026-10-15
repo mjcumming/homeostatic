@@ -25,7 +25,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.homeostatic import notification_definitions as definitions
-from custom_components.homeostatic import notification_routes, reporting
+from custom_components.homeostatic import notification_routes
 from custom_components.homeostatic.attention import build_policy
 from custom_components.homeostatic.delivery import DeliveryState
 
@@ -104,6 +104,47 @@ def test_immediate_and_report_are_independent(configured: dict[str, Any]) -> Non
 
 
 @pytest.mark.parametrize(
+    ("node", "check", "labels", "expected"),
+    [
+        pytest.param("vacuum:one", "vacuum", {}, [], id="unrelated-vacuum"),
+        pytest.param(
+            "situation:water",
+            "condition",
+            {
+                "homeostatic_alert_profile": "immediate",
+                "homeostatic_source": "situation",
+            },
+            ["automation_now"],
+            id="automation-owned-report",
+        ),
+    ],
+)
+def test_automation_profiles_apply_only_to_automation_reports(
+    node: str, check: str, labels: dict[str, str], expected: list[str]
+) -> None:
+    """Automation choices cannot enable notifications for another monitoring type."""
+    data = definitions.defaults()
+    data["methods"] = {
+        "phone": {"name": "Phone", "mode": "fixed", "destinations": ["phone:one"]}
+    }
+    data["automation_profiles"]["immediate"] = [
+        {
+            "id": "automation_now",
+            "timing": {"mode": "immediate"},
+            "methods": ["phone"],
+        }
+    ]
+    policy = Policy(build_policy(definitions.generate(data), timedelta(0)))
+    now = datetime(2026, 10, 14, 12, tzinfo=UTC)
+    assert [
+        delivery.route
+        for delivery in policy.handle(
+            problem(now, node=node, check=check, labels=labels), now, PolicyContext()
+        )
+    ] == expected
+
+
+@pytest.mark.parametrize(
     "check,expected",
     [
         pytest.param("availability", [], id="source-dashboard-only"),
@@ -125,77 +166,13 @@ def test_source_override_suppresses_global_routes(
     ] == expected
 
 
-def test_legacy_conversion_preserves_automation_choices() -> None:
-    """Conversion keeps recipient sets, clocks, and automation-owned selections."""
-    legacy = reporting.defaults("America/Chicago")
-    legacy["people"] = {"owner": ["phone:one"]}
-    legacy["profiles"]["morning"]["people"] = ["owner"]
-    legacy["profiles"]["morning"]["at"] = "07:15"
-    converted = definitions.convert_legacy(legacy)
-    assert converted["default"] == []
-    assert converted["repairs"][0]["timing"]["at"] == "07:15"
-    assert converted["automation_profiles"]["morning"] == converted["repairs"]
-    assert converted["methods"]["person:owner"]["destinations"] == ["phone:one"]
-    assert definitions.choices(definitions.generate(converted)) == converted
-
-
-@pytest.mark.parametrize(
-    "node,check,labels,expected",
-    [
-        pytest.param(
-            "device:vacuum",
-            "vacuum",
-            {},
-            ["legacy:immediate"],
-            id="legacy-vacuum-immediate",
-        ),
-        pytest.param(
-            "device:one", "availability", {}, [], id="legacy-household-weekly"
-        ),
-        pytest.param(
-            "situation:water",
-            "condition",
-            {
-                "homeostatic_alert_profile": "immediate",
-                "homeostatic_source": "situation",
-            },
-            ["legacy:immediate"],
-            id="automation-profile-preserved",
-        ),
-        pytest.param(
-            "repair:test",
-            "repair",
-            {"homeostatic_alert_profile": "immediate", "homeostatic_source": "repair"},
-            [],
-            id="repair-independent-of-automation-profile",
-        ),
-    ],
-)
-def test_conversion_source_defaults(
-    node: str, check: str, labels: dict[str, str], expected: list[str]
+def test_rename_preserves_effective_policy(
+    configured: dict[str, Any], hass: HomeAssistant
 ) -> None:
-    """Migration preserves vacuum defaults without leaking automation-owned choices."""
-    legacy = reporting.defaults()
-    legacy["people"] = {"owner": ["phone:one"]}
-    legacy["profiles"]["immediate"]["people"] = ["owner"]
-    policy = Policy(
-        build_policy(
-            definitions.generate(definitions.convert_legacy(legacy)), timedelta(0)
-        )
-    )
-    now = datetime(2026, 10, 12, 7, tzinfo=UTC)
-    assert [
-        item.route
-        for item in policy.handle(
-            problem(now, node=node, check=check, labels=labels), now, PolicyContext()
-        )
-    ] == expected
-
-
-def test_rename_preserves_effective_policy(configured: dict[str, Any]) -> None:
     """Names can change without restarting reporting or changing identities."""
     before = definitions.generate(configured)
     configured["methods"]["phone"]["name"] = "Renamed phone"
+    assert definitions.resolve_channels(hass, configured, "phone") == ["phone:one"]
     after = definitions.generate(configured)
     assert {key: value for key, value in before.items() if key != "generated"} == {
         key: value for key, value in after.items() if key != "generated"
@@ -203,30 +180,6 @@ def test_rename_preserves_effective_policy(configured: dict[str, Any]) -> None:
     assert definitions.choices(after) == configured
     after["timezone"] = "America/Chicago"
     assert definitions.choices(after) is None
-
-
-@pytest.mark.parametrize(
-    "kind,identity,replacement",
-    [
-        pytest.param("methods", "phone", "email", id="shared-method"),
-    ],
-)
-def test_delete_requires_reference_treatment(
-    configured: dict[str, Any], kind: str, identity: str, replacement: str
-) -> None:
-    """Deleting a shared definition requires replacement or removal of whole rows."""
-    with pytest.raises(ValueError, match="explicitly remove"):
-        definitions.remove_definition(configured, kind, identity)
-    changed = definitions.remove_definition(
-        configured, kind, identity, replacement=replacement
-    )
-    assert identity not in changed[kind]
-    assert len(changed["default"]) == 2
-    removed = definitions.remove_definition(
-        configured, kind, identity, remove_rows=True
-    )
-    assert len(removed["default"]) < 2
-    assert identity in configured[kind]
 
 
 @pytest.mark.parametrize(
@@ -427,30 +380,8 @@ def test_presence_requires_person_destinations(
         definitions.validate(data)
 
 
-def test_deletion_traverses_condition_assignments(
-    configured: dict[str, Any], hass: HomeAssistant
-) -> None:
-    """Deleting a shared method updates source and condition assignments together."""
-    configured["assignments"] = {
-        "source": {
-            "default": deepcopy(configured["default"]),
-            "checks": {"battery": deepcopy(configured["default"])},
-        }
-    }
-    replaced = definitions.remove_definition(
-        configured, "methods", "phone", replacement="email"
-    )
-    assert replaced["assignments"]["source"]["default"][0]["methods"] == ["email"]
-    assert replaced["assignments"]["source"]["checks"]["battery"][1]["methods"] == [
-        "email"
-    ]
-    assert definitions.resolve_channels(hass, configured, "phone") == ["phone:one"]
-    with pytest.raises(ValueError, match="existing delivery method"):
-        definitions.remove_definition(configured, "methods", "missing")
-    with pytest.raises(ValueError, match="different existing"):
-        definitions.remove_definition(
-            configured, "methods", "phone", replacement="phone"
-        )
+def test_incomplete_definitions_rejected() -> None:
+    """Incomplete notification settings cannot replace a saved configuration."""
     with pytest.raises(ValueError, match="complete notification"):
         definitions.validate({})
 
@@ -858,50 +789,3 @@ def test_nonadjacent_source_choices_retain_precedence(
     policy = Policy(build_policy(definitions.generate(configured), timedelta(0)))
     assert policy.handle(opened, now, PolicyContext()) == []
     assert policy.advance(now + timedelta(hours=1), PolicyContext()) == []
-
-
-def test_expanded_rule_snapshot_restores_into_grouped_policy(
-    configured: dict[str, Any],
-) -> None:
-    """Grouping keeps delivered reminders, acknowledgment and report clocks on restore."""
-    now = datetime(2026, 10, 12, 7, tzinfo=UTC)
-    rows = configured["default"]
-    configured["default"] = []
-    configured["assignments"] = {
-        node: {"default": rows, "checks": {}} for node in ("device:one", "device:two")
-    }
-    grouped = definitions.generate(configured)
-    expanded = {
-        **grouped,
-        "rules": [
-            {
-                "route": "urgent",
-                "match": {"nodes": [node]},
-                "loudness": "urgent",
-                "to": ["method:phone", "method:email"],
-                "require_acknowledgment": True,
-                "remind_every": "30m",
-            }
-            for node in ("device:one", "device:two")
-        ]
-        + [
-            {
-                "route": "morning_row",
-                "match": {"nodes": [node]},
-                "loudness": "digest",
-                "to": ["method:phone"],
-                "digest": "entry:morning_row",
-            }
-            for node in ("device:one", "device:two")
-        ],
-    }
-    prior = Policy(build_policy(expanded, timedelta(0)))
-    assert len(prior.handle(problem(now), now, PolicyContext())) == 2
-    prior.acknowledge("issue", now + timedelta(minutes=1), actor_id="owner")
-    restored = Policy(build_policy(grouped, timedelta(0)))
-    restored.restore(prior.snapshot(), now + timedelta(minutes=1))
-    assert restored.advance(now + timedelta(minutes=30), PolicyContext()) == []
-    assert [
-        (item.route, item.recipient)
-        for item in restored.advance(now + timedelta(hours=1), PolicyContext())
-    ] == [("morning_row", "method:phone")]

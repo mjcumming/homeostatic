@@ -13,13 +13,10 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.translation import async_get_translations
 from homeassistant.loader import IntegrationNotFound, async_get_integration
 
-from . import reporting
 from .catalog import Source
 from .const import DOMAIN
-from .rules import CatalogRule
 
 MAX_REPAIRS = 500
-DEFAULT_PROFILE = "morning"
 STATES = ("active", "cleared", "ignored")
 RECORD = vol.Schema(
     {
@@ -37,25 +34,6 @@ RECORD = vol.Schema(
 def node_id(domain: str, issue_id: str) -> str:
     """Name a Repair by its registry key, which HA keeps while it is reported."""
     return "repair:" + sha256(f"{domain}\0{issue_id}".encode()).hexdigest()
-
-
-def suppressed(rules: tuple[CatalogRule, ...]) -> bool:
-    """Whether a broad exclusion turns every Repair off."""
-    return any(
-        rule.enabled
-        and rule.action == "exclude"
-        and rule.checks == ("repair",)
-        and dict(rule.match) == {"kind": ("repair",)}
-        for rule in rules
-    )
-
-
-def profile(policy: dict[str, Any]) -> str | None:
-    """Return the shared Repairs reporting choice, or None for a custom policy."""
-    choices = reporting.choices(policy)
-    if choices is None:
-        return None
-    return str(choices.get("repairs", DEFAULT_PROFILE))
 
 
 def _render(template: str, placeholders: Mapping[str, str]) -> str:
@@ -150,13 +128,8 @@ class Repairs:
         self.records = kept
         return changed
 
-    def sources(
-        self, policy: dict[str, Any], rules: tuple[CatalogRule, ...] = ()
-    ) -> dict[str, Source]:
+    def sources(self) -> dict[str, Source]:
         """Present each known Repair as a source outside the dependency map."""
-        if suppressed(rules):
-            return {}
-        chosen = profile(policy)
         return {
             key: Source(
                 node_id=key,
@@ -166,7 +139,6 @@ class Repairs:
                     "kind": ("repair",),
                     "integration_domain": (row["domain"],),
                 },
-                alert_profile=chosen,
                 fix_url=row["url"],
                 check_id="repair",
             )

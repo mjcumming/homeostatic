@@ -1,6 +1,5 @@
-"""Validated, order-independent catalog attach and exclusion rules."""
+"""Match monitoring policies against current catalog metadata."""
 
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -10,6 +9,7 @@ FIELDS = frozenset(
         "kind",
         "domain",
         "device_class",
+        "entity_category",
         "integration",
         "integration_domain",
         "device",
@@ -19,14 +19,6 @@ FIELDS = frozenset(
         "label",
     }
 )
-DEFAULT_RULES: list[dict[str, Any]] = [
-    {
-        "id": "integration_availability",
-        "action": "attach",
-        "match": {"kind": "integration"},
-        "checks": ["availability"],
-    },
-]
 type Attributes = dict[str, tuple[str, ...]]
 
 
@@ -49,17 +41,25 @@ def attributes(value: Any) -> Attributes:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CatalogRule:
-    """One owner-editable catalog rule with a stable explanation id."""
+    """One compiled policy selector with a stable explanation id."""
 
     id: str
-    action: str
     match: Mapping[str, tuple[str, ...]]
     checks: tuple[str, ...] = ("availability",)
     enabled: bool = True
-    overridable: bool = False
+    excluded_sources: tuple[str, ...] = ()
 
-    def matches(self, metadata: Attributes) -> bool:
+    def matches(self, metadata: Attributes, *, source_id: str | None = None) -> bool:
         """Match every field, accepting any of its configured values."""
+        if source_id in self.excluded_sources:
+            return False
+        if (
+            "availability" in self.checks
+            and metadata.get("kind") == ("entity",)
+            and metadata.get("entity_category") in {("diagnostic",), ("config",)}
+            and "entity" not in self.match
+        ):
+            return False
         if "device" in metadata.get("kind", ()) and "kind" not in self.match:
             return False
         return self.enabled and all(
@@ -68,104 +68,29 @@ class CatalogRule:
         )
 
 
-def parse_rules(value: Any) -> tuple[CatalogRule, ...]:
-    """Reject ambiguous or unsupported rules before applying any configuration."""
-    if not isinstance(value, list):
-        raise ValueError("Rules must be a list")
-    result = []
-    ids: set[str] = set()
-    for row in value:
-        if not isinstance(row, dict) or row.keys() - {
-            "id",
-            "action",
-            "match",
-            "checks",
-            "enabled",
-            "overridable",
-        }:
-            raise ValueError("Unknown catalog rule field")
-        rule_id = row.get("id")
-        if (
-            not isinstance(rule_id, str)
-            or not re.fullmatch(r"[a-z][a-z0-9_]*", rule_id)
-            or rule_id in ids
-        ):
-            raise ValueError("Rule ids must be unique slugs")
-        action = row.get("action")
-        if action not in ("attach", "exclude"):
-            raise ValueError("Rule action must be attach or exclude")
-        checks = row.get("checks", ["availability"])
-        if (
-            not isinstance(checks, list)
-            or len(checks) != 1
-            or checks[0]
-            not in {"availability", "battery", "vacuum", "repair", "broken_automation"}
-        ):
-            raise ValueError("Choose one supported catalog check")
-        enabled = row.get("enabled", True)
-        if type(enabled) is not bool:
-            raise ValueError("Rule enabled must be boolean")
-        overridable = row.get("overridable", False)
-        if type(overridable) is not bool or (
-            overridable
-            and (
-                action != "exclude"
-                or set(attributes(row.get("match", {})))
-                not in ({"kind", "integration"}, {"kind", "integration_domain"})
-                or attributes(row["match"])["kind"] != ("device",)
-            )
-        ):
-            raise ValueError("Only an integration device default may be overridable")
-        result.append(
-            CatalogRule(
-                id=rule_id,
-                action=action,
-                match=attributes(row.get("match", {})),
-                checks=tuple(checks),
-                enabled=enabled,
-                overridable=overridable,
-            )
-        )
-        ids.add(rule_id)
-    return tuple(result)
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Decision:
-    """All contributing rules, including exclusions that defeat attachments."""
+    """The policies that monitor a catalog source."""
 
     attached_by: tuple[str, ...]
-    excluded_by: tuple[str, ...]
 
     @property
     def watched(self) -> bool:
-        """Whether the availability check is effective after exclusions."""
-        return bool(self.attached_by) and not self.excluded_by
+        """Whether at least one policy selected the check."""
+        return bool(self.attached_by)
 
 
 def decide(
-    rules: tuple[CatalogRule, ...], metadata: Attributes, check_id: str = "availability"
+    rules: tuple[CatalogRule, ...],
+    metadata: Attributes,
+    check_id: str = "availability",
+    *,
+    source_id: str | None = None,
 ) -> Decision:
     """Evaluate a source without rule-order precedence or side effects."""
     matching = [
-        rule for rule in rules if check_id in rule.checks and rule.matches(metadata)
+        rule
+        for rule in rules
+        if check_id in rule.checks and rule.matches(metadata, source_id=source_id)
     ]
-    explicit_device_watch = "device" in metadata.get("kind", ()) and any(
-        rule.action == "attach"
-        and rule.match.get("kind") == ("device",)
-        and rule.match.get("device") == metadata.get("device")
-        for rule in matching
-    )
-    return Decision(
-        attached_by=tuple(
-            sorted(rule.id for rule in matching if rule.action == "attach")
-        ),
-        excluded_by=tuple(
-            sorted(
-                rule.id
-                for rule in matching
-                if rule.action == "exclude"
-                and not (rule.overridable and explicit_device_watch)
-            )
-        ),
-    )
+    return Decision(attached_by=tuple(sorted(rule.id for rule in matching)))

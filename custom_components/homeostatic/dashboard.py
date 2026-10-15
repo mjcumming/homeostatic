@@ -3,13 +3,15 @@
 import asyncio
 import hashlib
 import json
+import logging
 from collections.abc import Callable
 from pathlib import Path
+from time import perf_counter
 from typing import Any, cast
 from urllib.parse import unquote
 
 import voluptuous as vol
-from health_tree.types import JSONValue, Rule
+from health_tree.types import JSONValue
 from homeassistant.components import frontend, websocket_api
 from homeassistant.components.http.server import StaticPathConfig
 from homeassistant.components.websocket_api.connection import ActiveConnection
@@ -30,26 +32,27 @@ from homeassistant.helpers.dispatcher import (
 from homeassistant.util import dt as dt_util
 from homeassistant.util.hass_dict import HassKey
 
-from . import notification_definitions, reporting
+from . import notification_definitions
 from .battery import observe as battery_observation
-from .config import Settings, normalize_requirement, normalize_rules, rule_data
+from .config import Settings, normalize_requirement
 from .const import DEFAULTS, DOMAIN, NAME
 from .device_availability import device_availability
 from .monitoring_runtime import (
     contributing_policies,
 )
+from .notification_people import available_people
 from .notification_routes import async_send, delivery_targets, destinations
 from .policy_defaults import policy_templates
 from .runtime import Runtime
 from .serialization import json_object
-from .simple_notifications import available_people, generate_policy, simple_choices
 from .vacuum import observe as vacuum_observation
 
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=73"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=74"
 PANEL_ELEMENT = "homeostatic-panel-v26"
+_SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 
 def _digest(value: dict[str, Any]) -> str:
@@ -77,7 +80,11 @@ def _settings_review_token(
     return _digest(reviewed)
 
 
-def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
+def snapshot(
+    runtime: Runtime | None,
+    *,
+    dynamic_inventory: dict[str, JSONValue] | None = None,
+) -> dict[str, JSONValue]:
     """Build a versioned read model without advancing monitoring or policy."""
     result: dict[str, JSONValue] = {
         "schema_version": 1,
@@ -100,7 +107,14 @@ def snapshot(runtime: Runtime | None) -> dict[str, JSONValue]:
         **result,
         "available": True,
         "readiness": runtime.query("readiness", {}),
-        "inventory": {**runtime.inventory_static, **runtime.inventory_updates()},
+        "inventory": {
+            **runtime.inventory_static,
+            **(
+                runtime.inventory_updates()
+                if dynamic_inventory is None
+                else dynamic_inventory
+            ),
+        },
         "coverage": runtime.query("coverage", {}),
         "evidence_gaps": runtime.evidence_gaps,
         "policy": runtime.query("policy", {}),
@@ -142,6 +156,7 @@ class Dashboard:
         self.summary = self.update
         self._cancel: Callable[[], None] | None = None
         self.save_lock = asyncio.Lock()
+        self.reloading_settings = False
 
     @callback
     def attach(self, runtime: Runtime | None) -> None:
@@ -159,8 +174,14 @@ class Dashboard:
     @callback
     def publish(self) -> None:
         """Cache one consistent evaluated view for all active subscriptions."""
-        self.value = snapshot(self.runtime)
+        dynamic = (
+            self.runtime.inventory_updates()
+            if self.runtime is not None and self.runtime.available
+            else None
+        )
+        self.value = snapshot(self.runtime, dynamic_inventory=dynamic)
         if self.runtime is not None and self.runtime.available:
+            assert dynamic is not None
             locations = {key: self.value[key] for key in ("areas", "devices", "floors")}
             if (
                 self._catalog is not self.runtime.inventory_static
@@ -188,7 +209,6 @@ class Dashboard:
                     for row in self.catalog_sections["nodes"]
                 }
             self.value.update(self._locations)
-            dynamic = self.runtime.inventory_updates()
             self.update = {
                 **{
                     key: value
@@ -350,6 +370,8 @@ def websocket_catalog(
     {
         vol.Required("type"): "homeostatic/node",
         vol.Required("node_id"): str,
+        vol.Optional("offset", default=0): vol.All(int, vol.Range(min=0)),
+        vol.Optional("limit", default=50): vol.All(int, vol.Range(min=1, max=200)),
     }
 )
 @require_admin
@@ -371,6 +393,13 @@ def websocket_node(
         )
         return
     source = runtime.sources[node_id]
+    try:
+        members = runtime.device_evidence(
+            node_id, offset=msg["offset"], limit=msg["limit"]
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_offset", str(err))
+        return
     connection.send_result(
         msg["id"],
         {
@@ -383,7 +412,7 @@ def websocket_node(
             ],
             "integration_evidence": runtime.integration_evidence.view(node_id),
             "entity_status": runtime.entity_status(node_id),
-            "device_evidence": runtime.device_evidence(node_id),
+            "device_evidence": members,
             "device_availability": device_availability(
                 hass, source.attributes["device"][0]
             )
@@ -404,7 +433,12 @@ def websocket_node(
 
 
 @websocket_command(
-    {vol.Required("type"): "homeostatic/source", vol.Required("node_id"): str}
+    {
+        vol.Required("type"): "homeostatic/source",
+        vol.Required("node_id"): str,
+        vol.Optional("offset", default=0): vol.All(int, vol.Range(min=0)),
+        vol.Optional("limit", default=50): vol.All(int, vol.Range(min=1, max=200)),
+    }
 )
 @require_admin
 @callback
@@ -420,14 +454,43 @@ def websocket_source(
     monitored = runtime.sources.get(node_id)
     if monitored is not None and monitored.monitoring_source:
         node_id = monitored.monitoring_source
-    source = runtime.candidates.get(node_id)
+    related = [
+        item for item in runtime.sources.values() if item.monitoring_source == node_id
+    ]
+    source = (
+        runtime.candidates.get(node_id)
+        or runtime.sources.get(node_id)
+        or next(iter(related), None)
+    )
     if source is None:
         connection.send_error(
             msg["id"], "not_found", "This source is no longer discovered"
         )
         return
+    device_checks = [
+        item
+        for item in (
+            [monitored]
+            if monitored is not None and monitored.monitoring_policy is not None
+            else related
+        )
+        if item.kind == "device" and item.watched and not item.disabled
+    ]
+    device_entities = (
+        tuple(
+            sorted(
+                {
+                    entity_id
+                    for item in device_checks
+                    for entity_id in item.availability_entities
+                }
+            )
+        )
+        if source.watched or device_checks
+        else source.availability_entities
+    )
     entity_ids = (
-        source.availability_entities
+        device_entities
         if source.kind == "device"
         else tuple(
             dict.fromkeys(
@@ -468,18 +531,33 @@ def websocket_source(
         )
     members.sort(
         key=lambda item: (
-            item["state"] not in {"unavailable", "unknown", "missing"},
+            not (item["state"] in {"unavailable", "missing"} or item["restored"]),
             str(item["name"]),
+            str(item["entity_id"]),
         )
     )
-    observed_node = next(
-        (
-            item.node_id
-            for item in runtime.sources.values()
-            if item.monitoring_source == node_id and item.watched
-        ),
-        node_id,
+    offset = msg["offset"]
+    if offset > len(members):
+        connection.send_error(
+            msg["id"], "invalid_offset", "The offset exceeds this source's members"
+        )
+        return
+    end = min(offset + msg["limit"], len(members))
+    observed_node = (
+        monitored.node_id
+        if monitored and monitored.watched
+        else next(
+            (item.node_id for item in related if item.watched),
+            source.node_id,
+        )
     )
+    policy_ids = {
+        policy.id
+        for item in [source, *related]
+        for policy in contributing_policies(
+            runtime.settings.monitoring_policies, item, runtime.sources
+        )
+    }
     evidence = runtime.integration_evidence.view(observed_node) or {}
     if source.kind == "integration" and source.entry_id:
         entry = hass.config_entries.async_get_entry(source.entry_id)
@@ -488,12 +566,6 @@ def websocket_source(
     connection.send_result(
         msg["id"],
         {
-            "battery_condition": json_object(
-                battery_observation(hass, source, dt_util.utcnow())
-            )
-            if source.kind == "battery"
-            and not runtime.settings.monitoring_policy_version
-            else None,
             "battery_conditions": [
                 {
                     "policy_id": item.id,
@@ -509,12 +581,14 @@ def websocket_source(
                 }
                 for item in runtime.settings.monitoring_policies
                 if source.kind == "battery"
+                and not source.disabled
                 and item.check == "battery"
                 and item.enabled
-                and item.matches(source.attributes)
-            ]
-            if runtime.settings.monitoring_policy_version
-            else [],
+                and item.matches(
+                    source.attributes,
+                    source_id=source.monitoring_source or source.node_id,
+                )
+            ],
             "vacuum_activity": json_object(
                 vacuum_observation(hass, source, dt_util.utcnow())
             )
@@ -525,16 +599,18 @@ def websocket_source(
             )
             if source.kind == "device"
             else None,
-            "members": members[:50],
+            "members": members[offset:end],
+            "offset": offset,
+            "next_offset": end if end < len(members) else None,
             "monitoring_policies": [
                 {"id": item.id, "name": item.name}
-                for item in contributing_policies(
-                    runtime.settings.monitoring_policies, source, runtime.sources
-                )
+                for item in runtime.settings.monitoring_policies
+                if item.id in policy_ids
             ],
             "total": len(members),
             "unavailable_count": sum(
-                item["state"] == "unavailable" for item in members
+                item["state"] == "unavailable" and not item["restored"]
+                for item in members
             ),
             "unknown_count": sum(
                 item["state"] == "missing" or bool(item["restored"]) for item in members
@@ -576,12 +652,9 @@ def _settings_configuration(hass: HomeAssistant, runtime: Runtime) -> dict[str, 
     """Read validated settings without yielding to another refresh."""
     _, revision = _configuration(runtime)
     settings = runtime.settings
-    consumer = hass.states.get(settings.consumer) if settings.consumer else None
     return {
         "revision": revision,
-        "rules": rule_data(hass, settings),
         "monitoring_policy_templates": policy_templates(),
-        "monitoring_policy_version": settings.monitoring_policy_version,
         "areas": [
             {"id": area.id, "name": area.name, "floor_id": area.floor_id}
             for area in ar.async_get(hass).areas.values()
@@ -595,12 +668,6 @@ def _settings_configuration(hass: HomeAssistant, runtime: Runtime) -> dict[str, 
             for label in lr.async_get(hass).labels.values()
         ],
         "settings": _editable_settings(settings),
-        "alerts": {
-            "notifications": settings.notifications,
-            "consumer": settings.consumer,
-            "consumer_state": consumer.state if consumer else None,
-            "policy": settings.policy,
-        },
     }
 
 
@@ -828,16 +895,11 @@ def _editable_settings(settings: Settings) -> dict[str, Any]:
         "timings": dict(settings.timings),
         "notifications": settings.notifications,
         "consumer": settings.consumer,
-        "policy": settings.policy,
-        "simple_notifications": simple_choices(settings.policy),
-        "reporting": reporting.choices(settings.policy),
         "monitoring_policies": [
             policy.data() for policy in settings.monitoring_policies
         ],
         "notification_definitions": settings.notification_definitions,
     }
-    if not hasattr(Rule, "route"):
-        result.pop("notification_definitions")
     return result
 
 
@@ -845,37 +907,20 @@ async def _settings_candidate(
     hass: HomeAssistant, current: dict[str, Any], proposed: dict[str, Any]
 ) -> dict[str, Any]:
     """Preserve unrelated options and validate a complete editable proposal."""
-    if set(proposed) - {
-        "rules",
+    if set(proposed) != {
+        "timings",
+        "notifications",
+        "consumer",
         "monitoring_policies",
         "notification_definitions",
-    } not in (
-        {"timings", "notifications", "consumer", "policy"},
-        {"timings", "notifications", "consumer", "policy", "simple_notifications"},
-        {
-            "timings",
-            "notifications",
-            "consumer",
-            "policy",
-            "simple_notifications",
-            "reporting",
-        },
-    ):
-        raise ValueError("Provide timing, notification, consumer, and policy settings")
+    }:
+        raise ValueError("Provide the complete unified policy settings")
     if not isinstance(proposed["timings"], dict) or set(proposed["timings"]) != set(
         DEFAULTS
     ):
         raise ValueError("Provide every supported timing")
-    candidate = {
-        **current,
-        **{
-            key: value
-            for key, value in proposed.items()
-            if key not in {"simple_notifications", "reporting"}
-        },
-    }
-    if "rules" in proposed:
-        candidate["rules"] = normalize_rules(hass, proposed["rules"])
+    candidate = {**current, **proposed}
+    candidate.pop("policy", None)
     if "monitoring_policies" in proposed:
         candidate["monitoring_policies"] = []
         for item in proposed["monitoring_policies"]:
@@ -887,47 +932,9 @@ async def _settings_candidate(
                     for value in ([values] if isinstance(values, str) else values)
                 ]
             candidate["monitoring_policies"].append({**item, "match": match})
-    simple = proposed.get("simple_notifications")
-    if (
-        proposed.get("notification_definitions") is None
-        and simple is not None
-        and simple != simple_choices(Settings.from_data(current).policy)
-    ):
-        candidate["policy"] = generate_policy(
-            hass, simple, await available_people(hass)
-        )
-        if candidate.get("consumer"):
-            raise ValueError(
-                "Clear the existing notification automation before switching to person delivery"
-            )
-    requested_reporting = proposed.get("reporting")
-    if (
-        proposed.get("notification_definitions") is None
-        and requested_reporting is not None
-    ):
-        if (
-            requested_reporting != reporting.choices(Settings.from_data(current).policy)
-            or proposed["notifications"]
-        ):
-            candidate["policy"] = reporting.generate(
-                hass, requested_reporting, await available_people(hass)
-            )
-            if candidate.get("consumer"):
-                raise ValueError(
-                    "Clear the existing notification automation before switching"
-                )
-        if proposed["notifications"] and reporting.missing_profiles(
-            requested_reporting
-        ):
-            raise ValueError(
-                "Choose people and destinations for every used reporting profile"
-            )
     if proposed.get("notification_definitions") is not None:
         candidate["notification_definitions"] = notification_definitions.validate(
             proposed["notification_definitions"]
-        )
-        candidate["policy"] = notification_definitions.generate(
-            candidate["notification_definitions"]
         )
     settings = Settings.from_data(candidate)
     previous = Settings.from_data(current)
@@ -993,11 +1000,7 @@ async def _async_preview_settings(
         policy = runtime.preview_policy(
             settings.policy, settings=settings, sources=proposed_sources
         )
-        monitoring = (
-            _monitoring_preview(runtime, candidate["rules"])
-            if "rules" in msg["settings"]
-            else None
-        )
+        monitoring = None
         if "monitoring_policies" in msg["settings"]:
             after = {
                 key: source
@@ -1045,11 +1048,6 @@ async def _async_preview_settings(
             "requests_now": len(cast(list[JSONValue], policy["deliveries"])),
             "reports": policy["reports"],
             "open_problems": len(runtime.episodes),
-            "reporting_assignments": len(
-                msg["settings"].get("reporting", {}).get("assignments", {})
-            )
-            if msg["settings"].get("reporting")
-            else 0,
         },
     )
 
@@ -1068,7 +1066,9 @@ def websocket_save_settings(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
     """Validate and apply installation settings under the shared save lock."""
-    hass.async_create_task(_async_save_settings(hass, connection, msg))
+    hass.async_create_task(
+        _async_save_settings(hass, connection, msg, received_at=perf_counter())
+    )
 
 
 async def _async_apply_monitoring(
@@ -1078,7 +1078,7 @@ async def _async_apply_monitoring(
     runtime: Runtime,
     candidate: dict[str, Any],
 ) -> bool:
-    """Use the existing runtime for monitoring-only drafts under the save lock."""
+    """Keep monitoring and named notification drafts in the registered runtime."""
     settings = Settings.from_data(candidate, functions_enabled=False)
     if not runtime.can_apply_settings(settings):
         return False
@@ -1101,10 +1101,32 @@ async def _async_apply_monitoring(
 
 
 async def _async_save_settings(
+    hass: HomeAssistant,
+    connection: ActiveConnection,
+    msg: dict[str, Any],
+    *,
+    received_at: float,
+) -> None:
+    _SAVE_TIMING_LOGGER.debug(
+        "phase=request_queue seconds=%.6f", perf_counter() - received_at
+    )
+    try:
+        await _async_save_settings_locked(hass, connection, msg)
+    finally:
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=request_total seconds=%.6f", perf_counter() - received_at
+        )
+
+
+async def _async_save_settings_locked(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
     dashboard = hass.data[DATA_DASHBOARD]
+    phase_started = perf_counter()
     async with dashboard.save_lock:
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=save_lock seconds=%.6f", perf_counter() - phase_started
+        )
         runtime = dashboard.runtime
         if runtime is None or not runtime.available:
             connection.send_error(msg["id"], "not_ready", "Homeostatic is unavailable")
@@ -1115,11 +1137,15 @@ async def _async_save_settings(
                 msg["id"], "stale_configuration", "Settings changed; reload this page"
             )
             return
+        phase_started = perf_counter()
         try:
             candidate = await _settings_candidate(hass, current, msg["settings"])
         except (ValueError, TypeError, KeyError, vol.Invalid) as err:
             connection.send_error(msg["id"], "invalid_settings", str(err))
             return
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=validation seconds=%.6f", perf_counter() - phase_started
+        )
         if dashboard.runtime is not runtime or _configuration(runtime)[1] != revision:
             connection.send_error(
                 msg["id"], "stale_configuration", "Settings changed; reload this page"
@@ -1139,317 +1165,29 @@ async def _async_save_settings(
         entry = runtime.entry
         previous_options = dict(entry.options)
         hass.config_entries.async_update_entry(entry, options=candidate)
+        dashboard.reloading_settings = True
         try:
-            loaded = await hass.config_entries.async_reload(entry.entry_id)
-        except HomeAssistantError:
-            loaded = False
-        if not loaded:
-            hass.config_entries.async_update_entry(entry, options=previous_options)
             try:
-                recovered = await hass.config_entries.async_reload(entry.entry_id)
+                loaded = await hass.config_entries.async_reload(entry.entry_id)
             except HomeAssistantError:
-                recovered = False
-            connection.send_error(
-                msg["id"],
-                "reload_failed",
-                "Could not apply settings; previous options restored"
-                if recovered
-                else "Previous options restored, but monitoring is unavailable",
-            )
-            return
-        connection.send_result(msg["id"], {"saved": True})
-
-
-def _alert_candidate(
-    hass: HomeAssistant, current: dict[str, Any], msg: dict[str, Any]
-) -> dict[str, Any]:
-    """Validate an alert edit against the saved option and consumer contracts."""
-    candidate = {
-        **current,
-        "notifications": msg["notifications"],
-        "consumer": msg["consumer"],
-    }
-    Settings.from_data(candidate)
-    if msg["notifications"]:
-        state = hass.states.get(msg["consumer"]) if msg["consumer"] else None
-        if state is None or state.state != "on":
-            raise ValueError("Enable the selected consumer automation first")
-    return candidate
-
-
-@websocket_command(
-    {
-        vol.Required("type"): "homeostatic/preview_alerts",
-        vol.Required("revision"): str,
-        vol.Required("notifications"): bool,
-        vol.Required("consumer"): vol.Any(None, str),
-    }
-)
-@require_admin
-@callback
-def websocket_preview_alerts(
-    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
-) -> None:
-    """Preview an alert edit without changing options or requesting delivery."""
-    runtime = hass.data[DATA_DASHBOARD].runtime
-    if runtime is None or not runtime.available:
-        connection.send_error(msg["id"], "not_ready", "Homeostatic is unavailable")
-        return
-    current, revision = _configuration(runtime)
-    if msg["revision"] != revision:
-        connection.send_error(
-            msg["id"], "stale_configuration", "Settings changed; reload this page"
-        )
-        return
-    try:
-        candidate = _alert_candidate(hass, current, msg)
-        activating = (
-            candidate["notifications"] and not Settings.from_data(current).notifications
-        )
-        policy = (
-            runtime.preview_policy(Settings.from_data(candidate).policy)
-            if activating
-            else None
-        )
-    except (ValueError, TypeError, KeyError, vol.Invalid) as err:
-        connection.send_error(msg["id"], "invalid_alerts", str(err))
-        return
-    connection.send_result(
-        msg["id"],
-        {
-            "preview_token": _digest(
-                {
-                    "revision": revision,
-                    "notifications": candidate["notifications"],
-                    "consumer": candidate["consumer"],
-                }
-            ),
-            "notifications": candidate["notifications"],
-            "consumer": candidate["consumer"],
-            "activating": activating,
-            "open_problems": len(runtime.episodes),
-            "requests_now": len(cast(list[JSONValue], policy["deliveries"]))
-            if policy
-            else 0,
-            "next_deadline": policy["next_deadline"] if policy else None,
-        },
-    )
-
-
-@websocket_command(
-    {
-        vol.Required("type"): "homeostatic/save_alerts",
-        vol.Required("revision"): str,
-        vol.Optional("preview_token"): str,
-        vol.Required("notifications"): bool,
-        vol.Required("consumer"): vol.Any(None, str),
-    }
-)
-@require_admin
-@callback
-def websocket_save_alerts(
-    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
-) -> None:
-    """Start an administrator-only alert-settings update."""
-    hass.async_create_task(_async_save_alerts(hass, connection, msg))
-
-
-async def _async_save_alerts(
-    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
-) -> None:
-    """Validate and save notification activation and the selected consumer."""
-    dashboard = hass.data[DATA_DASHBOARD]
-    async with dashboard.save_lock:
-        runtime = dashboard.runtime
-        if runtime is None or not runtime.available:
-            connection.send_error(msg["id"], "not_ready", "Homeostatic is unavailable")
-            return
-        current, revision = _configuration(runtime)
-        if msg["revision"] != revision:
-            connection.send_error(
-                msg["id"], "stale_configuration", "Settings changed; reload this page"
-            )
-            return
-        try:
-            candidate = _alert_candidate(hass, current, msg)
-        except (ValueError, TypeError, KeyError, vol.Invalid) as err:
-            connection.send_error(msg["id"], "invalid_alerts", str(err))
-            return
-        token = _digest(
-            {
-                "revision": revision,
-                "notifications": candidate["notifications"],
-                "consumer": candidate["consumer"],
-            }
-        )
-        if "preview_token" in msg and msg["preview_token"] != token:
-            connection.send_error(
-                msg["id"],
-                "preview_required",
-                "Preview these exact alert settings before saving",
-            )
-            return
-        entry = runtime.entry
-        previous_options = dict(entry.options)
-        hass.config_entries.async_update_entry(entry, options=candidate)
-        try:
-            loaded = await hass.config_entries.async_reload(entry.entry_id)
-        except HomeAssistantError:
-            loaded = False
-        if not loaded:
-            hass.config_entries.async_update_entry(entry, options=previous_options)
-            try:
-                recovered = await hass.config_entries.async_reload(entry.entry_id)
-            except HomeAssistantError:
-                recovered = False
-            connection.send_error(
-                msg["id"],
-                "reload_failed",
-                "Could not apply alerts; previous options restored"
-                if recovered
-                else "Could not apply alerts; previous options restored, but monitoring is unavailable",
-            )
-            return
-        connection.send_result(msg["id"], {"saved": True})
-
-
-@websocket_command(
-    {
-        vol.Required("type"): "homeostatic/preview_configuration",
-        vol.Required("revision"): str,
-        vol.Required("rules"): list,
-    }
-)
-@require_admin
-@callback
-def websocket_preview_configuration(
-    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
-) -> None:
-    """Evaluate unsaved monitoring rules against current discovered sources."""
-    runtime = hass.data[DATA_DASHBOARD].runtime
-    if runtime is None or not runtime.available:
-        connection.send_error(msg["id"], "not_ready", "Monitoring is unavailable")
-        return
-    current, revision = _configuration(runtime)
-    if msg["revision"] != revision:
-        connection.send_error(
-            msg["id"], "stale_configuration", "Settings changed; reload this page"
-        )
-        return
-    try:
-        rules = normalize_rules(hass, msg["rules"])
-        Settings.from_data({**current, "rules": rules})
-        result = _monitoring_preview(runtime, rules)
-    except (ValueError, TypeError, KeyError, vol.Invalid) as err:
-        connection.send_error(msg["id"], "invalid_rules", str(err))
-        return
-    connection.send_result(
-        msg["id"],
-        {"preview_token": _digest({"revision": revision, "rules": rules}), **result},
-    )
-
-
-def _monitoring_preview(
-    runtime: Runtime, rules: list[dict[str, Any]]
-) -> dict[str, Any]:
-    """Describe proposed enrollment without mutating live monitoring."""
-    result = cast(dict[str, Any], runtime.query("preview_rules", {"rules": rules}))
-    inventory = cast(dict[str, Any], runtime.query("inventory", {}))
-    before = {item["node_id"]: item for item in inventory["catalog"]["candidates"]}
-    added = []
-    removed = []
-    for item in result["candidates"]:
-        previous = before.get(item["node_id"])
-        if item["watched"] and not (previous and previous["watched"]):
-            added.append({"node_id": item["node_id"], "name": item["name"]})
-        elif not item["watched"] and previous and previous["watched"]:
-            removed.append({"node_id": item["node_id"], "name": item["name"]})
-    return {
-        "watched": result["watched"],
-        "matches": result["rules"],
-        "added_count": len(added),
-        "removed_count": len(removed),
-        "added": added[:50],
-        "removed": removed[:50],
-        "functions": [],
-        "current_evidence_only": True,
-    }
-
-
-@websocket_command(
-    {
-        vol.Required("type"): "homeostatic/save_configuration",
-        vol.Required("revision"): str,
-        vol.Optional("preview_token"): str,
-        vol.Required("rules"): list,
-    }
-)
-@require_admin
-@callback
-def websocket_save_configuration(
-    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
-) -> None:
-    """Start an administrator-only configuration update."""
-    hass.async_create_task(_async_save_configuration(hass, connection, msg))
-
-
-async def _async_save_configuration(
-    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
-) -> None:
-    """Replace rules after validation and a saved revision check."""
-    dashboard = hass.data[DATA_DASHBOARD]
-    async with dashboard.save_lock:
-        runtime = dashboard.runtime
-        if runtime is None or not runtime.available:
-            connection.send_error(msg["id"], "not_ready", "Monitoring is unavailable")
-            return
-        current, revision = _configuration(runtime)
-        if msg["revision"] != revision:
-            connection.send_error(
-                msg["id"], "stale_configuration", "Settings changed; reload this page"
-            )
-            return
-        try:
-            rules = normalize_rules(hass, msg["rules"])
-            Settings.from_data({**current, "rules": rules})
-        except (ValueError, TypeError, KeyError, vol.Invalid) as err:
-            connection.send_error(msg["id"], "invalid_rules", str(err))
-            return
-        if "preview_token" in msg and msg["preview_token"] != _digest(
-            {"revision": revision, "rules": rules}
-        ):
-            connection.send_error(
-                msg["id"], "preview_required", "Preview these exact rules before saving"
-            )
-            return
-        if await _async_apply_monitoring(
-            hass, connection, msg, runtime, {**current, "rules": rules}
-        ):
-            return
-        entry = runtime.entry
-        previous_options = dict(entry.options)
-        hass.config_entries.async_update_entry(
-            entry, options={**current, "rules": rules}
-        )
-        try:
-            loaded = await hass.config_entries.async_reload(entry.entry_id)
-        except HomeAssistantError:
-            loaded = False
-        if not loaded:
-            hass.config_entries.async_update_entry(entry, options=previous_options)
-            try:
-                recovered = await hass.config_entries.async_reload(entry.entry_id)
-            except HomeAssistantError:
-                recovered = False
-            connection.send_error(
-                msg["id"],
-                "reload_failed",
-                "Could not apply rules; previous options restored"
-                if recovered
-                else "Could not apply rules; previous options restored, but monitoring is unavailable",
-            )
-            return
-        connection.send_result(msg["id"], {"saved": True})
+                loaded = False
+            if not loaded:
+                hass.config_entries.async_update_entry(entry, options=previous_options)
+                try:
+                    recovered = await hass.config_entries.async_reload(entry.entry_id)
+                except HomeAssistantError:
+                    recovered = False
+                connection.send_error(
+                    msg["id"],
+                    "reload_failed",
+                    "Could not apply settings; previous options restored"
+                    if recovered
+                    else "Previous options restored, but monitoring is unavailable",
+                )
+                return
+            connection.send_result(msg["id"], {"saved": True})
+        finally:
+            dashboard.reloading_settings = False
 
 
 async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> None:
@@ -1473,11 +1211,10 @@ async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> Non
         websocket_api.async_register_command(hass, websocket_test_delivery_method)
         websocket_api.async_register_command(hass, websocket_preview_settings)
         websocket_api.async_register_command(hass, websocket_save_settings)
-        websocket_api.async_register_command(hass, websocket_preview_alerts)
-        websocket_api.async_register_command(hass, websocket_save_alerts)
-        websocket_api.async_register_command(hass, websocket_preview_configuration)
-        websocket_api.async_register_command(hass, websocket_save_configuration)
-    hass.data[DATA_DASHBOARD].attach(runtime)
+    dashboard = hass.data[DATA_DASHBOARD]
+    dashboard.attach(runtime)
+    if dashboard.reloading_settings and DOMAIN in hass.data[frontend.DATA_PANELS]:
+        return
     frontend.add_extra_js_url(hass, MODULE_URL)
     frontend.async_register_built_in_panel(
         hass,
@@ -1500,7 +1237,12 @@ async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> Non
 
 @callback
 def async_remove_dashboard(hass: HomeAssistant) -> None:
-    """Remove presentation and notify existing clients that monitoring stopped."""
-    hass.data[DATA_DASHBOARD].attach(None)
+    """Notify clients of unload, retaining navigation during a settings transaction."""
+    dashboard = hass.data.get(DATA_DASHBOARD)
+    if dashboard is None:
+        return
+    dashboard.attach(None)
+    if dashboard.reloading_settings:
+        return
     frontend.async_remove_panel(hass, DOMAIN)
     frontend.remove_extra_js_url(hass, MODULE_URL)

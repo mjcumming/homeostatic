@@ -1,5 +1,6 @@
 """Bind named expectations to discovered sources without private engine state."""
 
+import hashlib
 from dataclasses import replace
 from typing import Any
 
@@ -8,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from .catalog import Source
 from .monitoring import TEMPERATURE_CHECKS, MonitoringPolicy
 from .rules import CatalogRule
-from .ups_parameters import UPS_CHECKS, ReserveParameters
+from .ups_parameters import UPS_CHECKS
 
 
 def enrollment_rules(policies: tuple[MonitoringPolicy, ...]) -> tuple[CatalogRule, ...]:
@@ -16,10 +17,10 @@ def enrollment_rules(policies: tuple[MonitoringPolicy, ...]) -> tuple[CatalogRul
     return tuple(
         CatalogRule(
             id=f"policy_{policy.id}",
-            action="attach",
             match=policy.match,
             checks=(policy.check,),
             enabled=policy.enabled,
+            excluded_sources=policy.excluded_sources,
         )
         for policy in policies
         if policy.check not in TEMPERATURE_CHECKS | UPS_CHECKS
@@ -27,9 +28,13 @@ def enrollment_rules(policies: tuple[MonitoringPolicy, ...]) -> tuple[CatalogRul
 
 
 def ordinary_sources(
-    policies: tuple[MonitoringPolicy, ...], sources: dict[str, Source]
+    policies: tuple[MonitoringPolicy, ...],
+    sources: dict[str, Source],
+    *,
+    candidates: dict[str, Source] | None = None,
 ) -> dict[str, Source]:
     """Give each policy its own findings and retain explicit upstream dependencies."""
+    candidates = sources if candidates is None else candidates
     ordinary = {"availability", "battery", "vacuum", "repair", "broken_automation"}
     originals = {
         identity: source
@@ -56,17 +61,39 @@ def ordinary_sources(
     for policy in policies:
         if not policy.enabled or policy.check not in ordinary:
             continue
+        excluded_entities = {
+            identity: candidate.entity_id
+            for identity in policy.excluded_sources
+            if (candidate := candidates.get(identity)) is not None
+            and candidate.kind == "entity"
+        }
         for source in originals.values():
             if (
-                source.excluded_by
-                or source.disabled
+                source.disabled
                 or policy.check != source.check_id
-                or not policy.matches(source.attributes)
+                or not policy.matches(
+                    source.attributes,
+                    source_id=source.monitoring_source or source.node_id,
+                )
             ):
                 continue
-            identity = (
-                f"monitoring:{policy.id}:{policy.detection_key()}:{source.node_id}"
-            )
+            member_exclusions: tuple[str, ...] = ()
+            if source.kind == "device":
+                member_exclusions = tuple(
+                    identity
+                    for identity, entity_id in excluded_entities.items()
+                    if entity_id in source.availability_entities
+                )
+                members = tuple(
+                    entity_id
+                    for entity_id in source.availability_entities
+                    if entity_id not in excluded_entities.values()
+                )
+                if not members:
+                    continue
+                source = replace(source, availability_entities=members)
+            detection_key = policy.detection_key(member_exclusions=member_exclusions)
+            identity = f"monitoring:{policy.id}:{detection_key}:{source.node_id}"
             bindings.setdefault(source.node_id, []).append(identity)
             result[identity] = replace(
                 source,
@@ -108,6 +135,71 @@ def ordinary_sources(
     return result
 
 
+def retain_source_identities(
+    sources: dict[str, Source],
+    bindings: dict[str, str],
+    *,
+    policies: tuple[MonitoringPolicy, ...],
+    previous_scopes: dict[str, tuple[str, ...]],
+    candidates: dict[str, Source],
+    legacy_policies: tuple[MonitoringPolicy, ...] = (),
+) -> tuple[dict[str, Source], dict[str, str]]:
+    """Preserve device checks through catalog churn and replace edited scopes."""
+    base_keys = {policy.id: policy.detection_key() for policy in policies}
+    scope_changes = {
+        policy.id: set(previous_scopes.get(policy.id, policy.excluded_sources))
+        ^ set(policy.excluded_sources)
+        for policy in policies
+    }
+    canonical_entities = {
+        source.entity_id: identity
+        for identity, source in candidates.items()
+        if source.kind == "entity" and source.entity_id is not None
+    }
+    legacy_keys = {
+        policy.id: policy.detection_key(member_exclusions=policy.excluded_sources)
+        for policy in legacy_policies
+    }
+    retained: dict[str, str] = {}
+    translated: dict[str, str] = {}
+    for identity, source in sources.items():
+        key = identity
+        policy_id = source.monitoring_policy
+        device_id = source.monitoring_source if source.kind == "device" else None
+        if device_id is not None and policy_id is not None:
+            key = f"monitoring:{policy_id}:{base_keys[policy_id]}:{device_id}"
+        bound = bindings.get(key, identity)
+        if policy_id is not None and policy_id in legacy_keys:
+            bound = f"monitoring:{policy_id}:{legacy_keys[policy_id]}:{original_identity(identity)}"
+        elif device_id is not None and policy_id is not None and key in bindings:
+            eligible = {
+                canonical_entities[entity_id]
+                for entity_id in sources[device_id].availability_entities
+                if entity_id in canonical_entities
+            }
+            if eligible & scope_changes[policy_id]:
+                bound = identity
+                if bound == bindings[key]:
+                    # Registry churn may have retained this hash from an earlier scope.
+                    digest = hashlib.sha256(
+                        f"{bound}:scope-change".encode()
+                    ).hexdigest()[:16]
+                    bound = f"monitoring:{policy_id}:{digest}:{device_id}"
+        translated[identity] = bound
+        if (device_id is not None and policy_id is not None) or bound != identity:
+            retained[key] = bound
+    return {
+        translated[identity]: replace(
+            source,
+            node_id=translated[identity],
+            requirements=tuple(
+                translated.get(item, item) for item in source.requirements
+            ),
+        )
+        for identity, source in sources.items()
+    }, retained
+
+
 def original_identity(identity: str) -> str:
     """Resolve the registry record behind an independent policy condition."""
     return identity.split(":", 3)[3] if identity.startswith("monitoring:") else identity
@@ -127,8 +219,10 @@ def temperature_sources(
             if (
                 source.kind != "entity"
                 or source.disabled
-                or source.excluded_by
-                or not policy.matches(source.attributes)
+                or not policy.matches(
+                    source.attributes,
+                    source_id=source.monitoring_source or source.node_id,
+                )
             ):
                 continue
             domain = source.attributes.get("domain", ())
@@ -158,7 +252,6 @@ def temperature_sources(
                 watched=True,
                 requirements=(),
                 attached_by=(policy.id,),
-                excluded_by=(),
                 monitoring_policy=policy.id,
             )
     return result
@@ -176,8 +269,10 @@ def ups_sources(
             if (
                 source.kind != "ups"
                 or source.check_id != policy.check
-                or source.excluded_by
-                or not policy.matches(source.attributes)
+                or not policy.matches(
+                    source.attributes,
+                    source_id=source.monitoring_source or source.node_id,
+                )
             ):
                 continue
             identity = (
@@ -189,63 +284,6 @@ def ups_sources(
                 watched=True,
                 monitoring_policy=policy.id,
                 attached_by=(policy.id,),
-            )
-    return result
-
-
-def transfer_batteries(
-    policies: tuple[MonitoringPolicy, ...],
-    candidates: dict[str, Source],
-    ups: dict[str, Source],
-) -> dict[str, Source]:
-    """Suppress reviewed overlapping generic checks without rewriting rules."""
-    result = dict(candidates)
-    owners: dict[str, list[str]] = {}
-    for policy in policies:
-        if (
-            policy.check != "ups_reserve"
-            or not ReserveParameters.from_data(policy.parameters).replace_battery_check
-        ):
-            continue
-        selector = CatalogRule(id=policy.id, action="attach", match=policy.match)
-        for candidate in candidates.values():
-            charge = dict(candidate.ups_entities).get("charge")
-            if (
-                candidate.kind == "ups"
-                and candidate.check_id == "ups_reserve"
-                and charge
-                and selector.matches(candidate.attributes)
-            ):
-                owners.setdefault(charge, []).append(policy.id)
-    for battery in candidates.values():
-        charge = battery.battery_level_entity
-        if (
-            battery.kind == "battery"
-            and battery.watched
-            and charge is not None
-            and charge in owners
-        ):
-            result[battery.node_id] = replace(
-                battery,
-                watched=False,
-                excluded_by=(
-                    *battery.excluded_by,
-                    *(f"ups_policy_{identity}" for identity in owners[charge]),
-                ),
-            )
-    for source in ups.values():
-        if source.check_id != "ups_reserve":
-            continue
-        charge = dict(source.ups_entities).get("charge")
-        for battery in result.values():
-            if (
-                battery.kind != "battery"
-                or not battery.watched
-                or battery.battery_level_entity != charge
-            ):
-                continue
-            raise ValueError(
-                f"{source.ups_name}: review the transfer from existing battery monitoring before enabling low reserve"
             )
     return result
 
@@ -266,7 +304,10 @@ def assignments(
                 if source.monitoring_policy is not None
                 else policy.enabled
                 and policy.check == source.check_id
-                and policy.matches(source.attributes)
+                and policy.matches(
+                    source.attributes,
+                    source_id=source.monitoring_source or source.node_id,
+                )
             )
             if not applies:
                 continue
@@ -310,7 +351,10 @@ def contributing_policies(
                 candidate.monitoring_policy == policy.id
                 if candidate.monitoring_policy is not None
                 else candidate.check_id == policy.check
-                and policy.matches(candidate.attributes)
+                and policy.matches(
+                    candidate.attributes,
+                    source_id=candidate.monitoring_source or candidate.node_id,
+                )
             )
             for candidate in related
         )

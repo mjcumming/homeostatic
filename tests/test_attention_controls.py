@@ -34,22 +34,17 @@ async def test_acknowledgment_is_shared_durable_and_not_recovery(
     hass_admin_user: User,
 ) -> None:
     """One authenticated acknowledgment stops opted-in repeats through reload."""
-    config_data["policy"] = {
-        "timezone": "UTC",
-        "recipients": {
-            "owner": {"channels": ["phone"]},
-            "backup": {"channels": ["phone"]},
-        },
-        "rules": [
-            {
-                "match": {},
-                "loudness": "notify",
-                "to": ["owner", "backup"],
-                "remind_every": "10s",
-                "escalate_after": "15s",
-                "require_acknowledgment": True,
-            }
-        ],
+    config_data["monitoring_policies"][0]["notifications"] = [
+        {
+            "id": "repeat",
+            "timing": {"mode": "acknowledge", "remind_every": "10s"},
+            "methods": ["test", "backup"],
+        }
+    ]
+    config_data["notification_definitions"]["methods"]["backup"] = {
+        "name": "Backup",
+        "mode": "fixed",
+        "destinations": ["service:homeostatic_test"],
     }
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -117,13 +112,13 @@ async def test_cancel_shelf_resumes_due_reminder(
     freezer: FrozenDateTimeFactory,
 ) -> None:
     """Canceling a shelf releases due attention without resolving the episode."""
-    config_data["policy"] = {
-        "timezone": "UTC",
-        "recipients": {"owner": {"channels": ["phone"]}},
-        "rules": [
-            {"match": {}, "loudness": "notify", "to": "owner", "remind_every": "10s"}
-        ],
-    }
+    config_data["monitoring_policies"][0]["notifications"] = [
+        {
+            "id": "repeat",
+            "timing": {"mode": "acknowledge", "remind_every": "10s"},
+            "methods": ["test"],
+        }
+    ]
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
@@ -162,23 +157,6 @@ async def test_attention_actions_require_administrator(
     await start_monitor(hass, entry)
     with pytest.raises(Unauthorized):
         await action(hass, name, data, hass_read_only_user.id)
-    assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-async def test_attention_controls_are_guarded_on_incompatible_library(
-    hass: HomeAssistant,
-    config_data: dict[str, Any],
-) -> None:
-    """An incompatible dependency cannot silently promise unsupported controls."""
-    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    runtime = await start_monitor(hass, entry)
-    with patch(
-        "custom_components.homeostatic.runtime.supports_attention_controls",
-        return_value=False,
-    ):
-        assert not runtime.query("inventory", {})["attention_controls_supported"]
-        with pytest.raises(ServiceValidationError, match=r"HealthTree 0\.4\.0"):
-            await action(hass, "acknowledge", {"episode_id": "missing"})
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

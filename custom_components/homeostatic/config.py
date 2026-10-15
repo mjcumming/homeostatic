@@ -18,7 +18,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
 
-from .attention import build_policy, policy_data
+from .attention import build_policy
 from .const import DEFAULTS, DOMAIN
 from .definitions import (
     ExternalCapability,
@@ -28,27 +28,27 @@ from .definitions import (
     external_capabilities,
 )
 from .monitoring import MonitoringPolicy, parse_policies
+from .notification_definitions import defaults as notification_defaults
+from .notification_definitions import generate as notification_policy
 from .notification_definitions import validate as validate_notification_definitions
-from .rules import DEFAULT_RULES, CatalogRule, parse_rules
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Settings:
     """Validated adapter settings stored by setup or the dashboard."""
 
-    policy: dict[str, Any] = dataclass_field(default_factory=policy_data)
-    entities: tuple[str, ...]
-    config_entries: tuple[str, ...]
+    policy: dict[str, Any]
     notifications: bool
     timings: Mapping[str, int]
     functions: tuple[Function, ...] = ()
     situations: tuple[Situation, ...] = ()
     consumer: str | None = None
-    rules: tuple[CatalogRule, ...] | None = None
     external_capabilities: tuple[ExternalCapability, ...] = ()
-    monitoring_policy_version: int = 0
+    monitoring_policy_version: int = 1
     monitoring_policies: tuple[MonitoringPolicy, ...] = ()
-    notification_definitions: dict[str, Any] | None = None
+    notification_definitions: dict[str, Any] = dataclass_field(
+        default_factory=notification_defaults
+    )
 
     @classmethod
     def from_data(
@@ -61,16 +61,6 @@ class Settings:
                 raise ValueError(f"Invalid timing: {key}")
         if timings["coalesce_count"] < 2:
             raise ValueError("coalesce_count must be at least two")
-        entities = data.get("entities", [])
-        entries = data.get("config_entries", [])
-        if not isinstance(entities, list) or not all(
-            isinstance(item, str) for item in entities
-        ):
-            raise ValueError("entities must be a list of source references")
-        if not isinstance(entries, list) or not all(
-            isinstance(item, str) for item in entries
-        ):
-            raise ValueError("config_entries must be a list of entry ids")
         enabled = data.get("notifications", False)
         if type(enabled) is not bool:
             raise ValueError("notifications must be boolean")
@@ -82,61 +72,54 @@ class Settings:
             not isinstance(consumer, str) or not consumer.startswith("automation.")
         ):
             raise ValueError("consumer must be an automation entity id")
-        version = data.get("monitoring_policy_version", 0)
-        if type(version) is not int or version not in {0, 1}:
-            raise ValueError("Unsupported monitoring policy version")
+        version = data.get("monitoring_policy_version")
+        if type(version) is not int or version != 1:
+            raise ValueError(
+                "Unsupported monitoring policy version; configure the unified policy model"
+            )
+        notification_definitions = validate_notification_definitions(
+            data["notification_definitions"]
+        )
         settings = cls(
             monitoring_policy_version=version,
-            policy=policy_data(data.get("policy")),
-            entities=tuple(dict.fromkeys(entities)),
-            config_entries=tuple(dict.fromkeys(entries)),
+            policy=notification_policy(notification_definitions),
             notifications=enabled,
             timings=timings,
             functions=functions,
             situations=situations,
             consumer=consumer,
-            rules=parse_rules(data["rules"]) if "rules" in data else None,
             monitoring_policies=parse_policies(data.get("monitoring_policies", [])),
-            notification_definitions=validate_notification_definitions(
-                data["notification_definitions"]
-            )
-            if data.get("notification_definitions") is not None
-            else None,
+            notification_definitions=notification_definitions,
             external_capabilities=external_capabilities(
                 data if functions_enabled else {**data, "external_capabilities": []}
             ),
         )
-        if settings.notification_definitions is not None:
-            validation = dict(settings.notification_definitions)
-            for item in settings.monitoring_policies:
-                validate_notification_definitions(
-                    {
-                        **validation,
-                        "default": list(item.notifications),
-                        "repairs": [],
-                        "broken_automations": [],
-                        "assignments": {},
-                        "automation_profiles": {},
-                    }
-                )
-            validation["assignments"] = {
-                **validation["assignments"],
-                **{
-                    f"policy:{item.id}": {
-                        "default": [
-                            {**row, "id": f"policy_{item.id}_{row['id']}"}
-                            for row in item.notifications
-                        ],
-                        "checks": {},
-                    }
-                    for item in settings.monitoring_policies
-                },
-            }
-            validate_notification_definitions(validation)
-        elif any(item.notifications for item in settings.monitoring_policies):
-            raise ValueError(
-                "Create delivery methods before assigning notification entries"
+        validation = dict(settings.notification_definitions)
+        for item in settings.monitoring_policies:
+            validate_notification_definitions(
+                {
+                    **validation,
+                    "default": list(item.notifications),
+                    "repairs": [],
+                    "broken_automations": [],
+                    "assignments": {},
+                    "automation_profiles": {},
+                }
             )
+        validation["assignments"] = {
+            **validation["assignments"],
+            **{
+                f"policy:{item.id}": {
+                    "default": [
+                        {**row, "id": f"policy_{item.id}_{row['id']}"}
+                        for row in item.notifications
+                    ],
+                    "checks": {},
+                }
+                for item in settings.monitoring_policies
+            },
+        }
+        validate_notification_definitions(validation)
         nodes = []
         for function in functions:
             try:
@@ -191,138 +174,6 @@ def resolve_entity(hass: HomeAssistant, reference: str) -> str | None:
     if reference.startswith("entity_id:"):
         return reference[10:]
     raise ValueError("Invalid entity source reference")
-
-
-def data_from_input(
-    hass: HomeAssistant, user_input: Mapping[str, Any]
-) -> dict[str, Any]:
-    """Convert form fields to stable source selections."""
-    entity_ids = user_input.get("entity_ids", [])
-    own_entities = er.async_get(hass)
-    for entity_id in entity_ids:
-        registered = own_entities.async_get(entity_id)
-        if registered is not None and registered.platform == DOMAIN:
-            raise vol.Invalid("Homeostatic cannot monitor its own entities")
-    entry_ids = user_input.get("config_entries", [])
-    for entry_id in entry_ids:
-        entry = hass.config_entries.async_get_entry(entry_id)
-        if entry is not None and entry.domain == DOMAIN:
-            raise vol.Invalid("Homeostatic cannot monitor itself")
-    data = {
-        "entities": [entity_reference(hass, entity_id) for entity_id in entity_ids],
-        "config_entries": entry_ids,
-        "notifications": user_input.get("notifications", False),
-        "timings": {key: user_input.get(key, value) for key, value in DEFAULTS.items()},
-    }
-    data["policy"] = policy_data(user_input.get("policy"))
-    data.update(normalize_definitions(hass, user_input))
-    consumer = user_input.get("consumer")
-    data["consumer"] = consumer
-    if data["notifications"]:
-        state = hass.states.get(consumer) if isinstance(consumer, str) else None
-        built_in = any(
-            channel.startswith(("phone:", "notify:"))
-            for recipient in Settings.from_data(data)
-            .policy_config()
-            .recipients.values()
-            for channel in recipient.channels
-        )
-        if not built_in and (
-            state is None
-            or state.state != "on"
-            or not isinstance(consumer, str)
-            or not consumer.startswith("automation.")
-        ):
-            raise vol.Invalid("Enable a notification consumer automation first")
-    if "rules" in user_input:
-        data["rules"] = normalize_rules(hass, user_input["rules"])
-    elif not {"entity_ids", "config_entries"}.intersection(user_input):
-        data["rules"] = normalize_rules(hass, DEFAULT_RULES)
-    Settings.from_data(data)
-    return data
-
-
-def normalize_rules(hass: HomeAssistant, value: Any) -> list[dict[str, Any]]:
-    """Resolve friendly entity input once; retain stable ids in saved rules."""
-    rules = parse_rules(value)
-    result = []
-    for rule in rules:
-        match = {key: list(values) for key, values in rule.match.items()}
-        if "entity" in match:
-            match["entity"] = [
-                value
-                if value.startswith(("registry:", "entity_id:"))
-                else entity_reference(hass, value)
-                for value in match["entity"]
-            ]
-        for reference in match.get("entity", []):
-            entity_id = resolve_entity(hass, reference)
-            registered = er.async_get(hass).async_get(entity_id) if entity_id else None
-            if registered is not None and registered.platform == DOMAIN:
-                raise vol.Invalid("Homeostatic cannot monitor its own entities")
-        for entry_id in match.get("integration", []):
-            entry = hass.config_entries.async_get_entry(entry_id)
-            if entry is not None and entry.domain == DOMAIN:
-                raise vol.Invalid("Homeostatic cannot monitor itself")
-        result.append(
-            {
-                "id": rule.id,
-                "enabled": rule.enabled,
-                "action": rule.action,
-                **({"overridable": True} if rule.overridable else {}),
-                "match": match,
-                "checks": list(rule.checks),
-            }
-        )
-    return result
-
-
-def rule_data(hass: HomeAssistant, settings: Settings) -> list[dict[str, Any]]:
-    """Translate legacy selections into the same editable rule catalog."""
-    if settings.monitoring_policy_version == 1:
-        return []
-    if settings.rules is not None:
-        return [
-            {
-                "id": rule.id,
-                "action": rule.action,
-                **({"overridable": True} if rule.overridable else {}),
-                "enabled": rule.enabled,
-                "match": {key: list(values) for key, values in rule.match.items()},
-                "checks": list(rule.checks),
-            }
-            for rule in settings.rules
-        ]
-    references = set(settings.entities) | {
-        reference
-        for function in settings.functions
-        for reference in function.entity_references
-    }
-    entries = set(settings.config_entries)
-    registry = er.async_get(hass)
-    for reference in references:
-        entity_id = resolve_entity(hass, reference)
-        registered = registry.async_get(entity_id) if entity_id else None
-        if registered is not None and registered.config_entry_id:
-            entries.add(registered.config_entry_id)
-    rules: list[dict[str, Any]] = []
-    if references:
-        rules.append(
-            {
-                "id": "selected_entities",
-                "action": "attach",
-                "match": {"entity": sorted(references)},
-            }
-        )
-    if entries:
-        rules.append(
-            {
-                "id": "selected_integrations",
-                "action": "attach",
-                "match": {"kind": "integration", "integration": sorted(entries)},
-            }
-        )
-    return rules
 
 
 def normalize_definitions(

@@ -61,17 +61,15 @@ async def test_failure_notification_recovery(
     await hass.async_block_till_done()
     episode_id = next(iter(runtime.episodes))
     assert runtime.readiness == "degraded"
-    assert (
-        runtime.notification_id(episode_id) in hass.data[persistent_notification.DOMAIN]
-    )
+    [message] = runtime.delivery.messages.values()
+    notification_tag = message["tag"]
+    assert message["episode_id"] == episode_id
+    assert notification_tag in hass.data[persistent_notification.DOMAIN]
     hass.states.async_set("sensor.observed", "43")
     await hass.async_block_till_done()
     assert runtime.readiness == "ready"
     assert not runtime.episodes
-    assert (
-        runtime.notification_id(episode_id)
-        not in hass.data[persistent_notification.DOMAIN]
-    )
+    assert notification_tag not in hass.data[persistent_notification.DOMAIN]
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
@@ -148,15 +146,20 @@ async def test_missing_source_stales(
 async def test_recovery_before_delayed_delivery(
     hass: HomeAssistant, config_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
 ) -> None:
-    """A recovered problem does not send a stale opening after the batch delay."""
-    config_entry.data["timings"]["batch"] = 10
+    """A recovered problem is absent when its scheduled report becomes due."""
+    report_at = dt_util.utcnow() + timedelta(minutes=1)
+    config_entry.data["monitoring_policies"][0]["notifications"][0]["timing"] = {
+        "mode": "report",
+        "at": report_at.strftime("%H:%M"),
+        "weekdays": list(range(7)),
+    }
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
     assert len(runtime.episodes) == 1
     assert not runtime.desired_notifications
     hass.states.async_set("sensor.observed", "42")
     await hass.async_block_till_done()
-    freezer.tick(timedelta(seconds=11))
+    freezer.tick(timedelta(seconds=61))
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert not runtime.episodes

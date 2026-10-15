@@ -1,0 +1,154 @@
+import "../../custom_components/homeostatic/frontend/homeostatic.js";
+import {initializeScopedConfiguration,rebaseScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=74";
+import {sourceDetailsFixture,DEVICE_ID,ENTITY_ID,UPDATED_AT} from "./source-details-fixture.mjs";
+import {emptyReceipt,recordResult,receiptSummary} from "./control-path-inventory.mjs";
+
+const card=document.querySelector("homeostatic-panel"),root=card.shadowRoot,result=document.querySelector("#result");
+const copy=value=>structuredClone(value),base=sourceDetailsFixture("device",["unavailable","unknown","off"]);
+const candidates=base.current.data.inventory.catalog.candidates,entities=candidates.filter(item=>item.kind==="entity"),members=base.sourceDetail.members;
+const initial={...base.configuration.settings,notifications:false,timings:{settle:30},consumer:null,
+  notification_definitions:{methods:{phone:{name:"Phone",mode:"fixed",destinations:[]}},profiles:{}},
+  monitoring_policies:[...base.configuration.settings.monitoring_policies,{id:"temperature",name:"Temperature",check:"temperature_limit",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]}]};
+let saved,revision,calls,failNext,receipt,activePath;
+const configuration=()=>({revision:String(revision),settings:copy(saved)});
+const policy=id=>saved.monitoring_policies.find(item=>item.id===id);
+const exclusion=(id,source)=>policy(id).excluded_sources?.includes(source);
+const saves=()=>calls.filter(item=>item.type==="homeostatic/save_settings");
+function inventory() {
+  const data=copy(base.current.data),device=candidates.find(item=>item.node_id===DEVICE_ID);
+  const selected=entities.filter(item=>!exclusion("devices",item.node_id));
+  data.catalog_revision=String(revision);data.updated_at=UPDATED_AT;
+  data.inventory.attention_controls_supported=true;
+  data.inventory.nodes=[...copy(candidates),...entities.filter(item=>!exclusion("entities",item.node_id)).map(item=>({...item,node_id:`monitoring:entities:${item.node_id}`,monitoring_source:item.node_id,monitoring_policy:"entities",watched:true})),
+    ...(selected.length?[{...device,node_id:`monitoring:devices:${DEVICE_ID}`,monitoring_source:DEVICE_ID,monitoring_policy:"devices",watched:true,availability_entities:selected.map(item=>item.entity_id)}]:[])];
+  data.inventory.episodes=exclusion("entities",ENTITY_ID)?[]:[{episode_id:"shared",anchor:"entry:lyric",recorded:["entry:lyric",`monitoring:entities:${ENTITY_ID}`],reasons:[{node_id:`monitoring:entities:${ENTITY_ID}`,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT}];
+  return data;
+}
+function detail(id) {
+  const selected=id===DEVICE_ID?members.filter(item=>!exclusion("devices",item.node_id)):members.filter(item=>item.node_id===id);
+  return {...copy(base.sourceDetail),nodeId:id,members:copy(selected),total:selected.length,
+    unavailable_count:selected.filter(item=>item.state==="unavailable").length,unknown_count:0,
+    device_availability:id===DEVICE_ID?{status:"available",basis:"entities",reason:"available_entity"}:null};
+}
+card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},states:{},localize:()=>null,async callWS(request){
+  calls.push(copy(request));
+  if(request.type==="homeostatic/configuration")return configuration();
+  if(request.type==="homeostatic/source")return detail(request.node_id);
+  if(request.type==="homeostatic/save_settings") {
+    if(failNext){const error=failNext;failNext=null;if(error.applied){saved=copy(request.settings);revision++;card.current={status:"current",data:inventory()};}throw error;}
+    if(request.revision!==String(revision))throw {code:"stale_configuration",message:"Saved settings changed"};
+    saved=copy(request.settings);revision++;card.current={status:"current",data:inventory()};return {saved:true};
+  }
+  throw Error(`Unexpected request in isolated scenario: ${request.type}`);
+}};
+root.addEventListener("click",event=>{if(event.target.closest("a[href]"))event.preventDefault();});
+const frame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+const check=(value,message)=>{if(!value)throw Error(message);};
+async function settle() {
+  for(let index=0;index<40;index++){await frame();if(!card.settingsBusy&&!card.sourceDetail?.loading)return;}
+  throw Error("Source action did not settle");
+}
+function click(selector) {
+  const target=root.querySelector(selector);check(target,`Missing ${selector}`);check(!target.disabled,`Disabled ${selector}`);
+  check(target.getClientRects().length,`Hidden ${selector}`);target.click();
+}
+function disclose(selector) {const target=root.querySelector(selector);check(target,`Missing ${selector}`);if(!target.open)click(`${selector} > summary`);}
+function choose(id) {card.sourcesSelection=`source:${id}`;card.sourcesMobileDetail=true;card.sourceDetail=detail(id);card.render();}
+function reset() {
+  saved=copy(initial);revision=1;calls=[];failNext=null;
+  Object.assign(card,{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,availabilityPlan:null,availabilitySelected:null,availabilityUndo:null,availabilityNotice:null,availabilityError:null,availabilityContext:null,sourcesExcludedOnly:false,sourcesQuery:"",sourcesExpanded:new Set(base.sourcesExpanded),current:{status:"current",data:inventory()},page:"sources"});
+  initializeScopedConfiguration(card);choose(ENTITY_ID);
+}
+function report() {document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);parent.postMessage({type:"homeostatic-acceptance",fixture:"source-actions.html",receipt},location.origin);}
+function pass(id,evidence) {recordResult(receipt,id,"pass",evidence);report();}
+function start(id) {activePath=id;}
+document.querySelector("#width").onchange=event=>card.style.width=`${event.target.value}px`;
+document.querySelector("#theme").onchange=event=>document.documentElement.dataset.theme=event.target.value;
+document.querySelector("#device").onclick=()=>choose(DEVICE_ID);
+document.querySelector("#entity").onclick=()=>choose(ENTITY_ID);
+document.documentElement.dataset.theme="dark";
+reset();
+document.querySelector("#run").onclick=async()=>{
+  const button=document.querySelector("#run");button.disabled=true;
+  result.textContent="Running source action checks…";
+  receipt=emptyReceipt({fixture:"source-actions.html",browser:navigator.userAgent,build:"working tree",transport:"synthetic settings and source replies; no live calls"});
+  try {
+    reset();await settle();
+    start("sources.availability");
+    card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name="Pending temperature";
+    card.settingsDraft.notification_definitions.methods.phone.name="Pending phone";
+    click('[data-availability-action="stop"]');
+    check(root.querySelector(".source-availability-confirm").textContent.includes("Devices")&&root.querySelector(".source-availability-confirm").textContent.includes("Entities"),"Both availability roles must be reviewed");
+    check(root.activeElement?.dataset.availabilityAction==="confirm","Confirmation receives keyboard focus");
+    click('[data-availability-action="cancel"]');check(saves().length===0,"Cancel must not save");
+    click('[data-availability-action="stop"]');click('[data-availability-action="confirm"]');await settle();
+    check(saves().length===1&&exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID),"One save excludes exactly the entity in both policies");
+    check(root.querySelector(".source-condition").textContent.includes("Unavailable in Home Assistant"),"Unmonitor must not reinterpret unavailable");
+    check(policy("temperature").name==="Temperature"&&card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name==="Pending temperature","Unrelated policy draft survives unsaved");
+    check(saved.notification_definitions.methods.phone.name==="Phone"&&card.settingsDraft.notification_definitions.methods.phone.name==="Pending phone","Unrelated delivery draft survives unsaved");
+    choose(DEVICE_ID);await settle();choose(ENTITY_ID);await settle();
+    click('[data-availability-action="resume"]');click('[data-availability-action="confirm"]');await settle();
+    check(!exclusion("entities",ENTITY_ID)&&!exclusion("devices",ENTITY_ID),"Resume persisted after reopening");
+    click('[data-availability-action="undo"]');await settle();check(exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID),"Undo reverses the confirmed change");
+    pass(activePath,"Actual Stop, Cancel, confirm, reopen, Resume and Undo controls; exact two-policy exclusions; unchanged unavailable state and unrelated unsaved policy/method drafts.");
+
+    start("sources.availability-batch");reset();choose(DEVICE_ID);await settle();
+    click('[data-availability-action="select"]');
+    disclose('[data-ui-key^="source-other-entities:"]');
+    click(`[data-availability-select="${ENTITY_ID}"]`);click(`[data-availability-select="${entities[1].node_id}"]`);
+    click('[data-availability-action="stop-selected"]');click('[data-availability-action="confirm"]');await settle();
+    check(saves().length===1&&policy("devices").excluded_sources.length===2&&policy("entities").excluded_sources.length===2,"Batch persists only the selected entities");
+    check(!exclusion("devices",entities[2].node_id),"Unselected off-valued sibling remains monitored");
+    click('[data-availability-action="select"]');disclose('.source-excluded-members');
+    click(`[data-availability-select="${ENTITY_ID}"]`);click('[data-availability-action="resume-selected"]');click('[data-availability-action="confirm"]');await settle();
+    check(!exclusion("devices",ENTITY_ID)&&exclusion("devices",entities[1].node_id),"Batch resume removes only selected exclusions");
+    click('[data-action="back-sources"]');click('[data-sources-excluded]');
+    check(!root.querySelector(`[data-sources-select="source:${ENTITY_ID}"]`)&&root.querySelector(`[data-sources-select="source:${entities[1].node_id}"]`),"Exclusion filter reaches the remaining excluded entity");
+    pass(activePath,"Device checkboxes select exactly two entities for one save; omitted excluded members remain reachable for selective resumption; exclusion filter retains only excluded branches.");
+
+    start("sources.availability-conflicts");reset();await settle();
+    click('[data-availability-action="stop"]');card.settingsDraft.monitoring_policies.find(item=>item.id==="entities").name="Pending affected draft";
+    click('[data-availability-action="confirm"]');await settle();check(saves().length===0&&root.querySelector('[role="alert"]').textContent.includes("draft"),"Affected drafts block the entire save");
+    reset();await settle();click('[data-availability-action="stop"]');revision++;saved.notifications=true;rebaseScopedConfiguration(card,configuration());
+    click('[data-availability-action="confirm"]');await settle();check(saves().length===0&&root.querySelector('[role="alert"]').textContent.includes("changed"),"Stale review must not overwrite settings");
+    reset();await settle();click('[data-availability-action="stop"]');card.current.data.catalog_revision="new-catalog";
+    click('[data-availability-action="confirm"]');await settle();check(saves().length===0&&!root.querySelector('[data-availability-action="confirm"]'),"Changed catalog clears the stale review without a write");
+    reset();await settle();click('[data-availability-action="stop"]');card.current.status="disconnected";card.render();
+    check(card.main.inert&&saves().length===0,"Disconnected source controls are read-only");card.current.status="current";card.render();
+    click('[data-availability-action="cancel"]');check(saves().length===0,"Reconnection retains cancellable review without a write");
+    reset();await settle();click('[data-availability-action="stop"]');failNext={code:"invalid_settings",message:"Synthetic save rejection"};
+    click('[data-availability-action="confirm"]');await settle();check(!exclusion("devices",ENTITY_ID)&&root.querySelector('[role="alert"]').textContent.includes("Synthetic save rejection"),"Failed save leaves saved scope unchanged");
+    click('[data-availability-action="confirm"]');await settle();check(exclusion("devices",ENTITY_ID)&&saves().length===2,"Only deliberate retry saves");
+    reset();await settle();click('[data-availability-action="stop"]');failNext={message:"Synthetic response lost",applied:true};
+    click('[data-availability-action="confirm"]');await settle();check(exclusion("devices",ENTITY_ID)&&!root.querySelector('[data-availability-action="undo"]'),"Uncertain response does not claim confirmed Undo");
+    check(saves().length===1,"Uncertain response never automatically retries");
+    click('[data-availability-action="refresh"]');await settle();
+    check(saves().length===1&&root.querySelector('[data-availability-action="resume"]'),"Reading newer saved state exposes Resume without a duplicate uncertain save");
+    pass(activePath,"Actual controls block affected drafts, stale settings and changed catalogs; disconnected controls are read-only; rejected saves accept deliberate retry; lost applied-save response has no automatic retry or false Undo and refresh prevents a duplicate write.");
+
+    start("sources.contextual-issue-controls");reset();await settle();disclose('.source-issue-actions');
+    check(root.querySelector('.source-issue-actions').textContent.includes("whole issue headed by Lyric, involving 2 sources"),"Whole correlated issue scope is explicit");
+    click('[data-acknowledge="shared"]');check(card.tools.dialog.open&&card.tools.immediate?.target==="shared","Acknowledgment dialog targets the correlated issue");click('[data-tool="close"]');
+    click('[data-shelf="shared"]');check(card.tools.dialog.open&&card.tools.draft?.target==="shared","Pause dialog targets the correlated issue");click('[data-tool="close"]');
+    check(!calls.some(item=>!["homeostatic/source"].includes(item.type)),"Opening and cancelling issue controls does not mutate state");
+    pass(activePath,"Expanded Actions for this issue, read scope, opened and cancelled Acknowledge and Pause dialogs for exact correlated issue id; no action request sent.");
+
+    start("sources.compact-layout");reset();await settle();
+    check(!root.querySelector('.source-monitoring-explanation').open&&!root.querySelector('.source-technical').open,"Secondary details start collapsed");
+    disclose('.source-monitoring-explanation');disclose('.source-technical');
+    const summary=root.querySelector('.source-technical > summary');summary.focus();card.render();await settle();
+    check(root.querySelector('.source-technical').open&&root.activeElement===summary,"Live render retains disclosure and focus");
+    for(const width of [320,390,1200])for(const theme of ["light","dark"]) {
+      card.style.width=`${width}px`;document.documentElement.dataset.theme=theme;await frame();
+      check(card.scrollWidth<=card.clientWidth+1,`No host overflow at ${width}px ${theme}`);
+      check(root.querySelector('.shell').scrollWidth<=card.clientWidth+1,`No content overflow at ${width}px ${theme}`);
+      const action=root.querySelector('[data-availability-action="stop"]');check(action.getBoundingClientRect().height>=44,"Action touch target at least 44px");
+      click('[data-availability-action="stop"]');check(root.activeElement?.dataset.availabilityAction==="confirm","Focus reaches confirm at each width");click('[data-availability-action="cancel"]');
+    }
+    card.style.width="390px";document.documentElement.dataset.theme="dark";reset();await settle();
+    pass(activePath,"Actual disclosures retain focus through rerender; Stop review/Cancel work at 320, 390 and 1200 CSS pixels in light and dark; no required horizontal scrolling; primary action meets 44px touch target. Physical Safari untested.");
+    result.textContent=`PASS: ${receiptSummary(receipt).pass} source action paths; other inventory paths remain untested by this fixture.`;
+  }catch(error){recordResult(receipt,activePath,"fail",error.message);document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);result.textContent=`FAIL: ${activePath}: ${error.message}`;}
+  finally{button.disabled=false;report();}
+};
+if(new URLSearchParams(location.search).has("run"))document.querySelector("#run").click();

@@ -17,7 +17,7 @@ Adding it says "Homeostatic is already configured": there can only be one Homeos
 The Homeostatic card under **Settings → Devices & services** says it failed to set up:
 
 - The first load couldn't install the health-tree library. Look in the log for a requirements error that names `health-tree`. Home Assistant needs internet access the first time Homeostatic loads. Fix the connection and restart.
-- The log says "Invalid Homeostatic configuration or snapshot", followed by the reason. This usually means the saved data doesn't match the installed version, for example after rolling back to an older version without restoring the matching backup. Restore the backup you took before the upgrade, as described in [Upgrade and roll back](install.md#7-upgrade-and-roll-back). The testing redesign with policy-owned timing does not convert older schedule-library settings. Use a fresh test setup for that model; existing settings are left intact until you explicitly remove or replace them.
+- The log says "Invalid Homeostatic configuration or snapshot", followed by the reason. This usually means the saved data doesn't match the installed version, for example after rolling back to an older version without restoring the matching backup. Restore the backup you took before the upgrade, as described in [Upgrade and roll back](install.md#7-upgrade-and-roll-back). Unsupported pre-policy test settings are not converted or reset. Supported unified policies and Custom notification assignments remain preserved; use a fresh test setup only for the earlier model transition.
 
 The panel shows a message instead of your pages:
 
@@ -43,12 +43,12 @@ If Home Assistant is still restarting when you see the out-of-sync message, let 
 
 ## No notifications arriving
 
-Start with the affected policy in **Policies**. Fresh setup has no notification entries and global sending is off.
+Start with the affected policy in **Policies**. Fresh setup selects named notifications without delivery methods, and global sending is off.
 
 1. Confirm the policy is enabled and matches the source. Check that an issue is open.
-2. Inspect its **Notifications** entries. Each entry needs timing and at least one saved delivery method. No entries means **Dashboard only**.
-3. For a scheduled summary, check the time, weekdays and displayed time zone. Reports include open problems at that time. Acknowledgment stops acknowledgment reminders, but an open issue remains eligible for a summary.
-4. Open **Notifications** and check **Enable notifications**. Select **Save changes** to apply edits.
+2. Inspect its **Notifications** assignment. Open that named notification in **Notifications** to check its timing and **Send using** methods. No method means it is unconfigured; no policy assignment means **Dashboard only**.
+3. Check the time, weekdays and displayed time zone for a summary, or the start and end of a daily-hours window. Reports include open problems at their scheduled time; a closed window holds requests until its next opening. Acknowledgment stops acknowledgment reminders, but an open issue remains eligible for a summary.
+4. Check that the **Notifications** switch near the top of the panel is on. It applies immediately; save policy, notification and method edits in their respective editors.
 5. Check the selected delivery method's destinations and presence settings. Presence-based methods may select fallback destinations or skip when nobody qualifies. Inspect recent request failures and unavailable targets.
 
 For a Companion app phone, check the Home Assistant user-to-person link under **Settings → People**, the account signed in to the app and the app's notification permission. An unavailable phone registration cannot receive requests.
@@ -57,9 +57,9 @@ Save the method, then select **Send test** in its editor. A test request works w
 
 ## Too many issues
 
-Fresh setup enables integration, device and entity availability policies, Repairs and broken automations. Open **Policies** to see which policies select the sources producing issues. You can narrow a policy's source selection or disable it, then select **Save changes**.
+Fresh setup enables integration, device and entity availability policies, Repairs and broken automations. Open **Policies** to see which policies select the sources producing issues. You can narrow a policy's source selection or disable it, then select **Save policy**.
 
-An entity can be unavailable because its current device mode does not support it. Inspect its readings before deciding to monitor it. A device availability check uses all selected entities and opens a device issue only when they are all unavailable, or a supported connectivity sensor reports disconnected.
+An entity can be unavailable because its current device mode does not support it. Inspect its readings before deciding to monitor it. A device availability check uses selected operational entities and opens a device issue when they are all unavailable. Current off and unknown values remain available.
 
 Overlapping policies operate independently. If two policies intentionally select the same source, inspect their names and detection settings. Disable or delete the one you no longer want. A battery policy may find many low batteries at once; each follows that policy's threshold and the reported low/charging evidence.
 
@@ -81,7 +81,7 @@ An alert that was clear and stays unknown for 15 minutes opens an issue saying i
 
 If the alert doesn't appear in Homeostatic at all, its automation's call to Homeostatic is failing. The trace shows the error:
 
-- "Configure shared reporting profiles in Homeostatic Notifications first": the alert uses a reporting choice other than **Dashboard only**, and the notification setup hasn't been saved yet. Save it under **Notifications**, or use **Dashboard only**.
+- "Configure shared reporting profiles in Homeostatic Notifications first": the alert requests an automation reporting profile that has not been configured. The current method editor does not create these profiles. Use **Dashboard only** while configuring the automation reporting contract described in the [alert guide](automation-situations.md).
 - "Choose a saved HA automation with a stable ID": the automation has no ID. Automations made in the editor always have one. Add an `id` to an automation written in YAML.
 - "This alert is retired; explicitly resume it before reporting": the alert was retired. Resume it as described in the [alert guide](automation-situations.md).
 
@@ -95,7 +95,7 @@ When a tap doesn't get there:
 - The Companion app isn't currently signed in to the Home Assistant server that sent the notification. The link points at a page on that server.
 - The notification came from your own automation instead of Homeostatic's built-in sender. The Companion notifications blueprint includes the link. An automation you wrote yourself has to set it, as `url` for iPhone and `clickAction` for Android.
 
-The **Acknowledge** button appears only on notifications about a single open issue sent by Homeostatic itself. Summaries, notices that an issue has ended and test notifications don't have one.
+The **Acknowledge** button appears on issue notifications sent by Homeostatic itself. For a combined device message, it acknowledges the exact issues shown when that message was sent; a later failure still needs attention. Scheduled summaries, notices that issues have ended and test notifications don't have one.
 
 ## A device shows unavailable but works
 
@@ -103,11 +103,10 @@ Homeostatic shows what Home Assistant reports. First check the device in Home As
 
 If the device works but Homeostatic reports it unavailable:
 
-- Some integrations make an entity unavailable when a feature isn't in use, such as a receiver's second zone while it's in standby. That opens a device issue only when every selected entity on the device does it. Use **Stop checking…** on the ones that come and go, and give an entity that always reports, like the main power switch, a check of its own.
+- Some integrations make an entity unavailable when a feature isn't in use, such as a receiver's second zone while it's in standby. That opens a device issue only when every selected entity on the device does it. Review its contributing entity policy and narrow the selection if this entity is not expected to remain available. A passing device summary can coexist with that individual entity issue.
 - Battery devices that sleep can show as unavailable between check-ins, depending on the integration. Exclude the entities that do this.
-- A selected connectivity sensor on the device reports *off*, for example a cloud-connection sensor while the device works locally. Homeostatic treats that as the device reporting itself disconnected. Excluding the sensor stops the issue. The device's availability in **Sources** still reads unavailable, because it uses every enabled entity, so disable the sensor in Home Assistant if you don't need it.
 
-The device's availability in **Sources** and its issue can also disagree. Both use the same rule, but the availability counts every enabled entity on the device and the issue counts only the [selected ones](guide.md#watch-a-device-or-an-entity), which leave out configuration entities, diagnostic entities when the device has others, and anything you've excluded. When only a left-out entity still reports, the availability reads **Available** while the issue stays open, and the issue explains this under **Why does Home Assistant say Available?** When a connectivity sensor that isn't selected reports *off*, the availability reads **Unavailable** and there's no issue.
+The device assessment in **Sources** uses enabled operational entities. Its scope can differ from a policy that excludes some of those entities. The policy's evidence and counts honor its selection, while an individually unavailable entity retains its own issue even when a sibling makes the device summary pass. Diagnostic and configuration entities do not supply automatic device availability, and a connectivity sensor's current off value does not create an availability failure.
 
 The [user guide](guide.md#what-an-availability-problem-means) explains what an availability problem means in detail.
 
@@ -116,7 +115,7 @@ The [user guide](guide.md#what-an-availability-problem-means) explains what an a
 - Homeostatic only knows what Home Assistant reports. Home Assistant reporting a sensor available doesn't prove the reading is fresh or that a command worked, and Homeostatic can't tell whether a detector has stopped processing. Checks for these are on the [roadmap](roadmap.md).
 - It can't tell you Home Assistant itself has stopped, because it runs inside Home Assistant. You need a monitor outside Home Assistant for that.
 - Some integrations mark a control unavailable when the device's current mode doesn't support it. Homeostatic can't tell that from lost contact.
-- A device issue opens only when every selected entity on the device is unavailable, or its connectivity sensor reports disconnected. One failed entity on a device whose other entities still report doesn't open one. Watch that entity on its own if it matters.
+- A device availability issue opens when every selected operational entity is unavailable. Individual entity monitoring covers a partial failure while siblings still report. Compatible device notifications combine those findings while each issue keeps its own recovery and controls.
 - A notification request isn't proof of delivery. Homeostatic hands each message to Home Assistant's notify action, which can't confirm the phone received it, and some delivery errors appear only in the Home Assistant log.
 - When an integration fails, everything watched on it is grouped under its issue, including a device that happens to have a fault of its own at the same moment. Check anything still failing once the integration recovers.
 - An automation that names an entity that no longer exists opens an issue. An automation that never runs, or an error that appears only in its trace, doesn't show up in Homeostatic. An entity id written only inside a template is not seen, and scripts are not checked.

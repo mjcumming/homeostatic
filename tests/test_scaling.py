@@ -10,52 +10,26 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.config import Settings
-from custom_components.homeostatic.config_flow import preview_summary
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.function_model import preview
+from tests.policy_helpers import bound_identity, current_config, monitoring_policy
 from tests.test_lifecycle import start_monitor
 
-LIGHTS = [{"id": "lights", "action": "attach", "match": {"domain": ["light"]}}]
-
-
-async def test_ten_thousand_source_rule_preview_without_engine(
-    hass: HomeAssistant,
-    record_property: Callable[[str, object], None],
-) -> None:
-    """Enrollment counts must not construct a graph even for a large catalog."""
-    for index in range(10000):
-        hass.states.async_set(f"light.scale_{index}", "off")
-    with (
-        patch(
-            "custom_components.homeostatic.config.Engine",
-            side_effect=AssertionError("Enrollment counts need no engine"),
-        ),
-        patch(
-            "custom_components.homeostatic.function_model.Engine",
-            side_effect=AssertionError("Enrollment counts need no engine"),
-        ),
-    ):
-        started = perf_counter()
-        summary = preview_summary(hass, {"rules": LIGHTS})
-    record_property("rule_preview_seconds", perf_counter() - started)
-    assert "10000 watched sources" in summary
-    assert not hass.config_entries.async_entries(DOMAIN)
+LIGHTS = monitoring_policy("lights", {"kind": ["entity"], "domain": ["light"]})
 
 
 def test_removing_all_functions_needs_no_graph(hass: HomeAssistant) -> None:
     """An empty function proposal still reports removed edges without discovery."""
     previous = Settings.from_data(
-        {
-            "functions": [
-                {"id": "room", "name": "Room", "requires": ["external:network"]}
-            ]
-        }
+        current_config(
+            functions=[{"id": "room", "name": "Room", "requires": ["external:network"]}]
+        )
     ).functions
     with patch(
         "custom_components.homeostatic.function_model.inventory",
         side_effect=AssertionError("No function graph needed"),
     ):
-        result = preview(hass, Settings.from_data({}), {}, previous)
+        result = preview(hass, Settings.from_data(current_config()), {}, previous)
     assert result == {
         "preview_kind": "current_evidence_without_history",
         "functions": [],
@@ -74,7 +48,7 @@ async def test_large_graph_setup_reconcile_and_failure(
         hass.states.async_set(f"light.scale_{index}", "off")
     hass.states.async_set("sensor.unwatched", "available")
     config_data.update(
-        rules=LIGHTS,
+        monitoring_policies=[LIGHTS],
         notifications=False,
         functions=[
             {
@@ -95,8 +69,11 @@ async def test_large_graph_setup_reconcile_and_failure(
         started = perf_counter()
         runtime = await start_monitor(hass, entry)
         record_property("setup_seconds", perf_counter() - started)
-        assert len(runtime.sources) == 10000
-        assert runtime.sources["entity:entity_id:light.scale_0"].watched
+        assert len(runtime.sources) == 20000
+        assert sum(source.watched for source in runtime.sources.values()) == 10000
+        assert runtime.sources[
+            bound_identity(LIGHTS, "entity:entity_id:light.scale_0")
+        ].watched
         assert not runtime.candidates["entity:entity_id:sensor.unwatched"].watched
         assert "entity:entity_id:sensor.unwatched" not in runtime.sources
         assert (
@@ -119,9 +96,8 @@ async def test_large_graph_setup_reconcile_and_failure(
         record_property("failure_processing_seconds", perf_counter() - started)
         assert runtime.readiness == "degraded"
         assert len(runtime.episodes) == 1
-        assert (
-            next(iter(runtime.episodes.values()))["anchor"]
-            == "entity:entity_id:light.scale_0"
+        assert next(iter(runtime.episodes.values()))["anchor"] == bound_identity(
+            LIGHTS, "entity:entity_id:light.scale_0"
         )
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -130,16 +106,16 @@ def test_function_preview_batches_registration(hass: HomeAssistant) -> None:
     """Function preview retains healthy evidence and missing required evidence."""
     hass.states.async_set("light.observed", "off")
     settings = Settings.from_data(
-        {
-            "rules": LIGHTS,
-            "functions": [
+        current_config(
+            [LIGHTS],
+            functions=[
                 {
                     "id": "room",
                     "name": "Room",
                     "requires": ["entity:entity_id:light.observed", "external:missing"],
                 }
             ],
-        }
+        )
     )
     with patch(
         "health_tree.engine.Engine.register",

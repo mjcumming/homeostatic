@@ -9,6 +9,11 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.const import DOMAIN
+from tests.policy_helpers import (
+    availability_policies,
+    bound_identity,
+    monitoring_policy,
+)
 from tests.test_lifecycle import start_monitor
 
 
@@ -32,18 +37,21 @@ async def test_integration_outage_groups_watched_devices(
         entities.append(entity)
         hass.states.async_set(entity.entity_id, "42")
     config_data.update(
-        entities=[],
         notifications=False,
-        rules=[
-            {"id": "entry", "action": "attach", "match": {"kind": "integration"}},
-            {"id": "devices", "action": "attach", "match": {"kind": "device"}},
+        monitoring_policies=[
+            monitoring_policy("integrations", {"kind": ["integration"]}),
+            monitoring_policy("devices", {"kind": ["device"]}),
         ],
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     for device in devices:
-        assert runtime.sources[f"device:{device.id}"].requirements == (
-            f"entry:{owner.entry_id}",
+        assert runtime.sources[
+            bound_identity(config_data["monitoring_policies"][1], f"device:{device.id}")
+        ].requirements == (
+            bound_identity(
+                config_data["monitoring_policies"][0], f"entry:{owner.entry_id}"
+            ),
         )
     assert not runtime.episodes
 
@@ -52,13 +60,17 @@ async def test_integration_outage_groups_watched_devices(
         hass.states.async_set(entity.entity_id, "unavailable")
     await hass.async_block_till_done()
     assert len(runtime.episodes) == 1
-    assert next(iter(runtime.episodes.values()))["anchor"] == f"entry:{owner.entry_id}"
+    assert next(iter(runtime.episodes.values()))["anchor"] == bound_identity(
+        config_data["monitoring_policies"][0], f"entry:{owner.entry_id}"
+    )
 
     owner._async_set_state(hass, ConfigEntryState.LOADED, "recovered")
     hass.states.async_set(entities[0].entity_id, "42")
     await hass.async_block_till_done()
     assert len(runtime.episodes) == 1
-    assert next(iter(runtime.episodes.values()))["anchor"] == f"device:{devices[1].id}"
+    assert next(iter(runtime.episodes.values()))["anchor"] == bound_identity(
+        config_data["monitoring_policies"][1], f"device:{devices[1].id}"
+    )
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -96,19 +108,11 @@ async def test_two_already_offline_devices_with_selected_capabilities(
             )
             hass.states.async_set(other.entity_id, "unavailable")
     config_data.update(
-        entities=[],
-        config_entries=[],
         notifications=False,
-        rules=[
-            {"id": "controller", "action": "attach", "match": {"kind": "integration"}},
-            {
-                "id": "selected",
-                "action": "attach",
-                "match": {
-                    "entity": [f"registry:{entity.id}" for entity in primary],
-                },
-            },
-        ],
+        monitoring_policies=availability_policies(
+            entities=[f"registry:{entity.id}" for entity in primary],
+            integrations=[owner.entry_id],
+        ),
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)

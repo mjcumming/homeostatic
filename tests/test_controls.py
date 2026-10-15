@@ -28,6 +28,7 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.controls import expiry, restore_controls
+from tests.policy_helpers import bound_identity, monitoring_policy
 from tests.test_lifecycle import start_monitor
 
 NODE = "entity:entity_id:sensor.observed"
@@ -52,30 +53,24 @@ async def action(
     )
 
 
-@pytest.mark.parametrize("loudness", ["notify", "urgent"])
 async def test_shelf_holds_all_recipients_across_reload(
     hass: HomeAssistant,
     config_data: dict[str, Any],
     freezer: FrozenDateTimeFactory,
-    loudness: str,
     hass_admin_user: User,
 ) -> None:
     """Shelving holds reminders/escalation for every route without changing health."""
-    config_data["policy"] = {
-        "timezone": "UTC",
-        "recipients": {
-            "owner": {"channels": ["phone"]},
-            "backup": {"channels": ["phone"]},
-        },
-        "rules": [
-            {
-                "match": {},
-                "loudness": loudness,
-                "to": ["owner", "backup"],
-                "remind_every": "10s",
-                "escalate_after": "15s",
-            }
-        ],
+    config_data["monitoring_policies"][0]["notifications"] = [
+        {
+            "id": "repeat",
+            "timing": {"mode": "acknowledge", "remind_every": "10s"},
+            "methods": ["test", "backup"],
+        }
+    ]
+    config_data["notification_definitions"]["methods"]["backup"] = {
+        "name": "Backup",
+        "mode": "fixed",
+        "destinations": ["service:homeostatic_test"],
     }
     hass.states.async_set("sensor.observed", "unavailable")
     events = async_capture_events(hass, EVENT_NOTIFICATION)
@@ -110,7 +105,10 @@ async def test_shelf_holds_all_recipients_across_reload(
     freezer.tick(timedelta(seconds=14))
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
-    assert {event.data["recipient"] for event in events} == {"owner", "backup"}
+    assert {event.data["recipient"] for event in events} == {
+        "method:test",
+        "method:backup",
+    }
     assert all(event.data["loudness"] == "urgent" for event in events)
     assert restored.episodes[episode_id]["opened_at"] == opened_at
     assert (await action(hass, "operator_controls", {})) == {"controls": []}
@@ -134,7 +132,15 @@ async def test_equipment_scope_preserves_situation_and_readiness(
     child = f"entity:registry:{registered.id}"
     root = f"entry:{source.entry_id}"
     config_data.update(
-        entities=[f"registry:{registered.id}"],
+        monitoring_policies=[
+            monitoring_policy(
+                "integration",
+                {"kind": ["integration"], "integration": [source.entry_id]},
+            ),
+            monitoring_policy(
+                "entity", {"kind": ["entity"], "entity": [f"registry:{registered.id}"]}
+            ),
+        ],
         functions=[{"id": "lighting", "name": "Lighting", "requires": [child]}],
         situations=[
             {
@@ -153,7 +159,10 @@ async def test_equipment_scope_preserves_situation_and_readiness(
     before = deepcopy(runtime.snapshot())
     preview = await action(hass, "preview_maintenance", data)
     assert runtime.snapshot() == before
-    assert (child in preview["node_ids"]) is include_dependents
+    assert (
+        bound_identity(config_data["monitoring_policies"][1], child)
+        in preview["node_ids"]
+    ) is include_dependents
     assert preview["functions"] == []
     result = await action(hass, "start_maintenance", data)
     assert result["node_ids"] == preview["node_ids"]
@@ -175,7 +184,7 @@ async def test_equipment_scope_preserves_situation_and_readiness(
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert {item["anchor"] for item in runtime.episodes.values()} == {
-        child,
+        bound_identity(config_data["monitoring_policies"][1], child),
         "situation:leak",
     }
     assert not runtime.controls
@@ -188,13 +197,13 @@ async def test_maintenance_keeps_existing_alerts_and_recovery(
     freezer: FrozenDateTimeFactory,
 ) -> None:
     """Maintenance preserves an existing episode, then suppresses a transient relapse."""
-    config_data["policy"] = {
-        "timezone": "UTC",
-        "recipients": {"owner": {"channels": ["phone"]}},
-        "rules": [
-            {"match": {}, "loudness": "notify", "to": "owner", "remind_every": "10s"}
-        ],
-    }
+    config_data["monitoring_policies"][0]["notifications"] = [
+        {
+            "id": "repeat",
+            "timing": {"mode": "acknowledge", "remind_every": "10s"},
+            "methods": ["test"],
+        }
+    ]
     config_entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     hass.states.async_set("sensor.observed", "unavailable")
     events = async_capture_events(hass, EVENT_NOTIFICATION)

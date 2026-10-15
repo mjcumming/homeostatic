@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mobile menus and safe-area header · isolated test</title>
+<style>
+:root{--primary-text-color:#182a34;--primary-background-color:#f5f7f8;--card-background-color:#fff;--secondary-background-color:#edf2f5;--secondary-text-color:#546875;--divider-color:#dce4e9;--primary-color:#007eab;--text-primary-color:#fff}:root[data-theme="dark"]{--primary-text-color:#e4e8ec;--secondary-text-color:#aab8c5;--primary-background-color:#10171e;--card-background-color:#18232d;--secondary-background-color:#263744;--divider-color:#41505c;--primary-color:#57c5ef;color-scheme:dark}body{margin:0;font:16px Arial,sans-serif;background:var(--primary-background-color)}#controls{padding:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}button,select{font:inherit;min-height:44px}#result{padding:0 12px;white-space:pre-wrap}iframe{display:block;height:568px;max-width:100%;border:1px solid #777;margin:12px;box-sizing:content-box}#viewport{height:100dvh;overflow:auto;box-sizing:border-box}#ha-panel{padding-top:var(--safe-area-inset-top)}#status-bar{position:fixed;inset:0 0 auto;height:64px;z-index:10;box-sizing:border-box;padding:20px 16px;background:#dbe4e9;pointer-events:none}#outside{position:fixed;bottom:8px;left:8px;z-index:8;font-size:13px}homeostatic-panel{display:block}
+</style></head><body>
+<div id="controls"><strong>Synthetic mobile viewport · no live services</strong><label>Width <select id="width"><option>320</option><option selected>390</option><option>768</option><option>1200</option></select></label><label><input id="dark" type="checkbox">Dark theme</label><button id="run">Run geometry and keyboard checks</button></div>
+<p id="result" role="status">Then tap Outside menu inside the phone frame to check native light dismissal. Repeat using browser zoom for magnified controls. This tests the current browser engine; it does not substitute for an iPhone Safari run.</p>
+<iframe id="phone" title="Phone viewport with a simulated 64 pixel safe area" width="390" src="mobile-layout.html?frame=1"></iframe>
+<script type="module">
+import "../../custom_components/homeostatic/frontend/homeostatic.js";
+import {emptyNotificationDefinitions,newMonitoringPolicy} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
+import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
+import {monitoringExample} from "./monitoring-fixture.mjs";
+const tick=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+const expect=(value,message)=>{if(!value)throw Error(message);};
+if(!new URLSearchParams(location.search).has("frame")) {
+  const phone=document.querySelector("#phone"),result=document.querySelector("#result");
+  document.querySelector("#dark").onchange=event=>{phone.contentDocument.documentElement.dataset.theme=event.target.checked?"dark":"light";};
+  document.querySelector("#width").onchange=event=>{phone.width=event.target.value;};
+  document.querySelector("#run").onclick=async()=>{
+    result.textContent="Running layout checks…";
+    try {result.textContent=await phone.contentWindow.runMobileLayoutScenario();}
+    catch(error){result.textContent=`FAIL: ${error.message}`;}
+  };
+  window.addEventListener("message",event=>{
+    if(event.source===phone.contentWindow&&event.data?.fixture==="mobile-layout"){
+      result.textContent=event.data.result;
+      const receipt=emptyReceipt({fixture:"mobile-layout.html",browser:navigator.userAgent,viewport:{width:phone.clientWidth,height:phone.clientHeight},data:"synthetic",destinations:"none"});
+      recordResult(receipt,"layout.menus",event.data.result.startsWith("PASS")?"pass":"fail",event.data.result);
+      parent.postMessage({type:"homeostatic-acceptance",fixture:"mobile-layout.html",receipt},location.origin);
+    }
+  });
+} else {
+  document.documentElement.style.setProperty("--safe-area-inset-top","64px");
+  document.body.innerHTML='<div id="status-bar">9:41 · Simulated status bar</div><div id="viewport"><div id="ha-panel"><homeostatic-panel></homeostatic-panel></div></div><button id="outside">Outside menu</button>';
+  const viewport=document.querySelector("#viewport"),card=document.querySelector("homeostatic-panel"),outside=document.querySelector("#outside");
+  const definitions=emptyNotificationDefinitions("America/Chicago");
+  definitions.methods={phone:{name:"Owner phone",mode:"fixed",destinations:["phone:owner"]},email:{name:"Household email",mode:"fixed",destinations:["notify:email"]},speaker:{name:"Kitchen speaker",mode:"fixed",destinations:["satellite:kitchen"]}};
+  const policies=[];
+  for(const name of ["Device availability","Entity availability","Battery readings","Home temperature"]){const policy=newMonitoringPolicy(policies,"device");policies.push({...policy,name,enabled:true});}
+  const saved={monitoring_policies:policies,notification_definitions:definitions,notifications:false,consumer:null};
+  let calls=0,activeMenu=null,automaticResult="";
+  card.navigation.enabled=false;
+  card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},states:{},localize:()=>null,async callWS(){calls++;throw Error("Live requests are forbidden in this fixture");}};
+  card.current={status:"current",data:monitoringExample()};
+  card.configuration={revision:"1",settings:structuredClone(saved),monitoring_policy_templates:[],notification_people:[],delivery_targets:[],areas:[],labels:[],floors:[]};
+  card.settingsDraft=structuredClone(saved);card.page="policies";card.render();
+  const root=card.shadowRoot,header=root.querySelector(".header"),hamburger=root.querySelector(".ha-menu");
+  card.main.style.paddingBottom="900px";
+  window.runMobileLayoutScenario=async()=>{
+    const before=JSON.stringify(card.settingsDraft);
+    for(const distance of [400,800]){
+      viewport.scrollTop=distance;await tick();
+      expect(Math.abs(header.getBoundingClientRect().top-64)<1,"Sticky panel header stays below the safe area after scrolling");
+      const notifications=root.querySelector(".workspace-notifications").getBoundingClientRect(),settings=root.querySelector(".workspace-settings").getBoundingClientRect();
+      expect(notifications.left<settings.left&&settings.right<=header.getBoundingClientRect().right,"Notifications stays left of Settings in the header");
+      const bounds=hamburger.getBoundingClientRect();
+      expect(bounds.top>=64&&bounds.height>=44,"Hamburger remains clear of the status bar with a touch target");
+      expect(root.elementFromPoint(bounds.x+bounds.width/2,bounds.y+bounds.height/2)?.closest("button")===hamburger,"Scrolling content cannot cover the hamburger");
+    }
+    for(const page of ["policies","notifications"]){
+      card.page=page;card.notificationSection="methods";card.definitionSelection=null;card.render();
+      const triggers=[...root.querySelectorAll(".policy-actions-trigger")],trigger=triggers.at(-1);
+      expect(trigger,"The list has an overflow action");
+      viewport.scrollTop+=trigger.getBoundingClientRect().bottom-(window.innerHeight-24);await tick();
+      trigger.focus();trigger.click();await tick();await tick();
+      const menu=trigger.popoverTargetElement,rect=menu.getBoundingClientRect(),buttons=[...menu.querySelectorAll("button")];
+      expect(menu.matches(":popover-open"),`${page}: native popover opens`);
+      expect(buttons.length===2,`${page}: Duplicate and Delete are present`);
+      expect(rect.height>=88&&rect.height<=buttons.reduce((total,button)=>total+button.getBoundingClientRect().height,0)+16,`${page}: menu has no expanded blank block`);
+      expect(rect.left>=7&&rect.right<=window.innerWidth-7&&rect.top>=7&&rect.bottom<=window.innerHeight-7,`${page}: entire menu fits near the bottom of the phone viewport`);
+      for(const button of buttons){
+        const bounds=button.getBoundingClientRect();
+        expect(bounds.height>=44&&bounds.top>=rect.top&&bounds.bottom<=rect.bottom,`${page}: both actions remain visible and tappable`);
+        expect(root.elementFromPoint(bounds.x+bounds.width/2,bounds.y+bounds.height/2)?.closest("button")===button,`${page}: action is not covered`);
+      }
+      buttons[0].focus();buttons[0].dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));await tick();
+      expect(!menu.matches(":popover-open")&&root.activeElement===trigger,`${page}: Escape closes and returns focus to More`);
+      trigger.click();await tick();trigger.click();await tick();
+      expect(!menu.matches(":popover-open"),`${page}: More toggles the menu closed`);
+      if(page==="notifications"){trigger.click();await tick();await tick();activeMenu=menu;}
+    }
+    expect(JSON.stringify(card.settingsDraft)===before&&calls===0,"Opening and closing menus leaves settings and services untouched");
+    automaticResult=`PASS at ${window.innerWidth}px: compact policy and method menus, bottom-edge placement, both actions, Escape/focus return, toggle, safe-area header after scroll, notification/Settings alignment, and no configuration changes.\nNative outside dismissal: pending; tap Outside menu in the phone frame.`;
+    return automaticResult;
+  };
+  outside.addEventListener("click",async()=>{
+    await tick();
+    const result=activeMenu&&!activeMenu.matches(":popover-open")&&document.activeElement===outside
+      ? automaticResult.replace(/Native outside dismissal:.*/,"PASS: native outside dismissal preserves focus on the chosen outside control.")
+      : "FAIL: run checks first, then use a real pointer/touch click on Outside menu; popover must close and the clicked control retain focus.";
+    parent.postMessage({fixture:"mobile-layout",result},location.origin);
+  });
+}
+</script></body></html>

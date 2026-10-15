@@ -1,6 +1,7 @@
 # ADR 0035: Align device availability with the Home Assistant proposal
 
-**Status:** Accepted; entity fallback and display implemented locally. Native report ingestion pending upstream.
+**Status:** Accepted; entity-fallback eligibility and connectivity interpretation superseded by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md).
+**Implementation status:** See the [roadmap](../roadmap.md#current-work).
 **Date:** 2026-09-29
 **Decider:** Michael Cumming
 

@@ -1,6 +1,7 @@
 # ADR 0053: Check user-configured temperature limits
 
-**Status:** Accepted; producer and policy integration implemented in the working tree, with isolated validation; reporting assignment model superseded by [ADR 0055](0055-separate-notification-schedules-and-methods.md)
+**Status:** Accepted; reporting assignment model superseded by [ADR 0055](0055-separate-notification-schedules-and-methods.md)
+**Implementation status:** See the [roadmap](../roadmap.md#current-work).
 **Date:** 2026-10-11
 **Updated:** 2026-10-12
 

@@ -1,28 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {cardView,notificationRoute,applyNotificationRoute} from "../../custom_components/homeostatic/frontend/notification-navigation.mjs";
+import {cardView} from "../../custom_components/homeostatic/frontend/notification-navigation.mjs";
+import {parseWorkspacePath,WorkspaceNavigation} from "../../custom_components/homeostatic/frontend/workspace-navigation.mjs";
+const navigate=(card,path)=>(card.navigation??=new WorkspaceNavigation(card)).applyPath(path);
 
-for (const [view,page] of [[undefined,"overview"], ["issues","problems"], ["settings","configuration"], ["problems","problems"], ["configuration","configuration"], ["sources","sources"], ["policies","policies"], ["house","house"], ["functions","overview"]]) {
+for (const [view,page] of [[undefined,"problems"], ["issues","problems"], ["settings","configuration"], ["problems","problems"], ["configuration","configuration"], ["sources","sources"], ["policies","policies"], ["house","sources"], ["functions","problems"]]) {
   test(`card view ${view} opens ${page}`,()=>assert.equal(cardView(view),page));
 }
 
 for (const [path,expected] of [["/issues",{page:"problems",episodeId:null}], ["/notifications",{page:"notifications",episodeId:null}], ["/history",{page:"history",episodeId:null}], ["/episode/a%2Fb%20%23%C3%A9",{page:"problems",episodeId:"a/b #é"}], ["/episode/%ZZ",{page:"problems",episodeId:null}], ["/episode/",{page:"problems",episodeId:null}]]) {
-  test(`notification route ${path}`,()=>assert.deepEqual(notificationRoute(path),expected));
+  test(`notification route ${path}`,()=>assert.deepEqual({page:parseWorkspacePath(path).page,episodeId:parseWorkspacePath(path).detail?.episodeId||null},expected));
 }
 function card(status="current") {
   return {current:{status},isConnected:true,tools:{close(){}},dialog:{close(){}},render(){},opened:[],openDetail(value){this.opened.push(value);}};
 }
 test("cold start queues the issue and a later summary discards stale pending navigation",()=>{
-  const c=card("loading");applyNotificationRoute(c,"/episode/first");
+  const c=card("loading");navigate(c,"/episode/first");
   assert.equal(c.pendingEpisode,"first");assert.deepEqual(c.opened,[]);
-  applyNotificationRoute(c,"/issues");assert.equal(c.pendingEpisode,null);assert.equal(c.page,"problems");
+  navigate(c,"/issues");assert.equal(c.pendingEpisode,null);assert.equal(c.page,"problems");
 });
 test("taps open details once, with no action or acknowledgment call",()=>{
   const c=card();c._hass={callWS(){throw Error("Navigation must not mutate HA");}};
-  applyNotificationRoute(c,"/episode/first");applyNotificationRoute(c,"/episode/first");
+  navigate(c,"/episode/first");navigate(c,"/episode/first");
   assert.deepEqual(c.opened,[{episodeId:"first"}]);
-  applyNotificationRoute(c,"/episode/second");assert.equal(c.opened[1].episodeId,"second");
+  navigate(c,"/episode/second");assert.equal(c.opened[1].episodeId,"second");
 });
 const source=readFileSync(new URL("../../custom_components/homeostatic/frontend/homeostatic.js",import.meta.url),"utf8");
 const detailBody=source.replace(/\r\n/g, "\n").split("  async loadDetail() {")[1].split("\n}\n\nclass HomeostaticPanel")[0];

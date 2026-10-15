@@ -4,21 +4,17 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.config import (
     Settings,
-    data_from_input,
     resolve_entity,
 )
-from custom_components.homeostatic.config_flow import preview_summary
 from custom_components.homeostatic.const import DOMAIN
+from custom_components.homeostatic.policy_defaults import initial_settings
 
 
 async def test_user_flow(hass: HomeAssistant) -> None:
@@ -41,45 +37,14 @@ async def test_user_flow(hass: HomeAssistant) -> None:
         "default_repairs",
         "default_broken_automations",
     }
-    assert not any(
-        item["notifications"] for item in result["data"]["monitoring_policies"]
+    profiles = result["data"]["notification_definitions"]["profiles"]
+    assert all(
+        row["profile"] in profiles
+        for item in result["data"]["monitoring_policies"]
+        for row in item["notifications"]
     )
+    assert not any(profile["methods"] for profile in profiles.values())
     assert result["data"]["notifications"] is False
-
-
-def test_preview_describes_ha_groupings(hass: HomeAssistant) -> None:
-    """Preview distinguishes integrations, device entities and area signals."""
-    source = MockConfigEntry(domain="test", title="Controller")
-    source.add_to_hass(hass)
-    device = dr.async_get(hass).async_get_or_create(
-        config_entry_id=source.entry_id,
-        identifiers={("test", "controller")},
-        name="Controller",
-    )
-    registry = er.async_get(hass)
-    registry.async_get_or_create(
-        "sensor", "test", "device_signal", config_entry=source, device_id=device.id
-    )
-    registry.async_get_or_create("sensor", "test", "area_signal", config_entry=source)
-
-    preview = preview_summary(
-        hass,
-        {
-            "rules": [
-                {
-                    "id": "passive_availability",
-                    "action": "attach",
-                    "match": {},
-                    "checks": ["availability"],
-                }
-            ]
-        },
-    )
-
-    assert "1 integration instance" in preview
-    assert "1 device-associated entity" in preview
-    assert "entities without an HA device" in preview
-    assert "Device association does not prove physical hardware." in preview
 
 
 async def test_singleton(hass: HomeAssistant, config_entry: MockConfigEntry) -> None:
@@ -92,24 +57,6 @@ async def test_singleton(hass: HomeAssistant, config_entry: MockConfigEntry) -> 
     assert result["reason"] == "single_instance_allowed"
 
 
-@pytest.mark.parametrize(
-    "selection",
-    [{"config_entries": ["monitor"]}, {"entity_ids": ["sensor.monitor"]}],
-    ids=["own-entry", "own-entity"],
-)
-async def test_reject_self_monitoring(
-    hass: HomeAssistant, selection: dict[str, Any]
-) -> None:
-    """Self-derived health cannot be admitted as independent source evidence."""
-    own = MockConfigEntry(domain=DOMAIN, entry_id="monitor")
-    own.add_to_hass(hass)
-    er.async_get(hass).async_get_or_create(
-        "sensor", DOMAIN, "monitor", suggested_object_id="monitor", config_entry=own
-    )
-    with pytest.raises(vol.Invalid):
-        data_from_input(hass, selection)
-
-
 def test_native_options_flow_is_absent(config_entry: MockConfigEntry) -> None:
     """All edits now belong to the Homeostatic panel."""
     from custom_components.homeostatic.config_flow import HomeostaticConfigFlow
@@ -120,9 +67,10 @@ def test_native_options_flow_is_absent(config_entry: MockConfigEntry) -> None:
 def test_stored_functions_are_dormant() -> None:
     """Stored definitions survive while production ignores their effects."""
     data = {
+        **initial_settings("UTC"),
         "functions": [
             {"id": "lighting", "name": "Lighting", "entities": ["entity_id:light.room"]}
-        ]
+        ],
     }
     assert len(Settings.from_data(data).functions) == 1
     assert Settings.from_data(data, functions_enabled=False).functions == ()
@@ -136,10 +84,6 @@ def test_stored_functions_are_dormant() -> None:
         {"timings": {"batch": True}},
         {"timings": {"invented": 2}},
         {"timings": {"coalesce_count": 1}},
-        {"entities": "sensor.a"},
-        {"entities": [2]},
-        {"config_entries": "one"},
-        {"config_entries": [2]},
         {"notifications": "yes"},
     ],
     ids=[
@@ -147,17 +91,13 @@ def test_stored_functions_are_dormant() -> None:
         "boolean-time",
         "unknown-time",
         "invalid-coalescing-count",
-        "entity-string",
-        "entity-number",
-        "entry-string",
-        "entry-number",
         "notification-string",
     ],
 )
 def test_invalid_stored_settings(data: dict[str, Any]) -> None:
     """Reject malformed persisted or externally supplied configuration."""
     with pytest.raises(ValueError):
-        Settings.from_data(data)
+        Settings.from_data({**initial_settings("UTC"), **data})
 
 
 def test_invalid_reference(hass: HomeAssistant) -> None:

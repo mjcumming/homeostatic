@@ -35,7 +35,7 @@ async def test_dashboard_native_actions_and_resolved_history(
         }
     )
     preview = (await client.receive_json())["result"]["response"]
-    assert preview["node_ids"] == [NODE]
+    assert set(preview["node_ids"]) == {NODE, runtime.episodes[episode_id]["anchor"]}
     assert preview["existing_episode_ids"] == [episode_id]
     assert not runtime.controls
     await client.send_json(

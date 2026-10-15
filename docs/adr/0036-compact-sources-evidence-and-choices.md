@@ -8,6 +8,8 @@
 
 **Supersedes:** The repeated selected-entity row and default presentation of all three entity choices under ADRs 0017 and 0018. Their one-tree navigation, source-specific views, and guarded settings changes remain in force.
 
+**Later decision:** The mandatory source-settings presentation is superseded by [ADR 0061](0061-issues-first-product-workflows.md). The historical decision remains below; unaffected behavior and persistence safeguards remain in force. Replacement UI implementation is pending.
+
 ## Context
 
 The owner reviewed device and entity details for Mobile App and Network UPS Tools. The tree placed issue counts below source names. The device panel repeated generic explanations before a long entity list. An entity panel repeated its own name in a one-row list and a link that selected the same entity. Mobile App also inserted a Connections tier beside devices with similar names. Entity Settings gave a separate availability check the same prominence as following the device or excluding an entity.

@@ -40,7 +40,9 @@ A device or entity grouped under a failed integration still shows what Home Assi
 
 Grouping follows Home Assistant's registry, which says where each availability report comes from. It doesn't prove the integration caused every failure under it. If a device has a fault of its own at the same moment, that fault is grouped too, so check anything still failing once the integration recovers.
 
-An entity can be part of a watched device and have its own check as well. The two checks stay independent, so one failure can show up on both.
+An entity can be part of a watched device and have its own availability check. These findings stay independent: one operational entity can fail while a sibling makes the device check pass. Broad entity monitoring covers enabled operational entities, including those without a device; diagnostics and configuration entities require explicit individual selection.
+
+Compatible notifications about the same device share one continuing message. The issues retain their own evidence, history and controls. As one clears, the message updates with the remaining findings; different schedules, repeat settings or destinations keep separate messages. Sharing a device message does not mean the problems have the same cause.
 
 ## Alerts stay separate from equipment
 
@@ -94,12 +96,12 @@ Opening an issue:
 
 Ending an issue:
 
-- An availability issue ends after the source has stayed available for the configured **Confirm recovery** period, initially two minutes. During that wait, Overview and Issues omit the entry and their displayed counts omit it. Its details remain accessible through Sources, with **Running — confirming recovery** for an integration or **Available — confirming recovery** for an entity or device.
+- An availability issue ends after the source has stayed available for the configured **Confirm recovery** period, initially two minutes. During that wait, Issues omits the entry and its displayed counts omit it. Its details remain accessible through Sources, with **Running — confirming recovery** for an integration or **Available — confirming recovery** for an entity or device.
 - Alerts and batteries end as soon as the condition clears. A charging report clears a low battery, even while the reading is still low.
 - A vacuum error ends as soon as the activity is cleaning, docked, idle, paused, or returning. Unavailable, unknown, and restored states leave it open.
 - When an integration recovers, devices and entities that are still reconnecting get a minute (**Allow reconnecting devices**) before they count as failures of their own.
 
-Sending notifications: each policy owns its notification entries. An immediate entry requests delivery when an eligible issue opens; its optional reminders stop on acknowledgment or recovery. Scheduled entries report eligible open issues at their chosen times, including acknowledged problems. Each entry selects its own delivery methods. No entries means dashboard-only monitoring, and global sending must also be enabled. **Standard alert batching** applies only to custom notification policies.
+Sending notifications: policies select named notifications whose shared definitions own timing and delivery methods. Immediate delivery requests attention when an eligible issue opens; acknowledgment reminders stop on acknowledgment or recovery. Daily-hours delivery holds requests outside its window and uses **Standard alert batching** during open hours. Scheduled summaries include eligible open issues at their chosen times, including acknowledged problems. No assignment means dashboard-only monitoring. Unconfigured destinations or global sending off prevent requests.
 
 ## Restarts
 

@@ -1,6 +1,7 @@
 # ADR 0055: Pair reusable notification schedules and delivery methods on policies
 
-**Status:** Accepted; reusable schedule ownership and editor partially superseded by [ADR 0057](0057-policy-owned-notification-timing.md); test-setting migration requirements superseded by [ADR 0058](0058-unified-policy-lifecycle.md); replacement implementation pending
+**Status:** Accepted; reusable schedule ownership and editor partially superseded by [ADR 0057](0057-policy-owned-notification-timing.md); test-setting migration requirements superseded by [ADR 0058](0058-unified-policy-lifecycle.md)
+**Implementation status:** See the [roadmap](../roadmap.md#current-work).
 **Date:** 2026-10-12
 
 **Partially supersedes:** the fixed, combined profile model and single-choice assignment in [ADR 0026](0026-fixed-reporting-preferences.md) and [ADR 0027](0027-reporting-defaults-and-delivery.md), and the notification-profile assignment terminology in [ADR 0052](0052-thermostat-setpoint-deviation-alerts.md) and [ADR 0053](0053-configurable-temperature-limit-checks.md). Existing defaults and delivery safeguards remain unless changed here.

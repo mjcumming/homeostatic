@@ -8,9 +8,8 @@ import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
+from custom_components.homeostatic import notification_people
 from custom_components.homeostatic import notification_routes as routes
-from custom_components.homeostatic import simple_notifications as simple
-from custom_components.homeostatic.attention import DEFAULT_POLICY
 from custom_components.homeostatic.notification_routes import Destination
 
 
@@ -211,107 +210,6 @@ async def test_phone_delivery_modes(
 
 
 @pytest.mark.parametrize(
-    ("level", "channels", "error"),
-    [
-        ("Unexpected", ["phone:admin"], "valid notification level"),
-        ("Important", [], "Choose a destination"),
-        (
-            "Important",
-            ["phone:admin", "phone:admin"],
-            "distinct notification destinations",
-        ),
-        ("Important", ["phone:missing"], "unavailable or belongs"),
-    ],
-)
-def test_invalid_person_choices(
-    hass: HomeAssistant,
-    monkeypatch: pytest.MonkeyPatch,
-    level: str,
-    channels: list[str],
-    error: str,
-) -> None:
-    """Policy generation rejects invalid levels and stale or repeated routes."""
-    monkeypatch.setattr(
-        simple,
-        "destinations",
-        lambda _: [
-            Destination(
-                channel="phone:admin", name="Admin", user_id="admin", available=True
-            )
-        ],
-    )
-    with pytest.raises(ValueError, match=error):
-        simple.generate_policy(
-            hass,
-            {
-                "timezone": "UTC",
-                "people": {"admin": {"level": level, "channels": channels}},
-            },
-            [{"id": "admin", "user_id": "admin", "administrator": True}],
-        )
-
-
-def test_simple_choices_detects_edits(hass: HomeAssistant) -> None:
-    """A changed generated policy cannot be silently edited as simple choices."""
-    assert simple.simple_choices(DEFAULT_POLICY) == {"people": {}, "timezone": "UTC"}
-    assert simple.simple_choices({"timezone": "UTC"}) is None
-    assert simple.simple_choices({"generated": {"version": "simple-v1"}}) is None
-    assert (
-        simple.simple_choices(
-            {
-                "generated": {
-                    "version": "simple-v1",
-                    "choices": {"people": [], "timezone": "UTC"},
-                }
-            }
-        )
-        is None
-    )
-    assert (
-        simple.simple_choices(
-            {
-                "generated": {
-                    "version": "simple-v1",
-                    "choices": {"people": {}, "timezone": 2},
-                }
-            }
-        )
-        is None
-    )
-    assert (
-        simple.simple_choices(
-            {
-                "generated": {
-                    "version": "simple-v1",
-                    "choices": {"people": {}, "timezone": "UTC"},
-                    "hash": "wrong",
-                },
-            }
-        )
-        is None
-    )
-
-
-@pytest.mark.parametrize(
-    "choices",
-    [
-        {},
-        {"people": []},
-        {"timezone": "UTC", "people": {"missing": {"level": "Off", "channels": []}}},
-        {"timezone": "UTC", "people": {"admin": {"level": "Off", "channels": "bad"}}},
-    ],
-)
-def test_invalid_policy_shape(hass: HomeAssistant, choices: dict[str, Any]) -> None:
-    """Unknown people and malformed choice documents are rejected."""
-    with pytest.raises(ValueError):
-        simple.generate_policy(
-            hass,
-            choices,
-            [{"id": "admin", "user_id": "admin", "administrator": True}],
-        )
-
-
-@pytest.mark.parametrize(
     ("entity", "clear", "error"),
     [
         (None, False, "unavailable"),
@@ -457,64 +355,22 @@ def test_destination_catalog_uses_current_registry_and_state(
     monkeypatch.undo()
 
 
-@pytest.mark.parametrize(
-    ("level", "admin", "expected"),
-    [
-        ("Off", True, None),
-        ("Urgent only", True, "person:person"),
-        ("Everything", True, "person:person"),
-        ("All", False, "person:person"),
-        ("Urgent only", False, "person:person"),
-    ],
-)
-def test_person_policy_levels(
-    hass: HomeAssistant,
-    monkeypatch: pytest.MonkeyPatch,
-    level: str,
-    admin: bool,
-    expected: str | None,
-) -> None:
-    """Policy rules follow a person's selected role and notification level."""
-    monkeypatch.setattr(
-        simple,
-        "destinations",
-        lambda _: [
-            Destination(
-                channel="notify:shared", name="Shared", user_id=None, available=True
-            )
-        ],
-    )
-    result = simple.generate_policy(
-        hass,
-        {
-            "timezone": "UTC",
-            "people": {
-                "person": {
-                    "level": level,
-                    "channels": ["notify:shared"],
-                    "quiet_hours": {"start": "22:00", "end": "07:00"},
-                }
-            },
-        },
-        [{"id": "person", "user_id": "owner", "administrator": admin}],
-    )
-    assert (next(iter(result["recipients"]), None)) == expected
-    if expected:
-        assert result["recipients"][expected]["quiet_hours"] == {
-            "start": "22:00",
-            "end": "07:00",
-        }
-        assert simple.simple_choices(result) is not None
-
-
 async def test_available_people_requires_linked_current_users() -> None:
     """Only linked people with current HA users appear in the editor."""
     states = [
         SimpleNamespace(name="No person id", attributes={"user_id": "admin"}),
         SimpleNamespace(name="No user id", attributes={"id": "missing"}),
         SimpleNamespace(name="Gone", attributes={"id": "gone", "user_id": "gone"}),
-        SimpleNamespace(name="Zoe", attributes={"id": "zoe", "user_id": "member"}),
-        SimpleNamespace(name="Alice", attributes={"id": "alice", "user_id": "admin"}),
+        SimpleNamespace(
+            name="Zoe",
+            entity_id="person.zoe_renamed",
+            attributes={"id": "zoe", "user_id": "member"},
+        ),
+        SimpleNamespace(
+            name="Alice",
+            entity_id="person.alice_renamed",
+            attributes={"id": "alice", "user_id": "admin"},
+        ),
     ]
 
     async def get_user(user_id: str) -> Any:
@@ -528,51 +384,22 @@ async def test_available_people_requires_linked_current_users() -> None:
         states=SimpleNamespace(async_all=lambda _: states),
         auth=SimpleNamespace(async_get_user=get_user),
     )
-    assert await simple.available_people(fake_hass) == [
-        {"id": "alice", "name": "Alice", "user_id": "admin", "administrator": True},
-        {"id": "zoe", "name": "Zoe", "user_id": "member", "administrator": False},
+    assert await notification_people.available_people(fake_hass) == [
+        {
+            "id": "alice",
+            "entity_id": "person.alice_renamed",
+            "name": "Alice",
+            "user_id": "admin",
+            "administrator": True,
+        },
+        {
+            "id": "zoe",
+            "entity_id": "person.zoe_renamed",
+            "name": "Zoe",
+            "user_id": "member",
+            "administrator": False,
+        },
     ]
-
-
-@pytest.mark.parametrize(
-    ("choice", "route", "error"),
-    [
-        (
-            {"level": "Everything", "channels": ["notify:shared"]},
-            True,
-            "valid notification level",
-        ),
-        ({"level": "All", "channels": [1]}, True, "distinct notification destinations"),
-        (
-            {"level": "All", "channels": ["notify:shared"]},
-            False,
-            "unavailable or belongs",
-        ),
-    ],
-)
-def test_household_policy_rejects_invalid_routes(
-    hass: HomeAssistant,
-    monkeypatch: pytest.MonkeyPatch,
-    choice: dict[str, Any],
-    route: bool,
-    error: str,
-) -> None:
-    """Household levels and route availability are validated separately."""
-    monkeypatch.setattr(
-        simple,
-        "destinations",
-        lambda _: [
-            Destination(
-                channel="notify:shared", name="Shared", user_id=None, available=route
-            )
-        ],
-    )
-    with pytest.raises(ValueError, match=error):
-        simple.generate_policy(
-            hass,
-            {"timezone": "UTC", "people": {"member": choice}},
-            [{"id": "member", "user_id": "member", "administrator": False}],
-        )
 
 
 async def test_phone_action_payload(

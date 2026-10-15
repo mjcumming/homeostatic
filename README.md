@@ -27,17 +27,11 @@ It covers:
 [![Home Assistant](https://img.shields.io/badge/home%20assistant-2026.9.3+-blue.svg)](https://www.home-assistant.io/)
 [![License](https://img.shields.io/github/license/mjcumming/homeostatic.svg)](LICENSE)
 
-<p align="center">
-  <img src="docs/images/overview.png" alt="Homeostatic Overview page with one open Zigbee issue" width="720"/>
-</p>
-
-<p align="center"><small>The Overview page in a demo house, with one Zigbee problem open.</small></p>
-
 > Using Homeostatic? Please [star the repo](https://github.com/mjcumming/homeostatic). It helps other Home Assistant users find it.
 
 ## What it watches
 
-A new install watches integration, device and entity availability, Home Assistant's Repairs, and automations that name an entity that no longer exists. **Policies** shows these supplied policies alongside policies you add. Batteries and vacuums start off; temperature, thermostat and UPS checks need setup. Use **Sources** to inspect equipment and open the policies that watch it.
+A new install watches integration availability, enabled operational entities and their devices, Home Assistant's Repairs, and automations that name an entity that no longer exists. Diagnostic and configuration entities require explicit individual selection; disabled sources stay out of availability monitoring. **Policies** shows these supplied policies alongside policies you add. Batteries and vacuums start off; temperature, thermostat and UPS checks need setup. Use **Sources** to inspect equipment and open the policies that watch it.
 
 - A battery policy opens an issue at your chosen level, initially 20%, or when the device reports a low warning. It's tracked apart from whether the device is available.
 - A vacuum issue opens when Home Assistant reports the vacuum's activity as error. Cleaning, docked, idle, paused, or returning ends it. Its notification message names the area Home Assistant assigned when there is one.
@@ -49,15 +43,18 @@ A new install watches integration, device and entity availability, Home Assistan
 
 An issue for each problem. It quotes what Home Assistant reported (setup failed, needs sign-in, retrying), lists the entities affected, suggests what to try, and lets you inspect recovery in its details. When an integration fails, the devices and entities you watch on it are listed on that one issue instead of each raising its own.
 
-Each policy decides when and how to notify. Add an immediate notification, a scheduled summary, or both, and choose one or more delivery methods for each entry.
+Compatible notifications about the same device share one continuing message while each problem keeps its own issue and history. Partial recovery updates that message with the problems still open. Different notification instructions or destinations remain separate.
+
+Each policy selects a named notification. **Notifications** owns its timing and delivery methods, with editable choices for immediate delivery, acknowledgment reminders, daily hours and morning, evening or weekly summaries.
 
 | Timing | What happens |
 | --- | --- |
 | Immediately | Sent when the problem begins, overnight included. Optionally repeat at your chosen interval until acknowledgment or recovery. |
+| During daily hours | Eligible problems during the chosen window; requests outside it wait until the next opening. Problems that end before then send nothing. |
 | Scheduled summary | Open problems at a local time on the weekdays you choose, including problems already reported immediately or acknowledged. Cleared problems and empty summaries are omitted. |
 | No notification entries | Dashboard only; monitoring continues. |
 
-Create delivery methods inside a policy notification entry, or manage shared methods in **Notifications**, for phones, voice, email or SMS destinations configured in Home Assistant. Supplied policies have no notification entries, and the global notification switch starts off. After a Home Assistant restart, Homeostatic waits for your integrations to finish loading, then combines waiting notifications into summaries.
+Create delivery methods in **Notifications → Delivery methods** for phones, voice, email or SMS destinations configured in Home Assistant, then select them in a named notification. Supplied policies have notification assignments but no destinations, and global sending starts off. Shared changes affect their saved uses. After a Home Assistant restart, Homeostatic waits for integrations to finish loading and resumes eligible requests according to their schedules.
 
 Controls for problems you already know about:
 
@@ -73,13 +70,12 @@ Homeostatic adds a sidebar panel for administrators:
 
 | Page | What it's for |
 | --- | --- |
-| Overview | What's open and what's being watched |
 | Issues | Problems needing review, with their details and controls |
 | Sources | Inspect equipment and open the policies that watch it. |
 | Policies | Edit, duplicate, disable or delete supplied and custom policies. Choose sources, detection settings and notifications. |
 | Notifications | Reusable delivery methods with their own tests, and the global notification switch |
-| Settings | Timing and problem grouping |
-| History | Ended issues from the last 30 days |
+| Settings utility | Timing and problem grouping |
+| History, within Issues | Ended issues from the last 30 days |
 
 If you use [TopoMation](https://github.com/mjcumming/topomation), Sources can also show your devices by its locations (property, buildings, floors, rooms) as well as by Home Assistant's floors and areas.
 
@@ -128,9 +124,9 @@ The full list is in [Known limitations](docs/troubleshooting.md#known-limitation
    [![Open your Home Assistant instance and start setting up Homeostatic.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=homeostatic)
 
 2. Open **Homeostatic** in the sidebar. Availability, Repairs and broken-automation monitoring are already on; notifications are off.
-3. Open **Policies** and review what the supplied policies watch. Edit their sources and settings, or use **Add policy** to choose another monitoring type. Select **Save changes** to apply edits.
+3. Open **Policies** and review what the supplied policies watch. Edit their sources and settings, or use **Add policy** to choose another monitoring type. Select **Save policy** to apply edits.
 4. Enable battery or vacuum monitoring if wanted. Temperature, thermostat and UPS policies need sources and detection settings before use. Supplied and custom policies use the same editor.
-5. Leave notifications off while you review the issues. When ready, add notification entries to the policies you want to hear from, choose or create their delivery methods within the policy, then enable the global notification switch in **Notifications** and save.
+5. Leave notifications off while you review the issues. When ready, add notification entries to the policies you want to hear from, choose or create their delivery methods, and save each policy. The global **Notifications** switch then enables sending immediately.
 
 The [user guide](docs/guide.md) covers the rest: one integration's devices, policies, batteries, vacuums, notifications and the controls.
 
@@ -174,12 +170,11 @@ Any panel page can go on your own dashboards as a card. The card is for administ
 
 ```yaml
 type: custom:homeostatic-card
-view: overview
+view: issues
 ```
 
 | `view` | Shows |
 | --- | --- |
-| `overview` | Overview |
 | `issues` | Issues |
 | `sources` | Sources |
 | `policies` | Policies |
@@ -228,11 +223,7 @@ Bug reports are welcome in [GitHub Issues](https://github.com/mjcumming/homeosta
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and the [development setup](docs/development.md). Behavior is written down in the [spec](docs/spec.md) before it changes, every change comes with a test scenario, and the tests run against an isolated Home Assistant, so nothing reaches a real phone.
 
-```bash
-uv sync --locked
-uv run prek install
-uv run python script/check.py --quick
-```
+Follow the development setup before running checks; it covers both published dependencies and changes that require the sibling library checkout.
 
 ## License
 

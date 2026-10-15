@@ -23,6 +23,7 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.homeostatic.catalog import Source
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.history import MAX_AGE, MAX_EPISODES, ResolvedHistory
+from tests.policy_helpers import availability_policies
 from tests.test_controls import NODE, action
 from tests.test_lifecycle import start_monitor
 
@@ -107,7 +108,7 @@ async def test_recovery_history_persists_without_query_side_effects(
     assert next(iter(runtime.episodes)) != episode_id
     assert (await action(hass, "resolved_history", {}))["episodes"][0]["episode"][
         "labels"
-    ]["name"] == "Original name"
+    ]["name"] == "Original name · observed"
     assert await hass.config_entries.async_remove(config_entry.entry_id)
     assert f"{DOMAIN}.{config_entry.entry_id}" not in hass_storage
 
@@ -122,13 +123,13 @@ async def test_removal_during_reload_is_not_recovery(
     runtime = await start_monitor(hass, config_entry)
     episode_id = next(iter(runtime.episodes))
     hass.config_entries.async_update_entry(
-        config_entry, options={**config_entry.data, "rules": [], "entities": []}
+        config_entry, options={**config_entry.data, "monitoring_policies": []}
     )
     assert await hass.config_entries.async_reload(config_entry.entry_id)
     await hass.async_block_till_done()
     row = (await action(hass, "resolved_history", {}))["episodes"][0]
     assert row["episode"]["episode_id"] == episode_id
-    assert row["episode"]["labels"]["name"] == "Old source"
+    assert row["episode"]["labels"]["name"] == "Old source · observed"
     assert row["resolution"] == "removed"
     assert row["source"] is None
     assert await hass.config_entries.async_reload(config_entry.entry_id)
@@ -147,7 +148,9 @@ async def test_absorption_links_to_still_open_episode(
     registered = er.async_get(hass).async_get_or_create(
         "sensor", "test", "child", config_entry=source
     )
-    config_data["entities"] = [f"registry:{registered.id}"]
+    config_data["monitoring_policies"] = availability_policies(
+        entities=[f"registry:{registered.id}"], integrations=[source.entry_id]
+    )
     hass.states.async_set(registered.entity_id, "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
@@ -188,25 +191,24 @@ async def test_unknown_value_closes_availability_warning(
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
-async def test_legacy_upgrade_and_recovery_observed_after_downtime(
+async def test_recovery_is_observed_after_downtime(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
-    hass_storage: dict[str, Any],
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """An old envelope starts collection now and cannot invent the offline recovery time."""
+    """Recovery found after downtime retains history and uses its observation time."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
     episode_id = next(iter(runtime.episodes))
     assert await hass.config_entries.async_unload(config_entry.entry_id)
-    del hass_storage[f"{DOMAIN}.{config_entry.entry_id}"]["data"]["resolved_history"]
+    started_at = runtime.history.view(dt_util.utcnow())["started_at"]
     freezer.tick(timedelta(days=2))
     hass.states.async_set("sensor.observed", "42")
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
     response = await action(hass, "resolved_history", {})
-    assert response["started_at"] == dt_util.utcnow().isoformat()
-    assert response["episodes"][0]["resolved_at"] == response["started_at"]
+    assert response["started_at"] == started_at
+    assert response["episodes"][0]["resolved_at"] == dt_util.utcnow().isoformat()
     assert response["episodes"][0]["episode"]["episode_id"] == episode_id
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 

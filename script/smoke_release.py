@@ -60,9 +60,37 @@ async def exercise(config: Path, port: int) -> None:
         assert entry.state is ConfigEntryState.LOADED, entry.state
         assert entry.data["monitoring_policy_version"] == 1
         assert len(entry.data["monitoring_policies"]) == 7
-        assert not any(
-            item["notifications"] for item in entry.data["monitoring_policies"]
+        assert {
+            item["id"]: item["notifications"]
+            for item in entry.data["monitoring_policies"]
+        } == {
+            identity: [{"id": "default", "profile": profile}]
+            for identity, profile in (
+                ("default_integrations", "morning"),
+                ("default_devices", "morning"),
+                ("default_entities", "morning"),
+                ("default_repairs", "morning"),
+                ("default_broken_automations", "morning"),
+                ("default_batteries", "morning"),
+                ("default_vacuums", "evening"),
+            )
+        }
+        definitions = entry.data["notification_definitions"]
+        assert set(definitions["profiles"]) == {
+            "immediate",
+            "acknowledge",
+            "urgent",
+            "morning",
+            "evening",
+            "weekly",
+        }
+        assert all(
+            profile["methods"] == [] for profile in definitions["profiles"].values()
         )
+        assert definitions["methods"] == {}
+        assert entry.data["notifications"] is False
+        assert entry.data["consumer"] is None
+        assert not entry.runtime_data.query("inventory", {})["notification_requests"]
         hass.config_entries.async_update_entry(
             entry,
             options={
@@ -107,18 +135,16 @@ async def exercise(config: Path, port: int) -> None:
         )
         assert runtime.query("readiness", {})["answer"] == "ready"
         async with ClientSession() as client:
-            for asset in (
-                "homeostatic.js?v=70",
-                "sources-workspace.mjs?v=70",
-                "source-settings.mjs?v=70",
-                "model.mjs?v=70",
-                "problem.mjs?v=70",
-                "history-controls.mjs?v=70",
-                "styles.mjs?v=70",
-                "configuration.mjs?v=70",
-                "evidence.mjs?v=70",
-                "tree.mjs?v=70",
-            ):
+            frontend = config / "custom_components" / "homeostatic" / "frontend"
+            assets = await hass.async_add_executor_job(
+                lambda: sorted(
+                    path.name
+                    for path in frontend.iterdir()
+                    if path.suffix in {".js", ".mjs"}
+                )
+            )
+            assert "homeostatic.js" in assets, "Missing frontend entry point"
+            for asset in assets:
                 async with client.get(
                     f"http://127.0.0.1:{port}/homeostatic_static/{asset}"
                 ) as response:

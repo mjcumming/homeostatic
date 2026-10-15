@@ -1,0 +1,6 @@
+[
+  {"id":"disabled-not-loaded","state":"NOT_LOADED","disabled":true,"issues":0},
+  {"id":"disabled-setup-error","state":"SETUP_ERROR","disabled":true,"issues":0},
+  {"id":"enabled-not-loaded","state":"NOT_LOADED","disabled":false,"issues":1},
+  {"id":"enabled-setup-error","state":"SETUP_ERROR","disabled":false,"issues":1}
+]

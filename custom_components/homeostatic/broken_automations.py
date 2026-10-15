@@ -11,12 +11,9 @@ from homeassistant.components import automation
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from . import reporting
 from .catalog import Source
-from .rules import CatalogRule
 
 CHECK = "broken_automation"
-DEFAULT_PROFILE = "morning"
 ENTITY_ID = vol.All(str, vol.Match(r"^[a-z_]+[.][a-z0-9_]+$"))
 RECORD = vol.Schema(
     {
@@ -39,25 +36,6 @@ def node_id(entity_id: str) -> str:
 def loaded(hass: HomeAssistant) -> bool:
     """Whether the automation component is currently loaded."""
     return automation.DATA_COMPONENT in hass.data
-
-
-def suppressed(rules: tuple[CatalogRule, ...]) -> bool:
-    """Whether a broad exclusion turns every broken automation off."""
-    return any(
-        rule.enabled
-        and rule.action == "exclude"
-        and rule.checks == (CHECK,)
-        and dict(rule.match) == {"kind": (CHECK,)}
-        for rule in rules
-    )
-
-
-def profile(policy: dict[str, Any]) -> str | None:
-    """Return the shared reporting choice, or None for a custom policy."""
-    choices = reporting.choices(policy)
-    if choices is None:
-        return None
-    return str(choices.get("broken_automations", DEFAULT_PROFILE))
 
 
 def _absent(hass: HomeAssistant, entity_ids: Iterable[str]) -> list[str]:
@@ -195,20 +173,14 @@ class BrokenAutomations:
         self.records = kept
         return changed
 
-    def sources(
-        self, policy: dict[str, Any], rules: tuple[CatalogRule, ...] = ()
-    ) -> dict[str, Source]:
+    def sources(self) -> dict[str, Source]:
         """Present each known automation as a source outside the dependency map."""
-        if suppressed(rules):
-            return {}
-        chosen = profile(policy)
         return {
             key: Source(
                 node_id=key,
                 name=row["name"],
                 kind=CHECK,
                 attributes={"kind": (CHECK,), "domain": ("automation",)},
-                alert_profile=chosen,
                 fix_url=row["url"],
                 check_id=CHECK,
             )

@@ -1,11 +1,15 @@
 # ADR 0058: Use one editable policy lifecycle
 
-**Status:** Accepted
+**Status:** Accepted; broad availability eligibility and independent delivery presentation are partially superseded by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md). Independent policy detection, timing and controls remain intact.
 **Date:** 2026-10-13
+
+**Later decision:** Notification timing ownership and empty supplied notification assignments are superseded by [ADR 0066](0066-reusable-notifications-own-timing-and-delivery.md). The historical decision below remains for context.
 
 **Later decision:** Connection-level integration selection and editor presentation is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.
 
 **Partially supersedes:** the editable check type, separate built-in enrollment presentation and shared-check restriction for overlapping policies in [ADR 0054](0054-reusable-monitoring-policy-editor.md); the required UPS/battery ownership transfer in [ADR 0051](0051-monitor-ups-conditions-through-shared-mappings.md); and the preservation/conversion requirements for existing test settings in [ADR 0055](0055-separate-notification-schedules-and-methods.md) and [ADR 0057](0057-policy-owned-notification-timing.md). Policy-owned timing and reusable delivery methods remain the accepted notification model.
+
+**Implementation clarification:** [ADR 0063](0063-remove-superseded-configuration-and-ui.md) removes the superseded configuration runtime and UI. Preservation of saved monitoring applies to the unified policy model; it does not require the earlier test schema or its editors.
 
 ## Context
 

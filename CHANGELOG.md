@@ -2,6 +2,58 @@
 
 ## [Unreleased]
 
+## [1.8.0b7] - 2026-10-14
+
+### Changed
+
+- Require health-tree 0.7.0 for compatible device notification grouping.
+- Put source conditions and actions first, collapse policy explanations and technical details, and compact the phone header. Add scoped Stop monitoring availability, Resume, Undo, selected-device-member actions and an availability-exclusions filter. Related issue controls identify their complete scope.
+- Monitor enabled operational entities automatically, including entities without devices. Diagnostic and configuration entities require explicit individual availability selection; device checks use operational members without a diagnostic fallback. Current off values remain available, including connectivity sensors.
+- Apply the same operational-entity and current-state semantics in Sources and current issue details. Policy-specific evidence and counts honor exclusions; browsing alone does not label entities monitored.
+- Add All except these to policy selection, retaining future matching sources and missing exclusions. Device policies can exclude whole devices or individual evidence members independently.
+- Combine compatible device notifications into one continuing message while preserving separate issues, timing and controls. Partial recovery retains outstanding findings, and phone acknowledgment covers only the issues shown in that request.
+- Hide disabled sources by default in Sources, with a Show disabled sources option and an explanation of paused monitoring and retained choices.
+- Remove superseded Overview, coverage, source-enrollment and fixed-reporting screens, their handlers and unused modules. Retain supported links as routes into the current workspace.
+- Remove the pre-policy configuration runtime, conversion helpers and obsolete configuration endpoints. Current unified policies and saved delivery methods retain their behavior; unsupported test schemas fail explicitly without resetting settings.
+- Rebuild the dashboard around Issues, Sources, Policies and Notifications, with investigation groups, canonical source details, browser history and a persistent notification switch.
+- Save policy, reusable-notification and delivery-method drafts independently; retain unrelated edits and omit save actions from clean editors.
+- Add six reusable named notifications with editable timing and delivery choices, including a daytime urgent window and supplied policy assignments. On fresh setup, leave destinations unconfigured and global sending off. Preserve existing Custom notification assignments until explicitly changed; remove the obsolete inline timing and method editors.
+
+### Documentation
+
+- Remove retired notification-focused policy-view guidance and require a bounded UI control/path inventory with actual browser interactions, persisted-result checks and pass/fail/untested receipts. Keep isolated testing, bounded live checks and physical Safari acceptance explicit.
+- Correct the historical save benchmark to identify inherited mocked storage. Record separate real-runtime-storage measurements, live endpoint timings and actual-button checks; distinguish the measured profile-save improvement from remaining shared-method reload and household-load costs. Keep fresh UI coverage separate from earlier acceptance evidence.
+- Accept six reusable named notifications that own timing and delivery choices, policy assignments and supplied defaults, including a daytime urgent window. Record supported-inline preservation and the limited authorization for existing dashboard-only defaults; validation and installation remain tracked in the roadmap.
+- Reconcile implementation status in the roadmap and require one owner across repositories, explicit handoffs for overlapping work, binding accepted decisions, retirement and complete-workflow verification.
+- Consolidate development setup around the selected environment and preserve an explicitly installed sibling library during local checks; retain locked published dependencies for releases.
+- Guard against restoring retired modules in the existing frontend checks.
+- Discover frontend tests and packaged smoke-test assets from the files present, removing obsolete module and branch references.
+- Remove an unused notification-method deletion implementation and leftover state from retired interface controls.
+- Record the accepted operational monitoring and device-notification decision, update current selection and event contracts, and identify the health-tree library release required before publishing the adapter. Preserve the legacy-removal boundary and current navigation workflows.
+- Consolidate the accepted Issues-first product specification, shared UI standards and policy/notification workflows. Record the earlier UI decisions superseded by the redesign and a phased refactor plan.
+
+### Fixed
+
+- Preserve a device's open issue, acknowledgment, pauses and reporting clocks through entity additions, removals, disablement and re-enablement while monitored members remain, including across restarts. Saved exclusions that change its evidence still replace the affected check. Reject malformed saved continuity metadata and restore it with issue controls after a failed save.
+- Keep unrelated check identities, open issues, acknowledgment, pauses and reporting clocks intact when excluding individual sources. Preserve existing persisted check IDs through a validated storage-envelope upgrade; stop/resume saves retain unrelated drafts and expose safe refresh after an uncertain response.
+- Use Home Assistant person entity IDs for delivery-method presence choices, preserving separate internal person and user identities.
+- Restore Working on this equipment and active-control cancellation in eligible Sources details, preserving the existing source scope, expiry and overlapping controls.
+- Avoid forced source rediscovery for notification-only saves, read dynamic inventory once per dashboard publication and skip direct-destination discovery when no direct phone or notify channel is configured. Retain fresh checks for direct destinations, dirty-inventory reconciliation, pending observations, policy evaluation and verified persistence.
+- Reuse unchanged integration catalog metadata for lifecycle updates while retaining failure and recovery observations; continue reconciling real catalog changes.
+- Keep the panel registered through settings-save reload and rollback. Retain the active editor and Saving state during its own reload, with pending fields disabled; preserve truthful save errors, disconnects and unavailable states outside the transaction. Ordinary unload and removal still remove the panel.
+- Apply named-notification and delivery-method edits in place with assignment-only policy changes. Preserve unaffected reporting clocks, queued delivery identities and original cleanup targets. Combined definition and source/detection or policy-list changes use the guarded reload path; policy-only edits retain their existing behavior.
+- Use problem terminology throughout History. Default Issues to newest first across investigation groups and their contents. Keep availability evidence gaps in Sources and record-only attention while showing and notifying current warnings and failures; this does not resolve episodes or change health observations.
+- Retain pages, editor focus and open menus through unchanged updates, and keep the last view visibly stale and read-only during reconnection. Remove raw JSON and diagnostic-copy controls from ordinary issue details.
+- Load policy selection choices on direct entry, retain selections through loading and retry, and search by source name or entity ID.
+- Keep action menus compact in Safari and explain shared notification timing and delivery ownership in the editors.
+- Show the next summary time for an unchanged saved policy assignment using the running policy’s forecast. Keep new or edited timing explicit until saved, and identify policies without a current summary schedule.
+- Explain grouped issues under loaded integrations with distinct device, entity and check counts, canonical source names and complete contributing findings. Show each device once with its affected entities, and lead investigation to those sources instead of the loaded connection.
+- Exclude unmonitored catalog aliases from evidence-gap counts while retaining watched checks and required function evidence.
+- Keep disabled integrations visible in Sources without opening availability issues; retain monitoring choices for re-enablement.
+
+- Explain entity registrations no longer provided by an integration and distinguish missing device readings from unavailable states. Move Home Assistant links and accurately labeled update times into source headers, and explain each monitoring policy's role.
+- Prevent focused delivery-method fields from triggering repeated redraws that leave the dashboard stuck during editing or a monitoring reload. Retain the draft and cursor when monitoring reconnects.
+
 ## [1.8.0b6] - 2026-10-13
 
 ### Documentation

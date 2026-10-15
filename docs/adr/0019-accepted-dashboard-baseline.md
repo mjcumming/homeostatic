@@ -8,6 +8,8 @@
 
 **Supersedes:** ADR 0017's stacked mobile layout and ADR 0018's hidden monitoring editor. Their one-tree workspace, source views, identity, and reviewed-save boundaries remain in force. Extends ADR 0016 to integration-family defaults.
 
+**Later decision:** The prescribed dashboard and selected-source layouts are superseded by [ADR 0061](0061-issues-first-product-workflows.md). The historical decision remains below; unaffected behavior and persistence safeguards remain in force. Replacement UI implementation is pending.
+
 ## Context
 
 Repeated live UI iterations exposed the wrong hierarchy: integration-entry titles appeared as integration types, selected details scrolled out of reach, mobile details appeared above the source list, and simple choices required technical interpretation. Timing controls remained outside the custom settings page. The owner approved a clickable mockup and requested that it be built.

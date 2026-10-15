@@ -45,6 +45,7 @@ async def saved_method(
         },
     }
     config_data.update(notifications=False, notification_definitions=definitions)
+    config_data["monitoring_policies"][0]["notifications"] = []
     hass.states.async_set("sensor.observed", "42")
     hass.states.async_set("person.owner", "home")
     runtime = await start_monitor(

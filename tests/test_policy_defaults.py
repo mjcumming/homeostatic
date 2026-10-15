@@ -7,7 +7,7 @@ import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
-from custom_components.homeostatic.config import Settings, rule_data
+from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.dashboard import (
     _editable_settings,
     _settings_candidate,
@@ -21,12 +21,12 @@ from custom_components.homeostatic.policy_defaults import (
 def test_defaults_are_independent_and_dashboard_only(hass: HomeAssistant) -> None:
     """Supplied records are editable copies and leave delivery unconfigured."""
     data = initial_settings("America/Chicago")
+    assert not {"rules", "entities", "config_entries", "policy"} & data.keys()
     settings = Settings.from_data(data)
     assert settings.monitoring_policy_version == 1
     assert not settings.notifications
     assert settings.notification_definitions["methods"] == {}
     assert settings.notification_definitions["timezone"] == "America/Chicago"
-    assert rule_data(hass, settings) == []
     data["monitoring_policies"][0]["name"] = "Changed"
     assert policy_templates()[0]["name"] == "Integrations"
 
@@ -34,11 +34,14 @@ def test_defaults_are_independent_and_dashboard_only(hass: HomeAssistant) -> Non
 async def test_delete_all_defaults_and_restore_one(hass: HomeAssistant) -> None:
     """An empty policy list survives validation; restore adds only selected records."""
     current = initial_settings("UTC")
+    current["policy"] = {"obsolete": "ignored"}
     draft = _editable_settings(Settings.from_data(current))
+    assert "policy" not in draft
     draft["monitoring_policies"] = []
     saved = await _settings_candidate(hass, current, draft)
     assert Settings.from_data(saved).monitoring_policies == ()
     assert saved["monitoring_policy_version"] == 1
+    assert "policy" not in saved
     restored = _editable_settings(Settings.from_data(saved))
     restored["monitoring_policies"] = [policy_templates()[0]]
     result = await _settings_candidate(hass, saved, restored)
@@ -80,7 +83,7 @@ async def test_policy_scope_and_name_remain_editable(hass: HomeAssistant) -> Non
     assert policy.match == {"kind": ("device",), "area": ("upstairs",)}
 
 
-@pytest.mark.parametrize("version", [True, -1, 2, "1"])
+@pytest.mark.parametrize("version", [None, True, -1, 0, 2, "1"])
 def test_unknown_policy_format_is_rejected(version: object) -> None:
     """A malformed model marker cannot silently select a different runtime."""
     with pytest.raises(ValueError, match="monitoring policy version"):
@@ -196,7 +199,7 @@ async def test_source_battery_conditions_keep_policy_thresholds(
         {"id": 1, "type": "homeostatic/source", "node_id": source.node_id}
     )
     result = (await client.receive_json())["result"]
-    assert result["battery_condition"] is None
+    assert "battery_condition" not in result
     assert {
         item["policy_id"]: item["condition"]["reason"]
         for item in result["battery_conditions"]

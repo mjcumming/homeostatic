@@ -20,19 +20,25 @@ from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
+    async_capture_events,
     async_fire_time_changed,
 )
 
-from custom_components.homeostatic import automation_alerts, phone_actions, reporting
+from custom_components.homeostatic import automation_alerts, phone_actions
 from custom_components.homeostatic import runtime as runtime_module
 from custom_components.homeostatic.automation_alerts import (
     AutomationAlerts,
     automation_owner,
     identity,
 )
-from custom_components.homeostatic.const import DOMAIN
+from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.notification_routes import Destination
 from custom_components.homeostatic.phone_actions import PhoneActions
+from tests.policy_helpers import (
+    current_config,
+    immediate_notification,
+    notification_definitions_data,
+)
 from tests.test_blueprint import load_example
 from tests.test_lifecycle import start_monitor
 
@@ -126,6 +132,30 @@ async def test_identity_refresh_recovery_restart_retirement(
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
+async def test_current_default_delivers_dynamic_alert_through_reload(
+    hass: HomeAssistant, config_entry: MockConfigEntry, owner: str
+) -> None:
+    """A saved current default retains delivery for an automation-created situation."""
+    config_entry.data["notification_definitions"]["default"] = immediate_notification()
+    assert config_entry.data["notification_definitions"]["automation_profiles"] == {}
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
+    runtime = await start_monitor(hass, config_entry)
+    result = await report(hass, owner, profile="immediate")
+    await hass.async_block_till_done()
+    episode_id = next(iter(runtime.episodes))
+    assert [event.data["action"] for event in events] == ["open"]
+    assert events[0].data["cause"] == result["node_id"]
+    assert await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert list(config_entry.runtime_data.episodes) == [episode_id]
+    assert [event.data["action"] for event in events] == ["open"]
+    await report(hass, owner, "clear", profile="immediate")
+    await hass.async_block_till_done()
+    assert [event.data["action"] for event in events] == ["open", "resolve"]
+    assert events[-1].data["episode_id"] == episode_id
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+
+
 async def test_retired_alert_blocks_reports_without_using_active_capacity(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
@@ -200,11 +230,6 @@ async def test_distinct_conditions_and_owners(
             {"profile": "urgent"}, "value must be one of", id="invalid-profile"
         ),
         pytest.param(
-            {"profile": "immediate"},
-            "shared reporting profiles",
-            id="unconfigured-profiles",
-        ),
-        pytest.param(
             {"adopt_situation_id": "missing"},
             "declared automation",
             id="missing-adoption",
@@ -276,15 +301,24 @@ def phone_policy(
         user_id=hass_read_only_user.id,
         available=True,
     )
-    monkeypatch.setattr(reporting, "destinations", lambda _h: [route])
     monkeypatch.setattr(phone_actions, "destinations", lambda _h: [route])
-    value = reporting.defaults()
-    value["people"] = {"owner": ["phone:mine"]}
-    for profile in value["profiles"].values():
-        profile["people"] = ["owner"]
-    config_data["policy"] = reporting.generate(
-        hass, value, [{"id": "owner", "user_id": hass_read_only_user.id}]
-    )
+    value = notification_definitions_data()
+    value["methods"]["mine"] = {
+        "name": "Phone",
+        "mode": "fixed",
+        "destinations": ["phone:mine"],
+    }
+    value["automation_profiles"] = {
+        profile: [{"id": profile, "timing": timing, "methods": ["mine"]}]
+        for profile, timing in {
+            "acknowledge": {"mode": "acknowledge", "remind_every": 3600},
+            "immediate": {"mode": "immediate"},
+            "morning": {"mode": "report", "at": "08:00", "weekdays": list(range(7))},
+            "evening": {"mode": "report", "at": "20:00", "weekdays": list(range(7))},
+            "weekly": {"mode": "report", "at": "09:00", "weekdays": [6]},
+        }.items()
+    }
+    config_data["notification_definitions"] = value
     monkeypatch.setattr(runtime_module, "async_send", AsyncMock())
     return config_data
 
@@ -512,7 +546,7 @@ def test_registry_roundtrip_and_caps(
         "profile": "dashboard",
         "state": "active",
     }
-    key, row = registry.prepare(hass, Settings.from_data({}), payload)
+    key, row = registry.prepare(hass, Settings.from_data(current_config()), payload)
     registry.restore({key: row})
     assert registry.records[key] == row
     assert identity("owner-a", "door") != key
@@ -521,7 +555,9 @@ def test_registry_roundtrip_and_caps(
     monkeypatch.setattr(automation_alerts, "MAX_ALERTS", 1)
     with pytest.raises(ValueError, match="capacity"):
         registry.prepare(
-            hass, Settings.from_data({}), {**payload, "alert_key": "other"}
+            hass,
+            Settings.from_data(current_config()),
+            {**payload, "alert_key": "other"},
         )
     hass.set_state(CoreState.not_running)
     assert not registry.prune_removed_owners(hass)
@@ -537,7 +573,7 @@ def test_phone_references_bounded_and_expiring(
     now = dt_util.utcnow()
     payload = {
         "episode_id": "episode",
-        "recipient": "person:owner",
+        "recipient": "method:mine",
         "delivery_id": "delivery",
         "action": "open",
     }
@@ -558,6 +594,207 @@ def test_phone_references_bounded_and_expiring(
     assert not actions.records
 
 
+@pytest.mark.parametrize(
+    "group",
+    [
+        pytest.param({"episodes": ["first"]}, id="summary-without-device"),
+        pytest.param({"notification_subject": "device:one"}, id="missing-issues"),
+        pytest.param(
+            {"notification_subject": "device:one", "episodes": []}, id="empty"
+        ),
+        pytest.param(
+            {"notification_subject": "device:one", "episodes": "first"},
+            id="not-a-list",
+        ),
+        pytest.param(
+            {"notification_subject": "device:one", "episodes": ["first", 2]},
+            id="invalid-issue",
+        ),
+        pytest.param(
+            {"notification_subject": "device:one", "episodes": [""]},
+            id="empty-identity",
+        ),
+        pytest.param(
+            {"notification_subject": "device:one", "episodes": ["first", "first"]},
+            id="duplicate-identity",
+        ),
+        pytest.param(
+            {"notification_subject": "entry:one", "episodes": ["first"]},
+            id="not-a-device",
+        ),
+        pytest.param(
+            {
+                "notification_subject": "device:one",
+                "episodes": ["first"],
+                "action": "digest",
+            },
+            id="digest",
+        ),
+        pytest.param(
+            {
+                "notification_subject": "device:one",
+                "episodes": ["first"],
+                "action": "summary",
+            },
+            id="startup-summary",
+        ),
+        pytest.param(
+            {
+                "notification_subject": "device:one",
+                "episodes": ["first"],
+                "action": "resolve",
+            },
+            id="resolved",
+        ),
+    ],
+)
+def test_phone_group_requires_exact_active_device_issues(
+    hass: HomeAssistant,
+    phone_policy: dict[str, Any],
+    group: dict[str, Any],
+) -> None:
+    """General summaries and malformed device lists do not acquire acknowledgment."""
+    actions = PhoneActions()
+    payload = {
+        "episode_id": "device-group",
+        "recipient": "method:mine",
+        "delivery_id": "delivery",
+        "action": "open",
+        **group,
+    }
+    assert actions.prepare(hass, payload, "phone:mine", dt_util.utcnow()) is None
+    assert not actions.records
+
+
+def test_grouped_phone_reference_freezes_shown_issues(
+    hass: HomeAssistant, phone_policy: dict[str, Any]
+) -> None:
+    """Later changes to a message cannot expand an already-issued button's authority."""
+    actions = PhoneActions()
+    payload = {
+        "episode_id": "device-group",
+        "notification_subject": "device:one",
+        "episodes": ["first", "second"],
+        "recipient": "method:mine",
+        "delivery_id": "delivery",
+        "action": "open",
+    }
+    token = actions.prepare(hass, payload, "phone:mine", dt_util.utcnow())
+    assert token is not None
+    payload["episodes"].append("later")
+    assert actions.records[token]["episodes"] == ["first", "second"]
+    saved = deepcopy(actions.records)
+    actions.restore(saved)
+    assert actions.records == saved
+    with pytest.raises(vol.Invalid):
+        actions.restore({token: {**saved[token], "episodes": []}})
+
+
+async def test_grouped_phone_ack_survives_partial_recovery_without_clearing_later_issues(
+    hass: HomeAssistant,
+    phone_policy: dict[str, Any],
+    owner: str,
+    hass_read_only_user: User,
+) -> None:
+    """A saved device button acknowledges remaining shown issues, never later failures."""
+    entry = MockConfigEntry(domain=DOMAIN, data=phone_policy)
+    runtime = await start_monitor(hass, entry)
+    await report(hass, owner, alert_key="first", profile="acknowledge")
+    first = next(iter(runtime.episodes))
+    await report(hass, owner, alert_key="second", profile="acknowledge")
+    second = next(episode for episode in runtime.episodes if episode != first)
+    token = runtime.phone_actions.prepare(
+        hass,
+        {
+            "episode_id": "device-group",
+            "notification_subject": "device:one",
+            "episodes": [first, second],
+            "recipient": "method:mine",
+            "delivery_id": "group-delivery",
+            "action": "open",
+        },
+        "phone:mine",
+        dt_util.utcnow(),
+    )
+    assert token is not None
+    await report(hass, owner, "clear", alert_key="first", profile="acknowledge")
+    assert first not in runtime.episodes
+    await report(hass, owner, alert_key="first", profile="acknowledge")
+    later = next(episode for episode in runtime.episodes if episode != second)
+    assert later != first
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    runtime = entry.runtime_data
+    assert runtime.phone_actions.records[token]["episodes"] == [first, second]
+    await runtime.async_phone_action(
+        Event(
+            "mobile_app_notification_action",
+            {"action": token},
+            EventOrigin.remote,
+            context=Context(user_id=hass_read_only_user.id),
+        )
+    )
+    assert runtime.policy.acknowledgment(second).actor_id == hass_read_only_user.id
+    assert runtime.policy.acknowledgment(later) is None
+    assert set(runtime.episodes) == {second, later}
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize(
+    "channel,unacknowledged",
+    [
+        pytest.param("phone:mine", False, id="current-route"),
+        pytest.param("phone:other", True, id="removed-route"),
+    ],
+)
+async def test_grouped_phone_ack_applies_to_each_shown_issue_with_current_permission(
+    hass: HomeAssistant,
+    phone_policy: dict[str, Any],
+    owner: str,
+    hass_read_only_user: User,
+    channel: str,
+    unacknowledged: bool,
+) -> None:
+    """A grouped action retains the same destination permission checks as one issue."""
+    entry = MockConfigEntry(domain=DOMAIN, data=phone_policy)
+    runtime = await start_monitor(hass, entry)
+    await report(hass, owner, alert_key="first", profile="acknowledge")
+    await report(hass, owner, alert_key="second", profile="acknowledge")
+    shown = list(runtime.episodes)
+    assert len(shown) == 2
+    token = runtime.phone_actions.prepare(
+        hass,
+        {
+            "episode_id": "device-group",
+            "notification_subject": "device:one",
+            "episodes": shown,
+            "recipient": "method:mine",
+            "delivery_id": "group-delivery",
+            "action": "open",
+        },
+        "phone:mine",
+        dt_util.utcnow(),
+    )
+    assert token is not None
+    runtime.settings.notification_definitions["methods"]["mine"]["destinations"] = [
+        channel
+    ]
+    await runtime.async_phone_action(
+        Event(
+            "mobile_app_notification_action",
+            {"action": token},
+            EventOrigin.remote,
+            context=Context(user_id=hass_read_only_user.id),
+        )
+    )
+    assert [runtime.policy.acknowledgment(episode) is None for episode in shown] == [
+        unacknowledged,
+        unacknowledged,
+    ]
+    assert list(runtime.episodes) == shown
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 async def test_profile_update_and_preview(
     hass: HomeAssistant, phone_policy: dict[str, Any], owner: str
 ) -> None:
@@ -575,9 +812,13 @@ async def test_profile_update_and_preview(
 
 
 @pytest.mark.parametrize(
-    "notifications,people,status",
+    "notifications,rows,status",
     [
-        (False, ["owner"], "requests_disabled"),
+        (
+            False,
+            [{"id": "now", "timing": {"mode": "immediate"}, "methods": ["mine"]}],
+            "requests_disabled",
+        ),
         (True, [], "missing_destinations"),
     ],
 )
@@ -587,15 +828,11 @@ async def test_unready_reporting_does_not_send(
     owner: str,
     hass_read_only_user: User,
     notifications: bool,
-    people: list[str],
+    rows: list[dict[str, Any]],
     status: str,
 ) -> None:
     """An unsendable preference stays visible without choosing another recipient."""
-    value = reporting.choices(phone_policy["policy"])
-    value["profiles"]["immediate"]["people"] = people
-    phone_policy["policy"] = reporting.generate(
-        hass, value, [{"id": "owner", "user_id": hass_read_only_user.id}]
-    )
+    phone_policy["notification_definitions"]["automation_profiles"]["immediate"] = rows
     phone_policy["notifications"] = notifications
     entry = MockConfigEntry(domain=DOMAIN, data=phone_policy)
     runtime = await start_monitor(hass, entry)
@@ -672,11 +909,11 @@ async def test_callback_rechecks_authority(
 
     def removed_recipient() -> None:
         runtime.settings = replace(
-            runtime.settings, policy=reporting.generate(hass, reporting.defaults(), [])
+            runtime.settings, notification_definitions=notification_definitions_data()
         )
 
     def removed_channel() -> None:
-        runtime.settings.policy["recipients"]["person:owner"]["channels"] = [
+        runtime.settings.notification_definitions["methods"]["mine"]["destinations"] = [
             "phone:other"
         ]
 

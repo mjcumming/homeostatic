@@ -8,13 +8,15 @@
 </style>
 <header><strong>Synthetic data only</strong> <button id="run">Run history and control scenarios</button><p id="result" role="status">Ready</p></header>
 <homeostatic-card></homeostatic-card>
+<details><summary>Machine-readable acceptance receipt</summary><pre id="receipt"></pre></details>
 <script type="module">
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
+import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
 const card=document.querySelector("homeostatic-card");
 const result=document.querySelector("#result");
 let publish;
 const listeners=new Map();
-const source={node_id:"sensor.a",name:"Living room motion",kind:"entity",watched:true,requirements:[],attributes:{area:["living"]},attached_by:["watch"],excluded_by:[],entity_id:"binary_sensor.motion"};
+const source={node_id:"sensor.a",name:"Living room motion",kind:"entity",watched:true,requirements:[],attributes:{area:["living"]},attached_by:["watch"],entity_id:"binary_sensor.motion"};
 const fn={...source,node_id:"function.lighting",name:"Motion lighting",kind:"function",requirements:["sensor.a"],readiness:{answer:"blocked",nodes:[]}};
 const episode={episode_id:"open-1",anchor:"sensor.a",opened_at:"2026-09-25T10:00:00Z",importance:"normal",impact:[fn.node_id],reasons:[{reason:"unavailable",message:"Living room motion is unavailable"}]};
 const history={started_at:"2026-09-24T10:00:00Z",retention:{max_episodes:100,max_age_days:30},episodes:Array.from({length:45},(_,i)=>({episode:{...episode,episode_id:`ended-${i}`,anchor:i===1?"device:old-controller":episode.anchor,labels:i===1?{name:"Former controller"}:episode.labels,reasons:i===0?[{check_id:"availability",reason:"some_unavailable",message:"Family Room Frigate: some unavailable"}]:i===1?[{check_id:"availability",reason:"all_unavailable",message:"Former controller: all unavailable"}]:episode.reasons},source:i===1?null:{node_id:source.node_id,name:i===0?"Family Room Frigate":i===4?'<img src=x onerror="fail()"> Old name':`Previous sensor ${i}`,kind:i===0?"device":"entity"},resolved_at:"2026-09-25T11:00:00Z",resolution:["cleared","removed","absorbed"][i%3],absorbed_into:i%3===2?"open-1":null}))};
@@ -31,6 +33,7 @@ const connection={addEventListener(name,handler){listeners.set(name,handler);},r
 const hass={connection,user:{id:"admin",is_admin:true},async callWS(message){
   calls.push(message);
   if(message.type==="homeostatic/node")return{source:data.inventory.nodes.find(n=>n.node_id===message.node_id),readiness:{answer:"blocked",nodes:[]},explanation:{findings:episode.reasons,nodes:[]},impact:{nodes:[]}};
+  if(message.type!=="call_service")throw new Error("No configuration service is needed by this fixture.");
   if(fail)throw new Error("Storage could not be confirmed");
   const request=message.service_data;
   if(message.service==="acknowledge") {
@@ -50,138 +53,121 @@ const hass={connection,user:{id:"admin",is_admin:true},async callWS(message){
   data.inventory.operator_controls.push(control);
   return{response:{...scope,control}};
 }};
-card.setConfig({view:"overview"});card.hass=hass;
+card.setConfig({view:"issues"});card.hass=hass;
 const root=card.shadowRoot;
-const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve();};
+const flush=async()=>{for(let i=0;i<24;i++)await Promise.resolve();};
 const expect=(value,message)=>{if(!value)throw new Error(message);};
-const field=(name,value)=>{const input=card.tools.body.querySelector(`[name="${name}"]`);if(input.type==="checkbox")input.checked=value;else input.value=value;input.dispatchEvent(new Event("input",{bubbles:true}));};
+const click=async(selector,scope=root)=>{const button=scope.querySelector(selector);expect(button,`Missing rendered control: ${selector}`);expect(!button.disabled&&!button.closest("[inert]"),`Disabled rendered control: ${selector}`);button.scrollIntoView({block:"nearest"});const box=button.getBoundingClientRect(),hit=root.elementFromPoint(box.x+box.width/2,box.y+box.height/2);expect(box.width>0&&box.height>0&&(button===hit||button.contains(hit)),`Hidden or covered control: ${selector}`);button.click();await flush();};
+const input=(selector,value,scope=root)=>{const field=scope.querySelector(selector);expect(field,`Missing field: ${selector}`);field.focus();field.value=value;field.dispatchEvent(new Event("input",{bubbles:true}));};
+const close=async()=>{if(card.tools.dialog.open)await click('[data-tool="close"]',card.tools.dialog);if(card.dialog.open)await click('[data-action="close"]',card.dialog);};
 const end=()=>{const d=new Date(Date.now()+3600000);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);};
 const submit=()=>card.tools.body.querySelector('[type="submit"]');
-async function open(kind="maintenance"){
-  card.tools.close();await flush();
-  card.openDetail(kind==="maintenance"?{nodeId:source.node_id}:{episodeId:"open-1"});await flush();
-  root.querySelector(kind==="maintenance"?"[data-maintenance]":"[data-shelf]").click();await flush();
+const mutations=()=>calls.filter(call=>call.type==="call_service");
+async function issue(){
+  await close();await click('[data-page="problems"]');
+  for(const button of [...root.querySelectorAll('[data-issue-group][aria-expanded="false"]')])await click(`[data-issue-group="${button.dataset.issueGroup}"]`);
+  await click('[data-episode="open-1"]');
 }
+async function historyRow(id){await close();await click(`[data-history="${id}"]`);}
+let receipt;
+function report(){document.querySelector('#receipt').textContent=JSON.stringify(receipt,null,2);parent.postMessage({type:'homeostatic-acceptance',fixture:'history-controls.html',receipt},location.origin);}
+async function path(id,run,evidence){try{await run();recordResult(receipt,id,'pass',evidence);}catch(error){recordResult(receipt,id,'fail',error.message);throw error;}finally{report();}}
 document.querySelector("#run").addEventListener("click",async()=>{
-  const passed=[];
+  receipt=emptyReceipt({fixture:'history-controls.html',browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},data:'synthetic',destinations:'mocked'});
+  result.textContent='Running…';document.querySelector('#run').disabled=true;
   try{
-    fail=false;hold=null;card.tools.close();card.tools.query="";card.tools.resolution="";card.tools.page=0;reset();publish(data);card.setConfig({view:"overview",navigation:true});await flush();
-    expect([...root.querySelectorAll('.nav button')].map(button=>button.textContent).join('|')==="Overview|Issues|Sources|Policies|Notifications|Settings|History","History must be the rightmost Homeostatic tab");
-    const generated=await customElements.get('ll-strategy-dashboard-homeostatic').generate();
-    expect(generated.views.map(view=>view.path).join('|')==="overview|issues|sources|policies|notifications|settings|history","History must be the last generated HA dashboard view");
-    expect(generated.views[1].cards[0].view==="issues"&&generated.views[5].cards[0].view==="settings","Generated cards use current page names");
-    card.page="history";card.render();
-    expect(root.querySelectorAll('main [data-history]').length===20,"History must render at most 20 rows");
-    root.querySelector('[data-tool="next"]').click();root.querySelector('[data-tool="next"]').click();
-    expect(root.querySelectorAll('main [data-history]').length===5,"Last history page must contain remaining rows");
-    let search=root.querySelector('[data-history-search]');search.focus();search.value="Previous sensor 2";search.dispatchEvent(new Event("input",{bubbles:true}));
-    expect(root.activeElement===root.querySelector('[data-history-search]'),"Typing must retain focus");
-    expect(root.querySelectorAll('main [data-history]').length===11,"Search must reset the page and filter records");
-    publish(data);expect(root.querySelector('[data-history-search]').value==="Previous sensor 2","Live update must preserve search");
-    card.tools.showHistory("ended-0");
-    expect(card.tools.body.textContent.includes("Home Assistant reported an availability problem with Family Room Frigate"),"History must explain the reported condition plainly");
-    expect(!card.tools.body.textContent.includes("non-unavailable") && !card.tools.body.textContent.includes("does not identify"),"History must omit technical clearance and evidence caveats");
-    expect(card.tools.body.querySelector(".history-times dt").textContent==="Observed","History must identify observation times");
-    expect(card.tools.body.querySelector(".history-times dd").textContent.includes("1 hr"),"History must give a compact duration");
-    expect(!card.tools.body.querySelector("details"),"History must not repeat the saved finding in a dropdown");
-    card.tools.showHistory("ended-1");
-    expect(card.tools.dialog.querySelector("h2").textContent==="Former controller","Deleted device must retain its saved name");
-    expect(card.tools.body.textContent.includes("every monitored entity on this device as unavailable"),"Removal must explain the saved condition");
-    expect(card.tools.body.textContent.includes("without an observed recovery"),"Removal cannot claim recovery");
-    expect(!card.tools.body.querySelector("details"),"Removed history must not repeat the saved finding");
-    expect(!card.tools.body.textContent.includes("This finding was saved"),"History must avoid repeated explanation");
-    card.tools.showHistory("ended-4");expect(!card.tools.dialog.querySelector("img"),"History source names must remain text");
-    card.tools.showHistory("ended-2");expect(!!card.tools.body.querySelector("[data-open-episode]"),"Absorption must link to retained open episode");
-    card.tools.body.querySelector('[data-open-episode]').click();await flush();expect(card.dialog.open,"Related problem must open");
-    card.dialog.close();await flush();
-    passed.push("History-last navigation, pagination, search, focus, outcomes, safe text and related problem navigation");
-
-    await open();expect(submit().disabled,"Maintenance cannot start without expiry");
-    expect(card.tools.body.textContent.includes("Existing problems and alerts continue"),"Maintenance must describe what remains active");
-    card.tools.body.querySelector('[data-duration="30"]').click();
-    expect(!!card.tools.body.querySelector('[name="untilLocal"]').value,"Short choice must populate an explicit expiry");
-    expect(!submit().disabled,"Valid duration must allow direct apply");
-    expect(!card.tools.body.querySelector('[data-tool="preview"]'),"Preview button remains");
-    field("untilLocal",end());field("reason","Replacing battery");field("includeDependents",true);
-    expect(!submit().disabled,"Completed form should allow maintenance");
-
-
-    publish(data);expect(!submit().disabled,"Live update must preserve valid form");
-    expect(card.tools.body.querySelector('[name="reason"]').value==="Replacing battery","Live update must preserve the draft");
-    field("includeDependents",false);expect(!submit().disabled,"Scope edit must remain directly applicable");
-
-    let release;hold={promise:new Promise(resolve=>{release=resolve;})};
-    const before=calls.filter(c=>c.service==="start_maintenance").length;
-    const first=card.tools.execute();await card.tools.execute();
-    expect(calls.filter(c=>c.service==="start_maintenance").length===before+1,"Duplicate clicks must send only one mutation");
-    release();await first;hold=null;
-    expect(card.tools.body.textContent.includes("Saved by Home Assistant"),"Durable result must be visible");
-    expect(card.tools.body.textContent.includes("Replacing battery"),"Saved reason must be visible");
-    passed.push("Maintenance expiry, direct apply, draft preservation, duplicate prevention and saved result");
-
-    await open("shelve");expect(card.tools.body.textContent.includes("including urgent alerts"),"Shelving must explain urgent scope");
-    expect(card.tools.body.textContent.includes("this problem only")&&card.tools.body.textContent.includes("Other problems on this equipment are unaffected"),"Pause explicitly applies only to the selected problem");
-    expect(!card.tools.body.querySelector('[name="includeDependents"]'),"Pause has no equipment-wide scope option");
-    field("untilLocal",end());fail=true;const attemptCount=calls.length;await card.tools.execute();
-    expect(calls.length===attemptCount+1,"Failure must not auto-retry");
-    expect(card.tools.body.textContent.includes("may already have been saved"),"Ambiguous failure must require inspection");
-    fail=false;listeners.get("disconnected")();expect(submit().disabled,"Disconnected form must be disabled");
-    publish(data);expect(!submit().disabled,"Fresh data can restore valid shelf target");
-    data.inventory.episodes=[];publish(data);expect(submit().disabled,"Resolved shelf target must be disabled");
-    reset();publish(data);await card.tools.execute();
-    expect(calls.at(-1).service_data.episode_id==="open-1"&&!Object.hasOwn(calls.at(-1).service_data,"node_id"),"Pause submits only the selected episode target");
-    expect(card.tools.body.textContent.includes("Saved by Home Assistant"),"Shelf should show saved result");
-    card.tools.close();await flush();
-    card.openDetail({episodeId:"open-1"});await flush();
-    expect(!root.querySelector('[data-shelf]').closest("details"),"Pause is directly available on a new detail");
-    expect(root.querySelector('.dialog-body').innerText.includes("Alerts paused until"),"Active shelf expiry stays visible");
-    expect(!root.querySelector('.dialog-body [data-maintenance]'),"Equipment maintenance stays on source details");
-    card.dialog.close();await flush();
-    passed.push("Shelving explanation, ambiguous failure, no retry, disconnect, target resolution, saved result and visible expiry");
-
-    card.tools.close();await flush();
-    const buttons=card.tools.detailButtons({...source,kind:"situation"},episode,data);
-    expect(!buttons.includes("data-maintenance")&&buttons.includes("data-shelf"),"Situation can be shelved but cannot root maintenance");
-    card.hass={...hass,user:{id:"viewer",is_admin:false}};await flush();
-    card.tools.openControl("maintenance",source.node_id);expect(!card.tools.dialog.open,"Viewer cannot open controls");
-    card.hass=hass;await flush();
-    card.tools.showHistory("ended-0");data.inventory.resolved_history.episodes=[];publish(data);
-    expect(card.tools.body.textContent.includes("no longer in retained history"),"Expired history selection must be explicit");
-    card.tools.close();await flush();reset();publish(data);card.setConfig({view:"overview"});
-    expect(!card.tools.dialog.open,"Closed history must not reopen on live publication");
-    passed.push("Situation boundary, non-admin access and history expiry");
-    reset();publish(data);await flush();
-    card.openDetail({episodeId:"open-1"});await flush();
-    expect(root.querySelector('[data-acknowledge]').closest('.problem-controls .actions')===root.querySelector('[data-shelf]').closest('.problem-controls .actions'),"Attention controls share one secondary action row");
-    root.querySelector('[data-acknowledge]').click();await flush();
-    expect(card.tools.body.textContent.includes("problem remains open"),"Acknowledgment explains unchanged health");
-    const beforeAck=calls.length;
-    await card.tools.executeImmediate();
-    expect(calls.length===beforeAck+1&&calls.at(-1).service==="acknowledge","Awareness sends one explicit action");
-    expect(!Object.hasOwn(calls.at(-1).service_data,"actor_id"),"Client cannot choose acknowledgment actor");
-    expect(card.tools.body.textContent.includes("Awareness recorded"),"Awareness confirms durable response");
-    card.tools.close();publish(data);await flush();
-    card.openDetail({episodeId:"open-1"});await flush();
-    expect(root.querySelector('.dialog-body').textContent.includes("Acknowledged"),"Acknowledgment survives fresh presentation");
-    expect(!root.querySelector('[data-acknowledge]'),"An acknowledged problem has no duplicate action");
-    data.inventory.operator_controls=[{control_id:"end-me",action:"shelve",target:"open-1",until:new Date(Date.now()+3600000).toISOString()}];
-    publish(data);await flush();
-    root.querySelector('[data-cancel-control]').click();await flush();
-    expect(card.tools.body.textContent.includes("Due alerts may be sent now"),"Ending a shelf explains renewed attention");
-    fail=true;const beforeCancel=calls.length;await card.tools.executeImmediate();
-    expect(calls.length===beforeCancel+1&&card.tools.body.textContent.includes("may already have been saved"),"Cancellation failure does not auto-retry");
-    fail=false;listeners.get("disconnected")();expect(submit().disabled,"Disconnected cancellation is disabled");
-    publish(data);await card.tools.executeImmediate();
-    expect(card.tools.body.textContent.includes("selected control has ended"),"Only selected control is ended");
-    card.tools.close();reset();publish(data);await flush();
-    card.tools.openImmediate("acknowledge","open-1");data.inventory.episodes=[];publish(data);
-    expect(submit().disabled,"Resolved acknowledgment target is disabled");
-    card.tools.close();reset();data.inventory.attention_controls_supported=false;publish(data);await flush();
-    card.tools.openImmediate("acknowledge","open-1");expect(!card.tools.dialog.open,"Published unsupported library cannot expose controls");
-    passed.push("Acknowledgment, actor integrity, cancellation, failed saves, disconnect and compatible-library gating");
-    result.textContent="PASS\n"+passed.join("\n");
-  }catch(error){result.textContent="FAIL: "+error.stack+"\n"+passed.join("\n");}
+    fail=false;hold=null;await close();reset();card.hass=hass;publish(data);await flush();
+    await path('issues.history',async()=>{
+      await click('[data-page="problems"]');
+      expect([...root.querySelectorAll('.nav button')].map(button=>button.textContent).join('|')==="Issues|Sources|Policies|Notifications","History remains inside Issues");
+      await click('[data-page="history"]');
+      input('[data-history-search]','');input('[data-history-filter]','');
+      expect(root.querySelector('main [role="status"]').textContent.includes('45 problems'),'History uses visible problem terminology');
+      expect(root.querySelectorAll('main [data-history]').length===20,'History first page has 20 rows');
+      expect(root.querySelector('[data-tool="previous"]').disabled,'Previous is disabled on the first page');
+      await click('[data-tool="next"]');await click('[data-tool="next"]');
+      expect(root.querySelectorAll('main [data-history]').length===5,'Last page has five remaining rows');
+      expect(root.querySelector('[data-tool="next"]').disabled,'Next is disabled on the last page');
+      await click('[data-tool="previous"]');expect(root.querySelectorAll('main [data-history]').length===20,'Previous returns to the middle page');
+      input('[data-history-search]','Previous sensor 2');
+      expect(root.activeElement===root.querySelector('[data-history-search]'),'Search retains keyboard focus');
+      expect(root.querySelectorAll('main [data-history]').length===11,'Search resets pagination and filters records');
+      publish(data);await flush();expect(root.querySelector('[data-history-search]').value==='Previous sensor 2','Live publication retains search');
+      input('[data-history-search]','');input('[data-history-filter]','removed');
+      expect(root.querySelectorAll('main [data-history]').length===15,'Outcome filter shows only 15 monitoring-ended records');
+      expect(root.querySelector('[data-tool="previous"]').disabled,'Outcome filter resets pagination');
+      input('[data-history-search]','no matching source');expect(root.querySelector('main').textContent.includes('No matching ended problems'),'Empty filtered result is explicit');
+      input('[data-history-search]','');input('[data-history-filter]','');
+      await historyRow('ended-0');
+      expect(card.tools.body.textContent.includes('Home Assistant reported an availability problem with Family Room Frigate'),'Saved condition is readable');
+      expect(card.tools.body.querySelector('.history-times dt').textContent==='Observed','History identifies observation times');
+      expect(card.tools.body.querySelector('.history-times dd').textContent.includes('1 hr'),'History shows elapsed observation duration');
+      expect(!card.tools.body.querySelector('details'),'Saved finding is not repeated in a dropdown');
+      await historyRow('ended-1');
+      expect(card.tools.dialog.querySelector('h2').textContent==='Former controller','Deleted device retains its saved name');
+      expect(card.tools.body.textContent.includes('every monitored entity on this device as unavailable'),'Saved device condition remains readable');
+      expect(card.tools.body.textContent.includes('without an observed recovery'),'Removal does not claim recovery');
+      await historyRow('ended-4');expect(!card.tools.dialog.querySelector('img'),'Saved source names remain escaped text');
+      await historyRow('ended-2');await click('[data-open-episode="open-1"]',card.tools.body);
+      expect(card.dialog.open&&root.querySelector('#detail-title').textContent===source.name,'Related problem opens its current details');
+      await close();await historyRow('ended-0');
+      data.inventory.resolved_history.episodes=[];publish(data);await flush();
+      expect(card.tools.body.textContent.includes('no longer in retained history'),'Expired selection reports its retention limit');
+      await close();reset();publish(data);await flush();expect(!card.tools.dialog.open,'Closed history stays closed after publication');
+    },'Clicked History, Next/Previous, outcome filter, search and four retained rows; verified empty results, focus, retained names, escaped text, outcome meaning, related issue navigation and expired-record handling. No mutation was requested.');
+    await path('issues.controls',async()=>{
+      await issue();
+      expect(root.querySelector('[data-acknowledge]').closest('.problem-controls .actions')===root.querySelector('[data-shelf]').closest('.problem-controls .actions'),'Attention controls share a visible action row');
+      await click('[data-shelf]');
+      expect(submit().disabled,'Pause needs an expiry');
+      expect(card.tools.body.textContent.includes('this problem only')&&card.tools.body.textContent.includes('including urgent alerts'),'Pause explains exact problem and urgent scope');
+      expect(!card.tools.body.querySelector('[name="includeDependents"]'),'Pause has no equipment-wide scope field');
+      input('[name="untilLocal"]',end(),card.tools.body);
+      await click('details summary',card.tools.body);input('[name="reason"]','Replacing battery',card.tools.body);
+      publish(data);await flush();expect(card.tools.body.querySelector('[name="reason"]').value==='Replacing battery','Live publication preserves draft');
+      fail=true;const before=mutations().length;await click('[type="submit"]',card.tools.body);
+      expect(mutations().length===before+1,'Ambiguous failure is not automatically retried');
+      expect(card.tools.body.textContent.includes('may already have been saved'),'Ambiguous save asks the user to inspect state');
+      fail=false;listeners.get('disconnected')();await flush();expect(submit().disabled,'Disconnected pause cannot submit');
+      publish(data);await flush();expect(!submit().disabled,'Fresh publication restores valid pause');
+      data.inventory.episodes=[];publish(data);await flush();expect(submit().disabled,'Resolved target cannot be paused');
+      reset();publish(data);await flush();
+      let release;hold={promise:new Promise(resolve=>{release=resolve;})};
+      const savedBefore=mutations().length;submit().click();submit().click();await flush();
+      expect(mutations().length===savedBefore+1,'Repeated click during save sends one mutation');
+      release();await flush();hold=null;
+      expect(card.tools.body.textContent.includes('Saved by Home Assistant'),'Saved pause is confirmed');
+      expect(data.inventory.operator_controls.length===1&&data.inventory.operator_controls[0].target==='open-1','Mock durable state contains only the selected problem pause');
+      expect(mutations().at(-1).service_data.episode_id==='open-1'&&!Object.hasOwn(mutations().at(-1).service_data,'node_id'),'Pause request targets only its selected problem');
+      await issue();expect(root.querySelector('.dialog-body').textContent.includes('Alerts paused until'),'Reopened issue displays saved expiry');
+      expect(!root.querySelector('.dialog-body [data-maintenance]'),'Issue dialog does not offer equipment maintenance');
+      await click('[data-acknowledge]');expect(card.tools.body.textContent.includes('problem remains open'),'Acknowledgment explains unchanged health');
+      const ackBefore=mutations().length;await click('[type="submit"]',card.tools.body);
+      expect(mutations().length===ackBefore+1&&mutations().at(-1).service==='acknowledge','Acknowledgment sends one action');
+      expect(!Object.hasOwn(mutations().at(-1).service_data,'actor_id'),'Client cannot select acknowledgment actor');
+      expect(data.policy.episodes[0].acknowledgment.actor_id==='admin','Mock backend records authenticated actor');
+      expect(card.tools.body.textContent.includes('Awareness recorded'),'Acknowledgment confirms returned result');
+      publish(data);await flush();await issue();
+      expect(root.querySelector('.dialog-body').textContent.includes('Acknowledged')&&!root.querySelector('[data-acknowledge]'),'Reopened acknowledged issue has no duplicate acknowledgment');
+      await click('[data-cancel-control]');
+      expect(card.tools.body.textContent.includes('Due alerts may be sent now'),'Ending pause explains renewed attention');
+      fail=true;const cancelBefore=mutations().length;await click('[type="submit"]',card.tools.body);
+      expect(mutations().length===cancelBefore+1&&card.tools.body.textContent.includes('may already have been saved'),'Cancellation failure does not retry');
+      fail=false;listeners.get('disconnected')();await flush();expect(submit().disabled,'Disconnected cancellation cannot submit');
+      publish(data);await flush();await click('[type="submit"]',card.tools.body);
+      expect(card.tools.body.textContent.includes('selected control has ended')&&data.inventory.operator_controls.length===0,'Cancellation removes only selected saved control');
+      await close();reset();publish(data);await flush();await issue();await click('[data-acknowledge]');
+      data.inventory.episodes=[];publish(data);await flush();expect(submit().disabled,'Resolved acknowledgment target cannot submit');
+      await close();reset();data.inventory.attention_controls_supported=false;publish(data);await flush();await issue();
+      expect(!root.querySelector('[data-acknowledge]'),'Unsupported attention API hides acknowledgment');
+      await close();card.hass={...hass,user:{id:'viewer',is_admin:false}};await flush();
+      expect(root.querySelector('main').textContent.includes('Administrator access is required'),'Viewer cannot reach operator controls');
+      expect(!root.querySelector('main [data-acknowledge], main [data-shelf], main [data-maintenance]')&&!card.dialog.open&&!card.tools.dialog.open,'Viewer has no reachable mutation control');
+      card.hass=hass;reset();publish(data);await flush();
+    },'Clicked issue group/detail, Pause, expiry/reason fields, submit, Acknowledge and End control; inspected exact mock saved scope, actor, reopened expiry/acknowledgment, duplicate suppression, ambiguous errors, disconnect recovery, resolved-target and non-admin/API gates. No live sends.');
+    result.textContent='PASS: History and issue controls exercised through rendered controls.';
+  }catch(error){result.textContent='FAIL: '+error.stack;}finally{document.querySelector('#run').disabled=false;report();}
 });
-if(new URLSearchParams(location.search).has("run"))document.querySelector("#run").click();
+if(new URLSearchParams(location.search).has('run'))document.querySelector('#run').click();
 </script>
 </html>

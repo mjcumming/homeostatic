@@ -1,6 +1,7 @@
 # ADR 0034: Configure an alert once in its Home Assistant automation
 
-**Status:** Accepted; implemented
+**Status:** Accepted
+**Implementation status:** See the [roadmap](../roadmap.md#current-work).
 **Date:** 2026-09-29
 **Decision owner:** Michael Cumming
 **Relationship:** Partially supersedes ADR 0032's separate declaration and

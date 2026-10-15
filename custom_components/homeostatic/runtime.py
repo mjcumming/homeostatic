@@ -37,6 +37,7 @@ from homeassistant.components import persistent_notification
 from homeassistant.components.automation import EVENT_AUTOMATION_RELOADED
 from homeassistant.config_entries import (
     SIGNAL_CONFIG_ENTRY_CHANGED,
+    SOURCE_IGNORE,
     ConfigEntry,
     ConfigEntryChange,
     ConfigEntryState,
@@ -61,8 +62,8 @@ from homeassistant.helpers.event import (
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from . import notification_definitions, reporting
-from .attention import build_policy, explanations, supports_attention_controls
+from . import notification_definitions, notification_grouping
+from .attention import build_policy, explanations
 from .automation_alerts import MAX_ALERTS, AutomationAlerts, automation_owner, identity
 from .battery import observe as battery_observation
 from .broken_automations import BrokenAutomations
@@ -73,7 +74,7 @@ from .catalog import (
     entity_state_signature,
     entry_observation,
 )
-from .config import Settings, normalize_definitions, normalize_rules, rule_data
+from .config import Settings, normalize_definitions
 from .const import (
     DOMAIN,
     EVENT_CONTROL,
@@ -89,7 +90,6 @@ from .enrollment import (
     evaluate,
     inventory,
     report,
-    restore_device_exclusions,
     restore_enrollment,
 )
 from .evidence import IntegrationEvidence, ReportedCondition
@@ -103,20 +103,20 @@ from .facts import (
 )
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
-from .monitoring import TEMPERATURE_CHECKS
+from .monitoring import TEMPERATURE_CHECKS, parse_excluded_sources
 from .monitoring_runtime import (
     assignments,
     enrollment_rules,
     ordinary_sources,
     original_identity,
+    retain_source_identities,
     temperature_sources,
-    transfer_batteries,
     ups_sources,
 )
-from .notification_routes import async_send, notification_url
+from .notification_routes import async_send, notification_url, unavailable_destinations
 from .phone_actions import PhoneActions
 from .repairs import Repairs
-from .rules import Attributes, parse_rules
+from .rules import Attributes
 from .serialization import json_object, to_json
 from .situation_reports import report_observation
 from .temperature import (
@@ -129,6 +129,7 @@ from .ups_parameters import ReserveParameters
 from .vacuum import observe as vacuum_observation
 
 _LOGGER = logging.getLogger(__name__)
+_SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 
 class Runtime:
@@ -156,6 +157,8 @@ class Runtime:
         self._compiled_policy: PolicyConfig | None = None
         self._compiled_settings: Settings | None = None
         self.sources: dict[str, Source] = {}
+        self._monitoring_identities: dict[str, str] = {}
+        self._monitoring_scopes: dict[str, tuple[str, ...]] = {}
         self.targets: list[str] = []
         self.enrolled: dict[str, Attributes] = {}
         self.candidates: dict[str, Source] = {}
@@ -183,7 +186,6 @@ class Runtime:
         self._broken_created: set[str] = set()
         self.phone_actions = PhoneActions()
         self.delivery_failures: deque[dict[str, str]] = deque(maxlen=50)
-        self._legacy_notifications: set[str] = set()
         self._activating = False
         self._activating_routes: set[str] | None = None
         self.fresh_start = False
@@ -203,8 +205,6 @@ class Runtime:
         self.error: str | None = None
         self.updated_at: datetime | None = None
         self._entity_sources: dict[str, list[Source]] = {}
-        self._device_members: dict[str, tuple[str, ...]] = {}
-        self.device_exclusions: dict[str, tuple[str, ...]] = {}
         self._device_signatures: dict[str, tuple[str, str]] = {}
         self._inventory_dirty = True
         self.inventory_revision = 0
@@ -252,16 +252,29 @@ class Runtime:
 
     @property
     def evidence_gaps(self) -> int:
-        """Count distinct unwatched nodes and unknown/stale check references."""
+        """Count missing evidence for monitored checks and incomplete functions."""
         if self.engine is None:
             return 0
         coverage = self.engine.coverage()
+        required = {
+            requirement
+            for source in self.sources.values()
+            if source.kind == "function"
+            for requirement in source.requirements
+        }
         return (
             int(self.consumer_missing)
             + sum(
                 (
-                    self.sources[node_id].kind != "function"
-                    or not self.sources[node_id].requirements
+                    (
+                        self.sources[node_id].watched
+                        or node_id in required
+                        or self.sources[node_id].kind in {"function", "external"}
+                    )
+                    and (
+                        self.sources[node_id].kind != "function"
+                        or not self.sources[node_id].requirements
+                    )
                 )
                 for node_id in coverage.no_checks
             )
@@ -275,15 +288,49 @@ class Runtime:
             return
         if not isinstance(self.saved, dict):
             raise ValueError("Invalid Homeostatic snapshot envelope")
-        if self.saved.get("schema_version") not in (1, 2):
+        version = self.saved.get("schema_version")
+        if type(version) is not int or version not in {2, 3}:
             raise ValueError("Unsupported Homeostatic snapshot version")
         for key in ("engine", "policy", "episodes", "retry_since"):
             if not isinstance(self.saved.get(key), dict):
                 raise ValueError(f"Invalid stored {key}")
-        if self.saved["schema_version"] == 2:
-            self.delivery.restore(self.saved["delivery"])
-            if type(self.saved.get("notifications_enabled")) is not bool:
-                raise ValueError("Invalid notification activation state")
+        identities = (
+            self.saved.get("monitoring_identities")
+            if version == 3
+            else self.saved.get("monitoring_identities", {})
+        )
+        if not isinstance(identities, dict) or any(
+            not isinstance(identity, str)
+            or not isinstance(bound, str)
+            or not identity.startswith("monitoring:")
+            or not bound.startswith("monitoring:")
+            or len(identity.split(":", 3)) != 4
+            or len(bound.split(":", 3)) != 4
+            or identity.split(":", 2)[1] != bound.split(":", 2)[1]
+            or original_identity(identity) != original_identity(bound)
+            for identity, bound in identities.items()
+        ):
+            raise ValueError("Invalid stored monitoring identities")
+        self._monitoring_identities = dict(identities)
+        scopes = self.saved.get("monitoring_scopes") if version == 3 else {}
+        if (
+            not isinstance(scopes, dict)
+            or any(not isinstance(policy_id, str) for policy_id in scopes)
+            or (
+                version == 3
+                and any(
+                    identity.split(":", 2)[1] not in scopes for identity in identities
+                )
+            )
+        ):
+            raise ValueError("Invalid stored monitoring scopes")
+        self._monitoring_scopes = {
+            policy_id: parse_excluded_sources(exclusions)
+            for policy_id, exclusions in scopes.items()
+        }
+        self.delivery.restore(self.saved["delivery"])
+        if type(self.saved.get("notifications_enabled")) is not bool:
+            raise ValueError("Invalid notification activation state")
         self.automation_alerts.restore(self.saved.get("automation_alerts", {}))
         self._temperature_saved = dict(self.saved.get("temperature_monitors", {}))
         self._ups_saved = dict(self.saved.get("ups_monitors", {}))
@@ -295,9 +342,6 @@ class Runtime:
         self.integration_evidence.restore(self.saved.get("integration_evidence", {}))
         self.controls = restore_controls(self.saved.get("operator_controls", []))
         self.enrolled = restore_enrollment(self.saved.get("enrollment", {}))
-        self.device_exclusions = restore_device_exclusions(
-            self.saved.get("device_exclusions", {})
-        )
         notifications = self.saved.get("notifications")
         if not isinstance(notifications, list) or not all(
             isinstance(item, str) for item in notifications
@@ -389,14 +433,6 @@ class Runtime:
                 source.kind in {"battery", "vacuum", "ups", *TEMPERATURE_CHECKS}
                 for source in sources
             )
-            or any(
-                source.kind == "device"
-                and entity_id in source.connectivity_entities
-                and old is not None
-                and new is not None
-                and old.state != new.state
-                for source in sources
-            )
             or entity_state_signature(event.data["old_state"])
             != entity_state_signature(event.data["new_state"])
         ):
@@ -410,7 +446,7 @@ class Runtime:
                     self._request_refresh()
                     continue
                 observation = (
-                    self._observe_device(source, now)
+                    self._observe_device(source, now, entity_id, new)
                     if source.kind == "device"
                     else battery_observation(
                         self.hass,
@@ -529,11 +565,24 @@ class Runtime:
 
     @callback
     def _config_entry_changed(
-        self, _change: ConfigEntryChange, entry: ConfigEntry
+        self, change: ConfigEntryChange, entry: ConfigEntry
     ) -> None:
-        if self.running and entry.domain != DOMAIN:
-            self._inventory_dirty = True
-            self._request_refresh(reconcile=True)
+        if not self.running or entry.domain == DOMAIN:
+            return
+        candidate = self.candidates.get(f"entry:{entry.entry_id}")
+        if (
+            change is ConfigEntryChange.UPDATED
+            and entry.source != SOURCE_IGNORE
+            and candidate is not None
+            and candidate.name == entry.title
+            and candidate.disabled == (entry.disabled_by is not None)
+            and candidate.attributes.get("domain") == (entry.domain,)
+        ):
+            # Entry lifecycle evidence is captured by the dedicated state listener.
+            self._request_refresh()
+            return
+        self._inventory_dirty = True
+        self._request_refresh(reconcile=True)
 
     @callback
     def _request_refresh(self, *, reconcile: bool = False) -> None:
@@ -565,20 +614,13 @@ class Runtime:
         await self.async_stop()
 
     def _discover(self) -> dict[str, Source]:
-        rules = (
-            *parse_rules(rule_data(self.hass, self.settings)),
-            *enrollment_rules(self.settings.monitoring_policies),
-        )
+        rules = (*enrollment_rules(self.settings.monitoring_policies),)
         discovered = inventory(self.hass, self.settings, self.enrolled)
         discovered = retained_candidates(
             self.hass, discovered, self.candidates, self._ups_saved
         )
         candidates = evaluate(discovered, rules)
         selected_ups = ups_sources(self.settings.monitoring_policies, candidates)
-        if not self.settings.monitoring_policy_version:
-            candidates = transfer_batteries(
-                self.settings.monitoring_policies, candidates, selected_ups
-            )
         at = dt_util.utcnow().isoformat()
         batch = uuid4().hex
         if not self._discovered:
@@ -615,8 +657,7 @@ class Runtime:
             if previous is not None and (
                 previous.watched,
                 previous.attached_by,
-                previous.excluded_by,
-            ) != (source.watched, source.attached_by, source.excluded_by):
+            ) != (source.watched, source.attached_by):
                 changes.append(
                     {
                         "node_id": node_id,
@@ -673,22 +714,37 @@ class Runtime:
         }
         self.repairs.prune(open_anchors)
         self.broken.prune(open_anchors)
-        sources.update(self.repairs.sources(self.settings.policy, rules))
-        sources.update(self.broken.sources(self.settings.policy, rules))
+        sources.update(self.repairs.sources())
+        sources.update(self.broken.sources())
         sources.update(
             temperature_sources(
                 self.hass, self.settings.monitoring_policies, candidates
             )
         )
-        if self.settings.monitoring_policy_version:
-            sources = ordinary_sources(self.settings.monitoring_policies, sources)
-            targets = set(self.targets)
-            self.targets = [
-                identity
-                for identity, source in sources.items()
-                if (source.watched or source.kind == "function")
-                and (identity in targets or source.monitoring_source in targets)
-            ]
+        sources = ordinary_sources(
+            self.settings.monitoring_policies, sources, candidates=candidates
+        )
+        sources, self._monitoring_identities = retain_source_identities(
+            sources,
+            self._monitoring_identities,
+            policies=self.settings.monitoring_policies,
+            previous_scopes=self._monitoring_scopes,
+            candidates=candidates,
+            legacy_policies=self.settings.monitoring_policies
+            if self.saved is not None and self.saved["schema_version"] == 2
+            else (),
+        )
+        self._monitoring_scopes = {
+            policy.id: policy.excluded_sources
+            for policy in self.settings.monitoring_policies
+        }
+        targets = set(self.targets)
+        self.targets = [
+            identity
+            for identity, source in sources.items()
+            if (source.watched or source.kind == "function")
+            and (identity in targets or source.monitoring_source in targets)
+        ]
         self.enrolled = {
             source.monitoring_source or node_id: source.attributes
             for node_id, source in sources.items()
@@ -723,28 +779,55 @@ class Runtime:
             f"policy_{item.id}_{row['id']}": row
             for item in self.settings.monitoring_policies
             if item.enabled
-            for row in item.notifications
+            for row in notification_definitions.resolve_rows(
+                self.settings.notification_definitions, item.notifications
+            )
         }
 
     def can_apply_settings(self, settings: Settings) -> bool:
-        """Apply monitoring edits in place; retain reload for installation changes."""
+        """Keep monitoring and reusable notification edits in the running instance."""
+        definitions = {
+            **self.settings.notification_definitions,
+            "profiles": settings.notification_definitions["profiles"],
+            "methods": settings.notification_definitions["methods"],
+        }
+        if definitions != settings.notification_definitions:
+            return False
+        if definitions != self.settings.notification_definitions and tuple(
+            replace(item, notifications=())
+            for item in self.settings.monitoring_policies
+        ) != tuple(
+            replace(item, notifications=()) for item in settings.monitoring_policies
+        ):
+            return False
         return (
             replace(
                 self.settings,
-                rules=settings.rules,
                 monitoring_policies=settings.monitoring_policies,
+                notification_definitions=definitions,
+                policy=notification_definitions.generate(definitions),
             )
             == settings
         )
 
     async def async_apply_settings(self, settings: Settings) -> None:
         """Reconcile a monitoring draft and verify storage before publishing it."""
+        phase_started = perf_counter()
         async with self._lock:
+            _SAVE_TIMING_LOGGER.debug(
+                "phase=runtime_lock seconds=%.6f", perf_counter() - phase_started
+            )
             if not self.running or not self.available:
                 raise HomeAssistantError("Homeostatic is unavailable")
             if not self.can_apply_settings(settings):
                 raise ValueError("These settings require an integration reload")
+            phase_started = perf_counter()
             await self._drain_pending()
+            _SAVE_TIMING_LOGGER.debug(
+                "phase=pending_observations seconds=%.6f",
+                perf_counter() - phase_started,
+            )
+            phase_started = perf_counter()
             assert self.engine is not None
             assert self.policy is not None
             now = dt_util.utcnow()
@@ -789,8 +872,6 @@ class Runtime:
                 "_compiled_settings",
                 "_compiled_policy",
                 "_entity_sources",
-                "_device_members",
-                "device_exclusions",
             }
             previous = {
                 **previous,
@@ -802,13 +883,44 @@ class Runtime:
                     }
                 ),
             }
-            routes = self._monitoring_routes()
+            _SAVE_TIMING_LOGGER.debug(
+                "phase=checkpoint seconds=%.6f", perf_counter() - phase_started
+            )
+            phase_started = perf_counter()
+            definitions_changed = (
+                self.settings.notification_definitions
+                != settings.notification_definitions
+            )
+            # Registry changes during a definition save do not change its instructions.
+            route_sources = dict(self.sources)
+            routes = (
+                self._route_signatures(sources=route_sources)
+                if definitions_changed
+                else self._monitoring_routes()
+            )
+            _SAVE_TIMING_LOGGER.debug(
+                "phase=routes_before seconds=%.6f", perf_counter() - phase_started
+            )
+            reconcile = tuple(
+                replace(item, notifications=())
+                for item in self.settings.monitoring_policies
+            ) != tuple(
+                replace(item, notifications=()) for item in settings.monitoring_policies
+            )
             try:
+                phase_started = perf_counter()
                 self.settings = settings
-                self._inventory_dirty = True
-                events = self._evaluate(now)
+                events = self._evaluate(now, reconcile=reconcile)
                 self._handle(events, now)
-                current_routes = self._monitoring_routes()
+                _SAVE_TIMING_LOGGER.debug(
+                    "phase=evaluation seconds=%.6f", perf_counter() - phase_started
+                )
+                phase_started = perf_counter()
+                current_routes = (
+                    self._route_signatures(sources=route_sources)
+                    if definitions_changed
+                    else self._monitoring_routes()
+                )
                 changed_routes = {
                     route
                     for route in routes.keys() | current_routes.keys()
@@ -817,7 +929,14 @@ class Runtime:
                 if self.settings.notifications and changed_routes:
                     self._activating = True
                     self._activating_routes = changed_routes
+                _SAVE_TIMING_LOGGER.debug(
+                    "phase=routes_after seconds=%.6f", perf_counter() - phase_started
+                )
+                phase_started = perf_counter()
                 await self._complete(now)
+                _SAVE_TIMING_LOGGER.debug(
+                    "phase=complete seconds=%.6f", perf_counter() - phase_started
+                )
                 if not self.running:
                     raise HomeAssistantError(
                         "Homeostatic stopped while applying settings"
@@ -1095,8 +1214,6 @@ class Runtime:
                 ).isoformat(),
             }
         if action in {"acknowledge", "cancel_control"}:
-            if not supports_attention_controls():
-                raise ValueError("This action requires HealthTree 0.4.0 or newer")
             if action == "acknowledge":
                 target = data["episode_id"]
                 if target not in self.episodes:
@@ -1276,22 +1393,31 @@ class Runtime:
             return self._compiled_policy
         settings = settings or self.settings
         sources = self.sources if sources is None else sources
-        if settings.notification_definitions is not None:
-            definitions = deepcopy(settings.notification_definitions)
-            definitions["assignments"].update(
-                assignments(settings.monitoring_policies, sources)
-            )
-            return build_policy(
-                notification_definitions.generate(definitions),
-                settings.duration("batch"),
-            )
-        legacy = self.automation_alerts.policy(settings)
-        dashboard_nodes = list(assignments(settings.monitoring_policies, sources))
-        if dashboard_nodes:
-            legacy["rules"].insert(
-                0, {"match": {"nodes": dashboard_nodes}, "loudness": "record"}
-            )
-        return build_policy(legacy, settings.duration("batch"))
+        definitions = deepcopy(settings.notification_definitions)
+        situation_assignments = {
+            identity: {"default": definitions["default"]}
+            for identity, source in sources.items()
+            if source.kind == "situation"
+        }
+        situation_assignments.update(
+            {
+                identity: {"default": definitions["default"], **choice}
+                for identity, choice in definitions["assignments"].items()
+                if identity.startswith("situation:")
+            }
+        )
+        definitions.update(
+            default=[],
+            repairs=[],
+            broken_automations=[],
+            assignments={
+                **situation_assignments,
+                **assignments(settings.monitoring_policies, sources),
+            },
+        )
+        return build_policy(
+            notification_definitions.generate(definitions), settings.duration("batch")
+        )
 
     async def async_phone_action(self, event: Event[Any]) -> None:
         """Apply an authenticated recipient response through existing operator controls."""
@@ -1300,35 +1426,35 @@ class Runtime:
             return
         # Delivered actions must recheck current destination permissions.
         recipient = self._policy_config(self.settings).recipients.get(row["recipient"])
-        method = (
-            self.settings.notification_definitions["methods"].get(
-                row["recipient"].removeprefix("method:")
-            )
-            if self.settings.notification_definitions
-            else None
-        )
         permitted = (
-            notification_definitions.method_channels(method)
-            if method
-            else recipient.channels
-            if recipient
-            else ()
+            [
+                target
+                for channel in recipient.channels
+                for target in (
+                    notification_definitions.method_channels(
+                        self.settings.notification_definitions["methods"][channel[7:]]
+                    )
+                    if channel.startswith("method:")
+                    else [channel]
+                )
+            ]
+            if recipient is not None
+            else []
         )
-        if (
-            recipient is None
-            or row["channel"] not in permitted
-            or row["episode_id"] not in self.episodes
-        ):
+        if recipient is None or row["channel"] not in permitted:
             return
-        try:
-            await self.async_control(
-                "acknowledge",
-                {"episode_id": row["episode_id"]},
-                row["user_id"],
-                event.context,
-            )
-        except HomeAssistantError, ValueError:
-            _LOGGER.debug("Phone acknowledgment was not applied")
+        for episode_id in row.get("episodes", [row["episode_id"]]):
+            if episode_id not in self.episodes:
+                continue
+            try:
+                await self.async_control(
+                    "acknowledge",
+                    {"episode_id": episode_id},
+                    row["user_id"],
+                    event.context,
+                )
+            except HomeAssistantError, ValueError:
+                _LOGGER.debug("Phone acknowledgment was not applied")
 
     async def async_control(
         self,
@@ -1440,22 +1566,12 @@ class Runtime:
                     "nodes": [json_object(source) for source in sources.values()],
                     "catalog": report(
                         self.candidates,
-                        (
-                            *parse_rules(rule_data(self.hass, self.settings)),
-                            *enrollment_rules(self.settings.monitoring_policies),
-                        ),
+                        (*enrollment_rules(self.settings.monitoring_policies),),
                     ),
                     "enrollment_changes": list(self.enrollment_changes),
                     "targets": list(self.targets),
                 }
             self._inventory_dirty = False
-            self._device_members = {
-                (source.monitoring_source or source.node_id)[
-                    7:
-                ]: source.availability_entities
-                for source in sources.values()
-                if source.kind == "device"
-            }
             self._device_signatures = {
                 node_id: signature
                 for node_id, signature in self._device_signatures.items()
@@ -1466,9 +1582,7 @@ class Runtime:
                 if source.entity_id and source.watched:
                     self._entity_sources.setdefault(source.entity_id, []).append(source)
                 elif source.kind == "device" and source.watched:
-                    for entity_id in self._device_members.get(
-                        (source.monitoring_source or source.node_id)[7:], ()
-                    ):
+                    for entity_id in source.availability_entities:
                         self._entity_sources.setdefault(entity_id, []).append(source)
                 if source.kind == "ups" and source.watched:
                     for entity_id in dict.fromkeys(
@@ -1539,20 +1653,14 @@ class Runtime:
             }
         )
         self._listen_entries()
-        legacy_partial: set[str] = set()
         if first and self.saved is not None:
             self.episodes = self.saved["episodes"].copy()
-            self._legacy_notifications = (
-                set(self.saved["notifications"])
-                if self.saved["schema_version"] == 1
-                else set()
-            )
             self._activating = self.settings.notifications and (
                 not self.saved.get("notifications_enabled", False)
                 or self.saved.get(
                     "policy_settings",
                     {
-                        "policy": Settings.from_data({}).policy,
+                        "policy": self.settings.policy,
                         "batch": self.settings.timings["batch"],
                     },
                 )
@@ -1561,7 +1669,6 @@ class Runtime:
             if (
                 self._activating
                 and self.saved.get("notifications_enabled")
-                and self.settings.notification_definitions is not None
                 and "attention_routes" in self.saved
             ):
                 previous_routes = self.saved["attention_routes"]
@@ -1578,45 +1685,6 @@ class Runtime:
             self.policy.restore(self.saved["policy"], now)
             events.extend(self.engine.restore(self.saved["engine"], now))
             self.saved = None
-            # ADR 0045 stopped raising some_unavailable. A rule change can't
-            # prove recovery, so those issues end as removed, not cleared.
-            for episode in self.episodes.values():
-                findings = episode["reasons"]
-                assert isinstance(findings, list)
-                if any(
-                    isinstance(finding, dict)
-                    and finding.get("node_id") == episode["anchor"]
-                    and finding.get("check_id") == "availability"
-                    and finding.get("reason") == "some_unavailable"
-                    for finding in findings
-                ):
-                    legacy_partial.add(str(episode["anchor"]))
-        for node_id, source in sources.items():
-            if source.kind != "device":
-                continue
-            previous_scope = self.device_exclusions.get(node_id)
-            scope_changed = (
-                previous_scope != source.ignored_availability
-                if previous_scope is not None
-                else bool(source.ignored_availability)
-            )
-            if (
-                (scope_changed or node_id in legacy_partial)
-                and source.availability_entities
-                and any(
-                    episode["anchor"] == node_id for episode in self.episodes.values()
-                )
-            ):
-                # A different monitoring expectation cannot prove recovery.
-                events.extend(self.engine.remove(node_id, now))
-                events.extend(
-                    self.engine.register_many([source.node(self.settings)], now)
-                )
-        self.device_exclusions = {
-            node_id: source.ignored_availability
-            for node_id, source in sources.items()
-            if source.kind == "device"
-        }
         events.extend(self._bind_maintenance(now))
         observations = []
         for source in sources.values():
@@ -1838,11 +1906,19 @@ class Runtime:
         )
         return float(policy.parameters["threshold"]) if policy is not None else 20.0
 
-    def _observe_device(self, source: Source, now: datetime) -> Observation:
-        members = self._device_members.get(
-            (source.monitoring_source or source.node_id)[7:], ()
+    def _observe_device(
+        self,
+        source: Source,
+        now: datetime,
+        changed_entity_id: str | None = None,
+        changed_state: State | None = None,
+    ) -> Observation:
+        states = tuple(
+            changed_state
+            if entity_id == changed_entity_id
+            else self.hass.states.get(entity_id)
+            for entity_id in source.availability_entities
         )
-        states = tuple(self.hass.states.get(entity_id) for entity_id in members)
         return device_observation(source, states, now)
 
     def _handle(
@@ -1951,8 +2027,6 @@ class Runtime:
 
     def _acknowledged(self, episode_id: str) -> bool:
         assert self.policy is not None
-        if not supports_attention_controls():
-            return False
         try:
             return self.policy.acknowledgment(episode_id) is not None
         except KeyError:
@@ -2083,29 +2157,72 @@ class Runtime:
                 async_dispatcher_send(self.hass, self.fact_signal, fact)
 
     def _deliveries(self, deliveries: list[Delivery]) -> None:
-        if not self.settings.notifications or self._activating:
+        if not deliveries or not self.settings.notifications or self._activating:
             return
         self.delivery.prepare_reports(deliveries)
+        intents = notification_grouping.compatible_intents(self.settings)
+        grouped: list[Delivery] = []
+        group_ids: dict[tuple[str, str], str] = {}
+        contents: dict[tuple[str, str], dict[str, JSONValue]] = {}
         for delivery in deliveries:
             content = (
                 self._content(delivery.episode_id)
                 if isinstance(delivery, Notification)
                 else {}
             )
+            if isinstance(delivery, Notification):
+                subject = content.get("notification_subject")
+                previous = self.delivery.messages.get(
+                    f"{delivery.recipient}:{delivery.episode_id}"
+                    + (f"_route_{delivery.route}" if delivery.route else "")
+                )
+                prior_summary = (
+                    previous is not None
+                    and "group" in previous
+                    and str(previous["group"]).startswith("digest_")
+                )
+                if (
+                    subject
+                    and delivery.route in intents
+                    and delivery.cause != "digest"
+                    and not (delivery.silent and prior_summary)
+                ):
+                    key = (delivery.episode_id, delivery.route)
+                    group_ids[key] = f"{subject}:{intents[delivery.route]}"
+                    contents[key] = content
+                    channels = (
+                        tuple(str(channel) for channel in previous["channels"])
+                        if delivery.silent
+                        and previous is not None
+                        and isinstance(previous["channels"], list)
+                        else self._resolve_channels(delivery.channels)
+                    )
+                    grouped.append(replace(delivery, channels=channels))
+                    continue
+            else:
+                grouped.append(delivery)
+                previous = self.delivery.messages.get(
+                    f"{delivery.recipient}:{delivery.episode_id}"
+                    + (f"_route_{delivery.route}" if delivery.route else "")
+                )
+                if previous and str(previous.get("group", "")).startswith("device_"):
+                    continue
             self.delivery.record(
                 delivery,
                 content,
                 startup=self._quiet_since is not None,
                 resolve_channels=self._resolve_channels,
             )
+        for update in sorted(
+            self.delivery.groups.apply(grouped, group_ids),
+            key=lambda update: not update.closed,
+        ):
+            self.delivery.record_group(update, contents)
 
     def _resolve_channels(self, channels: tuple[str, ...]) -> tuple[str, ...]:
         result = []
         for channel in channels:
-            if (
-                channel.startswith("method:")
-                and self.settings.notification_definitions is not None
-            ):
+            if channel.startswith("method:"):
                 result.extend(
                     notification_definitions.resolve_channels(
                         self.hass, self.settings.notification_definitions, channel[7:]
@@ -2127,6 +2244,12 @@ class Runtime:
         ]
         names: list[JSONValue] = [item.name for item in functions]
         title = source.name
+        subject_id = notification_grouping.subject(source)
+        subject = self.candidates.get(subject_id) if subject_id else None
+        canonical = source.monitoring_source or source.node_id
+        original = self.candidates.get(canonical)
+        if subject_id:
+            title = original.name if original else source.name
         if functions:
             title = f"{', '.join(item.name for item in functions)}: {self.engine.readiness([item.node_id for item in functions]).answer}"
         findings = episode["reasons"]
@@ -2145,6 +2268,14 @@ class Runtime:
             "episode_id": episode_id,
             "tag": self.notification_id(episode_id),
             "title": title,
+            **(
+                {
+                    "notification_subject": subject_id,
+                    "notification_subject_name": subject.name if subject else title,
+                }
+                if subject_id
+                else {}
+            ),
             "age": f"{max(0, int((dt_util.utcnow() - datetime.fromisoformat(str(episode['opened_at']))).total_seconds()) // 3600)}h",
             "message": message,
             "functions": names,
@@ -2155,11 +2286,6 @@ class Runtime:
         }
 
     async def _flush_events(self) -> None:
-        for episode_id in self._legacy_notifications:
-            persistent_notification.async_dismiss(
-                self.hass, self.notification_id(episode_id)
-            )
-        self._legacy_notifications.clear()
         if not self.delivery.outbox:
             return
         pending = list(self.delivery.outbox)
@@ -2218,21 +2344,37 @@ class Runtime:
                     continue
                 self.delivery.attempted.add(attempt)
                 previous_actions = deepcopy(self.phone_actions.records)
+                shown = payload.get("episodes", [payload.get("episode_id")])
+                current = (
+                    [
+                        episode_id
+                        for episode_id in shown
+                        if isinstance(episode_id, str) and episode_id in self.episodes
+                    ]
+                    if isinstance(shown, list)
+                    else []
+                )
                 sent_to = (
-                    self.policy.explain(str(payload["episode_id"]))["sent_to"]
+                    [
+                        self.policy.explain(episode_id)["sent_to"]
+                        for episode_id in current
+                    ]
                     if self.policy is not None
-                    and payload.get("episode_id") in self.episodes
                     else []
                 )
                 acknowledgment = (
                     self.phone_actions.prepare(
                         self.hass, payload, channel, dt_util.utcnow()
                     )
-                    if payload.get("episode_id") in self.episodes
+                    if current
                     and self.policy is not None
-                    and not self._acknowledged(str(payload["episode_id"]))
-                    and isinstance(sent_to, list)
-                    and recipient_id in sent_to
+                    and any(
+                        not self._acknowledged(episode_id) for episode_id in current
+                    )
+                    and all(
+                        isinstance(recipients, list) and recipient_id in recipients
+                        for recipients in sent_to
+                    )
                     else None
                 )
                 try:
@@ -2303,7 +2445,12 @@ class Runtime:
         assert self.engine is not None
         assert self.policy is not None
         return {
-            "schema_version": 2,
+            "schema_version": 3,
+            "monitoring_identities": self._monitoring_identities.copy(),
+            "monitoring_scopes": {
+                policy_id: list(exclusions)
+                for policy_id, exclusions in self._monitoring_scopes.items()
+            },
             "temperature_monitors": {
                 key: monitor.snapshot()
                 for key, monitor in self.temperature_monitors.items()
@@ -2315,9 +2462,6 @@ class Runtime:
             "repairs": self.repairs.snapshot(),
             "broken_automations": self.broken.snapshot(),
             "phone_actions": deepcopy(self.phone_actions.records),
-            "device_exclusions": {
-                key: list(members) for key, members in self.device_exclusions.items()
-            },
             "enrollment": {
                 node_id: {key: list(values) for key, values in metadata.items()}
                 for node_id, metadata in self.enrolled.items()
@@ -2339,12 +2483,29 @@ class Runtime:
         }
 
     async def _save(self) -> None:
+        phase_started = perf_counter()
         snapshot = self.snapshot()
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=snapshot seconds=%.6f", perf_counter() - phase_started
+        )
+        phase_started = perf_counter()
         await self.store.async_save(snapshot)
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=storage_write seconds=%.6f", perf_counter() - phase_started
+        )
         # Store logs some write failures without raising. Read-back prevents
         # delivering a problem whose new persistence state was not accepted.
+        phase_started = perf_counter()
         stored = await self.store.async_load()
-        if await self.hass.async_add_executor_job(ne, stored, snapshot):
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=storage_read seconds=%.6f", perf_counter() - phase_started
+        )
+        phase_started = perf_counter()
+        different = await self.hass.async_add_executor_job(ne, stored, snapshot)
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=storage_compare seconds=%.6f", perf_counter() - phase_started
+        )
+        if different:
             raise HomeAssistantError("Homeostatic snapshot could not be saved")
 
     def _route_signatures(
@@ -2357,7 +2518,7 @@ class Runtime:
         settings = settings or self.settings
         result: dict[str, Any] = {}
         for rule in config.rules:
-            route = getattr(rule, "route", "")
+            route = rule.route
             item = result.setdefault(
                 route,
                 {
@@ -2372,27 +2533,31 @@ class Runtime:
             recipients = rule.to
             if rule.digest is not None:
                 item["digests"][rule.digest] = json_object(config.digests[rule.digest])
-                recipients = (*recipients, *config.digests[rule.digest].to)
-            if settings.notification_definitions is not None:
-                for recipient in recipients:
-                    method = settings.notification_definitions["methods"].get(
-                        recipient.removeprefix("method:")
+                recipients = (*recipients, config.digests[rule.digest].to)
+            for recipient in recipients:
+                target = config.recipients[recipient]
+                if target.quiet_hours is not None:
+                    item.setdefault("quiet_hours", {})[recipient] = json_object(
+                        target.quiet_hours
+                    )
+                for channel in target.channels:
+                    method = (
+                        settings.notification_definitions["methods"].get(
+                            channel.removeprefix("method:")
+                        )
+                        if channel.startswith("method:")
+                        else None
                     )
                     if method is not None:
-                        item["methods"][recipient] = {
+                        item["methods"][channel] = {
                             key: value for key, value in method.items() if key != "name"
                         }
         return result
 
     def _policy_settings(self) -> dict[str, Any]:
-        if self.settings.notification_definitions is None:
-            return {
-                "policy": self.settings.policy,
-                "batch": self.settings.timings["batch"],
-            }
         definitions = deepcopy(self.settings.notification_definitions)
-        for kind in ("schedules", "methods"):
-            for row in definitions.get(kind, {}).values():
+        for collection in ("methods", "profiles"):
+            for row in definitions.get(collection, {}).values():
                 row.pop("name", None)
         return {
             "definitions": definitions,
@@ -2405,10 +2570,7 @@ class Runtime:
 
     def preview_sources(self, settings: Settings) -> dict[str, Source]:
         """Compose draft policy findings without changing monitoring or sending."""
-        rules = (
-            *parse_rules(rule_data(self.hass, settings)),
-            *enrollment_rules(settings.monitoring_policies),
-        )
+        rules = (*enrollment_rules(settings.monitoring_policies),)
         candidates = evaluate(inventory(self.hass, settings, self.enrolled), rules)
         candidates = evaluate(
             retained_candidates(
@@ -2417,23 +2579,27 @@ class Runtime:
             rules,
         )
         selected_ups = ups_sources(settings.monitoring_policies, candidates)
-        if not settings.monitoring_policy_version:
-            candidates = transfer_batteries(
-                settings.monitoring_policies, candidates, selected_ups
-            )
         sources, _ = compose(
             self.hass, self.automation_alerts.compose(settings), candidates
         )
         sources.update(self.automation_alerts.sources(settings))
         sources.update(selected_ups)
-        sources.update(self.repairs.sources(settings.policy, rules))
-        sources.update(self.broken.sources(settings.policy, rules))
+        sources.update(self.repairs.sources())
+        sources.update(self.broken.sources())
         sources.update(
             temperature_sources(self.hass, settings.monitoring_policies, candidates)
         )
-        if settings.monitoring_policy_version:
-            sources = ordinary_sources(settings.monitoring_policies, sources)
-        return sources
+        sources = ordinary_sources(
+            settings.monitoring_policies, sources, candidates=candidates
+        )
+        retained, _ = retain_source_identities(
+            sources,
+            self._monitoring_identities,
+            policies=settings.monitoring_policies,
+            previous_scopes=self._monitoring_scopes,
+            candidates=candidates,
+        )
+        return retained
 
     def preview_policy(
         self,
@@ -2444,11 +2610,14 @@ class Runtime:
     ) -> dict[str, JSONValue]:
         """Simulate activation in an isolated policy using its opaque public snapshot."""
         assert self.policy is not None
-        settings = settings or Settings.from_data(
-            {**(self.entry.options or self.entry.data), "policy": data}
-        )
+        explicit_policy = settings is None
+        settings = settings or self.settings
         sources = self.preview_sources(settings) if sources is None else sources
-        candidate = Policy(self._policy_config(settings, sources=sources))
+        candidate = Policy(
+            build_policy(data, settings.duration("batch"))
+            if explicit_policy
+            else self._policy_config(settings, sources=sources)
+        )
         now = dt_util.utcnow()
         candidate.restore(self.policy.snapshot(), now)
         assert self.engine is not None
@@ -2462,11 +2631,7 @@ class Runtime:
             candidate.handle(event, now, PolicyContext())
             if isinstance(event, EpisodeResolved):
                 active_ids.discard(event.episode.episode_id)
-        if (
-            settings.notification_definitions is not None
-            and self.settings.notification_definitions is not None
-            and self.settings.notifications
-        ):
+        if self.settings.notifications and not explicit_policy:
             before_routes = self._route_signatures()
             after_routes = self._route_signatures(settings, sources=sources)
             changed_routes = {
@@ -2512,12 +2677,9 @@ class Runtime:
                     },
                     "notifications_enabled": self.settings.notifications,
                     "reports": self.policy.reports(dt_util.utcnow()),
-                    "unavailable_destinations": reporting.unavailable_destinations(
+                    "unavailable_destinations": unavailable_destinations(
                         self.hass, self.settings.policy
                     ),
-                    "reporting_missing": reporting.missing_profiles(choices)
-                    if (choices := reporting.choices(self.settings.policy))
-                    else [],
                 }
             )
         if action == "functions":
@@ -2535,19 +2697,8 @@ class Runtime:
         if action == "preview_functions":
             proposed = {**(self.entry.options or self.entry.data), **data}
             proposed.update(normalize_definitions(self.hass, proposed))
-            if "rules" in data:
-                proposed["rules"] = normalize_rules(self.hass, data["rules"])
             settings = Settings.from_data(proposed)
             return preview(self.hass, settings, self.enrolled, self.settings.functions)
-        if action == "preview_rules":
-            candidate_data = normalize_rules(self.hass, data["rules"])
-            settings = Settings.from_data(
-                {"rules": candidate_data, "functions": [], "situations": []}
-            )
-            return report(
-                inventory(self.hass, settings, self.enrolled),
-                parse_rules(candidate_data),
-            )
         if action == "inventory":
             return {**deepcopy(self.inventory_static), **self.inventory_updates()}
         if action == "coverage":
@@ -2571,11 +2722,15 @@ class Runtime:
             return json_object(self.engine.impact(data["node_id"]))
         return json_object(self.engine.explain(data["node_id"]))
 
-    def device_evidence(self, node_id: str) -> dict[str, JSONValue] | None:
+    def device_evidence(
+        self, node_id: str, *, offset: int = 0, limit: int = 50
+    ) -> dict[str, JSONValue] | None:
         """List current expected entity states for an on-demand detail view."""
         source = self.sources[node_id]
         if source.kind != "device":
             return None
+        if offset < 0 or not 1 <= limit <= 200:
+            raise ValueError("Choose a nonnegative offset and a limit from 1 to 200")
         candidates = {
             item.entity_id: item
             for item in self.candidates.values()
@@ -2592,30 +2747,35 @@ class Runtime:
                     "name": member.name,
                     "state": state.state if state is not None else "missing",
                     "restored": bool(state and state.attributes.get("restored")),
-                    "connectivity": entity_id in source.connectivity_entities,
                 }
             )
         members.sort(
             key=lambda item: (
-                not (item["connectivity"] and item["state"] == "off"),
-                item["state"] != "unavailable",
+                not (item["state"] in {"unavailable", "missing"} or item["restored"]),
                 str(item["name"]),
+                str(item["entity_id"]),
             )
         )
+        if offset > len(members):
+            raise ValueError("The offset exceeds this device's selected members")
+        end = min(offset + limit, len(members))
         return json_object(
             {
-                "members": members[:50],
+                "members": members[offset:end],
+                "offset": offset,
+                "next_offset": end if end < len(members) else None,
                 "total": len(members),
                 "reporting_count": sum(
-                    item["state"] not in {"unknown", "missing", "unavailable"}
+                    item["state"] not in {"missing", "unavailable"}
                     and not item["restored"]
                     for item in members
                 ),
                 "unavailable_count": sum(
-                    item["state"] == "unavailable" for item in members
+                    item["state"] == "unavailable" and not item["restored"]
+                    for item in members
                 ),
                 "unknown_count": sum(
-                    item["state"] in {"unknown", "missing"} or bool(item["restored"])
+                    item["state"] == "missing" or bool(item["restored"])
                     for item in members
                 ),
             }
@@ -2660,7 +2820,7 @@ class Runtime:
             },
             "resolved_history": self.history.view(dt_util.utcnow()),
             "operator_controls": [json_object(control) for control in self.controls],
-            "attention_controls_supported": supports_attention_controls(),
+            "attention_controls_supported": True,
             "physical_freshness_supported": False,
             "notification_consumer_missing": self.consumer_missing,
             "situation_availability_verified": False,

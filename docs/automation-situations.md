@@ -8,7 +8,7 @@ The normal way to make an alert is the **Homeostatic alert** blueprint. Writing 
 
 ## Before you start
 
-- Save the people and schedules in **Notifications** once, unless every alert you make uses Dashboard only. You can save them with notifications still off. Until you do, any other reporting preference fails with the error "Configure shared reporting profiles in Homeostatic Notifications first". See [Activate notifications](guide.md#activate-notifications).
+- Start new alerts with **Dashboard only**. Existing saved automation reporting profiles continue to work, but the current policy and delivery-method editors do not create those profiles. A policy's notification entries do not configure an automation-owned alert.
 - Import the [Homeostatic alert blueprint](https://github.com/mjcumming/homeostatic/blob/main/blueprints/automation/homeostatic/alert.yaml) under **Settings → Automations & scenes → Blueprints**. Or copy `alert.yaml` from the release zip into `blueprints/automation/homeostatic/` in your config folder and reload automations.
 
 ## Create an alert with the blueprint
@@ -22,7 +22,7 @@ This example opens an issue when the basement leak sensor detects water.
    | --- | --- | --- |
    | Alert name | Basement water leak | The issue's title and the notification title |
    | Notification message | Water detected near the basement water heater. | The notification text while the alert is active. Plain text or a template. |
-   | Reporting preference | Immediate with acknowledgment | Who hears about it and when, using the people and schedules in Notifications |
+   | Reporting preference | Dashboard only | Show the alert as an issue while checking its condition |
    | Required evidence | Basement water sensor | Every entity the condition or the message reads |
    | Active when | Basement water sensor is Wet | Home Assistant conditions. All of them must hold. Use And/Or blocks for alternatives. |
 
@@ -134,7 +134,7 @@ actions:
 | `report_timeout` | No | Seconds before the report expires. Defaults to 300. Make it longer than the gap between your reports. |
 | `adopt_situation_id` | No | Only for converting an older alert. See [Convert and keep the open issue](#convert-and-keep-the-open-issue). |
 
-The action returns the alert's `reporting_status`: `configured`, `dashboard_only`, `requests_disabled` (notifications are off) or `missing_destinations` (nobody is set up for that preference in Notifications). An alert with missing destinations still opens issues; it just doesn't notify anyone. The [reference](reference.md#homeostaticreport_alert) has the field limits and the rest of the response.
+The action returns the alert's `reporting_status`: `configured`, `dashboard_only`, `requests_disabled` (notifications are off) or `missing_destinations` (its saved automation reporting profile has no destinations). An alert with missing destinations still opens issues; it just doesn't notify anyone. The [reference](reference.md#homeostaticreport_alert) has the field limits and the rest of the response.
 
 ### If a report fails
 
@@ -143,7 +143,7 @@ A rejected report stops that automation run, and the error appears in its trace:
 | Error | What to do |
 | --- | --- |
 | Choose a saved HA automation with a stable ID | Save the automation, or add an `id:` to a YAML automation |
-| Configure shared reporting profiles in Homeostatic Notifications first | Save the people and schedules in Notifications, or use Dashboard only |
+| Configure shared reporting profiles in Homeostatic Notifications first | The requested automation reporting profile is unavailable. Use Dashboard only; the current method editor does not create these profiles. |
 | This alert is retired; explicitly resume it before reporting | Resume the alert, or turn the automation off. See [Retire an alert](#retire-an-alert). |
 | Automation alert capacity reached | The installation has 1000 active automation alerts. Retired ones don't count. |
 

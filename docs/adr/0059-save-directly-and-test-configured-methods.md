@@ -5,6 +5,8 @@
 
 **Partially supersedes:** the required review-before-save UI in [ADR 0019](0019-accepted-dashboard-baseline.md), [ADR 0028](0028-settings-scope-and-visible-reporting.md), [ADR 0031](0031-review-source-settings-together.md), [ADR 0036](0036-compact-sources-evidence-and-choices.md), [ADR 0048](0048-policy-checks.md), [ADR 0049](0049-repairs-check.md), [ADR 0054](0054-reusable-monitoring-policy-editor.md) and [ADR 0057](0057-policy-owned-notification-timing.md); the preview-before-test UI in [ADR 0056](0056-ha-delivery-methods-and-presence.md); and connection-level integration selection in [ADR 0058](0058-unified-policy-lifecycle.md). This applies to all retained editors and maintenance controls, including older rule-based and reporting editors. Validation, authorization, stable identities, revision checks and rollback remain required.
 
+**Later decision:** The universal Save changes label and global-control placement are superseded by [ADR 0061](0061-issues-first-product-workflows.md). ADR 0066 supersedes compound inline-method drafts with independent shared-notification and delivery-method saves. Direct saving, exact-payload validation and persistence safeguards remain in force. The roadmap owns replacement implementation status.
+
 ## Context
 
 Trying the policy redesign exposed unnecessary steps and unclear choices. Restoring defaults led to a failed review with no useful explanation. Integration choices displayed account and phone names without identifying the integration. Repairs and broken automations offered a dropdown for their only scope. Notification setup exposed an exhaustive service inventory, mislabeled generic services as SMS or email, and repeated the same destination list in a separate test area.

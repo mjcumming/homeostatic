@@ -10,11 +10,11 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
-from . import reporting
 from .catalog import Source
 from .config import Settings
 
 LABEL = "homeostatic_alert_profile"
+PROFILES = ("acknowledge", "immediate", "morning", "evening", "weekly", "dashboard")
 MAX_ALERTS = 1000
 REPORT_FIELDS: dict[Any, Any] = {
     vol.Required("automation"): vol.All(str, vol.Match(r"^automation\..+$")),
@@ -23,7 +23,7 @@ REPORT_FIELDS: dict[Any, Any] = {
     ),
     vol.Required("name"): vol.All(str, vol.Length(min=1, max=200)),
     vol.Required("message"): vol.All(str, vol.Length(max=2000)),
-    vol.Required("profile"): vol.In(reporting.PROFILES),
+    vol.Required("profile"): vol.In(PROFILES),
     vol.Required("state"): vol.In(("active", "clear", "unknown")),
     vol.Optional("report_timeout", default=300): vol.All(
         int, vol.Range(min=60, max=86400)
@@ -36,7 +36,7 @@ RECORD = vol.Schema(
         vol.Required("key"): str,
         vol.Required("node_id"): str,
         vol.Required("name"): str,
-        vol.Required("profile"): vol.In(reporting.PROFILES),
+        vol.Required("profile"): vol.In(PROFILES),
         vol.Required("report_timeout"): vol.All(int, vol.Range(min=60, max=86400)),
         vol.Required("retired"): bool,
     }
@@ -54,56 +54,6 @@ def automation_owner(hass: HomeAssistant, entity_id: str) -> str:
 def identity(owner: str, key: str) -> str:
     """Keep distinct configured conditions independent of changing content."""
     return "automation_" + sha256(f"{owner}\0{key}".encode()).hexdigest()
-
-
-def _with_vacuum_default(policy: dict[str, Any]) -> list[dict[str, Any]]:
-    """Keep a vacuum error on Immediate unless the owner chose otherwise.
-
-    A source preference is already a node rule ahead of the household rule.
-    Custom policies stay as written.
-    """
-    rules = list(policy["rules"])
-    if reporting.choices(policy) is None:
-        return rules
-    if any(
-        rule.get("match", {}).get("checks") == ["vacuum"]
-        and "nodes" not in rule.get("match", {})
-        for rule in rules
-    ):
-        return rules
-    fallback = profile_rule(policy, "immediate")
-    fallback["match"] = {"checks": ["vacuum"]}
-    for index, rule in enumerate(rules):
-        if rule.get("match") == {}:
-            rules.insert(index, fallback)
-            return rules
-    rules.append(fallback)
-    return rules
-
-
-def profile_rule(policy: dict[str, Any], profile: str) -> dict[str, Any]:
-    """Reuse configured profiles without creating recipients or fallback routes."""
-    value = reporting.choices(policy)
-    to = (
-        []
-        if value is None or profile == "dashboard"
-        else [
-            f"person:{person}"
-            for person in value["profiles"][profile]["people"]
-            if f"person:{person}" in policy["recipients"]
-        ]
-    )
-    match = {"labels": {LABEL: profile}}
-    if not to:
-        return {"match": match, "loudness": "record"}
-    result: dict[str, Any] = {"match": match, "to": to}
-    if profile in {"acknowledge", "immediate"}:
-        result["loudness"] = "urgent"
-        if profile == "acknowledge":
-            result.update(require_acknowledgment=True, remind_every="30m")
-    else:
-        result.update(loudness="digest", digest=profile)
-    return result
 
 
 class AutomationAlerts:
@@ -162,14 +112,6 @@ class AutomationAlerts:
             raise ValueError("Automation alert capacity reached")
         if not data["name"].strip():
             raise ValueError("Provide an alert name")
-        if (
-            data["profile"] != "dashboard"
-            and reporting.choices(settings.policy) is None
-            and settings.notification_definitions is None
-        ):
-            raise ValueError(
-                "Configure shared reporting profiles in Homeostatic Notifications first"
-            )
         node_id = previous["node_id"] if previous else f"situation:{key}"
         if adopted := data.get("adopt_situation_id"):
             node_id = f"situation:{adopted}"
@@ -224,33 +166,16 @@ class AutomationAlerts:
             if not row["retired"]
         }
 
-    def policy(self, settings: Settings) -> dict[str, Any]:
-        """Compile generic profile rules once; source labels carry each selection.
-
-        Alerts and Repairs both carry the profile label, and Repairs can appear
-        at any time, so the label rules are always present. They match nothing
-        until a labelled source exists.
-        """
-        policy = deepcopy(settings.policy)
-        policy["rules"] = [
-            profile_rule(policy, p) for p in reporting.PROFILES
-        ] + _with_vacuum_default(policy)
-        return policy
-
     def status(self, settings: Settings, row: dict[str, Any]) -> str:
         """Explain non-delivery without silently selecting another profile."""
         if row["profile"] == "dashboard":
             return "dashboard_only"
         if not settings.notifications:
             return "requests_disabled"
-        if settings.notification_definitions is not None:
-            return (
-                "configured"
-                if settings.notification_definitions.get("automation_profiles", {}).get(
-                    row["profile"]
-                )
-                else "missing_destinations"
+        return (
+            "configured"
+            if settings.notification_definitions["automation_profiles"].get(
+                row["profile"]
             )
-        if profile_rule(settings.policy, row["profile"])["loudness"] == "record":
-            return "missing_destinations"
-        return "configured"
+            else "missing_destinations"
+        )

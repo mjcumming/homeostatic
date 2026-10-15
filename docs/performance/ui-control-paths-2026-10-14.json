@@ -1,0 +1,1257 @@
+{
+  "schema_version": 1,
+  "started_at": "2026-10-14T23:09:49.189Z",
+  "environment": {
+    "browser": "Chrome 155.0.0.0 on Windows 10 (actual browser via CUA)",
+    "viewport": {
+      "width": 1934,
+      "height": 1552
+    },
+    "fixture_viewports": [
+      {
+        "width": 1886,
+        "height": 720
+      },
+      {
+        "card_width": 390
+      },
+      {
+        "width": 320,
+        "height": 568
+      },
+      {
+        "width": 390,
+        "height": 568
+      },
+      {
+        "width": 1200,
+        "height": 568
+      }
+    ],
+    "data": "Synthetic Home Assistant state using the real Homeostatic card/panel",
+    "destinations": "Mocked services and saved configuration; no real notification requests",
+    "candidate": "Tested frontend source is unchanged between ui-20261014231138 and ui-20261014232908; the final live candidate includes the backend reload-continuity fix. SHA-256 values identify the tested source and fixtures.",
+    "receipt_method": "Generated from observed browser fixture receipts and the explicitly recorded manual keyboard and magnification checks. Node tests alone never mark a path passed."
+  },
+  "results": [
+    {
+      "id": "navigation.pages",
+      "page": "Navigation",
+      "controls": "Issues, Sources, Policies, Notifications, Settings",
+      "expected": "Each destination opens and retains independent drafts.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "navigation.history",
+      "page": "Navigation",
+      "controls": "Back, Forward, direct link, refresh",
+      "expected": "Restore the meaningful destination or explain a missing target.",
+      "fixture": "tests/frontend/workspace.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "Actual installed ui-20261014231138 in an agent-created authenticated Chrome tab: Notifications list to Immediate editor, browser Back and Forward, direct editor link and refresh preserved the meaningful route. A synthetic missing episode link displayed History unavailable with an explicit unknown-outcome explanation and Issues/History destinations. No saved settings changed."
+      ]
+    },
+    {
+      "id": "issues.evidence",
+      "page": "Issues",
+      "controls": "Group, issue, related-source disclosure",
+      "expected": "Canonical members and all contributing checks remain reachable.",
+      "fixture": "tests/frontend/issue-evidence.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "issue-evidence.html: Actual group/detail/disclosure/source controls; eight canonical sources, three devices, five entities and nine checks remain distinct. Overlapping checks and canonical Sources action are reachable at 390px."
+      ]
+    },
+    {
+      "id": "issues.recovery",
+      "page": "Issues",
+      "controls": "Partial and full recovery",
+      "expected": "Outstanding members remain; full recovery removes the active problem.",
+      "fixture": "tests/frontend/issue-evidence.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "issue-evidence.html: Partial recovery retains outstanding members; full recovery removes the active problem. Open disclosures survive refresh; no service calls."
+      ]
+    },
+    {
+      "id": "issues.filter",
+      "page": "Issues",
+      "controls": "Search, sort, group expansion, pagination",
+      "expected": "Complete reachable results and correct ordering without changing monitoring.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "issues.empty",
+      "page": "Issues",
+      "controls": "Quiet, filtered, unmonitored, loading, unavailable",
+      "expected": "Distinct truthful states and a useful next action.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "issues.controls",
+      "page": "Issues",
+      "controls": "Acknowledge, pause, cancel control",
+      "expected": "Exact issue scope, visible expiry, no automatic retry on uncertain result.",
+      "fixture": "tests/frontend/history-controls.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "history-controls.html: Clicked issue group/detail, Pause, expiry/reason fields, submit, Acknowledge and End control. Exact mock saved scope/actor/expiry and reopened state checked; duplicate suppression, ambiguous errors, disconnect, resolved-target and non-admin gates passed."
+      ]
+    },
+    {
+      "id": "issues.history",
+      "page": "Issues",
+      "controls": "History search, filter, page, detail",
+      "expected": "Recorded identity and retention limits remain visible.",
+      "fixture": "tests/frontend/history-controls.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "history-controls.html: Clicked History, Next/Previous, outcome filter, search and retained rows; checked empty results, focus, retained names, escaped text, outcome meaning, related-issue navigation and expired-record handling."
+      ]
+    },
+    {
+      "id": "sources.tree",
+      "page": "Sources",
+      "controls": "Expand, select, search, filter",
+      "expected": "Expansion and selection stay independent; identity and context persist.",
+      "fixture": "tests/frontend/source-history.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "source-history.html: Integration/device/entity selection, expand/collapse, Collapse all, ArrowLeft/Right, entity-ID/no-match search, grouping and disabled toggle exercised on rendered controls; canonical identity and independent selection preserved."
+      ]
+    },
+    {
+      "id": "sources.details",
+      "page": "Sources",
+      "controls": "Members, readings, monitoring, issue links",
+      "expected": "Current evidence and contributing policies are distinguishable.",
+      "fixture": "tests/frontend/source-history.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "source-history.html: Device member readings, other-readings disclosure, entity member, intercepted native entity link, contributing policy and Sources return; unavailable/no-value/numeric distinctions and exact policy editor checked."
+      ]
+    },
+    {
+      "id": "sources.history",
+      "page": "Sources",
+      "controls": "History, prior problem, return",
+      "expected": "Recorded membership survives unavailable current source metadata.",
+      "fixture": "tests/frontend/source-history.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "source-history.html: Source History disclosure and cleared/joined/removed records; related issue into Sources and Back; retained ownership after synthetic current-child deletion, stale/read-only/reconnect, Retry reading/connection and 390px overflow checked."
+      ]
+    },
+    {
+      "id": "sources.maintenance",
+      "page": "Sources",
+      "controls": "Equipment maintenance entry, explicit expiry, cancel",
+      "expected": "A source has a reachable maintenance action with exact saved scope and visible expiry.",
+      "fixture": "tests/frontend/source-history.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "source-history.html: Clicked actual source maintenance entry, duration, reason, dependent scope, Save and End now. Exact mock persisted source/expiry/reason, reopened notice, pending-click suppression, ambiguous-error no-retry, disconnection gate and preservation of overlapping maintenance all passed."
+      ]
+    },
+    {
+      "id": "policies.lifecycle",
+      "page": "Policies",
+      "controls": "Add, edit, duplicate, enabled, save, discard, delete",
+      "expected": "Only the named policy changes; supplied and custom policies share controls.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "policies.scope",
+      "page": "Policies",
+      "controls": "All, selected, exclusions, picker search, selected only",
+      "expected": "Catalog loading/error is distinct from no matches; selection survives search.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "policies.detection",
+      "page": "Policies",
+      "controls": "Each supported policy type and its detection fields",
+      "expected": "Units, ranges and validation preserve the intended saved detection.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "policies.restore",
+      "page": "Policies",
+      "controls": "Restore defaults, select, cancel, confirm, save",
+      "expected": "Only selected missing defaults are staged; missing profiles are not referenced.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "policies.notification",
+      "page": "Policies",
+      "controls": "Notification choice, Dashboard only, additional row, remove",
+      "expected": "Named selection changes only this policy and retains stable row identity.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "policies.legacy",
+      "page": "Policies",
+      "controls": "Custom notification, named replacement",
+      "expected": "Legacy data stays unchanged until explicit replacement.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "policies.ups",
+      "page": "Policies",
+      "controls": "Mains/backup condition, notification choice",
+      "expected": "Independent reserve conditions and stable assignment identity survive edits.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.list",
+      "page": "Notifications",
+      "controls": "Tabs, Edit, More actions",
+      "expected": "Six defaults have equal lifecycle controls and compact reachable menus.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.create",
+      "page": "Notifications",
+      "controls": "Add notification, discard new",
+      "expected": "A new draft remains unsaved and discard leaves no empty saved object.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.invalid",
+      "page": "Notifications",
+      "controls": "Required name and Save notification",
+      "expected": "Invalid input prevents a request, retains the draft and identifies the input.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.save",
+      "page": "Notifications",
+      "controls": "Timing, method choice, Save notification",
+      "expected": "The actual Save button persists only this notification and removes dirty controls.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.discard",
+      "page": "Notifications",
+      "controls": "Edit then Discard changes",
+      "expected": "Restore this saved notification in place without affecting other drafts.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.duplicate",
+      "page": "Notifications",
+      "controls": "More actions, Duplicate, Save notification",
+      "expected": "Create an independent saved copy with preserved timing and methods.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.delete-cancel",
+      "page": "Notifications",
+      "controls": "More actions, Delete, Cancel",
+      "expected": "Cancel leaves definitions and assignments unchanged.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.delete-replace",
+      "page": "Notifications",
+      "controls": "Delete, replacement, confirm",
+      "expected": "One save removes the definition and redirects uses without changing row ids.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.delete-remove",
+      "page": "Notifications",
+      "controls": "Delete, remove assignments, confirm",
+      "expected": "Explicit removal preserves unrelated definitions and leaves Dashboard only.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.delete-draft",
+      "page": "Notifications",
+      "controls": "Delete while a using policy has a draft",
+      "expected": "Block deletion and retain the affected draft and saved references.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "profiles.timing",
+      "page": "Notifications",
+      "controls": "Immediate, acknowledgment, window, report days/time",
+      "expected": "Every timing editor validates and saves its own fields and timezone.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "methods.lifecycle",
+      "page": "Delivery methods",
+      "controls": "Add, edit, duplicate, save, discard, delete",
+      "expected": "Saved shared uses and independent drafts remain correct.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests.",
+        "Actual installed ui-20261014231138: saving an unused delivery-method name showed Monitoring unavailable by3.313s and redirected to Home Assistant Overview by21.307s. Temporary name persisted when reopened, but the editor and success result were lost. This live failure is not represented by the passing mocked-service fixture.",
+        "Retested on actual installed ui-20261014232908: reversible unused-method name save and restore both returned to the same editor route with Changes saved. An unrelated profile draft survived both intentional integration reloads and was explicitly discarded afterward. Monitoring unavailable temporarily replaced the editor during restore; continuous editor visibility is not claimed. A fresh document reopen confirmed the original saved method name. The earlier candidate failure remains recorded in live_attempts."
+      ],
+      "synthetic_status": "pass"
+    },
+    {
+      "id": "methods.destinations",
+      "page": "Delivery methods",
+      "controls": "Add destination, type, search, select, remove, close",
+      "expected": "Each supported type is usable; missing saved targets remain repairable.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "methods.presence",
+      "page": "Delivery methods",
+      "controls": "Presence disclosure, people, home/away, fallback/skip",
+      "expected": "Saved behavior resolves current presence without unsolicited sending.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "methods.test",
+      "page": "Delivery methods",
+      "controls": "Send test on saved/dirty/new method",
+      "expected": "Only explicit saved tests request mocked destinations; requested/failed/skipped stay distinct.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/policy-editors.md#points-for-ui-review",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "settings.edit",
+      "page": "Settings",
+      "controls": "Timing, Problem grouping, Save, Discard",
+      "expected": "Valid values save only installation settings; invalid values retain inputs.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "sending.switch",
+      "page": "Global sending",
+      "controls": "On/Off during another draft",
+      "expected": "Only confirmed global state changes; monitoring and unrelated drafts persist.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/product-specification.md#review-scenarios-and-completion-criteria",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "save.failure",
+      "page": "Saving",
+      "controls": "Rejected Save and retry",
+      "expected": "Keep the exact draft and expose the named error; deliberate retry succeeds once.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "save.conflict",
+      "page": "Saving",
+      "controls": "Save after concurrent saved edit",
+      "expected": "Do not overwrite the newer saved object; retain the conflicting draft.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests.",
+        "Actual ui-20261014232908 rejected a stale revision after a separate API probe, kept the draft, and displayed Settings changed; reload this page. Discard and fresh reload recovered safely before any subsequent Save."
+      ]
+    },
+    {
+      "id": "save.refresh-failure",
+      "page": "Saving",
+      "controls": "Confirmed Save followed by failed reread",
+      "expected": "Say saved but refresh failed; preserve unrelated drafts.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "save.pending",
+      "page": "Saving",
+      "controls": "Delayed Save and repeated click",
+      "expected": "Prevent duplicate submission while the confirmed result is pending.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "save.uncertain",
+      "page": "Saving",
+      "controls": "Lost save response, inspect, retry",
+      "expected": "Read current saved state before retry; do not duplicate an applied change.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "updates.retention",
+      "page": "Live updates",
+      "controls": "Unchanged update, disconnect, reconnect",
+      "expected": "Retain DOM, focus, selection and draft; stale view is visibly read-only.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "reusable-editors.html: rendered-control scenario passed in Chrome at desktop and 390px card width; mock persisted state was asserted after each Save, deletion and global switch. Final global sending remained off. Final mock revision 50; no live requests."
+      ]
+    },
+    {
+      "id": "layout.menus",
+      "page": "Responsive",
+      "controls": "More actions at viewport edge, Escape, outside click",
+      "expected": "Both actions stay visible; dismissal restores appropriate focus.",
+      "fixture": "tests/frontend/mobile-layout.html",
+      "requirement": "docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "mobile-layout.html: 320px, 390px and 1200px geometry passed. Compact two-action menus fit bottom-edge viewport; both actions hit-test and remain tappable. Actual pointer Outside menu closes the native popover and preserves outside focus; real Enter/Space open, Tab enters, Escape closes and restores trigger focus."
+      ]
+    },
+    {
+      "id": "layout.keyboard",
+      "page": "Accessibility",
+      "controls": "Tab, Shift+Tab, Enter, Space, Escape",
+      "expected": "Complete navigation, editors and dialogs with visible focus and correct return.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "requirement": "docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "Manual actual Chrome keys: Enter opens More and the notification editor; Tab/Shift+Tab traverse menu and editor controls; letters K/e/y entered with retained field focus; Enter on Save persisted Immediate name Key in mock saved state; a later draft was discarded with Space. Enter opened the issue detail and Escape returned focus to View details. This is bounded control-path coverage, not a complete accessibility audit."
+      ]
+    },
+    {
+      "id": "layout.themes",
+      "page": "Accessibility",
+      "controls": "Light, dark, enlarged text, 320px and desktop",
+      "expected": "No clipping, required horizontal scroll or unreadable control state.",
+      "fixture": "tests/frontend/mobile-layout.html",
+      "requirement": "docs/ui-standards.md#component-review-checklist",
+      "status": "pass",
+      "evidence": [
+        "Light/dark synthetic themes at 320px,390px and1200px passed menu/header geometry. At320px dark, component width and scroll width were both305px; text/card colors were #e4e8ec/#18232d and secondary text #aab8c5. Actual browser pageScaleFactor1.5 was verified (visualViewport.scale1.5), geometry rerun passed, then scale restored to1. Screenshot capture timed out; this row records DOM geometry, computed colors and actual keyboard interaction, not a screenshot-based visual review."
+      ]
+    },
+    {
+      "id": "layout.safari",
+      "page": "Physical Safari",
+      "controls": "Actual iOS device workflow",
+      "expected": "Record device/browser and exercise touch, keyboard, menus and safe areas.",
+      "fixture": null,
+      "requirement": "docs/ui-standards.md#component-review-checklist",
+      "status": "untested",
+      "evidence": [
+        "No physical iPhone/iPad Safari was available. Desktop Chrome with narrow synthetic viewports does not establish iOS touch, keyboard or safe-area acceptance."
+      ]
+    }
+  ],
+  "generated_at": "2026-10-15T00:59:34.799871+00:00",
+  "limitations": [
+    "Live Home Assistant save/navigation checks are recorded separately and do not turn synthetic mocks into actual destination delivery proof.",
+    "External notification providers, physical equipment effects and physical Safari were not exercised.",
+    "Screenshot capture repeatedly timed out in browser tooling; accessibility state, DOM geometry and saved fixture state provided the recorded evidence.",
+    "The browser UI intentionally disables inputs while Save is pending. Existing scoped-configuration Node regressions cover newer programmatic in-flight edits; no unreachable disabled-input browser interaction is claimed."
+  ],
+  "live_home_assistant": {
+    "status": "pass",
+    "candidate": "ui-20261014232908",
+    "global_sending": "off",
+    "sends_requested": false,
+    "six_profiles_share_phone_method": true,
+    "profile_save": {
+      "status": "pass",
+      "rename_started_at": "2026-10-14T23:36:53.692Z",
+      "rename_success_observed_upper_bound_ms": 15459,
+      "restore_started_at": "2026-10-14T23:37:24.216Z",
+      "restore_success_observed_upper_bound_ms": 9906,
+      "editor_context_retained": true,
+      "name_restored": "Immediate"
+    },
+    "method_save": {
+      "status": "pass",
+      "rename_started_at": "2026-10-14T23:38:09.081Z",
+      "saving_editor_observed_ms": 892,
+      "rename_success_observed_upper_bound_ms": 16116,
+      "restore_started_at": "2026-10-14T23:38:43.141Z",
+      "monitoring_unavailable_observed_ms": 4134,
+      "restore_success_observed_upper_bound_ms": 13311,
+      "same_route_and_editor_returned": true,
+      "success_confirmation_visible": true,
+      "unrelated_draft_preserved_across_both_reloads": true,
+      "unrelated_draft_discarded_after_check": true,
+      "name_restored": "Urgent Day Time",
+      "fresh_document_reopen_confirmed_original": true,
+      "continuous_editor_visibility": false,
+      "interim_view": "Monitoring unavailable during intentional integration reload; the same editor and its success confirmation returned automatically without navigating to Home Assistant Overview."
+    },
+    "screenshot_capture": "unavailable: normal and direct CDP screenshot requests timed out; accessible UI confirmed all six phone-method assignments",
+    "full_baseline_restored_at": "2026-10-14T23:39:57Z",
+    "navigation": {
+      "status": "pass",
+      "actions": [
+        "Back",
+        "Forward",
+        "direct editor link",
+        "refresh",
+        "missing episode link"
+      ]
+    },
+    "source_maintenance_entry": {
+      "status": "pass",
+      "source": "Mosquitto broker",
+      "opened_and_closed_without_saving": true,
+      "observed": "Duration choices, explicit local end time, unchecked dependent-equipment scope, optional reason, and disabled Start maintenance until a valid time is chosen."
+    },
+    "stale_revision": {
+      "status": "pass",
+      "started_at": "2026-10-14T23:36:09.115Z",
+      "observed": "The tab loaded before a separate authorized API probe. Save correctly returned Settings changed; reload this page, preserving the local draft. Discard and reload restored the current revision before the successful checks."
+    },
+    "timing_interpretation": "Browser figures are observational upper bounds including tool and polling intervals, not precise end-to-end latency. Backend timing is recorded separately.",
+    "backend_baseline_confirmation": "Parent verified all saved settings match the pre-test baseline, including original names; notifications false, zero messages and outbox, integration loaded. Dedicated DEBUG logging restored off."
+  },
+  "source_sha256": {
+    "custom_components/homeostatic/frontend/configuration.mjs": "5410c964c31dd76537c0cd117a23a410473a6cce09ec12bfd1086833e5d60897",
+    "custom_components/homeostatic/frontend/delivery-picker.mjs": "a91ba18639b3f0c39ea314a291d5256fc63d52361ee21760713df8d775f51aa8",
+    "custom_components/homeostatic/frontend/device-availability.mjs": "31798a42e3e890ffe680267ae41aa5dc12b114d5e46e8a5f635d230b1205e9f2",
+    "custom_components/homeostatic/frontend/evidence.mjs": "85a2923ef58f13224f363fee44bdda531ec4b3f5a5cfe76fc0f8ce5d85a5fde8",
+    "custom_components/homeostatic/frontend/history-controls.mjs": "4efdd7c63ebc23938df3863db2e4dde2437d17862830831d723fadeb9f293389",
+    "custom_components/homeostatic/frontend/homeostatic.js": "868068302919d20c9058b28f0e9faa14d045fb3c35ea121c2adaddfda6f9bf0f",
+    "custom_components/homeostatic/frontend/installation-settings.mjs": "3da1c19635b9b2a75410570a72cced4f4d44efa43a617c480f563f7692928f87",
+    "custom_components/homeostatic/frontend/issues-workspace.mjs": "ccc2a4a296ee05fcefc4b5ed2968b6cf5f11d92417d20b1f5a74b7e445ea8431",
+    "custom_components/homeostatic/frontend/model.mjs": "1bfe7fb6fe560e7e3c3cbae1d930ce1da792484ad1a462e384b1fe49605a494f",
+    "custom_components/homeostatic/frontend/notification-navigation.mjs": "9c4e39558ee71e6a2c7b7af70191d65c16a3f80659cfe9b0638e0dfb50288f29",
+    "custom_components/homeostatic/frontend/problem.mjs": "a9e163ff6eb492f1df4a15c31257457932c1f4badcf7e7f2302c1968272ca3fc",
+    "custom_components/homeostatic/frontend/reporting.mjs": "39da875fa8417dfc9adf8d5d2bbbb8246ae0c455396f4843925234a09f2ce6fc",
+    "custom_components/homeostatic/frontend/reusable-editors.mjs": "ef721f701b8db796257d1658ef1fbca5151ad1c3901c2e292e3c7cc81d7fe245",
+    "custom_components/homeostatic/frontend/scoped-configuration.mjs": "329ecfeca5bdea444c28f4e1ab13195d1bfdbf8103afe9d690a1fe0993347603",
+    "custom_components/homeostatic/frontend/source-history.mjs": "13ba73396b18c6a8ab4c9f86034d80e18a99bb1169995a1e1f623858e4d3834c",
+    "custom_components/homeostatic/frontend/sources-workspace.mjs": "920df383e0a4c9c74e921dbed1fba4a940878108c2f67ca658604d746c8dca21",
+    "custom_components/homeostatic/frontend/styles.mjs": "f579cde0b9439996a34e42a094d6676458baf6c23f3095b984a0d048e8179c51",
+    "custom_components/homeostatic/frontend/ups.mjs": "afaff10ce83d2a134b49ca479cdbb9cf95eb659cbe1e711e0ac7784830632a07",
+    "custom_components/homeostatic/frontend/workspace-navigation.mjs": "2e6902abdc544891e682be8cdfe3026cf9f50c686af15c317703a6d3f22337d7",
+    "tests/frontend/control-path-inventory.mjs": "654c294e827667013b841f1771d8110aa9e24ac6fe6b951d043421fc667aa0e3",
+    "tests/frontend/preview.html": "2eb33acfd18b4fd2d72f30d7f4f31751d39841b9c2168b64747209fc99057456",
+    "tests/frontend/reusable-editors.html": "72274853e3150faa5a4347ab17d9868eff038f4699b4e053b3101b68e2efac47",
+    "tests/frontend/reusable-editors-scenario.mjs": "4b8808381b53e5cf1c0826f377ded00e01c876340ef7ede1271de3a919a97007",
+    "tests/frontend/workspace-control-paths.mjs": "7f53d3f21e339ff7034d0224a0e98c3f332103e857b804fe15e57b8989c53261",
+    "tests/frontend/browsing-control-paths.mjs": "9dcf9239396f1a1a9d5cc4feeaa4023124e6627aa6e9b699652ac3d44468543b",
+    "tests/frontend/issue-evidence.html": "da569db952ec7caf4697d9e459eec9c8eaf69dfa5b1b020b964aac1e138bf664",
+    "tests/frontend/source-history.html": "3828ca816bf2d4d1063e7ac6f7687da669fe17a07cd43e5dd62bcd27587d4a14",
+    "tests/frontend/history-controls.html": "9daa1a672593955cfbfe666f90c8b5eabf3517f5d94be61e7aeb66d0052781ff",
+    "tests/frontend/mobile-layout.html": "be6e593b32cb00b2d562d465e14f88e2d19e43e875e3ec54efcdd3abd533efe4"
+  },
+  "summary": {
+    "pass": 45,
+    "fail": 0,
+    "untested": 1
+  },
+  "synthetic_summary": {
+    "pass": 44,
+    "fail": 0,
+    "untested": 2
+  },
+  "live_attempts": [
+    {
+      "status": "in_progress_with_failure",
+      "candidate": "ui-20261014231138",
+      "global_sending": "off",
+      "sends_requested": false,
+      "six_profiles_share_phone_method": true,
+      "profile_save": {
+        "status": "pass",
+        "rename_started_at": "2026-10-14T23:22:15.984Z",
+        "rename_visible_success_ms": 2639,
+        "restore_started_at": "2026-10-14T23:22:26.819Z",
+        "restore_visible_success_upper_bound_ms": 11607,
+        "editor_retained": true,
+        "name_restored": "Immediate"
+      },
+      "method_save": {
+        "status": "fail",
+        "rename_started_at": "2026-10-14T23:23:12.308Z",
+        "monitoring_unavailable_observed_ms": 3313,
+        "redirect_to_ha_overview_observed_ms": 21307,
+        "temporary_name_persisted": true,
+        "editor_retained": false,
+        "restoration": "Original Urgent Day Time name restored through one actual Save after backend inspection confirmed the prior detached click had not applied. Parent verified the complete saved baseline at2026-10-14T23:25:33Z; global sending off, zero messages/outbox.",
+        "restore_submitted_at": "2026-10-14T23:25:08.094Z"
+      },
+      "screenshot_capture": "unavailable: normal and direct CDP screenshot requests timed out; accessible UI confirmed all six phone-method assignments",
+      "full_baseline_restored_at": "2026-10-14T23:25:33Z",
+      "navigation": {
+        "status": "pass",
+        "actions": [
+          "Back",
+          "Forward",
+          "direct editor link",
+          "refresh",
+          "missing episode link"
+        ]
+      },
+      "source_maintenance_entry": {
+        "status": "pass",
+        "source": "Mosquitto broker",
+        "opened_and_closed_without_saving": true,
+        "observed": "Duration choices, explicit local end time, unchecked dependent-equipment scope, optional reason, and disabled Start maintenance until a valid time is chosen."
+      }
+    }
+  ],
+  "follow_up_runs": [
+    {
+      "id": "owned-save-editor-retention",
+      "recorded_at": "2026-10-15T00:10:46.647140+00:00",
+      "status": "pass",
+      "evidence_scope": "Affected flows were revalidated. The earlier full-inventory results, candidate hashes and live attempts remain historical evidence; they are not represented as a new full-inventory run.",
+      "fixture": "tests/frontend/reusable-editors.html",
+      "browser": "Chrome 155 on Windows 10, actual browser controls through CUA",
+      "browser_started_at": "2026-10-15T00:01:24.550Z",
+      "viewport": {
+        "width": 1934,
+        "height": 1552,
+        "card_width": 390,
+        "horizontal_overflow": false
+      },
+      "data": "Synthetic Home Assistant state and mocked save/destination requests; no live sends",
+      "revalidated_path_ids": [
+        "navigation.pages",
+        "issues.filter",
+        "issues.empty",
+        "policies.lifecycle",
+        "policies.scope",
+        "policies.detection",
+        "policies.restore",
+        "policies.notification",
+        "policies.legacy",
+        "policies.ups",
+        "profiles.list",
+        "profiles.create",
+        "profiles.invalid",
+        "profiles.save",
+        "profiles.discard",
+        "profiles.duplicate",
+        "profiles.delete-cancel",
+        "profiles.delete-replace",
+        "profiles.delete-remove",
+        "profiles.delete-draft",
+        "profiles.timing",
+        "methods.lifecycle",
+        "methods.destinations",
+        "methods.presence",
+        "methods.test",
+        "settings.edit",
+        "sending.switch",
+        "save.failure",
+        "save.conflict",
+        "save.refresh-failure",
+        "save.pending",
+        "save.uncertain",
+        "updates.retention"
+      ],
+      "revalidated_summary": {
+        "pass": 33,
+        "fail": 0
+      },
+      "carried_forward_path_ids": [
+        "navigation.history",
+        "issues.evidence",
+        "issues.recovery",
+        "issues.controls",
+        "issues.history",
+        "sources.tree",
+        "sources.details",
+        "sources.history",
+        "sources.maintenance",
+        "layout.menus",
+        "layout.keyboard",
+        "layout.themes",
+        "layout.safari"
+      ],
+      "owned_reload_evidence": [
+        "Actual Save holds a method request while unavailable/disconnected updates arrive; the exact input element and pending Saving control remain in the inert configuration editor. Applying changes names the pending operation without inventing current monitoring state; Connection lost stays explicit.",
+        "A current subscription alone does not confirm Save. A confirmed response before the first current update replaces only the scoped footer with Changes saved, shows Finishing update, keeps the editor read-only and then resumes editing on current monitoring.",
+        "Rejected storage, failed rollback, lost response and confirmed-save/failed-settings-reread retain their distinct errors and drafts. Repeated unavailable renders do not hide the error or resubmit.",
+        "A reported terminal runtime error after successful Save is explicit. Actual navigation away during owned Save ends editor retention and shows ordinary unavailable monitoring.",
+        "The unrelated policy draft remains unsaved across the sequence and is discarded through its own control. Mock sending finishes false."
+      ],
+      "focused_node_tests": {
+        "pass": 108,
+        "files": [
+          "tests/frontend/render-lifecycle.test.mjs",
+          "tests/frontend/scoped-configuration.test.mjs",
+          "tests/frontend/reusable-editors.test.mjs"
+        ]
+      },
+      "changed_source_sha256": {
+        "custom_components/homeostatic/frontend/homeostatic.js": "5b4b1bb1e68df0e5987987c293edf838e5ee05aaf3131ea7d5420c0ad9399b58",
+        "custom_components/homeostatic/frontend/reusable-editors.mjs": "f1c9e0832acfbc19a05ce2389cf8fb69b9ea9df7f7998e8f4419b3fc1783422d",
+        "tests/frontend/render-lifecycle.test.mjs": "c19c9a53c5f58e69dce8f3f4b8aede4cf05bfcd43c7e8c3b5ab51f423b75c340",
+        "tests/frontend/reusable-editors-scenario.mjs": "64522efc5bab962b32d2e281758616f128ea32057ea21db72c070ea4eddee144",
+        "tests/frontend/control-path-inventory.mjs": "5821bc2ab678c696e96466a2d6cc76926b4919778b56be402da57ddbc010e60a",
+        "tests/frontend/reusable-editors.html": "62c9298ac7a4c285ecad1e197beb9dfd460df4245733b03d3365b5b11a498818"
+      },
+      "physical_safari": {
+        "status": "untested",
+        "evidence": "Current enabled-surface inventory exposes Windows Chrome only; no physical iOS/Safari surface is available. Chrome phone width is not physical-device acceptance."
+      },
+      "live_home_assistant": {
+        "status": "pass",
+        "candidate": "ui-20261015000210",
+        "browser": "Chrome 155 on Windows 10, actual browser controls through CUA; desktop viewport",
+        "fresh_load_after_parent_probe_restored_at": "2026-10-15T00:06:04Z",
+        "actions": [
+          {
+            "action": "profile rename",
+            "started_at": "2026-10-15T00:07:24.046Z",
+            "result": "Changes saved; same profile editor route",
+            "observed_click_to_confirmation_ms": 2360
+          },
+          {
+            "action": "profile restore",
+            "started_at": "2026-10-15T00:07:35.446Z",
+            "result": "Changes saved; original name Immediate restored",
+            "observed_click_to_confirmation_ms": 1165
+          },
+          {
+            "action": "method rename",
+            "started_at": "2026-10-15T00:08:25.098Z",
+            "result": "Changes saved; same method editor route",
+            "observation_upper_bound_ms": 17209
+          },
+          {
+            "action": "method restore",
+            "started_at": "2026-10-15T00:08:50.336Z",
+            "result": "Changes saved; original name Urgent Day Time restored",
+            "observation_upper_bound_ms": 22688
+          }
+        ],
+        "timing_limitations": "Profile observations used one click-and-documented-wait invocation and include tool overhead. Method values are upper bounds that include inter-call delays; the restore also includes a failed screenshot attempt. They are not precise end-to-end latency measurements.",
+        "pending_dom_proof": {
+          "scope": "method:method-3",
+          "heading": "Edit delivery method: Urgent Day Time",
+          "input": "Urgent Day Time",
+          "footer": "Unsaved changes Discard changes Saving\u2026",
+          "main_inert": true,
+          "status": "Applying changes\u2026",
+          "route": "/homeostatic/notifications/methods/method-3",
+          "full_unavailable_page": false
+        },
+        "continuity": "During its own live reload the actual method editor remained rendered and guarded, with Applying changes and Saving. The same route returned to enabled editing with authoritative Changes saved. The confirmed-before-first-current Finishing update gap was exercised in the isolated fixture; it was not separately captured in the live run.",
+        "unrelated_draft": "An unsaved Morning summary name survived the profile save/restore and both method reloads. It was reopened with the exact unsaved value, then discarded using its own Discard changes button; the original Morning summary returned without saving it.",
+        "reopened_results": [
+          "Immediate reopened with its original name and no dirty controls",
+          "Urgent Day Time reopened with its original name, original destination and no dirty controls",
+          "All six notifications still list Mike Companion App"
+        ],
+        "sending": "Global notifications remained off. No Send test control or notification delivery was requested.",
+        "screenshot": {
+          "status": "unavailable",
+          "attempts": 1,
+          "reason": "Supported browser screenshot timed out waiting for Page.captureScreenshot. No screenshot claim; DOM/AX observations provide the recorded evidence."
+        },
+        "physical_safari": "Untested; no physical iOS/Safari surface was available. Narrow Chrome fixture coverage is separate.",
+        "server_method_transaction_seconds": {
+          "rename": 8.151438,
+          "restore": 7.450497,
+          "source": "Parent collected dedicated save_timing phases; these are server transaction measurements, distinct from browser observation upper bounds."
+        },
+        "final_baseline": {
+          "verified_at": "2026-10-15T00:10:24Z",
+          "source": "Parent read-only API verification",
+          "all_saved_settings_match_before": true,
+          "ha_state": "RUNNING",
+          "integration": "loaded",
+          "notifications": false,
+          "pending_messages": 0,
+          "outbox": 0,
+          "served_assets_match": 19,
+          "related_errors": 0,
+          "diagnostic_logging": "NOTSET"
+        }
+      },
+      "settings_history_boundary": {
+        "status": "pass",
+        "fixture": "tests/frontend/reusable-editors.html?settings-history",
+        "evidence": "Actual keyboard input changed Wait for related failures to 4 minutes. Save settings retained the inert Timing editor and Saving with Applying changes through a held mocked reload. Browser Back changed to Problem grouping and ended retention; Forward returned to Timing with truthful unavailable monitoring rather than reusing the wrong editor. Releasing the response restored Timing, Changes saved, and exactly 240 seconds in exposed mock saved settings. No live requests."
+      }
+    },
+    {
+      "id": "in-place-delivery-methods",
+      "status": "pass",
+      "recorded_at": "2026-10-15T00:32:03.741883+00:00",
+      "decision": "docs/adr/0067-save-delivery-methods-in-place.md",
+      "evidence_scope": "This is a bounded method-save follow-up. The previous complete inventory and prior deployed behavior remain historical evidence; no fresh complete 46-path or physical-device acceptance is claimed.",
+      "isolated_browser": {
+        "status": "pass",
+        "fixture": "tests/frontend/reusable-editors.html",
+        "started_at": "2026-10-15T00:27:20.463Z",
+        "browser": "Chrome 155 on Windows 10 through actual CUA controls",
+        "viewport": {
+          "width": 1934,
+          "height": 1552,
+          "card_width": 390
+        },
+        "data": "Synthetic Home Assistant settings, mocked service and save requests",
+        "revalidated_path_ids": [
+          "navigation.pages",
+          "issues.filter",
+          "issues.empty",
+          "policies.lifecycle",
+          "policies.scope",
+          "policies.detection",
+          "policies.restore",
+          "policies.notification",
+          "policies.legacy",
+          "policies.ups",
+          "profiles.list",
+          "profiles.create",
+          "profiles.invalid",
+          "profiles.save",
+          "profiles.discard",
+          "profiles.duplicate",
+          "profiles.delete-cancel",
+          "profiles.delete-replace",
+          "profiles.delete-remove",
+          "profiles.delete-draft",
+          "profiles.timing",
+          "methods.lifecycle",
+          "methods.destinations",
+          "methods.presence",
+          "methods.test",
+          "settings.edit",
+          "sending.switch",
+          "save.failure",
+          "save.conflict",
+          "save.refresh-failure",
+          "save.pending",
+          "save.uncertain",
+          "updates.retention"
+        ],
+        "summary": {
+          "pass": 33,
+          "fail": 0
+        },
+        "method_evidence": [
+          "Actual destination type/search/add/remove controls saved all supported mocked destination kinds.",
+          "Home/away/fallback and per-person/skip controls saved the expected independent selections.",
+          "Method duplicate/save/discard/delete-cancel/delete-confirm controls passed.",
+          "Separate actual-click branch duplicated Owner phone to Replacement phone, deleted referenced Owner phone with explicit replacement, and preserved custom-row ID/timing while changing only its methods reference. Explicit removal then deleted the replacement and only its now-empty inline row; sending stayed false.",
+          "Delayed-save fixtures now inject an independent external outage. Ordinary method saves are no longer described as causing a reload. Settings reload/history protections remain covered."
+        ]
+      },
+      "focused_node_tests": {
+        "pass": 108,
+        "files": [
+          "tests/frontend/render-lifecycle.test.mjs",
+          "tests/frontend/scoped-configuration.test.mjs",
+          "tests/frontend/reusable-editors.test.mjs"
+        ]
+      },
+      "source_sha256": {
+        "tests/frontend/reusable-editors-scenario.mjs": "71527a8d210f9a9f0425c49055a779fc37f353af0046d6b2f68d5a9378502d0e",
+        "tests/frontend/reusable-editors.html": "3f39dd1207b649d1e5baa5b02bc8d42f8e2ca6284ecdb41acdbc26d36bc72774",
+        "tests/frontend/render-lifecycle.test.mjs": "684bf4f27099652b1b5ba6de90521161f90afc41634082b2609acd823d4fdebe",
+        "tests/frontend/control-path-inventory.mjs": "7dd9010eeb121ca0df5a833740bca3beae47d718975fe46cb70bdb62e8286f43",
+        "tests/frontend/workspace-control-paths.mjs": "7f53d3f21e339ff7034d0224a0e98c3f332103e857b804fe15e57b8989c53261",
+        "tests/frontend/scoped-configuration.test.mjs": "fe03b96e0c6ad6f649f477e8290f784cead2c46dec88a3a77105b09503e4494d",
+        "custom_components/homeostatic/frontend/homeostatic.js": "5b4b1bb1e68df0e5987987c293edf838e5ee05aaf3131ea7d5420c0ad9399b58",
+        "custom_components/homeostatic/frontend/reusable-editors.mjs": "f1c9e0832acfbc19a05ce2389cf8fb69b9ea9df7f7998e8f4419b3fc1783422d",
+        "custom_components/homeostatic/frontend/scoped-configuration.mjs": "329ecfeca5bdea444c28f4e1ab13195d1bfdbf8103afe9d690a1fe0993347603"
+      },
+      "physical_safari": {
+        "status": "untested",
+        "reason": "Current enabled inventory exposes Windows Chrome only; no physical iOS/Safari surface."
+      },
+      "live_home_assistant": {
+        "status": "pass",
+        "candidate": "ui-20261015004931",
+        "accepted_attempt_index": 1,
+        "summary": "All six actual saves, presence reopen, unrelated-draft retention/discard, loaded-only observer updates, and exact final baseline passed."
+      },
+      "live_attempts": [
+        {
+          "candidate": "ui-20261015003700",
+          "status": "failed_presence_acceptance",
+          "actions": [
+            {
+              "action": "name change",
+              "started_at": "2026-10-15T00:41:14.182Z",
+              "confirmed": true,
+              "observed_click_to_confirmation_ms": 3209,
+              "server_handler_seconds": 0.595626
+            },
+            {
+              "action": "name restore",
+              "started_at": "2026-10-15T00:41:26.410Z",
+              "confirmed": true,
+              "observed_click_to_confirmation_ms": 1903,
+              "server_handler_seconds": 0.639106
+            },
+            {
+              "action": "destination addition",
+              "started_at": "2026-10-15T00:42:11.054Z",
+              "confirmed": true,
+              "observed_click_to_confirmation_ms": 2681,
+              "server_handler_seconds": 1.469042
+            },
+            {
+              "action": "destination restore",
+              "started_at": "2026-10-15T00:42:25.228Z",
+              "confirmed": true,
+              "observed_click_to_confirmation_ms": 2135,
+              "server_handler_seconds": 0.62947
+            },
+            {
+              "action": "presence change",
+              "started_at": "2026-10-15T00:43:17.780Z",
+              "confirmed": false,
+              "observed_response_ms": 4063,
+              "error": "Choose Home Assistant person entities"
+            }
+          ],
+          "failure_evidence": "The rendered person checkbox submitted an internal person ID. The catalog omitted entity_id; backend correctly rejected that value rather than persisting an invalid presence rule. The rejected method draft and unrelated profile draft were discarded explicitly.",
+          "entry_observer": "Parent read-only observer recorded all four successful config-entry updates as loaded, without reload transitions.",
+          "restored_baseline": {
+            "verified_at": "2026-10-15T00:44:59Z",
+            "all_saved_settings_match_before": true,
+            "notifications": false,
+            "pending_messages": 0,
+            "outbox": 0
+          },
+          "timing_scope": "Successful action timings are historical for this failed overall acceptance attempt. Rejected presence response is excluded from successful-save latency claims."
+        },
+        {
+          "candidate": "ui-20261015004931",
+          "status": "pass",
+          "run_id": "method-presence-20261014",
+          "browser": "Chrome 155 on Windows 10 through actual CUA controls",
+          "environment": "Actual local Home Assistant; existing unassigned method; notification sending remained off.",
+          "actions": [
+            {
+              "action": "name change",
+              "started_at": "2026-10-15T00:54:08.338Z",
+              "confirmed": true,
+              "observed_click_to_confirmation_ms": 6920,
+              "locator_waits": 2,
+              "server_handler_seconds": 0.798673
+            },
+            {
+              "action": "name restore",
+              "started_at": "2026-10-15T00:54:22.001Z",
+              "confirmed": true,
+              "observed_click_to_confirmation_ms": 2047,
+              "locator_waits": 1,
+              "server_handler_seconds": 1.465305
+            },
+            {
+              "action": "destination addition",
+              "started_at": "2026-10-15T00:55:12.717Z",
+              "confirmed": true,
+              "observed_click_to_confirmation_ms": 2572,
+              "locator_waits": 1,
+              "server_handler_seconds": 0.934232
+            },
+            {
+              "action": "destination restore",
+              "started_at": "2026-10-15T00:55:22.822Z",
+              "confirmed": true,
+              "observed_click_to_confirmation_ms": 1800,
+              "locator_waits": 1,
+              "server_handler_seconds": 0.661898
+            },
+            {
+              "action": "presence change",
+              "started_at": "2026-10-15T00:56:21.157Z",
+              "confirmed": true,
+              "observed_click_to_confirmation_ms": 1812,
+              "locator_waits": 1,
+              "server_handler_seconds": 0.635372
+            },
+            {
+              "action": "presence restore",
+              "started_at": "2026-10-15T00:57:01.151Z",
+              "confirmed": true,
+              "observed_click_to_confirmation_ms": 1850,
+              "locator_waits": 1,
+              "server_handler_seconds": 0.642635
+            }
+          ],
+          "timing_scope": "Each browser figure measures one CUA invocation from before Save click through visible Changes saved. It is an observation upper bound including dispatch/tool/wait overhead, not precise UI paint latency. The first name-change observation includes about six seconds before the server handler began; that interval is unattributed. Server handler durations come from the separately retained DEBUG phase logs.",
+          "evidence": [
+            "Actual Save controls changed and restored method name, selected destinations, and presence mode.",
+            "The rendered person selector used the actual person entity ID; the previously rejected presence save succeeded.",
+            "Saved per-person phone and skip choices survived leaving the editor and reopening it from the methods list.",
+            "Every save confirmed on the same method route. No monitoring-unavailable replacement was observed.",
+            "An unrelated profile-name draft retained its exact unsaved text across all six saves; it was then discarded with its own control.",
+            "The restored original method was reopened clean with its original name, fixed mode, and single original phone destination.",
+            "No Send test control was used and notification sending stayed off."
+          ],
+          "entry_observer": {
+            "started_at": "2026-10-15T00:52:54.883351Z",
+            "ended_at": "2026-10-15T00:58:22.774509Z",
+            "duration_seconds": 327.889,
+            "initial_loaded": true,
+            "saved_updates": 6,
+            "all_updates_loaded": true,
+            "reload_states_observed": 0
+          },
+          "restored_baseline": {
+            "verified_at": "2026-10-15T00:58:33.147934Z",
+            "all_saved_settings_match_before": true,
+            "notifications": false,
+            "pending_messages": 0,
+            "outbox": 0,
+            "six_profile_phone_assignments_unchanged": true
+          },
+          "installation_verification": {
+            "verified_at": "2026-10-15T00:58:30.741464Z",
+            "home_assistant": "RUNNING",
+            "entry": "loaded",
+            "entry_identity_preserved": true,
+            "served_assets_match": 19,
+            "related_errors": 0,
+            "timing_logger_after_run": "NOTSET"
+          },
+          "gate": {
+            "backend_tests": 279,
+            "frontend_tests": 377,
+            "quick_checks": "pass",
+            "strict_typing": "pass"
+          },
+          "source_sha256": {
+            "custom_components/homeostatic/runtime.py": "7bcd421ff2d9a5c4908a7d2f37a429a0afddc15e59259da39d95af1808a6fd45",
+            "custom_components/homeostatic/notification_people.py": "18e96aa686cc8e15b356d0239bd7b96c1258d20276a70df3aa90b2438cfa04a6",
+            "custom_components/homeostatic/frontend/homeostatic.js": "5b4b1bb1e68df0e5987987c293edf838e5ee05aaf3131ea7d5420c0ad9399b58",
+            "custom_components/homeostatic/frontend/reusable-editors.mjs": "f1c9e0832acfbc19a05ce2389cf8fb69b9ea9df7f7998e8f4419b3fc1783422d",
+            "custom_components/homeostatic/frontend/scoped-configuration.mjs": "329ecfeca5bdea444c28f4e1ab13195d1bfdbf8103afe9d690a1fe0993347603"
+          },
+          "timing_artifacts": {
+            "run_id": "method-presence-20261014",
+            "retained_files": [
+              "final-browser-save-timing-logs.json",
+              "timing-comparison.json"
+            ]
+          },
+          "cleanup": "Owned verification tab closed; no owned fixture server or viewport override remains; user tabs untouched.",
+          "limitations": [
+            "This follow-up revalidates the six method saves and affected synthetic fixture paths, not the entire earlier inventory.",
+            "Physical iOS/Safari remains untested; no enabled physical-device surface was available.",
+            "No external notification delivery was attempted; all live checks ran with sending off.",
+            "No screenshot was requested or attempted for this follow-up; evidence is actual control interaction, visible saved state, and independent runtime/settings verification."
+          ]
+        }
+      ],
+      "person_identity_regression": {
+        "status": "pass",
+        "observed_at": "2026-10-15T00:45:55.237Z",
+        "fixture": "tests/frontend/reusable-editors.html",
+        "browser": "Chrome 155 on Windows 10 through actual CUA controls",
+        "viewport": {
+          "width": 1934,
+          "height": 1552,
+          "card_width": 390
+        },
+        "data": "Synthetic catalog has different internal person and entity IDs; mocked save rejects internal IDs.",
+        "summary": {
+          "pass": 33,
+          "fail": 0
+        },
+        "revalidated_path_ids": [
+          "navigation.pages",
+          "issues.filter",
+          "issues.empty",
+          "policies.lifecycle",
+          "policies.scope",
+          "policies.detection",
+          "policies.restore",
+          "policies.notification",
+          "policies.legacy",
+          "policies.ups",
+          "profiles.list",
+          "profiles.create",
+          "profiles.invalid",
+          "profiles.save",
+          "profiles.discard",
+          "profiles.duplicate",
+          "profiles.delete-cancel",
+          "profiles.delete-replace",
+          "profiles.delete-remove",
+          "profiles.delete-draft",
+          "profiles.timing",
+          "methods.lifecycle",
+          "methods.destinations",
+          "methods.presence",
+          "methods.test",
+          "settings.edit",
+          "sending.switch",
+          "save.failure",
+          "save.conflict",
+          "save.refresh-failure",
+          "save.pending",
+          "save.uncertain",
+          "updates.retention"
+        ],
+        "evidence": [
+          "Actual home/away and per-person selectors persist person.owner, not owner-internal.",
+          "Mock validation rejects selected people absent from catalog entity_id values.",
+          "Focused render/scoped-save/reusable-editor Node checks pass (108 tests)."
+        ],
+        "source_sha256": {
+          "tests/frontend/reusable-editors-scenario.mjs": "e9304d0869408fadccf25e581aca9418234dee00cdd463288084a182d7a18e7e",
+          "tests/frontend/reusable-editors.test.mjs": "05d35a835a224fa9dc63f67ae669202f91d3158a948cebf1655eb1e1a6f7b808",
+          "tests/frontend/workspace-control-paths.mjs": "9d930e0a561f44ce944903e8d687d2d16f95945c260ba9e065e29e165799cb2e",
+          "tests/frontend/readme-demo-data.mjs": "0ebc282b1ed94b223f7ebd96af6412f68e7a3be49d574ea1b22ebbdeab10c6f6"
+        },
+        "scope": "Fresh affected fixture paths only; earlier full-inventory evidence is carried forward, not rerun."
+      },
+      "completed_at": "2026-10-15T00:59:34.799871+00:00"
+    }
+  ],
+  "latest_follow_up_status": "pass"
+}

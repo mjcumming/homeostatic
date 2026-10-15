@@ -11,30 +11,27 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.battery import observe
-from custom_components.homeostatic.config import Settings, data_from_input, rule_data
+from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.enrollment import evaluate, inventory
-from custom_components.homeostatic.rules import DEFAULT_RULES, parse_rules
+from tests.policy_helpers import bound_identity, current_config, monitoring_policy
 from tests.test_lifecycle import start_monitor
 
 
-def battery_rules() -> list[dict[str, Any]]:
+def battery_policies() -> list[dict[str, Any]]:
     """Select discovered battery conditions independently of availability."""
     return [
-        *DEFAULT_RULES,
-        {
-            "id": "battery_maintenance",
-            "action": "attach",
-            "match": {"kind": "battery"},
-            "checks": ["battery"],
-        },
+        monitoring_policy("battery_maintenance", {"kind": ["battery"]}, check="battery")
     ]
 
 
-async def test_battery_rule_round_trip(hass: HomeAssistant) -> None:
+async def test_battery_policy_round_trip(hass: HomeAssistant) -> None:
     """A reviewed battery selection preserves its check across saved options."""
-    saved = data_from_input(hass, {"rules": battery_rules()})
-    assert rule_data(hass, Settings.from_data(saved))[1]["checks"] == ["battery"]
+    settings = Settings.from_data(current_config(battery_policies()))
+    [policy] = settings.monitoring_policies
+    restored = Settings.from_data(current_config([policy.data()]))
+    assert restored.monitoring_policies == settings.monitoring_policies
+    assert restored.monitoring_policies[0].check == "battery"
 
 
 async def battery_device(hass: HomeAssistant) -> tuple[str, str, str, str]:
@@ -95,13 +92,13 @@ async def test_battery_signal_scenarios(
     hass.states.async_set(level_id, percent, {"unit_of_measurement": "%"})
     hass.states.async_set(warning_id, warning)
     hass.states.async_set(charging_id, charging)
-    settings = Settings.from_data({"rules": DEFAULT_RULES})
+    settings = Settings.from_data(current_config())
     discovered = inventory(hass, settings, {})
     battery = discovered[f"battery:registry:{registry_id}"]
     assert battery.battery_level_entity == level_id
     assert battery.battery_warning_entity == warning_id
     assert battery.battery_charging_entity == charging_id
-    assert not evaluate(discovered, parse_rules(DEFAULT_RULES))[battery.node_id].watched
+    assert not evaluate(discovered, ())[battery.node_id].watched
     observation = observe(hass, battery, dt_util.utcnow())
     assert observation.reason == expected
     assert observation.evidence["physical_freshness_verified"] is False
@@ -115,10 +112,12 @@ async def test_battery_episode_clears_on_charging_and_reopens(
     hass.states.async_set(level_id, "20", {"unit_of_measurement": "%"})
     hass.states.async_set(warning_id, "on")
     hass.states.async_set(charging_id, "off")
-    config_data.update(entities=[], notifications=False, rules=battery_rules())
+    config_data.update(notifications=False, monitoring_policies=battery_policies())
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
-    battery_id = f"battery:registry:{registry_id}"
+    battery_id = bound_identity(
+        battery_policies()[0], f"battery:registry:{registry_id}"
+    )
     assert runtime.sources[battery_id].watched
     assert {episode["anchor"] for episode in runtime.episodes.values()} == {battery_id}
     hass.states.async_set(charging_id, "on")
@@ -161,7 +160,7 @@ async def test_multiple_battery_signals_stay_separate(
     hass.states.async_set(second.entity_id, "90", {"unit_of_measurement": "%"})
     hass.states.async_set(warning_id, "off")
     hass.states.async_set(charging_id, "on")
-    discovered = inventory(hass, Settings.from_data({"rules": DEFAULT_RULES}), {})
+    discovered = inventory(hass, Settings.from_data(current_config()), {})
     batteries = [source for source in discovered.values() if source.kind == "battery"]
     assert len(batteries) == 3
     assert {source.battery_level_entity for source in batteries} == {

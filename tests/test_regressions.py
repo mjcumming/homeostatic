@@ -17,8 +17,9 @@ from pytest_homeassistant_custom_component.common import (
 )
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
-from custom_components.homeostatic.config import data_from_input
+from custom_components.homeostatic.config import entity_reference
 from custom_components.homeostatic.const import DOMAIN
+from tests.policy_helpers import availability_policies, bound_identity
 from tests.test_lifecycle import start_monitor
 
 
@@ -68,14 +69,13 @@ async def test_notification_options_reload(
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     current = (await client.receive_json())["result"]
-    change = {"revision": current["revision"], "notifications": False, "consumer": None}
-    await client.send_json({"id": 2, "type": "homeostatic/preview_alerts", **change})
-    preview = (await client.receive_json())["result"]
+    draft = current["settings"]
+    draft["notifications"] = False
+    change = {"revision": current["revision"], "settings": draft}
     await client.send_json(
         {
             "id": 3,
-            "type": "homeostatic/save_alerts",
-            "preview_token": preview["preview_token"],
+            "type": "homeostatic/save_settings",
             **change,
         }
     )
@@ -106,14 +106,13 @@ async def test_panel_save_does_not_restart_startup_grace(
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     current = (await client.receive_json())["result"]
-    change = {"revision": current["revision"], "notifications": False, "consumer": None}
-    await client.send_json({"id": 2, "type": "homeostatic/preview_alerts", **change})
-    preview = (await client.receive_json())["result"]
+    draft = current["settings"]
+    draft["notifications"] = False
+    change = {"revision": current["revision"], "settings": draft}
     await client.send_json(
         {
             "id": 3,
-            "type": "homeostatic/save_alerts",
-            "preview_token": preview["preview_token"],
+            "type": "homeostatic/save_settings",
             **change,
         }
     )
@@ -141,22 +140,14 @@ async def test_unenrollment_options_apply_in_place(
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     current = (await client.receive_json())["result"]
-    await client.send_json(
-        {
-            "id": 2,
-            "type": "homeostatic/preview_configuration",
-            "revision": current["revision"],
-            "rules": [],
-        }
-    )
-    preview = (await client.receive_json())["result"]
+    draft = current["settings"]
+    draft["monitoring_policies"] = []
     await client.send_json(
         {
             "id": 3,
-            "type": "homeostatic/save_configuration",
+            "type": "homeostatic/save_settings",
             "revision": current["revision"],
-            "preview_token": preview["preview_token"],
-            "rules": [],
+            "settings": draft,
         }
     )
     assert (await client.receive_json())["result"] == {"saved": True}
@@ -180,7 +171,9 @@ async def test_probe_does_not_fabricate_freshness(
     registered = er.async_get(hass).async_get_or_create(
         "sensor", "test", "test", config_entry=source
     )
-    config_data["entities"] = [f"registry:{registered.id}"]
+    config_data["monitoring_policies"] = availability_policies(
+        entities=[f"registry:{registered.id}"], integrations=[source.entry_id]
+    )
     config_data["timings"]["settle"] = 10
     config_data["timings"]["unknown_hold"] = 100
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -191,14 +184,24 @@ async def test_probe_does_not_fabricate_freshness(
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert len(runtime.episodes) == 1
-    assert runtime.engine.readiness([f"entry:{source.entry_id}"]).answer == "unknown"
+    assert (
+        runtime.engine.readiness(
+            [
+                bound_identity(
+                    config_data["monitoring_policies"][1], f"entry:{source.entry_id}"
+                )
+            ]
+        ).answer
+        == "unknown"
+    )
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_unregistered_entity_selection(hass: HomeAssistant) -> None:
     """A state-only entity is selected explicitly without inventing a registry id."""
-    result = data_from_input(hass, {"entity_ids": ["sensor.unregistered"]})
-    assert result["entities"] == ["entity_id:sensor.unregistered"]
+    assert (
+        entity_reference(hass, "sensor.unregistered") == "entity_id:sensor.unregistered"
+    )
 
 
 async def test_retry_restore_keeps_onset(
@@ -207,8 +210,9 @@ async def test_retry_restore_keeps_onset(
     """Restart cannot repeatedly reset a setup-retry warning's escalation hold."""
     source = MockConfigEntry(domain="test", state=ConfigEntryState.SETUP_RETRY)
     source.add_to_hass(hass)
-    config_data["entities"] = []
-    config_data["config_entries"] = [source.entry_id]
+    config_data["monitoring_policies"] = availability_policies(
+        integrations=[source.entry_id]
+    )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     onset = deepcopy(runtime.retry_since)

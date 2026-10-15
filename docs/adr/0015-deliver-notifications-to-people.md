@@ -1,6 +1,7 @@
 # ADR 0015: Deliver notifications to people with a built-in sender
 
-**Status:** Accepted; implementation in progress; reporting configuration model partially superseded by [ADR 0026](0026-fixed-reporting-preferences.md); method configuration, presence and voice scope by [ADR 0056](0056-ha-delivery-methods-and-presence.md)
+**Status:** Accepted; reporting configuration model partially superseded by [ADR 0026](0026-fixed-reporting-preferences.md); method configuration, presence and voice scope by [ADR 0056](0056-ha-delivery-methods-and-presence.md); device and entity restart-summary presentation by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md)
+**Implementation status:** See the [roadmap](../roadmap.md#current-work).
 
 **Date:** 2026-09-27
 

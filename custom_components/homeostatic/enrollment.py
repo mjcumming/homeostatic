@@ -3,7 +3,7 @@
 from dataclasses import replace
 from typing import Any
 
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, EntityCategory
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -11,9 +11,9 @@ from homeassistant.helpers import entity_registry as er
 
 from .battery import candidates as battery_candidates
 from .catalog import Source
-from .config import Settings, resolve_entity, rule_data
+from .config import Settings, resolve_entity
 from .const import DOMAIN
-from .rules import Attributes, CatalogRule, attributes, decide, parse_rules
+from .rules import Attributes, CatalogRule, attributes, decide
 from .serialization import json_object
 from .ups import candidates as ups_candidates
 from .vacuum import candidates as vacuum_candidates
@@ -44,7 +44,6 @@ def restore_enrollment(value: Any) -> dict[str, Attributes]:
 def device_members(hass: HomeAssistant) -> dict[str, tuple[str, ...]]:
     """Select candidate evidence without assuming it must always be available."""
     ordinary: dict[str, list[str]] = {}
-    diagnostic: dict[str, list[str]] = {}
     devices = dr.async_get(hass)
     for entry in er.async_get(hass).entities.values():
         if (
@@ -57,11 +56,8 @@ def device_members(hass: HomeAssistant) -> dict[str, tuple[str, ...]]:
             continue
         if entry.entity_category is None:
             ordinary.setdefault(entry.device_id, []).append(entry.entity_id)
-        elif entry.entity_category is EntityCategory.DIAGNOSTIC:
-            diagnostic.setdefault(entry.device_id, []).append(entry.entity_id)
     return {
-        device_id: tuple(sorted(ordinary.get(device_id) or diagnostic[device_id]))
-        for device_id in ordinary.keys() | diagnostic.keys()
+        device_id: tuple(sorted(members)) for device_id, members in ordinary.items()
     }
 
 
@@ -74,8 +70,7 @@ def inventory(
         dr.async_get(hass),
         ar.async_get(hass),
     )
-    rules = parse_rules(rule_data(hass, settings))
-    references = set(settings.entities) | {
+    references = {
         reference
         for function in settings.functions
         for reference in function.entity_references
@@ -83,7 +78,11 @@ def inventory(
     references.update(
         node_id[7:] for node_id in known if node_id.startswith("entity:entity_id:")
     )
-    references.update(value for rule in rules for value in rule.match.get("entity", ()))
+    references.update(
+        value
+        for policy in settings.monitoring_policies
+        for value in policy.match.get("entity", ())
+    )
     references.update(
         f"registry:{entry.id}"
         for entry in registry.entities.values()
@@ -95,7 +94,7 @@ def inventory(
         if registry.async_get(state.entity_id) is None
     )
     sources: dict[str, Source] = {}
-    entry_ids = set(settings.config_entries)
+    entry_ids: set[str] = set()
     entry_ids.update(
         node_id[6:]
         for function in settings.functions
@@ -103,7 +102,9 @@ def inventory(
         if node_id.startswith("entry:")
     )
     entry_ids.update(
-        value for rule in rules for value in rule.match.get("integration", ())
+        value
+        for policy in settings.monitoring_policies
+        for value in policy.match.get("integration", ())
     )
     entry_ids.update(
         entry.entry_id
@@ -113,8 +114,6 @@ def inventory(
         entity_id = resolve_entity(hass, reference)
         registered = registry.async_get(entity_id) if entity_id else None
         if registered is not None and registered.platform == DOMAIN:
-            if reference in settings.entities:
-                raise ValueError("Homeostatic cannot monitor its own entities")
             continue
         node_id = f"entity:{reference}"
         state = hass.states.get(entity_id) if entity_id else None
@@ -153,6 +152,9 @@ def inventory(
             "entity": reference,
             "domain": entity_id.split(".", 1)[0] if entity_id else None,
             "device_class": device_class,
+            "entity_category": registered.entity_category.value
+            if registered and registered.entity_category is not None
+            else None,
             "integration": owner_id,
             "device": registered.device_id if registered else None,
             "area": area_id,
@@ -207,11 +209,9 @@ def inventory(
     )
     device_ids.update(
         device_id
-        for rule in rules
-        if rule.enabled
-        and rule.action == "attach"
-        and "device" in rule.match.get("kind", ())
-        for device_id in rule.match.get("device", ())
+        for policy in settings.monitoring_policies
+        if policy.enabled and "device" in policy.match.get("kind", ())
+        for device_id in policy.match.get("device", ())
     )
     for device_id in sorted(device_ids):
         device = devices.async_get(device_id)
@@ -259,22 +259,6 @@ def inventory(
             node_id=node_id,
             kind="device",
             availability_entities=members.get(device_id, ()),
-            connectivity_entities=tuple(
-                entity_id
-                for entity_id in members.get(device_id, ())
-                if (registered := registry.async_get(entity_id)) is not None
-                and registered.domain == "binary_sensor"
-                and (
-                    registered.device_class
-                    or registered.original_device_class
-                    or (
-                        state.attributes.get("device_class")
-                        if (state := hass.states.get(entity_id)) is not None
-                        else None
-                    )
-                )
-                == "connectivity"
-            ),
             name=(device.name_by_user or device.name or device_id)
             if device
             else device_id,
@@ -286,8 +270,6 @@ def inventory(
         if entry is not None and entry.domain == "switch_as_x":
             continue
         if entry is not None and entry.domain == DOMAIN:
-            if entry_id in settings.config_entries:
-                raise ValueError("Homeostatic cannot monitor itself")
             continue
         node_id = f"entry:{entry_id}"
         metadata = {"kind": ("integration",), "integration": (entry_id,)}
@@ -301,6 +283,7 @@ def inventory(
             kind="integration",
             name=entry.title if entry else entry_id,
             entry_id=entry_id,
+            disabled=entry is not None and entry.disabled_by is not None,
             attributes=metadata,
         )
     return sources
@@ -312,52 +295,13 @@ def evaluate(
     """Attach provenance and effective checks without mutating inventory."""
     result = {}
     for node_id, source in sources.items():
-        decision = decide(rules, source.attributes, source.check_id)
+        decision = decide(rules, source.attributes, source.check_id, source_id=node_id)
         result[node_id] = replace(
             source,
             watched=decision.watched
             and not source.disabled
             and not (source.kind == "device" and not source.availability_entities),
             attached_by=decision.attached_by,
-            excluded_by=decision.excluded_by,
-        )
-    ignored = {
-        source.entity_id: source
-        for source in result.values()
-        if source.kind == "entity" and source.excluded_by and source.entity_id
-    }
-    for node_id, source in tuple(result.items()):
-        if source.kind != "device":
-            continue
-        excluded = [
-            ignored[entity_id]
-            for entity_id in source.availability_entities
-            if entity_id in ignored
-        ]
-        selected = tuple(
-            entity_id
-            for entity_id in source.availability_entities
-            if entity_id not in ignored
-        )
-        empty_by_choice = bool(excluded) and not selected
-        result[node_id] = replace(
-            source,
-            availability_entities=selected,
-            connectivity_entities=tuple(
-                entity_id
-                for entity_id in source.connectivity_entities
-                if entity_id in selected
-            ),
-            ignored_availability=tuple(sorted(member.node_id for member in excluded)),
-            watched=source.watched and not empty_by_choice,
-            excluded_by=tuple(
-                sorted(
-                    set(source.excluded_by)
-                    | {rule_id for member in excluded for rule_id in member.excluded_by}
-                )
-            )
-            if empty_by_choice
-            else source.excluded_by,
         )
     for node_id, source in tuple(result.items()):
         if source.kind != "device" or not source.watched:
@@ -374,19 +318,6 @@ def evaluate(
     return result
 
 
-def restore_device_exclusions(value: Any) -> dict[str, tuple[str, ...]]:
-    """Validate adapter-owned scope history without interpreting engine state."""
-    if not isinstance(value, dict) or any(
-        not isinstance(key, str)
-        or not key.startswith(("device:", "monitoring:"))
-        or not isinstance(members, list)
-        or any(not isinstance(member, str) for member in members)
-        for key, members in value.items()
-    ):
-        raise ValueError("Invalid stored device exclusions")
-    return {key: tuple(members) for key, members in value.items()}
-
-
 def report(
     sources: dict[str, Source], rules: tuple[CatalogRule, ...]
 ) -> dict[str, Any]:
@@ -397,7 +328,8 @@ def report(
             {
                 "id": rule.id,
                 "matches": sum(
-                    rule.matches(source.attributes) for source in sources.values()
+                    rule.matches(source.attributes, source_id=source.node_id)
+                    for source in sources.values()
                 ),
             }
             for rule in rules

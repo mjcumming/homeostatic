@@ -2,7 +2,6 @@
 
 import re
 from copy import deepcopy
-from dataclasses import replace
 from datetime import time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -21,15 +20,6 @@ from health_tree.types import (
     Status,
 )
 
-DEFAULT_POLICY: dict[str, Any] = {
-    "timezone": "UTC",
-    "recipients": {"owner": {"channels": ["event"]}},
-    "digests": {},
-    "rules": [
-        {"match": {"importance": ["critical"]}, "loudness": "urgent", "to": ["owner"]},
-        {"match": {}, "loudness": "notify", "to": ["owner"]},
-    ],
-}
 _ID = vol.Match(r"^[a-z][a-z0-9_:-]*$")
 _TEXT = vol.All(str, vol.Length(min=1))
 _CLOCK = vol.All(str, vol.Match(r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"))
@@ -116,9 +106,9 @@ _SCHEMA = vol.Schema(
 )
 
 
-def policy_data(value: Any = None) -> dict[str, Any]:
+def policy_data(value: dict[str, Any]) -> dict[str, Any]:
     """Copy configuration after validating it, retaining its editable YAML shape."""
-    data = deepcopy(DEFAULT_POLICY if value is None else value)
+    data = deepcopy(value)
     build_policy(data, timedelta(0))
     return data
 
@@ -182,31 +172,10 @@ def _rule(row: dict[str, Any]) -> Rule:
         digest=row.get("digest"),
         remind_every=row.get("remind_every"),
         escalate_after=row.get("escalate_after"),
+        route=row.get("route", ""),
+        require_acknowledgment=row.get("require_acknowledgment", False),
     )
-    if row.get("route"):
-        if not hasattr(rule, "route"):
-            raise vol.Invalid(
-                "Reusable notification schedules require the health-tree build with independent attention routes"
-            )
-        rule = replace(rule, route=row["route"])
-    if row.get("require_acknowledgment", False):
-        if not hasattr(rule, "require_acknowledgment"):
-            raise vol.Invalid("Acknowledgment requires HealthTree 0.4.0 or newer")
-        return replace(rule, require_acknowledgment=True)
     return rule
-
-
-def supports_attention_controls() -> bool:
-    """Expose controls only when the installed library supplies their APIs."""
-    from health_tree.engine import Engine
-
-    return all(
-        (
-            hasattr(Policy, "acknowledge"),
-            hasattr(Policy, "unshelve"),
-            hasattr(Engine, "cancel_quiet"),
-        )
-    )
 
 
 def explanations(policy: Policy, episode_ids: list[str]) -> list[dict[str, Any]]:

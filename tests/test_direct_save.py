@@ -4,7 +4,6 @@ from copy import deepcopy
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
@@ -17,16 +16,13 @@ from custom_components.homeostatic.policy_defaults import (
 from tests.test_lifecycle import start_monitor
 
 
-@pytest.mark.parametrize("version", [0, 1])
 async def test_restore_defaults_save_without_simulating_policy(
     hass: HomeAssistant,
     config_data: dict[str, Any],
     hass_ws_client: WebSocketGenerator,
-    version: int,
 ) -> None:
     """Restored defaults save directly even when optional simulation is unavailable."""
     data = initial_settings("UTC")
-    data["monitoring_policy_version"] = version
     data["monitoring_policies"] = []
     data["timings"] = config_data["timings"]
     entry = MockConfigEntry(domain=DOMAIN, data=data)
@@ -36,7 +32,6 @@ async def test_restore_defaults_save_without_simulating_policy(
     configuration = (await client.receive_json())["result"]
     draft = configuration["settings"]
     draft["monitoring_policies"] = policy_templates()
-    draft["rules"] = configuration["rules"]
     with patch.object(
         type(runtime),
         "preview_policy",
@@ -146,48 +141,3 @@ async def test_integration_family_selection_includes_future_connections(
     assert after[f"entry:{first.entry_id}"].watched
     assert after[f"entry:{future.entry_id}"].watched
     assert not after[f"entry:{other.entry_id}"].watched
-
-
-@pytest.mark.parametrize(
-    ("endpoint", "proposal", "option", "expected"),
-    [
-        pytest.param("save_configuration", {"rules": []}, "rules", [], id="monitoring"),
-        pytest.param(
-            "save_alerts",
-            {"notifications": False, "consumer": None},
-            "notifications",
-            False,
-            id="alerts",
-        ),
-    ],
-)
-async def test_legacy_editors_save_without_preview(
-    hass: HomeAssistant,
-    config_entry: MockConfigEntry,
-    hass_ws_client: WebSocketGenerator,
-    endpoint: str,
-    proposal: dict[str, Any],
-    option: str,
-    expected: Any,
-) -> None:
-    """Retained editors also apply a validated proposal with one Save request."""
-    runtime = await start_monitor(hass, config_entry)
-    client = await hass_ws_client(hass)
-    await client.send_json({"id": 1, "type": "homeostatic/configuration"})
-    current = (await client.receive_json())["result"]
-    with patch.object(
-        type(runtime), "preview_policy", side_effect=AssertionError("no preview")
-    ):
-        await client.send_json(
-            {
-                "id": 2,
-                "type": f"homeostatic/{endpoint}",
-                "revision": current["revision"],
-                **proposal,
-            }
-        )
-        assert (await client.receive_json())["result"] == {"saved": True}
-    assert config_entry.options[option] == expected
-    assert config_entry.options["timings"] == config_entry.data["timings"]
-    assert await hass.config_entries.async_unload(config_entry.entry_id)
-    await client.close()

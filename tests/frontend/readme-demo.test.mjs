@@ -29,6 +29,6 @@ test("prior recoveries end before the new shared issue", () => {
 test("the notification request uses a configured fictional destination", () => {
   const request = snapshot.policy.episodes[0];
   assert.equal(request.episode_id, snapshot.inventory.episodes[0].episode_id);
-  assert.deepEqual(request.sent_to, configuration.settings.reporting.people.alex);
-  assert.equal(configuration.settings.reporting.assignments["entry:zigbee"].default, "acknowledge");
+  assert.deepEqual(request.sent_to, configuration.settings.notification_definitions.methods.alex.destinations);
+  assert.equal(configuration.settings.monitoring_policies[0].notifications[0].timing.mode, "acknowledge");
 });

@@ -2,6 +2,8 @@
 
 **Status:** Accepted product direction; details settled by [ADR 0027](0027-reporting-defaults-and-delivery.md); fixed profile model superseded by [ADR 0055](0055-separate-notification-schedules-and-methods.md)
 **Date:** 2026-09-28
+
+**Later decision:** The prohibition on regular-hours delivery is superseded by [ADR 0066](0066-reusable-notifications-own-timing-and-delivery.md). The historical decision below remains for context.
 **Decider:** Michael Cumming
 
 **Partially supersedes:** ADR 0015's broad per-person levels as the sufficient owner configuration model, and ADR 0021's deferral of guided digest configuration, for the five built-in choices only. Existing behavior remains until the replacement is specified and implemented.

@@ -29,7 +29,7 @@ test("new method remains solely in editor and cannot be tested before save",()=>
   const id=card.definitionSelection.id,html=namedNotifications(card);
   assert.match(html,/New delivery method/);assert.match(html,/Save this delivery method before testing/);
   assert.doesNotMatch(html,/>Send test<|definition-list"|data-definition-action="duplicate"/);
-  click(card,"cancel-method",{definitionId:id});assert.equal(card.settingsDraft.notification_definitions.methods[id],undefined);
+  click(card,"discard-scoped",{definitionId:id});assert.equal(card.settingsDraft.notification_definitions.methods[id],undefined);
   assert.equal(card.definitionSelection,null);
 });
 
@@ -112,26 +112,22 @@ test("returning to the methods list retains edits without opening a discard dial
   assert.equal(card.definitionSelection,null);
   assert.deepEqual(card.settingsDraft,before);
   const html=namedNotifications(card);
-  assert.match(html,/Changed name/);assert.match(html,/Unsaved changes/);
+  assert.doesNotMatch(html,/Changed name/);assert.match(html,/Household phones/);assert.match(html,/Unsaved changes/);
   assert.doesNotMatch(html,/method-discard-dialog/);
   assert.equal(calls.length,0);
 });
 
-test("cancel confirms method edits and restores only that method",()=>{
+test("discard restores only this method in place without confirmation",()=>{
   const {card,calls}=fixture();
   card.settingsDraft.notifications=true;
   card.settingsDraft.notification_definitions.methods.home.name="Changed name";
-  click(card,"cancel-method");
-  assert.equal(card.methodCancel,"home");
-  assert.equal(card.settingsDraft.notification_definitions.methods.home.name,"Changed name");
-  assert.match(namedNotifications(card),/method-discard-dialog/);
-  click(card,"keep-method");
-  assert.equal(card.methodCancel,null);
-  assert.equal(card.settingsDraft.notification_definitions.methods.home.name,"Changed name");
-  click(card,"cancel-method");click(card,"discard-method");
+  assert.match(namedNotifications(card),/Discard changes/);
+  assert.doesNotMatch(namedNotifications(card),/method-discard-dialog|>Cancel</);
+  click(card,"discard-scoped");
   assert.deepEqual(card.settingsDraft.notification_definitions.methods.home,card.configuration.settings.notification_definitions.methods.home);
   assert.equal(card.settingsDraft.notifications,true);
-  assert.equal(card.definitionSelection,null);
+  assert.deepEqual(card.definitionSelection,{kind:"methods",id:"home"});
+  assert.doesNotMatch(namedNotifications(card),/<footer|>Discard changes<|>Save delivery method</);
   assert.equal(calls.length,0);
 });
 
@@ -143,4 +139,14 @@ test("closing the destination dialog retains all configured choices",()=>{
   assert.equal(card.deliveryPicker,null);
   assert.deepEqual(card.settingsDraft,before);
   assert.equal(calls.length,0);
+});
+
+
+test("all failed test services report failures without claiming requests succeeded",async()=>{
+  const {card}=fixture();
+  card._hass.callWS=async request=>request.type==="homeostatic/preview_delivery_method"?{targets:[{channel:"phone:one",name:"Owner phone",available:true}],preview_token:"target",skipped:false}:{requested:[],failed:[{channel:"phone:one",error:"Service unavailable"}],skipped:false};
+  await testDeliveryMethod(card,"home");
+  assert.match(card.deliveryMethodNotice,/No test requests succeeded/);
+  assert.match(card.deliveryMethodNotice,/Owner phone: Service unavailable/);
+  assert.doesNotMatch(card.deliveryMethodNotice,/Test requested for/);
 });

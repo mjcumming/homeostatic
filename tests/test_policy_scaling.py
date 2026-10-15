@@ -7,7 +7,6 @@ from time import perf_counter
 from typing import Any
 from unittest.mock import patch
 
-import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -18,15 +17,11 @@ from tests.test_runtime_scaling import measure, save_profile
 from tests.test_unified_monitoring import policy
 
 
-@pytest.mark.parametrize(
-    "model", [pytest.param(0, id="existing"), pytest.param(1, id="unified")]
-)
 async def test_household_policy_runtime(
     hass: HomeAssistant,
     config_data: dict[str, Any],
     record_property: Callable[[str, object], None],
     tmp_path: Path,
-    model: int,
 ) -> None:
     """Four policies and one notification entry stay small across 3,966 sources."""
     entities = tuple(f"sensor.scale_{index}" for index in range(3966))
@@ -37,10 +32,8 @@ async def test_household_policy_runtime(
         "phone": {"name": "Phone", "mode": "fixed", "destinations": ["phone:test"]}
     }
     config_data.update(
-        entities=[],
-        rules=[],
         notifications=False,
-        monitoring_policy_version=model,
+        monitoring_policy_version=1,
         notification_definitions=definitions,
         monitoring_policies=[
             policy("integrations", "availability", {"kind": ["integration"]}),
@@ -64,7 +57,7 @@ async def test_household_policy_runtime(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     profile: dict[str, Any] = {
-        "model": model,
+        "model": 1,
         "setup_seconds": perf_counter() - started,
         "sources": len(runtime.sources),
         "rules": len(runtime._policy_config().rules),
@@ -99,9 +92,7 @@ async def test_household_policy_runtime(
 
     profile["snapshot_bytes"] = len(json.dumps(runtime.snapshot()).encode())
     record_property("runtime_profile", json.dumps(profile))
-    await hass.async_add_executor_job(
-        save_profile, tmp_path, f"policy-{model}", profile
-    )
+    await hass.async_add_executor_job(save_profile, tmp_path, "policy-current", profile)
     assert profile["rules"] <= 8, profile
     assert profile["unchanged_compilations"] == 0, profile
     assert profile["outage_compilations"] == 0, profile

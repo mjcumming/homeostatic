@@ -1,5 +1,5 @@
 /** Read-model helpers and a shared, lifecycle-bound HA subscription. */
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=73";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=74";
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -24,17 +24,30 @@ export function affectedFunctions(data, episode) {
     impacted.has(item.node_id) && item.readiness.answer !== "ready");
 }
 
+/** Evidence gaps remain inspectable without becoming an owner-facing fault. */
+export function availabilityEvidenceGap(data, episode) {
+  const nodes = sourceMap(data), findings = (episode.reasons || []).filter(item=>item.status !== "pass");
+  const gaps = new Set(["unknown","stale","source_missing","restored_state","state_unknown","incomplete_evidence"]);
+  return findings.length > 0 && findings.every(finding=>{
+    const source=nodes.get(finding.node_id), check=finding.check_id || source?.check_id;
+    const current=data.inventory.entity_status?.[finding.node_id]?.current || data.inventory.integration_evidence?.[finding.node_id]?.current;
+    return source && ["entity","device","integration"].includes(source.kind) && check === "availability" &&
+      finding.status === "unknown" && gaps.has(finding.reason) && (!current || gaps.has(current.reason));
+  });
+}
+
 export function visibleEpisodes(data) {
   const nodes = sourceMap(data);
   return data.inventory.episodes.filter(episode => {
     const source = nodes.get(episode.anchor);
     if (!source) return true;
+    if (availabilityEvidenceGap(data, episode)) return false;
     const findings = episode.reasons ?? [];
     if (findings.some(item => item.node_id && item.node_id !== episode.anchor && item.status !== "pass")) return true;
     const problem = integrationProblem(source, findings, () => null, data.inventory.integration_evidence?.[episode.anchor]) ??
       deviceProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       entityProblem(source, data.inventory.entity_status?.[episode.anchor], nodes.get(`entry:${source.owner_id}`), data.areas ?? []);
-    return problem?.tone !== "recovering";
+    return problem?.tone !== "recovering" && !(source.kind === "entity" && problem?.currentReason === "value_unknown");
   });
 }
 
@@ -43,11 +56,6 @@ export function sortedEpisodes(data) {
   return [...visibleEpisodes(data)].sort((a, b) =>
     (importance[b.importance] - importance[a.importance]) ||
     a.opened_at.localeCompare(b.opened_at) || a.episode_id.localeCompare(b.episode_id));
-}
-
-export function recentEpisodes(data, limit = 3) {
-  return [...visibleEpisodes(data)].sort((a, b) =>
-    b.opened_at.localeCompare(a.opened_at) || a.episode_id.localeCompare(b.episode_id)).slice(0, limit);
 }
 
 export function inventoryRows(data) {
@@ -60,362 +68,6 @@ export function inventoryRows(data) {
     a.name.localeCompare(b.name) || a.node_id.localeCompare(b.node_id));
   if ([2,3].includes(data.schema_version)) rowCache.set(key, {nodes:data.inventory.nodes, rows:sorted});
   return sorted;
-}
-
-export function monitoringLabel(source) {
-  if (source.excluded_by.length) return "Excluded";
-  if (source.kind === "function" && source.requirements.length) return "Composite function";
-  return source.watched ? "Watched" : "Unwatched";
-}
-
-function sameValues(left = [], right = []) {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function enrollmentState(change) {
-  const before = change.before ?? {};
-  const after = change.after ?? {};
-  if (change.reason === "source_removed") return "removed";
-  if (change.reason === "source_enrolled" || (!before.watched && after.watched)) return "enrolled";
-  if (before.watched && !after.watched) {
-    return after.excluded_by?.length ? "excluded" : "unenrolled";
-  }
-  if (!sameValues(before.excluded_by, after.excluded_by) ||
-      !sameValues(before.attached_by, after.attached_by)) return "rules";
-  if (change.reason === "match_attributes_changed") return "attributes";
-  return "changed";
-}
-
-function evidenceState(data, nodeId, source) {
-  if (source?.disabled) return "disabled";
-  if ((data.coverage?.never_observed ?? []).some((item) => item.node_id === nodeId)) return "never_observed";
-  if ((data.coverage?.stale ?? []).some((item) => item.node_id === nodeId)) return "stale";
-  return null;
-}
-
-function activityCopy(state, name, evidence, change) {
-  if (state === "enrolled") {
-    if (evidence === "disabled") return {
-      title:`${name} is now monitored`,
-      summary:"It is disabled in Home Assistant, so Homeostatic cannot assess its health.",
-    };
-    if (evidence === "never_observed") return {
-      title:`${name} is now monitored`,
-      summary:"Homeostatic is waiting for its first health reading.",
-    };
-    if (evidence === "stale") return {
-      title:`${name} is now monitored`,
-      summary:"Its latest health evidence is stale and needs review.",
-    };
-    return {
-      title:`${name} is now monitored`,
-      summary:"Homeostatic added it automatically using your monitoring rules.",
-    };
-  }
-  if (state === "excluded") return {
-    title:`${name} was excluded from monitoring`,
-    summary:"Homeostatic will no longer assess this source under the current rules.",
-  };
-  if (state === "unenrolled") return {
-    title:`${name} is no longer monitored`,
-    summary:"It no longer matches an active monitoring rule.",
-  };
-  if (state === "removed") return {
-    title:`${name} was removed from Home Assistant`,
-    summary:"Homeostatic ended monitoring for this source. Its final episode remains in resolved history as removed.",
-  };
-  if (state === "rules") {
-    const after = change.after ?? {};
-    const summary = after.excluded_by?.length
-      ? "It is excluded under the current monitoring rules."
-      : after.watched
-        ? "It remains monitored under the updated rules."
-        : "It is not currently selected for monitoring.";
-    return {title:`${name}'s monitoring rules changed`,summary};
-  }
-  if (state === "attributes") return {
-    title:`${name}'s Home Assistant details changed`,
-    summary:"Homeostatic reevaluated its monitoring rules after its matching details changed.",
-  };
-  return {
-    title:`${name}'s monitoring changed`,
-    summary:"Review the source to see its current monitoring state.",
-  };
-}
-
-function activitySource(data, snapshot, rows) {
-  const source = rows.get(snapshot.node_id);
-  const ownerId = source?.owner_id ?? snapshot.owner_id;
-  const deviceId = source?.attributes?.device?.[0] ?? snapshot.device_id ?? snapshot.attributes?.device?.[0];
-  const owner = data.inventory.catalog.candidates.find((item) =>
-    item.kind === "integration" && item.entry_id === ownerId);
-  const device = (data.devices ?? []).find((item) => item.id === deviceId);
-  const registered = data.inventory.nodes.some((item) => item.node_id === snapshot.node_id);
-  return {
-    nodeId:snapshot.node_id,
-    name:source?.name ?? snapshot.name ?? snapshot.node_id,
-    group:snapshot.kind === "integration" ? source?.name ?? snapshot.name
-      : owner?.name ?? (ownerId ? "Other integration sources" : "Other sources"),
-    device:device?.name ?? (deviceId ? "Device no longer in HA" : null),
-    rules:snapshot.attached_by ?? [],
-    exclusions:snapshot.excluded_by ?? [],
-    evidence:!registered || source?.watched === false ? "not_monitored"
-      : evidenceState(data,snapshot.node_id,source ?? snapshot),
-    registered,
-  };
-}
-
-function normalizeActivity(data, change, order, rows) {
-  const snapshot = change.after ?? change.before ?? {};
-  const detail = activitySource(data,{...snapshot,node_id:change.node_id},rows);
-  const name = detail.name;
-  const state = enrollmentState(change);
-  const evidence = detail.evidence;
-  return {
-    kind:"source",
-    nodeId:change.node_id,
-    registered:detail.registered,
-    name,
-    state,
-    evidence,
-    sources:[detail],
-    batch:change.batch,
-    at:change.at,
-    order,
-    ...activityCopy(state,name,evidence,change),
-    technical:change,
-  };
-}
-
-/** Translate bounded runtime enrollment events into concise owner-facing activity. */
-export function recentActivity(data, limit = 4) {
-  const rows = new Map(inventoryRows(data).map((source) => [source.node_id,source]));
-  const changes = (data.inventory.enrollment_changes ?? []).map((change, order) => {
-    if (change.reason !== "initial_scope") return normalizeActivity(data,change,order,rows);
-    const sources = change.sources.map((source) => activitySource(data,source,rows));
-    const waiting = sources.filter((source) =>
-      source.evidence && source.evidence !== "not_monitored").length;
-    return {
-      kind:"scope",at:change.at,order,total:change.total,sources,
-      title:`When Homeostatic loaded, ${change.total} ${change.total === 1 ? "source" : "sources"} matched monitoring rules`,
-      summary:waiting
-        ? `${waiting} ${waiting === 1 ? "source needs" : "sources need"} current evidence review${sources.length < change.total ? " among those shown" : ""}.`
-        : "This was the monitoring scope found at load, not a new rule change.",
-      technical:change,
-    };
-  }).sort((left,right) => {
-      const time = Date.parse(right.at) - Date.parse(left.at);
-      return time || right.order - left.order;
-    });
-  const entries = [];
-  for (let index = 0; index < changes.length && entries.length < limit;) {
-    const current = changes[index];
-    if (current.state !== "enrolled" || !current.batch) {
-      entries.push(current);
-      index++;
-      continue;
-    }
-    const cluster = [current];
-    let next = index + 1;
-    while (next < changes.length && changes[next].state === "enrolled" &&
-        changes[next].batch === current.batch) {
-      cluster.push(changes[next++]);
-    }
-    if (cluster.length < 3) entries.push(...cluster.slice(0,limit - entries.length));
-    else {
-      const waiting = cluster.filter((item) =>
-        item.evidence && item.evidence !== "not_monitored").length;
-      entries.push({
-        kind:"group",
-        at:current.at,
-        title:`${cluster.length} newly discovered sources matched monitoring rules`,
-        summary:waiting
-          ? `${waiting} ${waiting === 1 ? "source needs" : "sources need"} current evidence review.`
-          : "Homeostatic selected them under the current rules.",
-        sources:cluster.flatMap((item) => item.sources),
-        technical:cluster.map((item) => item.technical),
-      });
-    }
-    index = next;
-  }
-  return entries.slice(0,limit);
-}
-
-function coverageGapMap(data) {
-  const sources = sourceMap(data);
-  const gaps = new Map();
-  const add = (nodeId, kind, reason) => {
-    const current = gaps.get(nodeId) ?? {kinds:[],reasons:[]};
-    current.kinds.push(kind);
-    current.reasons.push(reason);
-    gaps.set(nodeId,current);
-  };
-  for (const source of sources.values()) {
-    if (source.disabled) {
-      add(source.node_id,"disabled","Disabled in Home Assistant; health cannot be assessed");
-    }
-  }
-  for (const nodeId of data.coverage?.no_checks ?? []) {
-    const source = sources.get(nodeId);
-    if (source?.kind !== "function" || !source.requirements.length) {
-      add(nodeId,"no_checks","No check provides evidence");
-    }
-  }
-  for (const item of data.coverage?.never_observed ?? []) {
-    if (!sources.get(item.node_id)?.disabled) {
-      add(item.node_id,"never_observed",`Awaiting first observation: ${item.check_id}`);
-    }
-  }
-  for (const item of data.coverage?.stale ?? []) {
-    if (!sources.get(item.node_id)?.disabled) {
-      add(item.node_id,"stale",`Evidence is stale: ${item.check_id}`);
-    }
-  }
-  return gaps;
-}
-
-function coverageGuidance(source, kinds) {
-  if (kinds.includes("disabled")) {
-    return "Review it in Home Assistant; enable it if it should be monitored, or explicitly exclude it if it should not.";
-  }
-  if (kinds.includes("no_checks")) {
-    return "Review this capability's monitoring rules and available checks.";
-  }
-  if (kinds.includes("stale")) {
-    return "Check the source and its integration in Home Assistant; current health cannot be assessed until evidence resumes.";
-  }
-  if (kinds.includes("never_observed")) {
-    return "Check the source in Home Assistant and wait for its first usable health reading.";
-  }
-  return null;
-}
-
-function coverageAffectedFunctions(data, nodeId) {
-  return data.functions.filter((item) => item.readiness.answer !== "ready" &&
-    (item.readiness.nodes ?? []).some((node) => node.node_id === nodeId)).map((item) => ({
-      node_id:item.node_id,
-      name:item.name ?? item.node_id,
-      readiness:item.readiness.answer,
-    }));
-}
-
-function coverageGroupKey(source) {
-  if (source.kind === "integration") return `integration:${source.entry_id ?? source.node_id}`;
-  if (source.owner_id) return `integration:${source.owner_id}`;
-  if (source.kind === "device" && source.attributes.integration?.[0]) return `integration:${source.attributes.integration[0]}`;
-  if (["function","situation"].includes(source.kind)) return "definitions";
-  if (source.kind === "external") return "external";
-  return "other";
-}
-
-function coverageDevice(source, groupId, devices) {
-  if (source.kind === "integration") return {id:`${groupId}:health`,name:"Integration health"};
-  const deviceId = source.attributes.device?.[0];
-  if (deviceId) return {id:`device:${deviceId}`,name:devices.get(deviceId) ?? "Home Assistant device"};
-  if (["function","situation"].includes(source.kind)) {
-    return {id:`${groupId}:${source.kind}`,name:source.kind === "function" ? "Functions" : "Situations"};
-  }
-  if (source.kind === "external") return {id:`${groupId}:capabilities`,name:"External capabilities"};
-  return {id:`${groupId}:unassigned`,name:"Sources without a Home Assistant device"};
-}
-
-function byCoverage(left, right) {
-  return right.gaps - left.gaps || left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
-}
-
-/** Count registry devices without treating missing entity evidence as a failure. */
-export function deviceRegistryCoverage(data, query = "", limit = 50) {
-  const devices = data.devices ?? [];
-  const enabled = devices.filter((device) => !device.disabled);
-  const summaries = new Set((data.inventory?.catalog?.candidates ?? [])
-    .filter((source) => source.kind === "device")
-    .map((source) => source.attributes.device?.[0]).filter(Boolean));
-  const watched = new Set((data.inventory?.catalog?.candidates ?? [])
-    .filter((source) => source.kind === "device" && source.watched)
-    .map((source) => source.attributes.device?.[0]).filter(Boolean));
-  const withoutEvidence = enabled.filter((device) => !summaries.has(device.id))
-    .sort((left,right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
-  const normalized = query.trim().toLocaleLowerCase();
-  const matches = normalized ? withoutEvidence.filter((device) =>
-    `${device.name} ${device.id}`.toLocaleLowerCase().includes(normalized)) : withoutEvidence;
-  return {
-    total:enabled.length,
-    disabled:devices.length - enabled.length,
-    available:enabled.filter((device) => summaries.has(device.id)).length,
-    watched:enabled.filter((device) => watched.has(device.id)).length,
-    withoutEvidence:withoutEvidence.length,
-    matches:matches.slice(0,limit),
-    resultCount:matches.length,
-  };
-}
-
-/** Build a bounded, gap-first integration and device hierarchy. */
-export function coverageInventory(data, query = "", limit = 50, sourceIds = null) {
-  const rows = inventoryRows(data);
-  const registered = sourceMap(data);
-  const gaps = coverageGapMap(data);
-  const devices = new Map((data.devices ?? []).map((device) => [device.id,device.name]));
-  const integrations = new Map(rows.filter((source) => source.kind === "integration")
-    .map((source) => [source.entry_id,source.name]));
-  const normalized = query.trim().toLocaleLowerCase();
-  const scoped = sourceIds ? rows.filter((source) => sourceIds.has(source.node_id)) : rows;
-  const matches = normalized ? scoped.filter((source) => {
-    const deviceId = source.attributes.device?.[0];
-    const text = [source.name,source.node_id,source.kind,integrations.get(source.owner_id),
-      devices.get(deviceId),...source.attached_by,...source.excluded_by]
-      .filter(Boolean).join(" ").toLocaleLowerCase();
-    return text.includes(normalized);
-  }) : scoped.filter((source) => sourceIds || registered.has(source.node_id));
-  const selected = normalized ? matches.slice(0,limit) : matches;
-  const groups = new Map();
-  for (const source of selected) {
-    const groupId = coverageGroupKey(source);
-    const name = groupId.startsWith("integration:")
-      ? integrations.get(source.entry_id ?? source.owner_id ?? source.attributes.integration?.[0]) ?? source.name
-      : groupId === "definitions" ? "Homeostatic definitions"
-      : groupId === "external" ? "External capabilities"
-      : "Other monitored sources";
-    if (!groups.has(groupId)) groups.set(groupId,{id:groupId,name,devices:new Map()});
-    const group = groups.get(groupId);
-    const device = coverageDevice(source,groupId,devices);
-    if (!group.devices.has(device.id)) group.devices.set(device.id,{...device,sources:[]});
-    const gap = gaps.get(source.node_id) ?? {kinds:[],reasons:[]};
-    group.devices.get(device.id).sources.push({
-      source,
-      kinds:gap.kinds,
-      reasons:gap.reasons,
-      guidance:coverageGuidance(source,gap.kinds),
-      affectedFunctions:coverageAffectedFunctions(data,source.node_id),
-      registered:registered.has(source.node_id),
-    });
-  }
-  const finished = [...groups.values()].map((group) => {
-    const groupedDevices = [...group.devices.values()].map((device) => ({
-      ...device,
-      count:device.sources.length,
-      gaps:device.sources.filter((item) => item.reasons.length).length,
-    })).sort(byCoverage);
-    return {
-      id:group.id,
-      name:group.name,
-      devices:groupedDevices,
-      count:groupedDevices.reduce((total,device) => total + device.count,0),
-      gaps:groupedDevices.reduce((total,device) => total + device.gaps,0),
-    };
-  }).sort(byCoverage);
-  const candidates = data.inventory.catalog.candidates;
-  return {
-    groups:finished,
-    query:query.trim(),
-    resultCount:matches.length,
-    shownCount:selected.length,
-    summary:{
-      watched:data.inventory.catalog.watched,
-      gaps:data.evidence_gaps,
-      excluded:candidates.filter((source) => source.excluded_by.length).length,
-      unselected:candidates.filter((source) => !source.watched && !source.excluded_by.length).length,
-    },
-  };
 }
 
 const byName = (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
@@ -520,36 +172,6 @@ export function locationTree(data) {
 
 export function locationList(tree) {
   return tree.flatMap((location) => [location, ...locationList(location.children)]);
-}
-
-/** Identify location findings from declared functions and current monitoring evidence. */
-export function locationAssessment(data, location) {
-  const sourceIds = new Set(location.sources.map((source) => source.node_id));
-  const gaps = coverageGapMap(data);
-  return {
-    episodes:sortedEpisodes(data).filter((episode) => sourceIds.has(episode.anchor) ||
-      location.functions.some((item) => item.readiness.nodes?.some((node) => node.node_id === episode.anchor))),
-    evidenceGaps:location.sources.filter((source) => source.watched && gaps.get(source.node_id)?.reasons.length),
-    requiredUnselected:location.sources.filter((source) => !source.watched &&
-      location.functions.some((item) => item.requirements?.includes(source.node_id))),
-    watched:location.sources.filter((source) => source.watched).length,
-    excluded:location.sources.filter((source) => source.excluded_by.length).length,
-    unselected:location.sources.filter((source) => !source.watched && !source.excluded_by.length).length,
-  };
-}
-
-export function browseHighlights(data) {
-  return locationList(locationTree(data)).filter((location) =>
-    !location.children.length && (location.devices.length || location.functions.length)).slice(0, 6);
-}
-
-export function sourcePage(rows, query = "", page = 0) {
-  const search = query.trim().toLocaleLowerCase();
-  const matches = search ? rows.filter(source =>
-    `${source.name} ${source.node_id} ${source.kind} ${monitoringLabel(source)}`.toLocaleLowerCase().includes(search)) : rows;
-  const pages = Math.max(1, Math.ceil(matches.length / 50));
-  const index = Math.max(0, Math.min(page, pages - 1));
-  return {rows:matches.slice(index * 50, (index + 1) * 50), total:matches.length, page:index, pages};
 }
 
 export function mergeDashboard(previous, data) {
@@ -682,7 +304,7 @@ export class DashboardStore {
       Promise.resolve(this.unsubscribe()).catch(() => {});
       this.unsubscribe = null;
     }
-    this.state = {status: "loading", data: null, error: null};
+    this.state = {status: "loading", data: this.state.data?.available ? this.state.data : null, error: null};
   }
 
   retry() {
@@ -738,7 +360,11 @@ export class DashboardStore {
   }
 }
 
-export function dashboardStore(connection) {
-  if (!stores.has(connection)) stores.set(connection, new DashboardStore(connection));
+export function dashboardStore(connection, userId = null) {
+  if (!stores.has(connection) || stores.get(connection).userId !== userId) {
+    const store = new DashboardStore(connection);
+    store.userId = userId;
+    stores.set(connection, store);
+  }
   return stores.get(connection);
 }

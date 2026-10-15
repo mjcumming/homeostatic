@@ -24,6 +24,7 @@ from custom_components.homeostatic.const import (
     EVENT_NOTIFICATION,
 )
 from custom_components.homeostatic.facts import Fact
+from tests.policy_helpers import bound_identity
 from tests.test_controls import NODE, action, end
 from tests.test_lifecycle import start_monitor
 from tests.test_startup_quiet import fresh_start, slow_integration
@@ -60,8 +61,8 @@ async def test_episode_facts_without_notifications(
         "change": "opened",
         "episode_id": None,
         "form": "root",
-        "anchor": NODE,
-        "anchor_name": "observed",
+        "anchor": bound_identity(lighting["monitoring_policies"][0], NODE),
+        "anchor_name": "observed · observed",
         "anchor_kind": "entity",
         "entity_ids": ["sensor.observed"],
         "device_id": None,
@@ -78,7 +79,9 @@ async def test_episode_facts_without_notifications(
         "acknowledged": False,
     }
     assert opened.data["episode_id"] in runtime.episodes
-    assert opened.data["reasons"][0]["node_id"] == NODE
+    assert opened.data["reasons"][0]["node_id"] == bound_identity(
+        lighting["monitoring_policies"][0], NODE
+    )
     assert not any(
         item.platform == DOMAIN and item.unique_id.endswith("_lighting_problems")
         for item in er.async_get(hass).entities.values()
@@ -160,7 +163,7 @@ async def test_situation_is_a_fact_without_function_entity(
 ) -> None:
     """A situation publishes its source identity and affects no function."""
     config_data.update(
-        entities=[],
+        monitoring_policies=[],
         notifications=False,
         situations=[
             {

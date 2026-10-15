@@ -7,6 +7,8 @@
 
 **Presentation superseded by:** [ADR 0048](0048-policy-checks.md). The page and the Sources split remain.
 
+**Later decision:** Primary navigation and separate source-editing presentation are superseded by [ADR 0061](0061-issues-first-product-workflows.md). The historical decision remains below; unaffected behavior and persistence safeguards remain in force. Replacement UI implementation is pending.
+
 ## Context
 
 Choosing what Homeostatic watches is a different job from setting waits and grouping. The catalog editor lived as the third item under Settings, then listed rules in catalog language. A household that already watched integrations, devices, and batteries still had no visible way to turn on vacuum errors. The same hiding is what moved Notifications out of Settings.

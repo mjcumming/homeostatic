@@ -5,6 +5,8 @@
 
 **Later decision:** Required review-before-save UI is superseded by [ADR 0059](0059-save-directly-and-test-configured-methods.md). The historical decision below is retained; validation and persistence safeguards still apply.
 
+**Later decision:** The integration-owned editor and inclusion of unrelated pending drafts in its save are superseded by [ADR 0061](0061-issues-first-product-workflows.md). The historical decision remains below; unaffected behavior and persistence safeguards remain in force. Replacement UI implementation is pending.
+
 ## Context
 
 The owner approved a compact integration Settings design with current outcomes,
