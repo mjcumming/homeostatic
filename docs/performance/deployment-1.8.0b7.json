@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "verified_at": "2026-10-15T02:43:25.231Z",
+  "version": "1.8.0b7",
+  "commit": "aaa44fe12ba838f136ce5771346ee966e99009a4",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.8.0b7",
+  "library": {
+    "version": "0.7.0",
+    "commit": "04f2d79f2aa7a80dfd1a5c0ada10fe3a0026373a",
+    "release": "https://github.com/mjcumming/health-tree/releases/tag/v0.7.0"
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/38671569208",
+    "result": "success",
+    "python_passed": 1050,
+    "python_skipped": 11,
+    "frontend_passed": 408,
+    "combined_coverage_percent": 95.88,
+    "statement_and_branch_floors": "passed",
+    "hassfest": "passed",
+    "hacs": "passed",
+    "clean_install_ha_2026_9_3": "passed"
+  },
+  "archive": {
+    "sha256": "78e9bf9f16c8d3483d3d12968991ee29414d83526239e429ead67dbc4f0176af",
+    "verified_files": 173,
+    "installed_component_files": 68,
+    "matches_commit": true,
+    "matches_ci_and_local_build": true,
+    "clean_install_ha_2026_10_0": "passed"
+  },
+  "installation": {
+    "home_assistant": "2026.10.0",
+    "core_state": "RUNNING",
+    "entry_state": "loaded",
+    "monitoring_available": true,
+    "saved_settings_unchanged": true,
+    "policies": 7,
+    "notification_profiles": 6,
+    "notifications_enabled": false,
+    "storage_schema": 3,
+    "identity_bindings": 191,
+    "policy_scope_records": 7,
+    "pending_outbox": 0,
+    "messages": 0,
+    "homeostatic_errors": 0,
+    "readiness": "blocked by observed source conditions",
+    "additional_backup_or_rollback_copies": "omitted at the maintainer's explicit request"
+  },
+  "browser": {
+    "environment": "Chrome 155 on Windows",
+    "source": "Dishwasher Start in relative",
+    "controls": [
+      "Unavailable condition and Home Assistant link remain visible",
+      "Stop monitoring availability is visible and opens a confirmation",
+      "Confirmation names the selected entity and Devices/Entities policies",
+      "Cancel returns to source details without saving",
+      "Policy, equipment, history and technical sections remain collapsed"
+    ],
+    "confirmed_saves": 0,
+    "live_notifications_requested": false,
+    "physical_safari": "untested",
+    "screenshot": "not captured"
+  }
+}
