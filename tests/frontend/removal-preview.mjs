@@ -1,5 +1,5 @@
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
-import {initializeScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=84";
+import {initializeScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=85";
 
 const card=document.querySelector("homeostatic-panel"),copy=value=>structuredClone(value);
 let saved,revision,data,calls,failNext=false;

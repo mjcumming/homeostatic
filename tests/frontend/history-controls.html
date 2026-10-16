@@ -46,12 +46,11 @@ const hass={connection,user:{id:"admin",is_admin:true},async callWS(message){
     data.inventory.operator_controls=data.inventory.operator_controls.filter((item)=>item.control_id!==request.control_id);
     return{response:{cancelled_control_id:request.control_id}};
   }
-  const scope={node_ids:request.include_dependents?[source.node_id,fn.node_id]:[source.node_id],functions:request.include_dependents?[fn.node_id]:[],existing_episode_ids:["open-1"],until:request.until,existing_alerts_continue:true};
-  if(message.service==="preview_maintenance")return{response:scope};
+  if(message.service!=="shelve")throw new Error("Unexpected control service: "+message.service);
   if(hold)await hold.promise;
-  const control={control_id:"saved",action:message.service==="shelve"?"shelve":"maintenance",target:request.episode_id??request.node_id,until:request.until,reason:request.reason,include_dependents:request.include_dependents??false};
+  const control={control_id:"saved",action:"shelve",target:request.episode_id,until:request.until,reason:request.reason,include_dependents:false};
   data.inventory.operator_controls.push(control);
-  return{response:{...scope,control}};
+  return{response:{control}};
 }};
 card.setConfig({view:"issues"});card.hass=hass;
 const root=card.shadowRoot;

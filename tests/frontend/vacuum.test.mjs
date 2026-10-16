@@ -26,6 +26,6 @@ test("a vacuum error names the Home Assistant area",()=>{
   const docked=vacuumProblem(source,{current:{reason:"docked"}},areas,true);
   assert.equal(docked.headline,"Vacuum error clearing");
   const unknown=vacuumProblem(source,{current:{reason:"vacuum_unknown"}},areas,true);
-  assert.equal(unknown.headline,"Vacuum activity unknown");
+  assert.equal(unknown.headline,"Waiting for vacuum status");
   assert.equal(vacuumProblem({kind:"battery"},{},areas),null);
 });

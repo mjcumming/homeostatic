@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=84";
+import {escapeHtml as esc} from "./model.mjs?v=89";
 
 const labels = {available:"Available",partially_available:"Partially available",unavailable:"Unavailable",unknown:"Unknown",disabled:"Disabled"};
 
@@ -30,8 +30,8 @@ export function deviceAvailabilityStamp(value, states) {
   }));
 }
 
-/** Keep a device title from repeating in each affected entity label. */
+/** Shorten a repeated device prefix only when the entity keeps a useful name. */
 export function deviceEntityName(name, deviceName) {
-  if(name===deviceName)return "Selected entity";
-  return name.startsWith(`${deviceName} `)?name.slice(deviceName.length+1):name;
+  const remaining=name.startsWith(`${deviceName} `)?name.slice(deviceName.length+1).trim():"";
+  return remaining||name;
 }

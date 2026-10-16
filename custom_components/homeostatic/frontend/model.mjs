@@ -1,5 +1,6 @@
 /** Read-model helpers and a shared, lifecycle-bound HA subscription. */
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=84";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=89";
+import {waitingOnly} from "./check-presentation.mjs?v=89";
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -30,8 +31,10 @@ export function availabilityEvidenceGap(data, episode) {
   const gaps = new Set(["unknown","stale","source_missing","restored_state","state_unknown","incomplete_evidence"]);
   return findings.length > 0 && findings.every(finding=>{
     const source=nodes.get(finding.node_id), check=finding.check_id || source?.check_id;
-    const current=data.inventory.entity_status?.[finding.node_id]?.current || data.inventory.integration_evidence?.[finding.node_id]?.current;
+    const evidence=data.inventory.entity_status?.[finding.node_id] || data.inventory.integration_evidence?.[finding.node_id];
+    const current=evidence?.current;
     return source && ["entity","device","integration"].includes(source.kind) && check === "availability" &&
+      (!evidence || Object.hasOwn(evidence,"last_failure") && !evidence.last_failure) &&
       finding.status === "unknown" && gaps.has(finding.reason) && (!current || gaps.has(current.reason));
   });
 }
@@ -41,6 +44,7 @@ export function visibleEpisodes(data) {
   return data.inventory.episodes.filter(episode => {
     const source = nodes.get(episode.anchor);
     if (!source) return true;
+    if (waitingOnly(data, episode)) return false;
     if (availabilityEvidenceGap(data, episode)) return false;
     const findings = episode.reasons ?? [];
     if (findings.some(item => item.node_id && item.node_id !== episode.anchor && item.status !== "pass")) return true;

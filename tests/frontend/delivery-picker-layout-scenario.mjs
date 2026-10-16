@@ -4,11 +4,11 @@ import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
 
 class OldPanel extends HTMLElement {}
 class OldCard extends HTMLElement {}
-customElements.define("homeostatic-panel-v34",OldPanel);
-customElements.define("homeostatic-card-v30",OldCard);
+customElements.define("homeostatic-panel-v40",OldPanel);
+customElements.define("homeostatic-card-v36",OldCard);
 await import("../../custom_components/homeostatic/frontend/homeostatic.js");
 
-const card=document.querySelector("homeostatic-panel-v36"),feedback=document.querySelector("#feedback");
+const card=document.querySelector("homeostatic-panel-v41"),feedback=document.querySelector("#feedback");
 const names=["Basement TV","Cabin Bunkie","Cabin Kitchen","Dining room","Family room","Garage","Guest bedroom","Hallway","Kitchen","Laundry room","Living room","Main bedroom","Office","Patio","Playroom","Porch","Reading room","Upstairs landing","Workshop","Downstairs guest bedroom television beside the garden-facing windows"];
 const targets=names.flatMap((name,index)=>["local","cloud"].map(provider=>({channel:`tts:${provider}:speaker-${index}`,type:"voice",name,destination_name:name,destination_id:`speaker-${index}`,provider_name:provider==="local"?"Local voice":"Cloud voice",area:index===1||index===2?"Cabin":index===0?"Basement":"House",available:true})));
 targets.push({channel:"phone:spare",type:"app",name:"Household phone",available:true},{channel:"sms:fixture:",type:"sms",name:"Household SMS",requires_target:true,available:true});
@@ -26,7 +26,7 @@ const tick=()=>new Promise(resolve=>{const channel=new MessageChannel();channel.
 const check=(condition,message)=>{if(!condition)throw Error(message);};
 const find=selector=>{const element=root.querySelector(selector);check(element,`Missing ${selector}`);return element;};
 const publish=()=>{document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);parent.postMessage({type:"homeostatic-acceptance",fixture:"delivery-picker-layout.html",receipt},location.origin);};
-const freshReceipt=()=>{receipt=emptyReceipt({fixture:"delivery-picker-layout.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",data:"synthetic",destinations:"forbidden",element:card.localName,previous_elements_registered:["homeostatic-panel-v34","homeostatic-card-v30"],physical_safari:"untested"});automaticPassed=false;escapeBefore=null;publish();};
+const freshReceipt=()=>{receipt=emptyReceipt({fixture:"delivery-picker-layout.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",data:"synthetic",destinations:"forbidden",element:card.localName,previous_elements_registered:["homeostatic-panel-v40","homeostatic-card-v36"],physical_safari:"untested"});automaticPassed=false;escapeBefore=null;publish();};
 const click=async selector=>{
   const element=find(selector);element.scrollIntoView({block:"nearest"});await tick();
   const bounds=element.getBoundingClientRect(),hit=root.elementFromPoint(bounds.x+bounds.width/2,bounds.y+bounds.height/2);
@@ -57,9 +57,20 @@ document.querySelector("#show").onclick=async()=>{await open();feedback.textCont
 document.querySelector("#run").onclick=async()=>{
   freshReceipt();feedback.textContent="Running isolated layout and selection checks…";
   try {
-    check(customElements.get("homeostatic-panel-v34")===OldPanel&&customElements.get("homeostatic-card-v30")===OldCard,"Previously registered elements remain intact");
-    check(card instanceof customElements.get("homeostatic-panel-v36")&&card instanceof customElements.get("homeostatic-card-v32")&&!(card instanceof OldPanel),"Current panel uses the updated card despite old registered elements");
+    check(customElements.get("homeostatic-panel-v40")===OldPanel&&customElements.get("homeostatic-card-v36")===OldCard,"Previously registered elements remain intact");
+    check(card instanceof customElements.get("homeostatic-panel-v41")&&card instanceof customElements.get("homeostatic-card-v37")&&!(card instanceof OldPanel),"Current panel uses the updated card despite old registered elements");
     reset();await open();headerCheck();
+    const helpDraft=JSON.stringify(card.settingsDraft),selectTop=find("[data-definition-delivery-type]").getBoundingClientRect().top;
+    check(!find(".contextual-help-popover").matches(":popover-open"),"Delivery help starts closed");
+    await click(".contextual-help-trigger");
+    check(find(".contextual-help-popover").matches(":popover-open"),"Delivery help opens through its visible control");
+    check(find(".contextual-help-popover").textContent.includes("configured in Home Assistant"),"Help explains configured destinations");
+    check(find('.contextual-help-popover a').href==="https://www.home-assistant.io/integrations/smtp/","Email setup links to Home Assistant");
+    headerCheck();
+    check(find("[data-definition-delivery-type]").getBoundingClientRect().top===selectTop,"Help does not move the form");
+    check(JSON.stringify(card.settingsDraft)===helpDraft&&calls.length===0,"Help leaves drafts unchanged and sends nothing");
+    await click(".contextual-help-trigger");
+    check(!find(".contextual-help-popover").matches(":popover-open"),"Delivery help closes through its visible control");
     check(find(".delivery-picker").closest(".notification-methods .delivery-method-editor"),"Fixture uses the full production method-editor nesting");
     const rows=[...root.querySelectorAll(".delivery-picker-results .delivery-picker-choice")];
     check(rows.length===names.length,"Each speaker appears once despite two providers");

@@ -1,5 +1,5 @@
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
-import {initializeScopedConfiguration,rebaseScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=84";
+import {initializeScopedConfiguration,rebaseScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=85";
 import {sourceDetailsFixture,DEVICE_ID,ENTITY_ID,UPDATED_AT} from "./source-details-fixture.mjs";
 import {emptyReceipt,recordResult,receiptSummary} from "./control-path-inventory.mjs";
 
@@ -68,7 +68,7 @@ function reset(includeSibling=false) {
   saved=copy(initial);revision=1;calls=[];failNext=null;rejectPendingSave=null;withSibling=includeSibling;
   delete card._hass.states["sensor.unrelated_reading"];
   if(withSibling)card._hass.states["sensor.unrelated_reading"]={state:"unavailable",attributes:{}};
-  Object.assign(card,{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,availabilityPlan:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null,detail:null,issueGroupsExpanded:new Set(),issueGroupLimits:new Map(),availabilitySelected:null,availabilityError:null,availabilityContext:null,sourcesExcludedOnly:false,sourcesQuery:"",sourcesExpanded:new Set(base.sourcesExpanded),current:{status:"current",data:inventory()},page:"sources"});
+  Object.assign(card,{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,availabilityPlan:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null,detail:null,issueGroupsExpanded:new Set(),issueGroupLimits:new Map(),availabilitySelected:null,availabilityError:null,availabilityContext:null,sourcePoliciesSelection:null,sourcesExcludedOnly:false,sourcesQuery:"",sourcesExpanded:new Set(base.sourcesExpanded),current:{status:"current",data:inventory()},page:"sources"});
   initializeScopedConfiguration(card);choose(ENTITY_ID);
 }
 async function openIssueReview() {
@@ -159,7 +159,7 @@ document.querySelector("#run").onclick=async()=>{
     click('[data-availability-action="stop"]');click('[data-availability-action="confirm"]');await settle();
     check(saves().length===1&&exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID),"One save excludes exactly the entity in both policies");
     const availability=root.querySelector(".source-entity-condition").textContent;
-    check(availability==="Unavailable in Home Assistant","Unmonitor must not reinterpret unavailable");
+    check(availability==="Home Assistant reports this entity as unavailable","Unmonitor must not reinterpret unavailable");
     check(policy("temperature").name==="Temperature"&&card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name==="Pending temperature","Unrelated policy draft survives unsaved");
     check(saved.notification_definitions.methods.phone.name==="Phone"&&card.settingsDraft.notification_definitions.methods.phone.name==="Pending phone","Unrelated delivery draft survives unsaved");
     choose(DEVICE_ID);await settle();choose(ENTITY_ID);await settle();
@@ -221,9 +221,55 @@ document.querySelector("#run").onclick=async()=>{
     check(!calls.some(item=>!["homeostatic/source","homeostatic/node"].includes(item.type)),"Opening and cancelling issue controls does not mutate state");
     pass(activePath,"Entity details show broader issue scope and View issue without local acknowledgment or pause. Opened exact shared issue, checked Acknowledge issue and Pause notifications labels, cancelled both dialogs and returned without sending an action request.");
 
+    start("sources.monitoring-policies");reset();await settle();
+    const policySettings=JSON.stringify(saved);
+    card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name="Pending temperature";
+    card.settingsDraft.notification_definitions.methods.phone.name="Pending phone";
+    const policyDrafts=JSON.stringify(card.settingsDraft);
+    check(root.querySelectorAll('.source-policy-links [data-source-policies="open"]').length===1&&!root.querySelector('.config-detail [data-definition-id]'),"One contextual policy action replaces inline policy editing");
+    click('[data-source-policies="open"]');await settle();
+    check(root.querySelector('.source-policy-dialog')?.open,"Monitoring policies opens a native dialog");
+    check(root.querySelector('.source-policy-dialog .source-policy-entity')?.textContent===entities[0].name,"Policy context names the exact selected entity");
+    const policyRows=[...root.querySelectorAll('.source-policy-dialog .source-policy')];
+    check(policyRows.length===2&&policyRows.some(row=>row.textContent.includes("Checks this entity's availability individually"))&&policyRows.some(row=>row.textContent.includes("Uses this entity to assess 3rd Floor Sensor")),"Individual monitoring and device evidence roles remain distinct");
+    const deviceEdit=root.querySelector('.source-policy-dialog [data-definition-id="devices"]');deviceEdit.focus();
+    card.render();await settle();
+    check(root.querySelector('.source-policy-dialog')?.open&&root.activeElement?.dataset.definitionId==="devices","Live updates preserve the open dialog and focused contributing policy");
+    click('[data-source-policies="close"]');await settle();
+    check(!root.querySelector('.source-policy-dialog')&&root.activeElement?.dataset.sourcePolicies==="open","Close returns focus to Monitoring policies");
+    click('[data-source-policies="open"]');await settle();
+    root.querySelector('.source-policy-dialog').dispatchEvent(new Event("cancel",{cancelable:true}));await settle();
+    check(!root.querySelector('.source-policy-dialog')&&root.activeElement?.dataset.sourcePolicies==="open","Native cancellation restores the trigger and selected entity");
+    for(const policyId of ["entities","devices"]) {
+      click('[data-source-policies="open"]');await settle();
+      click(`.source-policy-dialog [data-definition-id="${policyId}"]`);await settle();
+      check(card.page==="policies"&&card.definitionSelection?.id===policyId&&!root.querySelector('.source-policy-dialog'),"Edit opens the exact policy and closes contextual policies");
+      check(root.querySelector('[data-workspace-return]')?.textContent==="Back to source","Policy editing keeps its contextual return route");
+      const returned=card.navigation.enabled?new Promise(resolve=>window.addEventListener("popstate",resolve,{once:true})):Promise.resolve();
+      click('[data-workspace-return]');await returned;await settle();
+      check(card.page==="sources"&&card.sourcesSelection===`source:${ENTITY_ID}`&&root.querySelector('#sources-detail-title')?.textContent===entities[0].name,"Returning from policy restores the exact selected entity");
+    }
+    card.sourceDetail.monitoring_policies=Array.from({length:24},(_,index)=>({id:`long-policy-${index}`,name:`Additional policy ${index+1} with a full descriptive name for the selected equipment`}));
+    card.render();click('[data-source-policies="open"]');await settle();
+    root.querySelector('.source-policy-dialog [data-source-policies="close"]').focus();
+    const scrolledDialog=root.querySelector('.source-policy-dialog');scrolledDialog.scrollTop=120;
+    const dialogScroll=scrolledDialog.scrollTop;check(dialogScroll>0,"Many contributing policies remain scrollable");
+    card.render();await settle();
+    check(root.querySelector('.source-policy-dialog').scrollTop===dialogScroll&&root.activeElement?.dataset.sourcePolicies==="close","Live rendering preserves long-dialog scroll and focused dismissal");
+    click('[data-source-policies="close"]');delete card.sourceDetail.monitoring_policies;card.render();
+    click('[data-source-policies="open"]');await settle();
+    const monitoringNodes=card.current.data.inventory.nodes;
+    card.current.data.inventory.nodes=monitoringNodes.filter(item=>!item.monitoring_policy);card.render();await settle();
+    check(root.querySelector('.source-policy-dialog')?.open&&root.querySelector('.source-policy-dialog').textContent.includes("No policies currently monitor this entity")&&!root.querySelector('[data-source-policies="open"]'),"An open dialog stays dismissible when its last contributor disappears");
+    click('[data-source-policies="close"]');await settle();
+    check(root.activeElement?.id==="sources-detail-title","Closing a dialog without its trigger focuses the selected entity heading");
+    card.current.data.inventory.nodes=monitoringNodes;card.render();
+    check(JSON.stringify(saved)===policySettings&&JSON.stringify(card.settingsDraft)===policyDrafts&&saves().length===0,"Policy navigation preserves saved monitoring and unrelated policy/method drafts");
+    pass(activePath,"One rendered Monitoring policies action opens both contribution roles for the selected entity. Close and native cancel-event wiring restore focus; a live render preserves dialog, edit focus and a long list's scroll. Both Edit policy actions open the exact editor and Back to source restores selected identity. Loss of the last contributor keeps the dialog dismissible and Close focuses the entity heading. Saved settings and unrelated policy/method drafts remain unchanged. Native keyboard activation and Escape require the accompanying browser check.");
+
     start("sources.compact-layout");reset();await settle();
     check(!root.querySelector('.source-monitoring-explanation,.source-technical'),"Entity details need no disclosure or technical block");
-    check(root.querySelector('.source-policy-links [data-definition-id="entities"]').getClientRects().length,"Contributing policy is directly visible");
+    check(root.querySelector('.source-policy-links [data-source-policies="open"]').getClientRects().length,"Monitoring policies is directly visible");
     const action=root.querySelector('[data-availability-action="stop"]');action.focus();card.render();await settle();
     check(root.activeElement?.dataset.availabilityAction==="stop","Live render retains focus on the entity action");
     for(const width of [320,390,1200])for(const theme of ["light","dark"]) {
@@ -232,9 +278,15 @@ document.querySelector("#run").onclick=async()=>{
       check(root.querySelector('.shell').scrollWidth<=card.clientWidth+1,`No content overflow at ${width}px ${theme}`);
       const action=root.querySelector('[data-availability-action="stop"]');check(action.getBoundingClientRect().height>=44,"Action touch target at least 44px");
       click('[data-availability-action="stop"]');check(root.activeElement?.dataset.availabilityAction==="confirm","Focus reaches confirm at each width");click('[data-availability-action="cancel"]');
+      click('[data-source-policies="open"]');await settle();
+      const policyDialog=root.querySelector('.source-policy-dialog');
+      check(policyDialog.open&&policyDialog.scrollWidth<=policyDialog.clientWidth+1,`Policy dialog fits ${width}px ${theme}`);
+      check(root.querySelector('.source-policy-dialog [data-source-policies="close"]').getClientRects().length,"Dialog dismissal remains reachable");
+      click('[data-source-policies="close"]');await settle();
+      check(root.activeElement?.dataset.sourcePolicies==="open","Dialog closing restores focus at each width");
     }
-    card.style.width="390px";document.documentElement.dataset.theme="dark";reset();await settle();
-    pass(activePath,"Visible entity policy and action retain focus through rerender without Details; Stop review/Cancel work at 320, 390 and 1200 CSS pixels in light and dark; no required horizontal scrolling; primary action meets 44px touch target. Physical Safari untested.");
+    card.style.width=`${document.querySelector("#width").value}px`;document.documentElement.dataset.theme=document.querySelector("#theme").value;reset();await settle();
+    pass(activePath,"Visible entity actions retain focus through rerender without Details; Stop review/Cancel and Monitoring policies open/close work at 320, 390 and 1200 CSS pixels in light and dark. Dialog closing restores trigger focus; no required horizontal scrolling; primary action meets 44px touch target. Physical Safari untested.");
     result.textContent=`PASS: ${receiptSummary(receipt).pass} source action paths; other inventory paths remain untested by this fixture.`;
   }catch(error){recordResult(receipt,activePath,"fail",error.message);document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);result.textContent=`FAIL: ${activePath}: ${error.message}`;}
   finally{button.disabled=false;report();}

@@ -1,5 +1,5 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=84";
-import {prepareAvailabilityChange, applyAvailabilityChange, availabilityConfirmation} from "./source-monitoring.mjs?v=84";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=89";
+import {prepareAvailabilityChange, applyAvailabilityChange, availabilityConfirmation} from "./source-monitoring.mjs?v=89";
 
 const identity=source=>source?.monitoring_source||source?.node_id;
 const unavailable=state=>state?.state==="unavailable"&&!state.attributes?.restored;

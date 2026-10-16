@@ -3,7 +3,7 @@ import {filterSources, sourcePaths, sourcesBrowser, sourcesTree} from "../../cus
 import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
 import {sharedIssueCountsFixture,locationIssueFixture} from "./shared-issue-counts-fixture.mjs";
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
-import {historyAccount, historyName, historyPage, observedRange, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, localEndTime, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
+import {historyAccount, historyName, historyPage, observedRange, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
@@ -74,6 +74,40 @@ for (const scenario of recoveryScenarios) {
     assert.equal(scenario.headline ?? problem.headline,problem.headline);
   });
 }
+
+for (const [kind, reason] of [["entity","source_missing"],["device","incomplete_evidence"]]) {
+  test(`${kind} availability keeps a reported problem visible through missing evidence`,()=>{
+    const data=example(),anchor=source("availability",{kind,check_id:"availability"});
+    const episode={episode_id:"retained",anchor:anchor.node_id,recorded:[anchor.node_id],importance:"normal",opened_at:"2026-10-16T10:00:00Z",reasons:[{node_id:anchor.node_id,check_id:"availability",status:"unknown",reason:"stale"}]};
+    const status={current:{status:"unknown",reason},last_failure:{status:"warn",reason:kind==="entity"?"unavailable":"all_unavailable",message:"Home Assistant reported unavailable."}};
+    data.inventory.nodes=[anchor];
+    data.inventory.episodes=[episode];
+    data.inventory.entity_status={[anchor.node_id]:status};
+    const before=structuredClone(data);
+    assert.deepEqual(visibleEpisodes(data),[episode]);
+    assert.deepEqual(sortedEpisodes(data),[episode]);
+    assert.deepEqual(data,before,"Presentation must not alter the retained report or issue");
+    delete status.last_failure;
+    assert.deepEqual(visibleEpisodes(data),[episode],"An older open problem with incomplete report history remains visible");
+    status.last_failure=null;
+    assert.deepEqual(visibleEpisodes(data),[],"Unknown evidence without a previous problem stays out of the issue queue");
+    status.current={status:"pass",reason:"available"};
+    episode.reasons=[];
+    assert.deepEqual(visibleEpisodes(data),[],"Current passing evidence retains the normal recovery presentation");
+  });
+}
+
+test("a shared availability issue retains a member's earlier problem through missing evidence",()=>{
+  const data=example(),anchor=source("entry:owner",{kind:"integration",check_id:"availability"}),member=source("availability:member",{check_id:"availability"});
+  const episode={episode_id:"shared-retained",anchor:anchor.node_id,recorded:[anchor.node_id,member.node_id],reasons:[{node_id:member.node_id,check_id:"availability",status:"unknown",reason:"stale"}]};
+  data.inventory.nodes=[anchor,member];
+  data.inventory.episodes=[episode];
+  data.inventory.integration_evidence={[anchor.node_id]:{current:{status:"pass",reason:"loaded"},last_failure:null}};
+  data.inventory.entity_status={[member.node_id]:{current:{status:"unknown",reason:"source_missing"},last_failure:{status:"warn",reason:"unavailable",message:"Earlier member problem"}}};
+  assert.deepEqual(visibleEpisodes(data),[episode]);
+  data.inventory.entity_status[member.node_id].last_failure=null;
+  assert.deepEqual(visibleEpisodes(data),[],"A loaded integration does not turn a gap-only member into a problem");
+});
 
 
 
@@ -593,23 +627,16 @@ test("history keeps terminal outcomes distinct and pages retained records", () =
   assert.match(RESOLUTIONS.absorbed[1],/Recovery was not established/);
 });
 
-test("control request requires explicit bounded expiry and preserves target and scope", () => {
+test("pause request requires explicit bounded expiry and rejects maintenance creation", () => {
   const now=Date.parse("2026-09-25T12:00:00Z");
   const shelf={kind:"shelve",target:"episode-1",untilLocal:"2026-09-25T13:00:00Z",reason:"Replacing sensor",includeDependents:true};
   assert.deepEqual(controlPayload(shelf,now),{episode_id:"episode-1",until:"2026-09-25T13:00:00.000Z",reason:"Replacing sensor"});
-  assert.deepEqual(controlPayload({...shelf,kind:"maintenance",target:"sensor.a"},now),{node_id:"sensor.a",until:"2026-09-25T13:00:00.000Z",reason:"Replacing sensor",include_dependents:true});
+  assert.throws(()=>controlPayload({...shelf,kind:"maintenance",target:"sensor.a"},now),/Only issue notification pauses/);
   for(const untilLocal of ["","not-a-date","2026-09-25T12:00:00Z","2026-10-02T12:00:01Z"]){
     assert.throws(()=>controlPayload({...shelf,untilLocal},now),/end time/);
   }
   assert.doesNotThrow(()=>controlPayload({...shelf,untilLocal:"2026-10-02T12:00:00Z"},now));
   assert.throws(()=>controlPayload({...shelf,reason:"a".repeat(501)},now),/500/);
-});
-
-test("short maintenance choices produce an explicit local end time", () => {
-  const now=Date.parse("2026-09-25T12:00:00Z");
-  for(const minutes of [30,120,240]){
-    assert.equal(new Date(localEndTime(minutes,now)).getTime(),now+minutes*60000);
-  }
 });
 
 test("diagnostic summary states monitoring limits and configured impact", () => {
@@ -635,7 +662,7 @@ test("controls require current admin access and an eligible live target", () => 
   assert.equal(controlAllowed(current,false,shelf),false);
   assert.equal(controlAllowed({...current,status:"disconnected"},true,shelf),false);
   assert.equal(controlAllowed(current,true,{...shelf,target:"resolved"}),false);
-  assert.equal(controlAllowed(current,true,{kind:"maintenance",target:"sensor.a"}),true);
+  assert.equal(controlAllowed(current,true,{kind:"maintenance",target:"sensor.a"}),false);
   assert.equal(controlAllowed(current,true,{kind:"maintenance",target:"function.f"}),false);
   data.inventory.nodes.push(source("situation.a",{kind:"situation"}));
   assert.equal(controlAllowed(current,true,{kind:"maintenance",target:"situation.a"}),false);
@@ -984,7 +1011,8 @@ test("Sources keeps one detail view with inline history and no empty settings ta
   card.sourcesSelection="source:entity:registry:camera-1-1";
   const entity=sourcesBrowser(card);
   assert.doesNotMatch(entity,/<h3>Technical details<\/h3>|Entity ID:/);
-  assert.match(entity,/<p class="config-path">Frigate \/ Back Porch<\/p>/);
+  assert.match(entity,/href="\/config\/devices\/device\/camera-1"[^>]*>Back Porch<\/a>/);
+  assert.match(entity,/href="\/config\/integrations\/integration\/frigate#config_entry=frigate"[^>]*>Frigate<\/a>/);
 });
 
 
@@ -1103,7 +1131,7 @@ test("device availability explains its operational scope without including diagn
   assert.match(html,/Diagnostic and configuration entities are excluded/);
   assert.doesNotMatch(html,/disconnected|all enabled entities/);
   assert.equal(deviceEntityName("ESP Presence Kitchen Fridge Motion","ESP Presence Kitchen Fridge"),"Motion");
-  assert.equal(deviceEntityName("ESP Presence Kitchen Fridge","ESP Presence Kitchen Fridge"),"Selected entity");
+  assert.equal(deviceEntityName("ESP Presence Kitchen Fridge","ESP Presence Kitchen Fridge"),"ESP Presence Kitchen Fridge");
 });
 
 for (const grouping of ["integration","location","topomation"]) {
@@ -1232,8 +1260,8 @@ test("entity detail shows HA state and monitoring once; device rows navigate",()
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
     sourcesSelection:`source:${entityId}`,sourceDetail:{nodeId:entityId,members:[member],total:1,unavailable_count:1,unknown_count:0}};
   const entity=sourcesBrowser(card);
-  assert.match(entity,/Unavailable in Home Assistant/);
-  assert.match(entity,/Homeostatic uses this entity to monitor device availability\./);
+  assert.match(entity,/Home Assistant reports this entity as unavailable/);
+  assert.match(entity,/Used to assess device availability/);
   assert.match(entity,/Configure monitoring/);
   assert.doesNotMatch(entity,/<h3>Home Assistant entities<\/h3>|This entity has no separate check|Next step:/);
   assert.equal((entity.match(/Back Porch signal 001/g)??[]).length,1);
@@ -1296,7 +1324,7 @@ test("selected device refresh coalesces reads and notices access changes",async(
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?availability-test");
-  const card=Object.create(elements.get("homeostatic-card-v32").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v37").prototype);
   const data=monitoringExample(),entity="sensor.excluded",nodeId="device:camera-0",pending=[];
   Object.assign(card,{page:"sources",sourcesView:"source",current:{status:"current",data},sourcesGrouping:"integration",sourcesSelection:`source:${nodeId}`,sourceDetail:null,sourceSequence:0,
     render(){},_hass:{states:{[entity]:{state:"off",attributes:{}}},callWS(){return new Promise(resolve=>pending.push(resolve));}}});
@@ -1331,7 +1359,7 @@ test("policy configuration loads without delivery discovery and discovery preser
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?configuration-test");
-  const card=Object.create(elements.get("homeostatic-card-v32").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v37").prototype);
   const calls=[],pending=[];
   Object.assign(card,{page:"policies",render(){},_hass:{connection:{},callWS(request){calls.push(request);return new Promise((resolve,reject)=>pending.push({resolve,reject}));}}});
   const settings={monitoring_policies:[{id:"one",name:"Saved policy"}],notification_definitions:{methods:{}}};

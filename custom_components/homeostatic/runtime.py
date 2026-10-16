@@ -92,7 +92,7 @@ from .enrollment import (
     report,
     restore_enrollment,
 )
-from .evidence import IntegrationEvidence, ReportedCondition
+from .evidence import ReportedCondition, ReportedEvidence
 from .facts import (
     FACT_SCHEMA_VERSION,
     Fact,
@@ -167,7 +167,8 @@ class Runtime:
         self.episodes: dict[str, dict[str, JSONValue]] = {}
         self.history = ResolvedHistory()
         self._resolved_sources: dict[str, Source] = {}
-        self.integration_evidence = IntegrationEvidence()
+        self.integration_evidence = ReportedEvidence()
+        self.check_evidence = ReportedEvidence()
         self.entity_evidence: dict[str, ReportedCondition] = {}
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
@@ -342,6 +343,10 @@ class Runtime:
         if "resolved_history" in self.saved:
             self.history.restore(self.saved["resolved_history"])
         self.integration_evidence.restore(self.saved.get("integration_evidence", {}))
+        self.check_evidence.restore(
+            self.saved.get("check_evidence", {}),
+            history_complete="check_evidence" in self.saved,
+        )
         self.controls = restore_controls(self.saved.get("operator_controls", []))
         self.enrolled = restore_enrollment(self.saved.get("enrollment", {}))
         notifications = self.saved.get("notifications")
@@ -1685,6 +1690,9 @@ class Runtime:
             for key, value in self.entity_evidence.items()
             if key in sources and sources[key].watched
         }
+        self.check_evidence.retain(
+            {key for key, source in sources.items() if source.watched}
+        )
         self.integration_evidence.retain(
             {
                 source.node_id
@@ -1814,7 +1822,9 @@ class Runtime:
                     reason=observation.reason,
                     message=observation.message or "",
                     observed_at=observation.observed_at,
+                    status=observation.status.value,
                 )
+                self.check_evidence.observe(observation, source.name)
                 if source.kind == "device":
                     self._device_signatures[source.node_id] = (
                         observation.status.value,
@@ -2517,6 +2527,7 @@ class Runtime:
             },
             "resolved_history": self.history.snapshot(),
             "integration_evidence": self.integration_evidence.snapshot(),
+            "check_evidence": self.check_evidence.snapshot(),
             "operator_controls": presentation(self.controls),
             "engine": self.engine.snapshot(),
             "policy": self.policy.snapshot(),
@@ -2850,8 +2861,14 @@ class Runtime:
         current = self.entity_evidence.get(node_id)
         if current is None:
             return None
+        evidence = self.check_evidence.view(node_id)
         return {
             "current": json_object(current),
+            **(
+                {"last_failure": evidence["last_failure"]}
+                if evidence and evidence["history_complete"]
+                else {}
+            ),
             "ups": json_object(self.ups_monitors[node_id].latest)
             if node_id in self.ups_monitors
             and self.ups_monitors[node_id].latest is not None
@@ -2862,6 +2879,19 @@ class Runtime:
 
     def inventory_updates(self) -> dict[str, JSONValue]:
         """Read dynamic inventory evidence without rebuilding catalog metadata."""
+        issue_sources = {str(episode["anchor"]) for episode in self.episodes.values()}
+        for episode in self.episodes.values():
+            recorded = episode.get("recorded")
+            if isinstance(recorded, list):
+                issue_sources.update(str(node_id) for node_id in recorded)
+            findings = episode.get("reasons")
+            if isinstance(findings, list):
+                issue_sources.update(
+                    str(finding["node_id"])
+                    for finding in findings
+                    if isinstance(finding, dict)
+                    and isinstance(finding.get("node_id"), str)
+                )
         return {
             "episodes": list(self.episodes.values()),
             "ups_status": {
@@ -2877,9 +2907,10 @@ class Runtime:
                 if self.sources[str(episode["anchor"])].kind == "integration"
             },
             "entity_status": {
-                str(episode["anchor"]): self.entity_status(str(episode["anchor"]))
-                for episode in self.episodes.values()
-                if self.sources[str(episode["anchor"])].kind
+                node_id: self.entity_status(node_id)
+                for node_id in sorted(issue_sources)
+                if (source := self.sources.get(node_id)) is not None
+                and source.kind
                 in {"entity", "device", "battery", "vacuum", "ups", *TEMPERATURE_CHECKS}
             },
             "resolved_history": self.history.view(dt_util.utcnow()),

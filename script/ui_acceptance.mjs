@@ -226,6 +226,7 @@ async function main() {
       for(const fixture of report.fixture_runs){
         report.artifacts.push(`${fixture.fixture.replace(/\.html$/,"")}-${viewport.width}-${args.theme}.json`);
         if(fixture.screenshot)report.artifacts.push(relative(output,fixture.screenshot));
+        if(fixture.details_screenshot)report.artifacts.push(relative(output,fixture.details_screenshot));
         if(fixture.status==="fail")report.diagnostics.push(`Fixture ${fixture.fixture} failed: ${[...fixture.diagnostics,...fixture.page_errors,...fixture.stages.filter(stage=>/^FAIL/i.test(stage.feedback)).map(stage=>stage.feedback)].join("; ")}`);
       }
     }

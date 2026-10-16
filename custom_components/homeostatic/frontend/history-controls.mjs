@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=84";
+import {escapeHtml as esc} from "./model.mjs?v=89";
 
 
 const date = (value) => value ? new Date(value).toLocaleString(undefined, {year:"numeric", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : "Unknown";
@@ -37,20 +37,13 @@ export function historyPage(history, query = "", resolution = "", page = 0, reve
 }
 
 export function controlPayload(draft, now = Date.now()) {
+  if (draft.kind !== "shelve") throw new Error("Only issue notification pauses can be started here.");
   const until = new Date(draft.untilLocal);
   if (!draft.untilLocal || !Number.isFinite(until.getTime()) || until.getTime() <= now || until.getTime() > now + 7 * 86400000) {
     throw new Error("Choose an end time in the future, within seven days.");
   }
   if (draft.reason.length > 500) throw new Error("Keep the reason within 500 characters.");
-  return {until: until.toISOString(), reason: draft.reason,
-    ...(draft.kind === "shelve" ? {episode_id: draft.target}
-      : {node_id: draft.target, include_dependents: draft.includeDependents})};
-}
-
-export function localEndTime(minutes, now = Date.now()) {
-  const end = new Date(now + minutes * 60000);
-  const pad = (value) => String(value).padStart(2, "0");
-  return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`;
+  return {until: until.toISOString(), reason: draft.reason, episode_id: draft.target};
 }
 
 export async function callAction(hass, service, service_data) {
@@ -63,9 +56,7 @@ export async function callAction(hass, service, service_data) {
 export function controlAllowed(current, admin, draft) {
   if (!admin || current.status !== "current" || !draft) return false;
   const inventory = current.data.inventory;
-  return draft.kind === "shelve"
-    ? inventory.episodes.some((item) => item.episode_id === draft.target)
-    : inventory.nodes.some((item) => item.node_id === draft.target && ["entity", "integration", "external"].includes(item.kind));
+  return draft.kind === "shelve" && inventory.episodes.some((item) => item.episode_id === draft.target);
 }
 
 export const historyName = (item) => [item.source?.name, item.episode.labels?.name]
@@ -127,7 +118,6 @@ export class DashboardTools {
     this.query = "";
     this.resolution = "";
     this.page = 0;
-    this.revision = 0;
     this.operation = 0;
     this.dialog = document.createElement("dialog");
     this.dialog.setAttribute("aria-labelledby", "tools-title");
@@ -151,9 +141,8 @@ export class DashboardTools {
   disconnect() {this.close();}
 
   update(current) {
-    this.revision++;
     if (this.immediate) this.refreshImmediate();
-    if (this.draft) {this.draft.preview = null; this.refreshFormState();}
+    if (this.draft) this.refreshFormState();
   }
 
   historyNote(history) {
@@ -175,8 +164,7 @@ export class DashboardTools {
 
   detailButtons(source, episode, data) {
 
-    const action = episode ? `<button type="button" class="button" data-shelf="${esc(episode.episode_id)}">Pause notifications…</button>`
-      : ["entity", "integration", "external"].includes(source.kind) ? `<button type="button" class="button" data-maintenance="${esc(source.node_id)}">Working on this equipment…</button>` : "";
+    const action = episode ? `<button type="button" class="button" data-shelf="${esc(episode.episode_id)}">Pause notifications…</button>` : "";
     const decision = data.policy?.episodes?.find((item) => item.episode_id === episode?.episode_id);
     const acknowledgment = decision?.acknowledgment;
     const awarenessNote = episode && data.inventory.attention_controls_supported && acknowledgment
@@ -198,21 +186,12 @@ export class DashboardTools {
     }
     else if (button.dataset.history) this.showHistory(button.dataset.history);
     else if (button.dataset.shelf) this.openControl("shelve", button.dataset.shelf);
-    else if (button.dataset.maintenance) this.openControl("maintenance", button.dataset.maintenance);
-    else if (button.dataset.duration && this.draft?.kind === "maintenance") {
-      this.draft.untilLocal = localEndTime(Number(button.dataset.duration));
-      this.draft.duration = button.dataset.duration;
-      this.body.querySelector('[name="untilLocal"]').value = this.draft.untilLocal;
-      this.draft.preview = null;
-      this.draft.error = "";
-      this.refreshFormState();
-    }
     else if (button.dataset.tool === "close") this.close();
     else if (button.dataset.tool === "previous" || button.dataset.tool === "next") {
       this.historyId = null;
       this.page += button.dataset.tool === "next" ? 1 : -1;
       this.card.render();
-    } else if (button.dataset.tool === "preview") this.preview();
+    }
     else if (button.dataset.openEpisode) {
       const id = button.dataset.openEpisode;
       this.close();
@@ -232,8 +211,7 @@ export class DashboardTools {
     } else if (this.draft && event.target.name) {
       const field = event.target;
       this.draft[field.name] = field.type === "checkbox" ? field.checked : field.value;
-      if (field.name === "untilLocal") {this.draft.duration = null; this.draft.timeEdited = true;}
-      this.draft.preview = null;
+      if (field.name === "untilLocal") this.draft.timeEdited = true;
       this.draft.error = "";
       this.refreshFormState();
     }
@@ -261,7 +239,7 @@ export class DashboardTools {
   }
 
   openControl(kind, target) {
-    const draft = {kind, target, untilLocal: "", reason: "", includeDependents: false, preview: null, busy: false, error: ""};
+    const draft = {kind, target, untilLocal: "", reason: "", busy: false, error: ""};
     if (!controlAllowed(this.card.current, this.card._hass?.user?.is_admin, draft)) return;
     this.card.detail = null;
     this.card.detailSequence++;
@@ -269,26 +247,16 @@ export class DashboardTools {
     this.draft = draft;
     this.historyId = null;
     const inventory = this.card.current.data.inventory;
-    const nodeId = kind === "shelve" ? inventory.episodes.find((item) => item.episode_id === target).anchor : target;
+    const nodeId = inventory.episodes.find((item) => item.episode_id === target).anchor;
     const source = inventory.nodes.find((item) => item.node_id === nodeId);
     const name = source ? this.card.displaySourceName(source) : nodeId;
-    this.dialog.querySelector("h2").textContent = kind === "shelve" ? "Pause notifications" : "Working on this equipment";
-    const introduction = kind === "shelve"
-      ? "Pause notifications for this whole issue for everyone, including urgent notifications. The issue stays open. Existing notifications are not dismissed; other issues are unaffected."
-      : "New issues wait until maintenance ends. Existing issues and notifications continue.";
-    const duration = kind === "maintenance"
-      ? '<span>How long?</span><div class="duration-choices" role="group" aria-label="Choose a maintenance duration"><button type="button" class="button" data-duration="30">30 minutes</button><button type="button" class="button" data-duration="120">2 hours</button><button type="button" class="button" data-duration="240">4 hours</button></div>'
-      : "";
-    const dependents = kind === "maintenance"
-      ? '<label class="check-field"><input type="checkbox" name="includeDependents"> Also cover equipment that depends on this</label>'
-      : "";
+    this.dialog.querySelector("h2").textContent = "Pause notifications";
+    const introduction = "Pause notifications for this whole issue for everyone, including urgent notifications. The issue stays open. Existing notifications are not dismissed; other issues are unaffected.";
     const timeField = '<label>End date and time<input type="datetime-local" name="untilLocal" required aria-describedby="control-time-help"></label><p id="control-time-help" class="small">Your local time · Within 7 days</p>';
-    const optionalFields = `<details data-control-options><summary>More options</summary>${dependents}<label>Reason (optional)<textarea name="reason" maxlength="500" rows="3"></textarea></label></details>`;
-    const timing = kind === "maintenance"
-      ? `${duration}<details data-custom-time><summary>Choose an end time…</summary>${timeField}</details><p data-maintenance-end class="small" hidden></p>`
-      : `${timeField}<p class="small">An existing pause can only be extended.</p>`;
+    const optionalFields = '<details data-control-options><summary>More options</summary><label>Reason (optional)<textarea name="reason" maxlength="500" rows="3"></textarea></label></details>';
+    const timing = `${timeField}<p class="small">An existing pause can only be extended.</p>`;
     const cancellation = inventory.attention_controls_supported ? "" : '<p class="small">This period can’t be ended early.</p>';
-    this.body.innerHTML = `<p class="control-target">${esc(name)}</p><p>${introduction}</p><form class="tool-form">${timing}${optionalFields}<div data-control-preview hidden></div><p data-control-feedback role="status" hidden></p>${cancellation}<div class="actions"><button class="button primary" type="submit">${kind === "shelve" ? "Pause notifications" : "Start maintenance"}</button></div></form>`;
+    this.body.innerHTML = `<p class="control-target">${esc(name)}</p><p>${introduction}</p><form class="tool-form">${timing}${optionalFields}<p data-control-feedback role="status" hidden></p>${cancellation}<div class="actions"><button class="button primary" type="submit">Pause notifications</button></div></form>`;
     this.dialog.showModal();
     this.refreshFormState();
   }
@@ -345,15 +313,6 @@ export class DashboardTools {
     }
   }
 
-  scopeMarkup(scope) {
-    const names = new Map(this.card.current.data.inventory.nodes.map((source) => [source.node_id, source.name]));
-    const sample = (ids) => ids.slice(0, 20).map((id) => esc(names.get(id) ?? id)).join(", ") + (ids.length > 20 ? `, and ${ids.length - 20} more` : "");
-    const root = scope.node_ids.find((id) => id === this.draft?.target || id === scope.control?.target);
-    const other = scope.node_ids.filter((id) => id !== root && !scope.functions.includes(id));
-    const openCount = scope.existing_episode_ids.length;
-    return `<div class="control-scope"><p>Selected equipment: ${esc(names.get(root) ?? root ?? "Unavailable")}</p>${other.length ? `<p>Other equipment: ${sample(other)}</p>` : ""}<p>${openCount} existing ${openCount === 1 ? "problem remains" : "problems remain"} active.</p><p>Ends ${esc(date(scope.until))}</p>${this.draft?.includeDependents || scope.control?.include_dependents ? '<p class="small">Dependent scope may change if the configured relationships change. Homeostatic checks it again when you start.</p>' : ""}</div>`;
-  }
-
   refreshFormState() {
     const draft = this.draft;
     const form = this.body.querySelector("form");
@@ -363,37 +322,9 @@ export class DashboardTools {
     try {controlPayload(draft);} catch (error) {validation = error.message;}
     for (const field of form.querySelectorAll("input, textarea, button")) field.disabled = draft.busy || !allowed;
     form.querySelector('[type="submit"]').disabled = draft.busy || !allowed || !!validation;
-    const preview = form.querySelector('[data-tool="preview"]');
-    if (preview) preview.disabled = draft.busy || !allowed || !!validation;
     const feedback = form.querySelector("[data-control-feedback]");
     feedback.textContent = draft.error || (draft.busy ? "Waiting for Home Assistant…" : !allowed ? "This target is no longer available, or monitoring is disconnected. No action can be submitted." : draft.untilLocal || draft.timeEdited ? validation : "");
     feedback.hidden = !feedback.textContent;
-    for (const button of form.querySelectorAll("[data-duration]")) button.setAttribute("aria-pressed", String(button.dataset.duration === draft.duration));
-    const end = form.querySelector("[data-maintenance-end]");
-    if (end) {
-      end.hidden = !draft.untilLocal || !!validation;
-      end.textContent = end.hidden ? "" : `Ends ${new Date(draft.untilLocal).toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"})}`;
-    }
-    form.querySelector("[data-control-preview]").hidden = !draft.preview;
-    form.querySelector("[data-control-preview]").innerHTML = draft.preview ? this.scopeMarkup(draft.preview) : "";
-  }
-
-  async preview() {
-    const draft = this.draft;
-    if (!draft || draft.busy || !controlAllowed(this.card.current, this.card._hass?.user?.is_admin, draft)) return;
-    const revision = this.revision;
-    const operation = ++this.operation;
-    try {
-      const {reason, ...data} = controlPayload(draft);
-      draft.busy = true;
-      draft.error = "";
-      this.refreshFormState();
-      const scope = await callAction(this.card._hass, "preview_maintenance", data);
-      if (this.draft !== draft || operation !== this.operation) return;
-      if (revision === this.revision) draft.preview = scope;
-      else draft.error = "Monitoring changed during preview. Preview the scope again.";
-    } catch (error) {if (this.draft === draft) draft.error = error?.message ?? "Could not preview maintenance.";}
-    finally {if (this.draft === draft) {draft.busy = false; this.refreshFormState();}}
   }
 
   async execute() {
@@ -405,15 +336,14 @@ export class DashboardTools {
       draft.busy = true;
       draft.error = "";
       this.refreshFormState();
-      const result = await callAction(this.card._hass, draft.kind === "shelve" ? "shelve" : "start_maintenance", data);
+      const result = await callAction(this.card._hass, "shelve", data);
       if (this.draft !== draft || operation !== this.operation) return;
       if (!result.control) throw new Error("The saved control was not returned.");
-      this.body.innerHTML = `<p role="status">Saved by Home Assistant.</p>${controlsPanel(this.card.current.data, null, result.control)}${draft.kind === "maintenance" ? `<details><summary>Covered equipment</summary>${this.scopeMarkup(result)}</details>` : ""}`;
+      this.body.innerHTML = `<p role="status">Saved by Home Assistant.</p>${controlsPanel(this.card.current.data, null, result.control)}`;
       this.draft = null;
     } catch (error) {
       if (this.draft === draft) {
         draft.error = `${error?.message ?? "The action could not be confirmed."} Inspect active controls after recovery before retrying; the request may already have been saved.`;
-        draft.preview = null;
       }
     } finally {if (this.draft === draft) {draft.busy = false; this.refreshFormState();}}
   }

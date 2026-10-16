@@ -10,7 +10,7 @@ Start with an administrator account and a notification destination already confi
 
 1. Open **Notifications → Delivery methods** and select **Add delivery method**.
 2. Enter a useful name, such as `Household phones`.
-3. Select **Add destination**, choose a **Delivery type**, then select a destination. Search by name or room if needed. A speaker with several speech providers asks you to choose a provider; an SMS destination asks for a recipient number.
+3. Select **Add destination**, choose a **Delivery type**, then select a destination. Search by name or room if needed. If a delivery type is missing, select the help icon beside **Delivery type** for an explanation and email or SMS setup links. A speaker with several speech providers asks you to choose a provider; an SMS destination asks for a recipient number.
 4. Add any other destinations this method should use. Leave presence selection at **Fixed destinations** for the simplest setup.
 5. Select **Save delivery method**. When the confirmed save returns to the list, select **Edit delivery method** to reopen it.
 6. Select **Send test** in the saved, unchanged editor, then check the destination yourself.
@@ -58,7 +58,7 @@ Use the **Notifications** switch in the panel header after the methods, named no
 
 When sending is enabled, already-open problems can become eligible under their saved instructions. Immediate notifications may be requested then. Daily-hours delivery waits for its open window when necessary, and a scheduled summary waits for its next occurrence. A saved summary assignment can show its next scheduled time in the policy editor; unsaved changes need to be saved before that forecast is available.
 
-Use [Pause notifications](issues.md) for one open issue or [Working on this equipment](maintenance.md) before planned work. The [control comparison](settings-reference.md#issue-and-equipment-controls) explains their different effects.
+Use [Pause notifications](issues.md#pause-an-issues-notifications) to quiet one open issue temporarily. The [control comparison](settings-reference.md#issue-and-equipment-controls) explains the available choices.
 
 ## Choose destinations using presence
 

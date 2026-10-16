@@ -7,6 +7,10 @@
 
 **Later decision:** [ADR 0073](0073-entity-first-monitoring-details.md) supersedes the applicable entity-detail layout, contextual history placement and availability action wording; existing monitoring and issue semantics remain unchanged.
 
+**Later decision:** [ADR 0086](0086-visible-evidence-and-flat-details.md) keeps short source lists and relevant policy actions visible and makes the remaining Details section flat. Monitoring coverage and policy ownership remain unchanged.
+
+**Later decision:** [ADR 0087](0087-remove-maintenance-creation-from-ui.md) removes maintenance creation from the panel. Existing maintenance visibility and cancellation remain available; published actions and runtime semantics are unchanged.
+
 ## Context
 
 The owner wants to see which entities are monitored and change monitoring easily while keeping all monitoring states browsable. The selected source pane devotes too much space to explanations, empty history and technical information.

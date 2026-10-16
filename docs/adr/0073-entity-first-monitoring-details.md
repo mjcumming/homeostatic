@@ -3,6 +3,12 @@
 **Status:** Accepted
 **Date:** 2026-10-15
 
+**Later decision:** [ADR 0086](0086-visible-evidence-and-flat-details.md) supersedes affected-member disclosures retained for other source types and clarifies name preservation and concise navigation. Entity details continue without a Details section.
+
+**Later decision:** [ADR 0087](0087-remove-maintenance-creation-from-ui.md) removes maintenance creation from the panel. Existing maintenance visibility and cancellation remain available; published actions and runtime semantics are unchanged.
+
+**Later decision:** [ADR 0089](0089-contextual-entity-monitoring-policies.md) replaces entity policy edit links with one contextual Monitoring policies action, links the named Device and Integration directly, and refines entity condition and coverage wording.
+
 **Partially supersedes:** the source detail layout in ADRs 0061, 0068 and 0071; the contextual history placement in ADR 0070; and the availability action wording in ADR 0069. Monitoring semantics, policy ownership, guarded saves, issue scope and quiet save completion remain unchanged.
 
 ## Context

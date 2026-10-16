@@ -34,7 +34,7 @@ Home Assistant's [restore instructions](https://www.home-assistant.io/common-tas
 
 To stop sending messages while monitoring continues, turn off **Notifications** in the Homeostatic header. To stop the integration itself, disable Homeostatic under **Settings → Devices & services**. These are different choices: disabling the integration stops monitoring.
 
-Use [equipment maintenance](maintenance.md) when only part of the installation is being worked on.
+Use [Pause notifications](issues.md#pause-an-issues-notifications) to quiet one open issue temporarily.
 
 ## Remove Homeostatic
 

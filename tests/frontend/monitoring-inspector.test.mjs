@@ -55,7 +55,7 @@ test("unmonitored entity states its condition and offers configuration without d
   card.sourcesSelection=`source:${id}`;
   card.sourceDetail={nodeId:id,members:[{node_id:id,state:"0",unit:"%",restored:false}],updated_at:"2026-10-15T12:00:00Z"};
   const html=sourcesBrowser(card).split('<section class="config-detail" aria-label="Selected source">')[1];
-  assert.match(html,/source-monitoring-status[^>]*>Homeostatic is not monitoring this entity\./);
+  assert.match(html,/source-monitoring-status[^>]*>Not monitored/);
   assert.doesNotMatch(html,/source-facts/);
   assert.match(html,/source-current-value[^>]*>0%<\/p>/);
   assert.match(html,/data-page="policies"[^>]*>Configure monitoring/);
@@ -105,8 +105,8 @@ test("unmonitored entity keeps reported unavailability separate from monitoring"
   card.sourcesSelection="source:"+id;
   card.sourceDetail={nodeId:id,members:[{node_id:id,state:"unavailable",restored:false}]};
   const html=sourcesBrowser(card).split('<section class="config-detail" aria-label="Selected source">')[1];
-  assert.match(html,/source-entity-condition[^>]*>Unavailable in Home Assistant/);
-  assert.match(html,/source-monitoring-status[^>]*>Homeostatic is not monitoring this entity\./);
+  assert.match(html,/source-entity-condition[^>]*>Home Assistant reports this entity as unavailable/);
+  assert.match(html,/source-monitoring-status[^>]*>Not monitored/);
   assert.match(html,/data-page="policies"[^>]*>Configure monitoring/);
 });
 

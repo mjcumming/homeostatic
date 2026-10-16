@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {integrationProblem,relatedSourceEvidence} from "../../custom_components/homeostatic/frontend/problem.mjs";
-import {relatedEvidenceDetails,relatedEvidenceMonitoring} from "../../custom_components/homeostatic/frontend/issues-workspace.mjs";
+import {recordedIssueSources,relatedEvidenceDetails,relatedEvidenceMonitoring} from "../../custom_components/homeostatic/frontend/issues-workspace.mjs";
 import {visibleEpisodes} from "../../custom_components/homeostatic/frontend/model.mjs";
 import {issueEvidenceFixture,lyricLocalize,LYRIC_ENTRY,THERMOSTAT_ENTITY} from "./issue-evidence-fixture.mjs";
 
@@ -49,7 +49,7 @@ test("standalone entities remain outside device groups and use an honest source 
   const result=evidence(issueEvidenceFixture({variant:"standalone"}));
   assert.deepEqual(result.counts,{devices:3,entities:6,sources:9,checks:10});
   assert.equal(result.groups.filter(group=>!group.deviceId).length,1);
-  assert.equal(result.headline,"9 sources need attention");
+  assert.equal(result.headline,"3 devices and 1 entity need attention");
   assert.equal(members(result).find(member=>member.id==="entity:registry:standalone").name,"Outdoor reading");
 });
 
@@ -59,14 +59,14 @@ test("absent source metadata retains evidence without guessing a device or entit
   const missing=members(result).find(member=>member.id==="monitoring:removed:entity:missing");
   assert.ok(missing);
   assert.equal(missing.findings.length,1);
-  assert.equal(result.headline,"9 sources need attention");
+  assert.equal(result.headline,"3 devices and 1 other source need attention");
   assert.equal(result.groups.filter(group=>!group.deviceId).length,1);
 });
 
 test("mixed conditions do not describe every finding as unavailable",()=>{
   const result=evidence(issueEvidenceFixture({variant:"mixed"}));
   assert.equal(result.unavailableOnly,false);
-  assert.equal(result.headline,"8 sources need attention");
+  assert.equal(result.headline,"3 devices need attention");
 });
 
 test("partial recovery preserves the issue while removing recovered findings from its current counts",()=>{
@@ -89,17 +89,17 @@ test("full recovery hides the current issue without changing engine-owned record
   assert.deepEqual(fixture.data,before);
 });
 
-test("disclosed evidence retains native device and canonical Sources actions",()=>{
+test("visible evidence names every entity and flat details retain independent checks",()=>{
   const result=evidence(issueEvidenceFixture());
   const html=relatedEvidenceDetails(result,new Set())+relatedEvidenceMonitoring(result);
   assert.match(html,/3 devices/);
   assert.match(html,/5 entities/);
   assert.match(html,/9 checks/);
   assert.match(html,/href="\/config\/devices\/device\/thermostat"/);
-  assert.match(html,/data-source-link="device:thermostat"/);
   assert.match(html,/data-source-link="entity:registry:thermostat"/);
+  assert.match(html,/data-check-source="device:thermostat"/);
   assert.doesNotMatch(html,/data-source-link="monitoring:/);
-  assert.match(html,/<details/);
+  assert.doesNotMatch(html,/<details/);
   assert.doesNotMatch(html,/Inspect entity|Inspect device checks|class="button primary"/);
   assert.doesNotMatch(html,/<details[^>]* open/);
 });
@@ -113,9 +113,39 @@ test("evidence names and descriptions are escaped before rendering",()=>{
   assert.match(html,/&lt;img/);
 });
 
-test("contributing-check disclosure keeps its open state when evidence refreshes",()=>{
-  const result=evidence(issueEvidenceFixture()),key=`checks:${THERMOSTAT_ENTITY}`;
-  assert.match(relatedEvidenceDetails(result,new Set([key])),new RegExp(`data-disclosure="${key}" open`));
+test("policy contributions appear together without nested disclosures or duplicate evidence",()=>{
+  const result=evidence(issueEvidenceFixture()),html=relatedEvidenceMonitoring(result);
+  assert.match(html,/Entity availability · Thermostat availability/);
+  assert.doesNotMatch(html,/<details|View .* in Monitoring|Home Assistant reports unavailable/);
+});
+
+test("mixed findings preserve the relationship between a policy and its condition",()=>{
+  const html=relatedEvidenceMonitoring(evidence(issueEvidenceFixture({variant:"mixed"})));
+  assert.match(html,/Entity availability: Unavailable in Home Assistant/);
+  assert.match(html,/Thermostat availability: No recent availability evidence/);
+});
+
+test("restored vacuum issue retains its actual name and counts affected devices without double counting entities",()=>{
+  const fixture=issueEvidenceFixture({variant:"vacuum"}),result=evidence(fixture);
+  assert.equal(result.headline,"2 devices need attention");
+  assert.deepEqual(result.counts,{devices:2,entities:2,sources:4,checks:4});
+  const html=relatedEvidenceDetails(result);
+  assert.match(html,/data-source-link="entity:registry:cabin">Cabin<\/button>/);
+  assert.match(html,/Dust emptying/);
+  assert.match(html,/Only a restored state is available/);
+  assert.match(html,/Current availability not confirmed/);
+  assert.doesNotMatch(html,/>Entity<|<details/);
+  const recorded=recordedIssueSources(fixture.data,fixture.episode,result);
+  assert.match(recorded,/Second Floor Dock/);
+  assert.doesNotMatch(recorded,/Cabin|Roborock connection|<details/);
+});
+
+test("a specific reported explanation survives friendly condition labels",()=>{
+  const fixture=issueEvidenceFixture({variant:"vacuum"}),finding=fixture.episode.reasons.at(-1);
+  const binding=fixture.nodes.get(finding.node_id);
+  finding.message=`${binding.name}: Waiting for the first report after reconnecting.`;
+  const html=relatedEvidenceDetails(evidence(fixture));
+  assert.match(html,/No recent availability evidence\. Waiting for the first report after reconnecting/);
 });
 
 test("canonical names containing the policy delimiter stay intact",()=>{
@@ -137,7 +167,7 @@ for (const reason of ["restored_state","source_missing","incomplete_evidence"]) 
     const source={node_id:"entity:button",kind:"entity",check_id:"availability",watched:true};
     const finding={node_id:source.node_id,check_id:"availability",status:"unknown",reason:"stale"};
     const episode={episode_id:"gap",anchor:source.node_id,reasons:[finding]};
-    const data={inventory:{nodes:[source],episodes:[episode],entity_status:{[source.node_id]:{current:{reason}}}}};
+    const data={inventory:{nodes:[source],episodes:[episode],entity_status:{[source.node_id]:{current:{status:"unknown",reason},last_failure:null}}}};
     const before=structuredClone(data);
     assert.deepEqual(visibleEpisodes(data),[]);
     assert.deepEqual(data,before);

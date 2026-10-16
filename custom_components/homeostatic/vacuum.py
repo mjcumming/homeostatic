@@ -103,8 +103,28 @@ def observe(
         status, reason, message = (
             Status.UNKNOWN,
             "vacuum_unknown",
-            f"Home Assistant has no current activity for {source.name}.",
+            f"Home Assistant reports no activity value for {source.name}.",
         )
+        if state is None:
+            reason, message = (
+                "vacuum_missing",
+                f"{source.name} has no state in Home Assistant.",
+            )
+        elif state.attributes.get("restored"):
+            reason, message = (
+                "vacuum_restored",
+                f"Home Assistant is waiting for the integration to provide {source.name}.",
+            )
+        elif state.state == STATE_UNAVAILABLE:
+            reason, message = (
+                "vacuum_unavailable",
+                f"Home Assistant reports {source.name} unavailable.",
+            )
+        elif state.state != STATE_UNKNOWN:
+            reason, message = (
+                "vacuum_unrecognized",
+                f"Home Assistant reports an unrecognized vacuum activity: {state.state}.",
+            )
     return Observation(
         node_id=source.node_id,
         check_id="vacuum",

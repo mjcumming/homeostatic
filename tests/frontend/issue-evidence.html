@@ -9,7 +9,7 @@ homeostatic-panel{display:block}body.embedded #controls,body.embedded #feedback,
 </style></head><body>
 <div id="controls"><strong>Synthetic issue examples · no live services</strong>
 <label>Current evidence <select id="state"><option value="active">Unavailable readings</option><option value="partial">Some readings recovered</option><option value="recovered">All readings recovered</option></select></label>
-<label>Variant <select id="variant"><option value="devices">3 devices, overlapping thermostat policies</option><option value="phone">Michael’s iPhone, 10 synthetic readings</option><option value="standalone">Also a standalone entity</option><option value="aliases">Canonical thermostat metadata absent</option><option value="missing">An unknown recorded source</option><option value="mixed">Mixed conditions</option></select></label>
+<label>Variant <select id="variant"><option value="vacuum">Cabin vacuum and dock, restored evidence</option><option value="devices">3 devices, overlapping thermostat policies</option><option value="phone">Michael’s iPhone, 10 synthetic readings</option><option value="standalone">Also a standalone entity</option><option value="aliases">Canonical thermostat metadata absent</option><option value="missing">An unknown recorded source</option><option value="mixed">Mixed conditions</option></select></label>
 <label><input type="checkbox" id="narrow" checked>390px phone viewport</label><label><input type="checkbox" id="dark">Dark theme</label>
 <button id="run" type="button">Run browser checks</button></div>
 <p id="feedback" role="status"></p><details><summary>Acceptance receipt</summary><pre id="receipt"></pre></details><iframe title="Isolated Homeostatic issue viewport"></iframe><homeostatic-panel></homeostatic-panel>
@@ -24,7 +24,7 @@ const params=new URLSearchParams(location.search),embedded=params.has("embedded"
 if(!embedded) {
   const frame=document.querySelector("iframe"),feedback=document.querySelector("#feedback");
   const inputs=Object.fromEntries(["state","variant","narrow","dark"].map(id=>[id,document.getElementById(id)]));
-  inputs.state.value=params.get("state")||"active";inputs.variant.value=params.get("variant")||"devices";
+  inputs.state.value=params.get("state")||"active";inputs.variant.value=params.get("variant")||"vacuum";
   inputs.narrow.checked=!params.has("wide");inputs.dark.checked=params.has("dark");
   const refresh=()=>{
     const next=new URLSearchParams({embedded:"1",state:inputs.state.value,variant:inputs.variant.value});
@@ -55,7 +55,7 @@ if(!embedded) {
   async function show(state="active",variant="devices") {
     fixture=issueEvidenceFixture({state,variant});
     card.current={status:"current",data:fixture.data};card.page="problems";
-    card.configuration={settings:{notifications:false,monitoring_policies:fixture.policies,notification_definitions:emptyNotificationDefinitions("America/Chicago")}};
+    card.configuration={settings:{notifications:fixture.data.policy.notifications_enabled,monitoring_policies:fixture.policies,notification_definitions:emptyNotificationDefinitions("America/Chicago")}};
     card.settingsDraft=structuredClone(card.configuration.settings);
     card.issueGroupsExpanded=new Set();card.sourceDetail=null;
     if(state!=="recovered"){card.detail=null;card.dialog.close();}
@@ -65,10 +65,10 @@ if(!embedded) {
       const group=card.shadowRoot.querySelector(`[data-issue-group="integration:${domain}"]`);check(group,"Reachable integration group");group.click();
       const queue=card.shadowRoot.querySelector(".issue-group-body");
       const issue=queue.querySelector(`[data-episode="${fixture.episode.episode_id}"]`);check(issue,"Reachable exact issue action");
-      check(queue.querySelectorAll('[data-episode]').length===1,"One row per actual issue");
+      check([...queue.querySelectorAll('[data-episode]')].every(row=>row.dataset.episode===fixture.episode.episode_id),"Device entries retain the original issue identity");
       check(!queue.querySelector('[data-source-link],.issue-members'),"Queue has one route and no raw evidence list");
       check(!/View details|View in Sources|View in Monitoring|Recorded findings|Reporting off|Notifications off/.test(queue.innerText),"Queue avoids duplicate actions and reporting jargon");
-      if(variant==="phone")check(issue.closest('[data-issue-device]')?.querySelector('.issue-device-title')?.textContent==="Michael’s iPhone"&&issue.querySelector('.issue-title').textContent==="Related findings"&&issue.querySelector('.issue-condition').textContent==="10 entities unavailable","Phone queue names the device once above its findings and condition");
+      if(variant==="phone")check(issue.closest('[data-issue-device]')?.querySelector('.issue-device-title')?.textContent==="Michael’s iPhone"&&issue.querySelector('.issue-title').textContent==="Availability"&&issue.querySelector('.issue-condition').textContent==="10 entities unavailable","Phone queue names the device once above its findings and condition");
       issue.click();
       for(let turn=0;turn<12;turn++)await Promise.resolve();
     } else await card.loadDetail();
@@ -91,30 +91,29 @@ if(!embedded) {
     };
     check(root.querySelector(".problem-headline")?.textContent==="Unavailable readings from 3 devices","Grouped issue headline");
     check(body.querySelectorAll("[data-evidence-group]").length===3,"Three device groups");
-    check(body.querySelectorAll("[data-evidence-source]").length===8,"Eight canonical sources");
-    const lists=[...body.querySelectorAll('[data-disclosure^="entities:"]')];
-    check(lists.length===3&&lists.every(list=>!list.open),"Affected entity lists start collapsed");
+    check(body.querySelectorAll("[data-evidence-source]").length===5,"Five canonical entities visible up front");
+    check(body.querySelectorAll('details').length===1,"Only one supporting disclosure in the issue");
     check(!body.querySelector('[data-disclosure="issue-details"]').open,"Supporting Details starts collapsed");
     check(!/Inspect entity|Inspect device checks/.test(body.textContent),"Repeated inspection commands are absent");
     check(body.querySelectorAll('a.primary[href^="/config/devices/device/"]').length<=1,"Device rows do not repeat primary buttons");
     check(!body.querySelector('.next-action a.primary[href*="/config/integrations"]'),"A loaded connection is not the primary action");
-    openDisclosure("entities:device:thermostat");
-    check(body.querySelector('[data-evidence-source="entity:registry:thermostat"]')?.textContent.includes("Thermostat"),"Same-name thermostat has a distinct entity label");
-    openDisclosure(`checks:${THERMOSTAT_ENTITY}`);await card.loadDetail();
-    check(body.querySelector('[data-disclosure="entities:device:thermostat"]').open,"Entity-list disclosure survives refresh");
-    check(body.querySelector(`[data-disclosure="checks:${THERMOSTAT_ENTITY}"]`).open,"Disclosure survives refresh");
+    const thermostat=body.querySelector(`[data-evidence-source="${THERMOSTAT_ENTITY}"]`);
+    check(thermostat?.innerText.includes("Main Floor Thermostat")&&thermostat.innerText.includes("Unavailable in Home Assistant")&&!thermostat.closest('details'),"Same-name entity and its condition remain visible");
+    openDisclosure("issue-details");await card.loadDetail();
+    check(body.querySelector('[data-disclosure="issue-details"]').open,"Details stays open after refresh");
     check(body.innerText.includes("Entity availability")&&body.innerText.includes("Thermostat availability"),"Both overlapping check contributions remain visible");
     check(body.scrollWidth<=body.clientWidth+1,"Modal has no horizontal overflow");
     check(card.dialog.getBoundingClientRect().right<=innerWidth+1,"Modal fits its viewport");
-    const monitoring=openDisclosure("issue-details");
-    check(monitoring.querySelector('[data-disclosure="recorded"]'),"Complete recorded sources remain reachable in issue details");
-    const source=monitoring.querySelector('[data-source-link="device:third-floor"]');
-    check(source?.getClientRects().length,"Visible device Monitoring action in Monitoring details");source.click();for(let turn=0;turn<12;turn++)await Promise.resolve();
-    check(card.page==="sources"&&card.sourcesSelection==="source:device:third-floor","Monitoring action targets the canonical device");
-    check(card.sourceDetail?.nodeId==="device:third-floor"&&!card.sourceDetail.error,"Monitoring action reads synthetic evidence");
+    const monitoring=body.querySelector('[data-disclosure="issue-details"]');
+    check(!monitoring.querySelector('details')&&monitoring.querySelectorAll('[data-check-source]').length===8,"All current check contributions appear together without nested disclosures");
+    const source=body.querySelector('[data-source-link="entity:registry:third-floor-temperature"]');
+    check(source?.getClientRects().length,"Entity name is a visible Monitoring destination");source.click();for(let turn=0;turn<12;turn++)await Promise.resolve();
+    check(card.page==="sources"&&card.sourcesSelection==="source:entity:registry:third-floor-temperature","Entity action targets its canonical source");
+    check(card.sourceDetail?.nodeId==="entity:registry:third-floor-temperature"&&!card.sourceDetail.error,"Monitoring action reads synthetic evidence");
     await show("partial");
     check(root.querySelector(".problem-headline")?.textContent==="Unavailable readings from 2 devices","Partial recovery headline");
     check(body.querySelectorAll("[data-evidence-group]").length===2,"Recovered device no longer counted");
+    check(body.querySelector('.issue-recorded')?.textContent.includes("3rd Floor Sensor"),"Earlier recorded sources remain in flat supporting detail");
     check(visibleEpisodes(fixture.data).length===1,"Partial recovery stays visible");
     await show("recovered");
     check(visibleEpisodes(fixture.data).length===0,"Fully recovered issue hidden from active queue");
@@ -125,11 +124,11 @@ if(!embedded) {
     check(root.querySelector(".problem-headline")?.textContent==="10 entities unavailable","Phone headline states the affected entity count");
     check(body.querySelectorAll("[data-evidence-group]").length===1,"Phone issue has one device group");
     check(body.querySelectorAll("[data-evidence-source]").length===10,"Phone issue retains ten canonical readings");
-    check(!body.querySelector('[data-disclosure="entities:device:synthetic-iphone"]').open,"Phone readings start collapsed");
+    check(!body.querySelector('.affected-readings')?.closest('details'),"Phone readings are visible without disclosure");
     check(!body.querySelector('[data-disclosure="issue-details"]').open,"Phone supporting Details starts collapsed");
     check(!/Inspect entity|Inspect device checks|Open an affected device/.test(body.textContent),"Phone task avoids repeated navigation instructions");
     check(body.querySelectorAll('a[href="/config/devices/device/synthetic-iphone"]').length===1,"Phone has one Home Assistant device destination");
-    const phoneReadings=openDisclosure("entities:device:synthetic-iphone");
+    const phoneReadings=body.querySelector('.affected-readings');
     check(phoneReadings.querySelectorAll("[data-source-link]").length===10,"Every phone reading remains inspectable");
     check(phoneReadings.innerText.includes("Activity")&&phoneReadings.innerText.includes("Average Active Pace")&&phoneReadings.innerText.includes("Current Cadence")&&phoneReadings.innerText.includes("Current Pace"),"Supplied phone-reading examples remain visible");
     check(body.scrollWidth<=body.clientWidth+1,"Expanded phone readings fit the modal");
@@ -137,9 +136,19 @@ if(!embedded) {
     check(phoneEntity?.getClientRects().length,"Phone entity destination is visibly reachable");phoneEntity.click();for(let turn=0;turn<12;turn++)await Promise.resolve();
     check(card.page==="sources"&&card.sourcesSelection==="source:entity:registry:synthetic-iphone-activity","Phone reading opens its canonical source");
     check(calls.every(call=>["homeostatic/node","homeostatic/source"].includes(call.type)),"Only read-only fixture queries");
-    await show(params.get("state")||"active",params.get("variant")||"devices");
-    return "PASS: one-route issue queue, friendly device title, complete recorded-source details, compact grouped and ten-reading phone evidence, collapsed details, canonical Monitoring actions, preserved check contributions, disclosure refresh, partial/full recovery and viewport fit; no service calls.";
+    await show("active","vacuum");
+    check(root.querySelector('.problem-headline').innerText==="2 devices need attention","Vacuum scope counts devices without adding their entities again");
+    check(body.querySelector('[data-source-link="entity:registry:cabin"]').innerText==="Cabin","Vacuum retains its same-name identity");
+    check(body.innerText.includes('Dust emptying')&&body.innerText.includes('Only a restored state is available')&&body.innerText.includes('Current availability not confirmed'),"Specific restored entity and incomplete device conditions appear before expansion");
+    const vacuumDetails=openDisclosure('issue-details');
+    check(!vacuumDetails.querySelector('details'),"One expansion reveals all supporting evidence");
+    check(vacuumDetails.innerText.includes('Second Floor Dock')&&vacuumDetails.innerText.includes('Scheduled summary'),"Recorded sources and readable notification status remain available");
+    check(!/policy_default|Home Assistant reports roborock loaded|View Cabin .*Monitoring|Open integration in Home Assistant/.test(body.textContent),"Internal identifiers and redundant integration wording are absent");
+    check(body.querySelectorAll('[data-source-link="entry:synthetic-roborock"]').length===1,"One integration Monitoring destination");
+    check(body.scrollWidth<=body.clientWidth+1,"Expanded vacuum details fit the viewport");
+    await show(params.get("state")||"active",params.get("variant")||"vacuum");
+    return "PASS: visible names and conditions, truthful device counts, one flat Details, complete recorded scope and policy contributions, canonical navigation, refresh retention, partial/full recovery, phone and restored-vacuum examples; no service calls.";
   };
-  await show(params.get("state")||"active",params.get("variant")||"devices");
+  await show(params.get("state")||"active",params.get("variant")||"vacuum");
 }
 </script></body></html>

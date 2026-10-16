@@ -91,6 +91,21 @@ test("picker filters friendly names and areas without changing configured choice
   input(card,"definitionDeliverySearch","Kitchen");assert.match(namedNotifications(card),/Kitchen speaker/);
 });
 
+test("delivery type help explains absent providers without offering unavailable types",()=>{
+  const {card,calls}=fixture(),before=structuredClone(card.settingsDraft);
+  card.configuration.delivery_targets=[];
+  click(card,"destination-open");
+  const html=namedNotifications(card);
+  assert.match(html,/popovertarget="delivery-type-help" aria-label="Help with delivery types"/);
+  assert.match(html,/class="contextual-help-popover" popover/);
+  assert.doesNotMatch(html,/<details class="delivery-type-help"/);
+  assert.match(html,/Choices come from available destinations configured in Home Assistant/);
+  assert.match(html,/https:\/\/www.home-assistant.io\/integrations\/smtp\//);
+  assert.match(html,/https:\/\/www.home-assistant.io\/integrations\/twilio_sms\//);
+  assert.doesNotMatch(html,/<option value="(?:email|sms)"/);
+  assert.deepEqual(card.settingsDraft,before);assert.equal(calls.length,0);
+});
+
 test("generic notification targets never acquire SMS recipient controls",()=>{
   const {card}=fixture();click(card,"destination-open");input(card,"definitionDeliveryType","notification");
   const html=namedNotifications(card);assert.match(html,/Living room television/);assert.doesNotMatch(html,/type="tel"|Add recipient/);

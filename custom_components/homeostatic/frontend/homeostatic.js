@@ -1,24 +1,25 @@
-import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=84";
-import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=84";
-import {upsProblem} from "./ups.mjs?v=84";
-import {reportingStatus} from "./reporting.mjs?v=84";
-import {affectedFunctions, dashboardStore, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=84";
-import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=84";
-import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=84";
-import {DashboardTools} from "./history-controls.mjs?v=84";
-import {diagnosticOverview} from "./evidence.mjs?v=84";
-import {styles} from "./styles.mjs?v=84";
+import {retainedProblem, sharedDeviceCondition} from "./check-presentation.mjs?v=89";
+import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=89";
+import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=89";
+import {upsProblem} from "./ups.mjs?v=89";
+import {reportingStatus} from "./reporting.mjs?v=89";
+import {affectedFunctions, dashboardStore, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=89";
+import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=89";
+import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=89";
+import {DashboardTools} from "./history-controls.mjs?v=89";
+import {diagnosticOverview} from "./evidence.mjs?v=89";
+import {styles} from "./styles.mjs?v=89";
 
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree, canonicalSourceSelection, editSourceAvailability, restoreSourceFilters} from "./sources-workspace.mjs?v=84";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree, canonicalSourceSelection, editSourceAvailability, editSourcePolicies, restoreSourceFilters, restoreSourcePolicies} from "./sources-workspace.mjs?v=89";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=84";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=89";
 
-import {cardView} from "./notification-navigation.mjs?v=84";
-import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=84";
-import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=84";
-import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=84";
-import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=84";
-import {editIssueAvailability,issueAvailabilityAction,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=84";
+import {cardView} from "./notification-navigation.mjs?v=89";
+import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=89";
+import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=89";
+import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=89";
+import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=89";
+import {editIssueAvailability,issueAvailabilityAction,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=89";
 
 const VIEWS = ["sources", "problems", "history", "notifications", "policies", "configuration"];
 const date = (value) => value ? new Date(value).toLocaleString() : "No completed update";
@@ -292,7 +293,7 @@ class HomeostaticCard extends HTMLElement {
     for (let node = root; node; node = node.parentNode ?? node.getRootNode()?.host) {
       if (node.scrollTop || node.scrollLeft) scroll.push([node,node.scrollTop,node.scrollLeft]);
     }
-    const innerScroll = [".config-rail",".config-detail",".locations",".policy-picker-options"].map((selector) => {
+    const innerScroll = [".config-rail",".config-detail",".locations",".policy-picker-options",".source-policy-dialog"].map((selector) => {
       const node = root.querySelector(selector);
       return [selector,node?.scrollTop ?? 0,node?.scrollLeft ?? 0];
     });
@@ -436,6 +437,7 @@ class HomeostaticCard extends HTMLElement {
       this.renderedContent = content;
       restoreMethodDialogs(this);
       restoreSourceFilters(this);
+      restoreSourcePolicies(this);
     }
     if (!retained && this.savedPageState && (replaced || !this.renderedCurrent)) this.restorePageState(this.savedPageState);
     const configDetail = this.main.querySelector(".config-detail");
@@ -610,10 +612,11 @@ class HomeostaticCard extends HTMLElement {
   issueRow(data, episode, nodes, deviceGroup = null) {
     const source = nodes.get(episode.anchor);
     const situation = source?.kind === "situation";
-    const problem = temperatureProblem(source,data.inventory.entity_status?.[episode.anchor]) ?? upsProblem(source,data.inventory.ups_status?.[episode.anchor]) ?? repairProblem(source, episode.reasons) ?? brokenAutomationProblem(source, episode.reasons) ?? vacuumProblem(source, data.inventory.entity_status?.[episode.anchor], data.areas) ?? batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
+    const currentProblem = temperatureProblem(source,data.inventory.entity_status?.[episode.anchor]) ?? upsProblem(source,data.inventory.ups_status?.[episode.anchor]) ?? repairProblem(source, episode.reasons) ?? brokenAutomationProblem(source, episode.reasons) ?? vacuumProblem(source, data.inventory.entity_status?.[episode.anchor], data.areas) ?? batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       deviceProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       integrationProblem(source, episode.reasons, (key) => this._hass.localize?.(key), data.inventory.integration_evidence?.[episode.anchor], true, nodes) ??
       entityProblem(source, data.inventory.entity_status?.[episode.anchor], nodes.get(`entry:${source?.owner_id}`), data.areas, (key) => this._hass.localize?.(key));
+    const problem = retainedProblem(currentProblem,data.inventory.entity_status?.[episode.anchor],episode.reasons);
     const tone = situation ? "situation" : problem?.tone ?? "uncertain";
     const importance = ["high","critical"].includes(episode.importance) ? episode.importance === "critical" ? "Critical" : "Important" : null;
     const evidence = source?.kind === "integration" && problem?.currentReason === "loaded" ? problem.relatedEvidence : null;
@@ -628,7 +631,7 @@ class HomeostaticCard extends HTMLElement {
       : source?.kind === "integration" ? "Related findings"
       : source && isTemperatureCheck(source) ? "Temperature"
       : {battery:"Battery",vacuum:"Vacuum",ups:"UPS"}[source?.kind] || (source?.kind === "entity" ? problem?.context?.split(" · ")[0] : null) || "Finding";
-    const title = deviceGroup ? source?.kind === "device" || sourceName === deviceGroup.name ? findingType : shortName : sourceName;
+    const title = deviceGroup ? source?.kind === "integration" ? "Availability" : source?.kind === "device" || sourceName === deviceGroup.name ? findingType : shortName : sourceName;
     const memberName = fullMemberName?.startsWith(`${sourceName} `) ? fullMemberName.slice(sourceName.length + 1) : fullMemberName;
     const deviceCondition = source?.kind === "device" ? {
       incomplete_evidence:memberName ? `${memberName} has no current value` : "Selected entities have no current value",
@@ -639,7 +642,7 @@ class HomeostaticCard extends HTMLElement {
     const groupedDeviceCondition = deviceGroup && source?.kind === "device" ? {incomplete_evidence:"Monitored entities have no current value",some_unavailable:"Some monitored entities are unavailable",all_unavailable:"All monitored entities are unavailable"}[problem?.currentReason] : null;
     const condition = device && evidence.unavailableOnly && evidence.counts.entities
       ? `${evidence.counts.entities} ${evidence.counts.entities === 1 ? "entity" : "entities"} unavailable`
-      : groupedDeviceCondition ?? deviceCondition ?? problem?.headline ?? "Current condition needs review";
+      : sharedDeviceCondition(data,episode,problem) ?? groupedDeviceCondition ?? deviceCondition ?? problem?.headline ?? "Current condition needs review";
     const opened = new Date(episode.opened_at).toLocaleString(undefined, {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
     return `<button type="button" class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}" data-episode="${esc(episode.episode_id)}"${deviceGroup ? ` aria-label="${esc(`${deviceGroup.name}: ${title}. ${condition}. ${importance ? `${importance}. ` : ""}Since ${opened}. Open issue`)}"` : ""}><span class="issue-copy"><strong class="issue-title">${esc(title)}</strong><span class="issue-condition">${esc(condition)}</span><span class="small">${importance ? `${esc(importance)} · ` : ""}Since ${esc(opened)}</span></span><span class="issue-open">Open</span></button>`;
   }
@@ -668,6 +671,7 @@ class HomeostaticCard extends HTMLElement {
     if (editIssueAvailability(this,event)) return;
     if (event.target.matches?.("[data-availability-select]")) return;
     if (editSourceAvailability(this,event)) return;
+    if (editSourcePolicies(this,event)) return;
     if (editInstallation(this,event)) return;
     const button = event.target.closest("button");
     if (!button) return;
@@ -816,20 +820,22 @@ class HomeostaticCard extends HTMLElement {
       const diagnostic = episode ? null : diagnosticOverview(source, result, currentFunctions);
       const findings = result.explanation.findings;
       const temperature = temperatureProblem(source,result.entity_status,result.temperature_status,Boolean(episode));
-      const problem = temperature ?? upsProblem(source,result.entity_status,Boolean(episode)) ?? repairProblem(source, findings) ?? brokenAutomationProblem(source, findings) ?? vacuumProblem(source, result.entity_status, data.areas, Boolean(episode)) ?? batteryProblem(source, result.entity_status, Boolean(episode)) ??
+      const currentProblem = temperature ?? upsProblem(source,result.entity_status,Boolean(episode)) ?? repairProblem(source, findings) ?? brokenAutomationProblem(source, findings) ?? vacuumProblem(source, result.entity_status, data.areas, Boolean(episode)) ?? batteryProblem(source, result.entity_status, Boolean(episode)) ??
         deviceProblem(source, result.entity_status, Boolean(episode)) ??
         integrationProblem(source, episode?.reasons ?? findings, (key) => this._hass.localize?.(key), result.integration_evidence, Boolean(episode), nodes) ??
         entityProblem(source, result.entity_status, nodes.get(`entry:${source.owner_id}`), data.areas, (key) => this._hass.localize?.(key), Boolean(episode));
 
+      const problem = retainedProblem(currentProblem,result.entity_status,(episode?.reasons || findings).filter(item=>item.node_id === source.node_id));
       const memberEvidence = result.device_evidence?.total ? result.device_evidence : null;
       const uncertainMembers = memberEvidence?.members.filter((member) => member.restored || ["unavailable", "missing"].includes(member.state)) ?? [];
       const expanded = new Set([...body.querySelectorAll("details[open][data-disclosure]")].map((item) => item.dataset.disclosure));
       const compactIssue = Boolean(episode && source.kind === "integration" && problem?.currentReason === "loaded" && problem.relatedEvidence.groups.length);
       const singleDevice = compactIssue && problem.relatedEvidence.groups.length === 1 && problem.relatedEvidence.groups[0].deviceId;
       const affectedDevice = singleDevice ? problem.relatedEvidence.groups[0] : null;
+      if (compactIssue && !affectedDevice) this.shadowRoot.querySelector("#detail-title").textContent = "Device availability";
       if (affectedDevice) this.shadowRoot.querySelector("#detail-title").textContent = affectedDevice.name;
       this.shadowRoot.querySelector("#detail-label").hidden = true;
-      const relatedSources = relatedEvidenceDetails(problem?.relatedEvidence, expanded, {singleDevice:Boolean(singleDevice)});
+      const relatedSources = relatedEvidenceDetails(problem?.relatedEvidence, {singleDevice:Boolean(singleDevice)});
       const disclosure = (key) => `data-disclosure="${key}"${expanded.has(key) ? " open" : ""}`;
       const integrationDomains = source.attributes?.integration_domain ?? [];
       const deviceIntegrations = [...new Set(integrationDomains.map((domain) => integrationProblem({kind:"integration",attributes:{domain:[domain]}},[],(key) => this._hass.localize?.(key)).integration))];
@@ -842,7 +848,7 @@ class HomeostaticCard extends HTMLElement {
       const policyActions=`<div class="issue-policy-links">${policyChoices.length?policyChoices.map(policy=>`<button class="link" type="button" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="${esc(policy.id)}">Edit policy: ${esc(policy.name)}</button>`).join(""):'<button class="link" type="button" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="">View policies</button>'}</div>`;
       const notificationStatus = episode ? reportingStatus(data,episode) : "";
       const notificationFact = notificationStatus && !notificationStatus.startsWith("Acknowledged") ? `<dl class="source-facts"><div class="source-fact"><dt>Notifications</dt><dd>${esc(notificationStatus)}</dd></div></dl>` : "";
-      const monitoringDetails = `${notificationFact}${problem?.relatedEvidence?.groups.length ? relatedEvidenceMonitoring(problem.relatedEvidence) : ""}${episode ? recordedIssueSources(data,episode,expanded) : ""}`;
+      const monitoringDetails = `${notificationFact}${problem?.relatedEvidence?.groups.length ? relatedEvidenceMonitoring(problem.relatedEvidence) : ""}${episode ? recordedIssueSources(data,episode,problem?.relatedEvidence) : ""}`;
       const availabilityExplanation = episode && memberEvidence && uncertainMembers.length && result.device_availability?.status === "available" ? `<p>Device availability uses enabled operational entities. This problem checks the ${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"}; ${uncertainMembers.length === 1 ? "one needs" : "some need"} attention. An available sibling does not clear an unavailable or missing entity.</p>` : "";
       const nativeLink = source.kind === "repair" || source.kind === "broken_automation" ? `<a class="button primary" href="${esc(source.fix_url)}">Fix in Home Assistant</a>` : source.kind === "device" ? "" : source.kind === "integration" && problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : problem.relatedFindings.length ? `<a class="link" href="${esc(problem.integrationUrl)}">Open ${esc(problem.integration)} integration</a>` : "") : source.entity_id
         ? `<button class="button primary" type="button" data-entity="${esc(source.entity_id)}">${esc(problem?.entityLabel ?? "View in Home Assistant")}</button>`
@@ -854,16 +860,17 @@ class HomeostaticCard extends HTMLElement {
         : problem?.headline;
       const monitoringSource = temperature ? inventoryRows(data).find(item => item.kind === "entity" && source.entity_id && item.entity_id === source.entity_id)?.node_id : null;
       const opened = episode ? `<dl class="source-facts issue-facts problem-progress"><div class="source-fact"><dt>Opened</dt><dd>${esc(date(episode.opened_at))}</dd></div></dl>` : "";
-      const controls = this.tools.detailButtons(source,episode,data) + (episode ? issueAvailabilityAction(this,episode) : "");
-      const deviceAction = problem?.deviceUrl ? `<a class="button primary" href="${esc(problem.deviceUrl)}">Open device in Home Assistant</a>` : "";
+      const sharedScope = compactIssue && problem.relatedEvidence.groups.length > 1 ? '<p class="small">Acknowledge and pause apply to the entire issue.</p>' : "";
+      const controls = sharedScope + this.tools.detailButtons(source,episode,data) + (episode ? issueAvailabilityAction(this,episode) : "");
+      const deviceAction = problem?.deviceUrl ? `<a class="button primary" href="${esc(problem.deviceUrl)}">Open device</a>` : "";
       const primaryAction = nativeLink || deviceAction;
-      const monitoringLink = ["integration","device","entity","battery","vacuum","ups"].includes(source.kind) ? `<button type="button" class="link" data-source-link="${esc(monitoringSource || source.monitoring_source || source.node_id)}">View in Monitoring</button>` : "";
-      const reportedDetails = problem?.reported ? `<section class="reported-error"><h3>${problem.historical ? "Last reported error" : "Reported error"}</h3>${problem.reportedAt ? `<p class="small">${esc(date(problem.reportedAt))}</p>` : ""}${problem.historical ? '<p class="small">From an earlier attempt; the current activity is shown above.</p>' : ""}<pre>${esc(problem.reported)}</pre></section>` : problem?.missingDetail ? "<p>Home Assistant did not report a specific cause.</p>" : "";
-      const navigation = `<div class="issue-detail-links">${monitoringLink}${nativeLink && problem?.deviceUrl ? `<a href="${esc(problem.deviceUrl)}">Open device in Home Assistant</a>` : ""}${problem?.logsUrl ? `<a href="${esc(problem.logsUrl)}">View integration logs</a>` : ""}</div>`;
+      const monitoringLink = memberEvidence && memberEvidence.members.length < memberEvidence.total ? "" : ["integration","device","entity","battery","vacuum","ups"].includes(source.kind) ? `<button type="button" class="link" data-source-link="${esc(monitoringSource || source.monitoring_source || source.node_id)}">View in Monitoring</button>` : "";
+      const reportedDetails = problem?.reported ? `<section class="reported-error"><h3>${problem.historical ? "Last reported error" : "Reported error"}</h3>${problem.reportedAt ? `<p class="small">${esc(date(problem.reportedAt))}</p>` : ""}${problem.historical ? '<p class="small">Reported earlier; recovery has not been confirmed.</p>' : ""}<pre>${esc(problem.reported)}</pre></section>` : problem?.missingDetail ? "<p>Home Assistant did not report a specific cause.</p>" : "";
+      const navigation = `<div class="issue-detail-links">${monitoringLink}${nativeLink && problem?.deviceUrl ? `<a href="${esc(problem.deviceUrl)}">Open device</a>` : ""}${problem?.logsUrl ? `<a href="${esc(problem.logsUrl)}">View integration logs</a>` : ""}</div>`;
       const details = (contents) => contents ? `<details class="issue-disclosure" ${disclosure("issue-details")}><summary>Details</summary>${contents}</details>` : "";
       const temperatureContent = temperature && episode ? `<section class="detail problem-brief temperature-issue"><h3 class="problem-headline">${esc(temperature.headline)}</h3><p>${esc(temperature.summary)}</p>${temperature.timing ? `<p>${esc(temperature.timing)}.</p>` : ""}${opened}</section>${controls}${policyActions}${details(`${temperature.detail ? `<p>${esc(temperature.detail)}.</p>` : ""}<div class="issue-detail-links">${source.entity_id ? `<button type="button" class="link" data-entity="${esc(source.entity_id)}">View temperature reading</button>` : ""}<button type="button" class="link" data-source-link="${esc(monitoringSource || source.monitoring_source || source.node_id)}">View in Monitoring</button></div>${monitoringDetails}`)}` : null;
       const supporting = `${problem?.nextStep ? `<p>${esc(problem.nextStep)}</p>` : ""}${problem?.connectionNote ? `<p>${esc(problem.connectionNote)}</p><button type="button" class="link" data-node="${esc(problem.connectionNode)}">${esc(problem.connectionLabel)}</button>` : ""}${diagnostic ? `<dl class="source-facts"><div class="source-fact"><dt>Monitoring</dt><dd>${esc(diagnostic.monitoring)}</dd></div><div class="source-fact"><dt>Checks</dt><dd>${esc(diagnostic.checks)}</dd></div><div class="source-fact"><dt>Assessment</dt><dd>${esc(diagnostic.assessment)}</dd></div><div class="source-fact"><dt>Household impact</dt><dd>${esc(diagnostic.impact)}</dd></div></dl>` : ""}${availabilityExplanation}${monitoringDetails}${reportedDetails}${navigation}`;
-      const content = temperatureContent ?? (compactIssue ? `<section class="detail problem-brief compact-issue"><h3 class="problem-headline">${esc(compactHeadline)}</h3>${opened}${affectedDevice ? `<div class="actions"><a class="button primary" href="/config/devices/device/${encodeURIComponent(affectedDevice.deviceId)}">Open device in Home Assistant</a></div>` : ""}</section>${controls}${relatedSources}${policyActions}${details(`${monitoringDetails}<p>Home Assistant reports ${esc(problem.integration)} loaded.</p><div class="issue-detail-links"><a href="${esc(problem.integrationUrl)}">Open integration in Home Assistant</a>${monitoringLink}${problem.logsUrl ? `<a href="${esc(problem.logsUrl)}">View integration logs</a>` : ""}</div>`)}` : `${episode && memberEvidence ? "" : deviceAvailability(result.device_availability)}<section class="detail problem-brief">${memberEvidence ? deviceBrief : problem ? `<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}${opened}${primaryAction ? `<div class="actions">${primaryAction}</div>` : ""}</section>${controls}${relatedSources}${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}${policyActions}${details(supporting)}`);
+      const content = temperatureContent ?? (compactIssue ? `<section class="detail problem-brief compact-issue"><h3 class="problem-headline">${esc(compactHeadline)}</h3>${opened}${affectedDevice ? `<div class="actions"><a class="button primary" href="/config/devices/device/${encodeURIComponent(affectedDevice.deviceId)}">Open device</a></div>` : ""}</section>${relatedSources}${controls}${policyActions}${details(`${monitoringDetails}<div class="issue-detail-links"><a href="${esc(problem.integrationUrl)}">Open integration</a>${problem.logsUrl ? `<a href="${esc(problem.logsUrl)}">View integration logs</a>` : ""}${monitoringLink}</div>`)}` : `${episode && memberEvidence ? "" : deviceAvailability(result.device_availability)}<section class="detail problem-brief">${memberEvidence ? deviceBrief : problem ? `<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}${opened}${primaryAction ? `<div class="actions">${primaryAction}</div>` : ""}</section>${relatedSources}${controls}${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}${policyActions}${details(supporting)}`);
       const contentKey = content.replace(/(data-disclosure="[^"]+") open/g, "$1");
       if (contentKey === this.renderedDetailContent) return;
       const detailState = this.capturePageState(body);
@@ -909,17 +916,17 @@ class HomeostaticStrategy {
   static getCreateSuggestions() { return {title:"Homeostatic",icon:"mdi:home-heart"}; }
   static async generate() {
     return {title:"Homeostatic",views:[
-      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v32",view:"issues",navigation:false}]},
-      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v32",view:"sources",navigation:false}]},
-      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v32",view:"policies",navigation:false}]},
-      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v32",view:"notifications",navigation:false}]},
-      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v32",view:"history",navigation:false}]},
+      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v37",view:"issues",navigation:false}]},
+      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v37",view:"sources",navigation:false}]},
+      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v37",view:"policies",navigation:false}]},
+      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v37",view:"notifications",navigation:false}]},
+      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v37",view:"history",navigation:false}]},
     ]};
   }
 }
 
-if (!customElements.get("homeostatic-card-v32")) customElements.define("homeostatic-card-v32", HomeostaticCard);
-if (!customElements.get("homeostatic-panel-v36")) customElements.define("homeostatic-panel-v36", HomeostaticPanel);
+if (!customElements.get("homeostatic-card-v37")) customElements.define("homeostatic-card-v37", HomeostaticCard);
+if (!customElements.get("homeostatic-panel-v41")) customElements.define("homeostatic-panel-v41", HomeostaticPanel);
 if (!customElements.get("homeostatic-card-v30")) customElements.define("homeostatic-card-v30", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-panel-v34")) customElements.define("homeostatic-panel-v34", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v29")) customElements.define("homeostatic-card-v29", class extends HomeostaticCard {});

@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-10-16
+
+### Changed
+
+- Simplify entity details with linked device and integration names, concise condition and monitoring text, and one Monitoring policies action for contributing policies and their editors.
+
+- Remove repeated Shared issue labels from Open issues. Keep the complete affected scope beside acknowledgment and notification-pause controls.
+
+- Remove Working on this equipment and its maintenance-creation form from the panel. Existing maintenance windows remain visible and can be ended; Home Assistant maintenance actions remain available.
+
+- Show affected names and conditions directly in issue and source details. Keep supporting information in one flat Details section, retain entity names that match their device, use readable notification names and remove repeated findings and navigation links.
+
+- Group shared availability findings under their devices, show checks waiting for information as supporting context, and retain previously reported problems through unavailable states and reloads. Vacuum messages now identify the actual Home Assistant state. Shared device rows no longer infer recovery from a loaded integration.
+- Add a small help icon beside Delivery type with a brief popover explaining which destinations appear and linking to Home Assistant email and SMS setup.
+
 ## [1.8.1] - 2026-10-16
 
 ### Changed

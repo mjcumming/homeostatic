@@ -126,6 +126,43 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
         await page.waitForFunction(() => window.acceptanceMessages.length > 0, null, {timeout});
         await saveStage("native outside click");
       }
+      if (fixture === "source-actions.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
+        const native = {id:"sources.monitoring-policies",status:"pass",evidence:["Native Enter opens Monitoring policies; Escape and Close restore its trigger. Entity and policy dialog fit the viewport with doubled text."]};
+        try {
+          const trigger=page.locator('[data-source-policies="open"]');
+          await trigger.focus();await page.keyboard.press("Enter");
+          await page.locator('.source-policy-dialog[open]').waitFor({state:"visible"});
+          result.details_screenshot=join(artifactDir,`source-policies-${viewport.width}-${colorScheme}.png`);
+          await page.screenshot({path:result.details_screenshot,fullPage:true});
+          await page.keyboard.press("Escape");
+          await page.waitForFunction(()=>{
+            const root=document.querySelector("homeostatic-panel").shadowRoot;
+            return !root.querySelector('.source-policy-dialog')&&root.activeElement?.dataset.sourcePolicies==="open";
+          });
+          result.screenshot=join(artifactDir,`source-entity-${viewport.width}-${colorScheme}.png`);
+          await page.locator('homeostatic-panel').evaluate(card=>{
+            for(const element of card.shadowRoot.querySelectorAll('*'))if(element.scrollTop)element.scrollTop=0;
+          });
+          await page.evaluate(()=>window.scrollTo(0,0));
+          await page.screenshot({path:result.screenshot,fullPage:true});
+          await trigger.click();
+          await page.locator('[data-source-policies="close"]').click();
+          await trigger.click();
+          await page.locator('homeostatic-panel').evaluate(card=>{
+            const root=card.shadowRoot,targets=[...root.querySelectorAll('.config-detail *')].filter(element=>!element.closest('svg'));
+            const sizes=targets.map(element=>[element,parseFloat(getComputedStyle(element).fontSize)]);
+            for(const [element,size] of sizes)element.style.fontSize=`${size*2}px`;
+          });
+          for(const selector of ['.config-detail','.source-policy-dialog']) {
+            const fits=await page.locator(selector).evaluate(element=>element.scrollWidth<=element.clientWidth+1);
+            if(!fits)throw Error(`${selector} overflows with doubled text`);
+          }
+          result.enlarged_screenshot=join(artifactDir,`source-policies-enlarged-${viewport.width}-${colorScheme}.png`);
+          await page.screenshot({path:result.enlarged_screenshot,fullPage:true});
+          await page.keyboard.press("Escape");
+        } catch(error) {native.status="fail";native.evidence=[error.message];}
+        result.stages.push({name:"native policy dialog and enlarged text",receipt:{results:[native]},messages:[],feedback:`${native.status.toUpperCase()}: ${native.evidence.join(" ")}`});
+      }
       if (fixture === "monitoring-inspector.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
         const native = {id: "sources.monitoring-toolbar", status: "pass", evidence: ["Native Escape closes More filters and returns focus; a real outside click closes it and retains the search focus."]};
         try {
@@ -175,9 +212,29 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
     result.status = failed ? "fail" : result.stages.length ? "pass" : "untested";
     if (!result.paths.length) result.diagnostics.push("No inventory path was proven by a declared receipt. Fixture feedback alone does not establish inventory coverage.");
     const stem = `${fixture.replace(/\.html$/, "")}-${viewport.width}-${colorScheme}`;
-    if (failed || fixture === "policy-picker.html") {
+    if (!failed && fixture === "monitoring-inspector.html") {
+      await page.locator("[data-sources-search]").fill("3rd Floor");
+      await page.locator('[data-sources-select="source:device:third-floor"]').click();
+      await page.locator(".source-monitoring-explanation > summary").click();
+    }
+    if (!failed && fixture === "issue-evidence.html") {
+      const preview=await page.locator("iframe").getAttribute("src");
+      await page.goto(new URL(preview,page.url()).href);
+      await page.locator("dialog[open]").waitFor({state:"visible"});
+    }
+    if (failed || ["policy-picker.html", "device-issues.html", "issue-evidence.html", "monitoring-inspector.html"].includes(fixture)) {
+      await page.evaluate(() => window.scrollTo(0, 0));
       try {result.screenshot = join(artifactDir, `${stem}.png`); await page.screenshot({path: result.screenshot, fullPage: true});}
       catch (error) {result.diagnostics.push(`Screenshot capture: ${error.message}`);}
+    }
+    if (!failed && fixture === "issue-evidence.html") {
+      try {
+        const dialog=page.locator("dialog[open]");
+        await dialog.locator('[data-disclosure="issue-details"] > summary').click();
+        await dialog.evaluate(element => {element.scrollTop=element.scrollHeight;});
+        result.details_screenshot=join(artifactDir,`${stem}-details.png`);
+        await page.screenshot({path:result.details_screenshot,fullPage:true});
+      } catch (error) {result.diagnostics.push(`Details screenshot capture: ${error.message}`);}
     }
     await writeFile(join(artifactDir, `${stem}.json`), `${JSON.stringify(result, null, 2)}\n`);
     await context.close();

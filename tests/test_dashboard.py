@@ -421,6 +421,96 @@ async def test_entity_brief_uses_current_queries_through_unknown_and_recovery(
     await client.close()
 
 
+async def test_grouped_inventory_keeps_current_status_for_recorded_checks(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """One integration issue carries each device and entity check's own evidence."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.SETUP_ERROR)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "grouped")}
+    )
+    children = [
+        er.async_get(hass).async_get_or_create(
+            "sensor", "test", name, config_entry=owner, device_id=device.id
+        )
+        for name in ("first", "second")
+    ]
+    policies = [
+        monitoring_policy("integration", {"kind": ["integration"]}),
+        monitoring_policy("devices", {"kind": ["device"]}),
+        monitoring_policy("entities", {"kind": ["entity"], "domain": ["sensor"]}),
+    ]
+    config_data.update(monitoring_policies=policies, notifications=False)
+    config_data["timings"]["clear_hold"] = 120
+    for child in children:
+        hass.states.async_set(child.entity_id, "unavailable")
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    [episode_id] = runtime.episodes
+    device_check = bound_identity(policies[1], f"device:{device.id}")
+    first, second = (
+        bound_identity(policies[2], f"entity:registry:{child.id}") for child in children
+    )
+    expected = {device_check, first, second}
+    assert set(runtime.episodes[episode_id]["recorded"]) == expected
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "homeostatic/subscribe", "compact": True})
+    assert (await client.receive_json())["success"]
+    initial = (await client.receive_json())["event"]["inventory"]["entity_status"]
+    assert set(initial) == expected
+    assert initial[device_check]["current"]["reason"] == "all_unavailable"
+    assert all(
+        initial[node]["current"]["reason"] == "unavailable" for node in (first, second)
+    )
+    with patch.dict(
+        runtime.episodes,
+        {
+            episode_id: {
+                **runtime.episodes[episode_id],
+                "recorded": [device_check, second],
+                "reasons": [
+                    *runtime.episodes[episode_id]["reasons"],
+                    {"node_id": first, **runtime.entity_status(first)["current"]},
+                ],
+            }
+        },
+    ):
+        assert set(runtime.inventory_updates()["entity_status"]) == expected
+    await client.send_json({"id": 2, "type": "unsubscribe_events", "subscription": 1})
+    assert (await client.receive_json())["success"]
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    runtime = entry.runtime_data
+    reloaded = runtime.inventory_updates()["entity_status"]
+    assert set(reloaded) == expected
+    assert reloaded[device_check]["current"]["reason"] == "all_unavailable"
+    assert reloaded[first]["last_failure"]["reason"] == "unavailable"
+    assert reloaded[second]["last_failure"]["reason"] == "unavailable"
+    owner._async_set_state(hass, ConfigEntryState.LOADED, None)
+    hass.states.async_set(children[0].entity_id, "23")
+    await hass.async_block_till_done()
+    assert list(runtime.episodes) == [episode_id]
+    current = hass.data[DATA_DASHBOARD].value["inventory"]["entity_status"]
+    assert set(current) == expected
+    assert current[first]["current"]["status"] == "pass"
+    assert current[device_check]["current"]["status"] == "pass"
+    assert current[second]["current"]["status"] == "warn"
+    for child in children:
+        hass.states.async_set(child.entity_id, "23")
+    await hass.async_block_till_done()
+    freezer.tick(121)
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert runtime.episodes == {}
+    assert runtime.inventory_updates()["entity_status"] == {}
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.close()
+
+
 async def test_installation_settings_exact_review_preserves_definitions(
     hass: HomeAssistant,
     config_data: dict[str, Any],

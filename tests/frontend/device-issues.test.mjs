@@ -34,6 +34,21 @@ test("loaded integration findings and independent findings share their one recor
   assert.deepEqual(issueIds(groups),[shared.episode_id,"independent"]);
 });
 
+test("device rows omit grouping labels while preserving the original issue and condition",()=>{
+  const {data,episode:shared,nodes}=issueEvidenceFixture();
+  const groups=issueDeviceGroups(data,[shared]);
+  const card={current:{data},displaySourceName:cardPrototype.displaySourceName,_hass:{}};
+  assert.equal(groups.length,3);
+  for(const group of groups){
+    const html=cardPrototype.issueRow.call(card,data,group.episodes[0],nodes,group);
+    assert.deepEqual(renderedIds(html),[shared.episode_id]);
+    assert.match(html,/<strong class="issue-title">Availability<\/strong>/);
+    assert.match(html,/unavailable/);
+    assert.match(html,/Since /);
+    assert.doesNotMatch(html,/shared issue|3 devices/i);
+  }
+});
+
 test("grouped production rows name the device assessment and media-player capability",()=>{
   const data=fixture(),nodes=new Map(data.inventory.nodes.map(source=>[source.node_id,source]));
   data.inventory.nodes.filter(source=>source.kind==="entity").forEach(source=>{source.name="Xiaozhi Ball";});

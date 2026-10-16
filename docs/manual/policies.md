@@ -16,6 +16,8 @@ For eligible sources, starting settings and the conditions each monitoring type 
 
 The saved policy controls monitoring. An enabled switch in an unsaved draft has not changed the running policy. A confirmed save removes the unsaved-change controls; if saving fails, the editor retains your draft and explains the problem.
 
+To find the policies watching an entity, select it in **Monitoring**, then open **Monitoring policies**. Each policy explains what it checks, including whether the entity contributes to its device's availability assessment. Use **Edit policy** to change one, or close the dialog to return to the entity. The labeled device and integration names open their Home Assistant pages.
+
 ## Choose a scope that will stay useful
 
 | Selection | Use it when |

@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=84";
-import {deviceEntityName} from "./device-availability.mjs?v=84";
+import {escapeHtml as esc} from "./model.mjs?v=89";
+import {deviceEntityName} from "./device-availability.mjs?v=89";
 
 export const isTemperatureCheck = source => ["temperature_limit","thermostat"].includes(source.kind);
 
@@ -27,6 +27,7 @@ function reading(evidence) {
 export function sourceTemperature(source,detail) {
   const checks=detail.temperature_checks||[];
   if(!checks.length)return "";
+  const linkedSources=new Set();
   const content=checks.map(check=>{
     const observation=check.observation,evidence=observation?.evidence||{};
     const waiting=["temperature_qualifying","thermostat_qualifying"].includes(observation?.reason);
@@ -36,7 +37,9 @@ export function sourceTemperature(source,detail) {
     const values=[reading(evidence),typeof evidence.minimum==="number"?"Minimum "+temperature(evidence.minimum,evidence.unit):"",typeof evidence.maximum==="number"?"Maximum "+temperature(evidence.maximum,evidence.unit):""].filter(Boolean);
     const required=waiting&&typeof evidence.duration_seconds==="number"?`<p>Must remain outside the limits for ${esc(duration(evidence.duration_seconds))}.</p>`:"";
     const next=waiting&&check.next_deadline?`<p class="small">Next evaluation: ${esc(new Date(check.next_deadline).toLocaleString())}</p>`:"";
-    const sensor=source.kind==="device"?`<p><button type="button" class="link" data-source-link="${esc(check.source_id)}">${esc(deviceEntityName(check.source_name,source.name))}</button></p>`:"";
+    const sensorName=source.kind==="device"?esc(deviceEntityName(check.source_name,source.name)):"";
+    const sensor=source.kind==="device"?`<p>${linkedSources.has(check.source_id)?sensorName:`<button type="button" class="link" data-source-link="${esc(check.source_id)}">${sensorName}</button>`}</p>`:"";
+    linkedSources.add(check.source_id);
     return `<article class="source-temperature-check" data-temperature-check="${esc(check.node_id)}"><h4>${esc(check.policy_name)}</h4>${sensor}<p><strong>${esc(status)}</strong>${message?` — ${esc(message)}`:""}</p>${values.length?`<p>${esc(values.join(" · "))}</p>`:""}${required}${next}</article>`;
   }).join("");
   return `<section class="source-section source-temperature"><h3>Temperature monitoring</h3>${content}</section>`;

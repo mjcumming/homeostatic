@@ -52,7 +52,7 @@ For release, publish the library first, update the adapter's manifest, project d
 
 ## Checks and packaging
 
-Quick checks run lint, format and frontend tests. Run focused Python tests for changed behavior. CI runs strict mypy, the complete Home Assistant integration tests, the separate statement and branch coverage floors defined in the [coverage check](../script/check_coverage.py), and frontend tests. Tests use isolated Home Assistant instances and mocked notification transports.
+Quick checks run lint, format and frontend tests. Run focused Python tests for changed behavior. Dashboard changes also require the [rendered-browser acceptance](development-workflows.md#quick-local-test) appropriate to their scope. CI runs strict mypy, the complete Home Assistant integration tests, the separate statement and branch coverage floors defined in the [coverage check](../script/check_coverage.py), and frontend tests. Tests use isolated Home Assistant instances and mocked notification transports.
 
 The [development workflows](development-workflows.md) define the checks and authorization needed for a local installation or release. For an authorized release candidate, synchronize its published dependencies and build from a clean committed checkout:
 

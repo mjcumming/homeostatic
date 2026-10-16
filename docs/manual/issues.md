@@ -9,7 +9,7 @@ Use **Open issues** to investigate a reported problem and decide what to do abou
 1. Open **Open issues**, or follow a notification to its issue.
 2. Use **Find an issue** to search by equipment name, entity ID or reported condition. **Sort issues** can put the newest or longest-open problems first.
 3. Expand the relevant group, then select the finding beneath the device name. Repairs and broken automations have their own groups. A group heading helps you find problems; open a finding to act on a particular issue.
-4. Read the reported condition, opening time and affected sources. Expand **Details** or the affected-entity list when more information is needed. A shared issue can involve several devices, so check its scope before using a control.
+4. Read the reported condition, opening time and affected sources. Their names and conditions appear directly. Open **Details** for supporting information, including earlier recorded sources when they add context.
 5. Follow the relevant Home Assistant link to inspect the equipment, integration, Repair or automation. Links to **Monitoring** show the source's current readings and the policies that watch it.
 
 The issue should identify what Home Assistant reported and where to investigate. Homeostatic does not repair the equipment. If an unavailable feature is normal for that equipment, [change its availability monitoring](policies.md#remove-unwanted-availability-monitoring).
@@ -17,6 +17,8 @@ The issue should identify what Home Assistant reported and where to investigate.
 ![An opened MQTT Kitchen issue showing its reported condition, related equipment and issue actions](../images/manual-issue-detail.png)
 
 An example issue shows the reported condition and the actions that apply to it.
+
+An issue can affect several devices. Opening any of its findings shows the complete issue. The text beside acknowledgment and notification-pause controls explains their full scope before you act. Checks waiting for current information appear directly beneath their device. A previously reported problem stays visible when current information is missing, until recovery is confirmed.
 
 ## Acknowledge an issue
 
@@ -36,8 +38,6 @@ Acknowledgment records that someone has seen the issue for everyone receiving it
 The pause holds new notifications for that issue for everyone, including urgent notifications and reminders. Other issues can still notify. Monitoring continues, the issue stays open until its condition clears, and an existing phone message is not dismissed by the pause.
 
 An existing pause can be extended. To end it early, open the issue, select **Resume notifications…**, and confirm with **Resume notifications**. Due notifications may become eligible immediately; another overlapping pause can still apply.
-
-For planned work that may create new problems, use [Working on this equipment](maintenance.md).
 
 ## Follow recovery
 

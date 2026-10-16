@@ -1,6 +1,6 @@
 # ADR 0046: Report a vacuum's error activity as an issue
 
-**Status:** Accepted
+**Status:** Accepted; evidence-gap wording and retained-problem presentation extended by [ADR 0085](0085-device-centered-issue-context.md)
 **Date:** 2026-10-03
 
 ## Context

@@ -68,14 +68,14 @@ Each editor retains its own pending changes during navigation within the same br
 | --- | --- | --- |
 | Acknowledge issue | Records awareness of the issue for everyone and stops its acknowledgment-dependent reminders | The issue remains open; other notifications, including scheduled summaries, may continue |
 | Pause notifications | Holds new notifications for the whole issue, for everyone, including urgent notifications | Monitoring continues and the issue remains open; existing messages are not dismissed |
-| Working on this equipment | Holds new issues within the selected equipment scope until maintenance ends; dependent equipment can be included | Existing issues and their notifications continue |
+| End maintenance | Ends an active equipment maintenance period early; problems still present may become eligible immediately | Existing issues and their notifications continue; other overlapping maintenance periods remain active |
 | Remove notification assignments | Removes that policy's outgoing notification choices | Monitoring continues and issues remain visible in Open issues |
 | Disable or delete a policy, or remove a source from its selection | Ends the monitoring supplied by that policy or selection | Independent policies keep monitoring their own selections; ending monitoring is recorded separately from recovery |
 | Notifications off | Stops normal new issue notifications across the installation | Monitoring and the panel continue; explicit delivery-method tests remain available |
 
-Pauses and maintenance require an end time in the future, no more than seven days away. The end-time picker uses the browser's local time, identified as **Your local time**. An optional reason may contain up to 500 characters. An existing pause can be extended; use its end control to finish it early. Ending one pause or maintenance period leaves other overlapping controls in force.
+Pauses require an end time in the future, no more than seven days away. The end-time picker uses the browser's local time, identified as **Your local time**. An optional reason may contain up to 500 characters. An existing pause can be extended; use **Resume notifications** to finish it early. Ending one pause leaves other overlapping pauses in force.
 
-See [issue actions](issues.md), [planned work](maintenance.md) and [policy changes](policies.md) for procedures.
+See [issue actions](issues.md), [ending active maintenance](maintenance.md) and [policy changes](policies.md) for procedures.
 
 ## Installation timing
 

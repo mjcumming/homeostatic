@@ -1,6 +1,6 @@
 # ADR 0038: Treat reported disconnection as device evidence
 
-**Status:** Accepted; connectivity-off availability interpretations in monitoring and Sources are superseded by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md). The compact detail layout remains intact.
+**Status:** Accepted; connectivity-off availability interpretations in monitoring and Sources are superseded by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md). Detail disclosures and name shortening are partially superseded by [ADR 0086](0086-visible-evidence-and-flat-details.md).
 **Date:** 2026-09-30
 **Decider:** Michael Cumming
 

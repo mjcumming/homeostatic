@@ -34,7 +34,7 @@ The panel and Homeostatic dashboard cards require a Home Assistant administrator
 - [Review and respond to an issue](manual/issues.md)
 - [Inspect equipment and its history](manual/monitoring.md)
 - [Review ended problems](manual/history.md)
-- [Work on equipment temporarily](manual/maintenance.md)
+- [End an active maintenance period](manual/maintenance.md)
 
 ## Choose what to watch
 
@@ -59,7 +59,7 @@ The [monitoring reference](manual/monitoring-reference.md) covers all supported 
 <a id="choose-delivery-methods"></a>
 <a id="when-a-notification-arrives"></a>
 
-[Set up and change notifications](manual/notifications.md) covers destinations, explicit tests, named notifications, policy assignments and presence choices. The [settings reference](manual/settings-reference.md) lists defaults and compares acknowledgment, pauses and maintenance.
+[Set up and change notifications](manual/notifications.md) covers destinations, explicit tests, named notifications, policy assignments and presence choices. The [settings reference](manual/settings-reference.md) lists defaults and explains issue controls.
 
 ## Get help and maintain your installation
 

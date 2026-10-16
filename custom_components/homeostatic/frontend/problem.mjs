@@ -82,7 +82,13 @@ const evidenceDescriptions = {
   all_unavailable:"All selected entities unavailable", some_unavailable:"Some selected entities unavailable",
   unavailable:"Unavailable in Home Assistant", stale:"No recent availability evidence",
   source_missing:"No current state found", value_unknown:"Value unknown",
-  incomplete_evidence:"Current availability not confirmed", restored_state:"Waiting for a fresh reading",
+  incomplete_evidence:"Current availability not confirmed", restored_state:"Only a restored state is available",
+};
+const routineEvidenceMessages = {
+  unavailable:["home assistant reports unavailable", "home assistant reports this entity unavailable"],
+  all_unavailable:["all selected entities are unavailable"],
+  some_unavailable:["some selected entities are unavailable"],
+  stale:["waiting for current information"],
 };
 
 /** Resolve independent checks to source identities without changing issue membership. */
@@ -100,7 +106,12 @@ export function relatedSourceEvidence(findings, nodes = new Map()) {
     const prefix = `${binding?.name || name}: `;
     const message = finding.message?.startsWith(prefix) ? finding.message.slice(prefix.length) : finding.message;
     const policy = binding?.monitoring_policy ? (canonical && binding.name?.startsWith(`${name} · `) ? binding.name.slice(name.length + 3) : binding.monitoring_policy.name || binding.monitoring_policy) : null;
-    const description = Object.hasOwn(evidenceDescriptions,finding.reason) ? evidenceDescriptions[finding.reason] : message || finding.reason?.replaceAll("_", " ") || "Current evidence missing";
+    const normalizedMessage = message?.trim().replace(/[.!]+$/, "").toLowerCase().replaceAll("_", " ");
+    const messageReason = Object.keys(evidenceDescriptions).find(reason => reason.replaceAll("_", " ") === normalizedMessage);
+    const specificMessage = messageReason && (finding.reason === "stale" || messageReason === finding.reason);
+    let description = specificMessage ? evidenceDescriptions[messageReason] : Object.hasOwn(evidenceDescriptions,finding.reason) ? evidenceDescriptions[finding.reason] : message || finding.reason?.replaceAll("_", " ") || "Current evidence missing";
+    const repeatsCondition = Object.hasOwn(routineEvidenceMessages,finding.reason) && routineEvidenceMessages[finding.reason].includes(normalizedMessage);
+    if(message && !specificMessage && !repeatsCondition && description.toLowerCase().replace(/[.!]+$/, "") !== normalizedMessage)description += `. ${message}`;
     members.get(id).findings.push({finding,policy,description});
     checks.add(JSON.stringify([finding.node_id,finding.check_id || ""]));
   }
@@ -120,9 +131,12 @@ export function relatedSourceEvidence(findings, nodes = new Map()) {
   const counts = {devices:rows.filter(group => group.kind === "device").length,
     entities:[...members.values()].filter(member => member.kind === "entity").length,sources:members.size,checks:checks.size};
   const unavailableOnly = members.size > 0 && [...members.values()].every(member => ["device","entity"].includes(member.kind) && member.findings.every(({finding}) => ["unavailable","all_unavailable","some_unavailable"].includes(finding.reason)));
+  const standaloneEntities = rows.filter(group => group.kind === "entity").length;
+  const otherSources = rows.length - counts.devices - standaloneEntities;
+  const scope = [counts.devices ? counted(counts.devices,"device") : "",standaloneEntities ? counted(standaloneEntities,"entity","entities") : "",otherSources ? counted(otherSources,"other source") : ""].filter(Boolean).join(" and ");
   const headline = unavailableOnly && rows.every(group => group.kind === "device")
     ? `Unavailable readings from ${counted(counts.devices,"device")}`
-    : `${counted(counts.sources,"source")} ${counts.sources === 1 ? "needs" : "need"} attention`;
+    : `${counts.devices || standaloneEntities ? scope : counted(counts.sources,"source")} ${rows.length === 1 ? "needs" : "need"} attention`;
   return {groups:rows,counts,unavailableOnly,headline};
 }
 
@@ -202,8 +216,16 @@ export function vacuumProblem(source, status, areas = [], openProblem = true) {
     idle:["Vacuum idle", `${source.name} is idle.`, "No action is needed right now.", "recovering", "Idle"],
     paused:["Vacuum paused", `${source.name} is paused.`, "No action is needed right now.", "recovering", "Paused"],
     returning:["Vacuum returning", `${source.name} is returning.`, "No action is needed right now.", "recovering", "Returning"],
-    vacuum_unknown:["Vacuum activity unknown", "Home Assistant has no current activity for this vacuum.",
-      "Wait for a current activity. A missing activity keeps an open issue open.", "uncertain", "Waiting for activity"],
+    vacuum_unknown:["Waiting for vacuum status", "Home Assistant reports no activity value for this vacuum.",
+      "The vacuum error check is waiting for a current activity.", "uncertain", "Waiting"],
+    vacuum_unavailable:["Vacuum unavailable", "Home Assistant reports this vacuum unavailable.",
+      "The vacuum error check will resume when a current activity is available.", "uncertain", "Waiting"],
+    vacuum_missing:["Vacuum state missing", "This vacuum has no state in Home Assistant.",
+      "Check the entity in Home Assistant.", "uncertain", "Waiting"],
+    vacuum_restored:["Waiting for the vacuum integration", "Home Assistant has only a restored state for this vacuum.",
+      "Wait for the integration to provide a current activity.", "uncertain", "Waiting"],
+    vacuum_unrecognized:["Vacuum activity not recognized", reported || "Home Assistant reports an activity this check does not recognize.",
+      "Review the vacuum entity in Home Assistant.", "uncertain", "Waiting"],
     disabled:["Vacuum disabled", "Home Assistant is not using this vacuum.",
       "Review the vacuum in Home Assistant if this was not intentional.", "neutral", "Disabled"],
   };

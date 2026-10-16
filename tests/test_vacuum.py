@@ -73,18 +73,18 @@ def vacuum_source(area_id: str | None, *, disabled: bool = False) -> Source:
             STATE_UNAVAILABLE,
             False,
             False,
-            "vacuum_unknown",
+            "vacuum_unavailable",
             Status.UNKNOWN,
             id="unavailable",
         ),
         pytest.param(
-            None, False, False, "vacuum_unknown", Status.UNKNOWN, id="missing"
+            None, False, False, "vacuum_missing", Status.UNKNOWN, id="missing"
         ),
         pytest.param(
-            "error", True, False, "vacuum_unknown", Status.UNKNOWN, id="restored"
+            "error", True, False, "vacuum_restored", Status.UNKNOWN, id="restored"
         ),
         pytest.param(
-            "stuck", False, False, "vacuum_unknown", Status.UNKNOWN, id="other"
+            "stuck", False, False, "vacuum_unrecognized", Status.UNKNOWN, id="other"
         ),
         pytest.param("error", False, True, "disabled", Status.UNKNOWN, id="disabled"),
     ],
@@ -123,7 +123,13 @@ async def test_vacuum_activity_scenarios(
     else:
         assert (
             observation.message
-            == "Home Assistant has no current activity for Downstairs robot."
+            == {
+                "vacuum_unknown": "Home Assistant reports no activity value for Downstairs robot.",
+                "vacuum_unavailable": "Home Assistant reports Downstairs robot unavailable.",
+                "vacuum_missing": "Downstairs robot has no state in Home Assistant.",
+                "vacuum_restored": "Home Assistant is waiting for the integration to provide Downstairs robot.",
+                "vacuum_unrecognized": "Home Assistant reports an unrecognized vacuum activity: stuck.",
+            }[reason]
         )
 
 
@@ -228,6 +234,7 @@ async def test_vacuum_error_opens_clears_and_survives_an_integration_failure(
     )
     await hass.async_block_till_done()
     assert not runtime.episodes
+    assert runtime.entity_status(vacuum_id)["last_failure"] is None
 
     hass.states.async_set(
         entity.entity_id, "error", {"friendly_name": "Downstairs robot"}
@@ -239,9 +246,13 @@ async def test_vacuum_error_opens_clears_and_survives_an_integration_failure(
     )
     await hass.async_block_till_done()
     assert {item["anchor"] for item in runtime.episodes.values()} == {vacuum_id}
+    retained = runtime.entity_status(vacuum_id)["last_failure"]
+    assert retained["reason"] == "vacuum_error"
+    assert runtime.entity_status(vacuum_id)["current"]["reason"] == "vacuum_unavailable"
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data
+    assert runtime.entity_status(vacuum_id)["last_failure"] == retained
     assert {item["anchor"] for item in runtime.episodes.values()} == {vacuum_id}
 
     hass.states.async_set(
@@ -254,6 +265,7 @@ async def test_vacuum_error_opens_clears_and_survives_an_integration_failure(
     )
     await hass.async_block_till_done()
     assert not runtime.episodes
+    assert runtime.entity_status(vacuum_id)["last_failure"] is None
 
     hass.states.async_set(
         entity.entity_id, "error", {"friendly_name": "Downstairs robot"}

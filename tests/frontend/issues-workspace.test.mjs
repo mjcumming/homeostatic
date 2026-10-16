@@ -87,22 +87,26 @@ test("canonical source rows preserve check aliases and all policy contributions"
   assert.equal(entity.source.monitoring_checks.length,2);
   assert.equal(paths.get("source:monitoring:entities:entity:table").node,entity);
   assert.equal(canonicalSourceSelection(tree,"source:monitoring:extra:entity:table"),"source:entity:table");
-  const card=sourceCard(data),html=sourcesBrowser(card);
-  assert.match(html,/<p class="config-path">Matter<\/p>/);
+  const card=sourceCard(data),closed=sourcesBrowser(card);
+  assert.match(closed,/data-source-policies="open"/);
+  assert.doesNotMatch(closed,/data-definition-id=/);
+  card.sourcePoliciesSelection="entity:table";
+  const html=sourcesBrowser(card);
+  assert.match(html,/href="\/config\/integrations\/integration\/matter#config_entry=matter"[^>]*>Matter<\/a>/);
   assert.match(html,/id="sources-detail-title"[^>]*>Back Deck Table Light<\/h2>/);
   assert.doesNotMatch(html,/Entity ID: light.table/);
-  assert.match(html,/Unavailable in Home Assistant/);
-  assert.match(html,/Edit “Device availability” policy/);
-  assert.match(html,/Edit “Entity availability” policy/);
-  assert.match(html,/Edit “Extra light” policy/);
-  assert.match(html,/Homeostatic monitors this entity’s availability\./);
+  assert.match(html,/Home Assistant reports this entity as unavailable/);
+  assert.match(html,/data-definition-id="devices"/);
+  assert.match(html,/data-definition-id="entities"/);
+  assert.match(html,/data-definition-id="extra"/);
+  assert.match(html,/Monitored for availability/);
   assert.doesNotMatch(html,/sources-views|Save changes|Separate check/);
   assert.doesNotMatch(html,/data-sources-view="history">View history<\/a>/);
   data.inventory.nodes=data.inventory.nodes.filter(source=>source.monitoring_policy!=="entities");
   const changed=sourcesBrowser(card);
-  assert.doesNotMatch(changed,/Edit “Entity availability” policy/);
-  assert.match(changed,/Edit “Extra light” policy/);
-  assert.match(changed,/Unavailable in Home Assistant/);
+  assert.doesNotMatch(changed,/data-definition-id="entities"/);
+  assert.match(changed,/data-definition-id="extra"/);
+  assert.match(changed,/Home Assistant reports this entity as unavailable/);
 });
 
 test("entities without devices and automation checks remain reachable",()=>{

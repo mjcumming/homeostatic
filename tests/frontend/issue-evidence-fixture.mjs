@@ -8,13 +8,18 @@ export const lyricLocalize = key => key === "component.lyric.title" ? "Honeywell
 
 /** Recorded issue membership survives while current findings recover independently. */
 export function issueEvidenceFixture({state="active",variant="devices"}={}) {
-  const phone=variant==="phone",owner=phone?"synthetic-mobile-app":"lyric",domain=phone?"mobile_app":"lyric";
-  const entryId=phone?`entry:${owner}`:LYRIC_ENTRY;
-  const integration=baseSource(entryId,phone?"Michael’s iPhone":"Lyric connection","integration",{
+  const phone=variant==="phone",vacuum=variant==="vacuum",owner=phone?"synthetic-mobile-app":vacuum?"synthetic-roborock":"lyric",domain=phone?"mobile_app":vacuum?"roborock":"lyric";
+  const entryId=phone||vacuum?`entry:${owner}`:LYRIC_ENTRY;
+  const integration=baseSource(entryId,phone?"Michael’s iPhone":vacuum?"Roborock connection":"Lyric connection","integration",{
     entry_id:owner,watched:true,attributes:{domain:[domain]},
   });
   const deviceDefinitions=phone?[
     ["synthetic-iphone","Michael’s iPhone",["Activity","Average Active Pace","Current Cadence","Current Pace","Distance","Floors Ascended","Floors Descended","Steps","Battery Level","Connection Type"]],
+  ]:vacuum?[
+    ["cabin","Cabin",[""]],
+    ["cabin-dock","Cabin Dock",["Dust emptying"]],
+    ["second-floor-vacuum","Second Floor",[""]],
+    ["second-floor-dock","Second Floor Dock",["Dust emptying"]],
   ]:[
     ["third-floor","3rd Floor Sensor",["Temperature","Humidity"]],
     ["second-floor","2nd Floor Sensor",["Temperature","Humidity"]],
@@ -25,16 +30,17 @@ export function issueEvidenceFixture({state="active",variant="devices"}={}) {
     devices.push(baseSource(`device:${id}`,name,"device",{owner_id:owner,attributes:{device:[id],integration:[owner],integration_domain:[domain]}}));
     for(const reading of readings) {
       const suffix=reading?`-${reading.toLowerCase().replaceAll(" ","-")}`:"";
+      const entityDomain=vacuum?(reading?"switch":"vacuum"):(reading?"sensor":"climate");
       entities.push(baseSource(`entity:registry:${id}${suffix}`,`${name}${reading?` ${reading}`:""}`,"entity",{
-        entity_id:`${reading?"sensor":"climate"}.${id.replaceAll("-","_")}${suffix.replaceAll("-","_")}`,
-        owner_id:owner,attributes:{device:[id],integration:[owner],integration_domain:[domain],domain:[reading?"sensor":"climate"]},
+        entity_id:`${entityDomain}.${id.replaceAll("-","_")}${suffix.replaceAll("-","_")}`,
+        owner_id:owner,attributes:{device:[id],integration:[owner],integration_domain:[domain],domain:[entityDomain]},
       }));
     }
   }
   const policies=phone?[{id:"entities",name:"Entity availability"}]:[
     {id:"devices",name:"Device availability"},
     {id:"entities",name:"Entity availability"},
-    {id:"thermostat-extra",name:"Thermostat availability"},
+    ...(vacuum?[]:[{id:"thermostat-extra",name:"Thermostat availability"}]),
   ];
   const check=(source,policy)=>({...source,node_id:`monitoring:${policy.id}:${source.node_id}`,
     name:`${source.name} · ${policy.name}`,monitoring_source:source.node_id,
@@ -42,7 +48,7 @@ export function issueEvidenceFixture({state="active",variant="devices"}={}) {
     ...(source.kind==="device"?{availability_entities:entities.filter(entity=>entity.attributes.device[0]===source.attributes.device[0]).map(entity=>entity.entity_id)}:{}),
   });
   const checks=phone?entities.map(source=>check(source,policies[0])):[...devices.map(source=>check(source,policies[0])),...entities.map(source=>check(source,policies[1])),
-    check(entities.find(source=>source.node_id===THERMOSTAT_ENTITY),policies[2])];
+    ...(vacuum?[]:[check(entities.find(source=>source.node_id===THERMOSTAT_ENTITY),policies[2])])];
   const canonical=[integration,...devices,...entities];
   if(variant==="standalone") {
     const entity=baseSource("entity:registry:standalone","Outdoor reading","entity",{
@@ -50,10 +56,10 @@ export function issueEvidenceFixture({state="active",variant="devices"}={}) {
     });
     canonical.push(entity);checks.push(check(entity,policies[1]));
   }
-  const related=checks.map(source=>({
+  const related=checks.filter(source=>!vacuum||source.attributes.device[0].startsWith("cabin")).map(source=>({
     node_id:source.node_id,check_id:"availability",status:"fail",
-    reason:source.kind==="device"?"all_unavailable":"unavailable",
-    message:source.kind==="device"?`${source.name}: All selected entities are unavailable.`:`${source.name}: Home Assistant reports unavailable.`,
+    reason:vacuum?"stale":source.kind==="device"?"all_unavailable":"unavailable",
+    message:vacuum?`${source.name}: ${source.kind==="device"?"incomplete evidence":"restored state"}`:source.kind==="device"?`${source.name}: All selected entities are unavailable.`:`${source.name}: Home Assistant reports unavailable.`,
   }));
   if(variant==="missing")related.push({
     node_id:"monitoring:removed:entity:missing",check_id:"availability",status:"fail",reason:"unavailable",
@@ -81,7 +87,7 @@ export function issueEvidenceFixture({state="active",variant="devices"}={}) {
     inventory:{nodes,catalog:{candidates:sources},episodes:[episode],operator_controls:[],enrollment_changes:[],
       notification_requests:[],integration_evidence:{[entryId]:{current,last_failure:null}},entity_status:{},
       resolved_history:{episodes:[],retention:{max_episodes:100,max_age_days:30},started_at:UPDATED_AT}},
-    policy:{notifications_enabled:false,routes:{},episodes:[]},
+    policy:{notifications_enabled:vacuum,routes:{},episodes:vacuum?[{episode_id:episode.episode_id,loudness:"digest",digest:"entry:policy_default_integrations_default",require_acknowledgment:true}]:[]},
   };
   return {data,episode,integration,nodes:new Map(nodes.map(source=>[source.node_id,source])),policies};
 }

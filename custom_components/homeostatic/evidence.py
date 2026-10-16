@@ -1,4 +1,4 @@
-"""Observed integration conditions for presentation, independent of health decisions."""
+"""Observed conditions for presentation, independent of health decisions."""
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -13,7 +13,7 @@ from .serialization import json_object
 def _timestamp(value: str) -> datetime:
     result = datetime.fromisoformat(value)
     if result.utcoffset() != timedelta(0):
-        raise ValueError("Integration evidence timestamps must be UTC")
+        raise ValueError("Reported evidence timestamps must be UTC")
     return result
 
 
@@ -21,12 +21,16 @@ _REPORT = {
     vol.Required("reason"): str,
     vol.Required("message"): str,
     vol.Required("observed_at"): vol.All(str, _timestamp),
+    vol.Optional("status", default=None): vol.Any(
+        None, "pass", "warn", "fail", "unknown"
+    ),
 }
 _STORED = vol.Schema(
     {
         str: {
             vol.Required("current"): _REPORT,
             vol.Required("last_failure"): vol.Any(None, _REPORT),
+            vol.Optional("history_complete"): bool,
         }
     }
 )
@@ -39,22 +43,28 @@ class ReportedCondition:
     reason: str
     message: str
     observed_at: datetime
+    status: str | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class IntegrationContext:
+class EvidenceContext:
     """Current evidence and a previous failure, without a health verdict."""
 
     current: ReportedCondition
     last_failure: ReportedCondition | None
+    history_complete: bool = True
 
 
-class IntegrationEvidence:
-    """Retain one failure through incomplete setup attempts and across reloads."""
+class ReportedEvidence:
+    """Retain one reported problem through evidence gaps and across reloads.
+
+    Also used for independent checks; this is presentation evidence only.
+    """
 
     def __init__(self) -> None:
         """Begin without synthesizing historical observations."""
-        self._records: dict[str, IntegrationContext] = {}
+        self._records: dict[str, EvidenceContext] = {}
+        self._history_complete = True
 
     def observe(self, observation: Observation, name: str) -> None:
         """Capture evidence only when the matching observation is ingested."""
@@ -62,19 +72,25 @@ class IntegrationEvidence:
             reason=observation.reason,
             message=(observation.message or "").removeprefix(f"{name}: "),
             observed_at=observation.observed_at,
+            status=observation.status.value,
         )
         previous = self._records.get(observation.node_id)
         failure = previous.last_failure if previous else None
+        history_complete = (
+            previous.history_complete if previous else self._history_complete
+        )
         if observation.status in {Status.FAIL, Status.WARN}:
             failure = report
+            history_complete = True
         elif observation.status is Status.PASS:
             failure = None
-        self._records[observation.node_id] = IntegrationContext(
-            current=report, last_failure=failure
+            history_complete = True
+        self._records[observation.node_id] = EvidenceContext(
+            current=report, last_failure=failure, history_complete=history_complete
         )
 
     def retain(self, node_ids: set[str]) -> None:
-        """Discard presentation when monitoring of the integration ends."""
+        """Discard presentation when monitoring of the source ends."""
         self._records = {
             key: value for key, value in self._records.items() if key in node_ids
         }
@@ -88,7 +104,7 @@ class IntegrationEvidence:
         """Serialize presentation separately from opaque library snapshots."""
         return json_object(self._records)
 
-    def restore(self, value: Any) -> None:
+    def restore(self, value: Any, *, history_complete: bool = True) -> None:
         """Reject malformed evidence before replacing any retained record."""
         data = _STORED(value)
         records = {}
@@ -101,7 +117,15 @@ class IntegrationEvidence:
             )
             if failure and failure.observed_at > current.observed_at:
                 raise ValueError(
-                    "Integration failure cannot be newer than current evidence"
+                    "Reported failure cannot be newer than current evidence"
                 )
-            records[node_id] = IntegrationContext(current=current, last_failure=failure)
+            records[node_id] = EvidenceContext(
+                current=current,
+                last_failure=failure,
+                history_complete=item.get(
+                    "history_complete",
+                    failure is not None or current.status in {"pass", "warn", "fail"},
+                ),
+            )
         self._records = records
+        self._history_complete = history_complete

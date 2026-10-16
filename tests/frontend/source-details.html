@@ -10,7 +10,7 @@ homeostatic-card{display:block;max-width:1400px;margin:auto}#result,#action{max-
 </style></head><body>
 <div class="fixture-controls">
 <label>Page <select id="view"><option value="device">Device</option><option value="entity">Entity</option></select></label>
-<label>Evidence <select id="evidence"><option value="restored">No longer provided</option><option value="mixed">Unavailable, no provider and available</option><option value="unknown">Available with no value</option><option value="available">Current values</option><option value="missing">Missing states</option></select></label>
+<label>Evidence <select id="evidence"><option value="restored">Not currently provided</option><option value="mixed">Unavailable, no provider and available</option><option value="unknown">Available with no value</option><option value="available">Current values</option><option value="missing">Missing states</option></select></label>
 <label><input id="disabled" type="checkbox">Disable selected source</label>
 <label>Theme <select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
 <label><input id="narrow" type="checkbox">Narrow layout</label>
@@ -18,7 +18,7 @@ homeostatic-card{display:block;max-width:1400px;margin:auto}#result,#action{max-
 <homeostatic-card></homeostatic-card><p id="result" role="status"></p><p id="action" role="status"></p>
 <script type="module">
 import {styles} from "../../custom_components/homeostatic/frontend/styles.mjs";
-import {sourcesBrowser} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
+import {sourcesBrowser,editSourcePolicies,restoreSourcePolicies} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {DEVICE_ID,sourceDetailsFixture} from "./source-details-fixture.mjs";
 
 const params=new URLSearchParams(location.search),host=document.querySelector("homeostatic-card"),root=host.attachShadow({mode:"open"});
@@ -35,7 +35,7 @@ function verify() {
     !body?.textContent.includes("Observed "),
     !body?.textContent.includes("Restored state"),
     !body?.textContent.includes("Waiting for a current Home Assistant state"),
-    inputs.disabled.checked&&!card.sourcesShowDisabled||root.querySelectorAll(".source-policy,.source-policy-links [data-definition-id]").length>0,
+    inputs.disabled.checked&&!card.sourcesShowDisabled||root.querySelectorAll('.source-policy,.source-policy-links [data-definition-id],[data-source-policies="open"]').length>0,
     !inputs.disabled.checked||!card.sourcesShowDisabled||body?.textContent.includes("Monitoring paused while disabled. Saved monitoring choices resume when re-enabled."),
   ];
   document.querySelector("#result").textContent=checks.every(Boolean)?"PASS: source title, evidence and policy details":"FAIL: source detail scenario";
@@ -45,12 +45,14 @@ function render() {
   host.style.width=inputs.narrow.checked?"360px":"";
   card.sourcesMobileDetail=inputs.narrow.checked;
   root.innerHTML=`<style>${styles}</style>${sourcesBrowser(card)}`;
+  card.main=root;card.render=render;restoreSourcePolicies(card);
   verify();
 }
 function reset() {card=sourceDetailsFixture(inputs.view.value,states[inputs.evidence.value]);const id=card.sourcesSelection.slice(7);card.current.data.inventory.nodes.filter(item=>item.node_id===id||item.monitoring_source===id).forEach(item=>item.disabled=inputs.disabled.checked);render();}
 root.addEventListener("change",event=>{if(event.target.matches("[data-sources-disabled]")){card.sourcesShowDisabled=event.target.checked;render();}});
 for(const input of Object.values(inputs))input.addEventListener("change",reset);
 root.addEventListener("click",event=>{
+  if(editSourcePolicies(card,event))return;
   const link=event.target.closest("a[href]");
   if(link){event.preventDefault();document.querySelector("#action").textContent=`Fixture navigation: ${link.getAttribute("href")}`;return;}
   const toggle=event.target.closest("[data-sources-toggle]");

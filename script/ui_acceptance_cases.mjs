@@ -418,10 +418,29 @@ export async function runLiveCases({page,lab,call,record,artifactDir,group="all"
       return "Entity availability remove/cancel/confirm/resume persisted only policy exclusions and restored original settings.";
     });
     await run("sources.maintenance",async()=>{
+      const before=await snapshot();
+      const service=async(name,service_data={})=>(await call("call_service",{domain:"homeostatic",service:name,service_data,return_response:true})).response;
+      const controls=async()=>(await service("operator_controls")).controls;
+      const existing=await controls();
       await go("sources");await fill('[data-sources-search]',lab.entities.offline);await at('[data-sources-select]').last().click();
-      await click('[data-maintenance]');await click('[data-duration="30"]');await click('dialog[open] [type="submit"]');
-      await at('dialog[open]').filter({hasText:"Saved by Home Assistant"}).waitFor({timeout:20000});assert.ok((await at('dialog[open]').innerText()).includes("Until"));
-      await click('dialog[open] [data-cancel-control]');await click('dialog[open] [type="submit"]');await at('dialog[open]').filter({hasText:"selected control has ended"}).waitFor({timeout:20000});await page.keyboard.press("Escape");
+      assert.equal(await at('[data-maintenance]').count(),0,"Entity details offer no new-maintenance action");
+      const node_id=(await at('[data-sources-select][aria-current]').getAttribute("data-sources-select")).slice("source:".length);
+      const first=(await service("start_maintenance",{node_id,until:new Date(Date.now()+1800000).toISOString(),reason:"Existing API-created window"})).control;
+      const overlap=(await service("start_maintenance",{node_id,until:new Date(Date.now()+60000).toISOString(),reason:"Separate overlapping window"})).control;
+      await clean();await go("sources");await fill('[data-sources-search]',lab.entities.offline);await at(`[data-sources-select="source:${node_id}"]`).click();
+      await at(`[data-cancel-control="${first.control_id}"]`).waitFor();
+      assert.equal(await at('[data-maintenance]').count(),0,"Existing maintenance does not restore its creation action");
+      assert.ok((await at('.config-detail').innerText()).includes("Until"),"Existing maintenance retains visible expiry");
+      assert.ok((await at('.config-detail').innerText()).includes(first.reason),"Existing maintenance retains its saved reason");
+      await click(`[data-cancel-control="${first.control_id}"]`);await page.keyboard.press("Escape");
+      assert.deepEqual(await controls(),[...existing,first,overlap],"Closing confirmation leaves both windows saved");
+      await click(`[data-cancel-control="${first.control_id}"]`);await click('dialog[open] [type="submit"]');await at('dialog[open]').filter({hasText:"selected control has ended"}).waitFor({timeout:20000});await page.keyboard.press("Escape");
+      assert.deepEqual(await controls(),[...existing,overlap],"Ending the selected window preserves its overlap");
+      await at(`[data-cancel-control="${first.control_id}"]`).waitFor({state:"hidden"});await at(`[data-cancel-control="${overlap.control_id}"]`).waitFor();
+      await call("homeostatic_ui_lab/control",{action:"advance",seconds:120});
+      await at(`[data-cancel-control="${overlap.control_id}"]`).waitFor({state:"hidden",timeout:20000});
+      assert.deepEqual(await controls(),existing,"Expiry removes the remaining maintenance window");await noChange(before);
+      return "Entity Monitoring has no creation action. Seeded two windows through the retained API in isolated HA, checked visible expiry/reason, closed one confirmation without mutation, ended exactly one window through rendered controls and observed the other expire. Monitoring and notification settings stayed unchanged.";
     });
     await run("live.history.browse",async()=>{
       const before=await snapshot();await go("history");await at('[data-history-toggle]').first().waitFor();

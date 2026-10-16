@@ -29,7 +29,14 @@ for(const view of ["device","entity"])test(view+" shows the temperature policy a
   assert.match(visible,/80 °F/);
   assert.match(visible,/1 hour/);
   assert.doesNotMatch(visible,/Current check passed/);
-  assert.match(html,/data-definition-id="home-temperature"/);
+  if(view==="entity") {
+    assert.match(html,/data-source-policies="open"/);
+    assert.doesNotMatch(html,/data-definition-id=/);
+    card.sourcePoliciesSelection=ENTITY_ID;
+    const opened=sourcesBrowser(card);
+    assert.match(opened,/<dialog class="source-policy-dialog"[\s\S]*data-definition-id="home-temperature"/);
+    assert.match(opened,/Monitored for availability and temperature/);
+  } else assert.match(html,/data-definition-id="home-temperature"/);
 });
 
 test("temperature-only device coverage does not invent device availability",()=>{

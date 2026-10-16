@@ -17,6 +17,10 @@
 
 **Later decision:** [ADR 0073](0073-entity-first-monitoring-details.md) supersedes the applicable entity-detail layout, contextual history placement and availability action wording; existing monitoring and issue semantics remain unchanged.
 
+**Later decision:** [ADR 0086](0086-visible-evidence-and-flat-details.md) defines visible issue evidence, preserved entity names and one flat supporting Details section. Group navigation and exact issue actions remain unchanged.
+
+**Later decision:** [ADR 0087](0087-remove-maintenance-creation-from-ui.md) removes maintenance creation from the panel. Existing maintenance visibility and cancellation remain available; published actions and runtime semantics are unchanged.
+
 ## Context
 
 Successive interface changes left overlapping destinations, duplicated sources, settings panels without editable settings, unexplained issue counts and save controls without changes to save. Navigation failed to restore the task being performed. The owner requested a coherent product specification and prototypes before application changes.

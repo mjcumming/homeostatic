@@ -289,7 +289,7 @@ data:
 
 ### `homeostatic.start_maintenance`
 
-The action behind **Working on this equipment**.
+Start equipment maintenance through this Home Assistant action. Active periods remain visible in the panel, where **End maintenance** ends them early. The panel has no action for starting a period.
 
 | Field | Required | Value |
 | --- | --- | --- |

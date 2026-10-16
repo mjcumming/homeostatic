@@ -11,13 +11,13 @@ const body=html=>html.split('<div class="source-body">')[1];
 const condition=html=>body(html).split('<section class="source-section">')[0];
 const monitoring=html=>body(html);
 
-test("unavailable entity puts its condition, scoped action and policies directly in view",()=>{
+test("unavailable entity puts its condition, scoped action and one contextual policy action in view",()=>{
   const html=detail(sourceDetailsFixture("entity",["unavailable"]));
-  assert.match(condition(html),/Unavailable in Home Assistant/);
+  assert.match(condition(html),/Home Assistant reports this entity as unavailable/);
   assert.match(html,/data-availability-action="stop"/);
   assert.match(html,/Remove this entity from availability monitoring…/);
-  assert.match(html,/data-definition-id="entities"/);
-  assert.match(html,/data-definition-id="devices"/);
+  assert.match(html,/data-source-policies="open"[^>]*>Monitoring policies<\/button>/);
+  assert.doesNotMatch(html,/data-definition-id=|source-policy-dialog/);
   assert.doesNotMatch(html,/<dt>Availability<\/dt>|<dt>Monitoring<\/dt>|<summary>Details<\/summary>/);
   assert.doesNotMatch(html,/source-monitoring-explanation|source-issue-actions|source-technical|data-sources-view="history"/);
   assert.match(html,/data-action="back-sources">← Back to Monitoring<\/button>/);
@@ -51,10 +51,74 @@ test("an entity opens its related issue without exposing controls for the larger
   card.current.data.inventory.episodes=[{episode_id:"shared",anchor:"entry:lyric",recorded:["entry:lyric","monitoring:entities:"+ENTITY_ID],reasons:[{node_id:"monitoring:entities:"+ENTITY_ID,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT}];
   card.tools={detailButtons:(...args)=>DashboardTools.prototype.detailButtons.call({},...args)};
   const html=detail(card);
-  assert.match(html,/Unavailable in Home Assistant/);
+  assert.match(html,/Home Assistant reports this entity as unavailable/);
   assert.match(html,/data-episode="shared"[^>]*>View issue<\/button>/);
   assert.match(html,/issue involving 2 sources/);
   assert.doesNotMatch(html,/data-acknowledge|data-shelf|whole issue headed by|source-issue-actions/);
+});
+
+test("device names and current entity conditions remain visible before its one flat Details section",()=>{
+  const card=sourceDetailsFixture("device",["unavailable","restored","72"]);
+  const name="3rd Floor Sensor";
+  for(const source of card.current.data.inventory.nodes.filter(source=>source.node_id===ENTITY_ID||source.monitoring_source===ENTITY_ID))source.name=name;
+  card.sourceDetail.members[0].name=name;
+  const html=detail(card),visible=html.split('<details class="source-section source-monitoring-explanation"')[0];
+  assert.match(visible,/>3rd Floor Sensor<\/button><\/td><td>Unavailable<\/td>/);
+  assert.match(visible,/>Room humidity<\/button><\/td><td>Not provided by integration<\/td>/);
+  assert.doesNotMatch(html,/Selected entity/);
+  assert.equal((html.match(/<details\b/g)||[]).length,1);
+  assert.match(html,/<summary>Details<\/summary>/);
+  assert.match(html,/>Room average temperature<\/button><\/td><td>72<\/td>/);
+});
+
+test("shared issue controls and their complete scope are visible in device details",()=>{
+  const card=sourceDetailsFixture("device",["unavailable"]);
+  card.current.data.inventory.attention_controls_supported=true;
+  card.current.data.inventory.episodes=[{episode_id:"shared",anchor:"entry:lyric",recorded:["entry:lyric","monitoring:entities:"+ENTITY_ID],reasons:[{node_id:"monitoring:entities:"+ENTITY_ID,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT}];
+  card.tools={detailButtons:(...args)=>DashboardTools.prototype.detailButtons.call({},...args)};
+  const html=detail(card),visible=html.split('<details class="source-section source-monitoring-explanation"')[0];
+  assert.match(visible,/data-episode="shared"/);
+  assert.match(visible,/These controls apply to the whole issue headed by Lyric, involving 2 sources/);
+  assert.match(visible,/data-acknowledge="shared"/);
+  assert.match(visible,/data-shelf="shared"/);
+  assert.doesNotMatch(html,/source-issue-actions|Actions for this issue/);
+  assert.equal((html.match(/<details\b/g)||[]).length,1);
+});
+
+test("integration connections are named directly without an additional disclosure or repeated count",()=>{
+  const card=sourceDetailsFixture("device");
+  const original=card.current.data.inventory.nodes.find(source=>source.kind==="integration");
+  const second={...original,node_id:"entry:other",entry_id:"other",name:"Other connection"};
+  card.current.data.inventory.nodes.push(second);
+  card.current.data.inventory.catalog.candidates.push(second);
+  card.sourcesSelection=JSON.stringify(["family","lyric"]);
+  const html=detail(card);
+  assert.match(html,/<h3>2 connections<\/h3>/);
+  assert.match(html,/data-sources-select="source:entry:lyric"[^>]*><span>Lyric<\/span>/);
+  assert.match(html,/data-sources-select="source:entry:other"[^>]*><span>Other connection<\/span>/);
+  assert.doesNotMatch(html,/<details\b|Home Assistant connections/);
+});
+
+test("an integration inspector keeps one concise native action and its actual loaded condition",()=>{
+  const card=sourceDetailsFixture();
+  card.sourcesSelection="source:entry:lyric";
+  card.sourceDetail={nodeId:"entry:lyric",integration_evidence:{current:{status:"pass",reason:"loaded"}}};
+  const html=detail(card);
+  assert.match(html,/<h3>Loaded<\/h3>/);
+  assert.equal((html.match(/>Open integration<\/a>/g)||[]).length,1);
+  assert.doesNotMatch(html,/Loaded in Home Assistant|Open integration in Home Assistant/);
+});
+
+test("automation reporting is readable within one Details section without another disclosure",()=>{
+  const card=sourceDetailsFixture(),id="broken_automation:sample";
+  const source={node_id:id,name:"Hall lighting",kind:"broken_automation",watched:true,automation_url:"/config/automation/edit/hall",alert_profile:"dashboard"};
+  card.current.data.inventory.nodes.push(source);card.current.data.inventory.catalog.candidates.push(source);
+  card.sourcesSelection=`source:${id}`;
+  card.sourceDetail={nodeId:id,entity_status:{status:"pass",message:"No current problem reported"}};
+  const html=detail(card);
+  assert.equal((html.match(/<details\b/g)||[]).length,1);
+  assert.match(html,/<summary>Details<\/summary>[\s\S]*<h3>Reporting<\/h3>/);
+  assert.doesNotMatch(html,/Reporting preference/);
 });
 
 test("an excluded entity stays unavailable and has an explicit resume action",()=>{
@@ -63,7 +127,7 @@ test("an excluded entity stays unavailable and has an explicit resume action",()
   card.current.data.inventory.nodes=card.current.data.inventory.nodes.filter(item=>!item.monitoring_policy);
   card.availabilityContext=ENTITY_ID;
   const html=detail(card);
-  assert.match(condition(html),/Unavailable in Home Assistant/);
+  assert.match(condition(html),/Home Assistant reports this entity as unavailable/);
   assert.match(html,/data-availability-action="resume"/);
   assert.doesNotMatch(html,/data-availability-action="stop"/);
   assert.doesNotMatch(html,/removed from availability monitoring\./);
@@ -124,24 +188,39 @@ for(const kind of ["battery","vacuum","ups"]) {
   });
 }
 
-test("entity identity links to its verified integration and omits technical metadata",()=>{
-  const html=detail(sourceDetailsFixture("entity"));
-  assert.match(heading(html),/href="\/config\/integrations\/integration\/lyric#config_entry=lyric"/);
-  assert.match(heading(html),/>Go to integration page<\/a>/);
-  assert.doesNotMatch(html,/Homeostatic updated|Entity ID:|source-technical/);
-});
+for(const grouping of ["integration","location","topomation"]) {
+  test(`entity identity links known names independently of ${grouping} grouping`,()=>{
+    const card=sourceDetailsFixture("entity");card.sourcesGrouping=grouping;
+    card.current.data.floors=[{id:"upper",name:"Upper floor"}];
+    card.current.data.areas=[{id:"landing",name:"Landing",floor_id:"upper"}];
+    for(const source of [...card.current.data.inventory.nodes,...card.current.data.inventory.catalog.candidates])if(source.node_id===ENTITY_ID||source.monitoring_source===ENTITY_ID)source.attributes.area=["landing"];
+    card.topomation={locations:[{id:"top-upper",name:"Upper floor"},{id:"top-landing",name:"Landing",parent_id:"top-upper",ha_area_id:"landing"}]};
+    const html=detail(card),identity=heading(html);
+    assert.match(identity,/>Entity<\//);
+    assert.match(identity,/id="sources-detail-title"[^>]*>3rd Floor Sensor Room temperature<\/h2>/);
+    assert.match(identity,/>Device<\//);
+    assert.match(identity,/href="\/config\/devices\/device\/third-floor"[^>]*>3rd Floor Sensor<\/a>/);
+    assert.match(identity,/>Integration<\//);
+    assert.match(identity,/href="\/config\/integrations\/integration\/lyric#config_entry=lyric"[^>]*>Honeywell Lyric<\/a>/);
+    assert.doesNotMatch(identity,/Go to integration page|Go to device page|View entity state/);
+    if(grouping!=="integration")assert.match(identity,/<p class="config-path">Upper floor \/ Landing<\/p>/);
+    assert.doesNotMatch(identity,/Unassigned|No area assigned/);
+    assert.doesNotMatch(html,/Homeostatic updated|Entity ID:|source-technical/);
+  });
+}
 
-test("entity navigation falls back to its state when no integration owner can be verified",()=>{
+test("entity navigation falls back to its state when neither device nor integration can be verified",()=>{
   const card=sourceDetailsFixture("entity");
   for(const source of [...card.current.data.inventory.nodes,...card.current.data.inventory.catalog.candidates]) {
     delete source.owner_id;
     delete source.attributes.integration;
+    delete source.attributes.device;
   }
   card.current.data.devices=[];
   const html=detail(card);
   assert.match(heading(html),/href="\/developer-tools\/state\?entity_id=sensor.3rd_floor_sensor_room_temperature"/);
   assert.match(heading(html),/>View entity state<\/a>/);
-  assert.doesNotMatch(html,/Go to integration page/);
+  assert.doesNotMatch(heading(html),/>Device<\/|>Integration<\/|No area assigned|Unknown device|Unknown integration/);
 });
 
 test("device keeps its evidence timestamp and technical details available",()=>{
@@ -152,12 +231,10 @@ test("device keeps its evidence timestamp and technical details available",()=>{
   assert.match(body(html),/Homeostatic updated/);
 });
 
-test("restored entity explains its retained registration and absent provider",()=>{
+test("restored entity names its absent provider without registration machinery",()=>{
   const html=detail(sourceDetailsFixture("entity"));
-  assert.match(condition(html),/No longer provided by Honeywell Lyric/);
-  assert.match(condition(html),/Home Assistant.*retain|Home Assistant.*register/i);
-  assert.match(condition(html),/integration.*(supplying|providing)|Lyric.*(supplying|providing)/i);
-  assert.doesNotMatch(condition(html),/Waiting for|Restored state|Current value:|integration is still loading/);
+  assert.match(condition(html),/Not currently provided by Honeywell Lyric/);
+  assert.doesNotMatch(condition(html),/retain|register|Waiting for|Restored state|Current value:|integration is still loading/i);
 });
 
 test("restored device members do not masquerade as current unavailable reports",()=>{
@@ -185,11 +262,11 @@ test("HA unknown is an available entity with no value, not a review finding",()=
   assert.match(body(html),/Available[^<]*no value/i);
 });
 
-for(const [state,expected] of [["missing","No current Home Assistant state"],["unavailable","Unavailable in Home Assistant"],["unknown","Home Assistant reports no value"],["72","Available in Home Assistant"]]) {
+for(const [state,expected] of [["missing","No current state from Home Assistant"],["unavailable","Home Assistant reports this entity as unavailable"],["unknown","Home Assistant reports no value"],["72","Available in Home Assistant"]]) {
   test(`entity ${state} remains distinct from a restored placeholder`,()=>{
     const html=detail(sourceDetailsFixture("entity",[state]));
     assert.ok(condition(html).includes(expected));
-    assert.doesNotMatch(condition(html),/No longer provided|Waiting for/);
+    assert.doesNotMatch(condition(html),/Not currently provided|Waiting for/);
   });
 }
 
@@ -200,19 +277,86 @@ test("a current entity displays its value and unit without a freshness claim",()
   assert.doesNotMatch(condition(html),/last report|last seen|just updated/i);
 });
 
-test("entity policy links remain visible without repeated monitoring explanations",()=>{
-  const html=monitoring(detail(sourceDetailsFixture("entity")));
-  assert.match(html,/Edit “Entities” policy/);
-  assert.match(html,/Edit “Devices” policy/);
-  assert.match(html,/data-definition-id="entities"/);
-  assert.match(html,/data-definition-id="devices"/);
-  assert.doesNotMatch(html,/Checks this entity.s availability individually|Uses this entity to assess/);
+test("one entity policy action opens distinct individual and device roles without changing settings",()=>{
+  const card=sourceDetailsFixture("entity"),saved=structuredClone(card.configuration.settings);
+  const closed=detail(card);
+  assert.equal((closed.match(/data-source-policies="open"/g)||[]).length,1);
+  assert.match(closed,/Monitored for availability/);
+  assert.doesNotMatch(closed,/data-definition-id=|Checks this entity.s availability individually|Uses this entity to assess/);
+  card.sourcePoliciesSelection=ENTITY_ID;
+  const html=sourcesBrowser(card),dialog=html.match(/<dialog class="source-policy-dialog"[\s\S]*?<\/dialog>/)?.[0]||"";
+  assert.match(dialog,/Monitoring policies/);
+  assert.match(dialog,/3rd Floor Sensor Room temperature/);
+  assert.match(dialog,/data-definition-id="entities"[^>]*>Edit policy/);
+  assert.match(dialog,/data-definition-id="devices"[^>]*>Edit policy/);
+  assert.match(dialog,/Checks this entity&#39;s availability individually/);
+  assert.match(dialog,/Uses this entity to assess 3rd Floor Sensor/);
+  assert.match(dialog,/data-source-policies="close"/);
+  assert.deepEqual(card.configuration.settings,saved);
+  card.sourcesSelection=`source:${DEVICE_ID}`;
+  assert.doesNotMatch(sourcesBrowser(card),/source-policy-dialog/);
+});
+
+test("an entity used only by a device policy states its role and keeps that policy contextual",()=>{
+  const card=sourceDetailsFixture("entity");
+  card.current.data.inventory.nodes=card.current.data.inventory.nodes.filter(source=>source.monitoring_policy!=="entities");
+  const html=detail(card);
+  assert.match(html,/Used to assess device availability/);
+  assert.match(html,/data-source-policies="open"/);
+  assert.doesNotMatch(html,/data-definition-id=/);
+  card.sourcePoliciesSelection=ENTITY_ID;
+  assert.match(sourcesBrowser(card),/data-definition-id="devices"/);
+  assert.doesNotMatch(sourcesBrowser(card),/data-definition-id="entities"/);
+});
+
+test("an unmonitored entity has concise coverage and no empty policy dialog",()=>{
+  const card=sourceDetailsFixture("entity");
+  card.current.data.inventory.nodes=card.current.data.inventory.nodes.filter(source=>!source.monitoring_policy);
+  const html=detail(card);
+  assert.match(html,/Not monitored/);
+  assert.doesNotMatch(html,/data-source-policies=|source-policy-dialog/);
 });
 
 test("device monitoring states what the selected entities assess",()=>{
   const html=monitoring(detail(sourceDetailsFixture("device")));
   assert.match(html,/(selected|monitored) entities/i);
   assert.match(html,/(assess|availability)/i);
+});
+
+test("device policy editing stays visible while its explanation belongs to Details",()=>{
+  const html=detail(sourceDetailsFixture("device"));
+  const [visible,supporting]=html.split('<details class="source-section source-monitoring-explanation"');
+  assert.match(visible,/data-definition-id="devices"[^>]*>Edit “Devices” policy/);
+  assert.match(supporting,/Assesses this device using its selected entities/);
+  assert.doesNotMatch(supporting,/data-definition-id=/);
+});
+
+test("temperature and availability retain their evidence with one entity destination",()=>{
+  const card=sourceDetailsFixture("device",["unavailable"]);
+  card.sourceDetail.temperature_checks=["Freezer limit","Overnight limit"].map((name,index)=>({node_id:`temperature:${index}`,source_id:ENTITY_ID,source_name:"3rd Floor Sensor Room temperature",policy_name:name,observation:{status:"warn",reason:"temperature_low",message:`Reading below ${name}`,evidence:{temperature_celsius:2,minimum:5,unit:"°C"}}}));
+  const html=detail(card);
+  assert.equal((html.match(/data-source-link="entity:third-floor-temperature"/g)||[]).length,1);
+  assert.match(html,/Reading below Freezer limit/);
+  assert.match(html,/Reading below Overnight limit/);
+  assert.match(html,/<span>Room temperature<\/span><\/td><td>Unavailable<\/td>/);
+});
+
+test("integration maintenance appears once beside distinct issue controls",()=>{
+  const card=sourceDetailsFixture();
+  card.sourcesSelection="source:entry:lyric";
+  card.sourceDetail={nodeId:"entry:lyric",integration_evidence:{current:{status:"fail",reason:"setup_error"}}};
+  card.current.data.inventory.integration_evidence={"entry:lyric":card.sourceDetail.integration_evidence};
+  card.current.data.inventory.attention_controls_supported=true;
+  card.current.data.inventory.episodes=["first","second"].map(id=>({episode_id:id,anchor:"entry:lyric",recorded:["entry:lyric"],reasons:[{node_id:"entry:lyric",message:`Setup failure ${id}`,status:"fail",reason:"setup_error"}],opened_at:UPDATED_AT}));
+  card.current.data.inventory.operator_controls=[{control_id:"integration-maintenance",action:"maintenance",target:"entry:lyric",until:"2026-10-17T00:00:00Z",include_dependents:false,reason:"Inspecting connection"},{control_id:"first-pause",action:"shelve",target:"first",until:"2026-10-17T00:00:00Z",include_dependents:false,reason:"Awaiting service"}];
+  const saved=structuredClone(card.current.data.inventory.operator_controls);
+  card.tools={detailButtons:(...args)=>DashboardTools.prototype.detailButtons.call({},...args)};
+  const html=detail(card);
+  assert.equal((html.match(/data-cancel-control="integration-maintenance"/g)||[]).length,1);
+  assert.equal((html.match(/data-cancel-control="first-pause"/g)||[]).length,1);
+  assert.equal((html.match(/Inspecting connection/g)||[]).length,1);
+  for(const id of ["first","second"])assert.match(html,new RegExp(`data-shelf="${id}"`));
+  assert.deepEqual(card.current.data.inventory.operator_controls,saved);
 });
 
 for(const view of ["entity","device"]) {
@@ -222,7 +366,7 @@ for(const view of ["entity","device"]) {
     card.sourcesShowDisabled=true;
     assert.match(condition(detail(card)),/Monitoring paused while disabled. Saved monitoring choices resume when re-enabled./);
     assert.match(condition(detail(card)),/Disabled in Home Assistant/);
-    assert.doesNotMatch(condition(detail(card)),/No longer provided|No current readings from/);
+    assert.doesNotMatch(condition(detail(card)),/Not currently provided|No current readings from/);
   });
   test(`${view} navigation remains available during an evidence read failure`,()=>{
     const card=sourceDetailsFixture(view);
@@ -272,7 +416,7 @@ test("restored entity without an identified integration uses an honest fallback"
     delete item.owner_id;
     delete item.attributes.integration;
   }
-  assert.match(condition(detail(card)),/No longer provided by its integration/);
+  assert.match(condition(detail(card)),/Not currently provided by its integration/);
 });
 
 test("previously selected source evidence cannot label the new source update time",()=>{
@@ -281,7 +425,7 @@ test("previously selected source evidence cannot label the new source update tim
   const html=detail(card);
   assert.doesNotMatch(heading(html),/Homeostatic updated/);
   assert.match(body(html),/Reading current Home Assistant values/);
-  assert.match(heading(html),/Go to integration page/);
+  assert.match(heading(html),/>Honeywell Lyric<\/a>/);
 });
 
 test("connectivity off remains an available value without a review finding",()=>{
@@ -295,14 +439,13 @@ test("connectivity off remains an available value without a review finding",()=>
 
 
 for(const view of ["entity","device"]) {
-  test(`${view} source exposes only supported canonical maintenance scope`,()=>{
+  test(`${view} source retains active maintenance controls without creation`,()=>{
     const card=sourceDetailsFixture(view),selected=view==="entity"?ENTITY_ID:DEVICE_ID;
     card.tools={detailButtons:(...args)=>DashboardTools.prototype.detailButtons.call({},...args)};
     card.current.data.inventory.attention_controls_supported=true;
     card.current.data.inventory.operator_controls=[{control_id:"saved-maintenance",action:"maintenance",target:selected,until:"2026-10-15T00:00:00Z",include_dependents:false,reason:"Synthetic maintenance"}];
     const html=detail(card);
-    assert.equal(html.includes(`data-maintenance="${ENTITY_ID}"`),view==="entity");
-    assert.doesNotMatch(html,/data-maintenance="monitoring:|data-maintenance="device:/);
+    assert.doesNotMatch(html,/data-maintenance|Working on this equipment|Start maintenance/);
     assert.match(html,/Selected equipment only/);
     assert.match(html,/Synthetic maintenance/);
     assert.match(html,/data-cancel-control="saved-maintenance"/);
@@ -310,7 +453,7 @@ for(const view of ["entity","device"]) {
 }
 
 
-test("ambiguous integration membership keeps entity navigation on its exact state",()=>{
+test("ambiguous integration membership preserves a known device without inventing an integration destination",()=>{
   const card=sourceDetailsFixture("entity",["72"]);
   const original=card.current.data.inventory.nodes.find(source=>source.kind==="integration");
   const second={...original,node_id:"entry:other",entry_id:"other",name:"Other connection"};
@@ -320,9 +463,8 @@ test("ambiguous integration membership keeps entity navigation on its exact stat
     delete source.owner_id;source.attributes.integration=["lyric","other"];
   }
   const html=detail(card);
-  assert.match(heading(html),/>View entity state<\/a>/);
-  assert.match(heading(html),/entity_id=sensor.3rd_floor_sensor_room_temperature/);
-  assert.doesNotMatch(heading(html),/Go to integration page/);
+  assert.match(heading(html),/href="\/config\/devices\/device\/third-floor"[^>]*>3rd Floor Sensor<\/a>/);
+  assert.doesNotMatch(heading(html),/View entity state|\/config\/integrations\/integration\//);
 });
 
 test("explicit integration ownership resolves multiple membership hints",()=>{

@@ -50,26 +50,40 @@ test("acknowledgment has one quiet status and leaves pause and end-control actio
   assert.doesNotMatch(html,/data-acknowledge|class="panel"|class="note"/);
 });
 
-for(const kind of ["shelve","maintenance"])test(`${kind} form shows one canonical target and preserves duration and scope controls`,()=>{
+test("pause form shows one canonical target and preserves expiry and reason",()=>{
   const {tools,title}=actionTools();
-  DashboardTools.prototype.openControl.call(tools,kind,kind==="shelve"?episode.episode_id:source.node_id);
+  DashboardTools.prototype.openControl.call(tools,"shelve",episode.episode_id);
   assert.equal(tools.body.innerHTML.match(/Hall thermostat/g).length,1);
   assert.doesNotMatch(tools.body.innerHTML,/temperature policy/);
   assert.match(tools.body.innerHTML,/class="control-target"/);
   assert.match(tools.body.innerHTML,/name="untilLocal" required/);
   assert.match(tools.body.innerHTML,/name="reason"/);
-  if(kind==="shelve") {
-    assert.equal(title.textContent,"Pause notifications");
-    assert.match(tools.body.innerHTML,/this whole issue for everyone, including urgent notifications/);
-    assert.match(tools.body.innerHTML,/Existing notifications are not dismissed; other issues are unaffected/);
-    assert.match(tools.body.innerHTML,/An existing pause can only be extended/);
-    assert.doesNotMatch(tools.body.innerHTML,/data-duration|includeDependents/);
-  } else {
-    assert.equal(title.textContent,"Working on this equipment");
-    assert.match(tools.body.innerHTML,/Existing issues and notifications continue/);
-    assert.match(tools.body.innerHTML,/data-duration="30"/);
-    assert.match(tools.body.innerHTML,/name="includeDependents"/);
-  }
+  assert.equal(title.textContent,"Pause notifications");
+  assert.match(tools.body.innerHTML,/this whole issue for everyone, including urgent notifications/);
+  assert.match(tools.body.innerHTML,/Existing notifications are not dismissed; other issues are unaffected/);
+  assert.match(tools.body.innerHTML,/An existing pause can only be extended/);
+  assert.doesNotMatch(tools.body.innerHTML,/data-duration|includeDependents/);
+});
+
+for(const kind of ["entity","integration","external","device"])test(`${kind} details retain active maintenance without offering creation`,()=>{
+  const current=data(),selected={...source,kind};
+  const html=DashboardTools.prototype.detailButtons(selected,null,current);
+  assert.doesNotMatch(html,/data-maintenance|Working on this equipment|Start maintenance/);
+  assert.match(html,/data-cancel-control="maintenance:one"/);
+  assert.match(html,/Until /);
+  current.inventory.operator_controls=[];
+  assert.equal(DashboardTools.prototype.detailButtons(selected,null,current),"");
+});
+
+test("obsolete maintenance form requests cannot open or submit a control",async()=>{
+  const {tools,title}=actionTools();
+  tools.card._hass.callWS=()=>assert.fail("Maintenance creation must not call Home Assistant");
+  DashboardTools.prototype.openControl.call(tools,"maintenance",source.node_id);
+  assert.equal(tools.body.innerHTML,"");
+  assert.equal(title.textContent,"");
+  assert.equal(tools.draft,undefined);
+  tools.draft={kind:"maintenance",target:source.node_id};
+  await DashboardTools.prototype.execute.call(tools);
 });
 
 for(const [action,target,title,consequence] of [

@@ -5,7 +5,7 @@ Homeostatic fires events on Home Assistant's event bus so you can build your own
 | Event | Fires when | Notifications need to be on |
 | --- | --- | --- |
 | `homeostatic_episode` | An issue opens, changes or ends | No |
-| `homeostatic_control` | Pause notifications or Working on this equipment starts or ends, or an issue is acknowledged for the first time | No |
+| `homeostatic_control` | An issue notification pause or equipment maintenance window starts or ends, or an issue is acknowledged for the first time | No |
 | `homeostatic_notification` | Homeostatic requests a notification for one recipient | Yes |
 
 
@@ -42,10 +42,12 @@ The `change` field says what happened:
 | `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `battery`, `vacuum`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
 | `opened_at` | When the issue opened, as an ISO 8601 timestamp |
 | `shelved` | Whether Pause notifications was on for the issue |
-| `maintenance` | Whether the source was covered by Working on this equipment |
+| `maintenance` | Whether the source was covered by an equipment maintenance window |
 | `acknowledged` | Whether someone had acknowledged the issue |
 | `resolution` | Only on `resolved`. `cleared` means the problem ended. `removed` means Homeostatic stopped watching the source or changed what it checks, which says nothing about the problem. `absorbed` means the issue became part of another issue. History shows these as **Cleared**, **Monitoring ended** and **Joined another problem**. |
 | `absorbed_into` | Only on `resolved`: the ID of the issue that absorbed this one, or `null` |
+
+Vacuum evidence gaps use `vacuum_unavailable`, `vacuum_unknown`, `vacuum_missing`, `vacuum_restored` or `vacuum_unrecognized`, each with status `unknown`. Device grouping in the panel does not change event issue identities or recorded membership.
 
 ### `homeostatic_control`
 
@@ -55,7 +57,7 @@ The `change` field says what happened:
 | --- | --- |
 | `schema_version`, `entry_id` | As for `homeostatic_episode` |
 | `change` | `started` or `ended` |
-| `kind` | `shelve` (Pause notifications), `maintenance` (Working on this equipment) or `acknowledge` |
+| `kind` | `shelve` (Pause notifications), `maintenance` (equipment maintenance through a Home Assistant action) or `acknowledge` |
 | `control_id` | The control's ID, for `homeostatic.cancel_control`. `null` for `acknowledge`. |
 | `episode_id` | The issue, for `shelve` and `acknowledge`. `null` for `maintenance`. |
 | `node_id` | The source, for `maintenance`. `null` otherwise. |

@@ -72,6 +72,7 @@ async function run() {
       check(find("#detail-title").textContent===fixture.title,prefix+"source title excludes the policy suffix");
       check(!details.open&&details.querySelector("summary").textContent==="Details",prefix+"one supporting Details starts collapsed");
       check(body().querySelectorAll('[data-disclosure="issue-details"]').length===1,prefix+"supporting details have one entry point");
+      check(!body().querySelector('[data-maintenance]'),prefix+"no new-maintenance action is offered");
       check(!body().querySelector('[data-disclosure="source-navigation"],[data-disclosure="reported"],[data-disclosure="assessment"],[data-disclosure="connection"],[data-disclosure="monitoring"]'),prefix+"supporting content is not split across competing disclosures");
       if(definition.headline)check(body().innerText.includes(definition.headline),prefix+"current condition remains visible");
       if(fixture.episode) {
@@ -91,10 +92,16 @@ async function run() {
       checkFit(definition.id);
       await click('[data-disclosure="issue-details"] > summary',body());
       const recorded=find('[data-disclosure="issue-details"]',body());
-      if(definition.grouped)check(recorded.querySelector('[data-disclosure="recorded"]'),prefix+"complete recorded membership remains reachable");
+      check(!recorded.querySelector('details'),prefix+"opening Details reveals all supporting content together");
+      if(definition.grouped)check(recorded.querySelectorAll('[data-check-source]').length===10,prefix+"complete grouped membership remains inspectable without a second recorded-source list");
       checkFit(definition.id+" expanded");
       evidence.push(definition.id+": identity, current evidence, policy/actions, one Details, retained findings and viewport fit.");
     }
+    await openCase("device");
+    fixture.result.device_evidence.total=25;publish();await settle();
+    const deviceRoute=fixture.source.monitoring_source;
+    check(body().querySelectorAll('[data-source-link="'+deviceRoute+'"]').length===1,"Partial device evidence offers one route to the complete readings");
+    check(!find('[data-source-link="'+deviceRoute+'"]',body()).closest('details'),"Complete-reading navigation stays with the partial evidence");
     await openCase("battery");await click('[data-disclosure="issue-details"] > summary',body());
     find('[data-disclosure="issue-details"] > summary',body()).focus();
     fixture.result.entity_status.current.reason="charging";
@@ -105,8 +112,10 @@ async function run() {
     check(body().innerText.includes("Battery charging"),"Current evidence refreshes without keeping the previous warning");
     await close();await openCase("source");
     check(!body().innerText.includes("Household impact")&&!body().innerText.includes("What Homeostatic knows"),"Source evidence explanations stay in Details");
+    fixture.source.kind="external";fixture.result.source.kind="external";publish();await settle();
+    check(!body().querySelector('[data-maintenance]'),"External source detail offers no new-maintenance action");
     check(mutations().length===0&&JSON.stringify(card.configuration.settings)===JSON.stringify(settings),"Opening and inspecting all examples changes no controls or saved settings");
-    evidence.push("Changed evidence retains Details expansion and keyboard focus; all browsing is read-only.");
+    evidence.push("Entity, integration, device and external source details offer no new-maintenance action. Changed evidence retains Details expansion and keyboard focus; all browsing is read-only.");
     receipt.status="pass";result.textContent="Compact popup checks passed ("+popupCases.length+" examples)";
   } catch(error) {receipt.status="fail";receipt.error=error.message;result.textContent="Failed: "+error.message;}
   recordResult(receipt,"issues.compact-popups",receipt.status,receipt.error||evidence.join(" "));

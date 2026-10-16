@@ -50,6 +50,59 @@ export async function runIssueGaps(ctx) {
     await control("integration_failure");await control("outage");await control("advance",{seconds:5});
     const data=await inventory(),issue=data.episodes.find(item=>item.recorded.length>1);assert.ok(issue,"A real grouped issue contains multiple recorded members");return issue;
   };
+  const flatGroupedEvidence=async(issue,data,settings)=>{
+    const nodes=new Map([...data.catalog.candidates,...data.nodes].map(node=>[node.node_id,node]));
+    const canonical=id=>nodes.get(id)?.monitoring_source||id;
+    const findings=issue.reasons.filter(item=>item.node_id!==issue.anchor&&item.status!=="pass"),expected=new Map(),groups=new Map();
+    for(const finding of findings){
+      const check=nodes.get(finding.node_id),id=canonical(finding.node_id),source=nodes.get(id)||check;
+      assert.ok(source,`Actual contributing source ${id} is known`);
+      if(!expected.has(id))expected.set(id,{source,names:new Set()});
+      if(check?.monitoring_policy){const policy=settings.monitoring_policies.find(item=>item.id===check.monitoring_policy);assert.ok(policy,`Contributing policy ${check.monitoring_policy} is saved`);expected.get(id).names.add(policy.name);}
+      const deviceId=["device","entity"].includes(source.kind)?source.attributes?.device?.[0]:null;
+      groups.set(deviceId?`device:${deviceId}`:id,deviceId);
+    }
+    assert.ok(expected.size>1,"The grouped issue exercises distinct affected sources");
+    const rows=at('dialog[open] [data-evidence-source]'),ids=await rows.evaluateAll(items=>items.map(item=>item.dataset.evidenceSource));
+    assert.deepEqual([...ids].sort(),[...expected].filter(([,item])=>item.source.kind!=="device").map(([id])=>id).sort(),"Visible affected rows contain each canonical entity exactly once; devices are their group headings");
+    assert.deepEqual((await at('dialog[open] [data-evidence-group]').evaluateAll(items=>items.map(item=>item.dataset.evidenceGroup))).sort(),[...groups.keys()].sort(),"Affected groups preserve exact registry device ownership");
+    for(const [id,item] of expected){
+      if(item.source.kind==="device")continue;
+      const row=at(`dialog[open] [data-evidence-source="${id}"]`);
+      assert.equal(await row.isVisible(),true,`Affected ${item.source.name} is visible before Details`);
+      assert.equal(await row.evaluate(element=>Boolean(element.closest("details"))),false);
+      assert.equal(await row.locator('[data-source-link]').getAttribute("data-source-link"),id);
+      assert.equal(await row.locator('[data-source-link]').innerText(),item.source.name,"Known entity names remain meaningful");
+      assert.equal(await row.locator('.affected-reading > span').innerText(),"Unavailable in Home Assistant","The current entity condition is visible beside its name");
+    }
+    for(const [id,deviceId] of groups){
+      if(!deviceId)continue;
+      const group=at(`dialog[open] [data-evidence-group="${id}"]`),device=nodes.get(`device:${deviceId}`),link=group.locator('h4 a');
+      assert.ok(device,"The affected device resolves through its registry identity");
+      assert.equal(await link.isVisible(),true);assert.equal(await link.innerText(),device.name);
+      assert.equal(await link.getAttribute("href"),`/config/devices/device/${encodeURIComponent(deviceId)}`);
+      if(expected.has(id))assert.equal(await group.locator(':scope > p').innerText(),"All selected entities unavailable","Device evidence remains visible without duplicating an entity row");
+    }
+    assert.equal(await at('dialog[open] .issue-facts').isVisible(),true,"Opening time is visible before Details");
+    for(const attribute of ["data-acknowledge","data-shelf"]){const action=at(`dialog[open] [${attribute}]`);assert.equal(await action.isVisible(),true);assert.equal(await action.getAttribute(attribute),issue.episode_id,"Issue controls retain the complete original episode scope");}
+    assert.equal(await at('dialog[open] [data-issue-availability="remove"]').getAttribute("data-issue-id"),issue.episode_id);
+    const disclosure=at('dialog[open] [data-disclosure="issue-details"]');
+    assert.equal(await at('dialog[open] details').count(),1,"There is one supporting Details disclosure");
+    assert.equal(await disclosure.evaluate(element=>element.open),false);
+    assert.equal(await at('dialog[open] .issue-checks').isVisible(),false);
+    await disclosure.locator(':scope > summary').click();
+    assert.equal(await disclosure.locator('details').count(),0,"One expansion exposes all supporting sections");
+    const checks=at('dialog[open] [data-check-source]'),checkIds=await checks.evaluateAll(items=>items.map(item=>item.dataset.checkSource));
+    assert.deepEqual([...checkIds].sort(),[...expected.keys()].sort(),"Checks retain every canonical device and entity once");
+    for(const [id,item] of expected){const row=at(`dialog[open] [data-check-source="${id}"]`);assert.equal(await row.isVisible(),true);assert.equal(await row.locator(':scope > span').innerText(),item.source.name);assert.deepEqual((await row.locator(':scope > p').innerText()).split(" · ").sort(),[...item.names].sort(),`Canonical ${id} retains every independent policy contribution`);}
+    const scope=[...new Set([issue.anchor,...issue.recorded,...issue.reasons.map(finding=>finding.node_id)].map(canonical))].sort(),anchor=canonical(issue.anchor);
+    const earlier=scope.filter(id=>id!==anchor&&!expected.has(id)),recordedIds=await at('dialog[open] .issue-recorded [data-source-link]').evaluateAll(items=>items.map(item=>item.dataset.sourceLink));
+    assert.deepEqual([...recordedIds].sort(),earlier,"Other recorded sources retain precisely the earlier scope absent from current evidence");
+    assert.equal(await at('dialog[open] .issue-recorded').count(),earlier.length?1:0,"Already visible evidence is not repeated as recorded sources");
+    assert.deepEqual([anchor,...checkIds,...recordedIds].sort(),scope,"The flat view preserves the complete canonical issue membership");
+    const monitoring=at(`dialog[open] [data-source-link="${anchor}"]`);assert.equal(await monitoring.count(),1);assert.equal(await monitoring.innerText(),"View in Monitoring");
+    return expected;
+  };
   const expectedExclusions=async(before,ids,remove=true)=>{
     const after=await snapshot(),wanted=new Set(ids),expected=structuredClone(before);
     for(const policy of expected.monitoring_policies)if(policy.check==="availability"&&policy.match?.kind?.some(kind=>["entity","device"].includes(kind))&&policy.enabled){
@@ -110,13 +163,10 @@ export async function runIssueGaps(ctx) {
   });
   await scenario("issues.evidence",async()=>{
     const configuration=await call("homeostatic/configuration"),setup=structuredClone(configuration.settings),original=setup.monitoring_policies.find(policy=>policy.id==="default_entities");setup.monitoring_policies.push({...structuredClone(original),id:"acceptance_overlap",name:"Second availability rule"});await call("homeostatic/save_settings",{revision:configuration.revision,settings:setup});
-    const issue=await grouped();await clean();const before=await snapshot(),data=await inventory(),nodes=new Map([...data.catalog.candidates,...data.nodes].map(node=>[node.node_id,node]));await openIssue(issue.episode_id);await details();
-    const expected=new Map();for(const finding of issue.reasons.filter(item=>item.node_id!==issue.anchor&&item.status!=="pass")){const check=nodes.get(finding.node_id),id=check?.monitoring_source||finding.node_id;if(!expected.has(id))expected.set(id,new Set());if(check?.monitoring_policy)expected.get(id).add(before.monitoring_policies.find(policy=>policy.id===check.monitoring_policy)?.name);}
-    const ids=await at('dialog[open] [data-evidence-source]').evaluateAll(items=>items.map(item=>item.dataset.evidenceSource));assert.ok(ids.length>1);assert.equal(new Set(ids).size,ids.length);assert.deepEqual([...ids].sort(),[...expected.keys()].sort(),"Each actual contributing source appears once by canonical identity");
-    for(const [id,names] of expected)if(names.size>1)for(const name of names)assert.ok((await at(`dialog[open] [data-evidence-source="${id}"]`).innerText()).includes(name),`Canonical ${id} retains contributing check ${name}`);assert.ok([...expected.values()].some(names=>names.size>1),"Overlapping actual availability checks were exercised");
-    assert.ok(await at('dialog[open] [data-evidence-group]').count());assert.ok(await at('dialog[open] [data-source-link]').count());
-    await at('dialog[open] [data-source-link]').first().click();await at('#sources-detail-title').waitFor();
-    await noChange(before);return "Actual grouped issue contains canonical registered descendants; disclosures expose members and Monitoring links without saves.";
+    const issue=await grouped();await clean();const before=await snapshot(),data=await inventory();await openIssue(issue.episode_id);
+    const expected=await flatGroupedEvidence(issue,data,before);assert.ok([...expected.values()].some(item=>item.names.size>1),"Overlapping actual availability checks were exercised");
+    const [id,item]=[...expected].find(([,member])=>member.source.kind==="entity");await at(`dialog[open] [data-evidence-source="${id}"] [data-source-link]`).click();await at('#sources-detail-title').waitFor();assert.equal(await read('#sources-detail-title'),item.source.name,"A named entity link opens the exact canonical Monitoring source");
+    await noChange(before);return "Actual grouped issue shows exact device/entity names and conditions before Details; one expansion exposes all independent policies and complete recorded scope. Named Monitoring links and original-issue controls preserve identity without saves.";
   });
   await scenario("issues.recovery",async()=>{
     const device=await episodeFor("offline","device");await openIssue(device.episode_id);
@@ -157,7 +207,7 @@ export async function runIssueGaps(ctx) {
     await popup("integration",async()=>{await control("integration_failure");await clean();const integration=await episodeFor(null,"integration"),current=await inventory(),source=current.catalog.candidates.find(node=>node.node_id===`entry:${lab.fixture_entry_id}`);assert.ok(source);await openIssue(integration.episode_id);await text('dialog[open]',/Connection is retrying/);assert.equal(await read('dialog[open] h2'),`${source.attributes.domain[0]} · ${source.name}`);assert.equal(await at('dialog[open] [data-acknowledge]').getAttribute("data-acknowledge"),integration.episode_id);await details();await fit('dialog[open]');await noChange(before);});
     await popup("source-only-canonical",async()=>{await control("integration_failure",{failed:false});await page.goto(`${lab.url}/homeostatic/node/${encodeURIComponent(await sourceId("history"))}`);await at('dialog[open] [data-disclosure="issue-details"]').waitFor();assert.equal(await read('dialog[open] h2'),"Lab previously failed sensor");await text('dialog[open]',/Current condition isn't confirmed/);assert.equal(await at('dialog[open] [data-shelf],dialog[open] [data-acknowledge],dialog[open] .problem-progress').count(),0);await details();await fit('dialog[open]');});
     await popup("source-only-check",async()=>{await control("integration_failure",{failed:false});const current=await inventory(),source=current.nodes.find(node=>node.entity_id===lab.entities.history&&node.monitoring_policy==="default_entities");assert.ok(source);assert.ok(!current.episodes.some(episode=>episode.anchor===source.node_id));await page.goto(`${lab.url}/homeostatic/node/${encodeURIComponent(source.node_id)}`);await at('dialog[open] [data-disclosure="issue-details"]').waitFor();assert.ok(["Lab previously failed sensor",source.name].includes(await read('dialog[open] h2')),"Source-only check retains its exact canonical or recorded name");await text('dialog[open]',/Sensor available/);assert.equal(await at('dialog[open] [data-shelf],dialog[open] [data-acknowledge],dialog[open] .problem-progress').count(),0);await details();await fit('dialog[open]');});
-    await popup("grouped",async()=>{const shared=await grouped();await openIssue(shared.episode_id);assert.equal(await at('dialog[open] [data-disclosure="issue-details"]').count(),1);await details();const recorded=at('dialog[open] [data-disclosure="recorded"]');assert.equal(await recorded.count(),1);const current=await inventory(),members=new Map([...current.catalog.candidates,...current.nodes].map(node=>[node.node_id,node])),expected=[...new Set([shared.anchor,...shared.recorded,...shared.reasons.map(finding=>finding.node_id)].map(id=>members.get(id)?.monitoring_source||id))].sort();assert.deepEqual((await recorded.locator('[data-source-link]').evaluateAll(items=>items.map(item=>item.dataset.sourceLink))).sort(),expected,"Grouped popup preserves exact recorded canonical membership");assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),shared.episode_id);await fit('dialog[open]');});
+    await popup("grouped",async()=>{const shared=await grouped(),configured=await snapshot(),current=await inventory();await openIssue(shared.episode_id);await flatGroupedEvidence(shared,current,configured);await fit('dialog[open]');await noChange(configured);});
     assert.deepEqual({focusFailures,popupErrors},{focusFailures:[],popupErrors:[]},"All popup variants preserve current evidence, identity and action focus");
   });
   await scenario("issues.controls",async()=>{
@@ -201,12 +251,12 @@ export async function runIssueGaps(ctx) {
     await control("bulk");await clean();const before=await snapshot();await tree();await fill('[data-sources-search]',"Lab");
     const known={monitored:await sourceId("offline"),unmonitored:await sourceId("unmonitored")};
     for(const mode of ["all","monitored","unmonitored"]){await choose('[data-sources-monitoring]',mode);for(const [coverage,key] of [["monitored","offline"],["unmonitored","unmonitored"]]){await fill('[data-sources-search]',lab.entities[key]);assert.equal(await at(`[data-sources-select="source:${known[coverage]}"]`).count(),mode==="all"||mode===coverage?1:0,`${mode} filters the known ${coverage} entity correctly`);if(mode==="all"||mode===coverage)await text(`[data-sources-select="source:${known[coverage]}"]`,coverage==="monitored"?/Monitored/:/Not monitored/);}}
-    await source("unmonitored");await text('.source-monitoring-status',/not monitor|not monitored/i);assert.equal(await at('.source-policy-links [data-definition-id]').count(),0);
-    await source("offline");await text('.config-detail',/Unavailable in Home Assistant/);assert.ok(await at('.source-policy-links [data-definition-id]').count());assert.ok(await at('[data-availability-action="stop"]').isVisible());
+    await source("unmonitored");await text('.source-monitoring-status',/not monitor|not monitored/i);assert.equal(await at('[data-source-policies="open"]').count(),0);
+    await source("offline");await text('.config-detail',/Home Assistant reports this entity as unavailable/);assert.ok(await at('[data-source-policies="open"]').count());assert.ok(await at('[data-availability-action="stop"]').isVisible());
     const id=await sourceId("offline");await page.goto(`${lab.url}/homeostatic/sources/${encodeURIComponent(`source:${id}`)}/history`);await at('#source-history-title').waitFor();await click('[data-sources-view="source"]');await noChange(before);
   });
   await scenario("sources.compact-inspector-details",async()=>{
-    const before=await snapshot();await source("temperature");await text('.config-detail',/87/);assert.equal(await at('.config-detail [data-shelf],.config-detail [data-acknowledge],.config-detail .source-monitoring-explanation').count(),0);assert.ok(await at('.source-policy-links [data-definition-id]').count());
+    const before=await snapshot();await source("temperature");await text('.config-detail',/87/);assert.equal(await at('.config-detail [data-shelf],.config-detail [data-acknowledge],.config-detail .source-monitoring-explanation').count(),0);assert.ok(await at('[data-source-policies="open"]').count());
     await source("offline","device");assert.ok(await at('.source-monitoring-explanation').count());await click('.source-monitoring-explanation > summary');await text('.config-detail',/entity|reading|availability/i);
     const data=await inventory(),battery=data.catalog.candidates.find(item=>item.kind==="battery"&&item.entity_id===lab.entities.battery);assert.ok(battery);await tree();await fill('[data-sources-search]',"Lab battery");await at(`[data-sources-select="source:${battery.node_id}"]`).click();await text('.config-detail',/12|Battery/);await click('.source-monitoring-explanation > summary');
     await click('.source-navigation [data-sources-view="history"]');await at('#source-history-title').waitFor();await click('[data-sources-view="source"]');await at('.config-detail [data-page="policies"]').click();await at('h1').filter({hasText:"Monitoring policies"}).waitFor();await tree();await noChange(before);
@@ -225,7 +275,7 @@ export async function runIssueGaps(ctx) {
     await realState("temperature","70");await call("homeostatic/save_settings",{revision:config.revision,settings});await control("advance",{seconds:1});await realState("temperature","87");await clean();
     const before=await snapshot(),canonical=await source("temperature");await text('.config-detail',/Lab temperature limits/);await text('[data-temperature-check]',/Waiting/);assert.equal(await at('[data-temperature-check]').count(),2);await text('[data-temperature-check]',/Within limits/);await text('[data-temperature-check]',/1 minute/);
     for(const grouping of ["integration","location"]){await tree();await choose('[data-sources-group]',grouping);await fill('[data-sources-search]',lab.entities.temperature);assert.equal(await at(`[data-sources-select="source:${canonical}"]`).count(),1);await at(`[data-sources-select="source:${canonical}"]`).click();await text('[data-temperature-check]',/Waiting/);}
-    const link=at('.config-detail [data-definition-action="open-policy"][data-definition-id="lab_temperature"]');await link.click();await at(field("name")).waitFor();await click('[data-workspace-return]');await at('#sources-detail-title').waitFor();
+    await click('[data-source-policies="open"]');const link=at('.source-policy-dialog [data-definition-action="open-policy"][data-definition-id="lab_temperature"]');await link.click();await at(field("name")).waitFor();await click('[data-workspace-return]');await at('#sources-detail-title').waitFor();
     await control("advance",{seconds:61});await text('[data-temperature-check]',/Temperature needs attention/);
     await realState("temperature","unknown");await text('.config-detail',/Waiting for a temperature reading|No temperature reading|unknown/i);await realState("temperature","87");await text('.config-detail',/87/);
     const data=await inventory(),old=data.nodes.find(node=>node.monitoring_policy==="lab_temperature");assert.ok(old);await page.goto(`${lab.url}/homeostatic/sources/${encodeURIComponent(`source:${old.node_id}`)}`);await at('#sources-detail-title').waitFor();await text('.config-detail',/Lab room temperature/);
@@ -233,15 +283,54 @@ export async function runIssueGaps(ctx) {
     await source("temperature");await click('[data-availability-action="stop"]');await click('[data-availability-action="confirm"]');await at('[data-availability-action="resume"]').waitFor();await expectedExclusions(before,[canonical]);assert.equal(await at('[data-temperature-check]').count(),2);await text('.source-monitoring-status',/temperature/i);
     await source("temperature","device");assert.equal(await at('[data-temperature-check]').count(),2);await click('.source-monitoring-explanation > summary');await at('[data-action="more-source-evidence"]').waitFor();await click('[data-action="more-source-evidence"]');await at('[data-action="more-source-evidence"]').waitFor({state:"hidden"});assert.equal(await at('[data-temperature-check]').count(),2);await at(`.source-temperature [data-source-link="${canonical}"]`).first().click();await text('#sources-detail-title',/Lab room temperature/);await fit('.config-detail');
   });
+  await scenario("sources.monitoring-policies",async()=>{
+    const before=await snapshot();
+    await edit("policies","lab_temperature");await fill(field("name"),"Preserved temperature draft");
+    await edit("methods","lab_messages");await fill(field("name"),"Preserved method draft");
+    const selected=await source("offline"),data=await inventory();
+    const entry=[...data.catalog.candidates,...data.nodes].find(item=>item.kind==="integration"&&item.entry_id===lab.fixture_entry_id);
+    const expectedDevice=`/config/devices/device/${lab.devices.offline}`,expectedIntegration=`/config/integrations/integration/${entry.attributes.domain[0]}#config_entry=${lab.fixture_entry_id}`;
+    const identity=()=>at('.source-identity a').evaluateAll(items=>items.map(item=>({name:item.textContent,href:item.getAttribute("href")})));
+    const initialIdentity=await identity();
+    assert.ok(initialIdentity.some(item=>item.href===expectedDevice&&item.name.includes("Lab")),"The known device name links to its actual registry device");
+    assert.ok(initialIdentity.some(item=>item.href===expectedIntegration&&item.name),"The known integration name links to its exact connection");
+    for(const grouping of ["location","integration"]){
+      await tree();await choose('[data-sources-group]',grouping);await at(`[data-sources-select="source:${selected}"]`).click();
+      assert.deepEqual(await identity(),initialIdentity,"Grouping preserves linked registry ownership");
+    }
+    assert.equal(await at('.source-policy-links [data-source-policies="open"]').count(),1);
+    assert.equal(await at('.config-detail [data-definition-id]').count(),0,"The entity pane has no individual policy edit controls");
+    await at('[data-source-policies="open"]').focus();await page.keyboard.press("Enter");await at('.source-policy-dialog[open]').waitFor();
+    await text('.source-policy-dialog',/Lab offline sensor/);await text('.source-policy-dialog',/Checks this entity.s availability individually/);await text('.source-policy-dialog',/Uses this entity to assess/);
+    const ids=await at('.source-policy-dialog [data-definition-id]').evaluateAll(items=>items.map(item=>item.dataset.definitionId));
+    const availability=before.monitoring_policies.filter(policy=>policy.check==="availability"&&policy.enabled&&policy.match?.kind?.some(kind=>["entity","device"].includes(kind)));
+    assert.ok(availability.length>=2&&availability.every(policy=>ids.includes(policy.id)),"Each real contributing availability policy remains reachable");
+    const editPolicy=at(`.source-policy-dialog [data-definition-id="${availability[0].id}"]`);await editPolicy.focus();await realState("history","15");
+    await at('.source-policy-dialog[open]').waitFor();assert.equal(await editPolicy.evaluate(element=>element.getRootNode().activeElement===element),true,"Live monitoring preserves dialog focus");
+    await page.keyboard.press("Escape");await at('.source-policy-dialog').waitFor({state:"detached"});
+    assert.equal(await at('[data-source-policies="open"]').evaluate(element=>element.getRootNode().activeElement===element),true,"Escape restores trigger focus");
+    await click('[data-source-policies="open"]');await click('[data-source-policies="close"]');
+    assert.equal(await at('[data-source-policies="open"]').evaluate(element=>element.getRootNode().activeElement===element),true,"Close restores trigger focus");
+    for(const policy of availability){
+      await click('[data-source-policies="open"]');await at(`.source-policy-dialog [data-definition-id="${policy.id}"]`).click();
+      assert.equal(await at(field("name")).inputValue(),policy.name,"Contextual Edit opens the selected policy");assert.equal(await at('.source-policy-dialog').count(),0);
+      await text('[data-workspace-return]',/Back to source/);await click('[data-workspace-return]');await text('#sources-detail-title',/^Lab offline sensor$/);
+      assert.equal(await at(`[data-sources-select="source:${selected}"]`).getAttribute("aria-current"),"true","Contextual return preserves selected entity");
+    }
+    await edit("policies","lab_temperature");assert.equal(await at(field("name")).inputValue(),"Preserved temperature draft");
+    await edit("methods","lab_messages");assert.equal(await at(field("name")).inputValue(),"Preserved method draft");
+    await source("offline");await noChange(before);
+    return "Actual registry ownership stays linked across integration/location grouping. Keyboard Enter opens Monitoring policies; real Escape and pointer Close restore focus, live evidence updates preserve the dialog and focused policy, and each contributing availability policy opens its exact editor. Back to source retains the entity and independent policy/method drafts; saved settings are unchanged.";
+  });
   await scenario("sources.details",async()=>{
     const before=await snapshot();await source("offline","device");await click('.source-monitoring-explanation > summary');await text('.config-detail',/Lab offline|unavailable/i);assert.ok(await at('.config-detail [data-source-link]').count());
-    await at('.config-detail [data-source-link]').first().click();await text('.config-detail',/Unavailable in Home Assistant/);assert.ok(await at('.source-policy-links [data-definition-id]').count());
-    for(const [value,expected] of [["unknown",/Available.*no value|No current value/i],["0",/0/],["unavailable",/Unavailable in Home Assistant/]]){await realState("offline",value);await text('.config-detail',expected);}
+    await at('.config-detail [data-source-link]').first().click();await text('.config-detail',/Home Assistant reports this entity as unavailable/);await click('[data-source-policies="open"]');assert.ok(await at('.source-policy-dialog [data-definition-id]').count());await click('[data-source-policies="close"]');
+    for(const [value,expected] of [["unknown",/Home Assistant reports no value/],["0",/0/],["unavailable",/Home Assistant reports this entity as unavailable/]]){await realState("offline",value);await text('.config-detail',expected);}
     await control("remove_state",{entity_id:lab.entities.offline});await text('.config-detail',/No current Home Assistant state|No current state|not provided|unavailable/i);await noChange(before);
   });
   await scenario("sources.availability",async()=>{
     const before=await snapshot(),id=await sourceId("offline");await edit("policies","lab_temperature");await fill(field("name"),"Preserved temperature draft");await edit("methods","lab_messages");await fill(field("name"),"Preserved method draft");await source("offline");
-    await click('[data-availability-action="stop"]');await click('[data-availability-action="cancel"]');await noChange(before);await click('[data-availability-action="stop"]');await click('[data-availability-action="confirm"]');await at('[data-availability-action="resume"]').waitFor({timeout:30000});await expectedExclusions(before,[id]);await text('.config-detail',/Unavailable in Home Assistant/);
+    await click('[data-availability-action="stop"]');await click('[data-availability-action="cancel"]');await noChange(before);await click('[data-availability-action="stop"]');await click('[data-availability-action="confirm"]');await at('[data-availability-action="resume"]').waitFor({timeout:30000});await expectedExclusions(before,[id]);await text('.config-detail',/Home Assistant reports this entity as unavailable/);
     await edit("policies","lab_temperature");assert.equal(await at(field("name")).inputValue(),"Preserved temperature draft");await discard();await edit("methods","lab_messages");assert.equal(await at(field("name")).inputValue(),"Preserved method draft");await discard();await source("offline");await click('[data-availability-action="resume"]');await click('[data-availability-action="confirm"]');await at('[data-availability-action="stop"]').waitFor({timeout:30000});await noChange(before);
   });
   await scenario("sources.availability-batch",async()=>{
@@ -260,7 +349,7 @@ export async function runIssueGaps(ctx) {
     await click('[data-acknowledge]');await cancelTool();await openIssue(id);await click('[data-shelf]');await cancelTool();assert.deepEqual(await controls(),[]);await noChange(before);
   });
   await scenario("sources.compact-layout",async()=>{
-    const before=await snapshot();await source("offline");await fit('.config-detail');assert.equal(await at('.config-detail details').count(),0);assert.ok(await at('.source-policy-links [data-definition-id]').count());assert.ok(await at('[data-availability-action="stop"]').isVisible());await at('[data-availability-action="stop"]').focus();await realState("history","15");assert.equal(await at('[data-availability-action="stop"]').evaluate(element=>element.getRootNode().activeElement===element),true);await noChange(before);
+    const before=await snapshot();await source("offline");await fit('.config-detail');assert.equal(await at('.config-detail details').count(),0);assert.ok(await at('[data-source-policies="open"]').isVisible());assert.ok(await at('[data-availability-action="stop"]').isVisible());await at('[data-availability-action="stop"]').focus();await realState("history","15");assert.equal(await at('[data-availability-action="stop"]').evaluate(element=>element.getRootNode().activeElement===element),true);await click('[data-source-policies="open"]');await fit('.source-policy-dialog');await click('[data-source-policies="close"]');await noChange(before);
   });
   await scenario("sources.history",async()=>{
     const before=await snapshot(),id=`entry:${lab.fixture_entry_id}`,past=(await query("resolved_history")).episodes.find(row=>row.episode.recorded?.some(source=>source.includes(lab.registry_ids.history))||row.source?.name?.includes("previously"));assert.ok(past);
@@ -269,9 +358,28 @@ export async function runIssueGaps(ctx) {
     await at(`[data-history="${past.episode.episode_id}"]`).click();await at(`[data-history-toggle="${past.episode.episode_id}"][aria-expanded="true"]`).waitFor();await text(`[data-history-toggle="${past.episode.episode_id}"]`,/Lab previously failed sensor/);await text('.history-content:visible',/Home Assistant reported this entity as unavailable/);await page.goBack();await at('#source-history-title').waitFor();await noChange(before);
   });
   await scenario("sources.maintenance",async()=>{
-    const before=await snapshot();await source("offline");const target=await at('[data-maintenance]').getAttribute("data-maintenance");assert.equal(target,await sourceId("offline"));await click('[data-maintenance]');assert.equal(await at('dialog[open] button[type="submit"]').isDisabled(),true);await cancelTool();assert.deepEqual(await controls(),[]);
-    await source("offline");await click('[data-maintenance]');await click('dialog[open] [data-duration="30"]');const until=await at('dialog[open] [name="untilLocal"]').inputValue();assert.ok(until);await submit();await text('dialog[open]',/Saved by Home Assistant/);
-    const saved=(await controls()).find(item=>item.action==="maintenance"&&item.target===target);assert.ok(saved);assert.equal(Date.parse(saved.until),Date.parse(until));assert.equal(saved.include_dependents,false);await text('dialog[open]',/Until|Ends/);
-    await click('dialog[open] [data-cancel-control]');await cancelTool();assert.ok((await controls()).some(item=>item.control_id===saved.control_id));await source("offline");await click('[data-cancel-control]');await submit();await text('dialog[open]',/selected control has ended/);assert.ok(!(await controls()).some(item=>item.control_id===saved.control_id));await noChange(before);
+    const before=await snapshot(),target=await source("offline");
+    assert.equal(await at('[data-maintenance]').count(),0,"Entity details offer no new-maintenance action");
+    await source("offline","device");assert.equal(await at('[data-maintenance]').count(),0,"Device details offer no new-maintenance action");
+    await tree();await fill('[data-sources-search]',"");await at(`[data-sources-select="source:entry:${lab.fixture_entry_id}"]`).click();
+    assert.equal(await at('[data-maintenance]').count(),0,"Integration details offer no new-maintenance action");
+    const seed=async(reason,minutes)=>(await call("call_service",{domain:"homeostatic",service:"start_maintenance",service_data:{node_id:target,until:new Date(Date.now()+minutes*60000).toISOString(),reason},return_response:true})).response.control;
+    const saved=await seed("Existing API-created maintenance",30),overlap=await seed("Separate overlapping maintenance",1);
+    await source("offline");await at(`[data-cancel-control="${saved.control_id}"]`).waitFor();await text('.config-detail',/Until/);await text('.config-detail',/Existing API-created maintenance/);
+    assert.equal(await at('[data-maintenance]').count(),0,"Existing controls do not restore a creation entry");
+    await click(`[data-cancel-control="${saved.control_id}"]`);await cancelTool();assert.deepEqual(await controls(),[saved,overlap],"Closing confirmation keeps both windows");
+    let requests=0;transport.interceptRequest=(request,route)=>{
+      if(request.type!=="call_service"||request.service!=="cancel_control")return false;
+      requests++;route.send(JSON.stringify({id:request.id,type:"result",success:false,error:{code:"acceptance_rejection",message:"Control response could not be confirmed"}}));return true;
+    };
+    await click(`[data-cancel-control="${saved.control_id}"]`);await submit();await text('dialog[open]',/may already have been saved/);
+    assert.equal(requests,1,"An uncertain result does not automatically retry");assert.deepEqual(await controls(),[saved,overlap]);
+    transport.interceptRequest=null;await submit();await text('dialog[open]',/selected control has ended/);
+    assert.deepEqual(await controls(),[overlap],"The rendered end action removes exactly its selected window");await cancelTool();
+    await source("offline");assert.equal(await at(`[data-cancel-control="${saved.control_id}"]`).count(),0);await at(`[data-cancel-control="${overlap.control_id}"]`).waitFor();
+    await click(`[data-cancel-control="${overlap.control_id}"]`);await control("advance",{seconds:120});
+    await at('dialog[open] button[type="submit"]:disabled').waitFor();assert.deepEqual(await controls(),[],"The overlapping window expires without UI cancellation");await cancelTool();
+    assert.equal(await at('.config-detail [data-cancel-control]').count(),0);await noChange(before);
+    return "Entity, device and integration details offer no maintenance creation. Existing API-created windows retain reason/expiry; closing confirmation preserves both. A rejected end request never retries automatically, deliberate pointer submission removes exactly one window, and expiry disables an already-open end confirmation for the other. Settings remain unchanged.";
   });
 }

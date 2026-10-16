@@ -1,14 +1,14 @@
-import {sourceReporting} from "./reporting.mjs?v=84";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=84";
-import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=84";
-import {monitoringTree} from "./configuration.mjs?v=84";
-import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=84";
+import {sourceReporting} from "./reporting.mjs?v=89";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=89";
+import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=89";
+import {monitoringTree} from "./configuration.mjs?v=89";
+import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=89";
 
-import {deviceAvailabilityLabel, deviceEntityName} from "./device-availability.mjs?v=84";
-import {upsSourceSummary} from "./ups.mjs?v=84";
-import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=84";
-import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=84";
-import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=84";
+import {deviceAvailabilityLabel, deviceEntityName} from "./device-availability.mjs?v=89";
+import {upsSourceSummary} from "./ups.mjs?v=89";
+import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=89";
+import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=89";
+import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=89";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -264,9 +264,7 @@ const issueMembers = episode => [...new Set([episode.anchor,...(episode.recorded
 const sourceIds = node => new Set([...sourcePaths([node]).keys()].filter(id=>id.startsWith("source:")).map(id=>id.slice(7)));
 const relatedIssues = (node,episodes) => {const ids=sourceIds(node);return episodes.filter(episode=>issueMembers(episode).some(id=>ids.has(id)));};
 
-function sourcePolicies(card,node,extra="") {
-  const source=node.source;
-  if(!source)return "";
+function contributingPolicies(card,source) {
   const detail=card.sourceDetail?.nodeId===source.node_id?card.sourceDetail:null;
   const policies=new Map((detail?.monitoring_policies||[]).map(policy=>[policy.id,{...policy,contexts:new Set()}]));
   const saved=card.configuration?.settings?.monitoring_policies||[];
@@ -283,9 +281,55 @@ function sourcePolicies(card,node,extra="") {
     if(!policies.has(id))policies.set(id,{id,name:policy?.name||id,contexts:new Set()});
     policies.get(id).contexts.add(memberTemperature?`Monitors ${deviceEntityName(entityNames.get(check.entity_id)||check.name,source.name)}.`:temperature?"Monitors this entity's temperature.":device?`Uses this entity to assess ${names.get(check.monitoring_source||check.node_id)||"its device"}.`:check.kind==="entity"?"Checks this entity's availability individually.":check.kind==="device"?"Assesses this device using its selected entities.":check.kind==="integration"?"Checks whether this integration is loaded.":"Monitors this check.");
   }
-  if(source.kind==="entity")return policies.size?`<section class="source-policy-links" aria-label="Monitoring policies">${[...policies.values()].map(policy=>`<button type="button" class="link" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="${esc(policy.id)}">Edit “${esc(policy.name)}” policy</button>`).join("")}</section>`:"";
-  const content=policies.size?`<h3>Monitoring policies</h3>${[...policies.values()].map(policy=>`<div class="source-policy"><div><button type="button" class="link" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="${esc(policy.id)}">Edit policy “${esc(policy.name)}”</button>${[...policy.contexts].map(context=>`<p>${esc(context)}</p>`).join("")}</div></div>`).join("")}`:"";
-  return content||extra?`<details class="source-section source-monitoring-explanation" data-ui-key="source-details:${esc(node.key)}"><summary>Details</summary>${content}${extra}</details>`:"";
+  return [...policies.values()];
+}
+
+function sourcePolicies(card,node,extra="") {
+  const source=node.source;
+  if(!source)return "";
+  const policies=contributingPolicies(card,source);
+  const edit=policy=>`<button type="button" class="link" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="${esc(policy.id)}"${source.kind==="entity"?` aria-label="Edit ${esc(policy.name)} policy"`:""}>${source.kind==="entity"?"Edit policy":`Edit “${esc(policy.name)}” policy`}</button>`;
+  if(source.kind==="entity") {
+    const opened=card.sourcePoliciesSelection===source.node_id;
+    const dialog=opened?`<dialog class="source-policy-dialog" aria-labelledby="source-policies-title"><header class="dialog-head"><h2 id="source-policies-title">Monitoring policies</h2><button type="button" class="button" data-source-policies="close" aria-label="Close monitoring policies">Close</button></header><div class="dialog-body"><p class="source-policy-entity">${esc(source.name)}</p>${policies.length?policies.map(policy=>`<section class="source-policy"><h3>${esc(policy.name)}</h3>${[...policy.contexts].map(context=>`<p>${esc(context)}</p>`).join("")}${edit(policy)}</section>`).join(""):'<p>No policies currently monitor this entity.</p>'}</div></dialog>`:"";
+    return `${policies.length?'<section class="source-policy-links"><button type="button" class="link" data-source-policies="open" aria-haspopup="dialog">Monitoring policies</button></section>':""}${dialog}`;
+  }
+  const links=policies.length?`<section class="source-policy-links" aria-label="Monitoring policies">${policies.map(edit).join("")}</section>`:"";
+  const explained=policies.filter(policy=>policy.contexts.size);
+  const content=explained.length?`<h3>Monitoring policies</h3>${explained.map(policy=>`<div class="source-policy"><div><p><strong>${esc(policy.name)}</strong></p>${[...policy.contexts].map(context=>`<p>${esc(context)}</p>`).join("")}</div></div>`).join("")}`:"";
+  return `${links}${content||extra?`<details class="source-section source-monitoring-explanation" data-ui-key="source-details:${esc(node.key)}"><summary>Details</summary>${content}${extra}</details>`:""}`;
+}
+
+function closeSourcePolicies(card) {
+  card.sourcePoliciesSelection=null;
+  card.render();
+  (card.main.querySelector('[data-source-policies="open"]')||card.main.querySelector("#sources-detail-title"))?.focus({preventScroll:true});
+}
+
+/** Restore the contextual policy dialog and native keyboard dismissal after updates. */
+export function restoreSourcePolicies(card) {
+  const dialog=card.main.querySelector(".source-policy-dialog");
+  if(!dialog){card.sourcePoliciesSelection=null;return;}
+  dialog.showModal();
+  dialog.oncancel=event=>{event.preventDefault();closeSourcePolicies(card);};
+}
+
+/** Open policy context without changing the selected entity or saved configuration. */
+export function editSourcePolicies(card,event) {
+  const button=event.target.closest?.("button");
+  if(!button)return false;
+  if(button.closest(".source-policy-dialog")&&button.dataset.definitionAction==="open-policy") {
+    card.sourcePoliciesSelection=null;
+    return false;
+  }
+  const action=button.dataset.sourcePolicies;
+  if(action==="close"){closeSourcePolicies(card);return true;}
+  if(action!=="open")return false;
+  const node=sourcePaths(sourcesTree(card.current.data,card.sourcesGrouping,null,card.topomation,Boolean(card.sourcesShowDisabled))).get(card.sourcesSelection)?.node;
+  if(node?.source?.kind!=="entity")return true;
+  card.sourcePoliciesSelection=node.source.node_id;
+  card.render();
+  return true;
 }
 
 function sourceMonitoringSummary(source,coverage) {
@@ -299,11 +343,14 @@ function sourceHeaderMetadata(card,source) {
   if(!source||!["entity","device","battery"].includes(source.kind))return "";
   if(source.kind==="entity") {
     const entry=sourceIntegration(card,source);
-    if(entry?.attributes?.domain?.[0]) {
-      const href=integrationProblem(entry,[],key=>card._hass?.localize?.(key),null,false).integrationUrl;
-      return `<a class="link" href="${esc(href)}">Go to integration page</a>`;
-    }
-    return source.entity_id?`<a class="link" href="/developer-tools/state?entity_id=${encodeURIComponent(source.entity_id)}">View entity state</a>`:"";
+    const deviceId=source.attributes?.device?.[0];
+    const device=deviceId&&canonicalSources(card.current.data).find(item=>item.kind==="device"&&item.attributes?.device?.includes(deviceId));
+    const deviceName=device?.name||card.current.data.devices?.find(item=>item.id===deviceId)?.name;
+    const integration=entry&&integrationProblem(entry,[],key=>card._hass?.localize?.(key),null,false);
+    const integrationName=sourceIntegrationName(card,source)||entry?.name;
+    const fields=[deviceName?`<div><dt>Device</dt><dd><a href="/config/devices/device/${encodeURIComponent(deviceId)}" aria-label="Open ${esc(deviceName)} device in Home Assistant">${esc(deviceName)}</a></dd></div>`:"",integrationName?`<div><dt>Integration</dt><dd>${entry?.attributes?.domain?.[0]?`<a href="${esc(integration.integrationUrl)}" aria-label="Open ${esc(integrationName)} integration in Home Assistant">${esc(integrationName)}</a>`:esc(integrationName)}</dd></div>`:""].filter(Boolean);
+    const linked=Boolean(deviceName||entry?.attributes?.domain?.[0]);
+    return `${fields.length?`<dl class="source-identity">${fields.join("")}</dl>`:""}${!linked&&source.entity_id?`<a class="link" href="/developer-tools/state?entity_id=${encodeURIComponent(source.entity_id)}">View entity state</a>`:""}`;
   }
   const deviceId=source.attributes?.device?.[0];
   const href=deviceId?`/config/devices/device/${encodeURIComponent(deviceId)}`:source.entity_id?`/developer-tools/state?entity_id=${encodeURIComponent(source.entity_id)}`:"";
@@ -391,7 +438,7 @@ function sourceIntegration(card,source) {
 
 function sourceIntegrationName(card,source) {
   const entry=sourceIntegration(card,source);
-  const domain=source.attributes?.integration_domain?.[0]||entry?.attributes?.domain?.[0];
+  const domain=entry?.attributes?.domain?.[0]||source.attributes?.integration_domain?.[0];
   return domain&&(card._hass?.localize?.(`component.${domain}.title`)||domain.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase()));
 }
 
@@ -435,10 +482,9 @@ function sourceInspection(card,node,coverage) {
     details+='<p>Charging can clear the low-battery condition without establishing a full charge or replacement.</p>';
   } else if(source.kind==="entity") {
     const member=evidence.members?.find(item=>item.entity_id===source.entity_id)||evidence.members?.[0];
-    const title=member?.restored?`No longer provided by ${sourceIntegrationName(card,source)||"its integration"}`:member?.state==="unavailable"?"Unavailable in Home Assistant":!member||member.state==="missing"?"No current Home Assistant state":"Available in Home Assistant";
+    const title=member?.restored?`Not currently provided by ${sourceIntegrationName(card,source)||"its integration"}`:member?.state==="unavailable"?"Home Assistant reports this entity as unavailable":!member||member.state==="missing"?"No current state from Home Assistant":"Available in Home Assistant";
     facts+=`<p class="source-entity-condition">${esc(title)}</p>`;
     if(member&&!member.restored&&!['unavailable','missing'].includes(member.state))facts+=`<p class="source-current-value">${esc(member.state==="unknown"?"Home Assistant reports no value":sourceReading(member))}</p>`;
-    if(member?.restored)body='<p>Home Assistant retains this entity’s registration, but its integration is not currently providing it.</p>';
     body+=sourceTemperature(source,evidence);
   } else {
     const members=evidence.members||[],total=evidence.total??members.length;
@@ -450,14 +496,16 @@ function sourceInspection(card,node,coverage) {
     if(title)body+=`<section class="source-condition${unavailable||unknown?' needs-attention':''}"><p>${esc(title)}</p>${unavailable&&unknown?`<p>${unknown} ${scope}${unknown===1?"entity has":"entities have"} no current reading.</p>`:""}</section>`;
     body+=sourceTemperature(source,evidence);
     const selection=card.availabilitySelected?.nodeId===source.node_id?card.availabilitySelected:null;
-    const render=items=>`<table class="source-readings"><thead><tr><th>Entity</th><th>Current state</th></tr></thead><tbody>${items.map(item=>`<tr><td>${selection?`<label class="source-member-select"><input type="checkbox" data-availability-select="${esc(item.node_id)}"${selection.ids.has(item.node_id)?" checked":""}${card.settingsBusy||card.scopedBusy?' disabled':''}><span class="sr-only">Select ${esc(item.name)}</span></label>`:""}<button type="button" class="link" data-source-link="${esc(item.node_id)}">${esc(deviceEntityName(item.name,node.name))}</button></td><td>${esc(item.restored?"Not provided by integration":item.state==="missing"?"No current state":item.state==="unknown"?"Available · no value":item.state==="unavailable"?"Unavailable":item.state)}</td></tr>`).join("")}</tbody></table>`;
+    const linkedTemperatureSources=new Set((evidence.temperature_checks||[]).map(check=>check.source_id));
+    const memberName=item=>linkedTemperatureSources.has(item.node_id)?`<span>${esc(deviceEntityName(item.name,node.name))}</span>`:`<button type="button" class="link" data-source-link="${esc(item.node_id)}">${esc(deviceEntityName(item.name,node.name))}</button>`;
+    const render=items=>`<table class="source-readings"><thead><tr><th>Entity</th><th>Current state</th></tr></thead><tbody>${items.map(item=>`<tr><td>${selection?`<label class="source-member-select"><input type="checkbox" data-availability-select="${esc(item.node_id)}"${selection.ids.has(item.node_id)?" checked":""}${card.settingsBusy||card.scopedBusy?' disabled':''}><span class="sr-only">Select ${esc(item.name)}</span></label>`:""}${memberName(item)}</td><td>${esc(item.restored?"Not provided by integration":item.state==="missing"?"No current state":item.state==="unknown"?"Available · no value":item.state==="unavailable"?"Unavailable":item.state)}</td></tr>`).join("")}</tbody></table>`;
     const review=members.filter(item=>['unavailable','missing'].includes(item.state)||item.restored);
     const other=members.filter(item=>!review.includes(item));
     if(review.length)body+=`<section class="source-section"><h3>${source.watched?"Entities needing review":"Unavailable or missing entities"}</h3>${render(review)}</section>`;
     if(other.length){const list=`<section class="source-section"><h3>${other.length} other ${scope}${other.length===1?"entity":"entities"}</h3>${render(other)}</section>`;if(selection)body+=list;else details+=list;}
     if(total>members.length)body+=`<p class="small">${members.length} of ${total} entity readings loaded.</p><button type="button" class="button" data-action="more-source-evidence"${evidence.moreLoading?' disabled':''}>${evidence.moreLoading?'Loading entities…':'Load more entities'}</button>${evidence.moreError?`<p role="alert">${esc(evidence.moreError)}</p>`:""}`;
     const excluded=node.children.filter(child=>child.source?.kind==="entity"&&!members.some(member=>member.node_id===child.source.node_id)&&availabilityMonitoring(card,child.source).canResume);
-    if(excluded.length){const list=`<section class="source-section source-excluded-members"><h3>${excluded.length} ${excluded.length===1?"entity with an availability exclusion":"entities with availability exclusions"}</h3><p class="small">Select entities to remove their explicit policy exclusions. Current readings remain available in each entity’s details.</p>${excluded.map(child=>`<div class="source-child">${selection?`<label class="source-member-select"><input type="checkbox" data-availability-select="${esc(child.source.node_id)}"${selection.ids.has(child.source.node_id)?" checked":""}${card.settingsBusy||card.scopedBusy?' disabled':''}><span class="sr-only">Select ${esc(child.name)}</span></label>`:""}<button type="button" class="link" data-source-link="${esc(child.source.node_id)}">${esc(deviceEntityName(child.name,node.name))}</button></div>`).join("")}</section>`;if(selection)body+=list;else details+=list;}
+    if(excluded.length){const list=`<section class="source-section source-excluded-members"><h3>${excluded.length} ${excluded.length===1?"entity with an availability exclusion":"entities with availability exclusions"}</h3><p class="small">Select entities to remove their explicit policy exclusions. Current readings remain available in each entity’s details.</p>${excluded.map(child=>`<div class="source-child">${selection?`<label class="source-member-select"><input type="checkbox" data-availability-select="${esc(child.source.node_id)}"${selection.ids.has(child.source.node_id)?" checked":""}${card.settingsBusy||card.scopedBusy?' disabled':''}><span class="sr-only">Select ${esc(child.name)}</span></label>`:""}${memberName({node_id:child.source.node_id,name:child.name})}</div>`).join("")}</section>`;if(selection)body+=list;else details+=list;}
   }
   const availability=source.kind==="entity"?availabilityMonitoring(card,source):null;
   const configure=source.kind==="battery"||availability&&!availability.canStop&&!availability.canResume;
@@ -475,7 +523,7 @@ function sourceNavigation(card,node) {
 
 function currentSourceEvidence(card,node,episodes) {
   const source=node.source,data=card.current.data;
-  if(!source)return node.family?`<p>${node.entries.length} Home Assistant connections · ${familyDevices(node).length} devices</p><details class="source-section source-connections"><summary>${node.entries.length} Home Assistant connections</summary>${node.entries.map(entry=>`<button type="button" class="source-child" data-sources-select="source:${esc(entry.node_id)}"><span>${esc(sourceName(entry))}</span><small>View connection</small></button>`).join("")}</details>`:(relatedIssues(node,episodes).length?"":"<p>No open issues in this group.</p>");
+  if(!source)return node.family?`<p>${familyDevices(node).length} devices</p><section class="source-section source-connections"><h3>${node.entries.length} connections</h3>${node.entries.map(entry=>`<button type="button" class="source-child" data-sources-select="source:${esc(entry.node_id)}"><span>${esc(sourceName(entry))}</span><small>View connection</small></button>`).join("")}</section>`:(relatedIssues(node,episodes).length?"":"<p>No open issues in this group.</p>");
   if(source.disabled)return '<section class="source-condition"><h3>Disabled in Home Assistant</h3><p>Monitoring paused while disabled. Saved monitoring choices resume when re-enabled.</p></section>';
   const evidence=card.sourceDetail?.nodeId===source.node_id?card.sourceDetail:null;
   if(!evidence||evidence.loading)return '<p role="status">Reading current Home Assistant values…</p>';
@@ -490,9 +538,9 @@ function currentSourceEvidence(card,node,episodes) {
     const current=evidence.integration_evidence||data.inventory.integration_evidence?.[source.node_id];
     const problem=integrationProblem(source,[],key=>card._hass?.localize?.(key),current,false);
     const loaded=current?.current?.reason==="loaded"||data.inventory.integration_states?.[source.node_id]==="loaded";
-    title=source.disabled?"Disabled in Home Assistant":loaded?"Loaded in Home Assistant":problem.headline;
+    title=source.disabled?"Disabled in Home Assistant":loaded?"Loaded":problem.headline;
     body=loaded?"":`<p>${esc(problem.summary)}</p>${problem.nextStep?`<p>${esc(problem.nextStep)}</p>`:""}`;
-    href=problem.integrationUrl;action="Open integration in Home Assistant";
+    href=problem.integrationUrl;action="Open integration";
     if(node.family)body+=`<p>${familyDevices(node).length} devices in this integration.</p>`;
   } else {
     const linked=relatedIssues(node,episodes),findings=[...new Set(linked.flatMap(episode=>episode.reasons||[]).filter(finding=>sourceIds(node).has(finding.node_id)).map(finding=>finding.message).filter(Boolean))];
@@ -508,6 +556,8 @@ function sourceIssueLinks(card,node,episodes,data) {
   if(!linked.length)return "";
   const sources=new Map(inventoryRows(data).map(source=>[source.node_id,source]));
   const ids=sourceIds(node);
+  const controls=data.inventory.operator_controls||[];
+  const shownControls=new Set(controls.filter(control=>control.target===node.source?.node_id).map(control=>control.control_id));
   return `<section class="source-section source-related-issues"><h3>${linked.length===1?"Related issue":`${linked.length} related issues`}</h3>${node.type==="location"||node.type==="integration"?`<p class="small">Each issue is listed once here. A shared issue can appear in more than one group.</p>`:""}${linked.map(episode=>{
     const anchor=sources.get(episode.anchor),name=anchor?.name||"Related issue";
     const finding=(episode.reasons||[]).find(item=>ids.has(item.node_id)&&item.message)||(episode.reasons||[]).find(item=>item.message);
@@ -517,19 +567,21 @@ function sourceIssueLinks(card,node,episodes,data) {
       const condition=finding?.message||name;
       return `<div class="source-related-issue source-entity-issue"><p>${esc(condition)}</p>${grouped?`<p class="small">This entity is part of an issue${members.size>1?` involving ${members.size} sources`:""}. Grouped under ${esc(name)}.</p>`:""}<button type="button" class="button primary" data-episode="${esc(episode.episode_id)}" aria-label="View issue: ${esc(condition)}">View issue</button></div>`;
     }
-    const controls=anchor?card.tools?.detailButtons(anchor,episode,data)||"":"";
+    const issueData={...data,inventory:{...data.inventory,operator_controls:controls.filter(control=>!shownControls.has(control.control_id))}};
+    const buttons=anchor?card.tools?.detailButtons(anchor,episode,issueData)||"":"";
+    if(buttons)for(const control of controls)if([anchor.node_id,episode.episode_id].includes(control.target))shownControls.add(control.control_id);
     const scope=grouped?`<p class="small">These controls apply to the whole issue headed by ${esc(name)}${members.size>1?`, involving ${members.size} sources`:""}.</p>`:"";
-    return `<div class="source-related-issue"><button type="button" class="source-child" data-episode="${esc(episode.episode_id)}"><span>${esc(finding?.message||name)}</span><small>View issue</small></button>${episode.opened_at?`<p class="small">Issue opened <time datetime="${esc(episode.opened_at)}">${esc(displayDate(episode.opened_at))}</time></p>`:""}${controls?grouped?`<details class="source-issue-actions" data-ui-key="source-issue:${esc(episode.episode_id)}"><summary>Actions for this issue</summary>${scope}${controls}</details>`:controls:""}</div>`;
+    return `<div class="source-related-issue"><button type="button" class="source-child" data-episode="${esc(episode.episode_id)}"><span>${esc(finding?.message||name)}</span><small>View issue</small></button>${episode.opened_at?`<p class="small">Issue opened <time datetime="${esc(episode.opened_at)}">${esc(displayDate(episode.opened_at))}</time></p>`:""}${buttons?`${scope}${buttons}`:""}</div>`;
   }).join("")}</section>`;
 }
 
 function entityMonitoringSummary(source,coverage) {
   if(source.disabled)return "";
   const state=sourceCoverage(source,coverage);
-  if(!state.monitored)return '<p class="source-monitoring-status">Homeostatic is not monitoring this entity.</p>';
+  if(!state.monitored)return '<p class="source-monitoring-status">Not monitored</p>';
   const labels=state.labels.filter(label=>label!=="Device availability").map(label=>label.toLowerCase());
   const checks=labels.length>1?`${labels.slice(0,-1).join(", ")} and ${labels.at(-1)}`:labels[0];
-  const message=checks?`Homeostatic monitors this entity’s ${checks}.${state.device&&!labels.includes("availability")?" It also contributes to device availability monitoring.":""}`:"Homeostatic uses this entity to monitor device availability.";
+  const message=checks?`Monitored for ${checks}${state.device&&!labels.includes("availability")?". Also used to assess device availability.":""}`:"Used to assess device availability";
   return `<p class="source-monitoring-status">${esc(message)}</p>`;
 }
 
@@ -601,14 +653,15 @@ export function sourcesBrowser(card) {
   const node=selected?.node;
   const entity=node?.source?.kind==="entity";
   const context=selected?.parents.filter(parent=>!entity||parent.type!=="location"||parent.location&&!["group","unassigned"].includes(parent.location.kind)).map(parent=>parent.name).filter((name,index,names)=>name!==node?.name&&(index===0||name!==names[index-1])).join(" / ")||"";
+  const entityLocation=entity?selected.parents.filter(parent=>parent.type==="location"&&parent.location&&!["group","unassigned"].includes(parent.location.kind)).map(parent=>parent.name).filter((name,index,names)=>names.indexOf(name)===index).join(" / "):"";
   const type=node?.family?"Integration":node?.source?sourceType(node.source):node?.type==="device"?"Device":"Location";
-  const automationReporting=node?.source?.automation_url?`<details class="source-section" data-ui-key="source-reporting:${esc(node.key)}"><summary>Reporting preference</summary>${sourceReporting(card,node)}</details>`:"";
+  const automationReporting=node?.source?.automation_url?sourceReporting(card,node):"";
   const equipmentControls=node?.source?card.tools?.detailButtons(node.source,null,data)||"":"";
   const activeEquipment=node?.source&&(data.inventory.operator_controls||[]).some(control=>control.target===node.source.node_id);
   const inspection=node?sourceInspection(card,node,coverage):null;
   const secondary=`${inspection?.details||""}${equipmentControls&&!activeEquipment?`<section class="source-equipment"><h3>Equipment controls</h3>${equipmentControls}</section>`:""}${automationReporting}${node&&!entity?sourceTechnicalDetails(card,node):""}`;
   const entityMonitoring=entity?`<section class="source-entity-monitoring">${entityMonitoringSummary(node.source,coverage)}${availabilityActions(card,node)}${!node.source.disabled&&!availabilityMonitoring(card,node.source).canStop&&!availabilityMonitoring(card,node.source).canResume?'<button type="button" class="link" data-page="policies" data-configure-monitoring>Configure monitoring</button>':""}${sourcePolicies(card,node)}${!activeEquipment?equipmentControls:""}</section>`:"";
-  const detail=node?`<header class="source-heading"><button type="button" class="link sources-back" data-action="back-sources">← Back to Monitoring</button><h2 id="sources-detail-title" tabindex="-1">${esc(node.name)}</h2><p class="config-path">${esc(context||(inspection?"":type))}</p>${entity?`<nav class="source-native-navigation" aria-label="Home Assistant navigation">${sourceHeaderMetadata(card,node.source)}</nav>`:""}</header><div class="source-body">${inspection?`${inspection.summary}${entity?"":availabilityActions(card,node)}${inspection.body}`:`${sourceMonitoringSummary(node.source,coverage)}${currentSourceEvidence(card,node,episodes)}`}${sourceIssueLinks(card,node,episodes,data)}${activeEquipment?equipmentControls:""}${entityMonitoring}${sourceNavigation(card,node)}${entity?"":sourcePolicies(card,node,secondary)}</div>`:'<div class="sources-empty"><h2>Select an item</h2><p>See its status, issues and monitoring.</p></div>';
+  const detail=node?`<header class="source-heading"><button type="button" class="link sources-back" data-action="back-sources">← Back to Monitoring</button>${entity?'<p class="source-kind">Entity</p>':""}<h2 id="sources-detail-title" tabindex="-1">${esc(node.name)}</h2>${entity?`<nav class="source-native-navigation" aria-label="Home Assistant navigation">${sourceHeaderMetadata(card,node.source)}</nav>${entityLocation?`<p class="config-path">${esc(entityLocation)}</p>`:""}`:`<p class="config-path">${esc(context||(inspection?"":type))}</p>`}</header><div class="source-body">${inspection?`${inspection.summary}${entity?"":availabilityActions(card,node)}${inspection.body}`:`${sourceMonitoringSummary(node.source,coverage)}${currentSourceEvidence(card,node,episodes)}`}${sourceIssueLinks(card,node,episodes,data)}${activeEquipment?equipmentControls:""}${entityMonitoring}${sourceNavigation(card,node)}${entity?"":sourcePolicies(card,node,secondary)}</div>`:'<div class="sources-empty"><h2>Select an item</h2><p>See its status, issues and monitoring.</p></div>';
   const activeFilters=[card.sourcesShowDisabled?"Disabled sources":"",card.sourcesExcludedOnly?"Availability exclusions":""].filter(Boolean);
   const filters=`<div class="sources-filter-control"><button type="button" class="button" data-sources-filters popovertarget="sources-more-filters" aria-label="More filters${activeFilters.length?`: ${activeFilters.join(", ")}`:""}">More filters${activeFilters.length?` (${activeFilters.length})`:""}</button><div id="sources-more-filters" class="sources-filter-popover" popover aria-label="More monitoring filters"><label><input type="checkbox" data-sources-disabled${card.sourcesShowDisabled?' checked':''}> Include disabled sources</label><label><input type="checkbox" data-sources-excluded${card.sourcesExcludedOnly?' checked':''}> Availability exclusions only</label></div></div>`;
   const monitoringFilter=`<label class="sources-monitoring-filter">Monitoring status<select data-sources-monitoring><option value="all"${!card.sourcesMonitoring||card.sourcesMonitoring==="all"?' selected':''}>All</option><option value="monitored"${card.sourcesMonitoring==="monitored"?' selected':''}>Monitored</option><option value="unmonitored"${card.sourcesMonitoring==="unmonitored"?' selected':''}>Not monitored</option></select></label>`;

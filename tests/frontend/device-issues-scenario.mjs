@@ -4,7 +4,7 @@ import {notificationSettings} from "./notification-profiles-fixture.mjs";
 import {initializeScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs";
 import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
 
-const card=document.querySelector("homeostatic-panel-v36"),root=card.shadowRoot,calls=[];
+const card=document.querySelector("homeostatic-panel"),root=card.shadowRoot,calls=[];
 const copy=value=>structuredClone(value),families={esphome:"ESPHome",mqtt:"MQTT",eero:"eero"};
 const settings={...notificationSettings(),monitoring_policies:[
   {id:"devices",name:"Device availability",enabled:true,check:"availability",match:{kind:["device"]},parameters:{},notifications:[]},
@@ -87,8 +87,9 @@ document.querySelector("#run").onclick=async()=>{
     check(ids(ball).sort().join(",")==="ball-device,ball-player","Device and player findings remain individually reachable");
     check([...ball.querySelectorAll(".issue-title")].every(title=>!title.textContent.includes("Xiaozhi Ball")),"Device name is not repeated as each finding title");
     check(root.querySelectorAll('[data-issue-device="twin-a"],[data-issue-device="twin-b"]').length===2,"Equal names retain distinct registry devices");
-    check(!find('[data-episode="standalone"]').closest(".issue-device")&&!find('[data-episode="mqtt-shared"]').closest(".issue-device"),"Standalone and shared findings stay at integration level");
-    check(root.querySelectorAll('[data-episode="mqtt-shared"]').length===1,"Shared issue appears once");
+    check(!find('[data-episode="standalone"]').closest(".issue-device"),"Standalone findings stay at integration level");
+    check(root.querySelectorAll('.issue-device [data-episode="mqtt-shared"]').length===2,"Shared issue appears under both devices with its original action identity");
+    check(![...root.querySelectorAll('.issue-row')].some(row=>/shared issue/i.test(row.textContent)),"Issue rows show findings without internal grouping labels");
     check(ball.getBoundingClientRect().left>group("esphome").getBoundingClientRect().left,"Device is visually indented beneath its integration");
     evidence.push("Three integration families; single device heading; independent findings; equal names, standalone and shared issue identities.");
     const row=find('[data-episode="ball-player"]');row.focus();check(root.activeElement===row&&row.tagName==="BUTTON","Individual finding is a focusable native button");
@@ -141,6 +142,33 @@ document.querySelector("#run").onclick=async()=>{
     check(calls.every(request=>["homeostatic/node","homeostatic/configuration"].includes(request.type)),"Browsing and Cancel send no mutation or live-service request");
     check(find(".shell").scrollWidth<=find(".shell").clientWidth+1,"Current viewport has no horizontal overflow");
     evidence.push("No queue removal controls or counts. Actual entity, device, shared and standalone issue dialogs review only their own current unavailable entities; unrelated unavailable siblings are excluded. Cancel and Close discard review without mutations or live services; current viewport fits.");
+    reset();await settle();
+    const original=data.inventory.nodes.find(source=>source.node_id==="check:laundry-temperature");
+    const waiting={...original,node_id:"check:waiting",kind:"vacuum",check_id:"vacuum",monitoring_source:null,name:"Vacuum errors",monitoring_policy:"vacuums",entity_id:"vacuum.laundry"};
+    data.inventory.nodes.push(waiting);
+    const current={status:"unknown",reason:"vacuum_unavailable",message:"Home Assistant reports this vacuum unavailable."};
+    data.inventory.entity_status[waiting.node_id]={current,last_failure:null};
+    data.inventory.episodes.push({episode_id:"waiting",anchor:waiting.node_id,recorded:[waiting.node_id],impact:[],importance:"normal",opened_at:"2026-10-16T12:00:00Z",reasons:[{...current,node_id:waiting.node_id,check_id:"vacuum"}]});
+    data=copy(data);card.current={status:"current",data};card.render();await settle();
+    check(!root.querySelector('[data-episode="waiting"]'),"An unknown-only check adds no issue row");
+    check(find('[data-waiting-device="laundry"]').innerText.includes("Vacuum errors")&&find('[data-waiting-device="laundry"]').innerText.includes("unavailable")&&!find('[data-waiting-device="laundry"]').closest('details'),"Waiting policy and actual HA condition are visible without another disclosure");
+    card.render();await settle();
+    check(find('[data-waiting-device="laundry"]').innerText.includes("unavailable"),"Refresh preserves visible waiting evidence");
+    data.inventory.entity_status[waiting.node_id].last_failure={reason:"vacuum_error",message:"Home Assistant reported a vacuum error.",observed_at:"2026-10-16T11:00:00Z"};
+    card.render();await settle();
+    check(find('[data-episode="waiting"]').textContent.includes("Vacuum error — current status unavailable"),"Known error remains visible through unavailability");
+    await click('[data-episode="waiting"]');
+    check(card.dialog.textContent.includes("Vacuum error — current status unavailable"),"Error detail preserves the earlier fault");
+    check(find('[data-acknowledge]',card.dialog).dataset.acknowledge==="waiting","Retained fault actions target the original issue");
+    await click('[data-action="close"]',card.dialog);
+    await click('[data-episode="mqtt-shared"]');
+    const scope=[...card.dialog.querySelectorAll('p')].find(element=>element.textContent.includes("apply to the entire issue"));
+    check(scope?.getClientRects().length&&!scope.closest('details'),"Complete action scope is visible without opening Details");
+    check(scope.nextElementSibling?.contains(find('[data-acknowledge]',card.dialog))&&scope.nextElementSibling?.contains(find('[data-shelf]',card.dialog)),"Scope explanation stays beside acknowledgment and pause controls");
+    check(find('[data-acknowledge]',card.dialog).dataset.acknowledge==="mqtt-shared","Shared actions retain the original issue");
+    check(find('[data-shelf]',card.dialog).dataset.shelf==="mqtt-shared","Pause retains the original issue scope");
+    await click('[data-action="close"]',card.dialog);
+    evidence.push("Issue rows omit internal grouping labels. Waiting checks and their conditions are directly visible under their device through refresh; prior vacuum error survives unavailability in list and dialog; complete scope remains visible beside acknowledgment and pause, both targeting the original issue.");
     receipt.status="pass";feedback.textContent="PASS: Device hierarchy, original issue actions, search, sorting, pagination, refresh and Cancel. Synthetic data only.";
   }catch(error){receipt.status="fail";receipt.error=error.message;feedback.textContent=`FAIL: ${error.message}`;}
   recordResult(receipt,"issues.device-hierarchy",receipt.status,receipt.error||evidence.join(" "));

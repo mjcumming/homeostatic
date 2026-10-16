@@ -61,9 +61,74 @@ const inspectEntity=()=>{
   check(root.querySelector(".source-monitoring-status")?.getClientRects().length,"Entity coverage is a visible sentence");
   check(!root.querySelector(".source-facts,.source-monitoring-explanation,.source-technical"),"Entity has no fact grid or Details disclosure");
   check(!root.querySelector('.config-detail [data-sources-view="history"]'),"Entity has no history footer");
-  check(root.querySelector(".source-native-navigation a[href]")?.getClientRects().length,"Entity native destination sits near its name");
+  check(root.querySelector('.source-heading a[href="/config/devices/device/third-floor"]')?.textContent==="3rd Floor Sensor","The named device is linked beside entity identity");
+  check(root.querySelector('.source-heading a[href="/config/integrations/integration/lyric#config_entry=lyric"]')?.textContent==="Honeywell Lyric","The named integration is linked beside entity identity");
+  check(!root.querySelector(".source-heading").textContent.includes("Go to integration page"),"Named ownership links replace repeated destination labels");
   const pane=root.querySelector(".config-detail");check(pane.scrollWidth<=pane.clientWidth,"Entity has no horizontal overflow");
 };
+
+async function inspectFlatDetails() {
+  const original={nodes:data.inventory.nodes,catalog:data.inventory.catalog.candidates,episodes:data.inventory.episodes,members:base.sourceDetail.members,controls:data.inventory.operator_controls,integrationEvidence:data.inventory.integration_evidence};
+  const select=async key=>{
+    if(root.querySelector('[data-action="back-sources"]')?.getClientRects().length)await click('[data-action="back-sources"]');
+    const button=[...root.querySelectorAll("[data-sources-select]")].find(item=>item.dataset.sourcesSelect===key);
+    check(button?.getClientRects().length,`Visible source ${key}`);button.click();await settle();
+  };
+  try {
+    const deviceName="3rd Floor Sensor";
+    data.inventory.nodes=original.nodes.map(source=>source.node_id===ENTITY_ID||source.monitoring_source===ENTITY_ID?{...source,name:deviceName}:source);
+    base.sourceDetail.members=original.members.map((member,index)=>index===0?{...member,name:deviceName,state:"unavailable",restored:false}:index===1?{...member,state:"unavailable",restored:true}:member);
+    data.inventory.episodes=[{episode_id:"shared-inspector",anchor:"entry:lyric",recorded:["entry:lyric","monitoring:entities:"+ENTITY_ID],reasons:[{node_id:"monitoring:entities:"+ENTITY_ID,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:"2026-10-15T12:00:00Z"}];
+    card.render();await select(`source:${DEVICE_ID}`);
+    const name=root.querySelector(`[data-source-link="${ENTITY_ID}"]`);
+    check(name?.textContent===deviceName&&name.getClientRects().length&&!name.closest("details"),"A same-name affected entity remains named and visible");
+    check(name.closest("tr").textContent.includes("Unavailable"),"The entity condition remains beside its name");
+    const restored=root.querySelector('[data-source-link="entity:third-floor-humidity"]');
+    check(restored?.getClientRects().length&&restored.closest("tr").textContent.includes("Not provided by integration"),"Restored evidence remains visible and distinct");
+    check(root.querySelector('[data-acknowledge="shared-inspector"]')?.getClientRects().length&&visibleDetails().includes("These controls apply to the whole issue"),"Shared issue controls show their complete scope without an extra disclosure");
+    const policy=root.querySelector('.config-detail [data-definition-id="devices"]');
+    check(policy?.getClientRects().length&&!policy.closest("details"),"Contributing device policy editing is visible before Details");
+    check(root.querySelectorAll(".config-detail details").length===1,"Device has one supporting Details section");
+    await click(".source-monitoring-explanation > summary");
+    check(!root.querySelector(".source-monitoring-explanation details"),"Opening Details reveals every supporting section without nesting");
+    check(root.querySelector(".source-technical")?.getClientRects().length,"The evidence timestamp is exposed with the supporting details");
+    card.sourceDetail.temperature_checks=["Freezer limit","Overnight limit"].map((name,index)=>({node_id:`temperature:${index}`,source_id:ENTITY_ID,source_name:deviceName,policy_name:name,observation:{status:"warn",reason:"temperature_low",message:`Reading below ${name}`,evidence:{temperature_celsius:2,minimum:5,unit:"°C"}}}));
+    card.render();
+    check(root.querySelectorAll(`[data-source-link="${ENTITY_ID}"]`).length===1,"Overlapping temperature and availability evidence has one entity destination");
+    check(visibleDetails().includes("Reading below Freezer limit")&&visibleDetails().includes("Reading below Overnight limit")&&root.querySelector(".source-readings").textContent.includes("Unavailable"),"Every independent condition remains visible");
+    await click(`[data-source-link="${ENTITY_ID}"]`);
+    check(card.sourcesSelection===`source:${ENTITY_ID}`,"The retained entity destination opens its canonical source");
+
+    data.inventory.episodes=[];
+    const connection={...original.nodes.find(source=>source.kind==="integration"),node_id:"entry:second",entry_id:"second",name:"Second connection"};
+    data.inventory.nodes=[...original.nodes,connection];
+    data.inventory.catalog.candidates=[...original.catalog,connection];
+    card.sourcesExpanded.add(JSON.stringify(["family","lyric"]));card.render();
+    await select(JSON.stringify(["family","lyric"]));
+    check(root.querySelectorAll(".source-connections [data-sources-select]").length===2&&!root.querySelector(".source-connections details,.source-connections summary"),"Integration connections are directly visible once");
+    await click('.source-connections [data-sources-select="source:entry:lyric"]');
+    check([...root.querySelectorAll(".config-detail a")].some(link=>link.textContent==="Open integration"),"Integration navigation uses its concise destination");
+    data.inventory.integration_evidence={"entry:lyric":{current:{status:"fail",reason:"setup_error"}}};
+    card.sourceDetail.integration_evidence=data.inventory.integration_evidence["entry:lyric"];
+    data.inventory.episodes=["first","second"].map(id=>({episode_id:id,anchor:"entry:lyric",recorded:["entry:lyric"],reasons:[{node_id:"entry:lyric",message:`Setup failure ${id}`,status:"fail",reason:"setup_error"}],opened_at:"2026-10-15T12:00:00Z"}));
+    data.inventory.operator_controls=[{control_id:"integration-maintenance",action:"maintenance",target:"entry:lyric",until:"2026-10-17T00:00:00Z",include_dependents:false,reason:"Inspecting connection"},{control_id:"first-pause",action:"shelve",target:"first",until:"2026-10-17T00:00:00Z",include_dependents:false,reason:"Awaiting service"}];
+    card.render();
+    for(const id of ["integration-maintenance","first-pause"])check(root.querySelectorAll(`[data-cancel-control="${id}"]`).length===1&&root.querySelector(`[data-cancel-control="${id}"]`).getClientRects().length,"Each existing maintenance or pause control appears once with its exact target");
+    check(root.querySelector('[data-shelf="first"]')&&root.querySelector('[data-shelf="second"]'),"Independent issue controls remain separate");
+    data.inventory.episodes=[];data.inventory.operator_controls=original.controls;data.inventory.integration_evidence=original.integrationEvidence;
+
+    const automation={node_id:"broken_automation:inspector",name:"Hall lighting",kind:"broken_automation",watched:true,automation_url:"/config/automation/edit/hall",alert_profile:"dashboard"};
+    data.inventory.nodes=[...original.nodes,automation];data.inventory.catalog.candidates=[...original.catalog,automation];
+    card.sourcesQuery="Hall lighting";card.render();await select("source:"+automation.node_id);
+    check(root.querySelectorAll(".config-detail details").length===1,"Automation has one supporting Details section");
+    await click(".source-monitoring-explanation > summary");
+    check(!root.querySelector(".source-monitoring-explanation details")&&visibleDetails().includes("Dashboard only"),"Automation reporting appears with the other details");
+    const pane=root.querySelector(".config-detail");check(pane.scrollWidth<=pane.clientWidth,"Flat source details fit the viewport");
+  } finally {
+    data.inventory.nodes=original.nodes;data.inventory.catalog.candidates=original.catalog;data.inventory.episodes=original.episodes;base.sourceDetail.members=original.members;data.inventory.operator_controls=original.controls;data.inventory.integration_evidence=original.integrationEvidence;
+    card.sourcesQuery="";card.sourcesSelection="source:"+batteryId;card.sourceDetail=detail(batteryId);card.render();
+  }
+}
 
 document.querySelector("#run").onclick=async()=>{
   const result=document.querySelector("#result"),receipt=emptyReceipt({fixture:"monitoring-inspector.html",browser:navigator.userAgent,build:"working tree",transport:"synthetic inventory; no live calls"});
@@ -81,7 +146,7 @@ document.querySelector("#run").onclick=async()=>{
     await change("[data-sources-monitoring]","unmonitored");
     check(entityRows().length===1&&entityRows()[0]===`source:${unmonitored}`,"Not monitored retains only uncovered entity with ancestors");
     await click(`[data-sources-select="source:${unmonitored}"]`);
-    check(root.querySelector(".source-monitoring-status").textContent.includes("not monitoring")&&root.querySelector(".source-current-value").textContent==="0%","Selected condition and zero value remain visible");
+    check(root.querySelector(".source-monitoring-status").textContent==="Not monitored"&&root.querySelector(".source-current-value").textContent==="0%","Selected condition and zero value remain visible");
     check(!visibleDetails().includes("Retained for")&&!visibleDetails().includes("No retained problems")&&!visibleDetails().includes("Equipment controls"),"Empty history and secondary information stay hidden");
     check(root.querySelector('.config-detail [data-page="policies"]').getClientRects().length,"Configure monitoring is reachable");
     inspectEntity();
@@ -102,13 +167,18 @@ document.querySelector("#run").onclick=async()=>{
     if(root.querySelector('[data-action="back-sources"]').getClientRects().length)await click('[data-action="back-sources"]');
     await change("[data-sources-monitoring]","all");
     await click(`[data-sources-select="source:${ENTITY_ID}"]`);
-    check(root.querySelector(".source-monitoring-status").textContent.includes("availability")&&root.querySelectorAll(".source-policy-links [data-definition-id]").length===2,"One monitoring sentence retains both contributing policy links");
+    check(root.querySelector(".source-monitoring-status").textContent==="Monitored for availability"&&root.querySelectorAll('.source-policy-links [data-source-policies="open"]').length===1,"Concise coverage has one contextual policy action");
+    check(!root.querySelector('.source-policy-links [data-definition-id]'),"Individual policy editing is absent from the entity pane");
+    await click('[data-source-policies="open"]');
+    check(root.querySelector(".source-policy-dialog").open&&root.querySelectorAll('.source-policy-dialog [data-definition-id]').length===2,"Monitoring policies lists both contributing policies");
+    await click('[data-source-policies="close"]');
+    check(root.activeElement?.dataset.sourcePolicies==="open","Closing policies restores its trigger focus");
     check(root.querySelector('[data-availability-action="stop"]').getClientRects().length,"Scoped stop is visible");
     check(JSON.stringify(card.configuration.settings)===saved&&!calls.some(call=>call.type==="homeostatic/save_settings"),"Browsing and filtering never mutate saved monitoring");
     const pane=root.querySelector(".config-detail");
     check(pane.scrollWidth<=pane.clientWidth,"Selected source has no horizontal overflow");
     receipt.presentation={card_width:card.clientWidth,theme:document.documentElement.dataset.theme||"light",viewport_width:window.innerWidth};
-    recordResult(receipt,id,"pass","Rendered All/Monitored/Not monitored controls, entity condition and zero value, no entity disclosure or technical metadata, existing history URL, Configure monitoring and return, visible policy links and scoped stop, live-render focus, filter context, no horizontal overflow and unchanged settings.");
+    recordResult(receipt,id,"pass","Rendered All/Monitored/Not monitored controls, entity condition and zero value, no entity disclosure or technical metadata, existing history URL, Configure monitoring and return, one Monitoring policies dialog with both roles and closing focus, scoped stop, live-render focus, filter context, no horizontal overflow and unchanged settings.");
     activeId=compactId;
     inspectEntity();
     check(root.querySelector(".source-current-value").textContent==="72 °F","Entity reading keeps its unit");
@@ -138,8 +208,9 @@ document.querySelector("#run").onclick=async()=>{
     card.sourceDetail=detail(batteryId);card.render();
     check(visibleDetails().includes("Battery percentage")&&visibleDetails().includes("Low battery signal")&&visibleDetails().includes("25%"),"Both battery inputs remain directly inspectable");
     inspectCompact("Paired battery");
+    await inspectFlatDetails();
     check(JSON.stringify(card.configuration.settings)===saved&&!calls.some(call=>call.type==="homeostatic/save_settings"),"Compact-detail navigation leaves saved monitoring unchanged");
-    recordResult(receipt,compactId,"pass","Rendered entity-first details alongside retained battery and device facts, independent unavailable/unmonitored battery state, single and paired readings, Details guidance, history, Policies/return, compact context, source actions and unchanged settings without horizontal overflow.");
+    recordResult(receipt,compactId,"pass","Rendered entity-first details, battery and device facts, single and paired readings, same-name affected entity with visible current/restored conditions, visible shared-issue controls and scope, one flat Details, integration connections, concise native navigation and automation reporting. History, Policies/return and source actions preserve saved settings without horizontal overflow.");
     activeId=toolbarId;
     if(root.querySelector('[data-action="back-sources"]').getClientRects().length)await click('[data-action="back-sources"]');
     const selection=card.sourcesSelection,tools=root.querySelector(".sources-tools");

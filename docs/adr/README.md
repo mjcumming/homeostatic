@@ -4,6 +4,11 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0089](0089-contextual-entity-monitoring-policies.md) | Keep entity policy access contextual | Accepted; refines entity presentation in 0073 and 0086 |
+| [0088](0088-show-information-that-supports-a-decision.md) | Show information that supports a decision | Accepted; supersedes shared entry marking in 0085 |
+| [0087](0087-remove-maintenance-creation-from-ui.md) | Remove maintenance creation from the panel | Accepted |
+| [0086](0086-visible-evidence-and-flat-details.md) | Show essential evidence and keep supporting details flat | Accepted; entity policy and identity presentation refined by 0089 |
+| [0085](0085-device-centered-issue-context.md) | Present related problems and waiting checks under their device | Accepted; detail presentation refined by 0086; shared entry marking superseded by 0088 |
 | [0001](0001-omit-switch-conversion-helper-entries.md) | Omit switch conversion helper entries from monitoring inventory | Accepted |
 | [0002](0002-retain-group-sources-as-limited-aggregate-evidence.md) | Retain Group sources as limited aggregate evidence | Proposed |
 | [0003](0003-one-rule-catalog-for-passive-enrollment.md) | Use one rule catalog for passive enrollment and exclusions | Accepted |
@@ -39,9 +44,9 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0033](0033-notification-tap-destinations.md) | Open issue context from notification taps | Accepted |
 | [0034](0034-create-alerts-from-ha-automations.md) | Configure an alert once in its HA automation, with automatic registration and phone acknowledgment | Accepted; no-eviction rule superseded by 0042 |
 | [0035](0035-align-device-availability-with-ha-proposal.md) | Align device availability with the Home Assistant proposal | Accepted; no-edge rule superseded by 0041; entity fallback by 0064 |
-| [0036](0036-compact-sources-evidence-and-choices.md) | Keep Sources focused on status, scope, and action | Accepted; connection-row placement superseded by 0037; UI simplification by 0059; UI workflow and scope partially superseded by 0061 |
+| [0036](0036-compact-sources-evidence-and-choices.md) | Keep Sources focused on status, scope, and action | Accepted; connection-row placement superseded by 0037; UI simplification by 0059; UI workflow and scope partially superseded by 0061; source-detail disclosures by 0086 |
 | [0037](0037-group-connections-with-registry-owned-devices.md) | Group connections with their registry-owned devices | Accepted; supersedes 0036 connection-row placement; no-edge statement superseded by 0041 |
-| [0038](0038-connectivity-evidence-and-device-problem-card.md) | Treat reported disconnection as device evidence | Accepted; connectivity-off availability interpretation superseded by 0064; detail layout retained |
+| [0038](0038-connectivity-evidence-and-device-problem-card.md) | Treat reported disconnection as device evidence | Accepted; connectivity-off availability interpretation superseded by 0064; detail disclosures and name shortening by 0086 |
 | [0039](0039-mothball-functions-and-native-options.md) | Mothball functions and remove native options | Accepted; supersedes native option and function setup paths |
 | [0040](0040-display-home-assistant-automation-repairs.md) | Display Home Assistant automation failures | Superseded by 0044 |
 | [0041](0041-group-watched-devices-under-failed-integrations.md) | Group watched devices under failed integrations | Accepted; supersedes 0035 no-dependency-from-device-membership rule |
@@ -49,7 +54,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0043](0043-skip-startup-grace-on-integration-reload.md) | Skip startup grace on integration reload | Accepted |
 | [0044](0044-report-home-assistant-repairs-as-issues.md) | Report Home Assistant Repairs as issues | Accepted; supersedes 0040 |
 | [0045](0045-device-issue-requires-every-selected-entity-unavailable.md) | Open a device issue only when every selected entity is unavailable | Accepted; supersedes 0025's partial-device warning; eligibility, Sources fallback and connectivity exception superseded by 0064 |
-| [0046](0046-report-vacuum-error-activity.md) | Report a vacuum's error activity as an issue | Accepted |
+| [0046](0046-report-vacuum-error-activity.md) | Report a vacuum's error activity as an issue | Accepted; presentation extended by 0085 |
 | [0047](0047-policies-page.md) | Give Policies its own dashboard page | Accepted; check presentation superseded by 0048; UI workflow and scope partially superseded by 0061 |
 | [0048](0048-policy-checks.md) | Show Integrations, Devices, Batteries, and Vacuums as on or off, and Repairs as always on | Accepted; Repairs row superseded by 0049; reusable-definition ownership by 0054; UI simplification by 0059 |
 | [0049](0049-repairs-check.md) | Turn Repairs on or off like the other checks | Accepted; UI simplification by 0059 |
@@ -64,7 +69,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0058](0058-unified-policy-lifecycle.md) | Use one editable policy lifecycle | Accepted; UI simplification by 0059; eligibility and delivery presentation by 0064; notification ownership/defaults partially superseded by 0066 |
 | [0059](0059-save-directly-and-test-configured-methods.md) | Save directly and test configured delivery methods | Accepted; UI workflow and scope partially superseded by 0061; compound inline-method drafts by 0066 |
 | [0060](0060-hide-recovery-confirmation-from-issue-lists.md) | Keep recovery confirmation out of issue lists and explain related-source findings | Accepted; evidence-gap list visibility partially superseded by 0065 |
-| [0061](0061-issues-first-product-workflows.md) | Use Issues-first product workflows and scoped editing | Accepted; notification ownership/defaults partially superseded by 0066 |
+| [0061](0061-issues-first-product-workflows.md) | Use Issues-first product workflows and scoped editing | Accepted; notification ownership/defaults partially superseded by 0066; detail presentation by 0086; maintenance creation UI superseded by 0087 |
 | [0062](0062-disabled-integrations-and-add-ons.md) | Keep disabled integrations and add-ons visible without availability issues | Accepted |
 | [0063](0063-remove-superseded-configuration-and-ui.md) | Remove superseded configuration and interface implementations | Accepted |
 | [0064](0064-monitoring-coverage-and-device-evidence.md) | Monitor operational entities and consolidate device notifications | Accepted; notification ownership/defaults partially superseded by 0066 |
@@ -74,9 +79,9 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0068](0068-contextual-availability-monitoring-controls.md) | Act on availability monitoring from compact source details | Accepted; action wording and Issues workflow extended by 0069; source-detail disclosures superseded by 0071 |
 | [0069](0069-bulk-availability-removal-from-issues.md) | Remove unwanted availability monitoring from Issues | Accepted; extends 0068; group placement and scope superseded by 0074 |
 | [0070](0070-saved-monitoring-and-history-navigation.md) | Finish saved monitoring changes and restore History navigation | Accepted; supersedes History placement in 0061 and saved-action Undo in 0068/0069 |
-| [0071](0071-compact-monitoring-inspector.md) | Show monitoring coverage in a compact source inspector | Accepted; supersedes source-detail disclosures in 0068 |
+| [0071](0071-compact-monitoring-inspector.md) | Show monitoring coverage in a compact source inspector | Accepted; supersedes source-detail disclosures in 0068; inspector layout refined by 0073 and 0086; maintenance creation UI superseded by 0087 |
 | [0072](0072-quiet-save-completion.md) | Complete saves without persistent success messages | Accepted; supersedes success feedback in 0061 and 0070 |
-| [0073](0073-entity-first-monitoring-details.md) | Keep entity details focused on the entity | Accepted; supersedes entity presentation in 0061/0068/0071, source-history placement in 0070 and availability wording in 0069 |
+| [0073](0073-entity-first-monitoring-details.md) | Keep entity details focused on the entity | Accepted; supersedes entity presentation in 0061/0068/0071, source-history placement in 0070 and availability wording in 0069; affected-member presentation and navigation refined by 0086; maintenance creation UI superseded by 0087; entity policy and identity presentation refined by 0089 |
 | [0074](0074-availability-removal-inside-open-issues.md) | Review availability removal inside an opened issue | Accepted; supersedes group-wide action placement and scope in 0069 |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision. The [roadmap](../roadmap.md#current-work) owns implementation, validation and installation status; those states are not repeated in decision status fields. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
