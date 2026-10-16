@@ -601,8 +601,7 @@ export function editReusable(card,event) {
           const rect=element.getBoundingClientRect(),size=menu.getBoundingClientRect();
           const below=rect.bottom+4,preferred=below+size.height<=top+height-8?below:rect.top-size.height-4;
           menu.style.top=`${Math.max(top+8,Math.min(preferred,top+height-size.height-8))}px`;
-          const preferredLeft=action==="contextual-help"?rect.left:rect.right-size.width;
-          menu.style.left=`${Math.max(left+8,Math.min(preferredLeft,left+width-size.width-8))}px`;
+          menu.style.left=`${Math.max(left+8,Math.min(rect.right-size.width,left+width-size.width-8))}px`;
           menu.style.right="auto";
         });
       };
