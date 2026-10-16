@@ -542,6 +542,8 @@ authorization still apply; the link grants no access. Tapping does not acknowled
 
 ## Automation-owned alerts and Companion acknowledgment (ADR 0034)
 
+Automation-defined alerts remain unfinished and are not ready for user setup. The contract below records existing experimental implementation; it does not establish a supported end-to-end product workflow. Remaining setup and notification work belongs in the [roadmap](roadmap.md#other-planned-work).
+
 `report_alert` accepts a saved HA automation entity, optional stable alert_key
 (default `default`), name, rendered message, profile, active/clear/unknown state,
 and report_timeout (default 300 seconds). First valid reports register a durable

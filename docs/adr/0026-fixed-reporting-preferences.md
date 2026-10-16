@@ -22,7 +22,7 @@ Acknowledgment adds complexity but serves a distinct purpose. Loss of leak monit
 - Configure report times, weekly day, time zone, and recipients within Homeostatic's Notifications page. Owners need no separate Home Assistant schedule helpers or automations.
 - Assign preferences to devices and supported conditions through Sources. Detailed defaults, precedence, and UI controls remain to be designed.
 - Keep the five presets in the adapter. Preserve HealthTree ownership of generic attention behavior and its existing closed types.
-- The later [reporting defaults decision](0027-reporting-defaults-and-delivery.md) and [specification](../spec.md#fixed-reporting-preferences-adr-0027) settle these details. Example times and reminder intervals in this decision were not approved defaults.
+- The later [reporting defaults decision](0027-reporting-defaults-and-delivery.md) and [specification](../spec.md) settle these details. Example times and reminder intervals in this decision were not approved defaults.
 
 This decision does not settle summary contents, retention, reminder frequency, recipient filtering, dependency grouping, migration, or the household default. Existing person/delivery infrastructure remains useful; the fixed choices replace its claim to be a sufficient reporting-preference interface.
 

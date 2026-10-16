@@ -12,7 +12,6 @@ What Homeostatic does today, what's being worked on next, and what's further out
 - One issue per failure. When an integration fails, the devices and entities you watch on it are listed on that one issue.
 - Home Assistant Repairs appear as issues, with notification entries in their policy.
 - Automations that name an entity that no longer exists. The issue uses the automation's name, lists the missing entity ids, and opens the automation in the editor. Its policy owns the notification entries. An entity that is only unavailable stays out, and so does an entity id written only inside a template. Scripts are left out.
-- Alerts made from Home Assistant automations with the alert blueprint, with required evidence and an Acknowledge button on the phone.
 - Notifications to people's phones through the Companion app, with reusable named notifications and delivery methods, explicit test requests and taps that open the issue.
 - The controls Acknowledge issue, Pause notifications and Working on this equipment. Pauses and maintenance last up to seven days.
 - History of ended issues: the last 100, from the past 30 days.
@@ -25,7 +24,7 @@ What Homeostatic does today, what's being worked on next, and what's further out
 
 Supported unified policies and Custom notification assignments survive updates unchanged. The earlier pre-policy schedule-library configuration remains unsupported and is never automatically converted or reset. See [Upgrade and roll back](install.md#7-upgrade-and-roll-back).
 
-The [user guide](guide.md) and the [alert guide](automation-situations.md) cover all of this. What Homeostatic can't detect is listed under [known limitations](troubleshooting.md#known-limitations).
+The [Homeostatic manual](guide.md) covers supported setup and operation. What Homeostatic can't establish is listed under [limitations](manual/limitations.md). Automation-defined alerts remain unfinished and are outside the operating manual.
 
 ## Current work
 
@@ -85,7 +84,7 @@ Local implementation, successful checks, pilot installation and release are sepa
 
 - Qualify save performance under sustained household load. The bounded method workflow now passes without runtime reload, with six server transactions between 0.635 and 1.465 seconds. The first browser observation still included an unattributed delay before the measured handler; checkpoint variation, pending observations and periodic reconciliation also need broader qualification. The [performance record](save-performance.md) separates isolated measurements, live server timings and actual-browser observations.
 - Replace deprecated device-registry `config_entries` access with the supported owner API before Home Assistant 2027.10.0. The local deployment exposed warnings in enrollment and notification routing; retain compatibility with the supported Home Assistant baseline.
-- Define how automation-owned alert notification choices join the current policy workflow. Preserve saved reporting profiles and the public alert service while adding a supported setup path for new outgoing alerts. The removed fixed-reporting editor must not return as an alternate configuration system.
+- Complete automation-defined alerts before presenting them as ready for user setup. Existing experimental reporting interfaces do not constitute a finished product workflow. Define how alert notification choices join the current policy workflow, preserve saved reporting profiles and the public alert service, and add a supported setup path for new outgoing alerts. The removed fixed-reporting editor must not return as an alternate configuration system.
 - Bound large issue event payloads so Home Assistant Recorder can retain them. The local pilot reports that some `homeostatic_episode` events exceed its 32,768-byte limit. The warning occurred before and after the UI trial; resolve it without silently dropping the evidence exposed by issue queries.
 - Backup failures and overdue automatic backups. Use Home Assistant's [backup events and timestamps](https://www.home-assistant.io/integrations/backup/) to report a failed attempt with its reason, or a successful backup that is overdue for the owner's chosen interval. Link to Backups and define what evidence ends each issue. Discover the relevant entities rather than assuming their names.
 - Health of the machine running Home Assistant. Cover low disk space, sustained CPU load, memory and swap pressure, I/O stalls, and high processor temperature using available [System Monitor](https://www.home-assistant.io/integrations/systemmonitor/) entities. Include reported power-supply or undervoltage problems where supported, such as the [Raspberry Pi power checker](https://www.home-assistant.io/integrations/rpi_power/). Prefer pressure measurements that show work waiting for resources where available. Identify whether a measurement describes the host, container or virtual machine, and use thresholds appropriate to that source and hardware. Require sustained evidence and a defined recovery condition; missing measurements remain missing evidence. Each issue should show the measurement and a useful next step.

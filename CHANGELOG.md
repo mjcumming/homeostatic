@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Documentation
+
+- Replace the accumulated user guide with a task-based manual covering first setup, issues, monitoring policies, notifications, equipment checks, History and installation maintenance. Lead the README with practical reasons to use Homeostatic, separate everyday settings from advanced interfaces, refresh navigation and illustrations, and retire automation-alert setup instructions while that feature remains unfinished.
+
 ## [1.8.0] - 2026-10-15
 
 ### Upgrade notes

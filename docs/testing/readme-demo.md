@@ -1,6 +1,8 @@
-# README screenshot demo
+# Earlier README screenshot demo
 
-The README images use a fictional Willow House snapshot and the real Homeostatic frontend. The fixture is [readme-demo-data.mjs](../../tests/frontend/readme-demo-data.mjs); the browser harness is [readme-demo.html](../../tests/frontend/readme-demo.html). It does not connect to Home Assistant, change stored settings, or send notification requests. Unsupported websocket calls fail in the browser.
+This fixture documents an earlier interface and no longer supplies the README or manual images. Use [Manual screenshot provenance](manual-images.md) for the current captures. The reproduction notes below belong to the earlier images and should not be used to refresh the manual.
+
+The earlier README images used a fictional Willow House snapshot and the real Homeostatic frontend. The fixture is [readme-demo-data.mjs](../../tests/frontend/readme-demo-data.mjs); the browser harness is [readme-demo.html](../../tests/frontend/readme-demo.html). It does not connect to Home Assistant, change stored settings, or send notification requests. Unsupported websocket calls fail in the browser.
 
 ## Story
 

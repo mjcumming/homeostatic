@@ -15,7 +15,7 @@ The payloads call an issue an *episode*: one occurrence of a problem, from the m
 
 `homeostatic_episode` and `homeostatic_control` report what Homeostatic detected and what people did about it. They fire whether notifications are on or off, and whatever the reporting choices, quiet hours, summaries, Pause notifications or Acknowledge say. Those appear as fields in the payload and never stop an event. What your automation does with an event is up to you, including things Homeostatic's own notifications wouldn't do.
 
-An issue reports what Home Assistant told Homeostatic, which isn't always a physical fault (see [Known limitations](troubleshooting.md#known-limitations)). If an automation restarts an integration or power-cycles a device when an issue opens, give it a limit, such as `mode: single` and a delay, so it can't loop.
+An issue reports what Home Assistant told Homeostatic, which isn't always a physical fault (see [limitations](manual/limitations.md)). If an automation restarts an integration or power-cycles a device when an issue opens, give it a limit, such as `mode: single` and a delay, so it can't loop.
 
 ### `homeostatic_episode`
 
