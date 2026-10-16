@@ -4,7 +4,7 @@ import {notificationSettings} from "./notification-profiles-fixture.mjs";
 import {initializeScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs";
 import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
 
-const card=document.querySelector("homeostatic-panel-v35"),root=card.shadowRoot,calls=[];
+const card=document.querySelector("homeostatic-panel-v36"),root=card.shadowRoot,calls=[];
 const copy=value=>structuredClone(value),families={esphome:"ESPHome",mqtt:"MQTT",eero:"eero"};
 const settings={...notificationSettings(),monitoring_policies:[
   {id:"devices",name:"Device availability",enabled:true,check:"availability",match:{kind:["device"]},parameters:{},notifications:[]},

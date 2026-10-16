@@ -1,5 +1,5 @@
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
-import {initializeScopedConfiguration,rebaseScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=83";
+import {initializeScopedConfiguration,rebaseScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs?v=84";
 import {sourceDetailsFixture,DEVICE_ID,ENTITY_ID,UPDATED_AT} from "./source-details-fixture.mjs";
 import {emptyReceipt,recordResult,receiptSummary} from "./control-path-inventory.mjs";
 

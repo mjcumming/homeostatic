@@ -52,7 +52,7 @@ const click=async selector=>{
   check(box.width>0&&box.height>0&&(hit===element||element.contains(hit)),"Control is reachable: "+selector);
   element.click();await tick();
 };
-const change=async(selector,value)=>{const element=find(selector);element.focus();if(element.type==="checkbox")element.checked=value;else element.value=value;element.dispatchEvent(new Event("input",{bubbles:true,composed:true}));element.dispatchEvent(new Event("change",{bubbles:true,composed:true}));await tick();};
+const change=async(selector,value)=>{if(find(selector).type==="radio"){await click(`${selector}[value="${value}"]`);return;}const element=find(selector);element.focus();if(element.type==="checkbox")element.checked=value;else element.value=value;element.dispatchEvent(new Event("input",{bubbles:true,composed:true}));element.dispatchEvent(new Event("change",{bubbles:true,composed:true}));await tick();};
 const settle=async()=>{for(let n=0;n<100;n++){await tick();if(!card.scopedBusy&&!card.settingsBusy){await tick();return;}}throw Error("Mock save did not settle");};
 const pick=()=>click('[data-definition-action="pick"]');
 const finish=()=>click('[data-definition-action="finish-pick"]');
@@ -101,6 +101,9 @@ document.querySelector("#run").onclick=async()=>{
   reset();receipt=freshReceipt();publish();feedback.textContent="Running isolated picker checks…";
   try {
     await runPath("source-context",async()=>{
+      const scopes=[...root.querySelectorAll('.policy-scope input[type="radio"]')];
+      check(scopes.length===5&&scopes.filter(input=>input.checked).length===1,"All five scope choices are visible with one selected");
+      for(const input of scopes){const label=input.closest("label");check(label.getBoundingClientRect().height>=44&&label.scrollWidth<=label.clientWidth+1,"Scope labels are readable full-row touch targets");}
       await pick();check(root.activeElement===find('[data-definition-picker-search]'),"Opening the picker focuses search");check(row("registry:kitchen-motion").textContent.includes("Kitchen")&&row("registry:kitchen-motion").textContent.includes("Ground floor"),"Battery includes area and floor");
       check(row("registry:kitchen-motion").textContent.includes("sensor.kitchen_motion_battery")&&row("registry:kitchen-motion-2").textContent.includes("sensor.kitchen_motion_battery_2"),"Same-name and same-area choices include entity IDs");
       check(!row("registry:garage-motion").textContent.includes("sensor.garage_motion_battery"),"Area alone distinguishes the garage battery");
@@ -122,7 +125,7 @@ document.querySelector("#run").onclick=async()=>{
       await change('[data-definition-picker-selected]',false);await change('[data-definition-picker-all]',true);await click(option("empty"));await change('[data-definition-picker-all]',false);await finish();
     });
     await runPath("label-relevance",async()=>{
-      await change('[data-definition-field="watch"]',"label");await pick();check(JSON.stringify(ids())===JSON.stringify(["safety"]),"Only matching battery label appears");
+      await change('[data-definition-field="watch"]',"label");check(root.activeElement?.dataset.watchMode==="label","Focus stays on the chosen radio after rendering");await pick();check(JSON.stringify(ids())===JSON.stringify(["safety"]),"Only matching battery label appears");
       await change('[data-definition-picker-all]',true);await click(option("future"));await change('[data-definition-picker-all]',false);
       check(JSON.stringify(ids())===JSON.stringify(["future","safety"]),"Selected empty label remains reachable");check(row("future").textContent.includes("No batteries currently found"),"Empty label is explained");await finish();
     });

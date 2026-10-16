@@ -1,6 +1,6 @@
 /** Contextual availability changes use the same saved policy exclusions as Policies. */
-import {saveScopedConfiguration} from "./scoped-configuration.mjs?v=83";
-import {escapeHtml as esc} from "./model.mjs?v=83";
+import {saveScopedConfiguration} from "./scoped-configuration.mjs?v=84";
+import {escapeHtml as esc} from "./model.mjs?v=84";
 
 const copy=value=>structuredClone(value);
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);

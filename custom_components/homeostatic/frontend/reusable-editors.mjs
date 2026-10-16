@@ -1,6 +1,6 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=83";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=83";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=83";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=84";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=84";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=84";
 
 export const POLICY_CHECKS = {
   availability: "HA availability", battery: "Battery condition", vacuum: "Vacuum error",
@@ -218,7 +218,7 @@ function sourceKind(policy) {
 export function watchChoices(policy) {
   const type=policyType(policy),noun=sourceNoun(policy);
   if(["repair","broken_automation"].includes(type))return {all:type==="repair"?"All Repairs":"All automations"};
-  return {all:`All ${noun}`,all_except:"All except these…",selected:`Selected ${noun}…`,...(type==="integration"?{}:{area:`${noun[0].toUpperCase()+noun.slice(1)} in areas…`,label:`${noun[0].toUpperCase()+noun.slice(1)} with labels…`})};
+  return {all:`All ${noun}`,all_except:"All except selected",selected:`Selected ${noun}`,...(type==="integration"?{}:{area:"In selected areas",label:"With selected labels"})};
 }
 function sourceField(policy) {
   return {integration:"integration_domain",device:"device",ups:"device"}[sourceKind(policy)]||"entity";
@@ -317,7 +317,8 @@ function watchEditor(card,policy) {
   const pickerBody=picker?`<section class="policy-picker" aria-label="${choose}">${excluding?'<p>Check sources to exclude them from this policy.</p>':""}<label class="policy-picker-search"><span>${searchLabel}</span><input type="search" data-definition-picker-search value="${esc(picker.query)}"></label><div class="policy-picker-tools"><label><input type="checkbox" data-definition-picker-selected${checked(picker.selectedOnly)}>Show ${verb} only</label>${grouped?`<label><input type="checkbox" data-definition-picker-all${checked(picker.showAll)}>Show all ${noun}</label>`:""}</div><div class="policy-picker-options">${results||(catalogPending?"":`<p>${esc(empty)}</p>`)}</div><footer class="policy-picker-footer"><span role="status">${values.length} ${verb}</span>${button("finish-pick","Done","policies",policy.id)}</footer></section>`:"";
   const summary=oldConnections?'<p>Saved individual connections. Choose integrations to replace this selection.</p>':selectedItems.length?`<ul class="policy-selected-sources" aria-label="${excluding?"Excluded":"Selected"} ${esc(noun)}">${selectedItems.map(item=>`<li><span>${esc(item.name)}</span>${item.context?`<span class="small">${esc(item.context)}</span>`:""}${item.detail?`<span class="small">${esc(item.detail)}</span>`:""}</li>`).join("")}</ul>`:`<p>${excluding?"No exclusions":"None selected"}</p>`;
   const selectionAction=mode!=="all"&&!picker?button("pick",values.length?"Change selection":choose,"policies",policy.id,`aria-label="${esc(choose)}"`):"";
-  return `<div class="policy-watch-controls">${select("policies",policy.id,"watch","Include",mode,choices)}${selectionAction}</div>${catalogStatus}${mode!=="all"?`<div class="policy-selection">${picker?pickerBody:`<div class="policy-selection-summary">${summary}</div>`}<p class="small">${description}</p></div>`:`<p class="small">Includes current and future ${sourceNoun(policy)}.</p>`}${additionalExclusions}${availabilityNote}`;
+  const scopeChoices=`<fieldset class="policy-scope"><legend>Include</legend>${Object.entries(choices).map(([value,label])=>`<div class="policy-scope-option"><label class="policy-scope-choice"><input type="radio" name="policy-scope-${esc(policy.id)}" ${attrs("policies",policy.id,"watch")} data-watch-mode="${value}" value="${value}"${checked(mode===value)}><span>${esc(label)}</span></label>${mode===value?selectionAction:""}</div>`).join("")}</fieldset>`;
+  return `<div class="policy-watch-controls">${scopeChoices}</div>${catalogStatus}${mode!=="all"?`<div class="policy-selection">${picker?pickerBody:`<div class="policy-selection-summary">${summary}</div>`}<p class="small">${description}</p></div>`:`<p class="small">Includes current and future ${sourceNoun(policy)}.</p>`}${additionalExclusions}${availabilityNote}`;
 }
 
 const DURATION_UNITS={minutes:60,hours:3600,seconds:1};
@@ -600,7 +601,8 @@ export function editReusable(card,event) {
           const rect=element.getBoundingClientRect(),size=menu.getBoundingClientRect();
           const below=rect.bottom+4,preferred=below+size.height<=top+height-8?below:rect.top-size.height-4;
           menu.style.top=`${Math.max(top+8,Math.min(preferred,top+height-size.height-8))}px`;
-          menu.style.left=`${Math.max(left+8,Math.min(rect.right-size.width,left+width-size.width-8))}px`;
+          const preferredLeft=action==="contextual-help"?rect.left:rect.right-size.width;
+          menu.style.left=`${Math.max(left+8,Math.min(preferredLeft,left+width-size.width-8))}px`;
           menu.style.right="auto";
         });
       };

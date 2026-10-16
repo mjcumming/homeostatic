@@ -1,0 +1,2057 @@
+{
+  "schema_version": 1,
+  "coverage_revision": 2,
+  "started_at": "2026-10-16T04:02:05.404Z",
+  "candidate": {
+    "branch": "main",
+    "revision": "169eb8841a8da84c7783d9c4225d48c1774f9c90",
+    "dirty": true,
+    "component_sha256": "ed8a8ed7198483e8f9ed7a293d1992d2d7b81703b688233ea3f8ae2f6998eb2b"
+  },
+  "environment": {
+    "group": "policies",
+    "viewport": {
+      "width": 320,
+      "height": 950
+    },
+    "theme": "dark",
+    "browser": "chromium",
+    "mode": "fixtures",
+    "notifications": "captured by synthetic services only",
+    "browser_version": "143.0.7499.4",
+    "candidate_unchanged": true
+  },
+  "fixtures": {
+    "schema_version": 1,
+    "started_at": "2026-10-16T04:02:05.404Z",
+    "environment": {},
+    "results": [
+      {
+        "id": "issues.device-hierarchy",
+        "page": "Open issues",
+        "controls": "Expand integrations, device findings, keyboard open, search, sort, Show more and refresh",
+        "expected": "Each registry device is named once above its independent findings; standalone and shared issues remain reachable, original action targets are preserved and browsing never saves settings.",
+        "fixture": "device-issues.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "navigation.pages",
+        "page": "Navigation",
+        "controls": "Open issues, Monitoring, Policies, Notifications, History, Settings",
+        "expected": "Each destination opens and retains independent drafts.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "navigation.history",
+        "page": "Navigation",
+        "controls": "Back, Forward, direct link, refresh",
+        "expected": "Restore the meaningful destination or explain a missing target.",
+        "fixture": "workspace.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.evidence",
+        "page": "Open issues",
+        "controls": "Group, issue, related-source disclosure",
+        "expected": "Canonical members and all contributing checks remain reachable.",
+        "fixture": "issue-evidence.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.recovery",
+        "page": "Open issues",
+        "controls": "Partial and full recovery",
+        "expected": "Outstanding members remain; full recovery removes the active problem.",
+        "fixture": "issue-evidence.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.filter",
+        "page": "Open issues",
+        "controls": "Search, sort, group expansion, pagination",
+        "expected": "Complete reachable results and correct ordering without changing monitoring.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.empty",
+        "page": "Open issues",
+        "controls": "Quiet, filtered, unmonitored, loading, unavailable",
+        "expected": "Distinct truthful states and a useful next action.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.individual",
+        "page": "Open issues",
+        "controls": "Temperature condition, Details, Edit policy, acknowledge, pause and resume",
+        "expected": "Captured readings and duration remain truthful through missing evidence and recovery; controls retain exact issue scope, optional navigation and policy return.",
+        "fixture": "individual-issue.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.compact-popups",
+        "page": "Open issues",
+        "controls": "Battery, device, entity, integration, vacuum, UPS, Repair, automation, situation, source-only and grouped detail",
+        "expected": "Current evidence and exact issue actions stay visible; one Details contains supporting content, preserves recorded identity and retains focus during updates.",
+        "fixture": "compact-popup.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.controls",
+        "page": "Open issues",
+        "controls": "Acknowledge, pause, cancel control",
+        "expected": "Exact issue scope, visible expiry, no automatic retry on uncertain result.",
+        "fixture": "history-controls.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.availability-batch",
+        "page": "Open issues",
+        "controls": "Open exact issue, remove its unavailable entities, details, cancel and confirm",
+        "expected": "Collapsed and expanded queues have no removal control or count. The opened issue alone owns the reviewed scope; one guarded save commits its entities across applicable availability policies and closes quietly, preserving unrelated issues and settings.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.history",
+        "page": "History",
+        "controls": "Search, filter, page, inline expand/collapse and related issue",
+        "expected": "Concise distinct findings, recorded times and identity remain visible; links reveal their entry without a history modal.",
+        "fixture": "history-controls.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.tree-layout",
+        "page": "Monitoring",
+        "controls": "Wrapped names, issue badges, inventory counts, expand and select",
+        "expected": "Disclosure arrows stay beside the first name line; wrapped details stay under that name and controls retain independent behavior.",
+        "fixture": "shared-issue-counts.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.tree",
+        "page": "Monitoring",
+        "controls": "Expand, select, search, filter",
+        "expected": "Expansion and selection stay independent; identity and context persist.",
+        "fixture": "source-history.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.monitoring-inspector",
+        "page": "Monitoring",
+        "controls": "All, Monitored, Not monitored, source selection, existing History links and monitoring actions",
+        "expected": "All entities remain browsable; actual checks determine coverage, filters retain context without saving, and entity condition and actions stay visible.",
+        "fixture": "monitoring-inspector.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.compact-inspector-details",
+        "page": "Monitoring",
+        "controls": "Battery, device and entity selection; Details, View history, Configure monitoring and return",
+        "expected": "Entity details have a direct condition, coverage sentence and policy links; devices and batteries retain labelled evidence and Details, and navigation never saves.",
+        "fixture": "monitoring-inspector.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.monitoring-toolbar",
+        "page": "Monitoring",
+        "controls": "Search, Monitoring status, More filters, active count, keyboard/pointer dismissal, Group by and Collapse groups",
+        "expected": "Page filters stay in one stable toolbar; grouping and collapse affect only the tree; choices, focus and selected details survive updates without a save.",
+        "fixture": "monitoring-inspector.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.temperature-monitoring",
+        "page": "Monitoring",
+        "controls": "Grouping, thermostat, temperature sensor, legacy link, Details, Edit policy and captured condition updates",
+        "expected": "Independent temperature policies and waiting or missing evidence appear under their equipment; old links resolve to one real sensor, exclusions preserve temperature monitoring, and browsing does not save.",
+        "fixture": "temperature-monitoring.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.details",
+        "page": "Monitoring",
+        "controls": "Members, readings, monitoring, issue links",
+        "expected": "Current evidence and contributing policies are distinguishable.",
+        "fixture": "source-history.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.availability",
+        "page": "Monitoring",
+        "controls": "Stop availability, cancel, confirm, resume",
+        "expected": "Only reviewed saved policy exclusions change; unrelated drafts and HA state remain intact.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.availability-batch",
+        "page": "Monitoring",
+        "controls": "Select members, stop selected, resume selected, exclusions filter",
+        "expected": "One save affects only selected entities; excluded members remain reachable.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.availability-conflicts",
+        "page": "Monitoring",
+        "controls": "Dirty affected policy, stale review, save failure, deliberate retry",
+        "expected": "Block unsafe scope changes and preserve saved settings and drafts.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.contextual-issue-controls",
+        "page": "Monitoring",
+        "controls": "View issue, Acknowledge issue and Pause notifications dialogs, cancel",
+        "expected": "Entity details link to the exact related issue; only the full issue view exposes its acknowledgment and notification controls.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.compact-layout",
+        "page": "Monitoring",
+        "controls": "Visible entity policy links and actions, retained focus, phone/desktop and themes",
+        "expected": "Entity condition and actions need no disclosure and remain reachable without horizontal scroll.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.history",
+        "page": "Monitoring",
+        "controls": "History, prior problem, return",
+        "expected": "Recorded membership survives unavailable current source metadata.",
+        "fixture": "source-history.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.maintenance",
+        "page": "Monitoring",
+        "controls": "Equipment maintenance entry, explicit expiry, cancel",
+        "expected": "A source has a reachable maintenance action with exact saved scope and visible expiry.",
+        "fixture": "source-history.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.lifecycle",
+        "page": "Policies",
+        "controls": "Add, edit, duplicate, enabled, save, discard, delete",
+        "expected": "Only the named policy changes; supplied and custom policies share controls.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.picker-context",
+        "page": "Policies",
+        "controls": "Source names and locations, area/label counts, search, selected only, Show all, Done, Save policy",
+        "expected": "Relevant choices retain identities through filtering and loading; compact accessible rows preserve the policy save scope.",
+        "fixture": "policy-picker.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "pass",
+        "evidence": [
+          "policies/320px/dark: policy-picker.html (320px, dark): Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance. keyboard-escape: pass; Native Escape preserved the draft and returned focus after search received focus on opening. source-context: pass; Rendered controls and state assertions passed; 0 mocked save request(s). area-relevance: pass; Rendered controls and state assertions passed; 0 mocked save request(s). label-relevance: pass; Rendered controls and state assertions passed; 0 mocked save request(s). catalog-loading: pass; Rendered controls and state assertions passed; 0 mocked save request(s). scoped-save: pass; Rendered controls and state assertions passed; 1 mocked save request(s). save-rejection: pass; Rendered controls and state assertions passed; 2 mocked save request(s). selection-layout: pass; Rendered controls and state assertions passed; 0 mocked save request(s)."
+        ]
+      },
+      {
+        "id": "policies.scope",
+        "page": "Policies",
+        "controls": "All, selected, exclusions, picker search, selected only",
+        "expected": "Catalog loading/error is distinct from no matches; selection survives search.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.detection",
+        "page": "Policies",
+        "controls": "Each supported policy type and its detection fields",
+        "expected": "Units, ranges and validation preserve the intended saved detection.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.temperature-detection",
+        "page": "Policies",
+        "controls": "Below, Above, minutes/hours, monitoring switch, missing or reversed bounds",
+        "expected": "Lower-only, upper-only and paired limits retain exact seconds; invalid input blocks saving and monitoring enablement leaves global sending off.",
+        "fixture": "temperature-policy-editor.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "pass",
+        "evidence": [
+          "policies/320px/dark: temperature-policy-editor.html (320px, dark): Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance. initial-state: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s). lower-only: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). upper-only: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). both-bounds: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). missing-bounds: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s). reversed-bounds: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s). missing-sensors: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s). duration-units: pass; Rendered controls and persisted-state assertions passed; 2 mocked save request(s). enabled-state: pass; Rendered controls and persisted-state assertions passed; 2 mocked save request(s)."
+        ]
+      },
+      {
+        "id": "policies.temperature-save",
+        "page": "Policies",
+        "controls": "Save policy, reopen, failed save, discard, retry, unrelated notification draft",
+        "expected": "Confirmed settings reopen accurately; failures preserve edits, discard restores saved settings and another editor's draft stays unsaved.",
+        "fixture": "temperature-policy-editor.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "pass",
+        "evidence": [
+          "policies/320px/dark: temperature-policy-editor.html (320px, dark): Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance. lower-only: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). upper-only: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). both-bounds: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). save-and-discard: pass; Rendered controls and persisted-state assertions passed; 3 mocked save request(s). scoped-draft: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s)."
+        ]
+      },
+      {
+        "id": "policies.temperature-picker",
+        "page": "Policies",
+        "controls": "Search, scroll, select sensor, Done, light/dark and phone/desktop widths",
+        "expected": "Selection retains list position, checkbox focus and search; area context identifies sensors and controls fit the available width.",
+        "fixture": "temperature-policy-editor.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "pass",
+        "evidence": [
+          "policies/320px/dark: temperature-policy-editor.html (320px, dark): Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance. picker-retention: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s). responsive-themes: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+        ]
+      },
+      {
+        "id": "policies.restore",
+        "page": "Policies",
+        "controls": "Restore defaults, select, cancel, confirm, save",
+        "expected": "Only selected missing defaults are staged; missing profiles are not referenced.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.notification",
+        "page": "Policies",
+        "controls": "Notification choice, Add notification, remove last, failed save, retry and reopen",
+        "expected": "Explicit choices add rows; removing all saves an empty policy, preserves other settings and restores keyboard focus.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.legacy",
+        "page": "Policies",
+        "controls": "Custom notification, named replacement",
+        "expected": "Legacy data stays unchanged until explicit replacement.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.ups",
+        "page": "Policies",
+        "controls": "Mains/backup condition, notification choice",
+        "expected": "Independent reserve conditions and stable assignment identity survive edits.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.list",
+        "page": "Notifications",
+        "controls": "Tabs, Edit, More actions",
+        "expected": "Six defaults have equal lifecycle controls and compact reachable menus.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.ordering",
+        "page": "Notifications and Policies",
+        "controls": "Saved list, notification selector, deletion replacement",
+        "expected": "Saved delivery timing gives the same stable order in every view; selections and settings remain unchanged.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.create",
+        "page": "Notifications",
+        "controls": "Add notification, discard new",
+        "expected": "A new draft remains unsaved and discard leaves no empty saved object.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.invalid",
+        "page": "Notifications",
+        "controls": "Required name and Save notification",
+        "expected": "Invalid input prevents a request, retains the draft and identifies the input.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.save",
+        "page": "Notifications",
+        "controls": "Timing, method choice, Save notification",
+        "expected": "Save persists only this notification, returns to its list without a persistent success message and focuses its Edit control.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.discard",
+        "page": "Notifications",
+        "controls": "Edit then Discard changes",
+        "expected": "Restore this saved notification in place without affecting other drafts.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.duplicate",
+        "page": "Notifications",
+        "controls": "More actions, Duplicate, Save notification",
+        "expected": "Create an independent saved copy, return to its list and reopen with preserved timing and methods.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.delete-cancel",
+        "page": "Notifications",
+        "controls": "More actions, Delete, Cancel",
+        "expected": "Cancel leaves definitions and assignments unchanged.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.delete-replace",
+        "page": "Notifications",
+        "controls": "Delete, replacement, confirm",
+        "expected": "One save removes the definition and redirects uses without changing row ids.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.delete-remove",
+        "page": "Notifications",
+        "controls": "Delete, remove assignments, confirm",
+        "expected": "Explicit removal preserves unrelated definitions and leaves Dashboard only.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.delete-draft",
+        "page": "Notifications",
+        "controls": "Delete while a using policy has a draft",
+        "expected": "Block deletion and retain the affected draft and saved references.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.timing",
+        "page": "Notifications",
+        "controls": "Immediate, acknowledgment, window, report days/time",
+        "expected": "Every timing editor validates and saves its own fields and timezone.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.lifecycle",
+        "page": "Delivery methods",
+        "controls": "Add, edit, duplicate, save, discard, delete",
+        "expected": "Saved shared uses and independent drafts remain correct.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.completion",
+        "page": "Delivery methods",
+        "controls": "Add delivery method, choose speaker, Save delivery method, reopen",
+        "expected": "Return to the methods list with Kitchen Echo saved, focus its Edit control, preserve unrelated settings and reopen the saved destination.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.destinations",
+        "page": "Delivery methods",
+        "controls": "Add destination, type, search, select, remove, close",
+        "expected": "Each supported type is usable; missing saved targets remain repairable.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.picker-layout",
+        "page": "Delivery methods",
+        "controls": "Compact speaker rows, provider view, Back, Close and native Escape",
+        "expected": "The full editor keeps one scrolling picker body, reachable choices and exact draft selections at phone and desktop widths.",
+        "fixture": "delivery-picker-layout.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.presence",
+        "page": "Delivery methods",
+        "controls": "Presence disclosure, people, home/away, fallback/skip",
+        "expected": "Saved behavior resolves current presence without unsolicited sending.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.test",
+        "page": "Delivery methods",
+        "controls": "Send test on saved/dirty/new method",
+        "expected": "Only explicit saved tests request mocked destinations; requested/failed/skipped stay distinct.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "settings.edit",
+        "page": "Settings",
+        "controls": "Timing, Problem grouping, Save, Discard",
+        "expected": "Valid values save only installation settings; invalid values retain inputs.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sending.switch",
+        "page": "Global sending",
+        "controls": "On/Off during another draft",
+        "expected": "Only confirmed global state changes; monitoring and unrelated drafts persist.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "save.failure",
+        "page": "Saving",
+        "controls": "Rejected Save and retry",
+        "expected": "Keep the exact draft and expose the named error; deliberate retry succeeds once.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "save.conflict",
+        "page": "Saving",
+        "controls": "Save after concurrent saved edit",
+        "expected": "Do not overwrite the newer saved object; retain the conflicting draft.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "save.refresh-failure",
+        "page": "Saving",
+        "controls": "Confirmed Save followed by failed reread",
+        "expected": "Say saved but refresh failed; preserve unrelated drafts.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "save.pending",
+        "page": "Saving",
+        "controls": "Delayed Save, external outage or settings reload, repeated click and reattachment",
+        "expected": "Keep the exact saving editor; guard repeat submissions; distinguish confirmed result, failed/uncertain save and unavailable monitoring while preserving unrelated drafts.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "save.uncertain",
+        "page": "Saving",
+        "controls": "Lost save response, inspect, retry",
+        "expected": "Read current saved state before retry; do not duplicate an applied change.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "updates.retention",
+        "page": "Live updates",
+        "controls": "Unchanged update, disconnect, reconnect",
+        "expected": "Retain DOM, focus, selection and draft; stale view is visibly read-only.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "layout.menus",
+        "page": "Responsive",
+        "controls": "More actions at viewport edge, Escape, outside click",
+        "expected": "Both actions stay visible; dismissal restores appropriate focus.",
+        "fixture": "mobile-layout.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "layout.keyboard",
+        "page": "Accessibility",
+        "controls": "Tab, Shift+Tab, Enter, Space, Escape",
+        "expected": "Complete navigation, editors and dialogs with visible focus and correct return.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "layout.themes",
+        "page": "Accessibility",
+        "controls": "Light, dark, enlarged text, 320px and desktop",
+        "expected": "No clipping, required horizontal scroll or unreadable control state.",
+        "fixture": "mobile-layout.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "layout.safari",
+        "page": "Physical Safari",
+        "controls": "Actual iOS device workflow",
+        "expected": "Record device/browser and exercise touch, keyboard, menus and safe areas.",
+        "fixture": null,
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "Requires a physical iOS device; emulation is not physical Safari coverage."
+        ]
+      }
+    ]
+  },
+  "live": {
+    "schema_version": 1,
+    "started_at": "2026-10-16T04:02:05.404Z",
+    "environment": {},
+    "results": [
+      {
+        "id": "issues.device-hierarchy",
+        "page": "Open issues",
+        "controls": "Expand integrations, device findings, keyboard open, search, sort, Show more and refresh",
+        "expected": "Each registry device is named once above its independent findings; standalone and shared issues remain reachable, original action targets are preserved and browsing never saves settings.",
+        "fixture": "device-issues.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "navigation.pages",
+        "page": "Navigation",
+        "controls": "Open issues, Monitoring, Policies, Notifications, History, Settings",
+        "expected": "Each destination opens and retains independent drafts.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "navigation.history",
+        "page": "Navigation",
+        "controls": "Back, Forward, direct link, refresh",
+        "expected": "Restore the meaningful destination or explain a missing target.",
+        "fixture": "workspace.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.evidence",
+        "page": "Open issues",
+        "controls": "Group, issue, related-source disclosure",
+        "expected": "Canonical members and all contributing checks remain reachable.",
+        "fixture": "issue-evidence.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.recovery",
+        "page": "Open issues",
+        "controls": "Partial and full recovery",
+        "expected": "Outstanding members remain; full recovery removes the active problem.",
+        "fixture": "issue-evidence.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.filter",
+        "page": "Open issues",
+        "controls": "Search, sort, group expansion, pagination",
+        "expected": "Complete reachable results and correct ordering without changing monitoring.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.empty",
+        "page": "Open issues",
+        "controls": "Quiet, filtered, unmonitored, loading, unavailable",
+        "expected": "Distinct truthful states and a useful next action.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.individual",
+        "page": "Open issues",
+        "controls": "Temperature condition, Details, Edit policy, acknowledge, pause and resume",
+        "expected": "Captured readings and duration remain truthful through missing evidence and recovery; controls retain exact issue scope, optional navigation and policy return.",
+        "fixture": "individual-issue.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.compact-popups",
+        "page": "Open issues",
+        "controls": "Battery, device, entity, integration, vacuum, UPS, Repair, automation, situation, source-only and grouped detail",
+        "expected": "Current evidence and exact issue actions stay visible; one Details contains supporting content, preserves recorded identity and retains focus during updates.",
+        "fixture": "compact-popup.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.controls",
+        "page": "Open issues",
+        "controls": "Acknowledge, pause, cancel control",
+        "expected": "Exact issue scope, visible expiry, no automatic retry on uncertain result.",
+        "fixture": "history-controls.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.availability-batch",
+        "page": "Open issues",
+        "controls": "Open exact issue, remove its unavailable entities, details, cancel and confirm",
+        "expected": "Collapsed and expanded queues have no removal control or count. The opened issue alone owns the reviewed scope; one guarded save commits its entities across applicable availability policies and closes quietly, preserving unrelated issues and settings.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "issues.history",
+        "page": "History",
+        "controls": "Search, filter, page, inline expand/collapse and related issue",
+        "expected": "Concise distinct findings, recorded times and identity remain visible; links reveal their entry without a history modal.",
+        "fixture": "history-controls.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.tree-layout",
+        "page": "Monitoring",
+        "controls": "Wrapped names, issue badges, inventory counts, expand and select",
+        "expected": "Disclosure arrows stay beside the first name line; wrapped details stay under that name and controls retain independent behavior.",
+        "fixture": "shared-issue-counts.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.tree",
+        "page": "Monitoring",
+        "controls": "Expand, select, search, filter",
+        "expected": "Expansion and selection stay independent; identity and context persist.",
+        "fixture": "source-history.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.monitoring-inspector",
+        "page": "Monitoring",
+        "controls": "All, Monitored, Not monitored, source selection, existing History links and monitoring actions",
+        "expected": "All entities remain browsable; actual checks determine coverage, filters retain context without saving, and entity condition and actions stay visible.",
+        "fixture": "monitoring-inspector.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.compact-inspector-details",
+        "page": "Monitoring",
+        "controls": "Battery, device and entity selection; Details, View history, Configure monitoring and return",
+        "expected": "Entity details have a direct condition, coverage sentence and policy links; devices and batteries retain labelled evidence and Details, and navigation never saves.",
+        "fixture": "monitoring-inspector.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.monitoring-toolbar",
+        "page": "Monitoring",
+        "controls": "Search, Monitoring status, More filters, active count, keyboard/pointer dismissal, Group by and Collapse groups",
+        "expected": "Page filters stay in one stable toolbar; grouping and collapse affect only the tree; choices, focus and selected details survive updates without a save.",
+        "fixture": "monitoring-inspector.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.temperature-monitoring",
+        "page": "Monitoring",
+        "controls": "Grouping, thermostat, temperature sensor, legacy link, Details, Edit policy and captured condition updates",
+        "expected": "Independent temperature policies and waiting or missing evidence appear under their equipment; old links resolve to one real sensor, exclusions preserve temperature monitoring, and browsing does not save.",
+        "fixture": "temperature-monitoring.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.details",
+        "page": "Monitoring",
+        "controls": "Members, readings, monitoring, issue links",
+        "expected": "Current evidence and contributing policies are distinguishable.",
+        "fixture": "source-history.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.availability",
+        "page": "Monitoring",
+        "controls": "Stop availability, cancel, confirm, resume",
+        "expected": "Only reviewed saved policy exclusions change; unrelated drafts and HA state remain intact.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.availability-batch",
+        "page": "Monitoring",
+        "controls": "Select members, stop selected, resume selected, exclusions filter",
+        "expected": "One save affects only selected entities; excluded members remain reachable.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.availability-conflicts",
+        "page": "Monitoring",
+        "controls": "Dirty affected policy, stale review, save failure, deliberate retry",
+        "expected": "Block unsafe scope changes and preserve saved settings and drafts.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.contextual-issue-controls",
+        "page": "Monitoring",
+        "controls": "View issue, Acknowledge issue and Pause notifications dialogs, cancel",
+        "expected": "Entity details link to the exact related issue; only the full issue view exposes its acknowledgment and notification controls.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.compact-layout",
+        "page": "Monitoring",
+        "controls": "Visible entity policy links and actions, retained focus, phone/desktop and themes",
+        "expected": "Entity condition and actions need no disclosure and remain reachable without horizontal scroll.",
+        "fixture": "source-actions.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.history",
+        "page": "Monitoring",
+        "controls": "History, prior problem, return",
+        "expected": "Recorded membership survives unavailable current source metadata.",
+        "fixture": "source-history.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sources.maintenance",
+        "page": "Monitoring",
+        "controls": "Equipment maintenance entry, explicit expiry, cancel",
+        "expected": "A source has a reachable maintenance action with exact saved scope and visible expiry.",
+        "fixture": "source-history.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.lifecycle",
+        "page": "Policies",
+        "controls": "Add, edit, duplicate, enabled, save, discard, delete",
+        "expected": "Only the named policy changes; supplied and custom policies share controls.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.picker-context",
+        "page": "Policies",
+        "controls": "Source names and locations, area/label counts, search, selected only, Show all, Done, Save policy",
+        "expected": "Relevant choices retain identities through filtering and loading; compact accessible rows preserve the policy save scope.",
+        "fixture": "policy-picker.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.scope",
+        "page": "Policies",
+        "controls": "All, selected, exclusions, picker search, selected only",
+        "expected": "Catalog loading/error is distinct from no matches; selection survives search.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.detection",
+        "page": "Policies",
+        "controls": "Each supported policy type and its detection fields",
+        "expected": "Units, ranges and validation preserve the intended saved detection.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.temperature-detection",
+        "page": "Policies",
+        "controls": "Below, Above, minutes/hours, monitoring switch, missing or reversed bounds",
+        "expected": "Lower-only, upper-only and paired limits retain exact seconds; invalid input blocks saving and monitoring enablement leaves global sending off.",
+        "fixture": "temperature-policy-editor.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.temperature-save",
+        "page": "Policies",
+        "controls": "Save policy, reopen, failed save, discard, retry, unrelated notification draft",
+        "expected": "Confirmed settings reopen accurately; failures preserve edits, discard restores saved settings and another editor's draft stays unsaved.",
+        "fixture": "temperature-policy-editor.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.temperature-picker",
+        "page": "Policies",
+        "controls": "Search, scroll, select sensor, Done, light/dark and phone/desktop widths",
+        "expected": "Selection retains list position, checkbox focus and search; area context identifies sensors and controls fit the available width.",
+        "fixture": "temperature-policy-editor.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.restore",
+        "page": "Policies",
+        "controls": "Restore defaults, select, cancel, confirm, save",
+        "expected": "Only selected missing defaults are staged; missing profiles are not referenced.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.notification",
+        "page": "Policies",
+        "controls": "Notification choice, Add notification, remove last, failed save, retry and reopen",
+        "expected": "Explicit choices add rows; removing all saves an empty policy, preserves other settings and restores keyboard focus.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.legacy",
+        "page": "Policies",
+        "controls": "Custom notification, named replacement",
+        "expected": "Legacy data stays unchanged until explicit replacement.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "policies.ups",
+        "page": "Policies",
+        "controls": "Mains/backup condition, notification choice",
+        "expected": "Independent reserve conditions and stable assignment identity survive edits.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.list",
+        "page": "Notifications",
+        "controls": "Tabs, Edit, More actions",
+        "expected": "Six defaults have equal lifecycle controls and compact reachable menus.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.ordering",
+        "page": "Notifications and Policies",
+        "controls": "Saved list, notification selector, deletion replacement",
+        "expected": "Saved delivery timing gives the same stable order in every view; selections and settings remain unchanged.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.create",
+        "page": "Notifications",
+        "controls": "Add notification, discard new",
+        "expected": "A new draft remains unsaved and discard leaves no empty saved object.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.invalid",
+        "page": "Notifications",
+        "controls": "Required name and Save notification",
+        "expected": "Invalid input prevents a request, retains the draft and identifies the input.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.save",
+        "page": "Notifications",
+        "controls": "Timing, method choice, Save notification",
+        "expected": "Save persists only this notification, returns to its list without a persistent success message and focuses its Edit control.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.discard",
+        "page": "Notifications",
+        "controls": "Edit then Discard changes",
+        "expected": "Restore this saved notification in place without affecting other drafts.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.duplicate",
+        "page": "Notifications",
+        "controls": "More actions, Duplicate, Save notification",
+        "expected": "Create an independent saved copy, return to its list and reopen with preserved timing and methods.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.delete-cancel",
+        "page": "Notifications",
+        "controls": "More actions, Delete, Cancel",
+        "expected": "Cancel leaves definitions and assignments unchanged.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.delete-replace",
+        "page": "Notifications",
+        "controls": "Delete, replacement, confirm",
+        "expected": "One save removes the definition and redirects uses without changing row ids.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.delete-remove",
+        "page": "Notifications",
+        "controls": "Delete, remove assignments, confirm",
+        "expected": "Explicit removal preserves unrelated definitions and leaves Dashboard only.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.delete-draft",
+        "page": "Notifications",
+        "controls": "Delete while a using policy has a draft",
+        "expected": "Block deletion and retain the affected draft and saved references.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "profiles.timing",
+        "page": "Notifications",
+        "controls": "Immediate, acknowledgment, window, report days/time",
+        "expected": "Every timing editor validates and saves its own fields and timezone.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.lifecycle",
+        "page": "Delivery methods",
+        "controls": "Add, edit, duplicate, save, discard, delete",
+        "expected": "Saved shared uses and independent drafts remain correct.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.completion",
+        "page": "Delivery methods",
+        "controls": "Add delivery method, choose speaker, Save delivery method, reopen",
+        "expected": "Return to the methods list with Kitchen Echo saved, focus its Edit control, preserve unrelated settings and reopen the saved destination.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.destinations",
+        "page": "Delivery methods",
+        "controls": "Add destination, type, search, select, remove, close",
+        "expected": "Each supported type is usable; missing saved targets remain repairable.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.picker-layout",
+        "page": "Delivery methods",
+        "controls": "Compact speaker rows, provider view, Back, Close and native Escape",
+        "expected": "The full editor keeps one scrolling picker body, reachable choices and exact draft selections at phone and desktop widths.",
+        "fixture": "delivery-picker-layout.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.presence",
+        "page": "Delivery methods",
+        "controls": "Presence disclosure, people, home/away, fallback/skip",
+        "expected": "Saved behavior resolves current presence without unsolicited sending.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "methods.test",
+        "page": "Delivery methods",
+        "controls": "Send test on saved/dirty/new method",
+        "expected": "Only explicit saved tests request mocked destinations; requested/failed/skipped stay distinct.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/policy-editors.md#points-for-ui-review",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "settings.edit",
+        "page": "Settings",
+        "controls": "Timing, Problem grouping, Save, Discard",
+        "expected": "Valid values save only installation settings; invalid values retain inputs.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "sending.switch",
+        "page": "Global sending",
+        "controls": "On/Off during another draft",
+        "expected": "Only confirmed global state changes; monitoring and unrelated drafts persist.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "save.failure",
+        "page": "Saving",
+        "controls": "Rejected Save and retry",
+        "expected": "Keep the exact draft and expose the named error; deliberate retry succeeds once.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "save.conflict",
+        "page": "Saving",
+        "controls": "Save after concurrent saved edit",
+        "expected": "Do not overwrite the newer saved object; retain the conflicting draft.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "save.refresh-failure",
+        "page": "Saving",
+        "controls": "Confirmed Save followed by failed reread",
+        "expected": "Say saved but refresh failed; preserve unrelated drafts.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "save.pending",
+        "page": "Saving",
+        "controls": "Delayed Save, external outage or settings reload, repeated click and reattachment",
+        "expected": "Keep the exact saving editor; guard repeat submissions; distinguish confirmed result, failed/uncertain save and unavailable monitoring while preserving unrelated drafts.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "save.uncertain",
+        "page": "Saving",
+        "controls": "Lost save response, inspect, retry",
+        "expected": "Read current saved state before retry; do not duplicate an applied change.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "updates.retention",
+        "page": "Live updates",
+        "controls": "Unchanged update, disconnect, reconnect",
+        "expected": "Retain DOM, focus, selection and draft; stale view is visibly read-only.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "layout.menus",
+        "page": "Responsive",
+        "controls": "More actions at viewport edge, Escape, outside click",
+        "expected": "Both actions stay visible; dismissal restores appropriate focus.",
+        "fixture": "mobile-layout.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "layout.keyboard",
+        "page": "Accessibility",
+        "controls": "Tab, Shift+Tab, Enter, Space, Escape",
+        "expected": "Complete navigation, editors and dialogs with visible focus and correct return.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "layout.themes",
+        "page": "Accessibility",
+        "controls": "Light, dark, enlarged text, 320px and desktop",
+        "expected": "No clipping, required horizontal scroll or unreadable control state.",
+        "fixture": "mobile-layout.html",
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "No complete assertion for this path was executed in this shard/layer."
+        ]
+      },
+      {
+        "id": "layout.safari",
+        "page": "Physical Safari",
+        "controls": "Actual iOS device workflow",
+        "expected": "Record device/browser and exercise touch, keyboard, menus and safe areas.",
+        "fixture": null,
+        "requirement": "../../docs/ui-standards.md#component-review-checklist",
+        "status": "untested",
+        "evidence": [
+          "Requires a physical iOS device; emulation is not physical Safari coverage."
+        ]
+      }
+    ]
+  },
+  "diagnostics": [],
+  "artifacts": [
+    "policy-picker-320-dark.json",
+    "policy-picker-320-dark.png",
+    "temperature-policy-editor-320-dark.json"
+  ],
+  "fixture_runs": [
+    {
+      "fixture": "policy-picker.html",
+      "group": "policies",
+      "evidence_kind": "Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance.",
+      "viewport": {
+        "width": 320,
+        "height": 950
+      },
+      "color_scheme": "dark",
+      "status": "pass",
+      "stages": [
+        {
+          "name": "#run",
+          "receipt": {
+            "schema_version": 1,
+            "started_at": "2026-10-16T04:02:05.792Z",
+            "environment": {
+              "fixture": "policy-picker.html",
+              "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+              "viewport": {
+                "width": 320,
+                "height": 950
+              },
+              "theme": "dark",
+              "data": "synthetic",
+              "saves": "mocked",
+              "physical_safari": "untested"
+            },
+            "results": [
+              {
+                "id": "keyboard-escape",
+                "controls": "Open picker, focus search, press the native Escape key",
+                "expected": "Escape closes the picker, preserves the draft and returns focus to Choose batteries.",
+                "status": "untested",
+                "evidence": []
+              },
+              {
+                "id": "source-context",
+                "controls": "Choose batteries, search by area and entity ID, select across the row",
+                "expected": "Names retain area and floor; remaining duplicates show entity IDs; no save occurs.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "area-relevance",
+                "controls": "Watch batteries in areas, Show all areas, selected only",
+                "expected": "Only areas with suitable batteries appear by default; selected empty areas remain visible.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "label-relevance",
+                "controls": "Watch batteries with labels, Show all labels",
+                "expected": "Only relevant labels appear by default, and empty selections remain explicit.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "catalog-loading",
+                "controls": "Loading, failed catalog load, complete catalog refresh",
+                "expected": "Loading and retryable failures retain saved identities without claiming emptiness.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "scoped-save",
+                "controls": "Save policy, return to list, reopen",
+                "expected": "The area selection persists; unrelated policy and delivery drafts remain unsaved.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 1 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "save-rejection",
+                "controls": "Invalid empty selection, rejected save, deliberate retry",
+                "expected": "Invalid selection sends no request; failed save keeps the exact draft for retry.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 2 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "selection-layout",
+                "controls": "Full-width search, compact clickable rows, long name and narrow viewport",
+                "expected": "Search and rows fit the viewport, retain accessible labels and meet touch target size.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 0 mocked save request(s)."
+                ]
+              }
+            ],
+            "finished_at": "2026-10-16T04:02:05.914Z"
+          },
+          "messages": [],
+          "feedback": "PASS: 7 picker paths at 320px. Choose Check native Escape to finish keyboard acceptance. Physical Safari remains untested."
+        },
+        {
+          "name": "#keyboard: native Escape",
+          "receipt": {
+            "schema_version": 1,
+            "started_at": "2026-10-16T04:02:05.792Z",
+            "environment": {
+              "fixture": "policy-picker.html",
+              "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+              "viewport": {
+                "width": 320,
+                "height": 950
+              },
+              "theme": "dark",
+              "data": "synthetic",
+              "saves": "mocked",
+              "physical_safari": "untested"
+            },
+            "results": [
+              {
+                "id": "keyboard-escape",
+                "controls": "Open picker, focus search, press the native Escape key",
+                "expected": "Escape closes the picker, preserves the draft and returns focus to Choose batteries.",
+                "status": "pass",
+                "evidence": [
+                  "Native Escape preserved the draft and returned focus after search received focus on opening."
+                ]
+              },
+              {
+                "id": "source-context",
+                "controls": "Choose batteries, search by area and entity ID, select across the row",
+                "expected": "Names retain area and floor; remaining duplicates show entity IDs; no save occurs.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "area-relevance",
+                "controls": "Watch batteries in areas, Show all areas, selected only",
+                "expected": "Only areas with suitable batteries appear by default; selected empty areas remain visible.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "label-relevance",
+                "controls": "Watch batteries with labels, Show all labels",
+                "expected": "Only relevant labels appear by default, and empty selections remain explicit.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "catalog-loading",
+                "controls": "Loading, failed catalog load, complete catalog refresh",
+                "expected": "Loading and retryable failures retain saved identities without claiming emptiness.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "scoped-save",
+                "controls": "Save policy, return to list, reopen",
+                "expected": "The area selection persists; unrelated policy and delivery drafts remain unsaved.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 1 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "save-rejection",
+                "controls": "Invalid empty selection, rejected save, deliberate retry",
+                "expected": "Invalid selection sends no request; failed save keeps the exact draft for retry.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 2 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "selection-layout",
+                "controls": "Full-width search, compact clickable rows, long name and narrow viewport",
+                "expected": "Search and rows fit the viewport, retain accessible labels and meet touch target size.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and state assertions passed; 0 mocked save request(s)."
+                ]
+              }
+            ],
+            "finished_at": "2026-10-16T04:02:05.914Z"
+          },
+          "messages": [],
+          "feedback": "PASS: native Escape closes the picker and returns focus."
+        },
+        {
+          "name": "native scope arrow keys",
+          "messages": [],
+          "receipt": null,
+          "feedback": "PASS: Arrow keys change scope and retain focus after rendering."
+        }
+      ],
+      "diagnostics": [],
+      "console": [],
+      "page_errors": [
+        "Control is reachable: [data-definition-action=\"pick\"]"
+      ],
+      "paths": [
+        {
+          "id": "policies.picker-context",
+          "status": "pass",
+          "evidence": "policy-picker.html (320px, dark): Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance. keyboard-escape: pass; Native Escape preserved the draft and returned focus after search received focus on opening. source-context: pass; Rendered controls and state assertions passed; 0 mocked save request(s). area-relevance: pass; Rendered controls and state assertions passed; 0 mocked save request(s). label-relevance: pass; Rendered controls and state assertions passed; 0 mocked save request(s). catalog-loading: pass; Rendered controls and state assertions passed; 0 mocked save request(s). scoped-save: pass; Rendered controls and state assertions passed; 1 mocked save request(s). save-rejection: pass; Rendered controls and state assertions passed; 2 mocked save request(s). selection-layout: pass; Rendered controls and state assertions passed; 0 mocked save request(s)."
+        }
+      ],
+      "screenshot": "/mnt/c/GitHub/homeostatic/build/policy-radio-final-phone/policy-picker-320-dark.png"
+    },
+    {
+      "fixture": "temperature-policy-editor.html",
+      "group": "policies",
+      "evidence_kind": "Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance.",
+      "viewport": {
+        "width": 320,
+        "height": 950
+      },
+      "color_scheme": "dark",
+      "status": "pass",
+      "stages": [
+        {
+          "name": "#run",
+          "receipt": {
+            "schema_version": 1,
+            "started_at": "2026-10-16T04:02:06.308Z",
+            "environment": {
+              "fixture": "temperature-policy-editor.html",
+              "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+              "viewport": {
+                "width": 320,
+                "height": 950
+              },
+              "theme": "dark",
+              "data": "synthetic",
+              "saves": "mocked",
+              "backend_validation": "not exercised",
+              "physical_safari": "untested"
+            },
+            "results": [
+              {
+                "id": "initial-state",
+                "controls": "Saved temperature editor",
+                "expected": "Below 60°F, no upper bound, 60 minutes and monitoring enabled in the heading; global notifications stay off.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "lower-only",
+                "controls": "Below, Above, duration and Save policy",
+                "expected": "A lower-only policy saves exact bounds and duration and reopens correctly.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 1 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "upper-only",
+                "controls": "Below, Above and Save policy",
+                "expected": "An upper-only policy saves without inventing a lower bound.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 1 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "both-bounds",
+                "controls": "Below, Above and Save policy",
+                "expected": "Both bounds persist independently.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 1 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "missing-bounds",
+                "controls": "Clear both bounds and Save policy",
+                "expected": "Visible validation blocks the request and retains input.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "reversed-bounds",
+                "controls": "Lower bound above upper bound and Save policy",
+                "expected": "Visible validation blocks the request and retains input.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "missing-sensors",
+                "controls": "Remove the selected sensors and Save policy",
+                "expected": "An empty exact selection is blocked before saving.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "duration-units",
+                "controls": "Minutes, hours and numeric duration",
+                "expected": "Unit-only changes stay clean; edits convert to exact integer seconds.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 2 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "enabled-state",
+                "controls": "Header monitoring switch and Save policy",
+                "expected": "Monitoring state saves independently of global sending.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 2 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "save-and-discard",
+                "controls": "Rejected save, Discard changes, retry",
+                "expected": "Failure keeps the exact draft; discard restores saved settings; deliberate retry saves.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 3 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "scoped-draft",
+                "controls": "Edit a notification, then save the temperature policy",
+                "expected": "Unrelated notification draft survives and remains unsaved.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 1 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "picker-retention",
+                "controls": "Search, scroll, select, Done",
+                "expected": "Selection keeps list scroll, checkbox focus and search query; area context identifies equipment.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+                ]
+              },
+              {
+                "id": "responsive-themes",
+                "controls": "320px, 390px and desktop; light and dark",
+                "expected": "Editor, controls and long picker rows fit within the available width.",
+                "status": "pass",
+                "evidence": [
+                  "Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+                ]
+              }
+            ],
+            "completed_at": "2026-10-16T04:02:06.549Z",
+            "summary": {
+              "pass": 13,
+              "fail": 0,
+              "untested": 0
+            }
+          },
+          "messages": [],
+          "feedback": "13 passed, 0 failed, 0 untested. The preview is restored; the receipt retains this run."
+        }
+      ],
+      "diagnostics": [],
+      "console": [],
+      "page_errors": [],
+      "paths": [
+        {
+          "id": "policies.temperature-detection",
+          "status": "pass",
+          "evidence": "temperature-policy-editor.html (320px, dark): Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance. initial-state: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s). lower-only: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). upper-only: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). both-bounds: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). missing-bounds: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s). reversed-bounds: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s). missing-sensors: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s). duration-units: pass; Rendered controls and persisted-state assertions passed; 2 mocked save request(s). enabled-state: pass; Rendered controls and persisted-state assertions passed; 2 mocked save request(s)."
+        },
+        {
+          "id": "policies.temperature-save",
+          "status": "pass",
+          "evidence": "temperature-policy-editor.html (320px, dark): Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance. lower-only: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). upper-only: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). both-bounds: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s). save-and-discard: pass; Rendered controls and persisted-state assertions passed; 3 mocked save request(s). scoped-draft: pass; Rendered controls and persisted-state assertions passed; 1 mocked save request(s)."
+        },
+        {
+          "id": "policies.temperature-picker",
+          "status": "pass",
+          "evidence": "temperature-policy-editor.html (320px, dark): Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance. picker-retention: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s). responsive-themes: pass; Rendered controls and persisted-state assertions passed; 0 mocked save request(s)."
+        }
+      ]
+    }
+  ],
+  "finished_at": "2026-10-16T04:02:06.719Z"
+}

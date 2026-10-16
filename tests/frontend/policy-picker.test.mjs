@@ -184,7 +184,7 @@ test("selected equipment keeps canonical names when several policies decorate it
   assert.equal(choices.filter(item=>item.id==="registry:temperature").length,1);
   assert.equal(choices.find(item=>item.id==="registry:temperature").name,"Temperature");
   assert.match(html,/<h3>Temperature sensors<\/h3>/);
-  assert.match(html,/<span>Include<\/span>/);
+  assert.match(html,/<legend>Include<\/legend>/);
   assert.match(html,/policy-selected-sources[^>]*><li><span>Temperature<\/span><span class="small">Office · Upstairs<\/span>/);
   assert.doesNotMatch(html,/Temperature · Entities|Temperature · Another policy|What to watch|<span>Watch<|<h1>Edit policy:/);
   assert.match(html,/aria-label="Choose temperature sensors"[^>]*>Change selection<\/button>/);

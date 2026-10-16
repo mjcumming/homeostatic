@@ -62,7 +62,7 @@ export async function runPolicyGaps(ctx) {
     for(const [mode,selectorKey,value] of [["all",null,null],["selected","entity",source],["all_except","excluded_sources",`entity:${source}`]]){
       await choose(field("watch"),mode);const expected={...policy(saved,id),match:{kind:["entity"]}};delete expected.excluded_sources;
       if(selectorKey){await click(action("pick"));await fill('[data-definition-picker-search]',lab.entities.temperature);await at(selection(value)).check();await check('[data-definition-picker-selected]',true);assert.equal(await at(field("selection")).count(),1);await fill('[data-definition-picker-search]',"no-such-lab-source");assert.equal(await at(field("selection")).count(),0);assert.match(await bodyText(),/match your search/);await fill('[data-definition-picker-search]',"");assert.equal(await at(selection(value)).isChecked(),true);await click(action("finish-pick"));if(mode==="all_except")expected.excluded_sources=[value];else expected.match[selectorKey]=[value];}
-      saved=await savePolicy(saved,id,expected);await edit("policies",id);assert.equal(await at(field("watch")).inputValue(),mode);
+      saved=await savePolicy(saved,id,expected);await edit("policies",id);assert.equal(await at(`${field("watch")}:checked`).inputValue(),mode);
     }
     await choose(field("watch"),"selected");const requests=transport.saveRequests;await click(action("save-scoped"));assert.equal(transport.saveRequests,requests);assert.match(await bodyText(),/Choose at least one/);await noChange(saved);await discard();
     return "Real catalog held, rejected and retried; saved identity retained; All, selected and canonical exclusions saved exactly; no-match and selected-only filters preserve selections; empty scope blocked.";

@@ -1,24 +1,24 @@
-import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=83";
-import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=83";
-import {upsProblem} from "./ups.mjs?v=83";
-import {reportingStatus} from "./reporting.mjs?v=83";
-import {affectedFunctions, dashboardStore, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=83";
-import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=83";
-import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=83";
-import {DashboardTools} from "./history-controls.mjs?v=83";
-import {diagnosticOverview} from "./evidence.mjs?v=83";
-import {styles} from "./styles.mjs?v=83";
+import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=84";
+import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=84";
+import {upsProblem} from "./ups.mjs?v=84";
+import {reportingStatus} from "./reporting.mjs?v=84";
+import {affectedFunctions, dashboardStore, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=84";
+import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=84";
+import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=84";
+import {DashboardTools} from "./history-controls.mjs?v=84";
+import {diagnosticOverview} from "./evidence.mjs?v=84";
+import {styles} from "./styles.mjs?v=84";
 
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree, canonicalSourceSelection, editSourceAvailability, restoreSourceFilters} from "./sources-workspace.mjs?v=83";
+import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree, canonicalSourceSelection, editSourceAvailability, restoreSourceFilters} from "./sources-workspace.mjs?v=84";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=83";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=84";
 
-import {cardView} from "./notification-navigation.mjs?v=83";
-import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=83";
-import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=83";
-import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=83";
-import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=83";
-import {editIssueAvailability,issueAvailabilityAction,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=83";
+import {cardView} from "./notification-navigation.mjs?v=84";
+import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=84";
+import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=84";
+import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=84";
+import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=84";
+import {editIssueAvailability,issueAvailabilityAction,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=84";
 
 const VIEWS = ["sources", "problems", "history", "notifications", "policies", "configuration"];
 const date = (value) => value ? new Date(value).toLocaleString() : "No completed update";
@@ -909,17 +909,17 @@ class HomeostaticStrategy {
   static getCreateSuggestions() { return {title:"Homeostatic",icon:"mdi:home-heart"}; }
   static async generate() {
     return {title:"Homeostatic",views:[
-      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v31",view:"issues",navigation:false}]},
-      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v31",view:"sources",navigation:false}]},
-      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v31",view:"policies",navigation:false}]},
-      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v31",view:"notifications",navigation:false}]},
-      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v31",view:"history",navigation:false}]},
+      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v32",view:"issues",navigation:false}]},
+      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v32",view:"sources",navigation:false}]},
+      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v32",view:"policies",navigation:false}]},
+      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v32",view:"notifications",navigation:false}]},
+      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v32",view:"history",navigation:false}]},
     ]};
   }
 }
 
-if (!customElements.get("homeostatic-card-v31")) customElements.define("homeostatic-card-v31", HomeostaticCard);
-if (!customElements.get("homeostatic-panel-v35")) customElements.define("homeostatic-panel-v35", HomeostaticPanel);
+if (!customElements.get("homeostatic-card-v32")) customElements.define("homeostatic-card-v32", HomeostaticCard);
+if (!customElements.get("homeostatic-panel-v36")) customElements.define("homeostatic-panel-v36", HomeostaticPanel);
 if (!customElements.get("homeostatic-card-v30")) customElements.define("homeostatic-card-v30", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-panel-v34")) customElements.define("homeostatic-panel-v34", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v29")) customElements.define("homeostatic-card-v29", class extends HomeostaticCard {});

@@ -104,6 +104,22 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
         await finished(page);
         await saveStage(`${selector}: native Escape`);
       }
+      if (fixture === "policy-picker.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
+        await page.locator('#show').click();
+        const selected = page.locator('.policy-scope input:checked');
+        await selected.focus();
+        await page.keyboard.press('ArrowDown');
+        await page.waitForFunction(() => {
+          const root = document.querySelector('homeostatic-card').shadowRoot;
+          return root.activeElement?.dataset.watchMode === 'area' && root.activeElement.checked;
+        }, null, {timeout});
+        await page.keyboard.press('ArrowUp');
+        await page.waitForFunction(() => {
+          const root = document.querySelector('homeostatic-card').shadowRoot;
+          return root.activeElement?.dataset.watchMode === 'selected' && root.activeElement.checked;
+        }, null, {timeout});
+        result.stages.push({name:'native scope arrow keys',messages:[],receipt:null,feedback:'PASS: Arrow keys change scope and retain focus after rendering.'});
+      }
       if (fixture === "mobile-layout.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
         await page.locator("iframe").scrollIntoViewIfNeeded();
         await page.frameLocator("iframe").locator("#outside").click();
@@ -159,7 +175,7 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
     result.status = failed ? "fail" : result.stages.length ? "pass" : "untested";
     if (!result.paths.length) result.diagnostics.push("No inventory path was proven by a declared receipt. Fixture feedback alone does not establish inventory coverage.");
     const stem = `${fixture.replace(/\.html$/, "")}-${viewport.width}-${colorScheme}`;
-    if (failed) {
+    if (failed || fixture === "policy-picker.html") {
       try {result.screenshot = join(artifactDir, `${stem}.png`); await page.screenshot({path: result.screenshot, fullPage: true});}
       catch (error) {result.diagnostics.push(`Screenshot capture: ${error.message}`);}
     }

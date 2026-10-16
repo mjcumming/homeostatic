@@ -30,7 +30,7 @@ export async function runLiveCases({page,lab,call,record,artifactDir,group="all"
     // Installation fields commit on native change (blur), matching keyboard use.
     if(selector.includes("data-setting-path"))await at(selector).first().press("Tab");
   };
-  const choose=async(selector,value)=>at(selector).first().selectOption(String(value));
+  const choose=async(selector,value)=>await at(selector).first().getAttribute("type")==="radio"?at(`${selector}[value="${value}"]`).check():at(selector).first().selectOption(String(value));
   const check=async(selector,value)=>at(selector).first().setChecked(value);
   const savedName=async()=>at(field("name")).inputValue();
   const currentId=async()=>at(field("name")).getAttribute("data-definition-id");

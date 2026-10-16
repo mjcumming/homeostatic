@@ -8,7 +8,7 @@ customElements.define("homeostatic-panel-v34",OldPanel);
 customElements.define("homeostatic-card-v30",OldCard);
 await import("../../custom_components/homeostatic/frontend/homeostatic.js");
 
-const card=document.querySelector("homeostatic-panel-v35"),feedback=document.querySelector("#feedback");
+const card=document.querySelector("homeostatic-panel-v36"),feedback=document.querySelector("#feedback");
 const names=["Basement TV","Cabin Bunkie","Cabin Kitchen","Dining room","Family room","Garage","Guest bedroom","Hallway","Kitchen","Laundry room","Living room","Main bedroom","Office","Patio","Playroom","Porch","Reading room","Upstairs landing","Workshop","Downstairs guest bedroom television beside the garden-facing windows"];
 const targets=names.flatMap((name,index)=>["local","cloud"].map(provider=>({channel:`tts:${provider}:speaker-${index}`,type:"voice",name,destination_name:name,destination_id:`speaker-${index}`,provider_name:provider==="local"?"Local voice":"Cloud voice",area:index===1||index===2?"Cabin":index===0?"Basement":"House",available:true})));
 targets.push({channel:"phone:spare",type:"app",name:"Household phone",available:true},{channel:"sms:fixture:",type:"sms",name:"Household SMS",requires_target:true,available:true});
@@ -58,7 +58,7 @@ document.querySelector("#run").onclick=async()=>{
   freshReceipt();feedback.textContent="Running isolated layout and selection checks…";
   try {
     check(customElements.get("homeostatic-panel-v34")===OldPanel&&customElements.get("homeostatic-card-v30")===OldCard,"Previously registered elements remain intact");
-    check(card instanceof customElements.get("homeostatic-panel-v35")&&card instanceof customElements.get("homeostatic-card-v31")&&!(card instanceof OldPanel),"Current panel uses the updated card despite old registered elements");
+    check(card instanceof customElements.get("homeostatic-panel-v36")&&card instanceof customElements.get("homeostatic-card-v32")&&!(card instanceof OldPanel),"Current panel uses the updated card despite old registered elements");
     reset();await open();headerCheck();
     check(find(".delivery-picker").closest(".notification-methods .delivery-method-editor"),"Fixture uses the full production method-editor nesting");
     const rows=[...root.querySelectorAll(".delivery-picker-results .delivery-picker-choice")];

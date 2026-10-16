@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=83";
+import {escapeHtml as esc} from "./model.mjs?v=84";
 
 const label = id => ({immediate:"Immediately",acknowledge:"Until acknowledged",morning:"Morning",evening:"Evening",weekly:"Weekly",dashboard:"Dashboard only"}[id] || id);
 

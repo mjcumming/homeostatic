@@ -389,7 +389,7 @@ test("saved combined area scope keeps exclusions and does not imply all sources 
   card.definitionSelection={kind:"policies",id:policy.id};
   const before=structuredClone(policy),html=namedPolicies(card);
   assert.equal(watchMode(policy),"area");
-  assert.match(html,/<option value="area" selected>/);
+  assert.match(html,/data-watch-mode="area" value="area" checked/);
   assert.match(html,/This scope also excludes: Standalone switch/);
   assert.deepEqual(policy,before);
   change(card,"policies",policy.id,"name","Kitchen thermostat");

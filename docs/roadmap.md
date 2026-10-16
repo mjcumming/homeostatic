@@ -28,6 +28,8 @@ The [Homeostatic manual](guide.md) covers supported setup and operation. What Ho
 
 ## Current work
 
+Policy source scope uses visible Include radio choices across supported policy editors, with full-row touch targets and a selection action beside the chosen option. The 1.8.1 candidate retains [isolated workflow and visual verification](performance/policy-scope-radios-2026-10-15/receipt.json). Physical Safari and household installation remain untested. Publication requires exact-candidate CI and package validation.
+
 This section owns implementation and acceptance status. The integration specification owns current behavior; design documents and ADRs retain requirements and rationale. Evidence links identify the relevant checks, without claiming that the full suite or live acceptance has passed for the current working tree.
 
 ### Coherent product specification and UI/UX redesign

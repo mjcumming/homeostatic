@@ -9,7 +9,7 @@ For eligible sources, starting settings and the conditions each monitoring type 
 ## Add or change a policy
 
 1. Open **Policies**. Select **Edit policy** beside an existing policy, or select **Add policy**, choose a **Monitoring type**, and select **Continue**.
-2. Give the policy a useful name. Where source selection is supported, use **Include** to choose its scope, then open the selection control beside it. Search for sources and select **Done** when finished.
+2. Give the policy a useful name. Where source selection is supported, choose one of the visible **Include** options, then use the selection button beside the chosen option. Search for sources and select **Done** when finished.
 3. Review the detection settings offered for that type. Repairs and broken automations always cover their complete supported set and have no source selector.
 4. Under **Notifications**, use **Add notification** to choose a saved named notification. To keep issues in the panel without notifications from this policy, remove every assignment so the section reads **No notifications**. [Set up notifications](notifications.md) covers timing and destinations.
 5. Set **Policy enabled** as intended, then select **Save policy**.
@@ -21,7 +21,7 @@ The saved policy controls monitoring. An enabled switch in an unsaved draft has 
 | Selection | Use it when |
 | --- | --- |
 | All sources of the selected type | Every eligible source of that type should be watched, including sources added later. |
-| All except these… | Most sources should be watched, with specific exceptions. Newly added eligible sources are included. |
+| All except selected | Most sources should be watched, with specific exceptions. Newly added eligible sources are included. |
 | Selected sources | Only the named equipment should be watched. |
 | Sources in areas or with labels | Home Assistant location or labels define the equipment you want. New matching sources join the selection. |
 
