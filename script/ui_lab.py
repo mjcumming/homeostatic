@@ -458,7 +458,6 @@ class Lab:
             startup_quiet_max=0,
             clear_hold=0,
             batch=0,
-            coalesce_count=1000,
         )
         for policy in data["monitoring_policies"]:
             policy["enabled"] = True

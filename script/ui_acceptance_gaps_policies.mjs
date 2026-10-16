@@ -185,15 +185,23 @@ export async function runPolicyGaps(ctx) {
     return "Two reserve conditions get independent mains/backup defaults; swapping both conditions and changing one notification preserves IDs, other condition and complete saved configuration.";
   });
 
+  await test("settings.timing-only",async()=>{
+    const before=await snapshot();await page.goto(`${lab.url}/homeostatic/settings/grouping`);
+    await at('[data-setting-path="timings.clear_hold"]').waitFor();
+    assert.equal(await at('main h1').innerText(),"Settings");
+    assert.equal(await at('[data-settings-section], [data-setting-path="timings.coalesce_count"], [data-setting-path="timings.coalesce_window"]').count(),0);
+    assert.ok((await bodyText()).includes("Timing"));await noChange(before);
+    return "Legacy grouping link opens Timing; inactive controls are absent and browsing preserves all saved settings.";
+  });
   await test("settings.edit",async()=>{
     const before=await snapshot();await companion();await edit("policies","lab_temperature");await fill(field("name"),"Unrelated policy draft");await edit("methods","lab_messages");await fill(field("name"),"Unrelated method draft");await go("configuration");
     await click('details[data-ui-key="settings-advanced-timing"] summary');const expected=structuredClone(before);
     const changeVisible=async()=>{for(const key of await at('[data-setting-path^="timings."]').evaluateAll(els=>els.filter(el=>el.getClientRects().length).map(el=>el.dataset.settingPath))){const selector=`[data-setting-path="${key}"]`,scale=Number(await at(selector).getAttribute("data-setting-scale")||1),value=Number(await at(selector).inputValue())+1;await fill(selector,value);expected.timings[key.slice(8)]=value*scale;}};
-    await changeVisible();await click('[data-settings-section="grouping"]');await changeVisible();let requests=transport.saveRequests;await save();assert.equal(transport.saveRequests,requests+1);await noChange(expected);
-    const count='[data-setting-path="timings.coalesce_count"]',window='[data-setting-path="timings.coalesce_window"]';await fill(window,Number(await at(window).inputValue())+1);await invalid(expected,count,"1");await discard();assert.equal(Number(await at(count).inputValue()),expected.timings.coalesce_count);await noChange(expected);
-    await click('[data-settings-section="timing"]');const timing='[data-setting-path="timings.clear_hold"]';await fill(timing,Number(await at(timing).inputValue())+1);await invalid(expected,timing,"-1");await discard();assert.equal(Number(await at(timing).inputValue())*Number(await at(timing).getAttribute("data-setting-scale")),expected.timings.clear_hold);await noChange(expected);
+    assert.equal(await at('[data-settings-section], [data-setting-path="timings.coalesce_count"], [data-setting-path="timings.coalesce_window"]').count(),0);
+    await changeVisible();let requests=transport.saveRequests;await save();assert.equal(transport.saveRequests,requests+1);await noChange(expected);
+    const timing='[data-setting-path="timings.clear_hold"]';await fill(timing,Number(await at(timing).inputValue())+1);await invalid(expected,timing,"-1");await discard();assert.equal(Number(await at(timing).inputValue())*Number(await at(timing).getAttribute("data-setting-scale")),expected.timings.clear_hold);await noChange(expected);
     await checkCompanion();await edit("policies","lab_temperature");assert.equal(await name(),"Unrelated policy draft");await edit("methods","lab_messages");assert.equal(await name(),"Unrelated method draft");
-    return "Every rendered installation timing and grouping field saved in one request with exact scale; invalid group count blocks request and retains input; discard restores saved fields; policy, method and notification drafts remain unsaved.";
+    return "Every rendered installation timing field saved in one request with exact scale; inactive grouping controls are absent and saved legacy values remain unchanged; invalid timing blocks request and retains input; discard restores saved fields; policy, method and notification drafts remain unsaved.";
   });
 
   await test("sending.switch",async()=>{

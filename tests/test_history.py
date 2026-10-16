@@ -63,6 +63,34 @@ def terminal(episode_id: str = "episode") -> EpisodeResolved:
     )
 
 
+def test_split_history_retains_successors_without_claiming_recovery() -> None:
+    """A split is durable history with links to the exact continuing issues."""
+    event = replace(terminal(), resolution="split", split_into=("light", "hallway"))
+    history = ResolvedHistory()
+    history.record(event, None, T0)
+    saved = history.snapshot()
+    restored = ResolvedHistory()
+    restored.restore(saved)
+    assert restored.snapshot() == saved
+    row = restored.view(T0)["episodes"][0]
+    assert row["resolution"] == "split"
+    assert row["split_into"] == ["light", "hallway"]
+    assert row["episode"]["status"] == "fail"
+
+
+@pytest.mark.parametrize("successors", [[], ["episode"], ["light", "light"]])
+def test_split_history_rejects_invalid_successors(successors: list[str]) -> None:
+    """Malformed transitions cannot silently lose or duplicate issue identity."""
+    history = ResolvedHistory()
+    history.record(
+        replace(terminal(), resolution="split", split_into=("light",)), None, T0
+    )
+    saved = history.snapshot()
+    saved["episodes"][0]["split_into"] = successors
+    with pytest.raises(ValueError, match="Invalid history split"):
+        ResolvedHistory().restore(saved)
+
+
 @pytest.mark.parametrize("batch", [0, 10])
 async def test_recovery_history_persists_without_query_side_effects(
     hass: HomeAssistant,

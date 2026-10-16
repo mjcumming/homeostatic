@@ -58,6 +58,8 @@ Use `--group issues`, `--group policies`, `--group notifications` or `--group la
 
 Each output directory contains `report.md`, `report.json`, fixture receipts, failure screenshots and the real-HA browser trace and log. Reports separate fixture results from real-backend results and distinguish the complete inventory from narrower additional cases. Exit status 1 means a failure or run diagnostic; 2 means coverage remains untested. A scoped run can return 2 because unrelated inventory rows remain untested. Review every declared in-scope row and run diagnostic before closing the change; retain the other rows as untested and report the bounded result. A passing retry does not erase a failure when reports are merged. Inspect traces locally because they describe the disposable authenticated test session.
 
+For a bounded real-HA retry, set `HOMEOSTATIC_UI_CASES` to comma-separated exact case IDs from the report. The report records that selection and leaves other paths untested. Preserve the original report and explain any corrected fixture assumptions alongside the retry.
+
 Merge completed shards from the same component contents with repeated `--merge` arguments:
 
 ```bash

@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=89";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=90";
 
 
 const date = (value) => value ? new Date(value).toLocaleString(undefined, {year:"numeric", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : "Unknown";
@@ -21,6 +21,7 @@ export const RESOLUTIONS = {
   cleared: ["Cleared", ""],
   removed: ["Monitoring ended", "This source left monitoring. Recovery was not established."],
   absorbed: ["Joined another problem", "This problem became part of another problem. Recovery was not established."],
+  split: ["Issues separated", "The problems were separated into individual issues. Recovery was not established."],
 };
 
 export function historyPage(history, query = "", resolution = "", page = 0, revealId = null) {
@@ -83,8 +84,24 @@ export function historyAccount(item) {
     return ["Several related sources had a shared problem.", "Individual issues may still be open."];
   }
   const ending = item.resolution === "removed" ? "Monitoring ended without an observed recovery."
-    : item.resolution === "absorbed" ? "Recovery was not established." : "";
+    : item.resolution === "split" ? RESOLUTIONS.split[1]
+      : item.resolution === "absorbed" ? "Recovery was not established." : "";
   return [historyFinding(item, finding), ending];
+}
+
+function separatedIssues(item, data) {
+  if (item.resolution !== "split") return "";
+  const nodes = new Map(inventoryRows(data).map(source => [source.node_id, source]));
+  const successors = [...new Set(item.split_into ?? [])];
+  let missing = 0;
+  const links = successors.map(id => {
+    const open = data.inventory.episodes.find(row => row.episode_id === id);
+    const retained = data.inventory.resolved_history.episodes.find(row => row.episode.episode_id === id);
+    if (!open && !retained) {missing++; return "";}
+    const name = open ? nodes.get(open.anchor)?.name || open.labels?.name || "Name not recorded" : historyName(retained);
+    return `<button type="button" class="button" ${open ? "data-open-episode" : "data-history"}="${esc(id)}">${open ? "Open issue" : "View history"}: ${esc(name)}</button>`;
+  }).join("");
+  return `${links ? `<div class="actions">${links}</div>` : ""}${missing ? `<p class="sub">${missing} separated ${missing === 1 ? "issue is" : "issues are"} no longer available.</p>` : !successors.length ? '<p class="sub">The separate issues were not recorded.</p>' : ""}`;
 }
 
 function historyDetails(item, data) {
@@ -95,7 +112,7 @@ function historyDetails(item, data) {
   const related = !item.absorbed_into ? "" : open || retained
     ? `<button type="button" class="button" ${open ? "data-open-episode" : "data-history"}="${esc(item.absorbed_into)}">View related problem</button>`
     : '<p class="sub">The related problem is no longer available.</p>';
-  return `${findings.map(message => `<p>${esc(message)}</p>`).join("")}${ending ? `<p>${esc(ending)}</p>` : ""}<dl class="history-times"><div><dt>Observed</dt><dd>${esc(observedRange(item.episode.opened_at, item.resolved_at))}</dd></div></dl>${related}`;
+  return `${findings.map(message => `<p>${esc(message)}</p>`).join("")}${ending ? `<p>${esc(ending)}</p>` : ""}<dl class="history-times"><div><dt>Observed</dt><dd>${esc(observedRange(item.episode.opened_at, item.resolved_at))}</dd></div></dl>${related}${separatedIssues(item, data)}`;
 }
 
 export function attentionActionAllowed(current, admin, action, target) {

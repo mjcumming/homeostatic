@@ -18,7 +18,7 @@ The issue should identify what Home Assistant reported and where to investigate.
 
 An example issue shows the reported condition and the actions that apply to it.
 
-An issue can affect several devices. Opening any of its findings shows the complete issue. The text beside acknowledgment and notification-pause controls explains their full scope before you act. Checks waiting for current information appear directly beneath their device. A previously reported problem stays visible when current information is missing, until recovery is confirmed.
+Unavailable devices have independent issues while their integration is working. An integration failure can affect several devices; opening that integration issue shows its complete scope. The text beside acknowledgment and notification-pause controls explains their full scope before you act. Checks waiting for current information appear directly beneath their device. A previously reported problem stays visible when current information is missing, until recovery is confirmed.
 
 ## Acknowledge an issue
 
@@ -43,6 +43,6 @@ An existing pause can be extended. To end it early, open the issue, select **Res
 
 When the condition recovers, Homeostatic ends the issue according to that monitoring type's recovery rules. Availability checks wait for recovery confirmation. During that wait, the availability issue leaves **Open issues**, while its source in **Monitoring** retains the pending result.
 
-A missing reading can also remove an availability entry from **Open issues** without establishing recovery. If an issue disappears unexpectedly, inspect its source in **Monitoring**, then check [History](history.md). **Cleared**, **Monitoring ended** and **Joined another problem** record different outcomes.
+A missing reading can also remove an availability entry from **Open issues** without establishing recovery. If an issue disappears unexpectedly, inspect its source in **Monitoring**, then check [History](history.md). **Cleared**, **Monitoring ended**, **Joined another problem** and **Issues separated** record different outcomes. When an issue separates, its continuing issues retain any existing acknowledgment and notification pause. Each pause can then be ended independently.
 
 If an action fails or its result is uncertain, read the message and inspect the current acknowledgment or active controls before retrying. [Troubleshooting](../troubleshooting.md) covers connection and saving problems.

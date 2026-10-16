@@ -113,6 +113,10 @@ export async function runWorkspaceControlPaths(context) {
     await change('[data-setting-path="timings.clear_hold"]',String(Number(field.value)+1));await save();check(saved().timings.clear_hold!==before,"Timing saves");
     await change('[data-setting-path="timings.clear_hold"]',"-1");check(!find('[data-setting-path="timings.clear_hold"]').checkValidity()&&Boolean(find('[data-setting-path="timings.clear_hold"]').validationMessage),"Invalid timing identifies the field with a native validation message");
     await change('[data-setting-path="timings.clear_hold"]',"4");await click('[data-definition-action="discard-scoped"]');
-    await click('[data-settings-section="grouping"]');await change('[data-setting-path="timings.coalesce_count"]',"4");await save();check(saved().timings.coalesce_count===4,"Grouping saves through its visible button");
+    check(!root.querySelector('[data-settings-section], [data-setting-path="timings.coalesce_count"], [data-setting-path="timings.coalesce_window"]'),"Settings has one timing page without inactive grouping controls");
+    const legacy={count:saved().timings.coalesce_count,window:saved().timings.coalesce_window};
+    await click('[data-ui-key="settings-advanced-timing"] summary');await change('[data-setting-path="timings.settle"]',"4");await save();
+    check(saved().timings.settle===240,"Advanced timing saves through its visible button");
+    check(saved().timings.coalesce_count===legacy.count&&saved().timings.coalesce_window===legacy.window,"Timing save preserves inactive saved values");
   });
 }

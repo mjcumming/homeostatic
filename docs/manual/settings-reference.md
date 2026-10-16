@@ -57,7 +57,7 @@ Presence selection offers **Fixed destinations**, **Home or away** and **People 
 | Save policy | That policy's monitoring, detection and notification assignments |
 | Save notification | That shared notification's name, timing and selected delivery methods, across its saved policy uses |
 | Save delivery method | That method's name, destinations and presence rules, across its saved uses |
-| Save settings | Installation timing and problem grouping |
+| Save settings | Installation timing |
 | Notifications switch | Normal sending for the installation; saves independently of editor drafts |
 
 Each editor retains its own pending changes during navigation within the same browser tab. A confirmed save removes its unsaved-change controls when no newer edits remain. Failed or uncertain saves remain visible. Opening, reading and editing do not send messages; saving effective notification changes can make open problems eligible for new requests if sending is on.
@@ -79,7 +79,7 @@ See [issue actions](issues.md), [ending active maintenance](maintenance.md) and 
 
 ## Installation timing
 
-Open **Settings → Timing**. The first three settings are shown directly; the remaining timing controls are under **Advanced timing**. Fields display their units beside the value. Whole-minute saved waits display in minutes; other waits display in seconds. Standard notification batching always displays seconds. Zero removes a wait.
+Open **Settings**. The first three settings are shown directly; the remaining timing controls are under **Advanced timing**. Fields display their units beside the value. Whole-minute saved waits display in minutes; other waits display in seconds. Standard notification batching always displays seconds. Zero removes a wait.
 
 | Setting | Fresh default | Effect |
 | --- | --- | --- |
@@ -93,17 +93,6 @@ Open **Settings → Timing**. The first three settings are shown directly; the r
 | Standard notification batching | 30 sec | Combines eligible standard requests, including delivery during daily hours. Immediate delivery and scheduled summaries use their own timing. |
 
 Waits accept nonnegative whole values in the unit shown. There is no separate general delay before a watched failure opens an issue beyond the applicable waits and its policy's detection criteria.
-
-## Problem grouping
-
-Open **Settings → Problem grouping** to change these installation-wide settings.
-
-| Setting | Fresh default | Effect |
-| --- | --- | --- |
-| Group related problems | 3 failures | Minimum number of failed sources sharing a direct dependency before they can form one issue on that dependency. Accepts a whole number of at least 2. |
-| Grouping window | 1 min | How close together the failures must begin. Accepts a nonnegative whole value in the displayed time unit. |
-
-Issue grouping and notification combination have different purposes. The first organizes related failures for investigation. Messages may also combine compatible notifications about one device while the individual findings and their policy settings remain independent. See [how issues and notifications work](../how-it-works.md).
 
 ## Retention and fixed limits
 

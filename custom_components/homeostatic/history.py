@@ -65,8 +65,9 @@ _RECORD = vol.Schema(
     {
         vol.Required("episode"): _EPISODE,
         vol.Required("resolved_at"): _TIMESTAMP,
-        vol.Required("resolution"): vol.In(("cleared", "removed", "absorbed")),
+        vol.Required("resolution"): vol.In(("cleared", "removed", "absorbed", "split")),
         vol.Required("absorbed_into"): vol.Any(None, _TEXT),
+        vol.Optional("split_into", default=list): [_TEXT],
         vol.Required("source"): vol.Any(
             None,
             {
@@ -101,6 +102,7 @@ class ResolvedEpisode:
     resolution: str
     absorbed_into: str | None
     source: dict[str, JSONValue] | None
+    split_into: tuple[str, ...] = ()
 
 
 class ResolvedHistory:
@@ -133,6 +135,7 @@ class ResolvedHistory:
             resolved_at=now,
             resolution=event.resolution,
             absorbed_into=event.absorbed_into,
+            split_into=event.split_into,
             source={
                 "node_id": source.node_id,
                 "name": source.name,
@@ -185,6 +188,13 @@ class ResolvedHistory:
                 item["absorbed_into"] is not None
             ) or item["absorbed_into"] == episode["episode_id"]:
                 raise ValueError("Invalid history absorption")
+            successors = tuple(item["split_into"])
+            if (
+                (item["resolution"] == "split") != bool(successors)
+                or len(successors) != len(set(successors))
+                or episode["episode_id"] in successors
+            ):
+                raise ValueError("Invalid history split")
             if (
                 item["source"] is not None
                 and item["source"]["node_id"] != episode["anchor"]
@@ -195,6 +205,7 @@ class ResolvedHistory:
                 resolved_at=resolved_at,
                 resolution=item["resolution"],
                 absorbed_into=item["absorbed_into"],
+                split_into=successors,
                 source=json_object(item["source"])
                 if item["source"] is not None
                 else None,

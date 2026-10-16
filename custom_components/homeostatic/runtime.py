@@ -1978,6 +1978,22 @@ class Runtime:
     ) -> None:
         assert self.policy is not None
         for event in events:
+            split_deliveries = None
+            if isinstance(event, EpisodeOpened) and event.split_from is not None:
+                for control in tuple(self.controls):
+                    if (
+                        control.action == "shelve"
+                        and control.target == event.split_from
+                        and control.until > now
+                    ):
+                        successor = replace(
+                            control,
+                            control_id=uuid4().hex,
+                            target=event.episode.episode_id,
+                        )
+                        self.controls.append(successor)
+                        self._control_fact("started", successor, context=cause)
+                split_deliveries = self.policy.handle(event, now, PolicyContext())
             rearm = False
             if isinstance(event, EpisodeUpdated):
                 source = self.sources.get(event.episode.anchor)
@@ -2019,11 +2035,25 @@ class Runtime:
                     now,
                 )
                 self.episodes.pop(event.episode.episode_id, None)
+                if event.resolution == "split":
+                    for control in tuple(self.controls):
+                        if (
+                            control.action == "shelve"
+                            and control.target == event.episode.episode_id
+                        ):
+                            self.controls.remove(control)
+                            self._control_fact(
+                                "ended", control, ended_reason="split", context=cause
+                            )
             elif isinstance(event, ProbeRequested):
                 # Reconciliation has already read the available HA evidence. A
                 # cached entity update cannot establish physical freshness.
                 continue
-            self._deliveries(self.policy.handle(event, now, PolicyContext()))
+            self._deliveries(
+                split_deliveries
+                if split_deliveries is not None
+                else self.policy.handle(event, now, PolicyContext())
+            )
             if rearm:
                 self._deliveries(
                     self.policy.rearm(event.episode.episode_id, now, PolicyContext())
@@ -2141,6 +2171,9 @@ class Runtime:
         if isinstance(event, EpisodeResolved):
             data["resolution"] = event.resolution
             data["absorbed_into"] = event.absorbed_into
+            data["split_into"] = list(event.split_into)
+        elif isinstance(event, EpisodeOpened) and event.split_from is not None:
+            data["split_from"] = event.split_from
         self._facts.append(
             Fact(
                 event_type=EVENT_EPISODE,

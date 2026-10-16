@@ -68,6 +68,27 @@ def cleared(member: Notification) -> ResolutionNotice:
     )
 
 
+@pytest.mark.parametrize("grouped", [False, True])
+def test_split_withdrawal_never_announces_recovery(grouped: bool) -> None:
+    """Replacing an old grouped issue cancels queued messages truthfully."""
+    state = DeliveryState("entry")
+    member = notice("old-group", "phone:alice")
+    if grouped:
+        record(state, [member])
+    else:
+        state.record(member, payload(member))
+    resolution = replace(cleared(member), resolution="split")
+    if grouped:
+        record(state, [resolution])
+    else:
+        state.record(resolution, payload(member))
+    assert len(state.outbox) == 1
+    assert state.outbox[0]["action"] == "resolve"
+    assert state.outbox[0]["resolution"] == "split"
+    assert state.outbox[0]["message"] == "Monitoring continues as separate issues."
+    assert state.outbox[0]["silent"] is True
+
+
 def test_presence_change_does_not_send_new_member_to_previous_person() -> None:
     """Alice's message cannot acquire Bob's later, separately authorized problem."""
     state = DeliveryState("entry")

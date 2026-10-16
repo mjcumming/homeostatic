@@ -4,6 +4,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0090](0090-independent-issues-under-healthy-integrations.md) | Keep failures independent under healthy integrations | Accepted; refines 0041 and supersedes healthy-integration grouping in 0085 and 0088 |
 | [0089](0089-contextual-entity-monitoring-policies.md) | Keep entity policy access contextual | Accepted; refines entity presentation in 0073 and 0086 |
 | [0088](0088-show-information-that-supports-a-decision.md) | Show information that supports a decision | Accepted; supersedes shared entry marking in 0085 |
 | [0087](0087-remove-maintenance-creation-from-ui.md) | Remove maintenance creation from the panel | Accepted |

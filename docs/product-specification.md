@@ -80,7 +80,7 @@ Open issues is the opening page. The primary destinations are Open issues, Monit
 | Policies | Define monitoring and notification behavior | Supplied and user-created policies together; saved enabled state; scope, detection and notification summaries; add, edit, duplicate, enable/disable, delete and selective restoration. |
 | Notifications | Configure named notifications and inspect their use | Reusable timing and delivery choices, saved policy assignments, destination methods, optional presence, saved-method tests and request outcomes. |
 | History | Review ended problems | Recorded condition, outcome, time range, retention coverage and retained issue details. |
-| Settings utility | Adjust installation-wide behavior | Supported general timing and grouping settings with their scope explained; no duplicate policy, source-selection or method editors. |
+| Settings utility | Adjust installation-wide behavior | Supported general timing settings with their scope explained; no duplicate policy, source-selection or method editors. |
 
 Notifications opens with named reusable notifications. Each owns timing and selected delivery methods; policies choose their assignments. Delivery methods is a secondary view. The accepted defaults and preservation boundary are defined in [ADR 0066](adr/0066-reusable-notifications-own-timing-and-delivery.md).
 

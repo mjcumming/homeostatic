@@ -45,7 +45,7 @@ export async function runIssueGaps(ctx) {
   const realState=async(key,state,attributes)=>{await control("set_state",{entity_id:lab.entities[key],state,...(attributes?{attributes}:{})});if(clockActive)await control("advance",{seconds:1});};
   const grouped=async(existing=false)=>{
     await control("integration_failure",{failed:false});if(!existing)await control("recover");const config=await call("homeostatic/configuration"),settings=structuredClone(config.settings);
-    settings.timings.coalesce_count=2;settings.timings.settle=3;settings.timings.coalesce_window=60;
+    settings.timings.settle=3;settings.timings.retry_hold=0;
     await call("homeostatic/save_settings",{revision:config.revision,settings});await control("advance",{seconds:5});
     await control("integration_failure");await control("outage");await control("advance",{seconds:5});
     const data=await inventory(),issue=data.episodes.find(item=>item.recorded.length>1);assert.ok(issue,"A real grouped issue contains multiple recorded members");return issue;
@@ -53,6 +53,16 @@ export async function runIssueGaps(ctx) {
   const flatGroupedEvidence=async(issue,data,settings)=>{
     const nodes=new Map([...data.catalog.candidates,...data.nodes].map(node=>[node.node_id,node]));
     const canonical=id=>nodes.get(id)?.monitoring_source||id;
+    if(issue.form==="root"&&nodes.get(issue.anchor)?.kind==="integration"){
+      const expected=new Map();
+      for(const id of issue.recorded){const check=nodes.get(id),source=nodes.get(canonical(id))||check;assert.ok(source);if(!expected.has(canonical(id)))expected.set(canonical(id),{source,names:new Set()});if(check.monitoring_policy){const policy=settings.monitoring_policies.find(item=>item.id===check.monitoring_policy);assert.ok(policy);expected.get(canonical(id)).names.add(policy.name);}}
+      assert.ok(expected.size>1,"A failed integration retains its affected device and entity identities");
+      for(const attribute of ["data-acknowledge","data-shelf"])assert.equal(await at(`dialog[open] [${attribute}]`).getAttribute(attribute),issue.episode_id);
+      const disclosure=at('dialog[open] [data-disclosure="issue-details"]');assert.equal(await at('dialog[open] details').count(),1);await disclosure.locator(':scope > summary').click();
+      const links=at('dialog[open] .issue-recorded [data-source-link]');assert.deepEqual((await links.evaluateAll(items=>items.map(item=>item.dataset.sourceLink))).sort(),[...expected.keys()].sort());
+      for(const [id,item] of expected)assert.equal(await at(`dialog[open] .issue-recorded [data-source-link="${id}"]`).innerText(),item.source.name);
+      assert.equal(await disclosure.locator('details').count(),0);return expected;
+    }
     const findings=issue.reasons.filter(item=>item.node_id!==issue.anchor&&item.status!=="pass"),expected=new Map(),groups=new Map();
     for(const finding of findings){
       const check=nodes.get(finding.node_id),id=canonical(finding.node_id),source=nodes.get(id)||check;
@@ -136,6 +146,28 @@ export async function runIssueGaps(ctx) {
     assert.equal(Date.parse(saved.until),Date.parse(until));assert.equal(saved.reason,reason);return saved;
   };
 
+  await scenario("issues.independent-devices",async()=>{
+    await control("integration_failure",{failed:false});await control("recover");
+    for(const key of ["offline","offline_second","battery","cleaner"])await realState(key,"unavailable");
+    await control("advance",{seconds:1});await clean();
+    const selected=await episodeFor("offline","device"),others=[await episodeFor("battery","device"),await episodeFor("vacuum","device")];
+    assert.equal(new Set([selected,...others].map(item=>item.episode_id)).size,3,"Healthy integration leaves three devices independent");
+    const data=await inventory(),nodes=new Map(data.nodes.map(item=>[item.node_id,item]));
+    await openIssue(selected.episode_id);
+    const content=await at('dialog[open]').innerText();
+    for(const other of others)assert.equal(content.includes(nodes.get(other.anchor).name),false,"Selected issue omits unrelated devices");
+    assert.equal(await at('dialog[open] [data-acknowledge]').getAttribute("data-acknowledge"),selected.episode_id);
+    await click('[data-acknowledge]');await submit();await text('dialog[open]',/Awareness recorded/);
+    const policy=await query("policy");
+    assert.ok(policy.episodes.find(item=>item.episode_id===selected.episode_id).acknowledgment);
+    for(const other of others)assert.equal(Boolean(policy.episodes.find(item=>item.episode_id===other.episode_id).acknowledgment),false);
+    await pause(selected,"Selected device only");
+    assert.deepEqual((await controls()).filter(item=>item.action==="shelve").map(item=>item.target),[selected.episode_id]);
+    await page.reload();await at('[data-issue-search]').waitFor();await openIssue(others[0].episode_id);
+    assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),others[0].episode_id);
+    await fit('dialog[open]');
+    return "Real healthy integration: three independent unavailable devices; selected detail excludes unrelated devices; acknowledge and pause affect only that issue, with another issue still independently actionable after refresh.";
+  });
   await scenario("issues.device-hierarchy",async()=>{
     const before=await snapshot();await control("bulk");await clean();await go("problems");
     assert.ok(await at('[data-issue-group]').count());await expandIssues();
@@ -165,7 +197,7 @@ export async function runIssueGaps(ctx) {
     const configuration=await call("homeostatic/configuration"),setup=structuredClone(configuration.settings),original=setup.monitoring_policies.find(policy=>policy.id==="default_entities");setup.monitoring_policies.push({...structuredClone(original),id:"acceptance_overlap",name:"Second availability rule"});await call("homeostatic/save_settings",{revision:configuration.revision,settings:setup});
     const issue=await grouped();await clean();const before=await snapshot(),data=await inventory();await openIssue(issue.episode_id);
     const expected=await flatGroupedEvidence(issue,data,before);assert.ok([...expected.values()].some(item=>item.names.size>1),"Overlapping actual availability checks were exercised");
-    const [id,item]=[...expected].find(([,member])=>member.source.kind==="entity");await at(`dialog[open] [data-evidence-source="${id}"] [data-source-link]`).click();await at('#sources-detail-title').waitFor();assert.equal(await read('#sources-detail-title'),item.source.name,"A named entity link opens the exact canonical Monitoring source");
+    const [id,item]=[...expected].find(([,member])=>member.source.kind==="entity");await at(`dialog[open] [data-source-link="${id}"]`).first().click();await at('#sources-detail-title').waitFor();assert.equal(await read('#sources-detail-title'),item.source.name,"A named entity link opens the exact canonical Monitoring source");
     await noChange(before);return "Actual grouped issue shows exact device/entity names and conditions before Details; one expansion exposes all independent policies and complete recorded scope. Named Monitoring links and original-issue controls preserve identity without saves.";
   });
   await scenario("issues.recovery",async()=>{
@@ -203,7 +235,17 @@ export async function runIssueGaps(ctx) {
     for(const episode of data.episodes){const node=nodes.get(episode.anchor),kind=node?.kind;if(seen.has(kind))continue;seen.add(kind);await openIssue(episode.episode_id);const canonical=["temperature_limit","thermostat"].includes(kind)?[...nodes.values()].find(item=>item.kind==="entity"&&item.entity_id===node.entity_id&&!item.monitoring_policy):nodes.get(node.monitoring_source)||node,title=await read('dialog[open] h2');assert.ok([canonical.name,node.name].includes(title),`${kind} preserves exact canonical or recorded source identity: ${title}`);await text('dialog[open]',evidence[kind]);assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),episode.episode_id);assert.equal(await at('dialog[open] [data-acknowledge]').getAttribute("data-acknowledge"),episode.episode_id);
       if(kind==="device")await text('dialog[open]',/Lab secondary reading · unavailable in Home Assistant/);assert.ok(await at('dialog[open] [data-disclosure="issue-details"]').count()<=1);await details();await fit('dialog[open]');await page.evaluate(()=>new Promise(requestAnimationFrame));const active=at('dialog[open] [data-shelf]'),original=await active.elementHandle(),dialog=await at('dialog[open]').elementHandle(),temperatureBefore=kind==="temperature_limit"?await at('dialog[open] .temperature-issue').textContent():null;await active.focus();const beforeFocus=await active.evaluate(element=>({focused:element.getRootNode().activeElement===element,connected:element.isConnected,target:element.outerHTML}));assert.equal(beforeFocus.focused,true,`${kind} focus precondition`);if(temperatureBefore)await control("advance",{seconds:1});await realState("history",String(++update));if(temperatureBefore)await page.waitForFunction(({dialog,before})=>{const current=dialog.querySelector('.temperature-issue');return current&&current.textContent!==before;},{dialog,before:temperatureBefore});const afterFocus=await active.evaluate((element,previous)=>({focused:element.getRootNode().activeElement===element,connected:element.isConnected,sameDOM:element===previous,previousConnected:previous.isConnected,target:element.outerHTML,actual:element.getRootNode().activeElement?.outerHTML.slice(0,700)}),original);await original.dispose();await dialog.dispose();const result={kind,episode:episode.episode_id,before:beforeFocus,after:afterFocus};focusChecks.push(result);if(!afterFocus.focused)focusFailures.push(result);await writeFile(`${ctx.artifactDir}/issues-popup-focus.json`,JSON.stringify({focusChecks,focusFailures},null,2));await close();}
     for(const kind of ["device","entity","battery","vacuum","ups","repair","broken_automation","situation","temperature_limit"])assert.ok(seen.has(kind),`Real popup variant ${kind} was exercised`);
-    const popupErrors=[];const popup=async(name,body)=>{await close();try{await body();}catch(error){const screenshot=`${ctx.artifactDir}/issues-popup-${name}.png`,dom=`${ctx.artifactDir}/issues-popup-${name}.txt`;await page.screenshot({path:screenshot,fullPage:true});await writeFile(dom,await bodyText());popupErrors.push({variant:name,error:error.stack||String(error),screenshot,dom});}finally{await writeFile(`${ctx.artifactDir}/issues-popup-diagnostics.json`,JSON.stringify({focusChecks,focusFailures,popupErrors},null,2));await close();}};
+    const popupErrors=[];const popup=async(name,body)=>{
+      await close();
+      try{await body();}
+      catch(error){
+        const screenshot=`${ctx.artifactDir}/issues-popup-${name}.png`,dom=`${ctx.artifactDir}/issues-popup-${name}.txt`;
+        const failure={variant:name,error:error.stack||String(error),screenshot,dom};popupErrors.push(failure);
+        await page.screenshot({path:screenshot,fullPage:true,timeout:5000}).catch(error=>{failure.screenshot_error=String(error);});
+        const text=await (await at('.shell').count().catch(()=>0)?bodyText():page.locator('body').innerText({timeout:3000})).catch(error=>{failure.dom_error=String(error);return "Page unavailable";});
+        await writeFile(dom,text).catch(error=>{failure.dom_error=String(error);});
+      }finally{await writeFile(`${ctx.artifactDir}/issues-popup-diagnostics.json`,JSON.stringify({focusChecks,focusFailures,popupErrors},null,2));await close();}
+    };
     await popup("integration",async()=>{await control("integration_failure");await clean();const integration=await episodeFor(null,"integration"),current=await inventory(),source=current.catalog.candidates.find(node=>node.node_id===`entry:${lab.fixture_entry_id}`);assert.ok(source);await openIssue(integration.episode_id);await text('dialog[open]',/Connection is retrying/);assert.equal(await read('dialog[open] h2'),`${source.attributes.domain[0]} · ${source.name}`);assert.equal(await at('dialog[open] [data-acknowledge]').getAttribute("data-acknowledge"),integration.episode_id);await details();await fit('dialog[open]');await noChange(before);});
     await popup("source-only-canonical",async()=>{await control("integration_failure",{failed:false});await page.goto(`${lab.url}/homeostatic/node/${encodeURIComponent(await sourceId("history"))}`);await at('dialog[open] [data-disclosure="issue-details"]').waitFor();assert.equal(await read('dialog[open] h2'),"Lab previously failed sensor");await text('dialog[open]',/Current condition isn't confirmed/);assert.equal(await at('dialog[open] [data-shelf],dialog[open] [data-acknowledge],dialog[open] .problem-progress').count(),0);await details();await fit('dialog[open]');});
     await popup("source-only-check",async()=>{await control("integration_failure",{failed:false});const current=await inventory(),source=current.nodes.find(node=>node.entity_id===lab.entities.history&&node.monitoring_policy==="default_entities");assert.ok(source);assert.ok(!current.episodes.some(episode=>episode.anchor===source.node_id));await page.goto(`${lab.url}/homeostatic/node/${encodeURIComponent(source.node_id)}`);await at('dialog[open] [data-disclosure="issue-details"]').waitFor();assert.ok(["Lab previously failed sensor",source.name].includes(await read('dialog[open] h2')),"Source-only check retains its exact canonical or recorded name");await text('dialog[open]',/Sensor available/);assert.equal(await at('dialog[open] [data-shelf],dialog[open] [data-acknowledge],dialog[open] .problem-progress').count(),0);await details();await fit('dialog[open]');});
@@ -227,12 +269,26 @@ export async function runIssueGaps(ctx) {
     await click('dialog[open] [data-issue-availability="remove"]');const count=rejectSave();await click('dialog[open] [data-issue-availability="confirm"]');await text('dialog[open]',/Gap save rejected/);await noChange(before);assert.equal(count(),1);transport.interceptRequest=null;
     await click('dialog[open] [data-issue-availability="confirm"]');await at('dialog[open]').waitFor({state:"hidden"});await expectedExclusions(before,ids);assert.equal(await at('main [data-issue-availability]').count(),0);assert.ok(!(await bodyText()).includes("Changes saved."));
   });
+  await scenario("issues.split-history",async()=>{
+    const original=await grouped();await control("integration_failure",{failed:false});await control("advance",{seconds:5});await clean();
+    const before=await snapshot(),history=await query("resolved_history"),split=history.episodes.find(item=>item.episode.episode_id===original.episode_id);
+    await writeFile(`${ctx.artifactDir}/split-lifecycle.json`,JSON.stringify({original,history,inventory:await inventory()},null,2));
+    assert.equal(split?.resolution,"split");assert.ok(split.split_into.length>1);
+    const data=await inventory();for(const id of split.split_into)assert.ok(data.episodes.some(item=>item.episode_id===id));
+    await page.goto(`${lab.url}/homeostatic/history/${encodeURIComponent(original.episode_id)}`);
+    await at(`[data-history-toggle="${original.episode_id}"][aria-expanded="true"]`).waitFor();
+    await text('.history-content:visible',/Recovery was not established/);
+    const links=at('.history-content:visible [data-open-episode]');
+    assert.deepEqual((await links.evaluateAll(items=>items.map(item=>item.dataset.openEpisode))).sort(),[...split.split_into].sort());
+    const target=await links.first().getAttribute("data-open-episode");await links.first().click();await at(`dialog[open] [data-shelf="${target}"]`).waitFor();await noChange(before);
+    return "A real failed integration recovers with device failures remaining; History reports Issues separated, retains exact successor links and opens the selected successor without claiming recovery.";
+  });
   await scenario("issues.history",async()=>{
-    await control("bulk");await control("advance",{seconds:61});await control("bulk",{failed:false});await control("recover");const config=await call("homeostatic/configuration"),settings=structuredClone(config.settings);settings.timings.coalesce_count=2;settings.timings.settle=3;await call("homeostatic/save_settings",{revision:config.revision,settings});await control("advance",{seconds:1});await realState("bulk_0","unavailable");await control("advance",{seconds:4});await episodeFor("bulk_0","entity");await realState("bulk_1","unavailable");await realState("bulk_2","unavailable");await control("advance",{seconds:4});await clean();const before=await snapshot(),history=await query("resolved_history");assert.ok(history.episodes.length>20);await go("history");
+    await control("bulk");await control("advance",{seconds:61});await control("bulk",{failed:false});await control("recover");const config=await call("homeostatic/configuration"),settings=structuredClone(config.settings);settings.timings.settle=30;settings.timings.retry_hold=0;await call("homeostatic/save_settings",{revision:config.revision,settings});await control("advance",{seconds:1});await realState("bulk_0","unavailable");await control("advance",{seconds:4});await episodeFor("bulk_0","entity");await realState("bulk_1","unavailable");await realState("bulk_2","unavailable");await control("advance",{seconds:4});await control("integration_failure");await control("advance",{seconds:4});await clean();const before=await snapshot(),history=await query("resolved_history");assert.ok(history.episodes.length>20);await go("history");
     const all=new Set();for(let index=0;index<10;index++){for(const id of await at('[data-history-toggle]').evaluateAll(items=>items.map(item=>item.dataset.historyToggle)))all.add(id);if(!await at('[data-tool="next"]').count()||await at('[data-tool="next"]').isDisabled())break;await click('[data-tool="next"]');}assert.equal(all.size,history.episodes.length);
     await fill('[data-history-search]',"no-acceptance-match");assert.equal(await at('[data-history-toggle]').count(),0);await fill('[data-history-search]',"");for(const value of await at('[data-history-filter] option').evaluateAll(items=>items.map(item=>item.value))){await choose('[data-history-filter]',value);const visible=await at('[data-history-toggle]').evaluateAll(items=>items.map(item=>item.dataset.historyToggle));assert.ok(visible.every(id=>history.episodes.some(item=>item.episode.episode_id===id&&(!value||item.resolution===value))),`Outcome filter ${value} matches recorded resolutions`);}await choose('[data-history-filter]',"");
     const ordinary=history.episodes.find(item=>item.resolution==="cleared"&&item.source?.kind==="entity"&&item.source.name.includes("standalone")),id=ordinary.episode.episode_id;await page.goto(`${lab.url}/homeostatic/history/${encodeURIComponent(id)}`);const row=at(`[data-history-toggle="${id}"]`);await row.waitFor();assert.equal(await row.getAttribute("aria-expanded"),"true");assert.equal(await at('dialog[open]').count(),0);await text(`[data-history-toggle="${id}"]`,ordinary.source.name);await text('.history-content:visible',/Home Assistant reported this entity as unavailable/);const observed=await read('.history-content:visible .history-times dd'),times=await page.evaluate(({start,end})=>[start,end].map(value=>({day:new Date(value).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}),time:new Date(value).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})})),{start:ordinary.episode.opened_at,end:ordinary.resolved_at});for(const value of times)assert.ok(observed.includes(value.day)&&observed.includes(value.time),"Recorded opened and ended times appear in the observed range");assert.ok(observed.includes("1 min"));await realState("history","13");assert.equal(await row.getAttribute("aria-expanded"),"true");await row.click();
-    const joined=history.episodes.find(item=>item.resolution==="absorbed"&&item.absorbed_into);assert.ok(joined,"Real coalescing produces a retained entry with a related-issue link");await page.goto(`${lab.url}/homeostatic/history/${encodeURIComponent(joined.episode.episode_id)}`);await at(`[data-history-toggle="${joined.episode.episode_id}"][aria-expanded="true"]`).waitFor();await text('.history-content:visible',/Recovery was not established/);const link=at('.history-content:visible [data-open-episode],.history-content:visible [data-history]').first();await link.click();if(await at('dialog[open]').count())await at('dialog[open] [data-shelf]').waitFor();else await at(`[data-history-toggle="${joined.absorbed_into}"][aria-expanded="true"]`).waitFor();await noChange(before);
+    const joined=history.episodes.find(item=>item.resolution==="absorbed"&&item.absorbed_into);assert.ok(joined,"A real integration failure absorbs affected issues with a related-issue link");await page.goto(`${lab.url}/homeostatic/history/${encodeURIComponent(joined.episode.episode_id)}`);await at(`[data-history-toggle="${joined.episode.episode_id}"][aria-expanded="true"]`).waitFor();await text('.history-content:visible',/Recovery was not established/);const link=at('.history-content:visible [data-open-episode],.history-content:visible [data-history]').first();await link.click();if(await at('dialog[open]').count())await at('dialog[open] [data-shelf]').waitFor();else await at(`[data-history-toggle="${joined.absorbed_into}"][aria-expanded="true"]`).waitFor();await noChange(before);
   });
 
   await scenario("sources.tree-layout",async()=>{

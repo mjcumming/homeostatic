@@ -203,6 +203,7 @@ async function main() {
   if(await fingerprint(component)!==candidate.component_sha256)throw Error("Frozen component no longer matches its manifest");
   if(args.snapshot&&await fingerprint(join(sourceRoot,"tests/frontend"))!==candidate.fixture_sha256)throw Error("Frozen fixtures no longer match their manifest");
   const report={schema_version:1,coverage_revision:2,started_at:new Date().toISOString(),candidate,environment:{group:args.group,viewport,theme:args.theme,browser:args.browser,mode:args.mode,notifications:"captured by synthetic services only"},fixtures:emptyReceipt(),live:emptyReceipt(),diagnostics:[],artifacts:[]};
+  if(process.env.HOMEOSTATIC_UI_CASES)report.environment.selected_cases=process.env.HOMEOSTATIC_UI_CASES.split(",").filter(Boolean);
   const record=(layer)=>(id,status,evidence)=>{observe(report[layer],id,status,`${args.group}/${args.width}px/${args.theme}: ${typeof evidence==="string"?evidence:JSON.stringify(evidence)}`);console.log(`${layer} ${status} ${id}`);};
   let browser,server,child,lab,context,logStream;
   const credentialsDir=await mkdtemp(join(tmpdir(),"homeostatic-ui-acceptance-"));

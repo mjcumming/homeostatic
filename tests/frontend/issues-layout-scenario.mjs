@@ -3,7 +3,7 @@ import {initializeScopedConfiguration} from "../../custom_components/homeostatic
 import {notificationSettings} from "./notification-profiles-fixture.mjs";
 import {monitoringExample,baseSource} from "./monitoring-fixture.mjs";
 
-const card=document.querySelector("homeostatic-panel-v41"),root=card.shadowRoot,feedback=document.querySelector("#feedback");
+const card=document.querySelector("homeostatic-panel-v42"),root=card.shadowRoot,feedback=document.querySelector("#feedback");
 const copy=value=>structuredClone(value),calls=[];
 const initial={...notificationSettings(),monitoring_policies:[{id:"entities",name:"Entities",enabled:true,check:"availability",match:{kind:["entity"]},parameters:{},notifications:[]}]};
 const families=[["mqtt","MQTT",4],["esphome","ESPHome",2],["home_connect","Home Connect",1]];

@@ -2,8 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {hasWorkspaceDrafts,parseWorkspacePath,workspacePath,workspaceRoute,workspaceContext,restoreWorkspaceContext,WorkspaceNavigation} from "../../custom_components/homeostatic/frontend/workspace-navigation.mjs";
 
-for(const path of ["/issues","/sources","/sources/source%3Aentity%3Alight.deck","/sources/device%3Adeck/history","/episode/a%2Fb","/policies/availability","/notifications/methods/phone","/notifications/profiles/morning","/notifications/methods","/history","/history/closed","/settings/grouping"])
+for(const path of ["/issues","/sources","/sources/source%3Aentity%3Alight.deck","/sources/device%3Adeck/history","/episode/a%2Fb","/policies/availability","/notifications/methods/phone","/notifications/profiles/morning","/notifications/methods","/history","/history/closed","/settings/timing"])
   test(`round trip ${path}`,()=>assert.equal(workspacePath(parseWorkspacePath(path)),path));
+
+test("retired grouping destinations normalize to Timing without restoring an obsolete section",()=>{
+  assert.deepEqual(parseWorkspacePath("/settings/grouping"),{page:"configuration"});
+  assert.equal(workspacePath(parseWorkspacePath("/settings/grouping")),"/settings/timing");
+  assert.equal(workspacePath({page:"configuration",settingsSection:"grouping"}),"/settings/timing");
+  const card={page:"configuration"};
+  restoreWorkspaceContext(card,{settingsSection:"grouping"});
+  assert.equal(card.settingsSection,undefined);
+  assert.equal(Object.hasOwn(workspaceRoute(card),"settingsSection"),false);
+});
 
 test("older and malformed destinations open Issues",()=>{
   assert.equal(parseWorkspacePath("/overview").page,"problems");

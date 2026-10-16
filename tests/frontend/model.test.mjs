@@ -1324,7 +1324,7 @@ test("selected device refresh coalesces reads and notices access changes",async(
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?availability-test");
-  const card=Object.create(elements.get("homeostatic-card-v37").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v38").prototype);
   const data=monitoringExample(),entity="sensor.excluded",nodeId="device:camera-0",pending=[];
   Object.assign(card,{page:"sources",sourcesView:"source",current:{status:"current",data},sourcesGrouping:"integration",sourcesSelection:`source:${nodeId}`,sourceDetail:null,sourceSequence:0,
     render(){},_hass:{states:{[entity]:{state:"off",attributes:{}}},callWS(){return new Promise(resolve=>pending.push(resolve));}}});
@@ -1359,7 +1359,7 @@ test("policy configuration loads without delivery discovery and discovery preser
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?configuration-test");
-  const card=Object.create(elements.get("homeostatic-card-v37").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v38").prototype);
   const calls=[],pending=[];
   Object.assign(card,{page:"policies",render(){},_hass:{connection:{},callWS(request){calls.push(request);return new Promise((resolve,reject)=>pending.push({resolve,reject}));}}});
   const settings={monitoring_policies:[{id:"one",name:"Saved policy"}],notification_definitions:{methods:{}}};

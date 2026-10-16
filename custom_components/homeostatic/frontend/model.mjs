@@ -1,6 +1,6 @@
 /** Read-model helpers and a shared, lifecycle-bound HA subscription. */
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=89";
-import {waitingOnly} from "./check-presentation.mjs?v=89";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=90";
+import {waitingOnly} from "./check-presentation.mjs?v=90";
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",

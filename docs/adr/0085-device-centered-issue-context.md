@@ -1,6 +1,6 @@
 # ADR 0085: Present related problems and waiting checks under their device
 
-**Status:** Accepted
+**Status:** Accepted; healthy-integration sibling grouping superseded by [ADR 0090](0090-independent-issues-under-healthy-integrations.md)
 **Date:** 2026-10-16
 
 **Later decision:** [ADR 0086](0086-visible-evidence-and-flat-details.md) refines the opened issue and source layouts, counts and labels. Device grouping, retained problems and exact issue scope remain unchanged.

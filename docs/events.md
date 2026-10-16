@@ -31,7 +31,7 @@ The `change` field says what happened:
 | `entry_id` | The Homeostatic config entry |
 | `change` | `opened`, `updated` or `resolved` |
 | `episode_id` | The issue's ID |
-| `form` | `root` for an issue about one source. `group` when Homeostatic has grouped several related sources that failed together into one issue. |
+| `form` | `root` for an issue about one source. `group` for a retained older sibling group awaiting separation; new failures under healthy integrations stay independent. |
 | `anchor` | Homeostatic's ID for the source the issue is about, such as `entry:<config entry id>` for an integration or `device:<device id>` for a device. Treat it as opaque. |
 | `anchor_name` | The source's current display name |
 | `anchor_kind` | `integration`, `device`, `entity`, `battery`, `vacuum`, `ups`, `thermostat`, `temperature_limit`, `situation` (an alert), `repair` (a Home Assistant Repair), or `broken_automation` (an automation that names a missing entity). `null` when the source no longer exists. |
@@ -44,8 +44,10 @@ The `change` field says what happened:
 | `shelved` | Whether Pause notifications was on for the issue |
 | `maintenance` | Whether the source was covered by an equipment maintenance window |
 | `acknowledged` | Whether someone had acknowledged the issue |
-| `resolution` | Only on `resolved`. `cleared` means the problem ended. `removed` means Homeostatic stopped watching the source or changed what it checks, which says nothing about the problem. `absorbed` means the issue became part of another issue. History shows these as **Cleared**, **Monitoring ended** and **Joined another problem**. |
+| `resolution` | Only on `resolved`. `cleared` means the problem ended. `removed` means Homeostatic stopped watching the source or changed what it checks, which says nothing about the problem. `absorbed` means the issue became part of another issue. `split` means the problems continue as separate issues, without established recovery. History shows **Cleared**, **Monitoring ended**, **Joined another problem** or **Issues separated**. |
 | `absorbed_into` | Only on `resolved`: the ID of the issue that absorbed this one, or `null` |
+| `split_into` | On `resolved`: the exact continuing issue IDs for `split`, otherwise an empty list |
+| `split_from` | On successor `opened` events: the predecessor issue ID whose controls and attention state were retained |
 
 Vacuum evidence gaps use `vacuum_unavailable`, `vacuum_unknown`, `vacuum_missing`, `vacuum_restored` or `vacuum_unrecognized`, each with status `unknown`. Device grouping in the panel does not change event issue identities or recorded membership.
 
@@ -166,6 +168,7 @@ Each policy notification assignment is evaluated independently using its named n
 | `cleared` | The problem ended |
 | `removed` | Homeostatic stopped watching the source, or Homeostatic itself was removed. The problem may still be there. |
 | `absorbed` | The issue became part of another issue |
+| `split` | The problems continue as separate issues; withdraw the old message without announcing recovery |
 | `notifications_disabled` | Notifications were turned off, or the notification settings changed. The problem may still be open. |
 | `replaced` | Presentation moved to another notification subject or summary; monitoring continues |
 

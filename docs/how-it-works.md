@@ -31,13 +31,13 @@ Open issues focuses on current reported problems. Availability findings with onl
 
 ## Why related problems appear together
 
-Homeostatic uses Home Assistant's recorded relationships between integrations and their equipment. If a watched integration fails, its issue can include the watched devices and entities affected by that connection. If several related availability failures begin close together while the integration remains loaded, Homeostatic can group those findings too. The grouping settings control that behavior.
+Homeostatic uses Home Assistant's recorded relationships between integrations and their equipment. If a watched integration fails, its issue can include the watched devices and entities affected by that connection. While the integration is healthy, unavailable devices keep independent issues, even when their failures begin together. Opening a device issue shows that issue's evidence and actions.
 
-For example, several Zigbee devices may become unavailable together. Their common integration provides a useful place to investigate. A loaded integration does not establish that the devices are working, and grouping does not establish a shared physical cause.
+For example, an unavailable light and motion sensor remain separate problems while their integration is healthy. Acknowledging or pausing one does not affect the other. A loaded integration does not establish that its devices are working.
 
 The Open issues page also arranges findings beneath integration and device headings for browsing. Expanding a heading does not merge issues. Each opened issue retains its own evidence and controls. When an issue becomes part of another problem, History records **Joined another problem** and links to the related issue while it remains available.
 
-When a failed integration returns, Homeostatic gives its equipment time to reconnect. Findings still present can remain grouped or become individual issues according to the current evidence and grouping settings. Inspect those remaining findings instead of assuming that the integration's recovery ended every problem.
+When a failed integration returns, Homeostatic gives its equipment time to reconnect. Remaining failures then become independent issues. History records **Issues separated** with links to those issues; it does not report that the remaining problems cleared. Existing acknowledgment and pauses follow the affected issues with their original times and expiry.
 
 ## How a policy reaches a person
 

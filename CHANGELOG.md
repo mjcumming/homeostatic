@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.8.3] - 2026-10-16
+
+### Fixed
+
+- Keep unavailable devices independent when their integration is working. Preserve genuine integration-outage grouping, then separate remaining failures after recovery. Existing grouped issues retain their history and active controls through an explicit separation that does not claim device recovery.
+- Remove inactive problem-grouping controls from Settings and show separated issues truthfully in History, with links to their continuing issues.
+
+### Upgrade notes
+
+- Use health-tree 0.8.0 for independent issues and preserved controls during separation. Existing settings remain supported. Saved history now includes separation metadata that older versions cannot read, even when no issue separates; any rollback must restore matching saved state and component/library versions together.
+
 ## [1.8.2] - 2026-10-16
 
 ### Changed

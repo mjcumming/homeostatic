@@ -145,7 +145,7 @@ class Settings:
             settle=self.duration("settle"),
             rejoin_grace=self.duration("rejoin_grace"),
             startup_grace=self.duration("startup_grace"),
-            coalesce_count=self.timings["coalesce_count"],
+            coalesce_count=None,
             coalesce_window=self.duration("coalesce_window"),
         )
 

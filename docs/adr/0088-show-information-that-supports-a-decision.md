@@ -1,6 +1,6 @@
 # ADR 0088: Show information that supports a decision
 
-**Status:** Accepted
+**Status:** Accepted; healthy-integration sibling grouping superseded by [ADR 0090](0090-independent-issues-under-healthy-integrations.md)
 **Date:** 2026-10-16
 
 **Partially supersedes:** The requirement to mark shared issue entries in ADR 0085. Device grouping, issue identity and complete action scope remain unchanged.

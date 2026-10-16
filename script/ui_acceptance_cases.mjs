@@ -85,8 +85,10 @@ export async function runLiveCases({page,lab,call,record,artifactDir,group="all"
   const transport=await installTransport(page);
   console.log("live setup browser transport");
   await clean();
+  const selectedCases=new Set((process.env.HOMEOSTATIC_UI_CASES||"").split(",").filter(Boolean));
   const run=async(id,body,complete=false)=>{
     if(!complete)id=liveCaseId(id);
+    if(selectedCases.size&&!selectedCases.has(id))return;
     page.acceptanceCase=id;
     console.log(`live start ${id}`);
     const started=Date.now();
@@ -98,6 +100,7 @@ export async function runLiveCases({page,lab,call,record,artifactDir,group="all"
       await record(id,"pass",evidence);caseResults.push({id,status:"pass",...evidence});
     } catch(error) {
       if(page.isClosed())throw error;
+      console.error(`live failure ${id}: ${error.stack||error}`);
       if(transport){transport.release?.();transport.mode=null;transport.refreshFailure=false;transport.commandModes.clear();transport.interceptRequest=null;transport.transformResponse=null;}
       const stem=id.replace(/[^a-z0-9._-]/gi,"_");
       const screenshot=join(artifactDir,`${group}-${stem}.png`),dom=join(artifactDir,`${group}-${stem}.txt`);
@@ -197,7 +200,8 @@ export async function runLiveCases({page,lab,call,record,artifactDir,group="all"
       assert.equal(saved.timings.clear_hold,(Number(old)+1)*scale);assert.deepEqual(saved.monitoring_policies,before.monitoring_policies);
       await fill(selector,"-1");assert.equal(await at(selector).evaluate(el=>el.validity.valid),false);assert.equal((await snapshot()).timings.clear_hold,saved.timings.clear_hold);
       await fill(selector,Number(old)+2);await discard();assert.equal(await at(selector).inputValue(),String(Number(old)+1));
-      await click('[data-settings-section="grouping"]');await fill('[data-setting-path="timings.coalesce_count"]',"4");await save();assert.equal((await snapshot()).timings.coalesce_count,4);
+      assert.equal(await at('[data-settings-section], [data-setting-path="timings.coalesce_count"], [data-setting-path="timings.coalesce_window"]').count(),0);
+      assert.equal(saved.timings.coalesce_count,before.timings.coalesce_count);assert.equal(saved.timings.coalesce_window,before.timings.coalesce_window);
     });
     await run("sending.switch",async()=>{
       const before=await snapshot(),policy=before.monitoring_policies[0];await edit("policies",policy.id);await fill(field("name"),"Pending while sending changes");

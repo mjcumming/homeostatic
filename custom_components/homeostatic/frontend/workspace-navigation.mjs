@@ -19,7 +19,7 @@ export function parseWorkspacePath(path = "") {
     const kind=encoded === "methods"?"methods":"profiles", identity=extra?decode(extra):null;
     return {page:"notifications",notificationSection:kind,definition:identity?{kind,id:identity}:null};
   }
-  if(name === "settings")return {page:"configuration",settingsSection:id === "grouping" ? "grouping" : "timing"};
+  if(name === "settings")return {page:"configuration"};
   return {page:"problems"};
 }
 
@@ -35,7 +35,7 @@ export function workspacePath(route) {
     return route.notificationSection === "methods"?"/notifications/methods":"/notifications";
   }
   if(page === "history")return `/history${route.historyId ? `/${encode(route.historyId)}` : ""}`;
-  if(page === "configuration")return `/settings/${route.settingsSection === "grouping" ? "grouping" : "timing"}`;
+  if(page === "configuration")return "/settings/timing";
   return "/issues";
 }
 
@@ -47,13 +47,12 @@ export function workspaceRoute(card) {
     sourcesView:card.sourcesView,
     definition:page === "policies" && card.definitionSelection?.kind === "policies" || page === "notifications" && ["profiles","methods"].includes(card.definitionSelection?.kind) ? card.definitionSelection : null,
     notificationSection:card.notificationSection || "profiles",
-    settingsSection:card.settingsSection,
     historyId:page === "history" ? card.tools?.historyId || null : null,
     detail:card.detail ? {...card.detail} : null,
   };
 }
 
-const viewFields = ["sourcesQuery","sourcesGrouping","sourcesNeedsReview","sourcesShowDisabled","sourcesExcludedOnly","sourcesMonitoring","sourcesMobileDetail","issueQuery","issueSort","notificationSection","settingsSection"];
+const viewFields = ["sourcesQuery","sourcesGrouping","sourcesNeedsReview","sourcesShowDisabled","sourcesExcludedOnly","sourcesMonitoring","sourcesMobileDetail","issueQuery","issueSort","notificationSection"];
 const setFields = ["sourcesExpanded","issueGroupsExpanded"];
 const mapFields = ["sourcesLimits","issueGroupLimits"];
 
@@ -169,7 +168,6 @@ export class WorkspaceNavigation {
       if(route.sourcesView)card.sourcesView = route.sourcesView;
       card.definitionSelection = route.definition || null;
       if(route.notificationSection)card.notificationSection = route.notificationSection;
-      if(route.settingsSection)card.settingsSection = route.settingsSection;
       card.pendingEpisode = null;
       card.pendingNode = null;
       card.pendingHistory = null;

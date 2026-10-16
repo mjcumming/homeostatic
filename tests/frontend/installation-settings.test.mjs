@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {installationSettings} from "../../custom_components/homeostatic/frontend/installation-settings.mjs";
+import {installationSettings,editInstallation} from "../../custom_components/homeostatic/frontend/installation-settings.mjs";
 import {notificationSettings} from "./notification-profiles-fixture.mjs";
 
 function fixture() {
@@ -24,13 +24,24 @@ test("timing starts with the ordinary waits and keeps advanced values available 
   assert.deepEqual(card.settingsDraft,before);
 });
 
-test("problem grouping retains only its two controls and their different units",()=>{
+test("old grouping destinations show timing without inactive controls or empty navigation",()=>{
   const card=fixture();card.settingsSection="grouping";
+  const before=structuredClone(card.settingsDraft);
   const html=installationSettings(card);
-  assert.deepEqual(fields(html),["coalesce_count","coalesce_window"]);
-  assert.match(html,/data-setting-path="timings.coalesce_count" value="3" min="2" step="1" required data-setting-scale="1"/);
-  assert.match(html,/data-setting-path="timings.coalesce_window" value="1" min="0" step="1" required data-setting-scale="60"/);
-  assert.doesNotMatch(html,/Advanced timing/);
+  assert.deepEqual(fields(html),["retry_hold","clear_hold","startup_grace","settle","unknown_hold","rejoin_grace","startup_quiet_max","batch"]);
+  assert.doesNotMatch(html,/coalesce_|Problem grouping|installation-nav|installation-layout|data-settings-section/);
+  assert.match(html,/<h2>Timing<\/h2>/);
+  assert.deepEqual(card.settingsDraft,before);
+});
+
+test("timing edits preserve inactive saved grouping values",()=>{
+  const card=fixture();card.render=()=>{};
+  const event=key=>({type:"input",target:{dataset:{settingPath:`timings.${key}`,settingScale:"60"},value:"4",checkValidity:()=>true,closest:()=>null}});
+  assert.equal(editInstallation(card,event("clear_hold")),true);
+  assert.equal(card.settingsDraft.timings.clear_hold,240);
+  assert.equal(editInstallation(card,event("coalesce_count")),false);
+  assert.equal(card.settingsDraft.timings.coalesce_count,3);
+  assert.equal(card.settingsDraft.timings.coalesce_window,60);
 });
 
 test("initial settings load waits without offering a competing reload action",()=>{

@@ -203,9 +203,9 @@ test("newer unsaved edits stay explicit during a confirmed save's remaining runt
   assert.equal(card.settingsDraft.notification_definitions.methods.phone.name,"Newer phone");
 });
 
-test("settings section history navigation ends retention even though save scope is shared",()=>{
+test("legacy grouping history returns to Timing and retains its in-flight save",()=>{
   const {card,main}=pageFixture();
-  card.page="configuration";card.settingsSection="timing";
+  card.page="configuration";
   card.viewIdentity=()=>prototype.viewIdentity.call(card);
   card.render=()=>prototype.renderPage.call(card);
   card.dialog={close(){}};
@@ -214,15 +214,16 @@ test("settings section history navigation ends retention even though save scope 
   card.render();
   assert.match(main.innerHTML,/Save settings|Saving…/);
   card.current={status:"unavailable",data:{available:false}};card.render();
-  assert.equal(card.renderedView,"configuration:timing");
+  assert.equal(card.renderedView,"configuration");
   assert.equal(card.retainedSave.scope,"settings");
   const navigation=new WorkspaceNavigation(card);
   navigation.applyPath("/settings/grouping");
-  assert.equal(card.settingsSection,"grouping");
+  assert.equal(card.page,"configuration");
+  assert.equal(card.settingsSection,undefined);
   assert.equal(card.scopedBusy,"settings");
-  assert.equal(card.retainedSave,null);
-  assert.match(main.innerHTML,/Monitoring unavailable/);
-  assert.doesNotMatch(main.innerHTML,/Saving…/);
+  assert.equal(card.retainedSave.scope,"settings");
+  assert.match(main.innerHTML,/Saving…/);
+  assert.doesNotMatch(main.innerHTML,/Problem grouping/);
 });
 
 test("unchanged issue details retain disclosures and exclude raw diagnostic controls",async()=>{

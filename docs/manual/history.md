@@ -24,6 +24,7 @@ The expanded example retains the finding recorded when the Garage relay issue en
 | Cleared | Homeostatic observed the recovery required by that check. A shared problem can clear while individual issues remain open. |
 | Monitoring ended | The source left that monitoring scope. Recovery was not established. |
 | Joined another problem | Homeostatic grouped the issue into another problem. Recovery was not established. |
+| Issues separated | The problems continue as separate issues. Follow their links to inspect them; separation does not establish recovery. |
 
 For **Joined another problem**, select **View related problem** when available. It opens the continuing issue or its retained History entry. If the related problem is no longer retained, History says so.
 

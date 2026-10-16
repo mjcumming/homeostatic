@@ -206,7 +206,7 @@ action: homeostatic.operator_controls
 
 ### `homeostatic.resolved_history`
 
-No fields. Returns `started_at`, `retention` and `episodes`, newest first. Each record contains the issue as it ended, `resolved_at`, `resolution` (`cleared`, `removed` or `absorbed`), `absorbed_into` and a source display snapshot when available.
+No fields. Returns `started_at`, `retention` and `episodes`, newest first. Each record contains the issue as it ended, `resolved_at`, `resolution` (`cleared`, `removed`, `absorbed` or `split`), `absorbed_into`, `split_into` and a source display snapshot when available. `split_into` lists continuing issue IDs when issues separate; it is empty for other outcomes.
 
 New source snapshots retain known ownership and canonical-source metadata. Older records may lack it. Historical names and associations do not change when the current registry changes. `removed` does not establish recovery; `absorbed` identifies an issue that joined another issue. Retention is documented in [Notification and control settings](manual/settings-reference.md).
 
@@ -391,7 +391,7 @@ The administrator-only sidebar panel is `/homeostatic`. Encode identity values a
 | `/homeostatic/history` | History |
 | `/homeostatic/history/<episode_id>` | Selected History entry |
 | `/homeostatic/settings` or `/homeostatic/settings/timing` | Timing settings |
-| `/homeostatic/settings/grouping` | Problem grouping settings |
+| `/homeostatic/settings/grouping` | Legacy route to installation timing settings |
 
 The older `/homeostatic/notifications/policies` route opens Policies, with an optional policy id after it. Unrecognized routes fall back to Open issues. If an issue is absent from both current monitoring and retained history, the page reports that its outcome cannot be determined.
 

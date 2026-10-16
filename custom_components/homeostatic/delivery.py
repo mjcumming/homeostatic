@@ -345,7 +345,9 @@ class DeliveryState:
                     "action": "resolve",
                     "silent": True,
                     "resolution": delivery.resolution,
-                    "message": f"Problem {delivery.resolution}.",
+                    "message": "Monitoring continues as separate issues."
+                    if delivery.resolution == "split"
+                    else f"Problem {delivery.resolution}.",
                 }
             )
 
@@ -403,6 +405,8 @@ class DeliveryState:
                     if resolution == "notifications_disabled"
                     else "Monitoring continues in another notification."
                     if resolution == "replaced"
+                    else "Monitoring continues as separate issues."
+                    if resolution == "split"
                     else "All reported problems ended.",
                 }
             )
