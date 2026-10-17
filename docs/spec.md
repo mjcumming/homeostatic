@@ -436,7 +436,7 @@ Home Assistant installs the manifest requirement through its normal dependency m
 
 ## HA registry references
 
-The integration uses the public automation-reference helpers in the [pinned HA automation component](https://github.com/home-assistant/core/blob/2026.9.3/homeassistant/components/automation/__init__.py) for suggestions, and Home Assistant's [entity registry](https://developers.home-assistant.io/docs/entity_registry_index/) and [device registry](https://developers.home-assistant.io/docs/device_registry_index/) interfaces for identity and metadata. Runtime contracts are tested against the pinned Home Assistant version above; registry associations do not imply physical-device health.
+The integration uses the public automation-reference helpers in the [pinned HA automation component](https://github.com/home-assistant/core/blob/2026.9.3/homeassistant/components/automation/__init__.py) for suggestions, and Home Assistant's [entity registry](https://developers.home-assistant.io/docs/entity_registry_index/) and [device registry](https://developers.home-assistant.io/docs/device_registry_index/) interfaces for identity and metadata. A registry device belongs to the single config entry Home Assistant records for it; discovery and phone-route lookup read that owning entry directly and never the removed multi-entry set, which Home Assistant 2026.10 reports as deprecated on every read. A device's integration comes from its eligible member entities when they have one and otherwise from the device's own owning entry. Runtime contracts are tested against the pinned Home Assistant version above; registry associations do not imply physical-device health.
 
 ## Dashboard behavior
 

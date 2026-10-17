@@ -11,9 +11,15 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic.config import Settings
-from custom_components.homeostatic.enrollment import evaluate, inventory
+from custom_components.homeostatic.const import DOMAIN
+from custom_components.homeostatic.enrollment import (
+    device_members,
+    evaluate,
+    inventory,
+)
 from custom_components.homeostatic.monitoring_runtime import enrollment_rules
 from tests.policy_helpers import current_config, monitoring_policy
+from tests.registry_helpers import forbid_deprecated_device_properties
 
 
 def test_selective_enrollment_preserves_large_inventory(hass: HomeAssistant) -> None:
@@ -117,3 +123,53 @@ def test_selective_enrollment_preserves_large_inventory(hass: HomeAssistant) -> 
         f"entity:{reference}" for reference in references
     }
     assert len(evaluated) == len(sources)
+
+
+def test_device_ownership_uses_the_single_owning_entry(hass: HomeAssistant) -> None:
+    """Discovery reads each device's owning entry without the deprecated set."""
+    owner = MockConfigEntry(domain="test", title="Controller")
+    helper = MockConfigEntry(domain="switch_as_x", title="Converted switch")
+    own = MockConfigEntry(domain=DOMAIN, title="Homeostatic")
+    for entry in (owner, helper, own):
+        entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    devices = dr.async_get(hass)
+    sensor_device = devices.async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "sensor")}, name="Sensor"
+    )
+    reading = registry.async_get_or_create(
+        "sensor", "test", "reading", config_entry=owner, device_id=sensor_device.id
+    )
+    quiet_device = devices.async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "quiet")}, name="Quiet"
+    )
+    registry.async_get_or_create(
+        "sensor",
+        "test",
+        "diagnostic",
+        config_entry=owner,
+        device_id=quiet_device.id,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    )
+    helper_device = devices.async_get_or_create(
+        config_entry_id=helper.entry_id, identifiers={("switch_as_x", "fan")}
+    )
+    own_device = devices.async_get_or_create(
+        config_entry_id=own.entry_id, identifiers={(DOMAIN, "self")}
+    )
+    settings = Settings.from_data(
+        current_config([monitoring_policy("controllers", {"kind": ["integration"]})])
+    )
+    with forbid_deprecated_device_properties():
+        members = device_members(hass)
+        sources = inventory(hass, settings, {})
+    assert members == {sensor_device.id: (reading.entity_id,)}
+    assert f"device:{helper_device.id}" not in sources
+    assert f"device:{own_device.id}" not in sources
+    assert sources[f"device:{sensor_device.id}"].attributes["integration"] == (
+        owner.entry_id,
+    )
+    quiet = sources[f"device:{quiet_device.id}"]
+    assert quiet.availability_entities == ()
+    assert quiet.attributes["integration"] == (owner.entry_id,)
+    assert quiet.attributes["integration_domain"] == ("test",)

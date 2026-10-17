@@ -75,8 +75,7 @@ def destinations(hass: HomeAssistant) -> list[Destination]:
     devices = dr.async_get(hass)
     for entry in hass.config_entries.async_entries("mobile_app"):
         device = next(
-            (item for item in devices.devices if entry.entry_id in item.config_entries),
-            None,
+            iter(dr.async_entries_for_config_entry(devices, entry.entry_id)), None
         )
         if device is None:
             continue

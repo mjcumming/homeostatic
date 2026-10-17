@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T21:50:00Z",
+  "outcome": "Live before/after measurement of the deprecated DeviceEntry.config_entries removal on the household installation. Median server save evaluation fell from 5.53 s to 1.62 s, median save response from 7.30 s to 3.18 s, and the per-minute reconcile cycle's event-loop block from 4.6 to 5.5 s to about 0.8 s. The catalog reload after an edit is unchanged at about 1.8 s and is now the largest remaining share of a Stop Monitoring action.",
+  "plan": "Homeostatic save and refresh latency investigation plan, phase 3 step 1 (replace deprecated device property reads)",
+  "status": {
+    "branch": "main",
+    "revision": "a7815a2",
+    "dirty": true,
+    "code_changes": "custom_components/homeostatic/enrollment.py (device ownership scan and device owner fallback read config_entry_id), custom_components/homeostatic/notification_routes.py (phone device lookup through dr.async_entries_for_config_entry); tests/registry_helpers.py, tests/test_inventory_shape.py and tests/test_notification_routes.py guard against any read of the deprecated properties",
+    "installed_component": "working tree copied over the Samba share at 21:17Z (76 files, byte-identical after installation); Core restarted 21:18:41Z",
+    "commit": "Not committed",
+    "release": "Not published"
+  },
+  "installation": {
+    "hardware": "Raspberry Pi 5 with NVMe",
+    "home_assistant": "2026.10.0 on Home Assistant OS under Supervisor",
+    "python": "3.14",
+    "homeostatic": "1.8.3 plus the uncommitted working tree with this change",
+    "health_tree": "0.8.0",
+    "registry_entities": 4977,
+    "registry_devices": 702,
+    "catalog_pages": 63,
+    "catalog_rows": "11,809 to 11,823",
+    "notifications_enabled": true,
+    "other_load": "custom_components.wiim still logs at debug (about 3,000 journal lines per minute); eero coordinator refreshes remain the largest non-Homeostatic slow callback"
+  },
+  "method": {
+    "access": "signed-in Home Assistant frontend session in the Claude desktop browser pane at homeassistant.local:8123 for the restart (REST homeassistant.restart; the response was a 500 because the server stopped mid-request, and the journal confirms the restart), logger.set_level and profiler service calls, the Supervisor journal (/api/hassio/core/logs with a Range header) and the panel actions; Samba share for installing and verifying the component",
+    "before": "the six unprofiled actions and the asyncio debug window recorded in live-latency-2026-10-17.json with the previous build on the same day",
+    "loggers": "custom_components.homeostatic and custom_components.homeostatic.save_timing set to debug 21:20:45Z, returned to warning 21:33:02Z",
+    "asyncio_debug": "profiler.set_asyncio_debug enabled 21:29:10Z to 21:32:50Z, nobody using the panel",
+    "browser_timing": "live-latency-2026-10-17/inpage-timing.js installed after the restart, plus a MutationObserver attached to the panel's shadow roots for render settle (missing for the first Stop, which was recorded before the observer was attached)",
+    "target": "entity fan.main_floor_bathroom_fan (switch_as_x) on device Main Floor Bathroom Fan (isy994, 16ca9f62a3d0569f970f5cab47d5971d), healthy, no open issue; Stop Monitoring and Resume availability monitoring on the entity's Monitoring detail page; each Resume returned the configuration revision to 7731a5ea",
+    "reconcile_tick": "fires at about :28.0 in this boot (startup hold ended 21:21:28.6Z); the tick's blocking step ends at :28.8",
+    "deprecation_warnings": "zero journal lines naming homeostatic with a deprecation report since the restart",
+    "cprofile": "not repeated; the asyncio debug window and save phases attribute the change"
+  },
+  "measurements": {
+    "cycles": [
+      {
+        "label": "stop1",
+        "confirm_utc": "2026-10-17T21:24:35.357Z",
+        "second": 35.4,
+        "server_evaluation": 2.453746,
+        "server_total": 3.071799,
+        "client_save": 3.282,
+        "catalog_reload": 1.75,
+        "catalog_pages": 63,
+        "catalog_rows": 11809,
+        "catalog_median_page_ms": 85.5,
+        "settled": null
+      },
+      {
+        "label": "resume1",
+        "confirm_utc": "2026-10-17T21:25:21.482Z",
+        "second": 21.5,
+        "server_evaluation": 1.515833,
+        "server_total": 3.013034,
+        "client_save": 3.161,
+        "catalog_reload": 4.436,
+        "catalog_pages": 63,
+        "catalog_rows": 11813,
+        "catalog_median_page_ms": 169.7,
+        "settled": 7.697
+      },
+      {
+        "label": "stop2",
+        "confirm_utc": "2026-10-17T21:25:50.377Z",
+        "second": 50.4,
+        "server_evaluation": 1.610838,
+        "server_total": 2.200347,
+        "client_save": 2.556,
+        "catalog_reload": 1.804,
+        "catalog_pages": 63,
+        "catalog_rows": 11811,
+        "catalog_median_page_ms": 103.9,
+        "settled": 4.434
+      },
+      {
+        "label": "resume2",
+        "confirm_utc": "2026-10-17T21:26:02.597Z",
+        "second": 2.6,
+        "server_evaluation": 2.394624,
+        "server_total": 3.0204,
+        "client_save": 3.159,
+        "catalog_reload": 2.154,
+        "catalog_pages": 63,
+        "catalog_rows": 11815,
+        "catalog_median_page_ms": 118.3,
+        "settled": 5.377
+      },
+      {
+        "label": "stop3",
+        "confirm_utc": "2026-10-17T21:26:44.046Z",
+        "second": 44.0,
+        "server_evaluation": 2.551995,
+        "server_total": 3.1639,
+        "client_save": 3.352,
+        "catalog_reload": 1.957,
+        "catalog_pages": 63,
+        "catalog_rows": 11813,
+        "catalog_median_page_ms": 116.4,
+        "settled": 5.369
+      },
+      {
+        "label": "resume3",
+        "confirm_utc": "2026-10-17T21:26:56.274Z",
+        "second": 56.3,
+        "server_evaluation": 1.540766,
+        "server_total": 2.16201,
+        "client_save": 2.397,
+        "catalog_reload": 1.412,
+        "catalog_pages": 63,
+        "catalog_rows": 11817,
+        "catalog_median_page_ms": 66.0,
+        "settled": 3.875
+      },
+      {
+        "label": "stop4",
+        "confirm_utc": "2026-10-17T21:27:08.519Z",
+        "second": 8.5,
+        "server_evaluation": 1.639582,
+        "server_total": 3.1118,
+        "client_save": 3.429,
+        "catalog_reload": 1.822,
+        "catalog_pages": 63,
+        "catalog_rows": 11815,
+        "catalog_median_page_ms": 128.9,
+        "settled": 5.31
+      },
+      {
+        "label": "resume4",
+        "confirm_utc": "2026-10-17T21:27:35.420Z",
+        "second": 35.4,
+        "server_evaluation": 1.545601,
+        "server_total": 2.145746,
+        "client_save": 2.52,
+        "catalog_reload": 1.468,
+        "catalog_pages": 63,
+        "catalog_rows": 11819,
+        "catalog_median_page_ms": 84.4,
+        "settled": 4.043
+      },
+      {
+        "label": "stop5",
+        "confirm_utc": "2026-10-17T21:27:47.619Z",
+        "second": 47.6,
+        "server_evaluation": 2.568717,
+        "server_total": 3.174541,
+        "client_save": 3.895,
+        "catalog_reload": 2.646,
+        "catalog_pages": 63,
+        "catalog_rows": 11817,
+        "catalog_median_page_ms": 84.9,
+        "settled": 6.611
+      },
+      {
+        "label": "resume5",
+        "confirm_utc": "2026-10-17T21:27:59.761Z",
+        "second": 59.8,
+        "server_evaluation": 1.530806,
+        "server_total": 2.281941,
+        "client_save": 2.443,
+        "catalog_reload": 2.529,
+        "catalog_pages": 63,
+        "catalog_rows": 11821,
+        "catalog_median_page_ms": 130.1,
+        "settled": 5.031
+      },
+      {
+        "label": "stop6",
+        "confirm_utc": "2026-10-17T21:28:28.310Z",
+        "second": 28.3,
+        "server_evaluation": 1.628666,
+        "server_total": 2.516718,
+        "client_save": 4.031,
+        "catalog_reload": 1.431,
+        "catalog_pages": 63,
+        "catalog_rows": 11819,
+        "catalog_median_page_ms": 96.1,
+        "settled": 5.545
+      },
+      {
+        "label": "resume6",
+        "confirm_utc": "2026-10-17T21:28:40.487Z",
+        "second": 40.5,
+        "server_evaluation": 1.547884,
+        "server_total": 3.029319,
+        "client_save": 3.199,
+        "catalog_reload": 1.18,
+        "catalog_pages": 63,
+        "catalog_rows": 11823,
+        "catalog_median_page_ms": 63.8,
+        "settled": 4.444
+      }
+    ],
+    "cycle_medians_after": {
+      "server_evaluation": 1.62,
+      "server_total": 3.017,
+      "client_save": 3.18,
+      "catalog_reload": 1.813,
+      "settled": 5.31
+    },
+    "cycle_medians_after_stop": {
+      "server_evaluation": 2.047,
+      "server_total": 3.092,
+      "client_save": 3.39,
+      "catalog_reload": 1.813,
+      "settled": 5.369
+    },
+    "cycle_medians_after_resume": {
+      "server_evaluation": 1.543,
+      "server_total": 2.647,
+      "client_save": 2.84,
+      "catalog_reload": 1.811,
+      "settled": 4.737
+    },
+    "cycle_medians_before": {
+      "server_evaluation": 5.53,
+      "server_total": 6.66,
+      "client_save": 7.3,
+      "catalog_reload": 1.77,
+      "settled": 8.8
+    },
+    "asyncio_debug_window": {
+      "seconds": 220,
+      "slow_callbacks": 19,
+      "blocked_seconds_total": 8.334,
+      "homeostatic_refresh_blocked_seconds": 7.614,
+      "homeostatic_share_of_wall_time": "3.5 percent",
+      "reconcile_cycle_blocking_steps_seconds": [
+        0.806,
+        0.815,
+        1.701,
+        0.813
+      ],
+      "state_driven_refresh_blocking_seconds": [
+        0.267,
+        1.181,
+        0.264,
+        0.236,
+        0.222
+      ],
+      "completion_steps_seconds": [
+        0.149,
+        0.146,
+        0.135,
+        0.161,
+        0.149,
+        0.148,
+        0.147,
+        0.138,
+        0.136
+      ],
+      "before": {
+        "seconds": 183,
+        "homeostatic_refresh_blocked_seconds": 17.48,
+        "homeostatic_share_of_wall_time": "9.6 percent",
+        "reconcile_cycle_blocking_steps_seconds": [
+          4.648,
+          5.474,
+          4.579
+        ]
+      }
+    },
+    "one_second_pauses": "still present and unattributed: snapshot 1.046 s in Resume 1, checkpoint 0.984 s in Stop 4 and 1.002 s in Resume 6, idle snapshots of 1.003, 0.985, 1.012 and 1.057 s; the 1.181 s state-driven refresh step at 21:29:25Z contains one",
+    "catalog_load_first_open_after_restart": {
+      "pages": 63,
+      "rows": 11811,
+      "wall_seconds": 3.934,
+      "median_page_ms": 152,
+      "note": "first Monitoring load three minutes after the restart; not comparable with the Open issues load in the before receipt"
+    }
+  },
+  "raw_captures": [
+    "live-latency-after-2026-10-17/client-timing-2026-10-17.csv",
+    "live-latency-after-2026-10-17/server-save-timing-2026-10-17.txt",
+    "live-latency-after-2026-10-17/asyncio-debug-window-2026-10-17.txt"
+  ],
+  "verification": {
+    "quick_checks": "uv run --no-sync python script/check.py --quick passed",
+    "focused_tests": "tests/test_inventory_shape.py and tests/test_notification_routes.py, 13 passed",
+    "live_state_after": "configuration revision 7731a5ea (pre-test value), fan available, monitoring resumed, loggers at warning, asyncio debug off, Profiler integration left installed"
+  },
+  "remaining": "the catalog reload (about 1.8 s) and the follow-up reads are now the largest shares of a Stop action; save evaluation still takes 1.5 to 2.6 s, more than the 0.8 s reconcile block, so the exclusion-change work after discovery is the next thing to attribute; the 1.0 s pauses remain unattributed"
+}

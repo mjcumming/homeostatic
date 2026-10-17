@@ -1,5 +1,6 @@
 """Delivery discovery scenarios use provider identity and stable saved routes."""
 
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -7,10 +8,13 @@ import pytest
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic import notification_definitions, notification_routes
 from custom_components.homeostatic.notification_routes import Destination
+from tests.registry_helpers import forbid_deprecated_device_properties
 
 
 class NotifyProvider:
@@ -263,3 +267,44 @@ def test_direct_notify_destination_tracks_state_and_disablement(
         entity.entity_id, disabled_by=er.RegistryEntryDisabler.USER
     )
     assert notification_routes.unavailable_destinations(hass, policy) == [channel]
+
+
+def test_phone_destinations_resolve_registered_devices_by_owning_entry(
+    hass: HomeAssistant,
+) -> None:
+    """Each phone route comes from its registration's device, read without the deprecated set."""
+    phone = MockConfigEntry(
+        domain="mobile_app",
+        title="Phone",
+        data={
+            "device_name": "Pat's phone",
+            "user_id": "owner",
+            "app_data": {"push_token": "token", "push_url": "https://push.test"},
+        },
+    )
+    unregistered = MockConfigEntry(domain="mobile_app", title="Removed phone")
+    unrelated = MockConfigEntry(domain="test", title="Controller")
+    for entry in (phone, unregistered, unrelated):
+        entry.add_to_hass(hass)
+    devices = dr.async_get(hass)
+    devices.async_get_or_create(
+        config_entry_id=unrelated.entry_id, identifiers={("test", "unrelated")}
+    )
+    device = devices.async_get_or_create(
+        config_entry_id=phone.entry_id, identifiers={("mobile_app", "phone")}
+    )
+    hass.data["mobile_app"] = {
+        "devices": {"webhook": device},
+        "config_entries": {"webhook": phone},
+        "notify": SimpleNamespace(registered_targets={"mobile_app_phone": "webhook"}),
+    }
+    with forbid_deprecated_device_properties():
+        found = notification_routes.destinations(hass)
+    assert found == [
+        Destination(
+            channel=f"phone:{device.id}",
+            name="Pat's phone",
+            user_id="owner",
+            available=True,
+        )
+    ]

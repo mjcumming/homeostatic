@@ -201,11 +201,9 @@ def inventory(
     device_ids.update(
         device.id
         for device in devices.devices
-        if any(
-            (entry := hass.config_entries.async_get_entry(entry_id)) is not None
-            and entry.domain not in {DOMAIN, "switch_as_x"}
-            for entry_id in device.config_entries
-        )
+        if (entry := hass.config_entries.async_get_entry(device.config_entry_id))
+        is not None
+        and entry.domain not in {DOMAIN, "switch_as_x"}
     )
     device_ids.update(
         device_id
@@ -227,7 +225,7 @@ def inventory(
         }
         if not owner_ids and device is not None:
             # Loss of selected evidence must not silently unmatch an owner rule.
-            owner_ids = set(device.config_entries)
+            owner_ids = {device.config_entry_id}
         device_raw: Attributes = {
             "kind": ("device",),
             "device": (device_id,),
