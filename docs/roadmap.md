@@ -28,7 +28,7 @@ The [Homeostatic manual](guide.md) covers supported setup and operation. What Ho
 
 ## Current work
 
-The next outcome is broader acceptance on physical Safari, real delivery providers and representative household load.
+The next policy addition is jammed locks, specified in [proposed ADR 0075](adr/0075-report-jammed-locks.md). The decision draft is ready for review; implementation and validation have not started. Completion requires the policy editor and state mapping, executable lifecycle and notification scenarios, and corresponding specification, guide and changelog updates.
 
 The [shared device issue workflow](adr/0094-one-device-issue-workflow.md) is implemented, installed and verified for a local trial. Open issues and Monitoring open the same dialog for current issues independently owned by that device, including partial availability and other conditions, with individual response exceptions. The [acceptance and installation receipt](performance/device-issue-workflow-2026-10-17.json) records selection and ownership scenarios, rendered desktop and phone workflows, enlarged-text inspection, the flat Stop Monitoring confirmation and live verification with unchanged saved settings. The earlier availability-only build remains recorded in its [historical trial receipt](performance/device-availability-selection-2026-10-17.json). These UI changes are committed and remain unreleased. Physical Safari and full release acceptance remain outside this trial; other non-entity inspector simplification remains separate unfinished work.
 
@@ -109,12 +109,11 @@ Local implementation, successful checks, pilot installation and release are sepa
 
 ## Later
 
-- Lawn mower errors. When Home Assistant reports a lawn mower's activity as error, that opens an issue the way a vacuum error does. Mowing, docked, paused, returning, and idle end it.
-- Problem and tamper sensors. A problem sensor or a tamper sensor opens an issue while it is on. Off ends the issue.
-- Triggered alarms. An alarm panel opens an issue while Home Assistant reports it as triggered. Disarmed, armed, and the panel's other states end it.
-- Jammed locks. A lock opens an issue while Home Assistant reports it as jammed. Locked, unlocked, and the lock's other states end it.
+Evaluate additions against the [product scope](product-specification.md#product-scope): prioritize Home Assistant and equipment problems, and require a common household need for other built-in policy types. Specialized conditions belong in Home Assistant automations.
+
+- Standard reported conditions have separate proposed decisions: [problem sensors](adr/0076-report-problem-sensors.md), [lawn mower errors](adr/0077-report-lawn-mower-errors.md), [tamper](adr/0078-report-tamper-sensors.md), [unsafe conditions](adr/0079-report-safety-sensors.md), [water leaks](adr/0080-report-moisture-sensors.md), [smoke](adr/0081-report-smoke-sensors.md), [gas](adr/0082-report-gas-sensors.md), [carbon monoxide](adr/0083-report-carbon-monoxide-sensors.md) and [triggered alarms](adr/0084-report-triggered-alarms.md). Each identifies its audience, useful response, selection requirements and recovery evidence. Implementation has not started. Problem sensors follow jammed locks in priority; the other proposals have no committed implementation order. Completion requires the policy editor and observation mapping, executable lifecycle and mocked notification scenarios, and specification, guide and changelog updates. Proposed notification defaults remain subject to review.
 - Device availability reported by integrations themselves. Home Assistant has a proposal for integrations to report device availability directly. Homeostatic already follows that model and will read those reports once Home Assistant ships them.
-- Checks beyond what Home Assistant reports: readings that have gone stale, a detector that has hung, and a command that didn't complete. Each one needs recordings from real devices of normal running, a failure and the recovery before Homeostatic reports it.
+- Consider checks for stale readings or stalled detectors only where a common monitoring need and reliable evidence justify a built-in policy. Each proposal needs recordings from real devices of normal running, failure and recovery. Individual command-completion checks, including whether a cover reached a commanded position, stay outside the built-in scope and belong in Home Assistant automations.
 - A watchdog that runs outside Home Assistant, so you hear about it when Home Assistant itself stops.
 - Watching every entity on very large installs, 6,000 or more. This needs testing under real household load on the hardware people actually run.
 - Reconsidering household functions if a clear use case and a useful setup workflow emerge. Their stored definitions are dormant.

@@ -10,6 +10,16 @@ Homeostatic helps you run Home Assistant by identifying problems in monitored in
 
 The initial redesign serves the administrator who configures monitoring and investigates issues. Notification recipients need understandable messages and useful destinations within their existing access permissions. Access for household members who are not administrators remains separate planned work. These are design roles, not findings from a usability study.
 
+### Product scope
+
+Homeostatic's core scope is operating Home Assistant and its connected equipment: integration, device and entity availability, reported faults and errors, Repairs, battery problems and broken configuration. Checks should help someone recognize a problem and decide what to do about it.
+
+Additional built-in policy types must address common household monitoring needs with a reusable condition, understandable settings and credible evidence of both the problem and its recovery. Thermostat progress and temperature limits meet this test: inadequate heating or cooling, freeze risk and refrigeration warming are common concerns. These checks assess reported temperatures against configured expectations; Home Assistant does not have to report an explicit error first.
+
+Review a proposed policy by asking: who needs to know, why does the condition matter, and what useful action could they take? Identify the common use across households, the evidence available and the setup burden. A condition being technically detectable is insufficient reason to add a policy type.
+
+Specialized conditions, household-specific sequences and individual command-completion checks belong in Home Assistant automations. Verifying that a cover reached a commanded position is outside the built-in policy scope. A fault explicitly reported by that equipment remains a candidate for core monitoring. Automation authors own custom detection and recovery logic; the unfinished workflow for bringing their alerts into Homeostatic is tracked in the [roadmap](roadmap.md).
+
 ### User goals
 
 | Goal | Successful outcome |

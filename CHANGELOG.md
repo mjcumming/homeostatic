@@ -17,6 +17,7 @@
 ### Documentation
 
 - Record the accepted browser refresh and catalog-loading boundaries.
+- Define the built-in policy scope around Home Assistant and equipment problems plus common household monitoring needs; leave specialized conditions and individual command-completion checks to Home Assistant automations.
 
 ## [1.8.3] - 2026-10-16
 
