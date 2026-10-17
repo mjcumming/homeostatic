@@ -1,0 +1,38 @@
+Cycle 1, Stop Monitoring, device "Main Floor Bathroom Fan" (isy994, device 16ca9f62a3d0569f970f5cab47d5971d), built-in browser on the Windows PC.
+Confirm click 2026-10-17T20:44:50.811Z (second-of-minute 50.8, 4.1 s after the 60 s reconcile tick at about :46.7). Confirmation listed one source: fan.main_floor_bathroom_fan. Devices policy excluded_sources 13 -> 14. Configuration revision 7731a5ea... -> 3bbad0e6...
+
+Client timeline (seconds after the confirm click):
+0.016  save_settings request sent
+7.660  subscription event, catalog_revision 4
+8.157  subscription event, catalog_revision 5 (static catalog replaced)
+8.192  save_settings response (saved: true)
+8.206  first catalog page requested
+11.152 last of 63 catalog pages received (11,810 rows; 11.74 s summed request time over 4 workers)
+13.081 last request finished (5 homeostatic/source reads 1.46 s summed, 1 homeostatic/configuration 0.45 s)
+13.093 last DOM mutation in the panel (settled)
+
+Server save_timing (America/Chicago, 15:44:xx):
+52.011 snapshot 1.012947            <- end of the reconcile cycle that started at :46.7 (blocked the loop until here)
+52.220 request_queue 0.000012        <- save handler task started 1.41 s after the click
+52.220 save_lock 0.000006
+52.228 validation 0.007036
+52.244 storage_write 0.233292        <- reconcile cycle's own save finishing
+52.302 storage_read 0.057550
+52.331 storage_compare 0.029324
+52.461 runtime_lock 0.228912         <- waited for the reconcile cycle's save
+52.462 pending_observations 0.000006
+52.594 checkpoint 0.131976
+52.594 routes_before 0.000380
+58.093 evaluation 5.498013           <- the save's own full discovery (reconcile=True because exclusions changed)
+58.093 routes_after 0.000165
+58.248 snapshot 0.146219
+58.399 storage_write 0.151101
+58.459 storage_read 0.059297
+58.491 storage_compare 0.031928
+58.514 complete 0.420555
+58.658 request_total 6.437509
+58.893 snapshot 0.140582             <- follow-up refresh/save
+59.037 storage_compare 0.027422
+15:45:03.342 snapshot 1.036062       <- state-driven refresh with a 1.0 s snapshot spike
+
+Attribution of 13.1 s: evaluation/discovery 5.50 (42%); catalog reload 2.95 (23%); loop blocked by background reconcile before the handler started 1.41 (11%); follow-up reads and render after the catalog 1.94 (15%); save I/O, checkpoint and lock wait 0.78 (6%); server-to-client response gap and rest 0.5 (4%).

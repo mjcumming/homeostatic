@@ -1,0 +1,7 @@
+cProfile windows (profiler.start seconds=60; cProfile roughly doubles Python CPU time, so durations inside these windows are inflated and only the distribution counts).
+
+Profile 1: started 2026-10-17T20:53:53Z, ended 20:54:53Z. Idle house plus the reconcile tick at 20:54:46.7. No edit (the blocking service call exceeded the tool's 45 s limit and cancelled the planned edits). Output /config/profile.1792270436371792.cprof (873,337 bytes) and callgrind.out.1792270436371792.
+Profile 2: started 2026-10-17T20:56:35.002Z, ended 20:57:35Z. Contains the reconcile tick at 20:56:46.7, a Stop at 20:56:48.841Z and a Resume at 20:57:24.349Z.
+
+Profiled Stop (under cProfile, 2 s after the tick fired): confirm 20:56:48.841Z (second 48.8); save_settings 21.915 s; events catalog_revision 10 at 13.926 s and 11 at 21.879 s; catalog pages 21.926 -> 24.317 s (63 pages, 11,816 rows, 9.54 s summed); 5 source reads 9.54 s summed; configuration read 0.42 s; settled 24.362 s. excluded_sources 13 -> 14.
+Profiled Resume (under cProfile, clear slot): confirm 20:57:24.349Z (second 24.3); save_settings 12.430 s; event catalog_revision 12 at 12.411 s; catalog pages 12.453 -> 13.781 s (63 pages, 11,820 rows, 5.30 s summed); 2 source reads 0.27 s; configuration read 0.15 s; settled 13.830 s. excluded_sources 14 -> 13; configuration revision back to 7731a5ea... (pre-test value).

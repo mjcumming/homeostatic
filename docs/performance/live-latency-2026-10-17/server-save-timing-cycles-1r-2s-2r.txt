@@ -1,0 +1,57 @@
+Server save_timing lines (America/Chicago) for Resume 1 (15:48:27), Stop 2 (15:49:44) and Resume 2 (15:50:30), from the Supervisor journal.
+
+Resume 1 (client confirm 20:48:27.620Z, client round trip 6.054 s):
+15:48:27.703 request_queue 0.000018      <- handler started 0.08 s after the click
+15:48:27.703 save_lock 0.000006
+15:48:27.710 validation 0.006704
+15:48:27.714 runtime_lock 0.000009
+15:48:27.717 pending_observations 0.000010
+15:48:27.838 checkpoint 0.121125
+15:48:27.838 routes_before 0.000344
+15:48:33.082 evaluation 5.243671
+15:48:33.083 routes_after 0.000142
+15:48:33.238 snapshot 0.146732
+15:48:33.303 storage_write 0.064709
+15:48:33.351 storage_read 0.047750
+15:48:33.373 storage_compare 0.022054
+15:48:33.395 complete 0.312327
+15:48:33.542 request_total 5.839303     <- response reached the client 0.13 s later
+15:48:51.139 snapshot 0.145313          <- next reconcile cycle save (tick :46.7)
+
+Stop 2 (client confirm 20:49:44.011Z, 2.7 s before the tick; client round trip 12.605 s):
+15:49:44.088 request_queue 0.000014      <- handler started 0.08 s after the click
+15:49:44.088 save_lock 0.000005
+15:49:44.096 validation 0.007276
+15:49:44.101 runtime_lock 0.000007
+15:49:44.105 pending_observations 0.000008
+15:49:45.108 checkpoint 1.002516        <- 1.0 s pause inside checkpoint creation (same ~1.0 s signature as the snapshot spikes)
+15:49:45.108 routes_before 0.000371
+15:49:50.660 evaluation 5.551736
+15:49:50.660 routes_after 0.000136
+15:49:50.819 snapshot 0.149709
+15:49:51.605 storage_write 0.786250
+15:49:51.660 storage_read 0.054553
+15:49:51.686 storage_compare 0.025718
+15:49:51.711 complete 1.050346
+15:49:51.856 request_total 7.768230     <- but the client received the response at 15:49:56.6
+15:49:56.490 snapshot 0.144907          <- the reconcile tick queued behind the save ran its full discovery from :51.9 to :56.3 and blocked the loop; the save response was only flushed after it (4.75 s gap)
+15:49:57.030 snapshot 0.147816          <- a further refresh/save
+15:50:08.173 snapshot 1.031385          <- state-driven refresh with the 1.0 s snapshot spike
+
+Resume 2 (client confirm 20:50:30.337Z, clear slot; client round trip 6.128 s):
+15:50:30.417 request_queue 0.000016
+15:50:30.417 save_lock 0.000005
+15:50:30.427 validation 0.009465
+15:50:30.430 runtime_lock 0.000007
+15:50:30.431 pending_observations 0.000005
+15:50:30.555 checkpoint 0.123660
+15:50:30.555 routes_before 0.000356
+15:50:35.873 evaluation 5.317395
+15:50:35.873 routes_after 0.000139
+15:50:36.020 snapshot 0.138637
+15:50:36.138 storage_write 0.117436
+15:50:36.191 storage_read 0.053331
+15:50:36.219 storage_compare 0.027194
+15:50:36.242 complete 0.368769
+15:50:36.392 request_total 5.975569
+15:50:55.339 snapshot 0.164933          <- next reconcile save; this tick's cycle ended at :55.3 instead of :51, i.e. it started about 4 s late or ran longer

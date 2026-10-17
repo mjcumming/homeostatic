@@ -1,0 +1,218 @@
+file=C:/Users/mike/AppData/Local/Temp/claude/C--GitHub-homeostatic/2bacaaef-9c2f-48e2-a58c-80e0fd57cea5/scratchpad/perf/profiles/profile.1792270595062443.cprof total_tt=59.305s calls=30877979
+
+=== top by cumulative time ===
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+  109/108    0.069    0.001   92.488    0.856 /usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:562(_run_once)
+8845/8819    0.022    0.000   37.891    0.004 /usr/local/lib/python3.14/asyncio/events.py:92(_run)
+4947/4910    0.098    0.000   37.847    0.008 /usr/local/lib/python3.14/asyncio/base_events.py:1976(_run_once)
+8839/8819    0.054    0.000   36.417    0.004 {method 'run' of '_contextvars.Context' objects}
+5018/4928    0.177    0.000   23.312    0.005 /usr/local/lib/python3.14/selectors.py:435(select)
+        7    0.000    0.000   21.731    3.104 /config/custom_components/homeostatic/dashboard.py:1291(_async_save_settings)
+        7    0.000    0.000   21.727    3.104 /config/custom_components/homeostatic/dashboard.py:1309(_async_save_settings_locked)
+        7    0.000    0.000   21.700    3.100 /config/custom_components/homeostatic/dashboard.py:1262(_async_apply_monitoring)
+     3639    0.021    0.000   20.802    0.006 /usr/src/homeassistant/homeassistant/helpers/device_registry.py:428(config_entries)
+     3639    0.035    0.000   20.076    0.006 /usr/src/homeassistant/homeassistant/helpers/device_registry.py:384(_report_deprecated_config_entries_property)
+     3639    0.053    0.000   19.461    0.005 /usr/src/homeassistant/homeassistant/helpers/frame.py:162(report_usage)
+        3    0.146    0.049   18.774    6.258 /config/custom_components/homeostatic/enrollment.py:64(inventory)
+     3639    8.187    0.002   16.164    0.004 /usr/src/homeassistant/homeassistant/helpers/frame.py:99(get_integration_frame)
+     2106    0.024    0.000   14.486    0.007 /config/custom_components/homeostatic/enrollment.py:201(<genexpr>)
+        3    0.033    0.011   14.075    4.692 /config/custom_components/homeostatic/runtime.py:643(_discover)
+        7    0.012    0.002   12.478    1.783 /config/custom_components/homeostatic/runtime.py:840(async_apply_settings)
+4292/4288    0.010    0.000   11.035    0.003 {method 'update' of 'set' objects}
+  900/222    0.005    0.000   10.611    0.048 /usr/src/homeassistant/homeassistant/util/async_.py:23(create_eager_task)
+       31    0.000    0.000   10.468    0.338 /usr/local/lib/python3.14/site-packages/aiohttp/web_protocol.py:567(_handle_request)
+       31    0.000    0.000   10.468    0.338 /usr/local/lib/python3.14/site-packages/aiohttp/web_app.py:521(_handle)
+       31    0.000    0.000   10.466    0.338 /usr/local/lib/python3.14/site-packages/aiohttp/web_middlewares.py:111(impl)
+       31    0.000    0.000   10.466    0.338 /usr/src/homeassistant/homeassistant/components/http/security_filter.py:55(security_filter_middleware)
+       31    0.000    0.000   10.466    0.338 /usr/src/homeassistant/homeassistant/components/http/forwarded.py:73(forwarded_middleware)
+       31    0.000    0.000   10.466    0.338 /usr/src/homeassistant/homeassistant/components/http/request_context.py:18(request_context_middleware)
+       31    0.000    0.000   10.465    0.338 /usr/src/homeassistant/homeassistant/components/http/ban.py:68(ban_middleware)
+
+
+
+
+=== top by own time ===
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+ 5010/519   23.003    0.005    3.104    0.006 {method 'poll' of 'select.epoll' objects}
+14177787/14177775    8.510    0.000    8.529    0.000 {built-in method builtins.hasattr}
+     3639    8.187    0.002   16.164    0.004 /usr/src/homeassistant/homeassistant/helpers/frame.py:99(get_integration_frame)
+772779/12928    2.624    0.000    4.160    0.000 /config/custom_components/homeostatic/serialization.py:11(to_json)
+    17120    1.005    0.000    1.005    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:43(strings_to_json)
+  2976943    0.852    0.000    0.995    0.000 {built-in method builtins.isinstance}
+    57571    0.820    0.000    1.702    0.000 /usr/local/lib/python3.14/dataclasses.py:1781(_replace)
+  2275822    0.733    0.000    0.733    0.000 {method 'get' of 'dict' objects}
+2289190/2288245    0.607    0.000    0.618    0.000 {built-in method builtins.getattr}
+      302    0.601    0.002    0.601    0.002 {method 'do_handshake' of '_ssl._SSLSocket' objects}
+   194918    0.455    0.000    0.876    0.000 /config/custom_components/homeostatic/rules.py:52(matches)
+      847    0.402    0.000    1.287    0.002 {method 'execute' of 'sqlite3.Cursor' objects}
+      847    0.358    0.000    0.686    0.001 {method 'fetchall' of 'sqlite3.Cursor' objects}
+       14    0.266    0.019    0.494    0.035 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:673(_build_frame)
+    81869    0.242    0.000    0.242    0.000 {method 'isoformat' of 'datetime.datetime' objects}
+      184    0.241    0.001    0.436    0.002 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:418(readiness)
+    54256    0.233    0.000    0.365    0.000 /usr/local/lib/python3.14/dataclasses.py:1453(fields)
+5018/4928    0.177    0.000   23.312    0.005 /usr/local/lib/python3.14/selectors.py:435(select)
+169261/236    0.176    0.000    0.680    0.003 /usr/local/lib/python3.14/copy.py:110(deepcopy)
+   235061    0.174    0.000    0.251    0.000 /config/custom_components/homeostatic/rules.py:65(<genexpr>)
+   213759    0.172    0.000    0.268    0.000 /usr/local/lib/python3.14/dataclasses.py:1476(is_dataclass)
+       95    0.159    0.002    0.159    0.002 {orjson.loads}
+     1152    0.157    0.000    0.199    0.000 {method 'read' of '_ssl._SSLSocket' objects}
+       20    0.148    0.007    0.148    0.007 {orjson.dumps}
+        3    0.146    0.049   18.774    6.258 /config/custom_components/homeostatic/enrollment.py:64(inventory)
+
+
+
+
+=== homeostatic by cumulative ===
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        7    0.000    0.000   21.731    3.104 /config/custom_components/homeostatic/dashboard.py:1291(_async_save_settings)
+        7    0.000    0.000   21.727    3.104 /config/custom_components/homeostatic/dashboard.py:1309(_async_save_settings_locked)
+        7    0.000    0.000   21.700    3.100 /config/custom_components/homeostatic/dashboard.py:1262(_async_apply_monitoring)
+        3    0.146    0.049   18.774    6.258 /config/custom_components/homeostatic/enrollment.py:64(inventory)
+     2106    0.024    0.000   14.486    0.007 /config/custom_components/homeostatic/enrollment.py:201(<genexpr>)
+        3    0.033    0.011   14.075    4.692 /config/custom_components/homeostatic/runtime.py:643(_discover)
+        7    0.012    0.002   12.478    1.783 /config/custom_components/homeostatic/runtime.py:840(async_apply_settings)
+        2    0.000    0.000   10.370    5.185 /config/custom_components/homeostatic/dashboard.py:1243(websocket_save_settings)
+    12924    0.011    0.000    4.265    0.000 /config/custom_components/homeostatic/serialization.py:34(json_object)
+772779/12928    2.624    0.000    4.160    0.000 /config/custom_components/homeostatic/serialization.py:11(to_json)
+       18    0.000    0.000    2.558    0.142 /config/custom_components/homeostatic/runtime.py:1091(_complete)
+       18    0.000    0.000    2.353    0.131 /config/custom_components/homeostatic/runtime.py:2695(_save)
+        5    0.074    0.015    2.347    0.469 /config/custom_components/homeostatic/runtime.py:2652(snapshot)
+       17    0.000    0.000    2.342    0.138 /config/custom_components/homeostatic/runtime.py:624(_queued_refresh)
+       17    0.012    0.001    2.306    0.136 /config/custom_components/homeostatic/runtime.py:1033(async_refresh)
+        5    0.078    0.016    1.368    0.274 /config/custom_components/homeostatic/enrollment.py:292(evaluate)
+        5    0.038    0.008    0.892    0.178 /config/custom_components/homeostatic/runtime.py:1582(_evaluate)
+        3    0.085    0.028    0.877    0.292 /config/custom_components/homeostatic/monitoring_runtime.py:30(ordinary_sources)
+   194918    0.455    0.000    0.876    0.000 /config/custom_components/homeostatic/rules.py:52(matches)
+      368    0.003    0.000    0.773    0.002 /config/custom_components/homeostatic/runtime.py:2866(query)
+        4    0.007    0.002    0.728    0.182 /config/custom_components/homeostatic/dashboard.py:182(publish)
+    28925    0.123    0.000    0.561    0.000 /config/custom_components/homeostatic/rules.py:83(decide)
+        4    0.002    0.000    0.544    0.136 /config/custom_components/homeostatic/runtime.py:3030(inventory_updates)
+      176    0.001    0.000    0.482    0.003 /config/custom_components/homeostatic/runtime.py:3009(entity_status)
+       38    0.003    0.000    0.481    0.013 /config/custom_components/homeostatic/runtime.py:1433(_policy_config)
+
+
+
+
+=== homeostatic by own time ===
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+772779/12928    2.624    0.000    4.160    0.000 /config/custom_components/homeostatic/serialization.py:11(to_json)
+   194918    0.455    0.000    0.876    0.000 /config/custom_components/homeostatic/rules.py:52(matches)
+   235061    0.174    0.000    0.251    0.000 /config/custom_components/homeostatic/rules.py:65(<genexpr>)
+        3    0.146    0.049   18.774    6.258 /config/custom_components/homeostatic/enrollment.py:64(inventory)
+    28925    0.123    0.000    0.561    0.000 /config/custom_components/homeostatic/rules.py:83(decide)
+        3    0.085    0.028    0.877    0.292 /config/custom_components/homeostatic/monitoring_runtime.py:30(ordinary_sources)
+        5    0.078    0.016    1.368    0.274 /config/custom_components/homeostatic/enrollment.py:292(evaluate)
+    81004    0.076    0.000    0.392    0.000 /config/custom_components/homeostatic/enrollment.py:330(<genexpr>)
+        5    0.074    0.015    2.347    0.469 /config/custom_components/homeostatic/runtime.py:2652(snapshot)
+    27423    0.048    0.000    0.271    0.000 /config/custom_components/homeostatic/monitoring.py:43(matches)
+        5    0.038    0.008    0.892    0.178 /config/custom_components/homeostatic/runtime.py:1582(_evaluate)
+     3509    0.034    0.000    0.070    0.000 /config/custom_components/homeostatic/catalog.py:48(node)
+    14947    0.034    0.000    0.058    0.000 /config/custom_components/homeostatic/config.py:169(resolve_entity)
+        3    0.033    0.011   14.075    4.692 /config/custom_components/homeostatic/runtime.py:643(_discover)
+        3    0.031    0.010    0.274    0.091 /config/custom_components/homeostatic/monitoring_runtime.py:138(retain_source_identities)
+     5432    0.027    0.000    0.058    0.000 /config/custom_components/homeostatic/evidence.py:69(observe)
+     4440    0.025    0.000    0.055    0.000 /config/custom_components/homeostatic/catalog.py:185(entity_observation)
+     2106    0.024    0.000   14.486    0.007 /config/custom_components/homeostatic/enrollment.py:201(<genexpr>)
+       10    0.020    0.002    0.083    0.008 /config/custom_components/homeostatic/runtime.py:1875(_record_observations)
+     3809    0.019    0.000    0.027    0.000 /config/custom_components/homeostatic/notification_definitions.py:220(rows)
+     5299    0.017    0.000    0.088    0.000 /config/custom_components/homeostatic/monitoring.py:53(detection_key)
+       80    0.015    0.000    0.233    0.003 /config/custom_components/homeostatic/notification_definitions.py:179(validate)
+        3    0.015    0.005    0.024    0.008 /config/custom_components/homeostatic/battery.py:16(candidates)
+     4212    0.015    0.000    0.021    0.000 /config/custom_components/homeostatic/enrollment.py:204(<genexpr>)
+        5    0.013    0.003    0.022    0.004 /config/custom_components/homeostatic/dashboard.py:607(websocket_source)
+
+
+
+
+=== health_tree library by cumulative ===
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        9    0.000    0.000    1.178    0.131 /usr/local/lib/python3.14/site-packages/health_tree/policy/__init__.py:920(snapshot)
+       72    0.003    0.000    1.177    0.016 /usr/local/lib/python3.14/site-packages/health_tree/policy/__init__.py:357(snapshot)
+     4248    0.019    0.000    1.174    0.000 /usr/local/lib/python3.14/site-packages/health_tree/policy/__init__.py:991(_tracked_to_json)
+     4720    0.043    0.000    1.147    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:86(episode_to_json)
+    17120    1.005    0.000    1.005    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:43(strings_to_json)
+       14    0.032    0.002    0.783    0.056 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:657(_evaluate)
+       10    0.011    0.001    0.591    0.059 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:242(ingest_many)
+       14    0.266    0.019    0.494    0.035 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:673(_build_frame)
+      184    0.241    0.001    0.436    0.002 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:418(readiness)
+        8    0.088    0.011    0.419    0.052 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:318(snapshot)
+       80    0.013    0.000    0.294    0.004 /usr/local/lib/python3.14/site-packages/health_tree/policy/__init__.py:200(advance)
+       10    0.000    0.000    0.282    0.028 /usr/local/lib/python3.14/site-packages/health_tree/policy/__init__.py:793(advance)
+     4744    0.008    0.000    0.271    0.000 /usr/local/lib/python3.14/site-packages/health_tree/policy/__init__.py:528(_redecide)
+    14060    0.060    0.000    0.262    0.000 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:1155(_check_to_json)
+   178412    0.046    0.000    0.233    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:25(time_to_json)
+    18465    0.022    0.000    0.228    0.000 /usr/local/lib/python3.14/site-packages/health_tree/types.py:49(__lt__)
+        2    0.013    0.007    0.221    0.110 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:188(register_many)
+    36930    0.114    0.000    0.202    0.000 /usr/local/lib/python3.14/site-packages/health_tree/types.py:44(rank)
+        1    0.026    0.026    0.163    0.163 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:350(restore)
+     5688    0.026    0.000    0.159    0.000 /usr/local/lib/python3.14/site-packages/health_tree/policy/__init__.py:449(_decide)
+       14    0.002    0.000    0.114    0.008 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:1087(_emit)
+        2    0.000    0.000    0.105    0.052 /usr/local/lib/python3.14/site-packages/health_tree/policy/__init__.py:929(restore)
+       16    0.010    0.001    0.104    0.007 /usr/local/lib/python3.14/site-packages/health_tree/policy/__init__.py:374(restore)
+    24608    0.049    0.000    0.101    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_checks.py:90(finding)
+    14060    0.039    0.000    0.096    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:127(observation_to_json)
+
+
+
+
+=== json / serialization ===
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+772779/12928    2.624    0.000    4.160    0.000 /config/custom_components/homeostatic/serialization.py:11(to_json)
+    17120    1.005    0.000    1.005    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:43(strings_to_json)
+169261/236    0.176    0.000    0.680    0.003 /usr/local/lib/python3.14/copy.py:110(deepcopy)
+       95    0.159    0.002    0.159    0.002 {orjson.loads}
+       20    0.148    0.007    0.148    0.007 {orjson.dumps}
+      550    0.079    0.000    0.079    0.000 /usr/src/homeassistant/homeassistant/components/websocket_api/messages.py:257(_message_to_json_bytes_or_none)
+15705/170    0.072    0.000    0.670    0.004 /usr/local/lib/python3.14/copy.py:198(_deepcopy_dict)
+    14060    0.060    0.000    0.262    0.000 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:1155(_check_to_json)
+18287/13382    0.048    0.000    0.288    0.000 /usr/local/lib/python3.14/copy.py:172(_deepcopy_list)
+   178412    0.046    0.000    0.233    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:25(time_to_json)
+     5442    0.045    0.000    0.045    0.000 /usr/local/lib/python3.14/json/encoder.py:207(iterencode)
+     4720    0.043    0.000    1.147    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:86(episode_to_json)
+    14060    0.039    0.000    0.096    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:127(observation_to_json)
+     3013    0.024    0.000    0.025    0.000 /usr/local/lib/python3.14/json/decoder.py:351(raw_decode)
+     4248    0.019    0.000    1.174    0.000 /usr/local/lib/python3.14/site-packages/health_tree/policy/__init__.py:991(_tracked_to_json)
+     1003    0.017    0.000    0.059    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:106(episode_from_json)
+     5442    0.013    0.000    0.076    0.000 /usr/local/lib/python3.14/json/__init__.py:185(dumps)
+     3840    0.012    0.000    0.033    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:53(finding_to_json)
+     5442    0.011    0.000    0.061    0.000 /usr/local/lib/python3.14/json/encoder.py:185(encode)
+    12924    0.011    0.000    4.265    0.000 /config/custom_components/homeostatic/serialization.py:34(json_object)
+    25290    0.010    0.000    0.014    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:30(time_from_json)
+     1756    0.009    0.000    0.025    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:141(observation_from_json)
+     3638    0.009    0.000    0.012    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:48(strings_from_json)
+     3013    0.009    0.000    0.041    0.000 /usr/local/lib/python3.14/json/decoder.py:340(decode)
+      816    0.006    0.000    0.019    0.000 /usr/local/lib/python3.14/site-packages/health_tree/_codec.py:68(finding_from_json)
+
+
+
+
+=== garbage collection / frames ===
+ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     3639    8.187    0.002   16.164    0.004 /usr/src/homeassistant/homeassistant/helpers/frame.py:99(get_integration_frame)
+       14    0.266    0.019    0.494    0.035 /usr/local/lib/python3.14/site-packages/health_tree/engine.py:673(_build_frame)
+     3639    0.053    0.000   19.461    0.005 /usr/src/homeassistant/homeassistant/helpers/frame.py:162(report_usage)
+     3639    0.033    0.000    0.050    0.000 /usr/src/homeassistant/homeassistant/helpers/frame.py:324(_report_usage_integration_frame)
+     3639    0.016    0.000    0.066    0.000 /usr/src/homeassistant/homeassistant/helpers/frame.py:221(_report_usage)
+     3639    0.015    0.000    0.015    0.000 /usr/src/homeassistant/homeassistant/helpers/frame.py:57(line_number)
+     3639    0.005    0.000    0.009    0.000 /usr/src/homeassistant/homeassistant/helpers/frame.py:93(get_current_frame)
+     3891    0.004    0.000    0.004    0.000 {built-in method sys._getframe}
+      547    0.004    0.000    0.102    0.000 /usr/local/lib/python3.14/site-packages/aiohttp/_websocket/writer.py:131(_write_websocket_frame)
+      566    0.003    0.000    0.118    0.000 /usr/local/lib/python3.14/site-packages/aiohttp/_websocket/writer.py:74(send_frame)
+      441    0.003    0.000    0.006    0.000 /usr/local/lib/python3.14/inspect.py:285(_has_code_flag)
+     3639    0.002    0.000    0.002    0.000 /usr/src/homeassistant/homeassistant/helpers/frame.py:62(filename)
+      756    0.002    0.000    0.003    0.000 /usr/local/lib/python3.14/logging/__init__.py:197(_is_internal_frame)
+       96    0.001    0.000    0.013    0.000 /usr/local/lib/python3.14/site-packages/aiohttp/_websocket/writer.py:198(_send_compressed_frame_sync)
+      441    0.001    0.000    0.008    0.000 /usr/local/lib/python3.14/inspect.py:323(iscoroutinefunction)
+       38    0.001    0.000    0.007    0.000 /usr/local/lib/python3.14/site-packages/aiohttp/_websocket/writer.py:226(_send_compressed_frame_async_locked)
+    54/18    0.001    0.000    0.005    0.000 /usr/local/lib/python3.14/inspect.py:2413(_signature_from_callable)
+       18    0.001    0.000    0.002    0.000 /usr/local/lib/python3.14/inspect.py:2307(_signature_from_function)
+      325    0.001    0.000    0.001    0.000 /usr/local/lib/python3.14/inspect.py:308(_has_coroutine_mark)
+      770    0.001    0.000    0.001    0.000 /usr/local/lib/python3.14/inspect.py:188(ismethod)
+       36    0.001    0.000    0.001    0.000 /usr/local/lib/python3.14/inspect.py:2973(__init__)
+      162    0.000    0.000    0.001    0.000 /usr/local/lib/python3.14/inspect.py:2681(__init__)
+      495    0.000    0.000    0.000    0.000 /usr/local/lib/python3.14/inspect.py:267(isfunction)
+      382    0.000    0.000    0.000    0.000 /usr/local/lib/python3.14/inspect.py:184(isclass)
+       90    0.000    0.000    0.000    0.000 /usr/local/lib/python3.14/inspect.py:663(unwrap)
+
+
+

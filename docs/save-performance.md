@@ -158,6 +158,61 @@ The picker renders 50 choices initially and adds 50 with Show 50 more. Search st
 
 These measurements establish reduced work in the tested cases, not a household latency guarantee. Temperature updates still performed one durable save, and their median maximum event-loop gap fell from 461 ms to 195 ms. Snapshots remained roughly 14.5–15.4 MB. Threshold changes retained discovery and measured 955 ms in the retained follow-up, compared with 846 ms before. Settled notification-name and method-name saves measured 540 ms and 599 ms; with 50 queued observations they took 2.10 and 2.40 seconds, including 1.30 and 1.54 seconds draining observations. Inclusive phase timings overlap and must not be added together. Verified persistence and ordered observation processing remain the measured costs to investigate before any storage redesign.
 
+## Live attribution of a Stop Monitoring action
+
+On 2026-10-17 the household installation was measured directly: a Raspberry Pi 5 running Home Assistant 2026.10.0 with 4,977 registry entities, 702 devices, 3,507 catalog nodes and 5,785 candidates, and the installed component identical to this working tree. No code changed. The debug loggers were switched on through the logger service and returned to warning afterwards; the Profiler integration was added for one asyncio debug window and two cProfile captures. The [receipt](performance/live-latency-2026-10-17.json) records the method, and [its directory](performance/live-latency-2026-10-17/) keeps the raw captures.
+
+### Background duty cycle with nobody using the panel
+
+Over 17 minutes the runtime saved its 7.8 MB snapshot 47 times, 2.8 saves per minute. The 60 second reconcile timer fires at about :46.7 of every minute; the other saves follow state changes. Each save logged a snapshot build, a durable write, a read-back and a compare:
+
+| Phase | Median | Maximum |
+| --- | ---: | ---: |
+| Snapshot | 0.149 s | 1.020 s |
+| Storage write | 0.068 s | 0.231 s |
+| Storage read | 0.048 s | 0.069 s |
+| Storage compare | 0.025 s | 0.034 s |
+
+Six of the 47 snapshots took about 1.0 s instead of 0.15 s; the same 1.0 s pause appeared once inside checkpoint creation during a save. The cause is not attributed.
+
+With asyncio debug mode on for three minutes, Home Assistant logged every callback that held the event loop for more than 0.1 s. The Homeostatic refresh task accounted for 17.5 of the 19.6 blocked seconds, 9.6% of wall time. Each reconcile cycle blocked the loop for 4.6 to 5.5 s from the tick until the first storage await; each state-driven refresh blocked it for 0.23 to 0.27 s plus a 0.13 to 0.15 s completion step. Nothing else on the installation exceeded 0.9 s. The catalog revision did not change during idle ticks, so idle rebuilds of the panel do not come from the reconcile timer.
+
+### One action, every second attributed
+
+Three Stop and three Resume actions on a healthy device with two watched entities went through the rendered controls, each Stop reversed by a Resume, with the saved configuration back at its original revision after every Resume. Times are seconds after the confirm click.
+
+| Action | Confirm at | Save evaluation (server) | Save total (server) | Save response (client) | Catalog reload | Panel settled |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Stop | :50.8, 4 s after the tick | 5.50 | 6.44 | 8.19 | 2.95 | 13.09 |
+| Resume | :27.6, clear | 5.24 | 5.84 | 6.05 | 1.49 | 7.61 |
+| Stop | :44.0, 2.7 s before the tick | 5.55 | 7.77 | 12.61 | 2.02 | 14.69 |
+| Resume | :30.3, clear | 5.32 | 5.98 | 6.13 | 1.81 | 8.00 |
+| Stop | :10.2, clear | 6.26 | 6.89 | 7.00 | 1.56 | 8.62 |
+| Resume | :56.0, right after the tick | 6.40 | 7.04 | 7.60 | 1.73 | 9.39 |
+
+The first Stop, 13.1 s from click to a settled panel, breaks down as follows.
+
+| Share | Seconds | What happened |
+| --- | ---: | --- |
+| 42% | 5.50 | The save's own evaluation: a full discovery because availability exclusions changed |
+| 23% | 2.95 | Full catalog reload: 63 pages, 11,810 rows, four workers |
+| 15% | 1.94 | Five source reads, one configuration read and rendering after the catalog arrived |
+| 11% | 1.41 | Event loop still busy with the background reconcile cycle before the handler started |
+| 6% | 0.78 | Checkpoint, lock wait, snapshot and storage |
+| 4% | 0.51 | Response transport and the rest |
+
+In a clear slot the save alone takes 6 to 7 s, and evaluation is 85 to 90% of it. When a save is confirmed just before the tick, the tick's cycle queues behind the save and runs its own 4.6 s discovery before the WebSocket response is flushed, which is why the second Stop took 12.6 s on the client but 7.8 s on the server. Validation, lock waits, pending observations and the read-back compare were each under 0.3 s in every sample.
+
+### Where the discovery time goes
+
+The idle cProfile capture covered one reconcile tick. Discovery took 6.83 s, of which the inventory scan took 6.02 s, and 5.65 s of that was Home Assistant's `report_usage` frame inspection: each read of `DeviceEntry.config_entries`, a deprecated compatibility property in Home Assistant 2026.10, walks the call stack to find the offending integration, 1,213 times per discovery at about 4.7 ms each. The reads are in `enrollment.py` at the device ownership scan and the device-member scan, with a third in `notification_routes.py`. The second capture, spanning a tick, a Stop and a Resume, charged 20.1 of 59.3 profiled seconds to the same path across three discoveries. Serialization of snapshots and publications took 4.2 s in that capture, snapshot builds 0.47 s each, and deep copies 0.7 s; the health-tree engine stayed under 1 s.
+
+### Ranking for the next change
+
+The server refresh cycle outranks the catalog reload. It costs 70 to 85% of a Stop action and freezes the event loop for about 5 s every minute whether or not anyone is using the panel. Inside it, the deprecated property read is the measured bulk of discovery and is a bounded code change. The catalog reload is 15 to 23% of the action and remains the next item.
+
+These are single-device, single-browser measurements over the LAN from a PC. Debug mode and cProfile inflate durations inside their windows, so the six unprofiled actions are the latency evidence. py-spy was not run, the 1.0 s pauses remain unattributed, and phase 3 still owes the five-sample medians the plan asks for.
+
 ## Runtime boundary
 
 Policy-only monitoring edits retain the existing in-place path. [ADR 0067](adr/0067-save-delivery-methods-in-place.md) extends the bounded definition transaction to named-notification profiles and delivery methods, including their generated policy. Accompanying policy edits may change notification assignments only, preserving policy identities, order and every other field. Combined definition and source/detection edits, policy additions or deletions, or other policy-field changes use the normal reload path. Eligible in-place definition saves keep the runtime, panel and subscriptions active; the roadmap records implementation and installation status. Notification-only edits reuse unchanged source discovery while honoring existing dirty inventory and still rebuilding the generated policy; source/detection changes continue to reconcile. Captured observations, queued refreshes, attention clocks and durable rollback retain their existing ordering. Each dashboard publication shares one current dynamic inventory result across its wire formats, without caching it across updates. Policy availability reads skip destination discovery when there are no configured direct phone or notify channels; direct destinations still use fresh discovery on each read. This introduces no persistent result cache. Time zone, legacy default/Repair/automation assignment definitions, global sending, installation timings and other settings retain full reload and its rollback path. Those settings transactions retain panel registration while publishing monitoring as unavailable. The editor retains its own pending draft and Saving state through that transition, with guarded inputs and ordinary progress wording; confirmed saves can wait read-only for the first current update. Disconnects remain explicit. Failed or uncertain saves and terminal runtime errors remain visible. Normal unloading and removal still remove the panel. The roadmap distinguishes the implemented follow-up from its validation and live acceptance. Lifecycle-only integration updates use a clean refresh when the existing entry catalog metadata matches, preserving ordered observations without forcing rediscovery. Additions, removals, unknown candidates and catalog metadata changes still reconcile. Effective route signatures reactivate only affected reporting; names and unchanged instructions preserve clocks, delivered state and pending identities. Changed destinations or presence rules retire obsolete delivery against the original resolved targets without retargeting queued requests. The historical table covers monitoring edits; the real-storage table covers the named-notification extension and the then-required shared-method reload. Failed writes restore options and runtime state; failed rollback storage leaves a visible unavailable monitor. Requests already published before an outbox-cleanup error retain unique delivery ids; publication cannot be retracted from an external event consumer.
@@ -180,3 +235,5 @@ PYTHONPATH=../health-tree/src HOMEOSTATIC_SAVE_PROFILE=1 HOMEOSTATIC_PROFILE_DIR
 For the destination-discovery follow-up, set `HOMEOSTATIC_PROFILE_PHONES=1` to add one synthetic phone and select `-k "notification_editor_save_profile and profile-name"`. Record the HA version with the result; the 2026.9 harness does not reproduce 2026.10 deprecation-frame overhead. The generated `measure_destination_scan.py` helper used a separate 2026.10 environment and retains its exact synthetic scope in each JSON result.
 
 The notification run writes `notification-save-profile_name.json`, `notification-save-profile_timing.json`, `notification-save-policy_assignment.json`, `notification-save-profile_methods.json` and `notification-save-method_definition.json` in the selected output directory. Each file identifies real runtime storage, mocked registry storage, snapshot size, load condition, save response, settings read and inclusive phases. The historical scenario writes separate JSON files for each source type. [Retained raw measurements](performance/save-latency.json) include all repetitions and phase timings. Current browser fixtures are linked from `tests/frontend/preview.html`; serve them on localhost only. Reload the reusable-editor fixture before rerunning its stateful scenario.
+
+To repeat the live attribution, set `custom_components.homeostatic.save_timing` to debug with the logger service, add the Profiler integration, call `profiler.set_asyncio_debug` for a bounded window and `profiler.start` for 60 seconds spanning a reconcile tick and one edit, and read the core log from the Supervisor journal. Under Supervisor, Home Assistant keeps no `home-assistant.log` file. Install `live-latency-2026-10-17/inpage-timing.js` in the panel page before the edit to time the save, the catalog pages and render settle, and reverse every edit afterwards. Return the loggers to warning when done. To repeat the isolated method journey, keep `HOMEOSTATIC_SAVE_PROFILE=1`, select `-k "notification_editor_save_profile and method-definition"`, and choose a separate `HOMEOSTATIC_PROFILE_DIR` for each candidate.

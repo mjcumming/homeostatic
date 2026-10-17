@@ -1,0 +1,4 @@
+Catalog load baseline, 2026-10-17 20:42:25Z: built-in browser on the Windows PC, panel on Open issues (schema 3, catalog_revision 4, no catalog pages loaded), click Monitoring tab.
+Pages: 63 requests of homeostatic/catalog in 1.585 s wall time with 4 workers; 11,812 rows; first page sent 2.6 ms after the click; median page 93 ms; max 306 ms; no failures.
+Per section: candidates 29 pages / 5,785 rows / 3,315 ms summed; nodes 18 pages / 3,507 rows / 2,643 ms summed; targets 9 pages / 1,753 rows / 164 ms; devices 4 pages / 702 rows / 108 ms; areas 1 page / 59 rows; floors 1 page / 4 rows; enrollment_changes 1 page / 2 rows.
+Panel idle on Open issues 20:40:56Z to 20:42:25Z: three subscription events, catalog_revision stayed 4 (inventory_changed false). catalog_revision 4 since Core restart means only three static-catalog replacements in about an hour, so idle reconcile ticks do not bump the revision.

@@ -1,0 +1,26 @@
+ts_local,seconds,callback
+2026-10-17 15:34:51.338,4.648,Task Runtime._queued_refresh() running at runtime.py:630
+2026-10-17 15:34:51.601,0.136,Task Runtime._queued_refresh() done (defined at runtime.py:624)
+2026-10-17 15:35:27.701,0.746,Task DataUpdateCoordinator._handle_refresh_interval() done (Eero refresh)
+2026-10-17 15:35:52.158,5.474,Task Runtime._queued_refresh() running at runtime.py:630
+2026-10-17 15:35:52.424,0.148,Task Runtime._queued_refresh() done (defined at runtime.py:624)
+2026-10-17 15:36:02.613,0.269,Task Runtime._queued_refresh() running at runtime.py:630
+2026-10-17 15:36:02.822,0.134,Task Runtime._queued_refresh() done (defined at runtime.py:624)
+2026-10-17 15:36:04.697,0.231,Task Runtime._queued_refresh() running at runtime.py:630
+2026-10-17 15:36:04.909,0.133,Task Runtime._queued_refresh() done (defined at runtime.py:624)
+2026-10-17 15:36:12.920,0.267,Task Runtime._queued_refresh() running at runtime.py:630
+2026-10-17 15:36:13.135,0.135,Task Runtime._queued_refresh() done (defined at runtime.py:624)
+2026-10-17 15:36:31.042,0.252,Task Runtime._queued_refresh() running at runtime.py:630
+2026-10-17 15:36:31.270,0.135,Task Runtime._queued_refresh() done (defined at runtime.py:624)
+2026-10-17 15:36:34.023,0.267,Task Runtime._queued_refresh() running at runtime.py:630
+2026-10-17 15:36:34.335,0.137,Task Runtime._queued_refresh() done (defined at runtime.py:624)
+2026-10-17 15:36:40.815,0.883,Task matter _client_listen() running at matter/__init__.py:318
+2026-10-17 15:36:51.263,4.579,Task Runtime._queued_refresh() running at runtime.py:630
+2026-10-17 15:36:51.506,0.136,Task Runtime._queued_refresh() done (defined at runtime.py:624)
+2026-10-17 15:37:00.968,0.101,Handle MQTT._async_reader_callback
+2026-10-17 15:37:05.290,0.102,Handle MQTT._async_reader_callback
+2026-10-17 15:37:07.093,0.261,Task Runtime._queued_refresh() running at runtime.py:630
+2026-10-17 15:37:07.313,0.139,Task Runtime._queued_refresh() done (defined at runtime.py:624)
+2026-10-17 15:37:14.846,0.110,Handle _SelectorSocketTransport._read_ready
+2026-10-17 15:37:15.986,0.107,Handle _SelectorSocketTransport._read_ready
+2026-10-17 15:37:17.403,0.108,Handle MQTT._async_reader_callback
