@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Use the same device issue dialog from Open issues and Monitoring. One View opens the current issues belonging to that device, including partial availability and other conditions. Acknowledge or pause them together, with individual exceptions and direct controls when only one issue remains. Entities without a device retain their own issue view.
+- Limit policy source picker rendering while keeping search complete, reuse unchanged source indexes, and coalesce detail refreshes. Open issues loads its current context before the full monitoring catalog is needed.
+- Simplify opened issues with visible evidence and named Policies and Notifications buttons with a return to the issue. Keep Open device secondary, align the action pair and editor rows, and omit the combined opening date, Details expander and generic Monitoring link.
+- Name contextual availability-stopping actions Stop Monitoring throughout the interface. Use an outlined button in opened issues and show the exact entities directly in the confirmation, without a Details expander or repeated policy list; other checks continue.
+- Separate whole-device selection from ignored entities in device availability policies. Group ignored entities under their device and retain those choices when changing device scope.
+
+### Fixed
+
+- Keep Monitoring and the evidence-gap sensor available when coverage contains stale or never-observed checks.
+
+### Documentation
+
+- Record the accepted browser refresh and catalog-loading boundaries.
+
 ## [1.8.3] - 2026-10-16
 
 ### Fixed

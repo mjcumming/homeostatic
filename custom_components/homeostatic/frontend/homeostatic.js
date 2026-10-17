@@ -1,25 +1,27 @@
-import {retainedProblem, sharedDeviceCondition} from "./check-presentation.mjs?v=90";
-import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=90";
-import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=90";
-import {upsProblem} from "./ups.mjs?v=90";
-import {reportingStatus} from "./reporting.mjs?v=90";
-import {affectedFunctions, dashboardStore, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=90";
-import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=90";
-import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=90";
-import {DashboardTools} from "./history-controls.mjs?v=90";
-import {diagnosticOverview} from "./evidence.mjs?v=90";
-import {styles} from "./styles.mjs?v=90";
+import {retainedProblem, sharedDeviceCondition} from "./check-presentation.mjs?v=94";
+import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=94";
+import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=94";
+import {upsProblem} from "./ups.mjs?v=94";
+import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=94";
+import {affectedFunctions, dashboardStore, editorEvidenceOnly, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=94";
+import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "./device-availability.mjs?v=94";
+import {batteryProblem, brokenAutomationProblem, deviceProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=94";
+import {DashboardTools} from "./history-controls.mjs?v=94";
+import {diagnosticOverview} from "./evidence.mjs?v=94";
+import {styles} from "./styles.mjs?v=94";
 
-import {sourcesBrowser, sourcesTree, sourcePaths, topomationTree, canonicalSourceSelection, editSourceAvailability, editSourcePolicies, restoreSourceFilters, restoreSourcePolicies} from "./sources-workspace.mjs?v=90";
+import {sourcesBrowser, sourcesTree, sourcePaths, sourceForSelection, topomationTree, canonicalSourceSelection, editSourceAvailability, editSourcePolicies, restoreSourceFilters, restoreSourcePolicies} from "./sources-workspace.mjs?v=94";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=90";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=94";
 
-import {cardView} from "./notification-navigation.mjs?v=90";
-import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=90";
-import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=90";
-import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=90";
-import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=90";
-import {editIssueAvailability,issueAvailabilityAction,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=90";
+import {cardView} from "./notification-navigation.mjs?v=94";
+import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=94";
+import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=94";
+import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=94";
+import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=94";
+import {editIssueAvailability,issueAvailabilityAction,issueAvailabilityNeedsCatalog,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=94";
+import {editDeviceIssues,readDeviceIssues} from "./device-issues.mjs?v=94";
+import {issueDeviceId} from "./device-issue-model.mjs?v=94";
 
 const VIEWS = ["sources", "problems", "history", "notifications", "policies", "configuration"];
 const date = (value) => value ? new Date(value).toLocaleString() : "No completed update";
@@ -100,6 +102,7 @@ class HomeostaticCard extends HTMLElement {
     });
     this.shadowRoot.addEventListener("change", (event) => {
       if (this.rendering) return;
+      if (editDeviceIssues(this,event)) return;
       if (editSourceAvailability(this,event)) return;
       if (event.target.matches?.("[data-notifications-switch]")) {
         saveScopedConfiguration(this,{kind:"notifications"},event.target.checked);
@@ -137,7 +140,10 @@ class HomeostaticCard extends HTMLElement {
     });
     this.tools = new DashboardTools(this);
     this.dialog.addEventListener("close", () => {if (!this.dialog.open) {this.detail = null; this.detailSequence++; resetIssueAvailability(this);}});
-    this.dialog.addEventListener("cancel", () => resetIssueAvailability(this));
+    this.dialog.addEventListener("cancel", event => {
+      if(this.detail?.deviceId){event.preventDefault();this.closeDeviceDetail();return;}
+      resetIssueAvailability(this);
+    });
   }
 
   static getStubConfig() { return {view: "issues"}; }
@@ -191,6 +197,10 @@ class HomeostaticCard extends HTMLElement {
     this.sourceObserver?.disconnect();
     this.sourceSequence++;
     this.sourceDetail = null;
+    this.sourceRequest = null;
+    this.sourceRefreshPending = false;
+    this.detailRequest = null;
+    this.detailRefreshPending = false;
     this.dialog.close();
     this.detail = null;
     this.removeListener?.();
@@ -198,6 +208,16 @@ class HomeostaticCard extends HTMLElement {
     this.store = null;
     this.current = {status: "loading", data: clear ? null : this.current.data, error: null};
     this.detailSequence++;
+  }
+
+  invalidateReads() {
+    this.sourceSequence++;
+    this.sourceRequest=null;
+    this.sourceRefreshPending=false;
+    if(this.sourceDetail)this.sourceDetail={...this.sourceDetail,stamp:null,loading:false,moreLoading:false};
+    this.detailSequence++;
+    this.detailRequest=null;
+    this.detailRefreshPending=false;
   }
 
   connect() {
@@ -210,6 +230,10 @@ class HomeostaticCard extends HTMLElement {
     this.store = dashboardStore(this._hass.connection, this._hass.user.id);
     this.loadTopomation();
     this.removeListener = this.store.listen((value) => {
+      if(value.status!=="current"&&this.current.status==="current")this.invalidateReads();
+      const retainEditor=["policies","notifications","configuration"].includes(this.page)&&
+        this.renderedCurrent&&this.renderedView===this.viewIdentity()&&!this.settingsBusy&&!this.configBusy&&!this.retainedSave&&
+        editorEvidenceOnly(this.current,value);
       const catalogArrived = value.data?.catalog_loaded &&
         (!this.current.data?.catalog_loaded || this.current.data?.catalog_stale && !value.data?.catalog_stale);
       this.current = value;
@@ -223,7 +247,7 @@ class HomeostaticCard extends HTMLElement {
         this.revealSourcesSelection();
       }
       this.tools.update(value);
-      this.render();
+      if(!retainEditor)this.render();
       if (value.status === "current" && (!this.configuration || this.configurationNeedsReload) && !this.configBusy && !this.settingsBusy) this.loadConfiguration();
       else if(value.status==="current" && this.configuration && !this.configBusy && !this.settingsBusy && typeof value.data.policy?.notifications_enabled==="boolean" && value.data.policy.notifications_enabled!==this.configuration.settings.notifications)this.loadConfiguration("rebase");
       if (this.pendingEpisode && value.status === "current") {
@@ -232,6 +256,8 @@ class HomeostaticCard extends HTMLElement {
         this.openDetail({episodeId});
       } else if(this.pendingNode && value.status==="current") {
         const nodeId=this.pendingNode;this.pendingNode=null;this.openDetail({nodeId});
+      } else if(this.pendingDeviceIssues && value.status==="current") {
+        const deviceId=this.pendingDeviceIssues;this.pendingDeviceIssues=null;this.openDetail({deviceId});
       } else if(this.pendingHistory && value.status==="current") {
         const id=this.pendingHistory;this.pendingHistory=null;this.tools.showHistory(id);
       } else if (this.detail) this.loadDetail();
@@ -418,7 +444,7 @@ class HomeostaticCard extends HTMLElement {
       return;
     }
     const data = this.current.data;
-    if (["sources","problems","policies"].includes(this.page) && (data.catalog_stale || !data.catalog_loaded)) this.store?.ensureCatalog();
+    if ((["sources","policies"].includes(this.page)||this.page==="problems"&&!data.panel_context) && (data.catalog_stale || !data.catalog_loaded)) this.store?.ensureCatalog();
     if (this.page === "sources" && data.schema_version === 3 && !data.catalog_loaded) {
       this.main.innerHTML = `<div class="banner" role="status"><h2>${this.current.catalogError ? "Monitoring list unavailable" : "Loading monitoring list"}</h2><p>${esc(this.current.catalogError || "Loading your devices and entities…")}</p>${this.current.catalogError ? '<button class="link" type="button" data-action="retry-catalog">Retry loading sources</button>' : ""}</div>`;
       this.renderedCurrent = false;
@@ -487,7 +513,7 @@ class HomeostaticCard extends HTMLElement {
     if (this.current.status !== "current") return;
     const needle = this.sourcesQuery.trim().toLocaleLowerCase();
     if (!needle) return;
-    const paths = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping,key=>this._hass?.localize?.(key),this.topomation));
+    const paths = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping,this._hass?.localize||null,this.topomation));
     for (const {node,parents} of paths.values()) {
       if ([node.name,node.source?.entity_id].filter(Boolean).join(" ").toLocaleLowerCase().includes(needle)) {
         for (const parent of parents) this.sourcesExpanded.add(parent.key);
@@ -540,31 +566,45 @@ class HomeostaticCard extends HTMLElement {
 
   async loadSource(force = false) {
     if (this.page !== "sources" || this.current.status !== "current") return;
-    const selected = sourcePaths(sourcesTree(this.current.data,this.sourcesGrouping,null,this.topomation)).get(this.sourcesSelection)?.node;
-    const nodeId = selected?.source?.node_id;
+    const nodeId = sourceForSelection(this.current.data,this.sourcesSelection)?.node_id;
     if (!nodeId) return;
     const states = this._hass.states, updatedAt = this.current.data.updated_at;
     const previous = this.sourceDetail?.nodeId === nodeId ? this.sourceDetail : null;
     const stamp = `${updatedAt}:${deviceAvailabilityStamp(previous?.device_availability,states)}`;
+    if(this.sourceRequest) {
+      if(force||this.sourceRequest.nodeId!==nodeId||this.sourceRequest.stamp!==stamp)this.sourceRefreshPending=true;
+      return;
+    }
     if (!force && this.sourceDetail?.nodeId === nodeId && this.sourceDetail.stamp === stamp) return;
     const sequence = ++this.sourceSequence;
+    const request=this.sourceRequest={nodeId,stamp,connection:this._hass.connection,selection:this.sourcesSelection};
+    const current=()=>sequence===this.sourceSequence&&this._hass.connection===request.connection&&this.page==="sources"&&this.current.status==="current"&&sourceForSelection(this.current.data,this.sourcesSelection)?.node_id===nodeId;
     this.sourceDetail = {...previous,nodeId,stamp,loading:true};
     try {
       const result = await this._hass.callWS({type:"homeostatic/source",node_id:nodeId});
-      if (sequence !== this.sourceSequence) return;
+      if (!current()) return;
       const readStamp = `${updatedAt}:${deviceAvailabilityStamp(result.device_availability,states)}`;
       this.sourceDetail = {...result,nodeId,stamp:readStamp};
     } catch (error) {
-      if (sequence !== this.sourceSequence) return;
+      if (!current()) return;
       this.sourceDetail = {nodeId,stamp,error:error?.message || "Could not read this source."};
+    } finally {
+      if(this.sourceRequest===request) {
+        if(!current()&&this.sourceDetail?.loading&&this.sourceDetail.nodeId===nodeId)this.sourceDetail=previous;
+        this.sourceRequest=null;
+        const pending=this.sourceRefreshPending;
+        this.sourceRefreshPending=false;
+        if(pending)this.loadSource(true);
+      }
     }
     if (this.page === "sources") this.render();
   }
 
   async loadSourceMore() {
     const detail=this.sourceDetail;
-    if(!detail || detail.loading || detail.moreLoading || detail.next_offset == null || this.current.status!=="current")return;
+    if(!detail || detail.loading || detail.moreLoading || this.sourceRequest || detail.next_offset == null || this.current.status!=="current")return;
     const sequence=this.sourceSequence,offset=detail.next_offset,updated=this.current.data.updated_at;
+    const request=this.sourceRequest={nodeId:detail.nodeId,stamp:detail.stamp,connection:this._hass.connection};
     detail.moreLoading=true;detail.moreError=null;this.render();
     try {
       const result=await this._hass.callWS({type:"homeostatic/source",node_id:detail.nodeId,offset,limit:50});
@@ -575,6 +615,14 @@ class HomeostaticCard extends HTMLElement {
     } catch(error) {
       if(sequence!==this.sourceSequence)return;
       detail.moreLoading=false;detail.moreError=error?.message||"Could not load more entity readings. Try again.";
+    } finally {
+      detail.moreLoading=false;
+      if(this.sourceRequest===request) {
+        this.sourceRequest=null;
+        const pending=this.sourceRefreshPending;
+        this.sourceRefreshPending=false;
+        if(pending)this.loadSource(true);
+      }
     }
     if(this.page==="sources")this.render();
   }
@@ -608,7 +656,7 @@ class HomeostaticCard extends HTMLElement {
       ? source.name : `${provider} · ${source.name}`;
   }
 
-  issueRow(data, episode, nodes, deviceGroup = null) {
+  issueRow(data, episode, nodes, deviceGroup = null, {interactive = true} = {}) {
     const source = nodes.get(episode.anchor);
     const situation = source?.kind === "situation";
     const currentProblem = temperatureProblem(source,data.inventory.entity_status?.[episode.anchor]) ?? upsProblem(source,data.inventory.ups_status?.[episode.anchor]) ?? repairProblem(source, episode.reasons) ?? brokenAutomationProblem(source, episode.reasons) ?? vacuumProblem(source, data.inventory.entity_status?.[episode.anchor], data.areas) ?? batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
@@ -643,7 +691,9 @@ class HomeostaticCard extends HTMLElement {
       ? `${evidence.counts.entities} ${evidence.counts.entities === 1 ? "entity" : "entities"} unavailable`
       : sharedDeviceCondition(data,episode,problem) ?? groupedDeviceCondition ?? deviceCondition ?? problem?.headline ?? "Current condition needs review";
     const opened = new Date(episode.opened_at).toLocaleString(undefined, {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
-    return `<button type="button" class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}" data-episode="${esc(episode.episode_id)}"${deviceGroup ? ` aria-label="${esc(`${deviceGroup.name}: ${title}. ${condition}. ${importance ? `${importance}. ` : ""}Since ${opened}. Open issue`)}"` : ""}><span class="issue-copy"><strong class="issue-title">${esc(title)}</strong><span class="issue-condition">${esc(condition)}</span><span class="small">${importance ? `${esc(importance)} · ` : ""}Since ${esc(opened)}</span></span><span class="issue-open">Open</span></button>`;
+    const copy = `<span class="issue-copy"><strong class="issue-title">${esc(title)}</strong><span class="issue-condition">${esc(condition)}</span><span class="small">${importance ? `${esc(importance)} · ` : ""}Since ${esc(opened)}</span></span>`;
+    if (!interactive) return `<div class="issue-row issue-finding ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}">${copy}</div>`;
+    return `<button type="button" class="issue-row ${esc(tone)}" data-ui-key="issue:${esc(episode.episode_id)}" data-episode="${esc(episode.episode_id)}"${deviceGroup ? ` aria-label="${esc(`${deviceGroup.name}: ${title}. ${condition}. ${importance ? `${importance}. ` : ""}Since ${opened}. Open issue`)}"` : ""}>${copy}<span class="issue-open">Open</span></button>`;
   }
 
   issuesPage() { return issuesWorkspace(this); }
@@ -654,12 +704,14 @@ class HomeostaticCard extends HTMLElement {
   }
 
   clicked(event) {
+    if(this.detail?.deviceId&&event.target.closest?.('[data-action="close"]')){this.closeDeviceDetail();return;}
     if (event.target.closest?.("[data-workspace-return]")) {this.navigation.back();return;}
     const previous = this.navigation.capture();
     try {this.handleClick(event);} finally {this.navigation.finish(previous);}
   }
 
   handleClick(event) {
+    if(editDeviceIssues(this,event))return;
     const sourceView=event.target.closest?.("a[data-sources-view]");
     if(sourceView) {
       if(event.button>0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
@@ -674,6 +726,8 @@ class HomeostaticCard extends HTMLElement {
     if (editInstallation(this,event)) return;
     const button = event.target.closest("button");
     if (!button) return;
+    if(button.dataset.deviceIssues){this.openDetail({deviceId:button.dataset.deviceIssues});return;}
+    if (button.dataset.action === "retry-issue-configuration") {void this.loadConfiguration().then(()=>this.loadDetail());return;}
     if (button.dataset.issueGroup) {
       const key=button.dataset.issueGroup;
       if(this.issueGroupsExpanded.has(key))this.issueGroupsExpanded.delete(key);else this.issueGroupsExpanded.add(key);
@@ -723,9 +777,13 @@ class HomeostaticCard extends HTMLElement {
     }
     else if (button.dataset.sourceLink) {this.detail=null; this.dialog.close(); this.sourcesMobileDetail=true; this.sourcesView="source"; this.resetSourceScroll=true; this.sourcesSelection = `source:${button.dataset.sourceLink}`; this.page = "sources"; this.revealSourcesSelection(); this.render();}
     else if (button.dataset.node) this.openDetail({nodeId: button.dataset.node});
-    else if (button.dataset.episode) this.openDetail({episodeId: button.dataset.episode});
+    else if (button.dataset.episode) {
+      const episode = this.current.data?.inventory.episodes.find(item => item.episode_id === button.dataset.episode);
+      const deviceId = episode && issueDeviceId(this.current.data, episode);
+      this.openDetail(deviceId ? {deviceId} : {episodeId: button.dataset.episode});
+    }
     else if (button.dataset.action === "back") {this.page = this.config.view; this.render();}
-    else if (button.dataset.action === "close") {resetIssueAvailability(this);this.detail=null;this.dialog.close();}
+    else if (button.dataset.action === "close") {if(this.detail?.deviceId&&this.deviceIssues?.busy)return;resetIssueAvailability(this);this.detail=null;this.dialog.close();}
     else if (button.dataset.action === "retry") this.store?.retry();
     else if (button.dataset.action === "retry-catalog") { this.store?.ensureCatalog(true); this.render(); }
     else if (button.dataset.action === "load-configuration") this.loadConfiguration();
@@ -750,6 +808,8 @@ class HomeostaticCard extends HTMLElement {
 
   openDetail(selection) {
     resetIssueAvailability(this);
+    this.deviceIssues=null;
+    this.deviceIssueContext=null;
     this.detail = selection;
     this.renderedDetailContent = null;
     this.shadowRoot.querySelector("#detail-title").textContent = "Problem details";
@@ -759,11 +819,40 @@ class HomeostaticCard extends HTMLElement {
     this.loadDetail();
   }
 
+  closeDeviceDetail() {
+    if(this.deviceIssues?.busy)return;
+    if(this.navigation.back())return;
+    const previous=this.navigation.capture();
+    resetIssueAvailability(this);this.detail=null;this.dialog.close();
+    this.navigation.finish(previous);
+  }
+
   async loadDetail() {
+    if(!this.detail||this.current.status!=="current")return this.readDetail();
+    if(this.detailRequest) {
+      if(this.detailRequest.selection!==this.detail||this.detailRequest.data!==this.current.data)this.detailRefreshPending=true;
+      return;
+    }
+    const request=this.detailRequest={selection:this.detail,data:this.current.data};
+    try {
+      await this.readDetail();
+    } finally {
+      if(this.detailRequest===request) {
+        this.detailRequest=null;
+        const pending=this.detailRefreshPending;
+        this.detailRefreshPending=false;
+        if(pending&&this.detail&&this.current.status==="current")this.loadDetail();
+      }
+    }
+  }
+
+  async readDetail() {
     const sequence = ++this.detailSequence;
     const body = this.shadowRoot.querySelector(".dialog-body");
     const selection = this.detail;
     if (!selection) return;
+    const connection=this._hass?.connection;
+    const current=()=>sequence===this.detailSequence&&this.detail===selection&&this._hass?.connection===connection&&this.current.status==="current";
     const {status: connectionStatus, data} = this.current;
     body.inert = connectionStatus !== "current";
     if (connectionStatus !== "current") {
@@ -800,12 +889,24 @@ class HomeostaticCard extends HTMLElement {
       body.innerHTML = '<p>This issue is not in current issues or retained history. Its outcome cannot be determined here.</p><p><a href="/homeostatic/issues">Open issues</a> · <a href="/homeostatic/history">Open History</a></p>';
       return;
     }
+    if(issueAvailabilityNeedsCatalog(this,episode))this.store?.ensureCatalog();
     const nodeId = episode?.anchor ?? selection.nodeId;
     try {
+      if(selection.deviceId){await readDeviceIssues(this,current);return;}
       const result = await this._hass.callWS({type: "homeostatic/node", node_id: nodeId});
-      if (sequence !== this.detailSequence || !this.detail) return;
+      if (!current()) return;
       const source = result.source;
       const nodes = sourceMap(data);
+      let coverage=result.monitoring_policies||[],coverageUnavailable=false;
+      if(episode&&source.entity_id) {
+        const canonical=inventoryRows(data).find(item=>item.kind==="entity"&&item.entity_id===source.entity_id&&!item.monitoring_policy);
+        try {
+          const context=await this._hass.callWS({type:"homeostatic/source",node_id:canonical?.node_id||source.monitoring_source||source.node_id});
+          coverage=context.monitoring_policies||[];
+        } catch {coverageUnavailable=true;}
+        if(!current())return;
+      }
+      coverage=issuePolicyChoices(this,[source,...(episode?.reasons||[]).map(finding=>nodes.get(finding.node_id))],coverage);
       const detailTitle = this.displaySourceName(source);
       this.shadowRoot.querySelector("#detail-title").textContent = detailTitle;
       this.shadowRoot.querySelector("#detail-label").textContent = source.kind === "situation" ? "Situation" : source.kind === "repair" ? "Home Assistant Repair" : source.kind === "broken_automation" ? "Broken automation" : episode ? "Open issue" : ({device:"Device",entity:"Entity",integration:"Integration"}[source.kind] || "Source");
@@ -837,33 +938,30 @@ class HomeostaticCard extends HTMLElement {
       const issueTitle = uncertainMembers.length === 1 ? `${memberName(uncertainMembers[0])} ${memberState(uncertainMembers[0])}` : uncertainMembers.length || memberEvidence?.unknown_count || memberEvidence?.unavailable_count ? "Monitored entities need review" : episode ? "Confirming recovery" : "Selected entities available";
       const issueList = uncertainMembers.length > 1 ? `<ul class="problem-evidence">${uncertainMembers.map((member) => `<li><strong>${esc(memberName(member))}</strong> · ${esc(memberState(member))}</li>`).join("")}</ul>` : "";
       const deviceBrief = memberEvidence ? `<p class="problem-origin">${esc(deviceIntegrations.join(", ") || "Home Assistant device")}</p><h3 class="problem-status">${esc(issueTitle)}</h3>${issueList}${memberEvidence.members.length < memberEvidence.total ? `<p class="small">Showing ${memberEvidence.members.length} of ${memberEvidence.total} monitored entity readings.</p><button type="button" class="link" data-source-link="${esc(source.monitoring_source||source.node_id)}">View all entity readings in Monitoring</button>` : ""}` : "";
-      const policyChoices=result.monitoring_policies?.length?result.monitoring_policies:source.monitoring_policy?[{id:source.monitoring_policy,name:"Edit monitoring policy"}]:[];
-      const policyActions=`<div class="issue-policy-links">${policyChoices.length?policyChoices.map(policy=>`<button class="link" type="button" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="${esc(policy.id)}">Edit policy: ${esc(policy.name)}</button>`).join(""):'<button class="link" type="button" data-definition-action="open-policy" data-definition-kind="policies" data-definition-id="">View policies</button>'}</div>`;
-      const notificationStatus = episode ? reportingStatus(data,episode) : "";
-      const notificationFact = notificationStatus && !notificationStatus.startsWith("Acknowledged") ? `<dl class="source-facts"><div class="source-fact"><dt>Notifications</dt><dd>${esc(notificationStatus)}</dd></div></dl>` : "";
-      const monitoringDetails = `${notificationFact}${problem?.relatedEvidence?.groups.length ? relatedEvidenceMonitoring(problem.relatedEvidence) : ""}${episode ? recordedIssueSources(data,episode,problem?.relatedEvidence) : ""}`;
+      const policyActions=issueConfiguration(this,coverage,{unavailable:coverageUnavailable});
+      const monitoringDetails = `${problem?.relatedEvidence?.groups.length ? relatedEvidenceMonitoring(problem.relatedEvidence) : ""}${episode ? recordedIssueSources(data,episode,problem?.relatedEvidence) : ""}`;
       const availabilityExplanation = episode && memberEvidence && uncertainMembers.length && result.device_availability?.status === "available" ? `<p>Device availability uses enabled operational entities. This problem checks the ${memberEvidence.total} selected ${memberEvidence.total === 1 ? "entity" : "entities"}; ${uncertainMembers.length === 1 ? "one needs" : "some need"} attention. An available sibling does not clear an unavailable or missing entity.</p>` : "";
       const nativeLink = source.kind === "repair" || source.kind === "broken_automation" ? `<a class="button primary" href="${esc(source.fix_url)}">Fix in Home Assistant</a>` : source.kind === "device" ? "" : source.kind === "integration" && problem ? (problem.needsAction ? `<a class="button primary" href="${esc(problem.integrationUrl)}">${esc(problem.integrationLabel)}</a>` : problem.relatedFindings.length ? `<a class="link" href="${esc(problem.integrationUrl)}">Open ${esc(problem.integration)} integration</a>` : "") : source.entity_id
-        ? `<button class="button primary" type="button" data-entity="${esc(source.entity_id)}">${esc(problem?.entityLabel ?? "View in Home Assistant")}</button>`
+        ? `<button class="button primary" type="button" data-entity="${esc(source.entity_id)}">Open Entity</button>`
         : source.entry_id || source.owner_id ? '<a class="button primary" href="/config/integrations">Review connection</a>' : "";
       const genericSummary = source.kind === "situation" ? (episode ? "This reported condition remains open. Check its current state." : "No open problem is reported for this condition.")
         : result.readiness ? `${ownerStatus(result.readiness.answer)} in Home Assistant.` : "Current status has not been confirmed.";
       const compactHeadline = affectedDevice && problem.relatedEvidence.unavailableOnly && problem.relatedEvidence.counts.entities
         ? `${problem.relatedEvidence.counts.entities} ${problem.relatedEvidence.counts.entities === 1 ? "entity" : "entities"} unavailable`
         : problem?.headline;
-      const monitoringSource = temperature ? inventoryRows(data).find(item => item.kind === "entity" && source.entity_id && item.entity_id === source.entity_id)?.node_id : null;
       const opened = episode ? `<dl class="source-facts issue-facts problem-progress"><div class="source-fact"><dt>Opened</dt><dd>${esc(date(episode.opened_at))}</dd></div></dl>` : "";
       const sharedScope = compactIssue && problem.relatedEvidence.groups.length > 1 ? '<p class="small">Acknowledge and pause apply to the entire issue.</p>' : "";
       const controls = sharedScope + this.tools.detailButtons(source,episode,data) + (episode ? issueAvailabilityAction(this,episode) : "");
-      const deviceAction = problem?.deviceUrl ? `<a class="button primary" href="${esc(problem.deviceUrl)}">Open device</a>` : "";
-      const primaryAction = nativeLink || deviceAction;
-      const monitoringLink = memberEvidence && memberEvidence.members.length < memberEvidence.total ? "" : ["integration","device","entity","battery","vacuum","ups"].includes(source.kind) ? `<button type="button" class="link" data-source-link="${esc(monitoringSource || source.monitoring_source || source.node_id)}">View in Monitoring</button>` : "";
+      const deviceId=source.attributes?.device?.[0];
+      const deviceUrl=problem?.deviceUrl||(deviceId?`/config/devices/device/${encodeURIComponent(deviceId)}`:null);
+      const deviceAction = deviceUrl ? `<a class="button${nativeLink?"":" primary"}" href="${esc(deviceUrl)}">Open Device</a>` : "";
+      const primaryAction = nativeLink + deviceAction;
       const reportedDetails = problem?.reported ? `<section class="reported-error"><h3>${problem.historical ? "Last reported error" : "Reported error"}</h3>${problem.reportedAt ? `<p class="small">${esc(date(problem.reportedAt))}</p>` : ""}${problem.historical ? '<p class="small">Reported earlier; recovery has not been confirmed.</p>' : ""}<pre>${esc(problem.reported)}</pre></section>` : problem?.missingDetail ? "<p>Home Assistant did not report a specific cause.</p>" : "";
-      const navigation = `<div class="issue-detail-links">${monitoringLink}${nativeLink && problem?.deviceUrl ? `<a href="${esc(problem.deviceUrl)}">Open device</a>` : ""}${problem?.logsUrl ? `<a href="${esc(problem.logsUrl)}">View integration logs</a>` : ""}</div>`;
-      const details = (contents) => contents ? `<details class="issue-disclosure" ${disclosure("issue-details")}><summary>Details</summary>${contents}</details>` : "";
-      const temperatureContent = temperature && episode ? `<section class="detail problem-brief temperature-issue"><h3 class="problem-headline">${esc(temperature.headline)}</h3><p>${esc(temperature.summary)}</p>${temperature.timing ? `<p>${esc(temperature.timing)}.</p>` : ""}${opened}</section>${controls}${policyActions}${details(`${temperature.detail ? `<p>${esc(temperature.detail)}.</p>` : ""}<div class="issue-detail-links">${source.entity_id ? `<button type="button" class="link" data-entity="${esc(source.entity_id)}">View temperature reading</button>` : ""}<button type="button" class="link" data-source-link="${esc(monitoringSource || source.monitoring_source || source.node_id)}">View in Monitoring</button></div>${monitoringDetails}`)}` : null;
-      const supporting = `${problem?.nextStep ? `<p>${esc(problem.nextStep)}</p>` : ""}${problem?.connectionNote ? `<p>${esc(problem.connectionNote)}</p><button type="button" class="link" data-node="${esc(problem.connectionNode)}">${esc(problem.connectionLabel)}</button>` : ""}${diagnostic ? `<dl class="source-facts"><div class="source-fact"><dt>Monitoring</dt><dd>${esc(diagnostic.monitoring)}</dd></div><div class="source-fact"><dt>Checks</dt><dd>${esc(diagnostic.checks)}</dd></div><div class="source-fact"><dt>Assessment</dt><dd>${esc(diagnostic.assessment)}</dd></div><div class="source-fact"><dt>Household impact</dt><dd>${esc(diagnostic.impact)}</dd></div></dl>` : ""}${availabilityExplanation}${monitoringDetails}${reportedDetails}${navigation}`;
-      const content = temperatureContent ?? (compactIssue ? `<section class="detail problem-brief compact-issue"><h3 class="problem-headline">${esc(compactHeadline)}</h3>${opened}${affectedDevice ? `<div class="actions"><a class="button primary" href="/config/devices/device/${encodeURIComponent(affectedDevice.deviceId)}">Open device</a></div>` : ""}</section>${relatedSources}${controls}${policyActions}${details(`${monitoringDetails}<div class="issue-detail-links"><a href="${esc(problem.integrationUrl)}">Open integration</a>${problem.logsUrl ? `<a href="${esc(problem.logsUrl)}">View integration logs</a>` : ""}${monitoringLink}</div>`)}` : `${episode && memberEvidence ? "" : deviceAvailability(result.device_availability)}<section class="detail problem-brief">${memberEvidence ? deviceBrief : problem ? `<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}${opened}${primaryAction ? `<div class="actions">${primaryAction}</div>` : ""}</section>${relatedSources}${controls}${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}${policyActions}${details(supporting)}`);
+      const navigation = problem?.logsUrl ? `<div class="issue-detail-links"><a href="${esc(problem.logsUrl)}">View integration logs</a></div>` : "";
+      const details = (contents) => contents ? episode ? `<section class="issue-supporting">${contents}</section>` : `<details class="issue-disclosure" ${disclosure("issue-details")}><summary>Details</summary>${contents}</details>` : "";
+      const temperatureContent = temperature && episode ? `<section class="detail problem-brief temperature-issue"><h3 class="problem-headline">${esc(temperature.headline)}</h3><p>${esc(temperature.summary)}</p>${temperature.timing ? `<p>${esc(temperature.timing)}.</p>` : ""}${temperature.detail ? `<p>${esc(temperature.detail)}.</p>` : ""}${opened}${primaryAction?`<div class="actions issue-native-actions">${primaryAction}</div>`:""}</section>${controls}${policyActions}${details(monitoringDetails)}` : null;
+      const supporting = `${problem?.nextStep && source.kind !== "entity" ? `<p>${esc(problem.nextStep)}</p>` : ""}${problem?.connectionNote ? `<p>${esc(problem.connectionNote)}</p><button type="button" class="link" data-node="${esc(problem.connectionNode)}">${esc(problem.connectionLabel)}</button>` : ""}${diagnostic ? `<dl class="source-facts"><div class="source-fact"><dt>Monitoring</dt><dd>${esc(diagnostic.monitoring)}</dd></div><div class="source-fact"><dt>Checks</dt><dd>${esc(diagnostic.checks)}</dd></div><div class="source-fact"><dt>Assessment</dt><dd>${esc(diagnostic.assessment)}</dd></div><div class="source-fact"><dt>Household impact</dt><dd>${esc(diagnostic.impact)}</dd></div></dl>` : ""}${availabilityExplanation}${monitoringDetails}${reportedDetails}${navigation}`;
+      const content = temperatureContent ?? (compactIssue ? `<section class="detail problem-brief compact-issue"><h3 class="problem-headline">${esc(compactHeadline)}</h3>${opened}${affectedDevice ? `<div class="actions"><a class="button primary" href="/config/devices/device/${encodeURIComponent(affectedDevice.deviceId)}">Open Device</a></div>` : ""}</section>${relatedSources}${controls}${policyActions}${details(`${monitoringDetails}<div class="issue-detail-links"><a href="${esc(problem.integrationUrl)}">Open integration</a>${problem.logsUrl ? `<a href="${esc(problem.logsUrl)}">View integration logs</a>` : ""}</div>`)}` : `${episode && memberEvidence ? "" : deviceAvailability(result.device_availability)}<section class="detail problem-brief">${memberEvidence ? deviceBrief : problem ? `<h3 class="problem-headline">${esc(problem.headline)}</h3><p>${esc(problem.summary)}</p>` : `<p>${esc(genericSummary)}</p>`}${opened}${primaryAction ? `<div class="actions issue-native-actions">${primaryAction}</div>` : ""}</section>${relatedSources}${controls}${currentFunctions.length ? `<section class="detail"><h3>What is affected</h3><ul>${currentFunctions.map((item) => `<li><strong>${esc(item.name)}</strong> · ${esc(ownerStatus(item.readiness.answer))}</li>`).join("")}</ul></section>` : ""}${policyActions}${details(supporting)}`);
       const contentKey = content.replace(/(data-disclosure="[^"]+") open/g, "$1");
       if (contentKey === this.renderedDetailContent) return;
       const detailState = this.capturePageState(body);
@@ -875,7 +973,7 @@ class HomeostaticCard extends HTMLElement {
         this.dispatchEvent(new CustomEvent("hass-more-info", {bubbles:true,composed:true,detail:{entityId:event.currentTarget.dataset.entity}}));
       });
     } catch (error) {
-      if (sequence === this.detailSequence) {this.renderedDetailContent = null; body.innerHTML = `<p>${esc(error?.message ?? "Could not load current evidence.")}</p>`;}
+      if (current()) {this.renderedDetailContent = null; body.innerHTML = `<p>${esc(error?.message ?? "Could not load current evidence.")}</p>`;}
     }
   }
 }
@@ -909,18 +1007,26 @@ class HomeostaticStrategy {
   static getCreateSuggestions() { return {title:"Homeostatic",icon:"mdi:home-heart"}; }
   static async generate() {
     return {title:"Homeostatic",views:[
-      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v38",view:"issues",navigation:false}]},
-      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v38",view:"sources",navigation:false}]},
-      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v38",view:"policies",navigation:false}]},
-      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v38",view:"notifications",navigation:false}]},
-      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v38",view:"history",navigation:false}]},
+      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v42",view:"issues",navigation:false}]},
+      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v42",view:"sources",navigation:false}]},
+      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v42",view:"policies",navigation:false}]},
+      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v42",view:"notifications",navigation:false}]},
+      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v42",view:"history",navigation:false}]},
     ]};
   }
 }
 
-if (!customElements.get("homeostatic-card-v38")) customElements.define("homeostatic-card-v38", HomeostaticCard);
+if (!customElements.get("homeostatic-card-v42")) customElements.define("homeostatic-card-v42", HomeostaticCard);
+if (!customElements.get("homeostatic-card-v41")) customElements.define("homeostatic-card-v41", class extends HomeostaticCard {});
+if (!customElements.get("homeostatic-card-v40")) customElements.define("homeostatic-card-v40", class extends HomeostaticCard {});
+if (!customElements.get("homeostatic-card-v39")) customElements.define("homeostatic-card-v39", class extends HomeostaticCard {});
+if (!customElements.get("homeostatic-card-v38")) customElements.define("homeostatic-card-v38", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-card-v37")) customElements.define("homeostatic-card-v37", class extends HomeostaticCard {});
-if (!customElements.get("homeostatic-panel-v42")) customElements.define("homeostatic-panel-v42", HomeostaticPanel);
+if (!customElements.get("homeostatic-panel-v46")) customElements.define("homeostatic-panel-v46", HomeostaticPanel);
+if (!customElements.get("homeostatic-panel-v45")) customElements.define("homeostatic-panel-v45", class extends HomeostaticPanel {});
+if (!customElements.get("homeostatic-panel-v44")) customElements.define("homeostatic-panel-v44", class extends HomeostaticPanel {});
+if (!customElements.get("homeostatic-panel-v43")) customElements.define("homeostatic-panel-v43", class extends HomeostaticPanel {});
+if (!customElements.get("homeostatic-panel-v42")) customElements.define("homeostatic-panel-v42", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v30")) customElements.define("homeostatic-card-v30", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-panel-v34")) customElements.define("homeostatic-panel-v34", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v29")) customElements.define("homeostatic-card-v29", class extends HomeostaticCard {});

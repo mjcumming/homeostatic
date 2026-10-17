@@ -52,8 +52,8 @@ from .vacuum import observe as vacuum_observation
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=90"
-PANEL_ELEMENT = "homeostatic-panel-v42"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=94"
+PANEL_ELEMENT = "homeostatic-panel-v46"
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 
@@ -105,6 +105,7 @@ def snapshot(
     areas = ar.async_get(runtime.hass)
     devices = dr.async_get(runtime.hass)
     floors = fr.async_get(runtime.hass)
+    coverage = runtime.query("coverage", {})
     return {
         **result,
         "available": True,
@@ -117,8 +118,8 @@ def snapshot(
                 else dynamic_inventory
             ),
         },
-        "coverage": runtime.query("coverage", {}),
-        "evidence_gaps": runtime.evidence_gaps,
+        "coverage": coverage,
+        "evidence_gaps": runtime.evidence_gaps_from_coverage(coverage),
         "policy": runtime.query("policy", {}),
         "functions": [],
         "areas": [
@@ -155,7 +156,12 @@ class Dashboard:
         self._locations: dict[str, JSONValue] = {}
         self.catalog_sections: dict[str, list[JSONValue]] = {}
         self._node_rows: dict[str, JSONValue] = {}
+        self._context_rows: dict[str, dict[str, JSONValue]] = {}
+        self._entity_nodes: dict[str, str] = {}
+        self._device_rows: dict[str, dict[str, JSONValue]] = {}
+        self._monitored_count = 0
         self.summary = self.update
+        self.panel_summary = self.update
         self._cancel: Callable[[], None] | None = None
         self.save_lock = asyncio.Lock()
         self.reloading_settings = False
@@ -210,6 +216,31 @@ class Dashboard:
                     str(cast(dict[str, JSONValue], row)["node_id"]): row
                     for row in self.catalog_sections["nodes"]
                 }
+                self._context_rows = {
+                    str(row["node_id"]): row
+                    for row in cast(
+                        list[dict[str, JSONValue]],
+                        self.catalog_sections["candidates"]
+                        + self.catalog_sections["nodes"],
+                    )
+                }
+                self._entity_nodes = {
+                    str(row["entity_id"]): str(row["node_id"])
+                    for row in self._context_rows.values()
+                    if row.get("kind") == "entity"
+                    and not row.get("monitoring_policy")
+                    and row.get("entity_id")
+                }
+                self._device_rows = {
+                    str(row["id"]): row
+                    for row in cast(
+                        list[dict[str, JSONValue]], self.catalog_sections["devices"]
+                    )
+                }
+                self._monitored_count = sum(
+                    bool(cast(dict[str, JSONValue], row).get("watched"))
+                    for row in self.catalog_sections["nodes"]
+                )
             self.value.update(self._locations)
             self.update = {
                 **{
@@ -257,13 +288,109 @@ class Dashboard:
                 "devices": [],
                 "floors": [],
             }
+            self.panel_summary = self._panel_summary(dynamic)
         else:
             self._catalog = None
             self.update = {**self.value, "schema_version": 2}
             self.catalog_sections = {}
             self._node_rows = {}
+            self._context_rows = {}
+            self._entity_nodes = {}
+            self._device_rows = {}
             self.summary = {**self.value, "schema_version": 3, "catalog_loaded": False}
+            self.panel_summary = {**self.summary, "panel_context": True}
         async_dispatcher_send(self.hass, SIGNAL_DASHBOARD)
+
+    def _panel_summary(self, dynamic: dict[str, JSONValue]) -> dict[str, JSONValue]:
+        """Include current issue context without the installation-wide catalog."""
+        assert self.runtime is not None
+        names: set[str] = set()
+        for episode in self.runtime.episodes.values():
+            names.add(str(episode["anchor"]))
+            names.update(cast(list[str], episode.get("recorded", [])))
+            names.update(
+                str(reason["node_id"])
+                for reason in cast(
+                    list[dict[str, JSONValue]], episode.get("reasons", [])
+                )
+                if reason.get("node_id")
+            )
+        names.update(
+            str(control["target"])
+            for control in cast(
+                list[dict[str, JSONValue]], dynamic["operator_controls"]
+            )
+        )
+        pending = list(names)
+        devices: set[str] = set()
+        areas: set[str] = set()
+        floors: set[str] = set()
+        while pending:
+            row = self._context_rows.get(pending.pop())
+            if row is None:
+                continue
+            related: set[str] = set()
+            if row.get("monitoring_source"):
+                related.add(str(row["monitoring_source"]))
+            if canonical := self._entity_nodes.get(str(row.get("entity_id", ""))):
+                related.add(canonical)
+            if row.get("owner_id"):
+                related.add(f"entry:{row['owner_id']}")
+            attributes = cast(dict[str, JSONValue], row.get("attributes", {}))
+            related.update(
+                f"entry:{identity}"
+                for identity in cast(list[str], attributes.get("integration", []))
+            )
+            for identity in cast(list[str], attributes.get("device", [])):
+                devices.add(identity)
+                related.add(f"device:{identity}")
+                owner = self._device_rows.get(identity, {}).get("config_entry_id")
+                if owner:
+                    related.add(f"entry:{owner}")
+            areas.update(cast(list[str], attributes.get("area", [])))
+            floors.update(cast(list[str], attributes.get("floor", [])))
+            pending.extend(related - names)
+            names.update(related)
+        area_rows = [
+            row
+            for row in cast(list[dict[str, JSONValue]], self._locations["areas"])
+            if row["id"] in areas
+        ]
+        floors.update(str(row["floor_id"]) for row in area_rows if row.get("floor_id"))
+        inventory = cast(dict[str, JSONValue], self.summary["inventory"])
+        catalog = cast(dict[str, JSONValue], inventory["catalog"])
+        return {
+            **{key: value for key, value in self.summary.items() if key != "coverage"},
+            "panel_context": True,
+            "inventory": {
+                **inventory,
+                "monitored_count": self._monitored_count,
+                "nodes": [
+                    self._node_rows[name]
+                    for name in sorted(names)
+                    if name in self._node_rows
+                ],
+                "catalog": {
+                    **catalog,
+                    "candidates": [
+                        self._context_rows[name]
+                        for name in sorted(names)
+                        if name in self._context_rows and name not in self._node_rows
+                    ],
+                },
+            },
+            "areas": cast(list[JSONValue], area_rows),
+            "devices": [
+                self._device_rows[identity]
+                for identity in sorted(devices)
+                if identity in self._device_rows
+            ],
+            "floors": [
+                row
+                for row in cast(list[dict[str, JSONValue]], self._locations["floors"])
+                if row["id"] in floors
+            ],
+        }
 
 
 @websocket_command(
@@ -271,6 +398,7 @@ class Dashboard:
         vol.Required("type"): "homeostatic/subscribe",
         vol.Optional("compact", default=False): bool,
         vol.Optional("paged", default=False): bool,
+        vol.Optional("panel", default=False): bool,
     }
 )
 @require_admin
@@ -289,7 +417,7 @@ def websocket_subscribe(
         dashboard = hass.data[DATA_DASHBOARD]
         payload = dashboard.value
         if msg["paged"]:
-            payload = dashboard.summary
+            payload = dashboard.panel_summary if msg["panel"] else dashboard.summary
         elif msg["compact"]:
             if not payload["available"]:
                 revision = None

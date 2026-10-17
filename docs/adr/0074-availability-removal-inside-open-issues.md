@@ -4,6 +4,8 @@
 
 **Date:** 2026-10-15
 
+**Later decisions:** [ADR 0091](0091-direct-issue-actions-and-coverage.md) presents the action as an outlined Stop Monitoring button. [ADR 0094](0094-one-device-issue-workflow.md) keeps exact entity names directly visible in the confirmation and removes its Details disclosure and repeated policy list. The availability scope, confirmation and saved-setting safeguards below remain in force.
+
 **Supersedes:** ADR 0069's group-wide action placement and selection scope.
 
 ## Context

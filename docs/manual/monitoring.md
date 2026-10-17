@@ -13,11 +13,11 @@
 
 The details identify the source, its current condition and its monitoring. Links beside its name open the named Home Assistant destination, such as the device page or entity state.
 
-An **Issues** badge marks a source or group with related open issues. A shared issue may appear under more than one device or room. Select **View issue** to inspect its full scope before acknowledging it or pausing notifications.
+An **Issues** badge marks a source or group with related open issues. On a device, one **View** opens the same device dialog as **Open issues**, including partial availability and other conditions. Choose which issues to acknowledge or pause there. Entities without a device and wider issues retain their own scope.
 
 ![Monitoring with 3rd Floor Sensor selected and its availability and monitoring coverage visible](../images/manual-monitoring.png)
 
-This example device shows its current availability alongside the checks that watch it.
+A device shows its availability summary first, followed by entity names linked to Home Assistant and then monitoring coverage. The summary counts monitored entities; the dialog keeps each issue and its condition separate.
 
 ## Understand what is watched
 

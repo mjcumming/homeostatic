@@ -9,7 +9,7 @@ For eligible sources, starting settings and the conditions each monitoring type 
 ## Add or change a policy
 
 1. Open **Policies**. Select **Edit policy** beside an existing policy, or select **Add policy**, choose a **Monitoring type**, and select **Continue**.
-2. Give the policy a useful name. Where source selection is supported, choose one of the visible **Include** options, then use the selection button beside the chosen option. Search for sources and select **Done** when finished.
+2. Give the policy a useful name. Where source selection is supported, choose one of the visible **Include** options, then use the selection button beside the chosen option. Search covers all available sources; **Show 50 more** reveals additional results. Selections stay in the draft when they are outside the visible results. Select **Done** when finished.
 3. Review the detection settings offered for that type. Repairs and broken automations always cover their complete supported set and have no source selector.
 4. Under **Notifications**, use **Add notification** to choose a saved named notification. To keep issues in the panel without notifications from this policy, remove every assignment so the section reads **No notifications**. [Set up notifications](notifications.md) covers timing and destinations.
 5. Set **Policy enabled** as intended, then select **Save policy**.
@@ -31,9 +31,9 @@ The editor offers only the choices supported by the monitoring type. Integration
 
 Availability policies automatically select enabled operational entities. To watch a diagnostic or configuration entity individually, choose it explicitly in an entity availability policy. Device availability uses its operational entities and excludes diagnostic and configuration entities. Disabled sources remain outside availability monitoring.
 
-Exclusions belong to their policy. A device policy can exclude the whole device or particular entity members; excluding every eligible member leaves no device availability check. An exclusion remains saved if its source disappears, so it applies if that source returns.
+Exclusions belong to their policy. In a device availability policy, **Devices** selects or excludes whole devices. **Ignored entities** lists entities separately, grouped under their device. Use **Choose ignored entities** to leave those entities out of the device assessment. Changing device selection keeps ignored entities in place; **Save policy** applies both sections. Ignoring every eligible entity on a device leaves no device availability check. An exclusion remains saved if its source disappears, so it applies if that source returns.
 
-## Remove unwanted availability monitoring
+## Stop availability monitoring
 
 Use this when Home Assistant regularly marks a feature unavailable and you have decided it does not need an availability check. These controls update the affected policies' exclusions.
 
@@ -41,14 +41,14 @@ Use this when Home Assistant regularly marks a feature unavailable and you have 
 
    | Starting point | Action |
    | --- | --- |
-   | An opened availability issue | Select **Remove from availability monitoring…**. The review includes its currently unavailable monitored entities. |
-   | One entity in Monitoring | Select **Remove this entity from availability monitoring…**. |
-   | Selected members of a device in Monitoring | Select **Select entities…**, choose the members, then **Remove selected entities from availability monitoring…**. |
+   | An opened availability issue | Select **Stop Monitoring**. The review includes its currently unavailable monitored entities. |
+   | One entity in Monitoring | Select **Stop Monitoring**. |
+   | Selected members of a device in Monitoring | Select **Select entities…**, choose the members, then **Stop Monitoring**. |
 
-2. Check the entity count and expand **Details** to review the entities and policies that will change. A shared issue may cover several devices.
-3. Confirm removal using the action shown. Choose **Cancel** to keep the saved monitoring unchanged.
+2. Review the entity count and the exact names shown in the confirmation. It explains that availability monitoring will stop while other checks continue. A wider issue may cover several devices.
+3. Select **Stop Monitoring** to confirm. Choose **Cancel** to keep the saved monitoring unchanged.
 
-Removal ends the affected availability monitoring and can end other availability issues for those same entities. Other checks, such as battery or temperature monitoring, continue. Home Assistant's entities stay enabled. The outcome is **Monitoring ended**, without claiming that the equipment recovered.
+Stopping ends the affected availability monitoring and can end other availability issues for those same entities. Other checks, such as battery or temperature monitoring, continue. Home Assistant's entities stay enabled. The outcome is **Monitoring ended**, without claiming that the equipment recovered.
 
 If the result cannot be confirmed, use **Refresh saved monitoring** when offered and review the saved scope before another action. Later adjustments belong to the policies or the resumption control below.
 
@@ -56,7 +56,7 @@ If the result cannot be confirmed, use **Refresh saved monitoring** when offered
 
 1. Find the source in **Monitoring**. **More filters → Availability exclusions only** helps locate excluded sources.
 2. For an entity, select **Resume availability monitoring…**. For device members, use **Select entities…**, choose the members, and select **Resume availability monitoring for selected entities…**.
-3. Check the entities and policies in the confirmation, then select **Resume availability monitoring**.
+3. Check the exact entities in the confirmation, then select **Resume availability monitoring**.
 
 This removes the reviewed explicit exclusions. The policy must still be enabled and its source selection must still include eligible equipment. Resuming an exclusion does not enable a disabled policy or broaden its selection.
 

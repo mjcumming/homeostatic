@@ -934,7 +934,11 @@ for(const variant of ["shared","independent","aliases","partial"]) {
       card.sourcesSelection=`source:${device.node_id}`;
       const selected=sourcesBrowser(card).split('<section class="config-detail"')[1];
       const expected=episodes.filter(item=>item.anchor===device.node_id||item.recorded.includes(device.node_id)).map(item=>item.episode_id);
-      assert.deepEqual([...selected.matchAll(/data-episode="([^"]+)"/g)].map(match=>match[1]),expected);
+      if(variant==="independent") {
+        assert.equal((selected.match(/data-device-issues=/g)||[]).length,1);
+        assert.ok(selected.includes(`data-device-issues="${device.attributes.device[0]}"`));
+        assert.doesNotMatch(selected,/data-episode=/);
+      } else assert.deepEqual([...selected.matchAll(/data-episode="([^"]+)"/g)].map(match=>match[1]),expected);
     }
     assert.equal(issueScopeBadge(html,"source:entity:impact"),"");
     card.sourcesQuery="Speaker 1 reading 1";
@@ -1232,15 +1236,14 @@ test("history observation range shows the elapsed time without seconds", () => {
   assert.equal(observedRange("", ""),"Time not recorded");
 });
 
-test("selected device access can be available beside an unavailable monitored entity",()=>{
+test("selected device summary counts monitored members independently of inventory access",()=>{
   const data=monitoringExample(), id="device:camera-0";
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${id}`,sourcesView:"source",
     sourceDetail:{nodeId:id,device_availability:{status:"available",basis:"entities"},members:[{name:"Required sensor",node_id:"sensor.required",state:"unavailable"}],total:1,unavailable_count:1,unknown_count:0}};
   const html=sourcesBrowser(card);
-  assert.match(html,/<dt>Availability<\/dt><dd>Available<\/dd>/);
-  assert.match(html,/1 of 1 monitored entity is unavailable/);
+  assert.match(html,/0 of 1 monitored entity available/);
   assert.match(html,/Required sensor/);
-  assert.doesNotMatch(html,/Home Assistant cannot currently report|Next step:/);
+  assert.doesNotMatch(html,/source-facts|source-entity-condition|Home Assistant cannot currently report|Next step:/);
 });
 
 test("Sources treats a current connectivity off report as available",()=>{
@@ -1248,15 +1251,15 @@ test("Sources treats a current connectivity off report as available",()=>{
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${id}`,sourcesView:"source",
     sourceDetail:{nodeId:id,device_availability:{status:"available",basis:"entities",reason:"entity_available"},members:[{name:"Camera Connectivity",node_id:"binary_sensor.camera_connectivity",state:"off",connectivity:true}],total:1,unavailable_count:0,unknown_count:0}};
   const html=sourcesBrowser(card);
-  assert.match(html,/Monitored entities are available/);
-  assert.match(html,/<dt>Availability<\/dt><dd>Available<\/dd>/);
-  assert.match(html,/<td>off<\/td>/);
+  assert.match(html,/1 of 1 monitored entity available/);
+  assert.match(html,/>Available · off<\/span>/);
+  assert.doesNotMatch(html,/source-facts|source-entity-condition/);
   assert.doesNotMatch(html,/Entities needing review|Disconnected|Connection reports disconnected/);
 });
 
-test("entity detail shows HA state and monitoring once; device rows navigate",()=>{
+test("entity detail shows HA state and monitoring once; device member names open Home Assistant",()=>{
   const data=monitoringExample(),entityId="entity:registry:camera-1-1",deviceId="device:camera-1";
-  const member={node_id:entityId,name:"Back Porch signal 001",state:"unavailable"};
+  const member={node_id:entityId,entity_id:"sensor.camera_1_001",name:"Back Porch signal 001",state:"unavailable"};
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
     sourcesSelection:`source:${entityId}`,sourceDetail:{nodeId:entityId,members:[member],total:1,unavailable_count:1,unknown_count:0}};
   const entity=sourcesBrowser(card);
@@ -1269,22 +1272,23 @@ test("entity detail shows HA state and monitoring once; device rows navigate",()
   card.sourcesSelection=`source:${deviceId}`;
   card.sourceDetail={...card.sourceDetail,nodeId:deviceId};
   const device=sourcesBrowser(card);
-  assert.match(device,/<button type="button" class="link" data-source-link="entity:registry:camera-1-1">signal 001<\/button>/);
+  assert.match(device,/<a href="\/developer-tools\/state\?entity_id=sensor\.camera_1_001">Back Porch signal 001<\/a>/);
+  assert.doesNotMatch(device,/data-source-link="entity:registry:camera-1-1"|data-episode=/);
 });
 
-test("device details put unavailable entities first and collapse other readings",()=>{
+test("device details keep mixed member evidence visible before monitoring coverage",()=>{
   const data=monitoringExample(),id="device:camera-1";
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
     sourcesSelection:`source:${id}`,sourceDetail:{nodeId:id,members:[
-      {node_id:"entity:registry:camera-1-1",name:"Broken sensor",state:"unavailable"},
-      {node_id:"entity:registry:camera-1-2",name:"Working sensor",state:"18"}],total:2,unavailable_count:1,unknown_count:0}};
+      {node_id:"entity:registry:camera-1-1",entity_id:"sensor.camera_1_001",name:"Broken sensor",state:"unavailable"},
+      {node_id:"entity:registry:camera-1-2",entity_id:"sensor.camera_1_002",name:"Working sensor",state:"18"}],total:2,unavailable_count:1,unknown_count:0}};
   const html=sourcesBrowser(card);
-  assert.match(html,/1 of 2 monitored entities are unavailable/);
-  assert.match(html,/Entities needing review.*Broken sensor/s);
-  assert.match(html,/<details class="source-section source-monitoring-explanation"[^>]*><summary>Details<\/summary>.*<h3>1 other monitored entity<\/h3>.*Working sensor/s);
-  assert.doesNotMatch(html.split('<details class="source-section source-monitoring-explanation"')[0],/Working sensor/);
-  assert.match(html,/href="\/config\/devices\/device\/camera-1">Go to device page/);
-  assert.doesNotMatch(html,/Home Assistant cannot currently report|Next step:/);
+  assert.match(html,/1 of 2 monitored entities available/);
+  const evidence=html.split('<section class="source-section source-device-coverage"')[0];
+  assert.match(evidence,/href="\/developer-tools\/state\?entity_id=sensor\.camera_1_001">Broken sensor<\/a>[\s\S]*?>Unavailable<\/span>/);
+  assert.match(evidence,/href="\/developer-tools\/state\?entity_id=sensor\.camera_1_002">Working sensor<\/a>[\s\S]*?>Available · 18<\/span>/);
+  assert.match(html,/href="\/config\/devices\/device\/camera-1">Open device/);
+  assert.doesNotMatch(html,/<details\b|Home Assistant cannot currently report|Next step:/);
 });
 
 test("entity details separate availability from its current value",()=>{
@@ -1324,7 +1328,7 @@ test("selected device refresh coalesces reads and notices access changes",async(
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?availability-test");
-  const card=Object.create(elements.get("homeostatic-card-v38").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v39").prototype);
   const data=monitoringExample(),entity="sensor.excluded",nodeId="device:camera-0",pending=[];
   Object.assign(card,{page:"sources",sourcesView:"source",current:{status:"current",data},sourcesGrouping:"integration",sourcesSelection:`source:${nodeId}`,sourceDetail:null,sourceSequence:0,
     render(){},_hass:{states:{[entity]:{state:"off",attributes:{}}},callWS(){return new Promise(resolve=>pending.push(resolve));}}});
@@ -1359,7 +1363,7 @@ test("policy configuration loads without delivery discovery and discovery preser
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?configuration-test");
-  const card=Object.create(elements.get("homeostatic-card-v38").prototype);
+  const card=Object.create(elements.get("homeostatic-card-v39").prototype);
   const calls=[],pending=[];
   Object.assign(card,{page:"policies",render(){},_hass:{connection:{},callWS(request){calls.push(request);return new Promise((resolve,reject)=>pending.push({resolve,reject}));}}});
   const settings={monitoring_policies:[{id:"one",name:"Saved policy"}],notification_definitions:{methods:{}}};

@@ -79,19 +79,17 @@ test("canonical objects retain embedded checks when monitoring scope is indexed"
   assert.deepEqual(plan.changes.map(change=>change.id),["entities"]);
 });
 
-for(const [ids,heading,confirm] of [[[A],"Remove 1 entity from availability monitoring?","Remove entity from availability monitoring"],[[A,B],"Remove 2 entities from availability monitoring?","Remove entities from availability monitoring"]]) {
-  test(`confirmation leads with ${heading} and collapses names and policies`,()=>{
+for(const [ids,heading] of [[[A],"Stop monitoring this entity?"],[[A,B],"Stop monitoring these 2 entities?"]]) {
+  test(`confirmation leads with ${heading} and shows the exact entities directly`,()=>{
     const {card}=fixture(),plan=prepareAvailabilityChange(card,ids);
     const html=availabilityConfirmation(plan,(mode,label)=>`<button data-mode="${mode}">${label}</button>`);
-    const disclosure=html.match(/<details[^>]*>([\s\S]*?)<\/details>/)[1];
     assert.ok(html.includes(`<h3>${heading}</h3>`));
-    assert.ok(html.includes(`data-mode="confirm">${confirm}`));
-    assert.match(disclosure,/<summary>Details<\/summary>/);
-    assert.match(disclosure,/sensor.one/);
-    assert.match(disclosure,/<li>entities<\/li>/);
-    assert.match(disclosure,/<li>devices<\/li>/);
-    assert.doesNotMatch(html,/<details[^>]* open/);
-    assert.match(html,/Other checks stay enabled\./);
+    assert.match(html,/data-mode="confirm">Stop Monitoring<\/button>/);
+    assert.match(html,/sensor.one/);
+    assert.equal((html.match(/<li>/g)||[]).length,ids.length);
+    if(ids.length>1)assert.match(html,/sensor.two/);
+    assert.doesNotMatch(html,/<details|<summary|<p>Policies|<li>entities<\/li>|<li>devices<\/li>/);
+    assert.match(html,/Stop availability monitoring for (?:this entity|these entities)\. Other checks stay enabled\./);
     assert.doesNotMatch(html,/recovered|device availability evidence|individual availability/);
   });
 }

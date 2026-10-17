@@ -1,14 +1,15 @@
-import {sourceReporting} from "./reporting.mjs?v=90";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=90";
-import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=90";
-import {monitoringTree} from "./configuration.mjs?v=90";
-import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=90";
+import {sourceReporting} from "./reporting.mjs?v=94";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=94";
+import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=94";
+import {monitoringTree} from "./configuration.mjs?v=94";
+import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=94";
 
-import {deviceAvailabilityLabel, deviceEntityName} from "./device-availability.mjs?v=90";
-import {upsSourceSummary} from "./ups.mjs?v=90";
-import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=90";
-import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=90";
-import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=90";
+import {deviceAvailabilitySummary, deviceEntityName} from "./device-availability.mjs?v=94";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=94";
+import {upsSourceSummary} from "./ups.mjs?v=94";
+import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=94";
+import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=94";
+import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=94";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -17,17 +18,24 @@ const sourceNode = source => ({key:`source:${source.node_id}`,name:sourceName(so
 const unique = (items, identity = item => item.key) => [...new Map(items.map(item => [identity(item),item])).values()];
 const displayDate = value => value ? new Date(value).toLocaleString() : "Time not reported";
 const familyDevices = family => unique([...sourcePaths(family.children).values()].map(item=>item.node).filter(node=>node.type==="device"));
+const canonicalCache = new WeakMap();
+const canonicalCatalogs = new WeakMap();
+const sourceTrees = new WeakMap();
+const pathIndexes = new WeakMap();
+const selectionIndexes = new WeakMap();
+const topologyTrees = new WeakMap();
 
 /** Present one real source while retaining each independent monitoring check. */
 export function canonicalSources(data) {
   const rows=inventoryRows(data), groups=new Map();
+  if(canonicalCache.has(rows))return canonicalCache.get(rows);
   const entities=new Map(rows.filter(row=>row.kind==="entity"&&!row.monitoring_policy&&row.entity_id).map(row=>[row.entity_id,row.node_id]));
   for(const row of rows) {
     const id=row.monitoring_source||(isTemperatureCheck(row)&&entities.get(row.entity_id))||row.node_id;
     if(!groups.has(id))groups.set(id,[]);
     groups.get(id).push(row);
   }
-  return [...groups].map(([id,members])=>{
+  const sources=[...groups].map(([id,members])=>{
     const base=members.find(source=>source.node_id===id)||members[0];
     const checks=members.flatMap(source=>source.monitoring_checks||((source.monitoring_policy||source.watched)?[source]:[]));
     const suffix=base.monitoring_policy?.name?` · ${base.monitoring_policy.name}`:"";
@@ -36,11 +44,26 @@ export function canonicalSources(data) {
       availability_entities:[...new Set(members.flatMap(source=>source.availability_entities||[]))],
       source_aliases:[...new Set(members.flatMap(source=>source.source_aliases||[source.node_id]))],monitoring_checks:checks};
   });
+  canonicalCache.set(rows,sources);
+  return sources;
 }
 
 function canonicalData(data) {
   if(data.canonical_source_rows)return data;
-  return {...data,canonical_source_rows:true,inventory:{...data.inventory,nodes:canonicalSources(data),catalog:{...data.inventory.catalog,candidates:[]}}};
+  const catalog=data.inventory.catalog;
+  if(!canonicalCatalogs.has(catalog))canonicalCatalogs.set(catalog,{...catalog,candidates:[]});
+  return {...data,canonical_source_rows:true,inventory:{...data.inventory,nodes:canonicalSources(data),catalog:canonicalCatalogs.get(catalog)}};
+}
+
+/** Resolve a source or historical check alias without rebuilding its browsing tree. */
+export function sourceForSelection(data,selection) {
+  const sources=canonicalSources(data);
+  if(!selectionIndexes.has(sources)) {
+    const index=new Map();
+    for(const source of sources)for(const id of [source.node_id,...source.source_aliases])index.set(`source:${id}`,source);
+    selectionIndexes.set(sources,index);
+  }
+  return selectionIndexes.get(sources).get(selection);
 }
 
 /** Use the integration type, preserving individual connections below a family. */
@@ -92,6 +115,14 @@ export function topomationTree(data,topomation) {
   const locations=topomation?.locations;
   if(!Array.isArray(locations)||!locations.length)return null;
   data=canonicalData(data);
+  const rows=data.inventory.nodes,cached=topologyTrees.get(rows);
+  if(cached?.topomation===topomation&&cached.devices===data.devices)return cached.tree;
+  const tree=buildTopomationTree(data,locations);
+  topologyTrees.set(rows,{topomation,devices:data.devices,tree});
+  return tree;
+}
+
+function buildTopomationTree(data,locations) {
   const byId=new Map();
   for(const location of locations) {
     if(!location||typeof location.id!=="string"||!location.id||byId.has(location.id))return null;
@@ -145,20 +176,27 @@ export function topomationTree(data,topomation) {
 }
 
 /** Organize one inventory by integration family or location. */
-export function sourcesTree(data,grouping = "integration",localize = () => null,topomation = null,showDisabled = true) {
+export function sourcesTree(data,grouping = "integration",localize = null,topomation = null,showDisabled = true) {
   data=canonicalData(data);
+  const rows=data.inventory.nodes;
+  const variants=sourceTrees.get(rows)||new Map();
+  const variant=`${grouping}:${showDisabled}`,cached=variants.get(variant);
+  const functions=data.functions?.length?data.functions:null;
+  if(cached&&cached.localize===localize&&cached.topomation===topomation&&cached.areas===data.areas&&cached.floors===data.floors&&cached.devices===data.devices&&cached.functions===functions)return cached.tree;
   if(!showDisabled)data={...data,inventory:{...data.inventory,nodes:data.inventory.nodes.filter(source=>!source.disabled)}};
   const tree=groupedSources(data,grouping,localize,topomation);
-  const present=sourcePaths(tree);
+  const present=buildSourcePaths(tree);
   const situations=inventoryRows(data).filter(source=>source.kind==="situation"&&!present.has(`source:${source.node_id}`)).map(sourceNode);
   if(situations.length)tree.push({key:"situations",name:"Configured situations",type:"location",children:situations});
   for(const [kind,name] of [["broken_automation","Automations"],["repair","Home Assistant Repairs"]]) {
     const rows=inventoryRows(data).filter(source=>source.kind===kind&&!present.has(`source:${source.node_id}`)).map(sourceNode);
     if(rows.length)tree.push({key:kind,name,type:"location",children:rows});
   }
-  const placed=sourcePaths(tree);
+  const placed=buildSourcePaths(tree);
   const remaining=inventoryRows(data).filter(source=>!placed.has(`source:${source.node_id}`)).map(sourceNode);
   if(remaining.length)tree.push({key:"other-checks",name:"Other sources",type:"location",children:remaining});
+  variants.set(variant,{localize,topomation,areas:data.areas,floors:data.floors,devices:data.devices,functions,tree});
+  sourceTrees.set(rows,variants);
   return tree;
 }
 
@@ -168,8 +206,7 @@ function groupedSources(data,grouping,localize,topomation) {
   const topology=grouping === "topomation" ? topomationTree(data,topomation) : null;
   if(topology) {
     const entries=inventoryRows(data).filter(source=>source.kind==="integration").map(sourceNode).sort(byName);
-    if(entries.length)topology.push({key:"location:other-sources",name:"Integration connections",type:"location",children:entries});
-    return topology;
+    return entries.length?[...topology,{key:"location:other-sources",name:"Integration connections",type:"location",children:entries}]:[...topology];
   }
   const convert = location => {
     const places=location.children.map(convert);
@@ -211,6 +248,11 @@ export function filterSourceMonitoring(tree,filter,index) {
 }
 
 export function sourcePaths(tree) {
+  if(!pathIndexes.has(tree))pathIndexes.set(tree,buildSourcePaths(tree));
+  return pathIndexes.get(tree);
+}
+
+function buildSourcePaths(tree) {
   const paths=new Map();
   const add=(node,parents)=>{const item={node,parents};if(!paths.has(node.key))paths.set(node.key,item);for(const id of node.source?.source_aliases||[])if(!paths.has(`source:${id}`))paths.set(`source:${id}`,item);};
   const visit=(nodes,parents)=>{for(const node of nodes){add(node,parents);if(node.connection)add(sourceNode(node.connection),parents);visit(node.children,[...parents,node]);}};
@@ -295,6 +337,7 @@ function sourcePolicies(card,node,extra="") {
     return `${policies.length?'<section class="source-policy-links"><button type="button" class="link" data-source-policies="open" aria-haspopup="dialog">Monitoring policies</button></section>':""}${dialog}`;
   }
   const links=policies.length?`<section class="source-policy-links" aria-label="Monitoring policies">${policies.map(edit).join("")}</section>`:"";
+  if(source.kind==="device")return links;
   const explained=policies.filter(policy=>policy.contexts.size);
   const content=explained.length?`<h3>Monitoring policies</h3>${explained.map(policy=>`<div class="source-policy"><div><p><strong>${esc(policy.name)}</strong></p>${[...policy.contexts].map(context=>`<p>${esc(context)}</p>`).join("")}</div></div>`).join("")}`:"";
   return `${links}${content||extra?`<details class="source-section source-monitoring-explanation" data-ui-key="source-details:${esc(node.key)}"><summary>Details</summary>${content}${extra}</details>`:""}`;
@@ -373,10 +416,10 @@ function availabilityActions(card,node) {
   const state=source.kind==="entity"?availabilityMonitoring(card,source):null;
   const operation=card.availabilityPlan;
   const selected=card.availabilitySelected?.nodeId===source.node_id?card.availabilitySelected:null;
-  const action=(mode,label,id=source.node_id)=>`<button type="button" class="button${mode==="confirm"?" primary":""}" data-availability-action="${mode}" data-availability-source="${esc(id)}"${disabled?' disabled':''}>${mode==="confirm"&&card.scopedBusy==="source-availability"?"Saving…":label}</button>`;
-  const controls=operation&&card.availabilityContext===source.node_id?"":source.kind==="entity"?`${!source.disabled&&state.canStop?action("stop","Remove this entity from availability monitoring…"):""}${!source.disabled&&state.canResume?action("resume","Resume availability monitoring…"):""}`:action(selected?"cancel-selection":"select",selected?"Cancel selection":"Select entities…");
+  const action=(mode,label,id=source.node_id)=>`<button type="button" class="button${mode==="confirm"?" primary":""}" data-availability-action="${mode}" data-availability-source="${esc(id)}"${disabled?' disabled':''}>${mode==="confirm"&&card.scopedBusy==="source-availability"?operation?.mode==="stop"?"Stopping monitoring…":"Resuming monitoring…":label}</button>`;
+  const controls=operation&&card.availabilityContext===source.node_id?"":source.kind==="entity"?`${!source.disabled&&state.canStop?action("stop","Stop Monitoring"):""}${!source.disabled&&state.canResume?action("resume","Resume availability monitoring…"):""}`:action(selected?"cancel-selection":"select",selected?"Cancel selection":"Select entities…");
   const choices=selected?[...selected.ids].map(id=>availabilityMonitoring(card,id)):[];
-  const batch=selected?.ids.size?`<div class="source-actions"><span>${selected.ids.size} selected</span>${choices.some(item=>item.canStop)?action("stop-selected","Remove selected entities from availability monitoring…"):""}${choices.some(item=>item.canResume)?action("resume-selected","Resume availability monitoring for selected entities…"):""}</div>`:"";
+  const batch=selected?.ids.size?`<div class="source-actions"><span>${selected.ids.size} selected</span>${choices.some(item=>item.canStop)?action("stop-selected","Stop Monitoring"):""}${choices.some(item=>item.canResume)?action("resume-selected","Resume availability monitoring for selected entities…"):""}</div>`:"";
   const confirmation=operation&&card.availabilityContext===source.node_id?availabilityConfirmation(operation,action):"";
   const feedback=card.availabilityContext===source.node_id&&card.availabilityError?`<p class="config-error" role="alert">${esc(card.availabilityError)}</p>${card.scopedConfiguration?.needsRefresh?action("refresh","Refresh saved monitoring"):""}`:"";
   return `${controls?`<div class="source-actions">${controls}</div>`:""}${updating?'<p class="small" role="status">Updating monitoring scope…</p>':""}${batch}${confirmation}${feedback}`;
@@ -416,7 +459,7 @@ export function editSourceAvailability(card,event) {
       else if(card.availabilityPlan?.revision!==card.configuration?.revision||card.availabilityPlan?.catalogRevision!==card.current.data?.catalog_revision)card.availabilityPlan=null;
       card.render();
       card.shadowRoot?.querySelector('[data-availability-action="confirm"], #sources-detail-title')?.focus({preventScroll:true});
-    }).catch(error=>{card.availabilityError=error.message||"Could not complete this action. Read current saved settings before trying again.";card.render();});
+    }).catch(error=>{card.availabilityError=error.message||`Could not ${card.availabilityPlan?.mode==="resume"?"resume":"stop"} monitoring. Read current saved settings before trying again.`;card.render();});
     return true;
   }else if(["stop","resume","stop-selected","resume-selected"].includes(action)) {
     const ids=action.endsWith("-selected")?[...card.availabilitySelected.ids]:[sourceId];
@@ -455,10 +498,38 @@ function sourceReading(member) {
   return `${member.state}${member.unit?`${member.unit==="%"?"":" "}${member.unit}`:""}`;
 }
 
+function deviceInspection(card,node,coverage) {
+  const source=node.source,evidence=card.sourceDetail?.nodeId===source.node_id?card.sourceDetail:null;
+  const deviceId=source.attributes?.device?.length===1?source.attributes.device[0]:null;
+  const related=relatedDeviceIssues(card.current.data,deviceId);
+  const view=related.length?`<button type="button" class="button" data-device-issues="${esc(deviceId)}" aria-label="View issues for ${esc(node.name)}">View</button>`:"";
+  const selection=card.availabilitySelected?.nodeId===source.node_id?card.availabilitySelected:null;
+  const checkbox=member=>selection?`<label class="source-member-select"><input type="checkbox" data-availability-select="${esc(member.node_id)}"${selection.ids.has(member.node_id)?" checked":""}${card.settingsBusy||card.scopedBusy?' disabled':''}><span class="sr-only">Select ${esc(member.name)}</span></label>`:"";
+  const memberName=member=>member.entity_id?`<a href="/developer-tools/state?entity_id=${encodeURIComponent(member.entity_id)}">${esc(member.name)}</a>`:`<span>${esc(member.name)}</span>`;
+  let summary="",body="";
+  if(source.disabled)summary='<p class="source-entity-condition">Disabled in Home Assistant</p><p>Monitoring paused while disabled. Saved monitoring choices resume when re-enabled.</p>';
+  else if(!evidence||evidence.loading)summary=`<div class="source-device-summary"><p role="status">Reading current Home Assistant values…</p>${view}</div>`;
+  else if(evidence.error)summary=`<div class="source-device-summary"><p role="alert">${esc(evidence.error)}</p>${view}</div><button type="button" class="button" data-action="refresh-source">Retry reading</button>`;
+  else {
+    const members=evidence.members||[],counts=deviceAvailabilitySummary(evidence,{monitored:source.watched});
+    const uniformUnavailable=counts.total>0&&counts.unavailable===counts.total;
+    summary=`<div class="source-device-summary"><p>${esc(counts.label)}</p>${view}</div>${!counts.total?`<p>${source.watched?"No entities selected for device availability":"No operational entities available to inspect"}</p>`:""}`;
+    const reading=member=>member.restored?"Not provided by integration":member.state==="missing"?"No current state":member.state==="unknown"?"Available · no value":member.state==="unavailable"?uniformUnavailable?"":"Unavailable":`Available · ${sourceReading(member)}`;
+    if(members.length)body=`<section class="source-section source-device-entities"><h3>${source.watched?"Monitored entities":"Entities"}</h3><ul class="source-device-members">${members.map(member=>`<li class="source-device-member"><span>${checkbox(member)}${memberName(member)}</span>${reading(member)?`<span class="source-device-member-state">${esc(reading(member))}</span>`:""}</li>`).join("")}</ul></section>`;
+    if(counts.total>members.length)body+=`<p class="small">${members.length} of ${counts.total} entity readings loaded.</p><button type="button" class="button" data-action="more-source-evidence"${evidence.moreLoading?' disabled':''}>${evidence.moreLoading?'Loading entities…':'Load more entities'}</button>${evidence.moreError?`<p role="alert">${esc(evidence.moreError)}</p>`:""}`;
+    body+=sourceTemperature(source,evidence);
+  }
+  const excluded=node.children.filter(child=>child.source?.kind==="entity"&&!(evidence?.members||[]).some(member=>member.node_id===child.source.node_id)&&availabilityMonitoring(card,child.source).canResume);
+  const exclusions=excluded.length?`<section class="source-excluded-members"><h4>${excluded.length} ${excluded.length===1?"entity with an availability exclusion":"entities with availability exclusions"}</h4><ul class="source-device-members">${excluded.map(child=>`<li class="source-device-member"><span>${checkbox(child.source)}${memberName(child.source)}</span></li>`).join("")}</ul></section>`:"";
+  const monitoring=`<section class="source-section source-device-coverage"><h3>Monitoring coverage</h3>${sourceMonitoringSummary(source,coverage)}${sourcePolicies(card,node)}${source.disabled?"":availabilityActions(card,node)}${exclusions}</section>`;
+  return {summary,body,monitoring};
+}
+
 /** Keep reported evidence separate from monitoring coverage in each inspector. */
 function sourceInspection(card,node,coverage) {
   const source=node.source;
   if(!source||!["battery","device","entity"].includes(source.kind))return null;
+  if(source.kind==="device")return deviceInspection(card,node,coverage);
   const evidence=card.sourceDetail?.nodeId===source.node_id?card.sourceDetail:null;
   const state=sourceCoverage(source,coverage);
   let facts="",body="",details="";
@@ -486,26 +557,6 @@ function sourceInspection(card,node,coverage) {
     facts+=`<p class="source-entity-condition">${esc(title)}</p>`;
     if(member&&!member.restored&&!['unavailable','missing'].includes(member.state))facts+=`<p class="source-current-value">${esc(member.state==="unknown"?"Home Assistant reports no value":sourceReading(member))}</p>`;
     body+=sourceTemperature(source,evidence);
-  } else {
-    const members=evidence.members||[],total=evidence.total??members.length;
-    const unavailable=evidence.unavailable_count??members.filter(item=>item.state==="unavailable"&&!item.restored).length;
-    const unknown=evidence.unknown_count??members.filter(item=>item.state==="missing"||item.restored).length;
-    const scope=source.watched?"monitored ":"";
-    facts+=sourceFact("Availability",esc(deviceAvailabilityLabel(evidence.device_availability)));
-    const title=!source.watched?"":!total?"No entities selected for device availability":unavailable?`${unavailable} of ${total} monitored ${total===1?"entity is":"entities are"} unavailable`:unknown?unknown===total?`No current readings from ${total} monitored ${total===1?"entity":"entities"}`:`${unknown} of ${total} monitored ${total===1?"entity has":"entities have"} no current reading`:"Monitored entities are available";
-    if(title)body+=`<section class="source-condition${unavailable||unknown?' needs-attention':''}"><p>${esc(title)}</p>${unavailable&&unknown?`<p>${unknown} ${scope}${unknown===1?"entity has":"entities have"} no current reading.</p>`:""}</section>`;
-    body+=sourceTemperature(source,evidence);
-    const selection=card.availabilitySelected?.nodeId===source.node_id?card.availabilitySelected:null;
-    const linkedTemperatureSources=new Set((evidence.temperature_checks||[]).map(check=>check.source_id));
-    const memberName=item=>linkedTemperatureSources.has(item.node_id)?`<span>${esc(deviceEntityName(item.name,node.name))}</span>`:`<button type="button" class="link" data-source-link="${esc(item.node_id)}">${esc(deviceEntityName(item.name,node.name))}</button>`;
-    const render=items=>`<table class="source-readings"><thead><tr><th>Entity</th><th>Current state</th></tr></thead><tbody>${items.map(item=>`<tr><td>${selection?`<label class="source-member-select"><input type="checkbox" data-availability-select="${esc(item.node_id)}"${selection.ids.has(item.node_id)?" checked":""}${card.settingsBusy||card.scopedBusy?' disabled':''}><span class="sr-only">Select ${esc(item.name)}</span></label>`:""}${memberName(item)}</td><td>${esc(item.restored?"Not provided by integration":item.state==="missing"?"No current state":item.state==="unknown"?"Available · no value":item.state==="unavailable"?"Unavailable":item.state)}</td></tr>`).join("")}</tbody></table>`;
-    const review=members.filter(item=>['unavailable','missing'].includes(item.state)||item.restored);
-    const other=members.filter(item=>!review.includes(item));
-    if(review.length)body+=`<section class="source-section"><h3>${source.watched?"Entities needing review":"Unavailable or missing entities"}</h3>${render(review)}</section>`;
-    if(other.length){const list=`<section class="source-section"><h3>${other.length} other ${scope}${other.length===1?"entity":"entities"}</h3>${render(other)}</section>`;if(selection)body+=list;else details+=list;}
-    if(total>members.length)body+=`<p class="small">${members.length} of ${total} entity readings loaded.</p><button type="button" class="button" data-action="more-source-evidence"${evidence.moreLoading?' disabled':''}>${evidence.moreLoading?'Loading entities…':'Load more entities'}</button>${evidence.moreError?`<p role="alert">${esc(evidence.moreError)}</p>`:""}`;
-    const excluded=node.children.filter(child=>child.source?.kind==="entity"&&!members.some(member=>member.node_id===child.source.node_id)&&availabilityMonitoring(card,child.source).canResume);
-    if(excluded.length){const list=`<section class="source-section source-excluded-members"><h3>${excluded.length} ${excluded.length===1?"entity with an availability exclusion":"entities with availability exclusions"}</h3><p class="small">Select entities to remove their explicit policy exclusions. Current readings remain available in each entity’s details.</p>${excluded.map(child=>`<div class="source-child">${selection?`<label class="source-member-select"><input type="checkbox" data-availability-select="${esc(child.source.node_id)}"${selection.ids.has(child.source.node_id)?" checked":""}${card.settingsBusy||card.scopedBusy?' disabled':''}><span class="sr-only">Select ${esc(child.name)}</span></label>`:""}${memberName({node_id:child.source.node_id,name:child.name})}</div>`).join("")}</section>`;if(selection)body+=list;else details+=list;}
   }
   const availability=source.kind==="entity"?availabilityMonitoring(card,source):null;
   const configure=source.kind==="battery"||availability&&!availability.canStop&&!availability.canResume;
@@ -517,6 +568,10 @@ function sourceNavigation(card,node) {
   if(!node.source)return "";
   const history=card.sourcesView==="history",view=history?"source":"history";
   if(node.source.kind==="entity"&&!history)return "";
+  if(node.source.kind==="device"&&!history) {
+    const deviceId=node.source.attributes?.device?.length===1?node.source.attributes.device[0]:null;
+    return deviceId?`<nav class="source-native-navigation" aria-label="Home Assistant navigation"><a class="button" href="/config/devices/device/${encodeURIComponent(deviceId)}">Open device</a></nav>`:"";
+  }
   const href=`/homeostatic/sources/${encodeURIComponent(node.key)}${history?"":"/history"}`;
   return `<nav class="source-navigation" aria-label="Related source views">${node.source.kind==="entity"?"":sourceHeaderMetadata(card,node.source)}<a class="link" href="${esc(href)}" data-sources-view="${view}">${history?"Close history":"View history"}</a></nav>${history?`<section class="source-history"><h3 id="source-history-title" data-ui-key="source-history-title:${esc(node.key)}" tabindex="-1">History</h3>${sourceHistory(card,node)}</section>`:""}`;
 }
@@ -552,7 +607,8 @@ function currentSourceEvidence(card,node,episodes) {
 }
 
 function sourceIssueLinks(card,node,episodes,data) {
-  const linked=relatedIssues(node,episodes);
+  const combined=node.source?.kind==="device"?new Set(relatedDeviceIssues(data,node.source.attributes?.device?.[0]).map(item=>item.episode.episode_id)):new Set();
+  const linked=relatedIssues(node,episodes).filter(episode=>!combined.has(episode.episode_id));
   if(!linked.length)return "";
   const sources=new Map(inventoryRows(data).map(source=>[source.node_id,source]));
   const ids=sourceIds(node);
@@ -563,9 +619,9 @@ function sourceIssueLinks(card,node,episodes,data) {
     const finding=(episode.reasons||[]).find(item=>ids.has(item.node_id)&&item.message)||(episode.reasons||[]).find(item=>item.message);
     const members=new Set(issueMembers(episode).map(id=>sources.get(id)?.monitoring_source||id));
     const grouped=members.size>1||!ids.has(episode.anchor);
-    if(node.source?.kind==="entity") {
+    if(["entity","device"].includes(node.source?.kind)) {
       const condition=finding?.message||name;
-      return `<div class="source-related-issue source-entity-issue"><p>${esc(condition)}</p>${grouped?`<p class="small">This entity is part of an issue${members.size>1?` involving ${members.size} sources`:""}. Grouped under ${esc(name)}.</p>`:""}<button type="button" class="button primary" data-episode="${esc(episode.episode_id)}" aria-label="View issue: ${esc(condition)}">View issue</button></div>`;
+      return `<div class="source-related-issue source-entity-issue"><p>${esc(condition)}</p>${grouped?`<p class="small">This ${node.source.kind} is part of an issue${members.size>1?` involving ${members.size} sources`:""}. Grouped under ${esc(name)}.</p>`:""}<button type="button" class="button primary" data-episode="${esc(episode.episode_id)}" aria-label="View issue: ${esc(condition)}">View issue</button></div>`;
     }
     const issueData={...data,inventory:{...data.inventory,operator_controls:controls.filter(control=>!shownControls.has(control.control_id))}};
     const buttons=anchor?card.tools?.detailButtons(anchor,episode,issueData)||"":"";
@@ -628,7 +684,7 @@ export function restoreSourceFilters(card) {
 export function sourcesBrowser(card) {
   const data=card.current.data;
   const topomationAvailable=Boolean(topomationTree(data,card.topomation));
-  const full=sourcesTree(data,card.sourcesGrouping,key=>card._hass?.localize?.(key),card.topomation,Boolean(card.sourcesShowDisabled));
+  const full=sourcesTree(data,card.sourcesGrouping,card._hass?.localize||null,card.topomation,Boolean(card.sourcesShowDisabled));
   const paths=sourcePaths(full),episodes=sortedEpisodes(data);
   const issues=new Map(episodes.flatMap(item=>issueMembers(item).map(id=>[id,item])));
   for(const [id,item] of [...issues]) {const canonical=paths.get(`source:${id}`)?.node.source?.node_id;if(canonical)issues.set(canonical,item);}
@@ -652,6 +708,7 @@ export function sourcesBrowser(card) {
   };
   const node=selected?.node;
   const entity=node?.source?.kind==="entity";
+  const device=node?.source?.kind==="device";
   const context=selected?.parents.filter(parent=>!entity||parent.type!=="location"||parent.location&&!["group","unassigned"].includes(parent.location.kind)).map(parent=>parent.name).filter((name,index,names)=>name!==node?.name&&(index===0||name!==names[index-1])).join(" / ")||"";
   const entityLocation=entity?selected.parents.filter(parent=>parent.type==="location"&&parent.location&&!["group","unassigned"].includes(parent.location.kind)).map(parent=>parent.name).filter((name,index,names)=>names.indexOf(name)===index).join(" / "):"";
   const type=node?.family?"Integration":node?.source?sourceType(node.source):node?.type==="device"?"Device":"Location";
@@ -661,7 +718,8 @@ export function sourcesBrowser(card) {
   const inspection=node?sourceInspection(card,node,coverage):null;
   const secondary=`${inspection?.details||""}${equipmentControls&&!activeEquipment?`<section class="source-equipment"><h3>Equipment controls</h3>${equipmentControls}</section>`:""}${automationReporting}${node&&!entity?sourceTechnicalDetails(card,node):""}`;
   const entityMonitoring=entity?`<section class="source-entity-monitoring">${entityMonitoringSummary(node.source,coverage)}${availabilityActions(card,node)}${!node.source.disabled&&!availabilityMonitoring(card,node.source).canStop&&!availabilityMonitoring(card,node.source).canResume?'<button type="button" class="link" data-page="policies" data-configure-monitoring>Configure monitoring</button>':""}${sourcePolicies(card,node)}${!activeEquipment?equipmentControls:""}</section>`:"";
-  const detail=node?`<header class="source-heading"><button type="button" class="link sources-back" data-action="back-sources">← Back to Monitoring</button>${entity?'<p class="source-kind">Entity</p>':""}<h2 id="sources-detail-title" tabindex="-1">${esc(node.name)}</h2>${entity?`<nav class="source-native-navigation" aria-label="Home Assistant navigation">${sourceHeaderMetadata(card,node.source)}</nav>${entityLocation?`<p class="config-path">${esc(entityLocation)}</p>`:""}`:`<p class="config-path">${esc(context||(inspection?"":type))}</p>`}</header><div class="source-body">${inspection?`${inspection.summary}${entity?"":availabilityActions(card,node)}${inspection.body}`:`${sourceMonitoringSummary(node.source,coverage)}${currentSourceEvidence(card,node,episodes)}`}${sourceIssueLinks(card,node,episodes,data)}${activeEquipment?equipmentControls:""}${entityMonitoring}${sourceNavigation(card,node)}${entity?"":sourcePolicies(card,node,secondary)}</div>`:'<div class="sources-empty"><h2>Select an item</h2><p>See its status, issues and monitoring.</p></div>';
+  const sourceContent=node?(device?`${inspection.summary}${inspection.body}${sourceIssueLinks(card,node,episodes,data)}${activeEquipment?equipmentControls:""}${card.sourcesView==="history"?sourceNavigation(card,node):""}${inspection.monitoring}`:`${inspection?`${inspection.summary}${entity?"":availabilityActions(card,node)}${inspection.body}`:`${sourceMonitoringSummary(node.source,coverage)}${currentSourceEvidence(card,node,episodes)}`}${sourceIssueLinks(card,node,episodes,data)}${activeEquipment?equipmentControls:""}${entityMonitoring}${sourceNavigation(card,node)}${entity?"":sourcePolicies(card,node,secondary)}`):"";
+  const detail=node?`<header class="source-heading"><button type="button" class="link sources-back" data-action="back-sources">← Back to Monitoring</button>${entity||device?`<p class="source-kind">${device?"Device":"Entity"}</p>`:""}<h2 id="sources-detail-title" tabindex="-1">${esc(node.name)}</h2>${entity?`<nav class="source-native-navigation" aria-label="Home Assistant navigation">${sourceHeaderMetadata(card,node.source)}</nav>${entityLocation?`<p class="config-path">${esc(entityLocation)}</p>`:""}`:`<p class="config-path">${esc(context||(inspection?"":type))}</p>`}${device&&card.sourcesView!=="history"?sourceNavigation(card,node):""}</header><div class="source-body">${sourceContent}</div>`:'<div class="sources-empty"><h2>Select an item</h2><p>See its status, issues and monitoring.</p></div>';
   const activeFilters=[card.sourcesShowDisabled?"Disabled sources":"",card.sourcesExcludedOnly?"Availability exclusions":""].filter(Boolean);
   const filters=`<div class="sources-filter-control"><button type="button" class="button" data-sources-filters popovertarget="sources-more-filters" aria-label="More filters${activeFilters.length?`: ${activeFilters.join(", ")}`:""}">More filters${activeFilters.length?` (${activeFilters.length})`:""}</button><div id="sources-more-filters" class="sources-filter-popover" popover aria-label="More monitoring filters"><label><input type="checkbox" data-sources-disabled${card.sourcesShowDisabled?' checked':''}> Include disabled sources</label><label><input type="checkbox" data-sources-excluded${card.sourcesExcludedOnly?' checked':''}> Availability exclusions only</label></div></div>`;
   const monitoringFilter=`<label class="sources-monitoring-filter">Monitoring status<select data-sources-monitoring><option value="all"${!card.sourcesMonitoring||card.sourcesMonitoring==="all"?' selected':''}>All</option><option value="monitored"${card.sourcesMonitoring==="monitored"?' selected':''}>Monitored</option><option value="unmonitored"${card.sourcesMonitoring==="unmonitored"?' selected':''}>Not monitored</option></select></label>`;

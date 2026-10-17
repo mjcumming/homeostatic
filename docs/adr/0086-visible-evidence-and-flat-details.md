@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-16
 
+**Later decision:** [ADR 0091](0091-direct-issue-actions-and-coverage.md) removes the opened issue's Details expander and generic Monitoring destination, and adds direct entity/device, policy and notification buttons. Supporting evidence remains visible. Separate source inspectors retain the applicable rules below and in ADR 0089.
+
 **Later decision:** [ADR 0089](0089-contextual-entity-monitoring-policies.md) moves entity policy explanations and editing into a contextual Monitoring policies dialog and uses linked Device and Integration names. Other source types retain their visible policy actions.
 
 **Partially supersedes:** the source-detail disclosures in ADRs 0036 and 0038, the issue and source presentation in ADRs 0061 and 0071, and affected-member presentation retained by ADRs 0073 and 0085. Tree grouping, entity-first inspection, recorded issue membership and all monitoring and notification decisions remain unchanged.

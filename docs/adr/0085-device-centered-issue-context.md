@@ -5,7 +5,7 @@
 
 **Later decision:** [ADR 0086](0086-visible-evidence-and-flat-details.md) refines the opened issue and source layouts, counts and labels. Device grouping, retained problems and exact issue scope remain unchanged.
 
-**Partially superseded:** [ADR 0088](0088-show-information-that-supports-a-decision.md) removes shared issue labels and repeated cross-device counts from list entries. Complete acknowledgment and pause scope remains beside the issue controls.
+**Partially superseded:** [ADR 0088](0088-show-information-that-supports-a-decision.md) removes shared issue labels and repeated cross-device counts from list entries. Complete acknowledgment and pause scope remains beside the issue controls. [ADR 0094](0094-one-device-issue-workflow.md) replaces per-finding navigation for issues wholly owned by one registry device with one device View and shared explicit selection. Wider or unknown issue scopes retain their complete original view.
 
 **Partially supersedes:** the one-row placement of shared loaded-integration issues in the integration specification and ADR 0061 and the unknown-check presentation in ADR 0046. Detection, dependency, episode and notification decisions remain unchanged.
 

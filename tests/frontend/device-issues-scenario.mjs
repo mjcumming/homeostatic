@@ -47,15 +47,21 @@ const check=(condition,message)=>{if(!condition)throw Error(message);};
 const find=(selector,scope=root)=>{const element=scope.querySelector(selector);check(element,`Missing ${selector}`);return element;};
 const frame=()=>new Promise(resolve=>{const channel=new MessageChannel();channel.port1.onmessage=()=>{channel.port1.close();channel.port2.close();resolve();};channel.port2.postMessage(null);});
 const settle=async()=>{for(let index=0;index<8;index++)await frame();};
-const click=async(selector,scope=root)=>{const element=find(selector,scope);check(!element.disabled&&element.getClientRects().length,"Reachable "+selector);element.scrollIntoView({block:"nearest"});element.click();await settle();};
+const click=async(selector,scope=root)=>{const element=find(selector,scope);check(!element.disabled&&element.getClientRects().length,"Reachable "+selector);const closed=element.matches('[data-action="close"]')&&card.dialog.open?new Promise(resolve=>card.dialog.addEventListener('close',resolve,{once:true})):null;element.scrollIntoView({block:"nearest"});element.click();if(closed)await closed;await settle();};
 const group=id=>find(`[data-issue-group="integration:${id}"]`).closest(".issue-group");
-const ids=scope=>[...scope.querySelectorAll("[data-episode]")].map(element=>element.dataset.episode);
+const ids=scope=>[...scope.querySelectorAll('.issue-row[data-ui-key^="issue:"]')].map(element=>element.dataset.uiKey.slice(6));
 const search=async query=>{const input=find("[data-issue-search]");input.value=query;input.dispatchEvent(new Event("input",{bubbles:true}));await settle();};
 const sort=async value=>{const select=find("[data-issue-sort]");select.value=value;select.dispatchEvent(new Event("change",{bubbles:true}));await settle();};
 card.navigation.enabled=false;
 card._hass={user:{id:"fixture",is_admin:true},config:{time_zone:"America/Chicago"},states:{},localize:key=>Object.entries(families).find(([id])=>key===`component.${id}.title`)?.[1]||null,async callWS(request){
   calls.push(copy(request));
   if(request.type==="homeostatic/configuration")return configuration();
+  if(request.type==="homeostatic/source") {
+    const checks=data.inventory.nodes.filter(source=>source.monitoring_source===request.node_id);
+    const device=data.inventory.catalog.candidates.find(source=>source.node_id===request.node_id&&source.kind==="device");
+    const members=device?data.inventory.catalog.candidates.filter(source=>source.kind==="entity"&&source.attributes.device?.includes(device.attributes.device[0])).map(source=>({node_id:source.node_id,entity_id:source.entity_id,name:source.name,state:"unavailable",restored:false})):[];
+    return {node_id:request.node_id,members,total:members.length,offset:0,next_offset:null,unavailable_count:members.length,unknown_count:0,monitoring_policies:settings.monitoring_policies.filter(policy=>checks.some(source=>source.monitoring_policy===policy.id)).map(({id,name})=>({id,name}))};
+  }
   if(request.type==="homeostatic/node"){
     const source=data.inventory.nodes.find(item=>item.node_id===request.node_id);check(source,"Detail source is in the synthetic inventory");
     const status=data.inventory.entity_status[source.node_id];
@@ -84,7 +90,8 @@ document.querySelector("#run").onclick=async()=>{
     check(!card.main.querySelector("[data-issue-availability],.issue-availability,.issue-monitoring-feedback"),"Expanded queue has no removal controls, counts or review");
     const ball=find('[data-issue-device="ball"]');
     check(ball.querySelectorAll(".issue-device-title").length===1&&ball.querySelector("h3").textContent==="Xiaozhi Ball","Ball has one device heading");
-    check(ids(ball).sort().join(",")==="ball-device,ball-player","Device and player findings remain individually reachable");
+    check(ids(ball).sort().join(",")==="ball-device,ball-player","Device and player findings retain independent identities");
+    check(ball.querySelectorAll('[data-device-issues]').length===1&&!ball.querySelector('[data-episode]'),"One device View replaces duplicate finding dialogs");
     check([...ball.querySelectorAll(".issue-title")].every(title=>!title.textContent.includes("Xiaozhi Ball")),"Device name is not repeated as each finding title");
     check(root.querySelectorAll('[data-issue-device="twin-a"],[data-issue-device="twin-b"]').length===2,"Equal names retain distinct registry devices");
     check(!find('[data-episode="standalone"]').closest(".issue-device"),"Standalone findings stay at integration level");
@@ -92,13 +99,13 @@ document.querySelector("#run").onclick=async()=>{
     check(![...root.querySelectorAll('.issue-row')].some(row=>/shared issue/i.test(row.textContent)),"Issue rows show findings without internal grouping labels");
     check(ball.getBoundingClientRect().left>group("esphome").getBoundingClientRect().left,"Device is visually indented beneath its integration");
     evidence.push("Three integration families; single device heading; independent findings; equal names, standalone and shared issue identities.");
-    const row=find('[data-episode="ball-player"]');row.focus();check(root.activeElement===row&&row.tagName==="BUTTON","Individual finding is a focusable native button");
-    await click('[data-episode="ball-player"]');
-    check(card.dialog.open&&card.detail.episodeId==="ball-player","Individual finding opens its exact issue");
-    check(find("[data-acknowledge]",card.dialog).dataset.acknowledge==="ball-player","Acknowledgment still targets only this issue");
-    check(calls.some(request=>request.type==="homeostatic/node"&&request.node_id==="check:ball-player"),"Detail reads the original check");
+    const row=find('[data-device-issues="ball"]');row.focus();check(root.activeElement===row&&row.tagName==="BUTTON","Device View is a focusable native button");
+    await click('[data-device-issues="ball"]');
+    check(card.dialog.open&&card.detail.deviceId==="ball","Device View opens the shared device context");
+    check([...card.dialog.querySelectorAll('[data-device-issue-select]')].every(input=>input.checked)&&card.dialog.querySelectorAll('[data-device-issue-select]').length===2,"Both exact device and player issues initially select");
+    check(calls.some(request=>request.type==="homeostatic/source"&&request.node_id==="device:ball"),"Detail reads the canonical device");
     await click('[data-action="close"]',card.dialog);check(!card.dialog.open,"Issue detail closes");
-    evidence.push("Focusable issue button, exact check query and acknowledgment identity, and detail close; no attention action invoked.");
+    evidence.push("Focusable device View, canonical device query, independently selected issue identities, and detail close; no attention action invoked.");
     await search("Laundry Sensor");
     check(root.querySelectorAll(".issue-device").length===1&&ids(root).length===3,"Parent device search reveals every matching finding");
     await search("");await sort("name");
@@ -111,37 +118,35 @@ document.querySelector("#run").onclick=async()=>{
     check(find('[data-issue-group="integration:esphome"]').getAttribute("aria-expanded")==="true"&&root.querySelectorAll('[data-issue-device="ball"]').length===1,"Refresh retains expansion and a single heading");
     check(ids(group("eero")).length===45,"Refresh retains the expanded issue page");
     evidence.push("Parent-name search, three sort choices, 40-to-45 pagination and unchanged refresh retention.");
-    for(const [episodeId,entityIds] of [
-      ["ball-player",["media_player.ball_player"]],
-      ["ball-device",["media_player.ball_player"]],
-      ["laundry-temperature",["sensor.laundry_temperature"]],
-      ["laundry-device",["sensor.laundry_temperature","sensor.laundry_humidity"]],
-      ["mqtt-shared",["binary_sensor.twin_a_contact","binary_sensor.twin_b_contact"]],
-      ["standalone",["sensor.outdoor_feed"]],
+    for(const [deviceId,episodeId,entityIds] of [
+      ["ball",null,["media_player.ball_player"]],
+      ["laundry",null,["sensor.laundry_temperature","sensor.laundry_humidity"]],
+      [null,"mqtt-shared",["binary_sensor.twin_a_contact","binary_sensor.twin_b_contact"]],
+      [null,"standalone",["sensor.outdoor_feed"]],
     ]) {
-      await click('[data-episode="'+episodeId+'"]');
-      check(card.dialog.open&&card.detail.episodeId===episodeId,"The rendered finding opens its original issue");
-      check(find(".issue-availability",card.dialog).dataset.issueAvailabilityOwner===episodeId,"Removal belongs to this opened issue");
-      await click('[data-issue-availability="remove"][data-issue-id="'+episodeId+'"]',card.dialog);
+      await click(deviceId?`[data-device-issues="${deviceId}"]`:`[data-episode="${episodeId}"]`);
+      check(card.dialog.open&&(deviceId?card.detail.deviceId===deviceId:card.detail.episodeId===episodeId),"The rendered entry opens its correct context");
+      await click('[data-issue-availability="remove"]',card.dialog);
       const selected=card.issueAvailabilityPlan.sources.map(source=>source.entityId).sort();
-      check(card.issueAvailabilityEpisode===episodeId&&selected.join(",")===entityIds.toSorted().join(","),"Review selects only the opened issue's current unavailable entities: "+episodeId);
-      check(!find(".source-availability-confirm details",card.dialog).open,"Exact entity and policy details start collapsed");
-      await click('[data-issue-availability="cancel"][data-issue-id="'+episodeId+'"]',card.dialog);
+      check(selected.join(",")===entityIds.toSorted().join(","),"Review keeps its exact availability scope: "+(deviceId||episodeId));
+      check(!card.dialog.querySelector('.source-availability-confirm details'),"Exact entity scope is visible without a disclosure");
+      for(const entityId of entityIds)check(card.dialog.textContent.includes(entityId),"Confirmation identifies "+entityId);
+      await click('[data-issue-availability="cancel"]',card.dialog);
       check(!card.issueAvailabilityPlan&&card.dialog.open,"Cancel preserves the opened issue without a pending review");
       await click('[data-action="close"]',card.dialog);
     }
-    await click('[data-episode="ball-player"]');
-    await click('[data-issue-availability="remove"][data-issue-id="ball-player"]',card.dialog);
+    await click('[data-device-issues="ball"]');
+    await click('[data-issue-availability="remove"]',card.dialog);
     await click('[data-action="close"]',card.dialog);
     check(!card.issueAvailabilityPlan&&!card.issueAvailabilityEpisode,"Closing the dialog discards its unsaved review");
-    await click('[data-episode="laundry-temperature"]');
+    await click('[data-device-issues="laundry"]');
     check(!card.issueAvailabilityPlan&&!card.dialog.querySelector('[data-issue-availability="confirm"]'),"Another issue starts without the previous review");
     await click('[data-action="close"]',card.dialog);
     check(JSON.stringify(card.configuration.settings)===JSON.stringify(settings),"Browsing and cancellation leave saved monitoring unchanged");
     check(!card.main.querySelector("[data-issue-availability],.issue-availability,.issue-monitoring-feedback"),"The queue remains free of removal controls and feedback after closing");
-    check(calls.every(request=>["homeostatic/node","homeostatic/configuration"].includes(request.type)),"Browsing and Cancel send no mutation or live-service request");
+    check(calls.every(request=>["homeostatic/node","homeostatic/source","homeostatic/configuration"].includes(request.type)),"Browsing and Cancel send no mutation or live-service request");
     check(find(".shell").scrollWidth<=find(".shell").clientWidth+1,"Current viewport has no horizontal overflow");
-    evidence.push("No queue removal controls or counts. Actual entity, device, shared and standalone issue dialogs review only their own current unavailable entities; unrelated unavailable siblings are excluded. Cancel and Close discard review without mutations or live services; current viewport fits.");
+    evidence.push("No queue removal controls or counts. Device, shared and standalone dialogs review their exact current availability scope with named entities immediately visible. Cancel and Close discard review without mutations or live services; current viewport fits.");
     reset();await settle();
     const original=data.inventory.nodes.find(source=>source.node_id==="check:laundry-temperature");
     const waiting={...original,node_id:"check:waiting",kind:"vacuum",check_id:"vacuum",monitoring_source:null,name:"Vacuum errors",monitoring_policy:"vacuums",entity_id:"vacuum.laundry"};
@@ -156,10 +161,10 @@ document.querySelector("#run").onclick=async()=>{
     check(find('[data-waiting-device="laundry"]').innerText.includes("unavailable"),"Refresh preserves visible waiting evidence");
     data.inventory.entity_status[waiting.node_id].last_failure={reason:"vacuum_error",message:"Home Assistant reported a vacuum error.",observed_at:"2026-10-16T11:00:00Z"};
     card.render();await settle();
-    check(find('[data-episode="waiting"]').textContent.includes("Vacuum error — current status unavailable"),"Known error remains visible through unavailability");
-    await click('[data-episode="waiting"]');
+    check(find('.issue-row[data-ui-key="issue:waiting"]').textContent.includes("Vacuum error — current status unavailable"),"Known error remains visible through unavailability");
+    await click('[data-device-issues="laundry"]');
     check(card.dialog.textContent.includes("Vacuum error — current status unavailable"),"Error detail preserves the earlier fault");
-    check(find('[data-acknowledge]',card.dialog).dataset.acknowledge==="waiting","Retained fault actions target the original issue");
+    check(find('[data-device-issue-select="waiting"]',card.dialog).checked,"Retained fault keeps its original selectable identity");
     await click('[data-action="close"]',card.dialog);
     await click('[data-episode="mqtt-shared"]');
     const scope=[...card.dialog.querySelectorAll('p')].find(element=>element.textContent.includes("apply to the entire issue"));

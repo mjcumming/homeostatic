@@ -881,11 +881,15 @@ async def test_publication_reads_dynamic_inventory_once_for_all_wire_versions(
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
     model = hass.data[DATA_DASHBOARD]
-    with patch.object(
-        runtime, "inventory_updates", wraps=runtime.inventory_updates
-    ) as updates:
+    with (
+        patch.object(
+            runtime, "inventory_updates", wraps=runtime.inventory_updates
+        ) as updates,
+        patch.object(runtime, "query", wraps=runtime.query) as query,
+    ):
         model.publish()
         updates.assert_called_once_with()
+        assert sum(call.args[0] == "coverage" for call in query.call_args_list) == 1
     full = model.value["inventory"]
     compact = model.update["inventory"]
     summary = model.summary["inventory"]

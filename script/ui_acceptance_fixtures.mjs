@@ -7,6 +7,7 @@ const evidenceKind = "Synthetic backend; existing fixture uses DOM-scripted inte
 const knownIds = new Set(controlPaths.map(row => row.id));
 const localCases = {
   "policy-picker.html": {
+    "policies.device-exclusions": ["device-exclusions"],
     "policies.picker-context": ["keyboard-escape", "source-context", "area-relevance", "label-relevance", "catalog-loading", "scoped-save", "save-rejection", "selection-layout"],
   },
   "temperature-policy-editor.html": {
@@ -106,6 +107,7 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
       }
       if (fixture === "policy-picker.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
         await page.locator('#show').click();
+        await page.waitForFunction(()=>document.querySelector('#feedback')?.textContent.startsWith('Battery choices with'));
         const selected = page.locator('.policy-scope input:checked');
         await selected.focus();
         await page.keyboard.press('ArrowDown');
@@ -184,6 +186,33 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
         } catch (error) {native.status = "fail"; native.evidence = [error.message];}
         result.stages.push({name: "native filter dismissal", receipt: {results: [native]}, messages: [], feedback: `${native.status.toUpperCase()}: ${native.evidence.join(" ")}`});
       }
+      if (fixture === "individual-issue.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
+        const native={id:"issues.individual",status:"pass",evidence:["Native Enter opens the named notification and Back restores the issue; entity, device, policy and notification controls fit with doubled text."]};
+        try {
+          const notification=page.locator('dialog[open] [data-definition-action="open-notification"][data-definition-id="morning"]');
+          await notification.focus();await page.keyboard.press("Enter");
+          await page.locator('.notification-profile-editor').waitFor({state:"visible"});
+          await page.locator('[data-workspace-return]').click();
+          await page.locator('dialog[open] [data-entity]').waitFor({state:"visible"});
+          await page.locator('dialog[open]').evaluate(dialog=>{dialog.scrollTop=0;});
+          result.screenshot=join(artifactDir,`individual-issue-${viewport.width}-${colorScheme}.png`);
+          await page.screenshot({path:result.screenshot,fullPage:true});
+          await page.locator('dialog[open]').evaluate(dialog=>{dialog.scrollTop=dialog.scrollHeight;});
+          result.details_screenshot=join(artifactDir,`individual-issue-notifications-${viewport.width}-${colorScheme}.png`);
+          await page.screenshot({path:result.details_screenshot,fullPage:true});
+          await page.locator('dialog[open]').evaluate(dialog=>{dialog.scrollTop=0;});
+          await page.locator('dialog[open]').evaluate(dialog=>{
+            const sizes=[...dialog.querySelectorAll('*')].filter(element=>!element.closest('svg')).map(element=>[element,parseFloat(getComputedStyle(element).fontSize)]);
+            for(const [element,size] of sizes)element.style.fontSize=`${size*2}px`;
+          });
+          if(!await page.locator('dialog[open] .dialog-body').evaluate(element=>element.scrollWidth<=element.clientWidth+1))throw Error("Issue dialog overflows with doubled text");
+          result.enlarged_screenshot=join(artifactDir,`individual-issue-enlarged-${viewport.width}-${colorScheme}.png`);
+          await page.screenshot({path:result.enlarged_screenshot,fullPage:true});
+          await page.keyboard.press("Escape");
+          await page.locator('dialog[open]').waitFor({state:"hidden"});
+        } catch(error) {native.status="fail";native.evidence=[error.message];}
+        result.stages.push({name:"native issue configuration navigation and enlarged text",receipt:{results:[native]},messages:[],feedback:`${native.status.toUpperCase()}: ${native.evidence.join(" ")}`});
+      }
     } catch (error) {
       result.diagnostics.push(error.message);
       try {await saveStage("interrupted");} catch (captureError) {result.diagnostics.push(`Receipt capture: ${captureError.message}`);}
@@ -212,6 +241,7 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
     result.status = failed ? "fail" : result.stages.length ? "pass" : "untested";
     if (!result.paths.length) result.diagnostics.push("No inventory path was proven by a declared receipt. Fixture feedback alone does not establish inventory coverage.");
     const stem = `${fixture.replace(/\.html$/, "")}-${viewport.width}-${colorScheme}`;
+    if (!failed && fixture === "policy-picker.html") await page.locator("#show-device").click();
     if (!failed && fixture === "monitoring-inspector.html") {
       await page.locator("[data-sources-search]").fill("3rd Floor");
       await page.locator('[data-sources-select="source:device:third-floor"]').click();
@@ -230,7 +260,6 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
     if (!failed && fixture === "issue-evidence.html") {
       try {
         const dialog=page.locator("dialog[open]");
-        await dialog.locator('[data-disclosure="issue-details"] > summary').click();
         await dialog.evaluate(element => {element.scrollTop=element.scrollHeight;});
         result.details_screenshot=join(artifactDir,`${stem}-details.png`);
         await page.screenshot({path:result.details_screenshot,fullPage:true});

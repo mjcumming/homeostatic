@@ -7,13 +7,14 @@ function checkLabel(check) {
   return ({availability:"Availability",temperature_limit:"Temperature",thermostat:"Thermostat",battery:"Battery",vacuum:"Vacuum",repair:"Repairs",broken_automation:"Automation",situation:"Reported condition",ups:"UPS"})[check.kind==="ups"?"ups":check.check_id] || ({entity:"Availability",integration:"Availability",temperature_limit:"Temperature",thermostat:"Thermostat",battery:"Battery",vacuum:"Vacuum",repair:"Repairs",broken_automation:"Automation",situation:"Reported condition"})[check.kind] || "Monitoring";
 }
 
-function include(map,id,label,{direct=false,device=false}={}) {
+function include(map,id,label,{direct=false,device=false,policy=null}={}) {
   if(!id)return;
-  if(!map.has(id))map.set(id,{direct:false,device:false,labels:new Set()});
+  if(!map.has(id))map.set(id,{direct:false,device:false,labels:new Set(),policies:new Set()});
   const coverage=map.get(id);
   coverage.direct ||= direct;
   coverage.device ||= device;
   coverage.labels.add(label);
+  if(policy)coverage.policies.add(policy);
 }
 
 /** Associate actual checks with their sources and explicitly named evidence inputs. */
@@ -30,43 +31,55 @@ export function sourceCoverageIndex(data) {
     const sourceId=check.monitoring_source||check.node_id;
     if(!check.watched||check.disabled||disabledSources.has(sourceId)||disabledEntities.has(check.entity_id))continue;
     const label=checkLabel(check);
-    include(bySource,sourceId,label,{direct:true});
-    include(bySource,check.node_id,label,{direct:true});
+    const policy=typeof check.monitoring_policy==="string"?check.monitoring_policy:check.monitoring_policy?.id;
+    include(bySource,sourceId,label,{direct:true,policy});
+    include(bySource,check.node_id,label,{direct:true,policy});
     if(["temperature_limit","thermostat"].includes(check.kind)) {
       for(const id of check.attributes?.device||[]) {
         const device=devices.get(id);
-        if(device&&!device.disabled)include(bySource,device.node_id,label);
+        if(device&&!device.disabled)include(bySource,device.node_id,label,{policy});
       }
     }
-    if(check.entity_id&&!check.ups_disabled_entities?.includes(check.entity_id))include(byEntity,check.entity_id,label,{direct:true});
+    if(check.entity_id&&!check.ups_disabled_entities?.includes(check.entity_id))include(byEntity,check.entity_id,label,{direct:true,policy});
     if(check.kind==="device") {
       for(const entityId of check.availability_entities||[]) {
-        if(!disabledEntities.has(entityId))include(byEntity,entityId,"Device availability",{device:true});
+        if(!disabledEntities.has(entityId))include(byEntity,entityId,"Device availability",{device:true,policy});
       }
     }
     if(check.kind==="battery") {
       for(const entityId of [check.battery_level_entity,check.battery_warning_entity,check.battery_charging_entity]) {
-        if(!disabledEntities.has(entityId))include(byEntity,entityId,"Battery");
+        if(!disabledEntities.has(entityId))include(byEntity,entityId,"Battery",{policy});
       }
     }
     if(check.kind==="ups") {
       const disabled=new Set(check.ups_disabled_entities||[]);
       for(const [,entityId] of check.ups_entities||[]) {
-        if(!disabled.has(entityId)&&!disabledEntities.has(entityId))include(byEntity,entityId,"UPS");
+        if(!disabled.has(entityId)&&!disabledEntities.has(entityId))include(byEntity,entityId,"UPS",{policy});
       }
     }
   }
   return {bySource,byEntity};
 }
 
-/** Describe current coverage; auxiliary evidence can be covered without its own check. */
-export function sourceCoverage(source,index) {
-  if(!source||source.disabled)return emptyCoverage();
+function coverageEntries(source,index) {
+  if(!source||source.disabled)return [];
   const entries=[source.node_id,source.monitoring_source,...source.source_aliases||[]].map(id=>index.bySource.get(id)).filter(Boolean);
   if(source.kind==="entity"&&source.entity_id) {
     const entity=index.byEntity.get(source.entity_id);
     if(entity)entries.push(entity);
   }
+  return entries;
+}
+
+/** Return policies contributing actual checks or named evidence inputs to this source. */
+export function sourceCoveragePolicies(source,index) {
+  return [...new Set(coverageEntries(source,index).flatMap(entry=>[...entry.policies]))].sort();
+}
+
+/** Describe current coverage; auxiliary evidence can be covered without its own check. */
+export function sourceCoverage(source,index) {
+  if(!source||source.disabled)return emptyCoverage();
+  const entries=coverageEntries(source,index);
   const labels=[...new Set(entries.flatMap(entry=>[...entry.labels]))].sort((a,b)=>labelOrder.indexOf(a)-labelOrder.indexOf(b));
   return {monitored:labels.length>0,direct:entries.some(entry=>entry.direct),device:entries.some(entry=>entry.device),labels};
 }

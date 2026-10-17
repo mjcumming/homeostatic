@@ -4,12 +4,16 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0094](0094-one-device-issue-workflow.md) | Use one device issue workflow from every investigation page | Accepted; implemented, installed and verified for a local trial; supersedes entry routing and device membership in 0093 and refines 0091 presentation |
+| [0093](0093-explicit-device-availability-issue-selection.md) | Act on explicitly selected device availability issues | Accepted; earlier local trial installed and verified; entry routing and availability-only membership superseded by 0094; selection contract retained |
+| [0092](0092-scoped-refresh-and-coherent-saves.md) | Scope refresh work and keep configuration reads coherent | Accepted; extends 0010/0067 and finalizes 0029's loading boundary |
+| [0091](0091-direct-issue-actions-and-coverage.md) | Show issue actions and coverage directly | Accepted; supersedes availability action wording in 0073/0074 and opened-issue disclosures and navigation in 0086 |
 | [0090](0090-independent-issues-under-healthy-integrations.md) | Keep failures independent under healthy integrations | Accepted; refines 0041 and supersedes healthy-integration grouping in 0085 and 0088 |
 | [0089](0089-contextual-entity-monitoring-policies.md) | Keep entity policy access contextual | Accepted; refines entity presentation in 0073 and 0086 |
 | [0088](0088-show-information-that-supports-a-decision.md) | Show information that supports a decision | Accepted; supersedes shared entry marking in 0085 |
 | [0087](0087-remove-maintenance-creation-from-ui.md) | Remove maintenance creation from the panel | Accepted |
-| [0086](0086-visible-evidence-and-flat-details.md) | Show essential evidence and keep supporting details flat | Accepted; entity policy and identity presentation refined by 0089 |
-| [0085](0085-device-centered-issue-context.md) | Present related problems and waiting checks under their device | Accepted; detail presentation refined by 0086; shared entry marking superseded by 0088 |
+| [0086](0086-visible-evidence-and-flat-details.md) | Show essential evidence and keep supporting details flat | Accepted; entity policy and identity presentation refined by 0089; opened-issue disclosures and navigation superseded by 0091 |
+| [0085](0085-device-centered-issue-context.md) | Present related problems and waiting checks under their device | Accepted; detail presentation refined by 0086; shared entry marking superseded by 0088; per-finding device navigation superseded by 0094 |
 | [0001](0001-omit-switch-conversion-helper-entries.md) | Omit switch conversion helper entries from monitoring inventory | Accepted |
 | [0002](0002-retain-group-sources-as-limited-aggregate-evidence.md) | Retain Group sources as limited aggregate evidence | Proposed |
 | [0003](0003-one-rule-catalog-for-passive-enrollment.md) | Use one rule catalog for passive enrollment and exclusions | Accepted |
@@ -38,7 +42,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0026](0026-fixed-reporting-preferences.md) | Use five fixed reporting preferences | Accepted; details settled by 0027; fixed profile model superseded by 0055; notification ownership/defaults partially superseded by 0066 |
 | [0027](0027-reporting-defaults-and-delivery.md) | Fixed reporting defaults and delivery semantics | Accepted; combined profiles and single-choice assignment superseded by 0055 |
 | [0028](0028-settings-scope-and-visible-reporting.md) | Keep global policies in Settings and expose reporting directly | Accepted; catalog presentation superseded by 0030; page placement superseded by 0047; UI simplification by 0059 |
-| [0029](0029-load-catalog-pages-on-demand.md) | Load revision-bound catalog pages on demand | Proposed |
+| [0029](0029-load-catalog-pages-on-demand.md) | Load revision-bound catalog pages on demand | Accepted; panel context and loading boundary finalized by 0092 |
 | [0030](0030-separate-group-policies-from-source-choices.md) | Show group policies separately from individual source choices | Accepted; partially supersedes 0028; page placement superseded by 0047; catalog editor by 0048; reusable-definition ownership by 0054 |
 | [0031](0031-review-source-settings-together.md) | Review integration monitoring and reporting together | Accepted; UI simplification by 0059; UI workflow and scope partially superseded by 0061 |
 | [0032](0032-automation-reported-situations.md) | Receive expiring situation reports from HA automations | Accepted; setup and registration partially superseded by 0034 |
@@ -82,8 +86,8 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0070](0070-saved-monitoring-and-history-navigation.md) | Finish saved monitoring changes and restore History navigation | Accepted; supersedes History placement in 0061 and saved-action Undo in 0068/0069 |
 | [0071](0071-compact-monitoring-inspector.md) | Show monitoring coverage in a compact source inspector | Accepted; supersedes source-detail disclosures in 0068; inspector layout refined by 0073 and 0086; maintenance creation UI superseded by 0087 |
 | [0072](0072-quiet-save-completion.md) | Complete saves without persistent success messages | Accepted; supersedes success feedback in 0061 and 0070 |
-| [0073](0073-entity-first-monitoring-details.md) | Keep entity details focused on the entity | Accepted; supersedes entity presentation in 0061/0068/0071, source-history placement in 0070 and availability wording in 0069; affected-member presentation and navigation refined by 0086; maintenance creation UI superseded by 0087; entity policy and identity presentation refined by 0089 |
-| [0074](0074-availability-removal-inside-open-issues.md) | Review availability removal inside an opened issue | Accepted; supersedes group-wide action placement and scope in 0069 |
+| [0073](0073-entity-first-monitoring-details.md) | Keep entity details focused on the entity | Accepted; supersedes entity presentation in 0061/0068/0071, source-history placement in 0070 and availability wording in 0069; affected-member presentation and navigation refined by 0086; maintenance creation UI superseded by 0087; entity policy and identity presentation refined by 0089; stopping-action wording superseded by 0091 |
+| [0074](0074-availability-removal-inside-open-issues.md) | Review availability removal inside an opened issue | Accepted; supersedes group-wide action placement and scope in 0069; action wording superseded by 0091 and confirmation presentation by 0094 |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision. The [roadmap](../roadmap.md#current-work) owns implementation, validation and installation status; those states are not repeated in decision status fields. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 

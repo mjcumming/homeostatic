@@ -13,11 +13,12 @@ const prototype=elements.get("homeostatic-card").prototype;
 
 async function detail(fixture,id) {
   const body={innerHTML:"",querySelectorAll:()=>[],querySelector:()=>null},label={};
-  const card={current:{status:"current",data:fixture.data},detail:{episodeId:id},detailSequence:0,
+  const card={current:{status:"current",data:fixture.data},configuration:{settings:fixture.settings},detail:{episodeId:id},detailSequence:0,
     shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:label},displaySourceName:source=>source.name,
     tools:{detailButtons:DashboardTools.prototype.detailButtons},capturePageState:()=>({}),restorePageState:()=>{},
     _hass:{user:{is_admin:true},states:{},localize:()=>"Matter",callWS:async request=>independentDeviceReply(fixture,request.node_id)}};
-  await prototype.loadDetail.call(card);
+  Object.setPrototypeOf(card,prototype);
+  await card.loadDetail();
   return body.innerHTML;
 }
 
@@ -29,7 +30,9 @@ test("a light's independent issue shows only that device and targets only that i
   assert.match(html,/data-shelf="issue:devices:deck"/);
   assert.doesNotMatch(html,/4 devices|entire issue/);
   const queue=issuesWorkspace(Object.assign(Object.create(prototype),{current:{data:fixture.data},_hass:{localize:()=>"Matter"},issueQuery:"",issueSort:"name",issueGroupsExpanded:new Set(["integration:matter"]),issueGroupLimits:new Map()}));
-  for(const episode of fixture.episodes)assert.equal((queue.match(new RegExp(`data-episode="${episode.episode_id}"`,"g"))||[]).length,1);
+  assert.doesNotMatch(queue,/data-episode=/);
+  for(const id of Object.keys(deviceNames))assert.equal((queue.match(new RegExp(`data-device-issues="${id}"`,"g"))||[]).length,1);
+  for(const episode of fixture.episodes)assert.ok(queue.includes(`data-ui-key="issue:${episode.episode_id}"`));
 });
 
 test("an overlapping policy on one device remains separately actionable",async()=>{

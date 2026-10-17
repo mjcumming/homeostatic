@@ -1,6 +1,6 @@
 /** Contextual availability changes use the same saved policy exclusions as Policies. */
-import {saveScopedConfiguration} from "./scoped-configuration.mjs?v=90";
-import {escapeHtml as esc} from "./model.mjs?v=90";
+import {saveScopedConfiguration} from "./scoped-configuration.mjs?v=94";
+import {escapeHtml as esc} from "./model.mjs?v=94";
 
 const copy=value=>structuredClone(value);
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -48,24 +48,25 @@ export function availabilityMonitoring(card,value) {
   return monitoringState(monitoringIndex(card,[value]),value);
 }
 
-/** Keep the decision short while making the complete saved scope inspectable. */
+/** Keep the exact affected entities visible beside the confirmation. */
 export function availabilityConfirmation(plan,action) {
   const count=plan.sources.length,noun=count===1?"entity":"entities",stopping=plan.mode==="stop";
-  const heading=stopping?`Remove ${count} ${noun} from availability monitoring?`:`Resume availability monitoring for ${count} ${noun}?`;
-  const explanation=stopping?`Stop availability checks for ${count===1?"this entity":"these entities"}. Other checks stay enabled.`:"Remove availability exclusions. Existing policy selections still apply.";
-  return `<section class="source-availability-confirm" aria-label="Change availability monitoring"><h3>${heading}</h3><p>${explanation}</p><details data-ui-key="availability-confirm-details"><summary>Details</summary><ul>${plan.sources.map(item=>`<li>${esc(item.name)}${item.entityId?` <span class="small">${esc(item.entityId)}</span>`:""}</li>`).join("")}</ul><p>Policies</p><ul>${plan.changes.map(item=>`<li>${esc(item.name)}${item.after?.enabled===false?" (disabled)":""}</li>`).join("")}</ul></details><div class="actions">${action("confirm",stopping?`Remove ${noun} from availability monitoring`:"Resume availability monitoring")}${action("cancel","Cancel")}</div></section>`;
+  const heading=stopping?`Stop monitoring ${count===1?"this entity":`these ${count} entities`}?`:`Resume availability monitoring for ${count} ${noun}?`;
+  const explanation=stopping?`Stop availability monitoring for ${count===1?"this entity":"these entities"}. Other checks stay enabled.`:"Remove availability exclusions. Existing policy selections still apply.";
+  return `<section class="source-availability-confirm" aria-label="Change availability monitoring"><h3>${heading}</h3><p>${explanation}</p><ul>${plan.sources.map(item=>`<li>${esc(item.name)}${item.entityId?` <span class="small">${esc(item.entityId)}</span>`:""}</li>`).join("")}</ul><div class="actions">${action("confirm",stopping?"Stop Monitoring":"Resume availability monitoring")}${action("cancel","Cancel")}</div></section>`;
 }
 
 /** Freeze the exact affected saved policies before displaying confirmation. */
 export function prepareAvailabilityChange(card,values,mode="stop") {
   if(!["stop","resume"].includes(mode))throw new Error("Choose whether to stop or resume availability monitoring.");
-  if(card.current?.status!=="current")throw new Error("Reconnect before changing availability monitoring.");
-  if(pendingCatalog(card))throw new Error("Wait for the source list to finish updating before changing availability monitoring.");
-  if(typeof card.configuration?.revision!=="string")throw new Error("Read saved settings before changing availability monitoring.");
+  const operation=mode==="stop"?"stopping":"resuming";
+  if(card.current?.status!=="current")throw new Error(`Reconnect before ${operation} monitoring.`);
+  if(pendingCatalog(card))throw new Error(`Wait for the source list to finish updating before ${operation} monitoring.`);
+  if(typeof card.configuration?.revision!=="string")throw new Error(`Read saved settings before ${operation} monitoring.`);
   const index=monitoringIndex(card,values);
   const selected=[...new Map(values.map(value=>{
     const source=entitySource(index,value);
-    if(!source)throw new Error("Choose entities whose availability monitoring should change.");
+    if(!source)throw new Error(`Choose entities before ${operation} monitoring.`);
     return [identity(source),source];
   })).values()];
   const byPolicy=new Map();
@@ -93,12 +94,12 @@ export function prepareAvailabilityChange(card,values,mode="stop") {
 export async function applyAvailabilityChange(card,plan) {
   card.availabilityError=null;
   if(card.current?.status!=="current"||pendingCatalog(card)||card.scopedBusy||card.settingsBusy||card.configBusy) {
-    card.availabilityError="Wait for the current operation and connection before changing availability monitoring.";
+    card.availabilityError=`Wait for the current operation and connection before ${plan.mode==="stop"?"stopping":"resuming"} monitoring.`;
     card.render?.();return false;
   }
   const saved=await saveScopedConfiguration(card,scope,plan);
   if(!saved) {
-    card.availabilityError=card.scopedError||"Availability monitoring was not changed. Read current saved settings before trying again.";
+    card.availabilityError=card.scopedError||`Could not ${plan.mode==="stop"?"stop":"resume"} monitoring. Read current saved settings before trying again.`;
     card.render?.();return false;
   }
   const confirmed=plan.changes.every(change=>same(policies(card).find(policy=>policy.id===change.id),change.after));

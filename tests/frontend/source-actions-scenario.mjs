@@ -100,6 +100,8 @@ document.querySelector("#run").onclick=async()=>{
     click('[data-episode="shared"]');await settle();
     check(card.dialog.open&&card.detail.episodeId==="shared","The actual issue row opens the exact current issue");
     check(root.querySelector('.dialog-body .issue-availability')?.dataset.issueAvailabilityOwner==="shared","Removal belongs to the opened issue dialog");
+    const stopIssue=root.querySelector('.dialog-body [data-issue-availability="remove"]');
+    check(stopIssue.textContent==="Stop Monitoring"&&stopIssue.classList.contains("button")&&!stopIssue.classList.contains("link"),"Opened issue uses an outlined Stop Monitoring button");
     click('.dialog-body [data-issue-availability="remove"][data-issue-id="shared"]');await settle();
     check(root.activeElement?.dataset.issueAvailability==="confirm","Issue confirmation receives focus");
     check(!root.querySelector('.dialog-body .source-availability-confirm details').open,"Entity and policy details start collapsed");
@@ -152,6 +154,7 @@ document.querySelector("#run").onclick=async()=>{
     start("sources.availability");
     card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name="Pending temperature";
     card.settingsDraft.notification_definitions.methods.phone.name="Pending phone";
+    check(root.querySelector('[data-availability-action="stop"]').textContent==="Stop Monitoring","Entity monitoring uses the Stop Monitoring label");
     click('[data-availability-action="stop"]');
     check(root.querySelector(".source-availability-confirm").textContent.includes("Devices")&&root.querySelector(".source-availability-confirm").textContent.includes("Entities"),"Both availability roles must be reviewed");
     check(root.activeElement?.dataset.availabilityAction==="confirm","Confirmation receives keyboard focus");
@@ -173,7 +176,8 @@ document.querySelector("#run").onclick=async()=>{
     const healthySelection=root.querySelector('[data-availability-select="'+entities[1].node_id+'"]');
     check(healthySelection?.getClientRects().length&&!healthySelection.closest("details"),"Select entities directly reveals healthy member checkboxes");
     click(`[data-availability-select="${ENTITY_ID}"]`);click(`[data-availability-select="${entities[1].node_id}"]`);
-    click('[data-availability-action="stop-selected"]');click('[data-availability-action="confirm"]');await settle();
+    check(root.querySelector('[data-availability-action="stop-selected"]').textContent==="Stop Monitoring","Selected members use the Stop Monitoring label");
+    click('[data-availability-action="stop-selected"]');check(root.querySelector('[data-availability-action="confirm"]').textContent==="Stop Monitoring","Confirmation uses the Stop Monitoring label");click('[data-availability-action="confirm"]');await settle();
     check(saves().length===1&&policy("devices").excluded_sources.length===2&&policy("entities").excluded_sources.length===2,"Batch persists only the selected entities");
     check(!exclusion("devices",entities[2].node_id),"Unselected off-valued sibling remains monitored");
     click('[data-availability-action="select"]');

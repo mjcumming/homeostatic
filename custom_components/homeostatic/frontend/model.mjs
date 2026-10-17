@@ -1,6 +1,6 @@
 /** Read-model helpers and a shared, lifecycle-bound HA subscription. */
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=90";
-import {waitingOnly} from "./check-presentation.mjs?v=90";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=94";
+import {waitingOnly} from "./check-presentation.mjs?v=94";
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -187,13 +187,17 @@ export function mergeDashboard(previous, data) {
     }
     if (previous?.schema_version !== 3 || !previous.catalog_loaded) return data;
     const stale = Boolean(previous.catalog_stale || previous.catalog_revision !== data.catalog_revision);
+    const overlay=(saved,current,key)=>[...new Map([...saved,...current].map(row=>[row[key],row])).values()];
+    const context=stale&&data.panel_context;
     return {...data,catalog_loaded:true,
       catalog_stale:stale,
       inventory:{...data.inventory,
-      nodes:previous.inventory.nodes,
-      catalog:stale ? {...data.inventory.catalog,candidates:previous.inventory.catalog.candidates} : previous.inventory.catalog,
+      nodes:context?overlay(previous.inventory.nodes,data.inventory.nodes,"node_id"):previous.inventory.nodes,
+      catalog:stale ? {...data.inventory.catalog,candidates:context?overlay(previous.inventory.catalog.candidates,data.inventory.catalog.candidates,"node_id"):previous.inventory.catalog.candidates} : previous.inventory.catalog,
       targets:previous.inventory.targets,enrollment_changes:previous.inventory.enrollment_changes},
-      areas:previous.areas,devices:previous.devices,floors:previous.floors};
+      areas:context?overlay(previous.areas,data.areas,"id"):previous.areas,
+      devices:context?overlay(previous.devices,data.devices,"id"):previous.devices,
+      floors:context?overlay(previous.floors,data.floors,"id"):previous.floors};
   }
   if (data.inventory_changed === true) {
     if (!data.inventory?.nodes || !data.inventory?.catalog || !data.areas || !data.floors || !data.devices || !Number.isInteger(data.catalog_revision)) {
@@ -206,6 +210,19 @@ export function mergeDashboard(previous, data) {
     throw new Error("Homeostatic catalog is out of date. Retry the connection.");
   }
   return {...data, inventory:{...previous.inventory, ...data.inventory}, areas:previous.areas, floors:previous.floors, devices:previous.devices};
+}
+
+/** Saved editors depend on catalog/configuration changes, not new issue evidence. */
+export function editorEvidenceOnly(previous,next) {
+  const before=previous?.data,after=next?.data;
+  const reports=before?.policy?.reports||[],nextReports=after?.policy?.reports||[];
+  return previous?.status==="current"&&next?.status==="current"&&
+    [2,3].includes(after?.schema_version)&&before.schema_version===after.schema_version&&
+    before.catalog_revision===after.catalog_revision&&before.catalog_loaded===after.catalog_loaded&&
+    before.catalog_stale===after.catalog_stale&&previous.catalogError===next.catalogError&&
+    before.policy?.notifications_enabled===after.policy?.notifications_enabled&&
+    reports.length===nextReports.length&&reports.every((report,index)=>
+      report.name===nextReports[index].name&&report.next_at===nextReports[index].next_at);
 }
 
 const stores = new WeakMap();
@@ -278,7 +295,7 @@ export class DashboardStore {
         this.baseline = null;
         this.update({status:"error",data:null,error:error.message});
       }
-    }, {type: "homeostatic/subscribe", paged:true}).then((unsubscribe) => {
+    }, {type: "homeostatic/subscribe", paged:true,panel:true}).then((unsubscribe) => {
       if (generation !== this.generation) {
         Promise.resolve(unsubscribe()).catch(() => {});
       } else {
@@ -286,7 +303,7 @@ export class DashboardStore {
       }
     }).catch((error) => {
       if (generation === this.generation) {
-        const versionMismatch = error?.code === "invalid_format" && /not a valid option at 'paged'/.test(error?.message ?? "");
+        const versionMismatch = error?.code === "invalid_format" && /not a valid option at '(paged|panel)'/.test(error?.message ?? "");
         const message = versionMismatch
           ? "The Homeostatic dashboard and integration are out of sync. If Home Assistant is updating or restarting, let it finish, then refresh this page. If this continues, check that the dashboard and integration are from the same version."
           : error?.message ?? "Could not subscribe to Homeostatic.";

@@ -17,6 +17,7 @@ export function individualIssueFixture(condition="low") {
   const base=temperatureFixture("entity"),data=base.current.data;
   const source=data.inventory.nodes.find(row=>row.node_id===CHECK_ID);
   const entity=data.inventory.nodes.find(row=>row.node_id===ENTITY_ID);
+  source.monitoring_source=entity.node_id;
   const observation={...structuredClone(conditions[condition]),observed_at:"2026-10-15T17:25:00Z"};
   source.kind=condition==="stalled"||condition==="worsening"?"thermostat":"temperature_limit";
   source.check_id=source.kind;
@@ -26,6 +27,7 @@ export function individualIssueFixture(condition="low") {
   Object.assign(data.inventory,{episodes:[episode],attention_controls_supported:true,entity_status:{[source.node_id]:status},resolved_history:{started_at:"2026-10-15T12:00:00Z",retention:{max_age_days:30,max_episodes:100},episodes:[]}});
   base.configuration.settings.notifications=false;
   base.configuration.settings.notification_definitions={profiles:{},methods:{}};
+  base.sourceDetail.monitoring_policies=base.configuration.settings.monitoring_policies.map(({id,name})=>({id,name}));
   base.sourceDetail.temperature_checks[0].observation=observation;
   base.sourceDetail.temperature_checks[0].next_deadline=null;
   const result={source,readiness:{answer:observation.status==="warn"?"degraded":observation.status==="pass"?"ready":"unknown",nodes:[]},explanation:{findings:status.findings,nodes:[]},impact:{nodes:[]},entity_status:status,temperature_status:{observation,next_deadline:null},monitoring_policies:[{id:source.monitoring_policy,name:base.sourceDetail.temperature_checks[0].policy_name}]};

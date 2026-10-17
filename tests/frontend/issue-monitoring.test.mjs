@@ -3,6 +3,7 @@ import test from "node:test";
 import {issueAvailabilitySources,issueAvailabilityAction,editIssueAvailability,resetIssueAvailability,renderIssueAvailability} from "../../custom_components/homeostatic/frontend/issue-monitoring.mjs";
 import {issuesWorkspace} from "../../custom_components/homeostatic/frontend/issues-workspace.mjs";
 import {initializeScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs";
+import {WorkspaceNavigation,workspacePath,workspaceRoute} from "../../custom_components/homeostatic/frontend/workspace-navigation.mjs";
 
 const clone=value=>structuredClone(value);
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -50,13 +51,14 @@ test("an opened standalone issue saves only its entity and closes quietly",async
   const {card,server,calls,episodes}=fixture();
   open(card,episodes[0].episode_id);
   assert.match(card.dialogHtml,/data-issue-availability-owner="issue:check:entity:0"/);
-  assert.match(card.dialogHtml,/data-issue-availability="remove"/);
+  assert.match(card.dialogHtml,/class="button" data-issue-availability="remove"[^>]*>Stop Monitoring<\/button>/);
   click(card,"remove");
   assert.deepEqual(card.issueAvailabilityPlan.sourceIds,["entity:0"]);
   assert.equal(card.issueAvailabilityEpisode,episodes[0].episode_id);
   assert.equal(calls.length,0);
-  assert.match(card.dialogHtml,/<summary>Details<\/summary>/);
-  assert.match(card.dialogHtml,/data-issue-availability="confirm"/);
+  assert.match(card.dialogHtml,/Stop monitoring this entity\?/);
+  assert.doesNotMatch(card.dialogHtml,/<details|<summary|<p>Policies/);
+  assert.match(card.dialogHtml,/data-issue-availability="confirm"[^>]*>Stop Monitoring<\/button>/);
   assert.doesNotMatch(card.dialogHtml,/data-issue-availability="remove"/);
   click(card,"confirm");await tick();
   assert.equal(saves(calls).length,1);
@@ -67,6 +69,34 @@ test("an opened standalone issue saves only its entity and closes quietly",async
   assert.equal(card.issueAvailabilityPlan,null);assert.equal(card.issueAvailabilityEpisode,null);
   assert.equal(card.current.data.inventory.episodes.length,2);
   assert.doesNotMatch(card.html,/issue-monitoring-feedback|Changes saved|data-issue-availability=/);
+});
+
+test("successful device removal returns through the captured Monitoring route",async t=>{
+  const elements=new Map();
+  globalThis.HTMLElement=class {};
+  globalThis.customElements={get:name=>elements.get(name),define:(name,value)=>elements.set(name,value)};
+  globalThis.window={location:{pathname:"/fixture"}};
+  t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
+  await import("../../custom_components/homeostatic/frontend/homeostatic.js?device-removal-return-test");
+  const {card,entities,checks,server,calls}=fixture();
+  for(const source of [...entities,...checks])source.attributes={...source.attributes,device:["example-device"]};
+  Object.assign(card,{page:"sources",sourcesSelection:"source:device:example-device",sourcesView:"source",sourcesQuery:"Example",sourcesMobileDetail:true,renderedCurrent:false,shadowRoot:{querySelector:()=>null}});
+  card.dialog.close=function(){this.open=false;resetIssueAvailability(card);};
+  card.closeDeviceDetail=elements.get("homeostatic-card").prototype.closeDeviceDetail;
+  card.navigation=new WorkspaceNavigation(card);
+  const origin=card.navigation.capture();
+  card.detail={deviceId:"example-device"};card.dialog.open=true;card.navigation.finish(origin);card.render();
+  assert.equal(workspacePath(workspaceRoute(card)),"/device-issues/example-device");
+  click(card,"remove","device:example-device");
+  assert.deepEqual(card.issueAvailabilityPlan.sourceIds,["entity:0","entity:1","entity:2"]);
+  click(card,"confirm","device:example-device");await tick();
+  assert.equal(saves(calls).length,1);
+  assert.deepEqual(server.settings.monitoring_policies[0].excluded_sources,["entity:0","entity:1","entity:2"]);
+  assert.equal(card.dialog.open,false);assert.equal(card.detail,null);
+  assert.equal(card.navigation.currentId,origin.id);
+  assert.equal(workspacePath(workspaceRoute(card)),"/sources/source%3Adevice%3Aexample-device");
+  assert.equal(card.sourcesQuery,"Example");assert.equal(card.sourcesMobileDetail,true);
+  assert.equal(card.issueAvailabilityPlan,null);
 });
 
 test("search and pagination never broaden the opened issue's removal scope",()=>{
@@ -216,7 +246,7 @@ test("an issue disappearing during a pending save keeps its failure and cancella
   card._hass.callWS=request=>{calls.push(clone(request));return new Promise((_,decline)=>{reject=decline;});};
   open(card,episodes[0].episode_id);click(card,"remove");click(card,"confirm");
   data.inventory.episodes=data.inventory.episodes.slice(1);card.render();
-  assert.equal(card.dialog.open,true);assert.match(card.dialogHtml,/Saving/);
+  assert.equal(card.dialog.open,true);assert.match(card.dialogHtml,/Stopping monitoring…/);
   reject({code:"invalid_settings",message:"Readback not confirmed"});await tick();
   assert.equal(card.dialog.open,true);assert.equal(card.detail.episodeId,episodes[0].episode_id);
   assert.deepEqual(card.issueAvailabilityPlan.sourceIds,["entity:0"]);
@@ -245,10 +275,11 @@ test("detail refresh holds a reviewed issue until refreshed monitoring releases 
   data.inventory.resolved_history={episodes:[{episode:episodes[0],resolution:"removed"}]};
   card.scopedBusy="source-availability";
   const loadDetail=elements.get("homeostatic-card").prototype.loadDetail;
+  card.readDetail=elements.get("homeostatic-card").prototype.readDetail;
   await loadDetail.call(card);
   assert.equal(card.dialog.open,true);assert.equal(card.page,"problems");
   assert.deepEqual(history,[]);assert.equal(calls.length,0);
-  assert.equal(body.innerHTML,"Original issue evidence");assert.match(host.innerHTML,/Saving/);
+  assert.equal(body.innerHTML,"Original issue evidence");assert.match(host.innerHTML,/Stopping monitoring…/);
   card.scopedBusy=null;card.availabilityError="Save not confirmed";
   await loadDetail.call(card);
   assert.match(host.innerHTML,/Save not confirmed/);assert.deepEqual(history,[]);
@@ -289,6 +320,7 @@ test("an unavailable-to-current transition rebuilds a removed issue review and r
   card.tools={showHistory:id=>history.push(id)};card.detailSequence=0;card.page="problems";
   card.renderedDetailContent="Original reviewed issue";
   const loadDetail=elements.get("homeostatic-card").prototype.loadDetail;
+  card.readDetail=elements.get("homeostatic-card").prototype.readDetail;
   card.loadDetail=()=>loadDetail.call(card);
   card.current={status:"unavailable",data:{available:false}};
   await card.loadDetail();
@@ -300,7 +332,7 @@ test("an unavailable-to-current transition rebuilds a removed issue review and r
   await card.loadDetail();
   assert.equal(body.inert,false);assert.equal(label.hidden,false);assert.equal(label.textContent,"Issue no longer current");
   assert.doesNotMatch(body.innerHTML,/Wait for monitoring to reconnect/);
-  assert.match(body.innerHTML,/Saving…/);
+  assert.match(body.innerHTML,/Stopping monitoring…/);
   assert.match(body.innerHTML,/<button[^>]*data-issue-availability="confirm"[^>]* disabled/);
   assert.match(body.innerHTML,/<button[^>]*data-issue-availability="cancel"[^>]* disabled/);
   card.scopedBusy=null;card.settingsBusy=false;card.availabilityError="Save result could not be confirmed";

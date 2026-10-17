@@ -3,6 +3,10 @@
 **Status:** Accepted
 **Date:** 2026-10-15
 
+**Later decision:** [ADR 0093](0093-explicit-device-availability-issue-selection.md) extends the shared issue dialog with explicit selection of same-device availability issues. Source inspectors retain status and coverage without duplicate acknowledgment or pause controls; singular issue entry points remain supported.
+
+**Later decision:** [ADR 0091](0091-direct-issue-actions-and-coverage.md) names contextual stopping actions Stop Monitoring. Their confirmations retain the exact availability scope; the entity inspector otherwise follows ADR 0089.
+
 **Later decision:** [ADR 0086](0086-visible-evidence-and-flat-details.md) supersedes affected-member disclosures retained for other source types and clarifies name preservation and concise navigation. Entity details continue without a Details section.
 
 **Later decision:** [ADR 0087](0087-remove-maintenance-creation-from-ui.md) removes maintenance creation from the panel. Existing maintenance visibility and cancellation remain available; published actions and runtime semantics are unchanged.

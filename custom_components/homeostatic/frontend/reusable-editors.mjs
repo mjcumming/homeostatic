@@ -1,6 +1,6 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=90";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=90";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=90";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=94";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=94";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=94";
 
 export const POLICY_CHECKS = {
   availability: "HA availability", battery: "Battery condition", vacuum: "Vacuum error",
@@ -36,15 +36,16 @@ const compactNames=names=>names.slice(0,2).join(", ")+(names.length>2?` +${names
 const useCount=uses=>uses.length?`${uses.length} ${uses.length===1?"use":"uses"}`:"Not used yet";
 function policyScopeSummary(card,policy) {
   const mode=watchMode(policy);
-  if(mode==="all")return watchChoices(policy).all;
-  const field=mode==="selected"?sourceField(policy):mode,choices=policySelectionChoices(card,policy,mode);
-  const values=mode==="all_except"?policy.excluded_sources||[]:policy.match[field]||[];
+  if(mode==="all")return watchChoices(policy).all+(devicePolicy(policy)&&memberExclusions(policy).length?`; ${memberExclusions(policy).length} ignored entities`:"");
+  const field=mode==="selected"?sourceField(policy):mode;
+  const values=mode==="all_except"?(devicePolicy(policy)?deviceExclusions(policy):policy.excluded_sources||[]):policy.match[field]||[];
+  const choices=policySelectionChoices(card,policy,mode,values);
   const names=values.map(id=>choiceSummary(choices.find(item=>item.id===id),mode==="all_except"?"Unavailable excluded source":"Unavailable selection"));
   const unavailable=values.filter(id=>!choices.some(item=>item.id===id)).length;
   const selection=compactNames(names)+(unavailable&&names.length>2?` · ${unavailable} unavailable`:"");
-  if(mode==="all_except")return names.length?`All ${sourceNoun(policy)} except: ${selection}`:`All ${sourceNoun(policy)}; no exclusions`;
+  if(mode==="all_except")return names.length?`All ${sourceNoun(policy)} except: ${selection}${devicePolicy(policy)&&memberExclusions(policy).length?`; ${memberExclusions(policy).length} ignored entities`:""}`:`All ${sourceNoun(policy)}; no exclusions`;
   const summary=names.length?`${mode==="selected"?"Selected "+sourceNoun(policy):mode==="area"?"Areas":"Labels"}: ${selection}`:"No sources selected";
-  return `${summary}${policy.excluded_sources?.length?`; ${policy.excluded_sources.length} excluded`:""}`;
+  return `${summary}${devicePolicy(policy)?`${deviceExclusions(policy).length?`; ${deviceExclusions(policy).length} excluded devices`:""}${memberExclusions(policy).length?`; ${memberExclusions(policy).length} ignored entities`:""}`:policy.excluded_sources?.length?`; ${policy.excluded_sources.length} excluded`:""}`;
 }
 function policyDetectionSummary(policy) {
   const p=policy.parameters||{};
@@ -223,36 +224,77 @@ export function watchChoices(policy) {
 function sourceField(policy) {
   return {integration:"integration_domain",device:"device",ups:"device"}[sourceKind(policy)]||"entity";
 }
+const devicePolicy=policy=>sourceKind(policy)==="device";
+const memberExclusions=policy=>(policy.excluded_sources||[]).filter(id=>id.startsWith("entity:"));
+const deviceExclusions=policy=>(policy.excluded_sources||[]).filter(id=>!id.startsWith("entity:"));
+const selectionIndexes=new WeakMap();
+const PICKER_PAGE_SIZE=50;
+
 export function watchMode(policy) {
-  return policy.match.area?"area":policy.match.label?"label":policy.match[sourceField(policy)]||policy.match.integration?"selected":Object.hasOwn(policy,"excluded_sources")?"all_except":"all";
+  return policy.match.area?"area":policy.match.label?"label":policy.match[sourceField(policy)]||policy.match.integration?"selected":(devicePolicy(policy)?(deviceExclusions(policy).length>0||policy.excluded_sources?.length===0):Object.hasOwn(policy,"excluded_sources"))?"all_except":"all";
 }
 function completeSelectionCatalog(card) {
   const data=card.current?.data;
   return Boolean(data?.inventory?.catalog)&&!(data.schema_version===3&&!data.catalog_loaded);
 }
-function policySources(card,policy) {
-  if(!completeSelectionCatalog(card))return [];
-  return inventoryRows(card.current.data).filter(source=>source.kind===sourceKind(policy)&&(policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature")));
+function selectionIndex(card) {
+  if(!completeSelectionCatalog(card))return null;
+  const data=card.current.data,{catalog,nodes}=data.inventory,configuration=card.configuration;
+  const previous=selectionIndexes.get(catalog);
+  if([2,3].includes(data.schema_version)&&previous?.nodes===nodes&&previous.candidates===catalog.candidates&&previous.areas===configuration.areas&&previous.floors===configuration.floors)return previous;
+  const rows=inventoryRows(data),devices=new Map(),deviceNames=new Map();
+  for(const source of rows)if(source.kind==="device") {
+    for(const id of source.attributes?.device||[])if(!devices.has(id))devices.set(id,source);
+    const canonical=source.monitoring_source||source.node_id;
+    if(canonical.startsWith("device:")&&!devices.has(canonical.slice(7)))devices.set(canonical.slice(7),source);
+    if(!deviceNames.has(source.name))deviceNames.set(source.name,new Set());
+    deviceNames.get(source.name).add(canonical);
+  }
+  const index={nodes,candidates:catalog.candidates,areas:configuration.areas,floors:configuration.floors,rows,devices,deviceNames,
+    originals:new Map((catalog.candidates||[]).map(source=>[source.node_id,source])),
+    areaNames:new Map((configuration.areas||[]).map(area=>[area.id,area])),floorNames:new Map((configuration.floors||[]).map(floor=>[floor.id,floor])),collections:new Map()};
+  if([2,3].includes(data.schema_version))selectionIndexes.set(catalog,index);
+  return index;
 }
-function sourceContext(card,source) {
+const suitableSource=(source,policy)=> (policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature"));
+function policySources(card,policy,index=selectionIndex(card)) {
+  return (index?.rows||[]).filter(source=>source.kind===sourceKind(policy)&&suitableSource(source,policy));
+}
+function sourceContext(card,source,index=null) {
   if(source.kind==="integration")return "";
   const areaId=source.attributes?.area?.[0];
   if(!areaId)return "No area assigned";
-  const area=card.configuration.areas?.find(item=>item.id===areaId);
+  const area=index?index.areaNames.get(areaId):card.configuration.areas?.find(item=>item.id===areaId);
   if(!area)return "Area unavailable";
-  const floor=card.configuration.floors?.find(item=>item.id===area.floor_id);
+  const floor=index?index.floorNames.get(area.floor_id):card.configuration.floors?.find(item=>item.id===area.floor_id);
   return [area.name,floor?.name].filter(Boolean).join(" · ");
 }
-function contextualChoices(card,sources,identify,group) {
-  const originals=new Map((card.current?.data?.inventory?.catalog?.candidates||[]).map(source=>[source.node_id,source]));
-  const choices=[...new Map(sources.map(source=>{
-    source=originals.get(source.monitoring_source||source.node_id)||source;
-    const id=identify(source);
-    return [id,{id,name:source.name,context:sourceContext(card,source),...(source.entity_id?{entity_id:source.entity_id}:{}),group:group(source)}];
-  }).filter(([id])=>id)).values()];
-  const counts=new Map(),identities=new Map();
-  for(const item of choices){const key=JSON.stringify([item.name,item.context]),identity=JSON.stringify([item.name,item.context,item.entity_id]);counts.set(key,(counts.get(key)||0)+1);identities.set(identity,(identities.get(identity)||0)+1);}
-  return choices.map(item=>({...item,detail:counts.get(JSON.stringify([item.name,item.context]))>1?item.entity_id&&identities.get(JSON.stringify([item.name,item.context,item.entity_id]))===1?item.entity_id:item.id:""}));
+function contextualChoices(card,index,key,sources,identify,group,selectedIds) {
+  if(!index||selectedIds?.length===0)return [];
+  let collection=index.collections.get(key);
+  if(!collection) {
+    const records=new Map(),counts=new Map(),identities=new Map();
+    for(let source of sources()) {
+      source=index.originals.get(source.monitoring_source||source.node_id)||source;
+      const id=identify(source);
+      if(id)records.set(id,{source,context:sourceContext(card,source,index)});
+    }
+    for(const {source,context} of records.values()) {
+      const nameKey=JSON.stringify([source.name,context]),identity=JSON.stringify([source.name,context,source.entity_id]);
+      counts.set(nameKey,(counts.get(nameKey)||0)+1);identities.set(identity,(identities.get(identity)||0)+1);
+    }
+    collection={records,counts,identities};index.collections.set(key,collection);
+  }
+  const choice=id=>{
+    const record=collection.records.get(id);
+    if(!record)return null;
+    if(record.choice)return record.choice;
+    const {source,context}=record,{name,entity_id}=source;
+    const detail=collection.counts.get(JSON.stringify([name,context]))>1?entity_id&&collection.identities.get(JSON.stringify([name,context,entity_id]))===1?entity_id:id:"";
+    return record.choice={id,name,context,...(entity_id?{entity_id}:{}),group:group(source),detail};
+  };
+  if(selectedIds)return selectedIds.map(choice).filter(Boolean);
+  return collection.all??=(Array.from(collection.records.keys(),choice));
 }
 function choiceSummary(item,fallback) {
   if(!item)return fallback;
@@ -262,63 +304,79 @@ function sourceCount(policy,count) {
   const noun=sourceNoun(policy),singular={batteries:"battery",entities:"entity","UPS devices":"UPS device","temperature sensors":"temperature sensor"}[noun]||noun.slice(0,-1);
   return count===null?"Matching sources not loaded":count===0?`No ${noun} currently found`:`${count} ${count===1?singular:noun}`;
 }
-export function policySelectionChoices(card,policy,mode) {
+export function policySelectionChoices(card,policy,mode,selectedIds=null) {
+  if(selectedIds?.length===0)return [];
+  const index=selectionIndex(card);
   if(mode==="area"||mode==="label") {
     const complete=completeSelectionCatalog(card),stale=complete&&card.current.data.catalog_stale;
     const counts=new Map(),field=sourceField(policy);
-    const sources=policySources(card,policy).filter(source=>!source.disabled&&(policy.check!=="availability"||(source.kind!=="entity"||!source.attributes?.entity_category?.length)&&(source.kind!=="device"||source.availability_entities?.length)));
+    const sources=policySources(card,policy,index).filter(source=>!source.disabled&&(policy.check!=="availability"||(source.kind!=="entity"||!source.attributes?.entity_category?.length)&&(source.kind!=="device"||source.availability_entities?.length)));
     for(const source of sources)for(const id of source.attributes?.[mode]||[]) {
       const identities=counts.get(id)||new Set();
       identities.add(source.attributes?.[field]?.[0]||source.monitoring_source||source.node_id);counts.set(id,identities);
     }
-    return (card.configuration[mode==="area"?"areas":"labels"]||[]).map(item=>{
+    return (card.configuration[mode==="area"?"areas":"labels"]||[]).filter(item=>!selectedIds||selectedIds.includes(item.id)).map(item=>{
       const floor=mode==="area"?card.configuration.floors?.find(floor=>floor.id===item.floor_id):null;
       const count=complete?counts.get(item.id)?.size||0:null;
       return {...item,count,context:floor?.name||"",detail:stale?(count===0?`No ${sourceNoun(policy)} in last loaded list`:`${sourceCount(policy,count)} (last known)`):sourceCount(policy,count),group:mode==="area"?floor?.name||"Areas without a floor":"Labels"};
     });
   }
-  const inventory=completeSelectionCatalog(card)?inventoryRows(card.current.data):[];
+  const inventory=index?.rows||[],key=`${sourceKind(policy)}:${policy.check}:${mode}`;
   if(mode==="all_except") {
     const kind=sourceKind(policy);
-    const sources=inventory.filter(source=>source.kind===kind||kind==="device"&&source.kind==="entity"&&source.attributes?.device?.length).filter(source=>(policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature")));
-    return contextualChoices(card,sources,source=>source.monitoring_source||source.node_id,source=>kind==="device"?(source.kind==="device"?"Whole devices":"Individual device entities"):kind==="integration"?"Integration connections":"Sources");
+    return contextualChoices(card,index,key,()=>inventory.filter(source=>(source.kind===kind||kind==="device"&&source.kind==="entity"&&source.attributes?.device?.length)&&suitableSource(source,policy)),source=>source.monitoring_source||source.node_id,source=>kind==="device"?(source.kind==="device"?"Whole devices":deviceGroup(card,index,source)):kind==="integration"?"Integration connections":"Sources",selectedIds);
   }
   if(policyType(policy)==="integration") {
     const domains=[...new Set(inventory.filter(source=>source.kind==="integration").flatMap(source=>source.attributes?.integration_domain||source.attributes?.domain||[]))];
-    return domains.map(id=>({id,name:card._hass?.localize?.(`component.${id}.title`)||({mobile_app:"Mobile App",esphome:"ESPHome",nut:"Network UPS Tools (NUT)"})[id]||id.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase()),group:"Integrations"}));
+    return domains.filter(id=>!selectedIds||selectedIds.includes(id)).map(id=>({id,name:card._hass?.localize?.(`component.${id}.title`)||({mobile_app:"Mobile App",esphome:"ESPHome",nut:"Network UPS Tools (NUT)"})[id]||id.replaceAll("_"," ").replace(/\b\w/g,letter=>letter.toUpperCase()),group:"Integrations"}));
   }
   const field=sourceField(policy),noun=sourceNoun(policy),group=noun[0].toUpperCase()+noun.slice(1);
-  return contextualChoices(card,policySources(card,policy),source=>source.attributes?.[field]?.[0],()=>group);
+  return contextualChoices(card,index,key,()=>policySources(card,policy,index),source=>source.attributes?.[field]?.[0],()=>group,selectedIds);
 }
-function watchEditor(card,policy) {
+function deviceGroup(card,index,source) {
+  const id=source.attributes.device[0];
+  const device=index.devices.get(id);
+  if(!device)return `Device unavailable (${id})`;
+  return index.deviceNames.get(device.name).size>1?`${device.name} · ${sourceContext(card,device,index)} · ${id}`:device.name;
+}
+function watchEditor(card,policy,ignored=false) {
   if(policy.check==="repair")return '<p>Watches all Home Assistant Repairs.</p>';
   if(policy.check==="broken_automation")return '<p>Checks all automations for references to entities that no longer exist.</p>';
-  const mode=watchMode(policy),choices=watchChoices(policy),field=mode==="selected"?sourceField(policy):mode,excluding=mode==="all_except",grouped=["area","label"].includes(mode);
-  const noun=mode==="area"?"areas":mode==="label"?"labels":excluding&&sourceKind(policy)==="device"?"devices or entities":excluding&&sourceKind(policy)==="integration"?"integration connections":sourceNoun(policy);
+  const mode=ignored?"all_except":card.policyScopeChoice?.policy===policy?card.policyScopeChoice.mode:watchMode(policy),choices=watchChoices(policy),field=mode==="selected"?sourceField(policy):mode,excluding=mode==="all_except",grouped=["area","label"].includes(mode);
+  const noun=ignored?"entities":mode==="area"?"areas":mode==="label"?"labels":excluding&&sourceKind(policy)==="integration"?"integration connections":sourceNoun(policy);
   const data=card.current?.data,catalogPending=mode!=="all"&&!completeSelectionCatalog(card),catalogStale=mode!=="all"&&data?.catalog_stale;
   const catalogStatus=catalogPending||catalogStale?`<p class="note" role="status">${card.current?.catalogError?`Could not ${catalogPending?"load":"update"} available sources: ${esc(card.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry loading sources</button>`:catalogPending?"Loading available sources…":"Updating available sources. You can keep using the previous complete list until the update finishes."}</p>`:"";
-  const values=excluding?policy.excluded_sources||[]:policy.match[field]||[],items=policySelectionChoices(card,policy,mode);
+  const values=excluding?(devicePolicy(policy)?ignored?memberExclusions(policy):deviceExclusions(policy):policy.excluded_sources||[]):policy.match[field]||[];
+  const picker=card.policyPicker?.id===policy.id&&Boolean(card.policyPicker.ignored)===ignored?card.policyPicker:null;
+  const items=policySelectionChoices(card,policy,mode,picker?null:values).filter(item=>!devicePolicy(policy)||!excluding||item.id.startsWith("entity:")===ignored);
   const fallback=catalogPending?excluding?"Saved exclusion":"Saved selection":excluding?"Unavailable excluded source":"Unavailable selection";
   const selectedItems=values.map(id=>items.find(item=>item.id===id)||{id,name:fallback,detail:id});
   const oldConnections=policyType(policy)==="integration"&&policy.match.integration;
-  const picker=card.policyPicker?.id===policy.id?card.policyPicker:null;
   const unavailable=values.filter(id=>!catalogPending&&!items.some(item=>item.id===id)).map(id=>({id,name:excluding?"Unavailable excluded source — clear to include if it returns":"Unavailable selection — clear to remove",detail:id,group:"Unavailable selections"}));
-  const filtered=picker?[...items.filter(item=>(!picker.selectedOnly||values.includes(item.id))&&(!grouped||picker.showAll||item.count!==0||values.includes(item.id))&&[item.name,item.context,item.detail,item.entity_id,item.id].filter(Boolean).join(" ").toLocaleLowerCase().includes(picker.query.trim().toLocaleLowerCase())),...unavailable]:[];
-  const groups=[...new Set(filtered.map(item=>item.group))];
-  const verb=excluding?"excluded":"selected",choose=excluding?`Exclude ${noun}`:`Choose ${noun}`;
+  const filtered=picker?[...unavailable,...items.filter(item=>(!picker.selectedOnly||values.includes(item.id))&&(!grouped||picker.showAll||item.count!==0||values.includes(item.id))&&[item.name,item.context,item.detail,item.entity_id,item.id].filter(Boolean).join(" ").toLocaleLowerCase().includes(picker.query.trim().toLocaleLowerCase()))]:[];
+  const groupedItems=new Map();
+  for(const item of filtered){if(!groupedItems.has(item.group))groupedItems.set(item.group,[]);groupedItems.get(item.group).push(item);}
+  const ordered=[...groupedItems.values()].flatMap(items=>items.sort((a,b)=>a.name.localeCompare(b.name)||(a.context||"").localeCompare(b.context||"")||a.id.localeCompare(b.id)));
+  const shown=ordered.slice(0,picker?.limit||PICKER_PAGE_SIZE),groups=[...new Set(shown.map(item=>item.group))];
+  const verb=ignored?"ignored":excluding?"excluded":"selected",choose=ignored?"Choose ignored entities":excluding?`Exclude ${noun}`:`Choose ${noun}`;
   const description=excluding?`Includes current and future ${sourceNoun(policy)}, except the sources chosen here. Exclusions apply only to this policy.`:mode==="selected"?policyType(policy)==="integration"?"Includes all current and future connections for each selected integration.":`Only the selected ${sourceNoun(policy)} are included.`:`Includes current and future matching ${sourceNoun(policy)} in any selected ${mode==="area"?"area":"label"}.`;
-  const excludedChoices=!excluding&&policy.excluded_sources?.length?policySelectionChoices(card,policy,"all_except"):[];
-  const additionalExclusions=!excluding&&policy.excluded_sources?.length?`<p class="small">This scope also excludes: ${policy.excluded_sources.map(id=>esc(choiceSummary(excludedChoices.find(item=>item.id===id),"Unavailable excluded source"))).join(", ")}. Saved exclusions remain in effect.</p>`:"";
-  const availabilityNote=policy.check==="availability"&&["entity","device"].includes(sourceKind(policy))?'<p class="small">Diagnostic and configuration entities are excluded unless individually selected. Disabled sources are not monitored.</p>':"";
-  const row=item=>`<label class="policy-picker-choice"><input type="checkbox" ${attrs("policies",policy.id,"selection")} data-definition-value="${esc(item.id)}"${checked(values.includes(item.id))}><span class="policy-picker-copy"><span>${esc(item.name)}</span>${!grouped&&item.context?`<span class="policy-picker-context">${esc(item.context)}</span>`:""}${item.detail?`<span class="policy-picker-detail">${esc(item.detail)}</span>`:""}</span></label>`;
-  const results=groups.map(group=>`<fieldset>${grouped&&mode==="area"||groups.length>1?`<legend>${esc(group)}</legend>`:`<legend class="sr-only">${esc(group)}</legend>`}${filtered.filter(item=>item.group===group).sort((a,b)=>a.name.localeCompare(b.name)||(a.context||"").localeCompare(b.context||"")||a.id.localeCompare(b.id)).map(row).join("")}</fieldset>`).join("");
+  const excludedChoices=!devicePolicy(policy)&&!excluding&&policy.excluded_sources?.length?policySelectionChoices(card,policy,"all_except",policy.excluded_sources):[];
+  const additionalExclusions=!devicePolicy(policy)&&!excluding&&policy.excluded_sources?.length?`<p class="small">This scope also excludes: ${policy.excluded_sources.map(id=>esc(choiceSummary(excludedChoices.find(item=>item.id===id),"Unavailable excluded source"))).join(", ")}. Saved exclusions remain in effect.</p>`:"";
+  const availabilityNote=policy.check==="availability"&&["entity","device"].includes(sourceKind(policy))?devicePolicy(policy)?'<p class="small">Device availability uses enabled operational entities. Diagnostic and configuration entities are excluded.</p>':'<p class="small">Diagnostic and configuration entities are excluded unless individually selected. Disabled sources are not monitored.</p>':"";
+  const row=item=>`<label class="policy-picker-choice"><input type="checkbox" ${attrs("policies",policy.id,ignored?"ignored-selection":"selection")} data-definition-value="${esc(item.id)}"${checked(values.includes(item.id))}><span class="policy-picker-copy"><span>${esc(item.name)}</span>${!grouped&&item.context?`<span class="policy-picker-context">${esc(item.context)}</span>`:""}${item.detail?`<span class="policy-picker-detail">${esc(item.detail)}</span>`:""}</span></label>`;
+  const results=groups.map(group=>`<fieldset>${ignored||grouped&&mode==="area"||groups.length>1?`<legend>${esc(group)}</legend>`:`<legend class="sr-only">${esc(group)}</legend>`}${shown.filter(item=>item.group===group).map(row).join("")}</fieldset>`).join("");
+  const more=shown.length<ordered.length?`<div class="actions"><span class="small">Showing ${shown.length} of ${ordered.length}. Search includes all ${noun}.</span>${button("more-choices",`Show ${Math.min(PICKER_PAGE_SIZE,ordered.length-shown.length)} more`,"policies",policy.id)}</div>`:"";
   const empty=picker?.query.trim()?`No ${noun} match your search.`:picker?.selectedOnly?`No ${noun} ${verb}.`:grouped?`No ${noun} with matching ${sourceNoun(policy)}. Use Show all ${noun} to choose for future sources.`:`No ${noun} available to choose.`;
   const searchLabel=grouped||sourceKind(policy)==="integration"?`Search ${noun}`:"Search by name or area";
-  const pickerBody=picker?`<section class="policy-picker" aria-label="${choose}">${excluding?'<p>Check sources to exclude them from this policy.</p>':""}<label class="policy-picker-search"><span>${searchLabel}</span><input type="search" data-definition-picker-search value="${esc(picker.query)}"></label><div class="policy-picker-tools"><label><input type="checkbox" data-definition-picker-selected${checked(picker.selectedOnly)}>Show ${verb} only</label>${grouped?`<label><input type="checkbox" data-definition-picker-all${checked(picker.showAll)}>Show all ${noun}</label>`:""}</div><div class="policy-picker-options">${results||(catalogPending?"":`<p>${esc(empty)}</p>`)}</div><footer class="policy-picker-footer"><span role="status">${values.length} ${verb}</span>${button("finish-pick","Done","policies",policy.id)}</footer></section>`:"";
+  const pickerBody=picker?`<section class="policy-picker" aria-label="${choose}">${ignored?'<p>Choose the entities to ignore when assessing their device.</p>':excluding?'<p>Check sources to exclude them from this policy.</p>':""}<label class="policy-picker-search"><span>${searchLabel}</span><input type="search" data-definition-picker-search value="${esc(picker.query)}"></label><div class="policy-picker-tools"><label><input type="checkbox" data-definition-picker-selected${checked(picker.selectedOnly)}>Show ${verb} only</label>${grouped?`<label><input type="checkbox" data-definition-picker-all${checked(picker.showAll)}>Show all ${noun}</label>`:""}</div><div class="policy-picker-options">${results||(catalogPending?"":`<p>${esc(empty)}</p>`)}</div>${more}<footer class="policy-picker-footer"><span role="status">${values.length} ${verb}</span>${button("finish-pick","Done","policies",policy.id)}</footer></section>`:"";
   const summary=oldConnections?'<p>Saved individual connections. Choose integrations to replace this selection.</p>':selectedItems.length?`<ul class="policy-selected-sources" aria-label="${excluding?"Excluded":"Selected"} ${esc(noun)}">${selectedItems.map(item=>`<li><span>${esc(item.name)}</span>${item.context?`<span class="small">${esc(item.context)}</span>`:""}${item.detail?`<span class="small">${esc(item.detail)}</span>`:""}</li>`).join("")}</ul>`:`<p>${excluding?"No exclusions":"None selected"}</p>`;
-  const selectionAction=mode!=="all"&&!picker?button("pick",values.length?"Change selection":choose,"policies",policy.id,`aria-label="${esc(choose)}"`):"";
+  const selectionAction=mode!=="all"&&!picker?button(ignored?"pick-ignored":"pick",values.length?"Change selection":choose,"policies",policy.id,`aria-label="${esc(choose)}"`):"";
   const scopeChoices=`<fieldset class="policy-scope"><legend>Include</legend>${Object.entries(choices).map(([value,label])=>`<div class="policy-scope-option"><label class="policy-scope-choice"><input type="radio" name="policy-scope-${esc(policy.id)}" ${attrs("policies",policy.id,"watch")} data-watch-mode="${value}" value="${value}"${checked(mode===value)}><span>${esc(label)}</span></label>${mode===value?selectionAction:""}</div>`).join("")}</fieldset>`;
-  return `<div class="policy-watch-controls">${scopeChoices}</div>${catalogStatus}${mode!=="all"?`<div class="policy-selection">${picker?pickerBody:`<div class="policy-selection-summary">${summary}</div>`}<p class="small">${description}</p></div>`:`<p class="small">Includes current and future ${sourceNoun(policy)}.</p>`}${additionalExclusions}${availabilityNote}`;
+  if(ignored) {
+    const groupedSummary=[...new Set(selectedItems.map(item=>item.group||"Device unavailable"))].map(group=>`<section><h4>${esc(group)}</h4><ul class="policy-selected-sources">${selectedItems.filter(item=>(item.group||"Device unavailable")===group).map(item=>`<li><span>${esc(item.name)}</span>${item.context?`<span class="small">${esc(item.context)}</span>`:""}${item.detail?`<span class="small">${esc(item.detail)}</span>`:""}</li>`).join("")}</ul></section>`).join("");
+    return `<section class="policy-ignored-entities"><h3>Ignored entities</h3><p class="small">These entities do not contribute to this policy's device availability checks. Other policies keep their own choices.</p>${selectionAction}${catalogStatus}${picker?pickerBody:groupedSummary||"<p>No ignored entities.</p>"}</section>`;
+  }
+  return `<div class="policy-watch-controls">${scopeChoices}</div>${catalogStatus}${mode!=="all"?`<div class="policy-selection">${picker?pickerBody:`<div class="policy-selection-summary">${devicePolicy(policy)&&excluding?"<h4>Excluded devices</h4>":""}${summary}</div>`}<p class="small">${description}</p></div>`:`<p class="small">Includes current and future ${sourceNoun(policy)}.</p>`}${additionalExclusions}${availabilityNote}${devicePolicy(policy)?watchEditor(card,policy,true):""}`;
 }
 
 const DURATION_UNITS={minutes:60,hours:3600,seconds:1};
@@ -353,10 +411,10 @@ function temperatureFields(card,policy) {
 
 function policyFields(card,policy) {
   const {id,check,parameters}=policy;
-  const inventory=card.current?.data?.inventory?.catalog?inventoryRows(card.current.data):[];
   let parameterFields="";
   if(check==="battery")parameterFields=input("policies",id,"parameters:threshold","Battery level at or below (%)",parameters.threshold??20,"number",'min="0" max="100" step="1" required');
   if(check==="ups_reserve") {
+    const inventory=card.current?.data?.inventory?.catalog?inventoryRows(card.current.data):[];
     const selected=inventory.filter(source=>source.kind==="ups"&&!policy.excluded_sources?.includes(source.monitoring_source||source.node_id)&&Object.entries(policy.match||{}).every(([field,values])=>values.some(value=>source.attributes?.[field]?.includes(value))));
     const hasRole=role=>selected.some(source=>(source.ups_entities||[]).some(([key])=>key===role));
     const fields=[...(hasRole("charge")||parameters.charge_low!==undefined?[["charge_low","Raise at or below (%)"],["charge_clear","Clear at or above (%)"]]:[]),...(hasRole("runtime")||parameters.runtime_low_minutes!==undefined?[["runtime_low_minutes","Raise at or below (minutes)"],["runtime_clear_minutes","Clear at or above (minutes)"]]:[])];
@@ -589,7 +647,7 @@ export function editReusable(card,event) {
       return true;
     }
     if(action==="notification-view") {card.notificationSection=kind;card.definitionSelection=null;card.render();return true;}
-    if(action==="policy-actions") {
+    if(action==="policy-actions"||action==="contextual-help") {
       const menu=element.popoverTargetElement;
       menu.ontoggle=event=>{
         if(event.newState!=="open")return;
@@ -601,7 +659,8 @@ export function editReusable(card,event) {
           const rect=element.getBoundingClientRect(),size=menu.getBoundingClientRect();
           const below=rect.bottom+4,preferred=below+size.height<=top+height-8?below:rect.top-size.height-4;
           menu.style.top=`${Math.max(top+8,Math.min(preferred,top+height-size.height-8))}px`;
-          menu.style.left=`${Math.max(left+8,Math.min(rect.right-size.width,left+width-size.width-8))}px`;
+          const preferredLeft=action==="contextual-help"?rect.left:rect.right-size.width;
+          menu.style.left=`${Math.max(left+8,Math.min(preferredLeft,left+width-size.width-8))}px`;
           menu.style.right="auto";
         });
       };
@@ -620,10 +679,12 @@ export function editReusable(card,event) {
     if(action==="tab"){card.notificationSection=kind;card.definitionSelection=null;card.render();return true;}
     if(action==="edit"){if(["methods","profiles"].includes(kind))card.notificationSection=kind;card.definitionSelection={kind,id};card.deliveryPicker=null;card.methodCancel=null;card.deliveryMethodError=null;card.deliveryMethodNotice=null;card.render();if(kind==="methods"){card.main.querySelector?.('.notifications-content')?.scrollIntoView?.({block:"nearest"});card.main.querySelector?.('.delivery-method-editor [data-definition-field="name"]')?.focus({preventScroll:true});void card.loadDeliveryConfiguration?.(true);}return true;}
     if(action==="open-policy"){card.detailSequence=(card.detailSequence||0)+1;card.detail=null;card.dialog?.close();card.definitionSelection=id?{kind:"policies",id}:null;card.page="policies";card.render();return true;}
+    if(action==="open-notification"){card.detailSequence=(card.detailSequence||0)+1;card.detail=null;card.dialog?.close();card.definitionSelection={kind:"profiles",id};card.notificationSection="profiles";card.deliveryPicker=null;card.methodCancel=null;card.page="notifications";card.render();return true;}
     if(action==="close"){card.definitionSelection=null;card.policyCreating=false;card.policyPicker=null;card.render();return true;}
     if(action==="add"&&kind==="policies"){card.policyCreating=true;card.definitionSelection=null;card.render();return true;}
-    if(action==="pick"){const policy=policies.find(item=>item.id===id);if(policyType(policy)==="integration"&&policy.match.integration){policy.match={kind:["integration"],integration_domain:[]};}card.policyPicker={id,query:"",selectedOnly:false,showAll:false};card.render();card.main?.querySelector?.("[data-definition-picker-search]")?.focus({preventScroll:true});return true;}
-    if(action==="finish-pick"){card.policyPicker=null;card.render();card.main?.querySelector?.('[data-definition-action="pick"]')?.focus({preventScroll:true});return true;}
+    if(action==="pick"||action==="pick-ignored"){const policy=policies.find(item=>item.id===id);if(policyType(policy)==="integration"&&policy.match.integration){policy.match={kind:["integration"],integration_domain:[]};}card.policyPicker={id,...(action==="pick-ignored"?{ignored:true}:{}),query:"",selectedOnly:false,showAll:false};card.render();card.main?.querySelector?.("[data-definition-picker-search]")?.focus({preventScroll:true});return true;}
+    if(action==="more-choices"&&card.policyPicker?.id===id){const previous=card.policyPicker.limit||PICKER_PAGE_SIZE;card.policyPicker.limit=previous+PICKER_PAGE_SIZE;card.render();card.main?.querySelectorAll?.('.policy-picker [data-definition-value]')?.[previous]?.focus();return true;}
+    if(action==="finish-pick"){const ignored=card.policyPicker?.ignored;card.policyPicker=null;card.render();card.main?.querySelector?.(`[data-definition-action="${ignored?"pick-ignored":"pick"}"]`)?.focus({preventScroll:true});return true;}
     if(action==="restore"){card.policyRestoring=true;card.policyRestoreIds=[];card.render();return true;}
     if(action==="cancel-restore"){card.policyRestoring=false;card.render();return true;}
     if(action==="delete"){card.definitionDelete={kind,id,resolution:"",before:kind==="policies"?structuredClone(policies.find(item=>item.id===id)):null};card.render();return true;}
@@ -674,9 +735,9 @@ export function editReusable(card,event) {
       owner[key]=[...new Set([...(owner[key]||[]),d.smsService+encodeURIComponent(target.value)])];
     }else return false;
   }else {
-    if(d.definitionPickerSearch!==undefined){card.policyPicker.query=element.value;renderAfterEdit(card,element);return true;}
-    if(d.definitionPickerAll!==undefined){card.policyPicker.showAll=element.checked;renderAfterEdit(card,element);return true;}
-    if(d.definitionPickerSelected!==undefined){card.policyPicker.selectedOnly=element.checked;renderAfterEdit(card,element);return true;}
+    if(d.definitionPickerSearch!==undefined){card.policyPicker.query=element.value;card.policyPicker.limit=PICKER_PAGE_SIZE;renderAfterEdit(card,element);return true;}
+    if(d.definitionPickerAll!==undefined){card.policyPicker.showAll=element.checked;card.policyPicker.limit=PICKER_PAGE_SIZE;renderAfterEdit(card,element);return true;}
+    if(d.definitionPickerSelected!==undefined){card.policyPicker.selectedOnly=element.checked;card.policyPicker.limit=PICKER_PAGE_SIZE;renderAfterEdit(card,element);return true;}
     if(d.definitionRestore!==undefined){card.policyRestoreIds=element.checked?[...card.policyRestoreIds,d.definitionRestore]:card.policyRestoreIds.filter(value=>value!==d.definitionRestore);card.render();return true;}
     if(d.definitionTemplate!==undefined){card.definitionTemplate=element.value;return true;}
     if(d.definitionDeleteResolution!==undefined){card.definitionDelete.resolution=element.value;card.render();return true;}
@@ -712,12 +773,18 @@ export function editReusable(card,event) {
           if(element.checked)item.person_destinations[value]??=[];else delete item.person_destinations[value];
         }
       }else if(field==="watch") {
+        card.policyScopeChoice={policy:item,mode:element.value};
         const selector=element.value==="selected"?sourceField(item):element.value==="all_except"?"all":element.value;
+        const members=devicePolicy(item)?memberExclusions(item):[];
         delete item.excluded_sources;
-        if(element.value==="all_except")item.excluded_sources=[];
+        if(element.value==="all_except"||members.length)item.excluded_sources=members;
         item.match={kind:[sourceKind(item)],...(selector==="all"?{}:{[selector]:[]})};card.policyPicker=null;
+      }else if(field==="ignored-selection") {
+        const values=item.excluded_sources||[];
+        item.excluded_sources=element.checked?[...new Set([...values,d.definitionValue])]:values.filter(value=>value!==d.definitionValue);
+        if(!item.excluded_sources.length)delete item.excluded_sources;
       }else if(field==="selection") {
-        const mode=watchMode(item),selector=mode==="selected"?sourceField(item):mode;
+        const mode=card.policyScopeChoice?.policy===item?card.policyScopeChoice.mode:watchMode(item),selector=mode==="selected"?sourceField(item):mode;
         const values=mode==="all_except"?item.excluded_sources||[]:item.match[selector]||[];
         const next=element.checked?[...new Set([...values,d.definitionValue])]:values.filter(value=>value!==d.definitionValue);
         if(mode==="all_except")item.excluded_sources=next;else item.match[selector]=next;

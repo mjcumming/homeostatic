@@ -7,6 +7,8 @@ from typing import Any
 import pytest
 import yaml
 from freezegun.api import FrozenDateTimeFactory
+from health_tree.engine import Engine
+from health_tree.types import Check, Node
 from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import CoreState, HomeAssistant
@@ -18,7 +20,9 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.homeostatic.const import DOMAIN
+from custom_components.homeostatic.dashboard import snapshot
 from custom_components.homeostatic.runtime import Runtime
+from custom_components.homeostatic.serialization import json_object
 
 SCENARIOS = yaml.safe_load(
     (Path(__file__).parent / "fixtures/scenarios.yaml").read_text()
@@ -138,8 +142,56 @@ async def test_missing_source_stales(
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert len(runtime.episodes) == 1
+    coverage = runtime.query("coverage", {})
+    assert coverage["never_observed"] == []
+    assert coverage["stale"] == [
+        {
+            "node_id": next(
+                source.node_id for source in runtime.sources.values() if source.watched
+            ),
+            "check_id": "availability",
+        }
+    ]
     assert runtime.evidence_gaps == 1
+    assert snapshot(runtime)["evidence_gaps"] == 1
+    assert hass.states.get("sensor.homeostatic_evidence_gaps").state == "1"
     assert runtime.readiness == "unknown"
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+async def test_coverage_gaps_deduplicate_check_references(
+    hass: HomeAssistant, config_entry: MockConfigEntry
+) -> None:
+    """Overlapping never-observed and stale rows count each node/check pair once."""
+    runtime = await start_monitor(hass, config_entry)
+    engine = Engine(runtime.settings.engine_settings())
+    now = dt_util.utcnow()
+    checks = tuple(
+        Check(
+            check_id=check_id,
+            raise_hold=timedelta(0),
+            clear_hold=timedelta(0),
+            ttl=None,
+            unknown_hold=timedelta(seconds=30),
+        )
+        for check_id in ("availability", "battery")
+    )
+    engine.register_many(
+        (
+            Node(node_id="first", checks=checks),
+            Node(node_id="second", checks=checks[:1]),
+        ),
+        now,
+    )
+    for elapsed, stale_count in ((0, 0), (31, 3)):
+        engine.advance(now + timedelta(seconds=elapsed))
+        coverage = {
+            **json_object(engine.coverage()),
+            "notification_consumer_missing": False,
+        }
+        assert len(engine.coverage().never_observed) == 3
+        assert len(engine.coverage().stale) == stale_count
+        assert runtime.evidence_gaps_from_coverage(coverage) == 3
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 

@@ -51,6 +51,29 @@ export async function runPolicyGaps(ctx) {
     return "Custom and supplied policies: exact add/edit/enable/disable/duplicate/discard/delete/cancel effects; full installation snapshots and independent notification draft checked.";
   });
 
+  await test("policies.device-exclusions",async()=>{
+    const before=await snapshot(),original=before.monitoring_policies.find(p=>p.check==="availability"&&p.match.kind.includes("device")),id=original.id;
+    const member=`entity:registry:${lab.registry_ids.offline}`,device=`device:${lab.devices.offline}`;
+    await edit("policies",id);await click(action("pick-ignored"));
+    const ignored=`${field("ignored-selection")}[data-definition-value="${member}"]`;
+    await at(ignored).check();await click(action("finish-pick"));
+    assert.equal(await at('[data-watch-mode="all"]').isChecked(),true);
+    assert.ok((await at('.policy-ignored-entities h4').allTextContents()).length>0);
+    await choose(field("watch"),"all_except");await click(action("pick"));
+    assert.equal(await at(`${field("selection")}[data-definition-value^="entity:"]`).count(),0);
+    await at(selection(device)).check();await click(action("finish-pick"));
+    let expected={...original,excluded_sources:[device,member].sort()};
+    let saved=await savePolicy(before,id,expected);await clean();await edit("policies",id);
+    assert.match(await at('.policy-selection-summary').innerText(),/Excluded devices/);
+    assert.ok((await at('.policy-ignored-entities h4').allTextContents()).length>0);
+    await choose(field("watch"),"all");expected={...original,excluded_sources:[member]};
+    saved=await savePolicy(saved,id,expected);await clean();await edit("policies",id);
+    await click(action("pick-ignored"));await at(ignored).uncheck();await click(action("finish-pick"));
+    await discard();await noChange(saved);
+    await click(action("pick-ignored"));assert.equal(await at(ignored).isChecked(),true);await click(action("finish-pick"));
+    return "Whole-device and member exclusions save independently, reopen grouped, retain members across scope changes, and discard without changing saved choices.";
+  });
+
   await test("policies.scope",async()=>{
     const id="lab_temperature",before=await snapshot(),source=`registry:${lab.registry_ids.temperature}`;
     await page.goto("about:blank");transport.commandModes.set("homeostatic/catalog","hold");const requested=observeRequest("homeostatic/catalog");await clean();await edit("policies",id);await requested();

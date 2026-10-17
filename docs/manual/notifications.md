@@ -46,6 +46,8 @@ The example Morning summary uses the Owner phone method. **Changes apply to** id
 3. Review the timing and delivery shown below the selected name. UPS low-reserve assignments also specify whether they apply on mains or backup power.
 4. Select **Save policy**.
 
+An opened issue also lists its assigned named notifications under **Notifications:**. Select a name to open that editor, then **Back to issue** to return. Shared notifications appear once; an older **Custom notification** opens its policy.
+
 A policy can use several notifications. For example, a temperature policy could request immediate acknowledgment and also appear in a morning summary. Each assignment keeps its own timing. Compatible messages about the same equipment may be combined for delivery.
 
 To keep a policy on the dashboard only, select **Remove** on each notification assignment and save the policy. It then shows **No notifications**; its issues still appear in Open issues. This does not change other policies that watch the same equipment.

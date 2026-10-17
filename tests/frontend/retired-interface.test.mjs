@@ -7,7 +7,7 @@ globalThis.HTMLElement=class {};
 globalThis.customElements={get:name=>elements.get(name),define:(name,value)=>elements.set(name,value)};
 globalThis.window={};
 await import("../../custom_components/homeostatic/frontend/homeostatic.js");
-const Card=elements.get("homeostatic-card-v38");
+const Card=elements.get("homeostatic-card-v39");
 
 for(const [view,page] of [["overview","problems"],["functions","problems"],["house","sources"],["coverage","sources"]])test(`retired ${view} card route opens the current ${page} workspace`,()=>{
   const card=Object.create(Card.prototype);card.render=()=>{};

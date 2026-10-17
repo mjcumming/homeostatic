@@ -93,7 +93,8 @@ test("temperature aliases retain related issues at the device and sensor",()=>{
   const device=sourcesBrowser(card);
   card.sourcesSelection="source:"+ENTITY_ID;card.sourceDetail.nodeId=ENTITY_ID;
   const entity=sourcesBrowser(card);
-  assert.match(device,/data-episode="temperature-issue"/);
+  assert.match(device,/data-device-issues="third-floor"/);
+  assert.doesNotMatch(device,/data-episode="temperature-issue"/);
   assert.match(entity,/data-episode="temperature-issue"/);
   assert.equal(canonicalSourceSelection(sourcesTree(data),"source:temperature:home"),"source:"+ENTITY_ID);
 });

@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-16
 
+**Later decisions:** [ADR 0093](0093-explicit-device-availability-issue-selection.md) permits explicit acknowledgment or pause of selected issues. [ADR 0094](0094-one-device-issue-workflow.md) applies that workflow to all current issues wholly owned by one registry device and gives that device one queue entry. These supersede single-issue-only dashboard response presentation while preserving independent issues, unrelated-device isolation and lifecycle semantics.
+
 **Refines:** ADR 0041's independent-device guarantee. Supersedes the presentation of healthy-integration sibling groups in ADRs 0085 and 0088; complete scope remains visible for genuine integration failures.
 
 ## Context

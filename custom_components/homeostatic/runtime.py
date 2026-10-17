@@ -258,7 +258,10 @@ class Runtime:
         """Count missing evidence for monitored checks and incomplete functions."""
         if self.engine is None:
             return 0
-        coverage = self.engine.coverage()
+        return self.evidence_gaps_from_coverage(self.query("coverage", {}))
+
+    def evidence_gaps_from_coverage(self, coverage: dict[str, JSONValue]) -> int:
+        """Count gaps from one current public coverage result without requerying."""
         required = {
             requirement
             for source in self.sources.values()
@@ -266,7 +269,7 @@ class Runtime:
             for requirement in source.requirements
         }
         return (
-            int(self.consumer_missing)
+            int(bool(coverage["notification_consumer_missing"]))
             + sum(
                 (
                     (
@@ -279,9 +282,15 @@ class Runtime:
                         or not self.sources[node_id].requirements
                     )
                 )
-                for node_id in coverage.no_checks
+                for node_id in cast(list[str], coverage["no_checks"])
             )
-            + len(set(coverage.never_observed) | set(coverage.stale))
+            + len(
+                {
+                    (reference["node_id"], reference["check_id"])
+                    for field in ("never_observed", "stale")
+                    for reference in cast(list[dict[str, str]], coverage[field])
+                }
+            )
         )
 
     async def async_load(self) -> None:

@@ -33,6 +33,66 @@ function fixture(type="battery",mode="selected",values=[]) {
 const choiceIds=html=>[...html.matchAll(/data-definition-value="([^"]+)"/g)].map(match=>match[1]);
 const contextFor=(card,policy,id)=>policySelectionChoices(card,policy,"selected").find(item=>item.id===id)?.context;
 
+function householdFixture() {
+  const {card,policy}=fixture("device","all");
+  const rows=[];let kindReads=0;
+  for(let device=0;device<600;device++) {
+    const id=`household-${String(device).padStart(3,"0")}`,name=`Equipment ${String(device).padStart(3,"0")}`;
+    rows.push(source("device",id,name,{area:["kitchen"]}));
+    for(let member=0;member<10;member++)rows.push(source("entity",`${id}-${member}`,`Reading ${member}`,{device:[id],area:["kitchen"]},{entity_id:`sensor.${id}_${member}`}));
+  }
+  for(const row of rows){const kind=row.kind;Object.defineProperty(row,"kind",{enumerable:true,get(){kindReads++;return kind;}});}
+  card.current.data.inventory={nodes:[],catalog:{candidates:rows}};card.policyPicker=null;
+  return {card,policy,rows,reads:()=>kindReads,resetReads:()=>{kindReads=0;}};
+}
+
+test("closed household device editors resolve only selected choices and reuse linear catalog indexing",()=>{
+  const {card,policy,rows,reads,resetReads}=householdFixture();
+  namedPolicies(card);
+  assert.equal(reads(),0,"An editor with no selected or ignored sources needs no choice inventory");
+  policy.excluded_sources=["entity:household-599-9"];
+  const html=namedPolicies(card);
+  assert.match(html,/Equipment 599/);
+  assert.match(html,/Reading 9/);
+  assert.ok(reads()<rows.length*20,`Cold source indexing must remain linear; read kind ${reads()} times for ${rows.length} rows`);
+  resetReads();
+  for(let update=0;update<5;update++) {
+    card.current.data={...card.current.data,updated_at:String(update)};
+    policy.name=`Device policy ${update}`;
+    namedPolicies(card);
+  }
+  assert.ok(reads()<20,"Evidence updates and typing must reuse the source index");
+  const replacement=rows.map(row=>({...row,name:row.node_id==="device:household-599"?"Renamed equipment":row.name}));
+  card.current.data.inventory={nodes:[],catalog:{candidates:replacement}};
+  assert.match(namedPolicies(card),/Renamed equipment/);
+  card.configuration.areas=areas.map(area=>({...area,name:area.id==="kitchen"?"New kitchen":area.name}));
+  assert.match(namedPolicies(card),/New kitchen/);
+});
+
+test("household source pickers bound rows while searching all sources and retaining unavailable selections",()=>{
+  const {card,policy}=householdFixture();
+  const selected="entity:household-599-9",missing="entity:removed-member";
+  policy.excluded_sources=[selected,missing];
+  card.policyPicker={id:policy.id,ignored:true,query:"",selectedOnly:false,showAll:false};
+  let html=namedPolicies(card);
+  assert.equal(choiceIds(html).length,50);
+  assert.ok(choiceIds(html).includes(missing),"Unavailable saved selections stay visible for repair");
+  assert.match(html,/Showing 50 of 6001/);
+  const action={dataset:{definitionAction:"more-choices",definitionKind:"policies",definitionId:policy.id},closest(){return this;}};
+  editReusable(card,{type:"click",target:action});
+  assert.equal(choiceIds(namedPolicies(card)).length,100);
+  const search={dataset:{definitionPickerSearch:""},value:"sensor.household-599_9"};
+  editReusable(card,{type:"input",target:search});
+  html=namedPolicies(card);
+  assert.deepEqual(choiceIds(html).sort(),[missing,selected].sort());
+  assert.match(html,/data-definition-value="entity:household-599-9" checked/);
+  assert.equal(card.policyPicker.limit,50,"Changing search starts with a bounded result set");
+  editReusable(card,{type:"input",target:{...search,value:""}});
+  editReusable(card,{type:"change",target:{dataset:{definitionPickerSelected:""},checked:true}});
+  assert.deepEqual(choiceIds(namedPolicies(card)).sort(),[missing,selected].sort());
+  assert.deepEqual(policy.excluded_sources,[selected,missing],"Searching and paging never change selections");
+});
+
 for(const [type,id] of [["battery","registry:kitchen-motion"],["device","kitchen-device"],["vacuum","registry:robot"],["ups_power","backup"],["thermostat","registry:thermostat"],["temperature_limit","registry:temperature"]])test(`${type} choices identify their effective area`,()=>{
   const {card,policy}=fixture(type),choice=policySelectionChoices(card,policy,"selected").find(item=>item.id===id);
   assert.ok(choice);

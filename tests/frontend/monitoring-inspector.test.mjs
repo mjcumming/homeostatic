@@ -80,15 +80,13 @@ test("entity details state the condition once with native navigation near the na
   assert.doesNotMatch(html,/<dt>Availability<\/dt>|<dt>Monitoring<\/dt>|source-navigation/);
 });
 
-test("device details retain labelled facts and history navigation",()=>{
+test("device details show availability, entity evidence and coverage without a fact grid",()=>{
   const html=sourcesBrowser(sourceDetailsFixture("device",["72","40","71"])).split('<section class="config-detail" aria-label="Selected source">')[1];
-  const facts=html.match(/<dl class="source-facts">([\s\S]*?)<\/dl>/)?.[1]||"";
-  assert.match(facts,/<dt>Availability<\/dt>/);
-  assert.equal((facts.match(/<dt>Monitoring<\/dt>/g)||[]).length,1);
-  assert.match(facts,/Monitored/);
+  assert.match(html,/3 of 3 monitored entities available/);
+  assert.match(html,/source-device-entities/);
+  assert.match(html,/source-device-coverage/);
   assert.match(html,/href="\/config\/devices\/device/);
-  assert.match(html,/data-sources-view="history">View history<\/a>/);
-  assert.doesNotMatch(html,/<summary>View history<\/summary>/);
+  assert.doesNotMatch(html,/source-facts|data-sources-view="history"|<details\b/);
 });
 
 test("entity path uses concise context without source-kind and repeated type labels",()=>{

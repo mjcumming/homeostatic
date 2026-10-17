@@ -27,7 +27,7 @@ test("taps open details once, with no action or acknowledgment call",()=>{
   navigate(c,"/episode/second");assert.equal(c.opened[1].episodeId,"second");
 });
 const source=readFileSync(new URL("../../custom_components/homeostatic/frontend/homeostatic.js",import.meta.url),"utf8");
-const detailBody=source.replace(/\r\n/g, "\n").split("  async loadDetail() {")[1].split("\n}\n\nclass HomeostaticPanel")[0];
+const detailBody=source.replace(/\r\n/g, "\n").split("  async readDetail() {")[1].split("\n}\n\nclass HomeostaticPanel")[0];
 const loadDetail=new Function(`return async function(){${detailBody.slice(0,detailBody.lastIndexOf("\n  }"))}}`)();
 for(const resolution of ["cleared","removed","absorbed"]) {
   test(`an ended notification opens retained ${resolution} history without a current-source query`,async()=>{

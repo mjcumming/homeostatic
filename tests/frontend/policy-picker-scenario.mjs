@@ -15,7 +15,9 @@ const rows=[
   source("battery","long-name","Garden-facing window contact sensor with a long descriptive equipment name",{area:["kitchen"]},{entity_id:"sensor.garden_facing_window_contact_battery"}),
   source("battery","unassigned","Loose battery",{},{entity_id:"sensor.loose_battery"}),
   source("battery","missing-area","Moved battery",{area:["removed"]},{entity_id:"sensor.moved_battery"}),
-  source("device","kitchen-device","Motion sensor",{area:["kitchen"]}),
+  source("entity","dishwasher-half-load","Half load",{device:["kitchen-device"],area:["kitchen"]},{entity_id:"switch.dishwasher_half_load"}),
+  source("entity","dishwasher-dry","Zeolite dry",{device:["kitchen-device"],area:["kitchen"]},{entity_id:"switch.dishwasher_dry"}),
+  source("device","kitchen-device","Dishwasher",{area:["kitchen"]}),
   source("device","garage-device","Motion sensor",{area:["garage"]}),
   source("vacuum","robot","Robot vacuum",{area:["garage"]},{entity_id:"vacuum.robot"}),
   source("ups","backup","Network backup",{area:["office"]}),
@@ -27,6 +29,15 @@ const initial=notificationSettings();
 initial.monitoring_policies=[...new Set(["battery","device","entity","vacuum","ups_power","thermostat","temperature_limit"])].map(type=>({...newMonitoringPolicy([],type),id:type,name:type==="battery"?"Batteries":type,match:{kind:[type.startsWith("ups_")?"ups":["thermostat","temperature_limit"].includes(type)?"entity":type],...(type==="battery"?{entity:["registry:kitchen-motion"]}:{})}}));
 initial.timings={settle:120,unknown_hold:900,retry_hold:120,clear_hold:120,rejoin_grace:60,startup_grace:120,startup_quiet_max:600,coalesce_count:3,coalesce_window:60,batch:30};
 const freshData=()=>({...monitoringExample(),schema_version:3,catalog_loaded:true,areas:structuredClone(areas),floors:structuredClone(floors),devices:[],inventory:{...monitoringExample().inventory,nodes:[],catalog:{candidates:structuredClone(rows)}}});
+function householdData() {
+  const data=freshData(),sources=[];
+  for(let number=0;number<600;number++) {
+    const id=`household-${String(number).padStart(3,"0")}`,name=`Equipment ${String(number).padStart(3,"0")}`;
+    sources.push(source("device",id,name,{area:["kitchen"]}));
+    for(let member=0;member<10;member++)sources.push(source("entity",`${id}-${member}`,`Reading ${member}`,{device:[id],area:["kitchen"]},{entity_id:`sensor.${id}_${member}`}));
+  }
+  data.inventory.catalog={candidates:sources};return data;
+}
 let saved=structuredClone(initial),revision=1,rejectSave=false,receipt,keyboardBefore=null;
 const calls=[];
 const configuration=()=>({revision:String(revision),settings:structuredClone(saved),areas:structuredClone(areas),floors:structuredClone(floors),labels:structuredClone(labels),delivery_targets:[],notification_people:[],monitoring_policy_templates:[]});
@@ -47,7 +58,7 @@ const tick=()=>new Promise(resolve=>{const channel=new MessageChannel();channel.
 const find=selector=>{const element=root.querySelector(selector);check(element,"Missing "+selector);return element;};
 const click=async selector=>{
   const element=find(selector);check(!element.matches(":disabled")&&!element.closest("[inert]"),"Control is enabled: "+selector);
-  element.scrollIntoView({block:"nearest"});await tick();
+  element.scrollIntoView({block:"center"});await new Promise(resolve=>requestAnimationFrame(resolve));
   const box=element.getBoundingClientRect(),hit=root.elementFromPoint(box.x+box.width/2,box.y+box.height/2);
   check(box.width>0&&box.height>0&&(hit===element||element.contains(hit)),"Control is reachable: "+selector);
   element.click();await tick();
@@ -65,6 +76,8 @@ const policy=()=>card.settingsDraft.monitoring_policies.find(item=>item.id==="ba
 const publish=()=>{window.policyPickerReceipt=receipt;document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);document.querySelector("#saved-state").textContent=JSON.stringify(saved,null,2);};
 const reset=()=>{saved=structuredClone(initial);revision=1;calls.length=0;rejectSave=false;card.scopedConfiguration=null;card.scopedError=null;card.scopedNotice=null;card.configuration=configuration();card.settingsDraft=structuredClone(saved);card.current={status:"current",data:freshData()};card.page="policies";card.definitionSelection={kind:"policies",id:"battery"};card.policyPicker=null;card.render();};
 const cases=[
+  ["household-picker","Browse and search 6,000 entities, retain missing choices, save and reopen","The picker starts with 50 rows, searches the complete catalog and preserves source scope and keyboard focus."],
+  ["device-exclusions","Device scope, ignored entities, grouped summary, save and reopen","Whole devices and ignored entity evidence have independent controls and persisted choices."],
   ["keyboard-escape","Open picker, focus search, press the native Escape key","Escape closes the picker, preserves the draft and returns focus to Choose batteries."],
   ["source-context","Choose batteries, search by area and entity ID, select across the row","Names retain area and floor; remaining duplicates show entity IDs; no save occurs."],
   ["area-relevance","Watch batteries in areas, Show all areas, selected only","Only areas with suitable batteries appear by default; selected empty areas remain visible."],
@@ -83,6 +96,15 @@ async function runPath(id,action) {
 }
 async function show() {reset();await pick();feedback.textContent="Battery choices with duplicate names, location metadata and a long equipment name.";}
 document.querySelector("#show").onclick=show;
+document.querySelector("#show-device").onclick=()=>{
+  reset();const policy=card.settingsDraft.monitoring_policies.find(item=>item.id==="device");
+  policy.name="Devices";policy.excluded_sources=["entity:dishwasher-half-load","entity:dishwasher-dry"];
+  card.definitionSelection={kind:"policies",id:"device"};card.render();
+};
+document.querySelector("#show-household").onclick=async()=>{
+  reset();card.current.data=householdData();card.definitionSelection={kind:"policies",id:"device"};card.render();
+  await click('[data-definition-action="pick-ignored"]');feedback.textContent="Household fixture: 6,000 entities, 600 devices, 50 visible choices. Search includes every entity.";
+};
 document.querySelector("#keyboard").onclick=async()=>{
   if(card.policyPicker)await finish();
   keyboardBefore=JSON.stringify(card.settingsDraft);await pick();
@@ -163,6 +185,60 @@ document.querySelector("#run").onclick=async()=>{
       const last=row("registry:missing-area");last.scrollIntoView({block:"nearest"});await tick();const box=last.getBoundingClientRect(),hit=root.elementFromPoint(box.x+box.width/2,box.y+box.height/2);check(hit===last||last.contains(hit),"Scrolling reaches the final choice");
       check(card.scrollWidth<=card.clientWidth+1&&picker.scrollWidth<=picker.clientWidth+1,"Card and picker avoid horizontal overflow");check(saved.notifications===false&&calls.every(request=>["homeostatic/configuration","homeostatic/save_settings"].includes(request.type)),"No notification or live requests occurred");
     });
+    reset();
+    await runPath("device-exclusions",async()=>{
+      card.definitionSelection={kind:"policies",id:"device"};card.render();await tick();
+      await click('[data-definition-action="pick-ignored"]');
+      check(root.querySelector('.policy-picker legend').textContent==="Dishwasher","Entity picker groups by device");
+      await click('[data-definition-field="ignored-selection"][data-definition-value="entity:dishwasher-half-load"]');
+      await finish();
+      check(root.querySelector('.policy-ignored-entities h4').textContent==="Dishwasher","Summary groups ignored entities under Dishwasher");
+      check(find('[data-watch-mode="all"]').checked,"Ignoring an entity keeps All devices selected");
+      await change('[data-definition-field="watch"]',"all_except");await pick();
+      check(!root.querySelector('.policy-picker [data-definition-value^="entity:"]'),"Device picker contains no entities");
+      await click(option("device:kitchen-device"));await finish();
+      await change('[data-definition-field="watch"]',"all");
+      check(card.settingsDraft.monitoring_policies.find(p=>p.id==="device").excluded_sources.includes("entity:dishwasher-half-load"),"Changing device scope retains ignored entity");
+      await save();await click('[data-page="policies"]');await click('[data-definition-action="edit"][data-definition-id="device"]');
+      check(root.querySelector('.policy-ignored-entities').textContent.includes("Half load"),"Saved ignored member reopens under device");
+      await click('[data-definition-action="pick-ignored"]');await click('[data-definition-field="ignored-selection"][data-definition-value="entity:dishwasher-half-load"]');await finish();
+      await click('[data-definition-action="discard-scoped"]');
+      check(root.querySelector('.policy-ignored-entities').textContent.includes("Half load"),"Discard restores ignored member");
+      check(card.scrollWidth<=card.clientWidth+1,"Device editor fits viewport");
+    });
+    reset();
+    await runPath("household-picker",async()=>{
+      card.current.data=householdData();card.definitionSelection={kind:"policies",id:"device"};
+      const draft=card.settingsDraft.monitoring_policies.find(item=>item.id==="device");
+      draft.excluded_sources=["entity:removed-household-member"];
+      card.render();await tick();
+      const name='[data-definition-kind="policies"][data-definition-field="name"]';
+      await change(name,"Household devices");
+      check(root.activeElement===find(name),"Editing keeps policy name focus");
+      await click('[data-definition-action="pick-ignored"]');
+      check(root.querySelectorAll('.policy-picker [data-definition-value]').length===50,"Initial household picker is bounded to 50 rows");
+      check(root.querySelector('.policy-picker [data-definition-value="entity:removed-household-member"]'),"Unavailable saved entity remains removable");
+      await click('[data-definition-action="more-choices"]');
+      check(root.querySelectorAll('.policy-picker [data-definition-value]').length===100,"Show more adds one bounded page");
+      check(root.activeElement?.dataset.definitionValue,"Show more focuses the first newly revealed choice");
+      await change('[data-definition-picker-search]',"sensor.household-599_9");
+      const choice='[data-definition-field="ignored-selection"][data-definition-value="entity:household-599-9"]';
+      check(root.querySelectorAll('.policy-picker [data-definition-value]').length===2,"Search finds the last entity and retains the missing saved choice");
+      check(root.activeElement===find('[data-definition-picker-search]'),"Searching retains search focus");
+      await click(choice);
+      await change('[data-definition-picker-search]',"");
+      await change('[data-definition-picker-selected]',true);
+      check(find(choice).checked&&root.querySelectorAll('.policy-picker [data-definition-value]').length===2,"Selected-only view includes the off-page choice and unavailable selection");
+      await finish();
+      check(find('[data-watch-mode="all"]').checked,"Ignoring entities retains All devices");
+      check(root.querySelector('.policy-ignored-entities').textContent.includes("Equipment 599"),"Closed summary resolves the selected device");
+      await save();await click('[data-page="policies"]');await click('[data-definition-action="edit"][data-definition-id="device"]');
+      check(JSON.stringify(saved.monitoring_policies.find(item=>item.id==="device").excluded_sources)===JSON.stringify(["entity:removed-household-member","entity:household-599-9"]),"Save preserves both the chosen and missing source identities");
+      check(root.querySelector('.policy-ignored-entities').textContent.includes("Equipment 599"),"Saved household choice reopens with its device context");
+      check(card.scrollWidth<=card.clientWidth+1,"Household editor fits the viewport");
+      receipt.results.find(item=>item.id==="household-picker").evidence.push("6,000 entities across 600 devices; initial 50 rows, deliberate expansion to 100, complete last-entity search, missing-selection retention, scoped mocked save/reopen and focus checks.");
+    });
+    reset();
     feedback.textContent=`PASS: ${receipt.results.filter(item=>item.status==="pass").length} picker paths at ${innerWidth}px. Choose Check native Escape to finish keyboard acceptance. Physical Safari remains untested.`;
   }catch(error){feedback.textContent="FAIL: "+error.message;}
   finally{receipt.finished_at=new Date().toISOString();publish();}

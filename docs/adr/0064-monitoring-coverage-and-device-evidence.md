@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-14
 
+**Later decision:** [ADR 0093](0093-explicit-device-availability-issue-selection.md) adds explicit selection of same-device availability issues in the shared dashboard dialog. It supersedes the single-issue-only response presentation; independent issue controls and notification grouping remain unchanged.
+
 **Later decision:** Empty supplied notification assignments are superseded by [ADR 0066](0066-reusable-notifications-own-timing-and-delivery.md). The historical decision below remains for context.
 
 **Supersedes in part:** ADR 0009's diagnostic fallback and the availability interpretations in ADR 0025, ADR 0035, ADR 0038 and ADR 0045; ADR 0058's broad entity eligibility and independent delivery presentation; ADR 0015's single restart-summary presentation for device and entity findings. Independent policy ownership, detection, timing and operator controls remain intact. Complements ADR 0062's registry-disablement rule and preserves ADR 0061's UI workflows.

@@ -1,0 +1,747 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T19:42:46.667032+00:00",
+  "outcome": "One device issue workflow from Open issues and Monitoring, with visible availability confirmation, installed and verified for local trial.",
+  "decision": "docs/adr/0094-one-device-issue-workflow.md",
+  "candidate": {
+    "branch": "main",
+    "revision": "13a7df93b87cc4f3722f5edc598ab604406e7499",
+    "dirty": true,
+    "component_sha256": "e8db8e0e3f2fe191a1af37d5df873bb665b39453f9b30bc54088ec4ab6f95c4a",
+    "fixture_sha256": "d8f66813664c2fe5ffa5be7e50408044f46f573dfd24459a23762f32dcd3233b",
+    "frozen_at": "2026-10-17T19:35:25.011Z"
+  },
+  "status": {
+    "commit": "Not committed",
+    "release": "Not published",
+    "installation": "Installed and verified on local Home Assistant"
+  },
+  "scope": [
+    "One View per known device opens its complete independently owned current issues, including partial availability and other conditions; entities without a device and exact notification links retain singular scope.",
+    "Same visibility rules as Open issues; all current issues initially selected, subset exceptions and direct actions for one remaining issue preserve exact identities.",
+    "Compact controls, no combined opening date, secondary Open device and inline policy/notification editor rows.",
+    "Stop Monitoring retains its independent guarded availability-only scope and displays exact entities without Details or a repeated policy list."
+  ],
+  "checks": {
+    "quick": {
+      "status": "pass",
+      "frontend_passed": 842,
+      "lint": "pass",
+      "format": "pass",
+      "log": {
+        "path": "build/device-issue-workflow/quick-final-4.log",
+        "sha256": "937b313eb0f1195bfcd330c84582919c5e6721bc7adb51daf86c605802275aab"
+      }
+    },
+    "python": {
+      "status": "pass",
+      "passed": 40,
+      "tests": [
+        "tests/test_dashboard.py"
+      ],
+      "log": {
+        "path": "build/device-issue-workflow/dashboard-tests.log",
+        "sha256": "0ba910d166a8e6915b53c2030852def863f859bd3840a35c686d93aa7497d139"
+      }
+    },
+    "synthetic_browser": {
+      "report": {
+        "path": "build/ui-acceptance/adr0094-fixtures-candidate-4/report.json",
+        "sha256": "832589f0e96104d9df010b25e7e13b8dc1e6ca29e501d697d94dfede07e1ffd2"
+      },
+      "environment": {
+        "browser": "Windows Chrome",
+        "transport": "Synthetic fixture with mocked services",
+        "physical_safari": "untested",
+        "browser_version": "155.0.8059.80"
+      },
+      "runs": [
+        {
+          "fixture": "device-issue-selection",
+          "width": 1440,
+          "theme": "light",
+          "status": "pass",
+          "feedback": "PASS: Exact selection, partial outcomes, source navigation and single-issue controls checked.",
+          "screenshot": "device-issue-selection-1440-light.png"
+        },
+        {
+          "fixture": "device-issues",
+          "width": 1440,
+          "theme": "light",
+          "status": "pass",
+          "feedback": "PASS: Device hierarchy, original issue actions, search, sorting, pagination, refresh and Cancel. Synthetic data only.",
+          "screenshot": "device-issues-1440-light.png"
+        },
+        {
+          "fixture": "device-issue-selection",
+          "width": 390,
+          "theme": "dark",
+          "status": "pass",
+          "feedback": "PASS: Exact selection, partial outcomes, source navigation and single-issue controls checked.",
+          "screenshot": "device-issue-selection-390-dark.png"
+        },
+        {
+          "fixture": "device-issues",
+          "width": 390,
+          "theme": "dark",
+          "status": "pass",
+          "feedback": "PASS: Device hierarchy, original issue actions, search, sorting, pagination, refresh and Cancel. Synthetic data only.",
+          "screenshot": "device-issues-390-dark.png"
+        },
+        {
+          "fixture": "device-issue-selection",
+          "width": 320,
+          "theme": "light",
+          "status": "pass",
+          "feedback": "PASS: Exact selection, partial outcomes, source navigation and single-issue controls checked.",
+          "screenshot": "device-issue-selection-320-light.png"
+        },
+        {
+          "fixture": "device-issues",
+          "width": 320,
+          "theme": "light",
+          "status": "pass",
+          "feedback": "PASS: Device hierarchy, original issue actions, search, sorting, pagination, refresh and Cancel. Synthetic data only.",
+          "screenshot": "device-issues-320-light.png"
+        }
+      ]
+    },
+    "isolated_home_assistant": [
+      {
+        "report": {
+          "path": "build/ui-acceptance/adr0094-live-desktop-candidate-4/report.json",
+          "sha256": "4355f0994ffab4cf65a8afe51e157e820d2b930a43727602b81f58472dd1b455"
+        },
+        "environment": {
+          "group": "issues",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "theme": "light",
+          "browser": "Windows Chrome",
+          "mode": "live",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.8.0",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "issues.device-availability-selection",
+            "issues.device-entry"
+          ],
+          "runner": "Existing runLiveCases against directly started disposable WSL HA; Windows browser avoids unavailable Linux rendering",
+          "browser_version": "155.0.8059.80",
+          "candidate_unchanged": true
+        },
+        "results": [
+          {
+            "id": "issues.device-availability-selection",
+            "page": "Availability issues",
+            "controls": "All issues, individual selection, acknowledge, pause, cancellation and current-issue updates",
+            "expected": "Exact selected current IDs receive independent results; zero selection disables actions, ended/new IDs never inherit a pending request, partial failures remain explicit, and one remaining issue uses direct actions.",
+            "fixture": "device-issue-selection.html",
+            "requirement": "../../docs/adr/0093-explicit-device-availability-issue-selection.md",
+            "status": "pass",
+            "evidence": [
+              "{\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3469,\"detail\":\"Real Home Assistant device and two independent entity availability issues: one Monitoring View, native entity links, all/subset/zero selection, pause cancellation, exact three-issue acknowledgment and one-entity pause with unchanged unrelated acknowledgments/settings. After partial recovery, View remains and one named entity has direct controls without checkboxes; extending its pause preserves the exact issue identity. Separate Stop Monitoring cancellation saves nothing; confirmation excludes only that entity in the applicable availability policies and restores the originating device route without stale issue navigation. Screenshots record combined and single-issue layouts.\"}"
+            ]
+          },
+          {
+            "id": "issues.device-entry",
+            "page": "Open issues and Monitoring",
+            "controls": "Device View, partial availability and missing evidence, other conditions, unattached entity, exact issue links and return",
+            "expected": "One shared device dialog includes current problems owned by that registry device with all initially selected. Unattached and wider issues retain exact scope; notification links retain their original issue. Close and browser Back restore the originating view; compact controls fit phone and enlarged text.",
+            "fixture": "device-issue-selection.html",
+            "requirement": "../../docs/adr/0094-one-device-issue-workflow.md",
+            "status": "pass",
+            "evidence": [
+              "{\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":4316,\"detail\":\"Pointer and keyboard paths verify one queue View opens the same device dialog as Monitoring, even after partial recovery and missing evidence; one remaining entity and a battery condition have direct controls. Acknowledging the battery affects only its exact issue. Unattached entity and exact notification URL stay singular. Close and browser Back restore their origins. Shared controls have matching dimensions, outlined native navigation, compact configuration rows, no combined opening date and no horizontal overflow at ordinary and doubled text. Saved configuration remains unchanged.\"}"
+            ]
+          }
+        ],
+        "browser_errors": [],
+        "unhandled_rejections": []
+      },
+      {
+        "report": {
+          "path": "build/ui-acceptance/adr0094-live-phone-candidate-4/report.json",
+          "sha256": "832f9971e5358bc51258f1ef7bcad204fefd3311b2ccf9239e2d4e592ca39220"
+        },
+        "environment": {
+          "group": "issues",
+          "viewport": {
+            "width": 390,
+            "height": 1000
+          },
+          "theme": "dark",
+          "browser": "Windows Chrome",
+          "mode": "live",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.8.0",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "issues.device-availability-selection",
+            "issues.device-entry"
+          ],
+          "runner": "Existing runLiveCases against directly started disposable WSL HA; Windows browser avoids unavailable Linux rendering",
+          "browser_version": "155.0.8059.80",
+          "candidate_unchanged": true
+        },
+        "results": [
+          {
+            "id": "issues.device-availability-selection",
+            "page": "Availability issues",
+            "controls": "All issues, individual selection, acknowledge, pause, cancellation and current-issue updates",
+            "expected": "Exact selected current IDs receive independent results; zero selection disables actions, ended/new IDs never inherit a pending request, partial failures remain explicit, and one remaining issue uses direct actions.",
+            "fixture": "device-issue-selection.html",
+            "requirement": "../../docs/adr/0093-explicit-device-availability-issue-selection.md",
+            "status": "pass",
+            "evidence": [
+              "{\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3651,\"detail\":\"Real Home Assistant device and two independent entity availability issues: one Monitoring View, native entity links, all/subset/zero selection, pause cancellation, exact three-issue acknowledgment and one-entity pause with unchanged unrelated acknowledgments/settings. After partial recovery, View remains and one named entity has direct controls without checkboxes; extending its pause preserves the exact issue identity. Separate Stop Monitoring cancellation saves nothing; confirmation excludes only that entity in the applicable availability policies and restores the originating device route without stale issue navigation. Screenshots record combined and single-issue layouts.\"}"
+            ]
+          },
+          {
+            "id": "issues.device-entry",
+            "page": "Open issues and Monitoring",
+            "controls": "Device View, partial availability and missing evidence, other conditions, unattached entity, exact issue links and return",
+            "expected": "One shared device dialog includes current problems owned by that registry device with all initially selected. Unattached and wider issues retain exact scope; notification links retain their original issue. Close and browser Back restore the originating view; compact controls fit phone and enlarged text.",
+            "fixture": "device-issue-selection.html",
+            "requirement": "../../docs/adr/0094-one-device-issue-workflow.md",
+            "status": "pass",
+            "evidence": [
+              "{\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":4128,\"detail\":\"Pointer and keyboard paths verify one queue View opens the same device dialog as Monitoring, even after partial recovery and missing evidence; one remaining entity and a battery condition have direct controls. Acknowledging the battery affects only its exact issue. Unattached entity and exact notification URL stay singular. Close and browser Back restore their origins. Shared controls have matching dimensions, outlined native navigation, compact configuration rows, no combined opening date and no horizontal overflow at ordinary and doubled text. Saved configuration remains unchanged.\"}"
+            ]
+          }
+        ],
+        "browser_errors": [],
+        "unhandled_rejections": []
+      },
+      {
+        "report": {
+          "path": "build/ui-acceptance/adr0094-live-layout-candidate-4/report.json",
+          "sha256": "005e329ee2972f631b90af475212591ee1d7b06a81e6204bc89f2ed48c90ab3d"
+        },
+        "environment": {
+          "group": "layout",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "theme": "light",
+          "browser": "Windows Chrome",
+          "mode": "live",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.8.0",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "navigation.history"
+          ],
+          "runner": "Existing runLiveCases against directly started disposable WSL HA; Windows browser avoids unavailable Linux rendering",
+          "browser_version": "155.0.8059.80",
+          "candidate_unchanged": true
+        },
+        "results": [
+          {
+            "id": "navigation.history",
+            "page": "Navigation",
+            "controls": "Back, Forward, direct link, refresh",
+            "expected": "Restore the meaningful destination or explain a missing target.",
+            "fixture": "workspace.html",
+            "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+            "status": "pass",
+            "evidence": [
+              "{\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3121,\"detail\":\"All page Back/Forward routes; direct and refreshed policy/source routes; missing issue explanation; no saved configuration changes.\"}"
+            ]
+          }
+        ],
+        "browser_errors": [],
+        "unhandled_rejections": []
+      }
+    ]
+  },
+  "visual_review": {
+    "status": "pass",
+    "evidence": [
+      {
+        "path": "docs/performance/device-issue-workflow-desktop-2026-10-17.png",
+        "sha256": "850d88f293e3c4273d757a11d38e04729f36f4e69d025e6066a3b40a82959196"
+      },
+      {
+        "path": "docs/performance/stop-monitoring-phone-2026-10-17.png",
+        "sha256": "7fa6ac05de4f069485e67d11d7f501b0ec1b8c6d56742b065b09e9e5bcc014ac"
+      }
+    ],
+    "review_notes": {
+      "path": "build/ui-acceptance/adr0094-visual-review-candidate-4.json",
+      "sha256": "8ff1ab493f8961e1e2ece040e2be6bffdaa4cf0bed7a5b1bb45d8d321610d009"
+    },
+    "findings": "The shared device dialog makes selected problems and the response scope visible; equal-width actions and inline configuration rows remain readable. The availability confirmation lists exact entity names directly and repeats no policy list. Narrow layouts wrap and scroll; enlarged text keeps labels intact.",
+    "purpose": "Monitoring owns status and coverage; one shared dialog owns issue responses. Selection supports individual exceptions. Stop Monitoring requires review of its own exact availability scope."
+  },
+  "corrected_attempts": [
+    "Initial quick checks found two expectations for superseded per-issue device buttons; corrected to the single device View.",
+    "Initial fixture browser lacked loopback access; final runs use the authorized browser test environment. A hidden receipt required textContent, and native dialog Close required waiting for its close event.",
+    "The device entry case expected a normalized /issues path, while the actual origin was /homeostatic; it now verifies the captured originating URL and retained context.",
+    "Review found combined selection included passive evidence gaps and recovery-only entries hidden by Open issues. The shared model now reuses the existing visibility rules, with focused regression coverage.",
+    "Enlarged-text inspection found fixed label widths split words, and the queue disclosure marker had corrupted text. Final candidate uses intrinsic label width, an action pair that stacks when enlarged text needs room, and the correct marker. Earlier candidate reports remain in build/ui-acceptance."
+  ],
+  "installation": {
+    "before": {
+      "checked_at": "2026-10-17T19:37:11.861668+00:00",
+      "ha_version": "2026.10.0",
+      "ha_state": "RUNNING",
+      "entries": [
+        {
+          "entry_id": "01M4W5EYJBXRG2XYCSWWYSZYXD",
+          "state": "loaded",
+          "disabled_by": null
+        }
+      ],
+      "settings_sha256": "f9954304486c1a2ab66265f930dbaf04ce1778c0392b6fcf285b0f58e068c4e3",
+      "notifications": true,
+      "settings_revision": "7731a5ead9f598a485da92c7bb56dc0306cdd31f5e68bc84d89f66e68c0d409b",
+      "installed_version": "1.8.3",
+      "requirements": [
+        "health-tree==0.8.0"
+      ],
+      "panel": {
+        "component_name": "custom",
+        "icon": "mdi:home-heart",
+        "title": "Homeostatic",
+        "default_visible": true,
+        "config": {
+          "_panel_custom": {
+            "name": "homeostatic-panel-v45",
+            "embed_iframe": false,
+            "trust_external": false,
+            "module_url": "/homeostatic_static/homeostatic.js?v=93"
+          }
+        },
+        "url_path": "homeostatic",
+        "require_admin": true,
+        "config_panel_domain": null,
+        "show_in_sidebar": true
+      },
+      "installed_asset_sha256": "c8f618337481b9248177243c60de78f268812555dae535daabfee2a2fd092b6c",
+      "served_asset_status": 200,
+      "served_asset_sha256": "c8f618337481b9248177243c60de78f268812555dae535daabfee2a2fd092b6c"
+    },
+    "after": {
+      "checked_at": "2026-10-17T19:42:29.939495+00:00",
+      "ha_version": "2026.10.0",
+      "ha_state": "RUNNING",
+      "entries": [
+        {
+          "entry_id": "01M4W5EYJBXRG2XYCSWWYSZYXD",
+          "state": "loaded",
+          "disabled_by": null
+        }
+      ],
+      "settings_sha256": "f9954304486c1a2ab66265f930dbaf04ce1778c0392b6fcf285b0f58e068c4e3",
+      "notifications": true,
+      "settings_revision": "7731a5ead9f598a485da92c7bb56dc0306cdd31f5e68bc84d89f66e68c0d409b",
+      "installed_version": "1.8.3",
+      "requirements": [
+        "health-tree==0.8.0"
+      ],
+      "panel": {
+        "component_name": "custom",
+        "icon": "mdi:home-heart",
+        "title": "Homeostatic",
+        "default_visible": true,
+        "config": {
+          "_panel_custom": {
+            "name": "homeostatic-panel-v46",
+            "embed_iframe": false,
+            "trust_external": false,
+            "module_url": "/homeostatic_static/homeostatic.js?v=94"
+          }
+        },
+        "url_path": "homeostatic",
+        "require_admin": true,
+        "config_panel_domain": null,
+        "show_in_sidebar": true
+      },
+      "installed_asset_sha256": "2ab35499e67596712fdc0c618ccb199f15a5ad245059230c06f09874baa5b9b5",
+      "served_asset_status": 200,
+      "served_asset_sha256": "2ab35499e67596712fdc0c618ccb199f15a5ad245059230c06f09874baa5b9b5",
+      "settings_unchanged": true,
+      "notification_switch_unchanged": true,
+      "served_matches_installed": true
+    },
+    "file_manifest": {
+      "installed_at": "2026-10-17T19:38:18.4357745Z",
+      "target": "\\\\homeassistant\\config\\custom_components\\homeostatic",
+      "files": [
+        {
+          "path": "__init__.py",
+          "sha256": "CF2498D8A5FDA4A998B716B8591ECE9FF1B720F5A51863AFD526780ACB496C99"
+        },
+        {
+          "path": "attention.py",
+          "sha256": "B1170298CA60DA431D74D7FE1781C0972173E1FC9939C082C72041C6E982C9A9"
+        },
+        {
+          "path": "automation_alerts.py",
+          "sha256": "036E20E5C4CC97979E922A30C4984B4F5CAD94E6EE5048741FDD695F5A23E651"
+        },
+        {
+          "path": "battery.py",
+          "sha256": "182838DFA7B1625E01887ECCAF5503FF8DE6B67149E5BFE4E9B46F2F8D2B129C"
+        },
+        {
+          "path": "broken_automations.py",
+          "sha256": "76FDC711676054CCFC7A3422F547508685B9800B51F14BCFAFEB7AC8A382B1F0"
+        },
+        {
+          "path": "catalog.py",
+          "sha256": "2BC2055046312710E2B959AF73321A807957DD0A0B54265BDBCAE8D68908E22F"
+        },
+        {
+          "path": "config_flow.py",
+          "sha256": "E5F69E5F789B56252C3EAAC842AD98D69C51F3C9919BC0BAC6D660BD05E14026"
+        },
+        {
+          "path": "config.py",
+          "sha256": "06624F9EC2FE28EA80C60FC12E56D9ECCCD399D0E5105E97E786AD218AFA2FB0"
+        },
+        {
+          "path": "const.py",
+          "sha256": "57A0FABD30BFD88DA581A1BD5719DF463EEE724406FDC4530BF95867631787D2"
+        },
+        {
+          "path": "controls.py",
+          "sha256": "D3C24FB1EFBC3A41ABDC99BCEFCBAED1956BCDB1DE729A2AA310C255099506B4"
+        },
+        {
+          "path": "dashboard.py",
+          "sha256": "BDCCEE1D798F5D80918EC65C16E90782CB168BFAC7749BC31FB05D3C0E73423B"
+        },
+        {
+          "path": "definitions.py",
+          "sha256": "EE68CD193A23C9B56AD85C6C49D5C969AA747EA7E7269A6F988B15299E7782F1"
+        },
+        {
+          "path": "delivery.py",
+          "sha256": "9912B8A2D43E1DD8B0501280550DB3470307B3F76816041F51D75F68FC599CFE"
+        },
+        {
+          "path": "device_availability.py",
+          "sha256": "A12DEB604B6490C931D773C46B474C52D5D60A084EC04A3568B508115A93CB2B"
+        },
+        {
+          "path": "enrollment.py",
+          "sha256": "567897C629FC5E9FCA02DFAD3B9B1E6B60527F32A75C981F241FBB162BCF5DC6"
+        },
+        {
+          "path": "event.py",
+          "sha256": "0A3310309D2C13FBFA2ABD4CF1E68814AFF16F03BE8E1F03578FD592422CE0FD"
+        },
+        {
+          "path": "evidence.py",
+          "sha256": "7F1CBBE0750D1FAAE00739852A2A7113458DDCA2293502DFD1CBB2B82F0D8F7E"
+        },
+        {
+          "path": "facts.py",
+          "sha256": "AD5C7EAA79BEA36B4EDCA8F8DC88DA5395E6232AC33856D23CD629DF8BC8A102"
+        },
+        {
+          "path": "function_model.py",
+          "sha256": "ED8E31249E42CAE26EDAA2154450057850F60CFB79EC52D2967EF53958D2B4EC"
+        },
+        {
+          "path": "history.py",
+          "sha256": "B832F84E57B09F835EBCC983C184A27C0651DE52D46279769F6F28E426B49286"
+        },
+        {
+          "path": "manifest.json",
+          "sha256": "2641BA7C4443D151656CF90F59F96F40176D433F7FE80964AF566CF001DCAAB3"
+        },
+        {
+          "path": "monitoring_runtime.py",
+          "sha256": "EF0E93A452E59EF4E564374107EB0B11029675A3B0B1C2B99149ECCA8ED2D1D6"
+        },
+        {
+          "path": "monitoring.py",
+          "sha256": "9CA4948B275A0BB6FE7BFF0E6D54E132C170C45CE0BD9825EDE08EA8BBF95AE8"
+        },
+        {
+          "path": "notification_definitions.py",
+          "sha256": "BA25B80018C0A406B620807B132C6C74D0146933E70743CEBF9262D2024616E0"
+        },
+        {
+          "path": "notification_grouping.py",
+          "sha256": "A5185591114657BFEE1209176635CA5A4414F96A144E7DB67B045648FE59E86C"
+        },
+        {
+          "path": "notification_people.py",
+          "sha256": "18E96AA686CC8E15B356D0239BD7B96C1258D20276A70DF3AA90B2438CFA04A6"
+        },
+        {
+          "path": "notification_routes.py",
+          "sha256": "D1A062742A162CD17F150E0FA06BAB794ACD20ECE768C5DF5757A0797BBD93DC"
+        },
+        {
+          "path": "phone_actions.py",
+          "sha256": "BBC6DD47541842A3AC342CBFF44256C8B0D6EAF6C453BE1B90CB4F5FA2DFEA32"
+        },
+        {
+          "path": "policy_defaults.py",
+          "sha256": "1FA1CDED62862F4C90F31B044B3620652F97893C3AC468E3D1ACAB1F7F7BC5E5"
+        },
+        {
+          "path": "repairs.py",
+          "sha256": "E469FE798EA6D7445663EA1731E1339215F084599EE067BFAE2DA0595C0A8E2D"
+        },
+        {
+          "path": "rules.py",
+          "sha256": "D778AFCC66C322F85A461B4D805EC39B4E6B6009A5B96FB3FA4AA46CB109D66D"
+        },
+        {
+          "path": "runtime.py",
+          "sha256": "796ABED8D5D878C4279982549BB97AB1436D6DE0CF463BB4AB59BDDEA08B5D56"
+        },
+        {
+          "path": "sensor.py",
+          "sha256": "CF6C1FB2EFD4BB9E64255090E9BDCE7BFBECCF72A174269E2EC161A0A20A9944"
+        },
+        {
+          "path": "serialization.py",
+          "sha256": "AE1F0BDAC1AC97F1E6D5D2E2E6CFE541F71CF20BC1DA73D69B073398F8B3FEAE"
+        },
+        {
+          "path": "services.py",
+          "sha256": "6EB0E2B687C72A8AAC81B9CDCF2D7401F40FCB24608663F48BD1BB356131FC81"
+        },
+        {
+          "path": "services.yaml",
+          "sha256": "4BD66BAC0111E416B451794EBF9C2D4ADCEB5E577363E89A4543CBCEFFF4F8F3"
+        },
+        {
+          "path": "situation_reports.py",
+          "sha256": "2E9025A4074C46CBC92A99C53DD32C2F6F8013B116E177A670E2AF0327545A5D"
+        },
+        {
+          "path": "strings.json",
+          "sha256": "5A7B7B1D8B7541EC93234A8ECFC3996501DC15384166D23649D680FEA5545D06"
+        },
+        {
+          "path": "temperature.py",
+          "sha256": "5B5E543082086FD714074F2CF2381139DAAF945ECEB0E45DBF2D5C5315EE9AE9"
+        },
+        {
+          "path": "ups_parameters.py",
+          "sha256": "E348553EA19D0AF80DE6F8B4ECF4CA856FD3472FA2996E6C94415006C06B03FB"
+        },
+        {
+          "path": "ups.py",
+          "sha256": "669F9F9AF8B4B4BB11D5D94E0C0F3648A0629BEBDCA31C780F9EC9D59530AC53"
+        },
+        {
+          "path": "vacuum.py",
+          "sha256": "AAC02E477CBF0BEE90588008D4C14273CEF736490FD388F20236DE5DFFCBD6F4"
+        },
+        {
+          "path": "brand/dark_icon.png",
+          "sha256": "CAFC59AD017206E00D12914C8337CAD8138E2934FF6FCA3CA596BBA9D295B377"
+        },
+        {
+          "path": "brand/dark_icon@2x.png",
+          "sha256": "1A3309F8C526A09252E5FF656445E4425EC89B59F4514E5B956DBD86BF4306D9"
+        },
+        {
+          "path": "brand/icon.png",
+          "sha256": "D4740E57A8D672E1C76C19EB551AB06A0003FD87D5099E67D996375769C8D957"
+        },
+        {
+          "path": "brand/icon@2x.png",
+          "sha256": "AC577F00EE3C2E98505C9CDCF3EB5AF4EB60FF8D63A6AFB97481B049259B5139"
+        },
+        {
+          "path": "frontend/check-presentation.mjs",
+          "sha256": "E515489BE9EFF4E36D73A1950D96E03B52E6ED651FF0A2C229BA21236642C4CE"
+        },
+        {
+          "path": "frontend/configuration.mjs",
+          "sha256": "E5E8AD731C1998AF8A3E10FC40C2E8F18A8F0C2D2F47997DEF16071E739589EF"
+        },
+        {
+          "path": "frontend/delivery-picker.mjs",
+          "sha256": "F6D029FBC3E5ABE14D8788E3BEDC50E7F6BF6162047E3C462A37716C8D275D4A"
+        },
+        {
+          "path": "frontend/device-availability.mjs",
+          "sha256": "BFF82B1CF28A9E864E6F2131E4E2FCF6F1CED9A4AD5C20278FBADBFF2A613A3A"
+        },
+        {
+          "path": "frontend/device-issue-model.mjs",
+          "sha256": "A103F18823AFD8A24C1EDC44D38265984D3224643B485FDC62E11B8BB2679BAA"
+        },
+        {
+          "path": "frontend/device-issues.mjs",
+          "sha256": "0524E577E817613D854386FB28132560361FC561F06784391AE0F6F2033BB5F7"
+        },
+        {
+          "path": "frontend/evidence.mjs",
+          "sha256": "85A2923EF58F13224F363FEE44BDDA531EC4B3F5A5CFE76FC0F8CE5D85A5FDE8"
+        },
+        {
+          "path": "frontend/history-controls.mjs",
+          "sha256": "8260422ED09DF557083795D8FDB00FEFD43BC59F29014315F9DA23D5A56D4754"
+        },
+        {
+          "path": "frontend/homeostatic.js",
+          "sha256": "2AB35499E67596712FDC0C618CCB199F15A5AD245059230C06F09874BAA5B9B5"
+        },
+        {
+          "path": "frontend/installation-settings.mjs",
+          "sha256": "F5E42E5405CB641CBC0B04F5091DFBCE2B33B77BD80A374EA86AE10E28169CA6"
+        },
+        {
+          "path": "frontend/issue-configuration.mjs",
+          "sha256": "32D726BDE63FAB9FBF3380B159550B45A863097D864173DD3EF025E7BAA7FEC8"
+        },
+        {
+          "path": "frontend/issue-monitoring.mjs",
+          "sha256": "A51890368E6D1495460CDB38F16B2284DBCDCBAA6B9E992DE6178902EBCEE1DC"
+        },
+        {
+          "path": "frontend/issues-workspace.mjs",
+          "sha256": "3A33943847025EA3BFBDAD3ED55662C6D5410D74FE6D77CD7F282A358F679A27"
+        },
+        {
+          "path": "frontend/model.mjs",
+          "sha256": "DC7527D173B05B765DE4BAE0C30179C648E6355EC4645BE7CD7996D86F0A0C95"
+        },
+        {
+          "path": "frontend/notification-navigation.mjs",
+          "sha256": "9C4E39558EE71E6A2C7B7AF70191D65C16A3F80659CFE9B0638E0DFB50288F29"
+        },
+        {
+          "path": "frontend/package.json",
+          "sha256": "609158E6C5FBC237939FA3DDF7FAAB80AB690BDC0C8D584414A885130103C4E8"
+        },
+        {
+          "path": "frontend/panel-drafts.mjs",
+          "sha256": "5C705C5BA9280FCDACAD9A53E04AA3C55716C7E4791FD508C9AB33472C5E97F7"
+        },
+        {
+          "path": "frontend/problem.mjs",
+          "sha256": "789AF5DE39417E796173AFCC19AD53F87099EBF46137FAD2E05336C2E5A9EA58"
+        },
+        {
+          "path": "frontend/reporting.mjs",
+          "sha256": "14B7CC96A6AFD3C52CF636DBE33A95499687286E3092A787F3CF49DE8CD5EBC0"
+        },
+        {
+          "path": "frontend/reusable-editors.mjs",
+          "sha256": "B0110F0C2212E0E8C51892F4E907ED3A63ED6AEFE09498E4D8D9918BFBF9DE3D"
+        },
+        {
+          "path": "frontend/scoped-configuration.mjs",
+          "sha256": "595FD27C01F4B4339B946922A78BE9412CA5943E57FB4313FF35463ACA551848"
+        },
+        {
+          "path": "frontend/source-coverage.mjs",
+          "sha256": "1AE401278BA085E6A4215811533240A58E48B9CBA9A81FCAF003A43EC68FB99F"
+        },
+        {
+          "path": "frontend/source-history.mjs",
+          "sha256": "2EC97BEC6324849A182C2C2A8276284DACCF3E2AC000C93175D4E42A2BAC13DA"
+        },
+        {
+          "path": "frontend/source-monitoring.mjs",
+          "sha256": "C3432343222757D870E3516AF5D6868D2F658F732F432F0B9D502A0013A8520F"
+        },
+        {
+          "path": "frontend/source-temperature.mjs",
+          "sha256": "2F7F8D44990401BD195CD1B9849E24EA8A92AA18E099E54FFDE185FA50A2EDF7"
+        },
+        {
+          "path": "frontend/sources-workspace.mjs",
+          "sha256": "192B9417AE517D95D73EFBBCBC05C854C41C6DBC0E949CCE6FD9C38C4AD2DFD3"
+        },
+        {
+          "path": "frontend/styles.mjs",
+          "sha256": "A39A1163A6AE6D2336C4D951CD6FA322D84EEACF57E1DC93942F860273509E41"
+        },
+        {
+          "path": "frontend/ups.mjs",
+          "sha256": "6EE41D2800CC127C7F936DB8B2EEAA9D74DAAF6FB539DF7A9BC08332DD35A37D"
+        },
+        {
+          "path": "frontend/workspace-navigation.mjs",
+          "sha256": "D8EF07CAD7B76B922439E47B02C9E45F1D2C122F25ECB72566A25840180DF376"
+        },
+        {
+          "path": "translations/en.json",
+          "sha256": "5A7B7B1D8B7541EC93234A8ECFC3996501DC15384166D23649D680FEA5545D06"
+        }
+      ],
+      "staging_removed": true
+    },
+    "logs": [
+      {
+        "name": "homeassistant.helpers.frame",
+        "message": [
+          "Detected that custom integration 'isy994' calls `device_registry.async_get_or_create` with a deprecated `via_device` parameter; use `via_device_id` instead at custom_components/isy994/button.py, line 84: async_add_entities(entities). This will stop working in Home Assistant 2027.8.0, please create a bug report at https://github.com/mjcumming/hacs-isy994/issues",
+          "Detected that custom integration 'isy994' calls `device_registry.async_get_or_create` with a deprecated `via_device` parameter; use `via_device_id` instead at custom_components/isy994/number.py, line 130: async_add_entities(entities). This will stop working in Home Assistant 2027.8.0, please create a bug report at https://github.com/mjcumming/hacs-isy994/issues",
+          "Detected that custom integration 'homeostatic' accesses `DeviceEntry.config_entries`, which is deprecated because a device belongs to a single config entry; use `DeviceEntry.config_entry_id` instead at custom_components/homeostatic/enrollment.py, line 207: for entry_id in device.config_entries. This will stop working in Home Assistant 2027.10.0, please create a bug report at https://github.com/mjcumming/homeostatic/issues",
+          "Detected that custom integration 'homeostatic' accesses `DeviceEntry.config_entries`, which is deprecated because a device belongs to a single config entry; use `DeviceEntry.config_entry_id` instead at custom_components/homeostatic/enrollment.py, line 230: owner_ids = set(device.config_entries). This will stop working in Home Assistant 2027.10.0, please create a bug report at https://github.com/mjcumming/homeostatic/issues",
+          "Detected that custom integration 'homeostatic' accesses `DeviceEntry.config_entries`, which is deprecated because a device belongs to a single config entry; use `DeviceEntry.config_entry_id` instead at custom_components/homeostatic/notification_routes.py, line 78: (item for item in devices.devices if entry.entry_id in item.config_entries),. This will stop working in Home Assistant 2027.10.0, please create a bug report at https://github.com/mjcumming/homeostatic/issues"
+        ],
+        "level": "WARNING",
+        "source": [
+          "helpers/frame.py",
+          348
+        ],
+        "timestamp": 1792266055.9891868,
+        "exception": "",
+        "count": 20,
+        "first_occurred": 1792266003.8271618
+      }
+    ],
+    "live_ui": {
+      "checked_at": "2026-10-17T19:42:46.546336+00:00",
+      "browser": "Chrome through CUA, fresh tab loading the installed panel",
+      "entry": "Open issues",
+      "device": "Dishwasher",
+      "device_id": "54bee40ddb4e1765773a4d720e808d0d",
+      "queue": "One View button at the device heading; three noninteractive findings",
+      "combined_dialog": {
+        "availability": "8 of 11 monitored entities available",
+        "selected": "3 of 3 selected",
+        "issues": [
+          "Dishwasher Program finish time",
+          "Dishwasher Program progress",
+          "Dishwasher Resume program"
+        ],
+        "open_device_actions": 1,
+        "opened_timestamp": false,
+        "policy_and_notification_rows": "Inline labels and named buttons; no unverified delivery warning"
+      },
+      "stop_monitoring_review": {
+        "heading": "Stop monitoring these 2 entities?",
+        "visible_entities": [
+          "sensor.dishwasher_program_finish_time",
+          "sensor.dishwasher_program_progress"
+        ],
+        "details_disclosure": false,
+        "repeated_policy_list": false,
+        "scope": "Availability only; other checks stay enabled",
+        "outcome": "Canceled without saving"
+      },
+      "visual_review": "Screenshot inspected on the household installation; exact names and actions visible with compact spacing.",
+      "household_mutations": "No acknowledgment, pause, monitoring exclusion, saved setting or test notification was applied.",
+      "left_open": "Combined Dishwasher dialog for the owner to try"
+    },
+    "preservation": "Saved settings fingerprint and notification switch unchanged. No household acknowledgment, pause, coverage save, or test notification was performed."
+  },
+  "limits": [
+    "Scoped local trial, not full application or release acceptance.",
+    "Isolated HA 2026.9.3; local installation verified on HA 2026.10.0.",
+    "Physical Safari, real delivery receipt and sustained household load remain untested."
+  ]
+}

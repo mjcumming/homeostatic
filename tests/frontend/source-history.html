@@ -75,12 +75,15 @@ document.querySelector('#run').onclick=async()=>{
     expect(root.querySelector('[data-history-toggle="absorbed"]').textContent.includes('Joined another problem'),'Absorption has its own ending label');
     await click('[data-open-episode="open"]',historyContent());
     expect(card.dialog.open&&root.querySelector('#detail-title').textContent==='Porch sensor','Related problem opens the current source detail');
-    await openDisclosure('[data-disclosure="issue-details"]');
-    await click('[data-source-link="device:porch"]',card.dialog);
-    expect(root.querySelector('#sources-detail-title').textContent==='Porch sensor','View in Monitoring reaches the linked source');
+    expect(!card.dialog.querySelector('[data-disclosure="issue-details"]')&&!card.dialog.innerText.includes('View in Monitoring'),'Related issue has flat evidence and no circular Monitoring route');
+    await close();await click('[data-page="sources"]');await showTree();
+    await change('[data-sources-search]','Porch sensor');
+    await click('[data-sources-select="source:device:porch"]');
+    expect(root.querySelector('#sources-detail-title').textContent==='Porch sensor','Monitoring retains direct tree access to the source');
     const returnedFromMobile=await showTree();
     expect(!returnedFromMobile||root.activeElement?.dataset.sourcesSelect==='source:device:porch','Mobile Back to Monitoring returns keyboard focus to its selected tree row');
     expect(root.querySelector('[data-sources-select="source:device:porch"]').getClientRects().length,'The selected source remains reachable in the tree');
+    await change('[data-sources-search]','');
     await mqtt();await click('[data-history="removed"]');
     expect(root.querySelector('[data-history-toggle="removed"]').textContent.includes('Monitoring ended'),'Removal is distinct from clearance');
     expect(root.querySelector('[data-history-toggle="removed"]').textContent.includes('Garage relay before rename'),'Historical identity remains the recorded name');

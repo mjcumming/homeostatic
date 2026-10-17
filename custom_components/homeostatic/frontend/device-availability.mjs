@@ -1,10 +1,21 @@
-import {escapeHtml as esc} from "./model.mjs?v=90";
+import {escapeHtml as esc} from "./model.mjs?v=94";
 
 const labels = {available:"Available",partially_available:"Partially available",unavailable:"Unavailable",unknown:"Unknown",disabled:"Disabled"};
 
 /** Name the reported assessment without changing its evidence. */
 export function deviceAvailabilityLabel(value) {
   return labels[value?.status]||"Unknown";
+}
+
+/** Count the complete inspected membership without treating absent evidence as available. */
+export function deviceAvailabilitySummary(evidence, {monitored=true}={}) {
+  const members=evidence?.members||[],total=evidence?.total??members.length;
+  const completeCounts=Number.isInteger(evidence?.unavailable_count)&&Number.isInteger(evidence?.unknown_count);
+  const unavailable=evidence?.unavailable_count??members.filter(member=>member.state==="unavailable"&&!member.restored).length;
+  const unknown=evidence?.unknown_count??members.filter(member=>member.state==="missing"||member.restored).length;
+  const available=completeCounts||members.length===total?Math.max(0,total-unavailable-unknown):null;
+  const label=available===null?"Availability readings incomplete":`${available} of ${total} ${monitored?"monitored ":""}${total===1?"entity":"entities"} available`;
+  return {total,available,unavailable,unknown,label};
 }
 
 /** Explain device access independently of monitored entity findings. */

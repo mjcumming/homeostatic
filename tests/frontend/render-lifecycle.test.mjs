@@ -235,6 +235,7 @@ test("unchanged issue details retain disclosures and exclude raw diagnostic cont
     capturePageState:()=>({}),restorePageState:()=>{},
     _hass:{localize:lyricLocalize,callWS:async()=>issueEvidenceReply(fixture,"homeostatic/node",LYRIC_ENTRY)},
   };
+  Object.setPrototypeOf(detail,prototype);
   await prototype.loadDetail.call(detail);
   assert.match(body.innerHTML,/Unavailable readings from 3 devices/);
   assert.doesNotMatch(body.innerHTML,/Technical details|Copy diagnostic|View raw data|data-copy-diagnostics|&quot;explanation&quot;/);

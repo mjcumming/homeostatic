@@ -11,6 +11,7 @@ export function parseWorkspacePath(path = "") {
   const id = encoded ? decode(encoded) : null;
   if(name === "episode" && id)return {page:"problems",detail:{episodeId:id}};
   if(name === "node" && id)return {page:"sources",detail:{nodeId:id}};
+  if(name === "device-issues" && id)return {page:"sources",detail:{deviceId:id}};
   if(name === "history")return {page:"history",historyId:id};
   if(name === "sources")return {page:"sources",source:id,sourcesView:extra === "history" ? "history" : "source"};
   if(name === "policies")return {page:"policies",definition:id ? {kind:"policies",id} : null};
@@ -27,6 +28,7 @@ export function workspacePath(route) {
   const encode = encodeURIComponent;
   if(route.detail?.episodeId)return `/episode/${encode(route.detail.episodeId)}`;
   if(route.detail?.nodeId)return `/node/${encode(route.detail.nodeId)}`;
+  if(route.detail?.deviceId)return `/device-issues/${encode(route.detail.deviceId)}`;
   const page = workspacePage(route.page);
   if(page === "sources")return `/sources${route.source ? `/${encode(route.source)}` : ""}${route.source && route.sourcesView === "history" ? "/history" : ""}`;
   if(page === "policies")return `/policies${route.definition?.kind === "policies" ? `/${encode(route.definition.id)}` : ""}`;
@@ -139,7 +141,7 @@ export class WorkspaceNavigation {
     const candidate = focused ? this.entries.get(this.origins.get(this.currentId)) : null;
     const inlineHistory = route.page === "history" && candidate?.route.page === "history" && !candidate.route.detail;
     const origin = inlineHistory ? null : route.page === "sources" && !candidate?.route.detail && !candidate?.route.historyId ? null : candidate;
-    this.card.workspaceReturn = origin ? {id:origin.id,label:origin.route.detail?.episodeId ? "Back to issue" : origin.route.page === "sources" ? origin.route.source ? "Back to source" : "Back to Monitoring" : ({policies:"Back to Policies",notifications:"Back to Notifications",history:"Back to history"})[origin.route.page] || "Back to Open issues"} : null;
+    this.card.workspaceReturn = origin ? {id:origin.id,label:origin.route.detail?.episodeId || origin.route.detail?.deviceId ? "Back to issue" : origin.route.page === "sources" ? origin.route.source ? "Back to source" : "Back to Monitoring" : ({policies:"Back to Policies",notifications:"Back to Notifications",history:"Back to history"})[origin.route.page] || "Back to Open issues"} : null;
     const control = this.card.shadowRoot?.querySelector("[data-workspace-return]");
     if(control){control.hidden = !origin;control.textContent = this.card.workspaceReturn?.label || "Back";}
   }
@@ -170,6 +172,7 @@ export class WorkspaceNavigation {
       if(route.notificationSection)card.notificationSection = route.notificationSection;
       card.pendingEpisode = null;
       card.pendingNode = null;
+      card.pendingDeviceIssues = null;
       card.pendingHistory = null;
       card.detailSequence++;
       card.detail = null;
@@ -188,6 +191,9 @@ export class WorkspaceNavigation {
       } else if(route.detail?.nodeId) {
         if(card.current.status === "current")card.openDetail(route.detail);
         else card.pendingNode=route.detail.nodeId;
+      } else if(route.detail?.deviceId) {
+        if(card.current.status === "current")card.openDetail(route.detail);
+        else card.pendingDeviceIssues=route.detail.deviceId;
       }
       if(route.historyId) {
         if(card.current.status === "current")card.tools.showHistory(route.historyId, {focus:!cached?.pageState});
