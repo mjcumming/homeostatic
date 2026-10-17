@@ -812,15 +812,16 @@ def websocket_source(
 def websocket_configuration(
     hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Answer saved settings directly; queue only delivery discovery."""
-    runtime = hass.data[DATA_DASHBOARD].runtime
+    """Read coherent saved settings, waiting for a pending save if necessary."""
+    dashboard = hass.data[DATA_DASHBOARD]
+    runtime = dashboard.runtime
     if runtime is None:
         connection.send_error(msg["id"], "not_ready", "Homeostatic is not loaded")
         return
-    if msg["section"] == "settings":
+    if msg["section"] == "settings" and not dashboard.save_lock.locked():
         connection.send_result(msg["id"], _settings_configuration(hass, runtime))
         return
-    hass.async_create_task(_async_configuration(hass, connection, msg, runtime))
+    hass.async_create_task(_async_configuration(hass, connection, msg))
 
 
 def _settings_configuration(hass: HomeAssistant, runtime: Runtime) -> dict[str, Any]:
@@ -850,10 +851,22 @@ async def _async_configuration(
     hass: HomeAssistant,
     connection: ActiveConnection,
     msg: dict[str, Any],
-    runtime: Runtime,
 ) -> None:
     """Discover notification capabilities only when their editor needs them."""
-    result = _settings_configuration(hass, runtime) if msg["section"] == "all" else {}
+    result: dict[str, Any] = {}
+    if msg["section"] in {"settings", "all"}:
+        dashboard = hass.data[DATA_DASHBOARD]
+        async with dashboard.save_lock:
+            current = dashboard.runtime
+            if current is None:
+                connection.send_error(
+                    msg["id"], "not_ready", "Homeostatic is not loaded"
+                )
+                return
+            result = _settings_configuration(hass, current)
+        if msg["section"] == "settings":
+            connection.send_result(msg["id"], result)
+            return
     result.update(
         notification_people=await available_people(hass),
         delivery_targets=delivery_targets(hass),

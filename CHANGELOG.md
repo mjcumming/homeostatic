@@ -13,10 +13,12 @@
 ### Fixed
 
 - Keep Monitoring and the evidence-gap sensor available when coverage contains stale or never-observed checks.
+- Keep settings and their revision consistent when another editor reads during a save or rollback, preventing an accepted edit from being silently overwritten.
+- Avoid installation-wide source discovery for ordinary temperature readings, unrelated climate updates and policy renames. Preserve issue history, queued evidence and notification instructions.
 
 ### Documentation
 
-- Record the accepted browser refresh and catalog-loading boundaries.
+- Record the accepted refresh and configuration-read boundaries and finalize the catalog-loading decision.
 - Define the built-in policy scope around Home Assistant and equipment problems plus common household monitoring needs; leave specialized conditions and individual command-completion checks to Home Assistant automations.
 
 ## [1.8.3] - 2026-10-16

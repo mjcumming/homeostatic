@@ -4,7 +4,7 @@ import hashlib
 from dataclasses import replace
 from typing import Any
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, State
 
 from .catalog import Source
 from .monitoring import TEMPERATURE_CHECKS, MonitoringPolicy
@@ -205,6 +205,15 @@ def original_identity(identity: str) -> str:
     return identity.split(":", 3)[3] if identity.startswith("monitoring:") else identity
 
 
+def thermostat_enrolled(state: State | None) -> bool:
+    """Keep missing evidence enrolled and retire only a reported unsupported mode."""
+    return (
+        state is None
+        or bool(state.attributes.get("restored"))
+        or state.state in {"heat", "cool", "heat_cool", "unknown", "unavailable"}
+    )
+
+
 def temperature_sources(
     hass: HomeAssistant,
     policies: tuple[MonitoringPolicy, ...],
@@ -234,13 +243,7 @@ def temperature_sources(
             ):
                 continue
             state = hass.states.get(source.entity_id) if source.entity_id else None
-            if (
-                policy.check == "thermostat"
-                and state is not None
-                and not state.attributes.get("restored")
-                and state.state
-                not in {"heat", "cool", "heat_cool", "unknown", "unavailable"}
-            ):
+            if policy.check == "thermostat" and not thermostat_enrolled(state):
                 continue
             identity = f"monitoring:{policy.id}:{policy.detection_key()}:{source.attributes['entity'][0]}"
             result[identity] = replace(

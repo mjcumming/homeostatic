@@ -1,13 +1,19 @@
 """Policy saves reuse unchanged presentation without changing monitoring outcomes."""
 
+from contextlib import nullcontext
 from copy import deepcopy
+from datetime import timedelta
 from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
+from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.enrollment import report
 from custom_components.homeostatic.monitoring_runtime import enrollment_rules
@@ -50,6 +56,7 @@ async def test_policy_edit_preserves_exact_catalog_and_unaffected_monitoring(
         if ":observed:" in episode["anchor"]
     }
     previous_episodes = set(runtime.episodes)
+    previous_engine, previous_policy = runtime.engine, runtime.policy
     client = await hass_ws_client(hass)
     await client.send_json(
         {"id": 1, "type": "homeostatic/configuration", "section": "settings"}
@@ -65,16 +72,33 @@ async def test_policy_edit_preserves_exact_catalog_and_unaffected_monitoring(
             "duration_seconds": 0,
         },
     }[edit]
-    await client.send_json(
-        {
-            "id": 2,
-            "type": "homeostatic/save_settings",
-            "revision": current["revision"],
-            "settings": proposed,
-        }
-    )
-    assert (await client.receive_json())["result"] == {"saved": True}
+    with patch.object(
+        type(runtime), "_discover", autospec=True, side_effect=type(runtime)._discover
+    ) as discover:
+        await client.send_json(
+            {
+                "id": 2,
+                "type": "homeostatic/save_settings",
+                "revision": current["revision"],
+                "settings": proposed,
+            }
+        )
+        response = await client.receive_json()
+        assert response.get("result") == {"saved": True}, response
+        assert discover.call_count == (edit == "parameters")
     assert entry.runtime_data is runtime
+    if edit == "name":
+        assert runtime.engine is previous_engine
+        assert runtime.policy is previous_policy
+        renamed = [
+            source
+            for source in runtime.sources.values()
+            if source.monitoring_policy == "temperature"
+        ]
+        assert len(renamed) == 1
+        assert renamed[0].name.endswith(" · Indoor temperature")
+        assert runtime.temperature_monitors[renamed[0].node_id].name == renamed[0].name
+    assert await runtime.store.async_load() == runtime.snapshot()
     assert runtime.inventory_static["catalog"] is previous_catalog
     assert runtime.inventory_static["catalog"] == report(
         runtime.candidates, enrollment_rules(runtime.settings.monitoring_policies)
@@ -104,6 +128,161 @@ async def test_policy_edit_preserves_exact_catalog_and_unaffected_monitoring(
     assert (await client.receive_json())["result"]["settings"] == proposed
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()
+
+
+@pytest.mark.parametrize("failed_write", [False, True])
+@pytest.mark.parametrize("queued", [False, True])
+@pytest.mark.parametrize("check", ["availability", "temperature_limit"])
+async def test_policy_rename_preserves_durable_requests_and_rolls_back_names(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    failed_write: bool,
+    freezer: FrozenDateTimeFactory,
+    queued: bool,
+    check: str,
+) -> None:
+    """Names cannot replace pending delivery IDs, clocks or the previous saved view."""
+    attributes = {"device_class": "temperature", "unit_of_measurement": "°C"}
+    config_data["monitoring_policies"][0]["check"] = check
+    if check == "temperature_limit":
+        config_data["monitoring_policies"][0]["parameters"] = {
+            "unit": "°C",
+            "minimum": 10,
+            "duration_seconds": 0,
+        }
+    hass.states.async_set("sensor.observed", "20", attributes)
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    with patch("custom_components.homeostatic.runtime.async_send", new=AsyncMock()):
+        runtime = await start_monitor(hass, entry)
+        with (
+            patch.object(runtime, "_flush_events", new=AsyncMock())
+            if queued
+            else nullcontext()
+        ):
+            hass.states.async_set(
+                "sensor.observed",
+                "unavailable" if check == "availability" else "0",
+                attributes,
+            )
+            await hass.async_block_till_done()
+            assert bool(runtime.delivery.outbox) == queued
+            before = runtime.snapshot()
+            assert runtime.policy is not None
+            clocks = {
+                episode: deepcopy(runtime.policy.explain(episode))
+                for episode in runtime.episodes
+            }
+            sources, inventory = runtime.sources, runtime.inventory_static
+            changed = deepcopy(config_data)
+            changed["monitoring_policies"][0]["name"] = "Renamed policy"
+            save = runtime.store.async_save
+            writes = 0
+
+            async def save_once(data: dict[str, Any]) -> None:
+                nonlocal writes
+                writes += 1
+                if failed_write and writes == 1:
+                    raise OSError("Storage rejected the renamed view")
+                await save(data)
+
+            with (
+                patch.object(runtime.store, "async_save", side_effect=save_once),
+                patch.object(
+                    type(runtime),
+                    "_discover",
+                    side_effect=AssertionError("Renaming must reuse source discovery"),
+                ),
+            ):
+                if failed_write:
+                    with pytest.raises(OSError, match="Storage rejected"):
+                        await runtime.async_apply_settings(Settings.from_data(changed))
+                    assert runtime.sources is sources
+                    assert runtime.inventory_static is inventory
+                    assert runtime.settings.monitoring_policies[0].name == "observed"
+                else:
+                    await runtime.async_apply_settings(Settings.from_data(changed))
+                    assert (
+                        runtime.settings.monitoring_policies[0].name == "Renamed policy"
+                    )
+                    assert all(
+                        source.name.endswith(" · Renamed policy")
+                        for source in runtime.sources.values()
+                        if source.monitoring_policy == "observed"
+                    )
+            after = runtime.snapshot()
+            assert runtime.policy is not None
+            assert {
+                episode: runtime.policy.explain(episode) for episode in runtime.episodes
+            } == clocks
+            assert after["delivery"] == before["delivery"]
+            assert set(runtime.episodes) == set(before["episodes"])
+            assert await runtime.store.async_load() == after
+            if not failed_write and not queued:
+                targets = {
+                    message["tag"]: message["channels"]
+                    for message in runtime.delivery.messages.values()
+                }
+                with patch.object(runtime, "_flush_events", new=AsyncMock()):
+                    hass.states.async_set("sensor.observed", "20", attributes)
+                    await hass.async_block_till_done()
+                    assert not runtime.episodes
+                    assert runtime.delivery.outbox
+                    assert all(
+                        row["action"] == "resolve"
+                        and row["channels"] == targets[row["tag"]]
+                        for row in runtime.delivery.outbox
+                    )
+        assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("change", ["deadline", "finding"])
+async def test_policy_rename_keeps_due_and_changed_temperature_notifications(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    freezer: FrozenDateTimeFactory,
+    change: str,
+) -> None:
+    """Only cosmetic updates are quiet; due failures and changed findings still report."""
+    attributes = {"device_class": "temperature", "unit_of_measurement": "°C"}
+    hass.states.async_set("sensor.observed", "20", attributes)
+    config_data["monitoring_policies"][0].update(
+        check="temperature_limit",
+        parameters={
+            "unit": "°C",
+            "minimum": 10,
+            "maximum": 30,
+            "duration_seconds": 10 if change == "deadline" else 0,
+        },
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    with patch("custom_components.homeostatic.runtime.async_send", new=AsyncMock()):
+        runtime = await start_monitor(hass, entry)
+        with patch.object(runtime, "_flush_events", new=AsyncMock()):
+            hass.states.async_set("sensor.observed", "0", attributes)
+            await hass.async_block_till_done()
+            before = set(runtime.episodes)
+            sequence = runtime.delivery.sequence
+            changed = deepcopy(config_data)
+            changed["monitoring_policies"][0]["name"] = "Renamed policy"
+            if change == "deadline":
+                assert not before
+                freezer.move_to(dt_util.utcnow() + timedelta(seconds=10))
+            else:
+                assert len(before) == 1
+                hass.states.async_set("sensor.observed", "40", attributes)
+            await runtime.async_apply_settings(Settings.from_data(changed))
+            await hass.async_block_till_done()
+            assert len(runtime.episodes) == 1
+            if before:
+                assert set(runtime.episodes) == before
+            assert runtime.delivery.sequence > sequence
+            assert runtime.delivery.outbox
+            [episode] = runtime.episodes.values()
+            assert {reason["reason"] for reason in episode["reasons"]} == {
+                "temperature_low" if change == "deadline" else "temperature_high"
+            }
+            assert await runtime.store.async_load() == runtime.snapshot()
+        assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_disabled_policy_scope_refreshes_catalog_rules(

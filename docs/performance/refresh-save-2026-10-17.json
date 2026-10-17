@@ -1,0 +1,824 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-17T14:46:22.964Z",
+  "outcome": "Approved refresh and save changes implemented locally with bounded acceptance. Original browser failures are preserved; the two product defects pass corrected desktop and phone reruns. The independently reproduced Home Assistant reconnect error remains failed.",
+  "decision": "docs/adr/0092-scoped-refresh-and-coherent-saves.md",
+  "status": {
+    "branch": "main",
+    "revision": "13a7df93b87cc4f3722f5edc598ab604406e7499",
+    "dirty": true,
+    "commit": "Not committed",
+    "release": "Not published",
+    "installation": "Not deployed",
+    "library": "No library changes; published health-tree 0.8.0"
+  },
+  "final_candidate": {
+    "branch": "main",
+    "revision": "13a7df93b87cc4f3722f5edc598ab604406e7499",
+    "dirty": true,
+    "component_sha256": "c0690334db4c0976129c9aae297b505694e6f8006a6238120379ef32519e3e54",
+    "fixture_sha256": "9e2a766255d7198aef12e95709c40f836d7982bd3a48bc266fb51b2fefc38831",
+    "frozen_at": "2026-10-17T14:43:22.812Z"
+  },
+  "scope": [
+    "Coherent settings/revision reads during save, rollback and runtime replacement.",
+    "Temperature evidence and cosmetic policy changes avoid unnecessary source discovery while preserving notification identities, clocks and durable rollback.",
+    "Cached source indexes, bounded picker rows, complete search and selected-identity preservation.",
+    "Single active detail read with coalesced follow-up, stale-response guards and retained editors.",
+    "Lightweight initial Issues summary with canonical source context; availability editing loads its complete revision-bound scope when an issue opens. Legacy subscriptions retain their contract."
+  ],
+  "checks": {
+    "quick": {
+      "status": "pass",
+      "frontend_passed": 812,
+      "command": "uv run --no-sync python script/check.py --quick",
+      "log": {
+        "path": "build/refresh-review/quick-final.log",
+        "sha256": "60ae96705b433ef792c7e124bd67e1b467e945c2defbeb05c7a2a07f0b1ef941"
+      }
+    },
+    "strict_types": {
+      "status": "pass",
+      "source_files": 39,
+      "command": "uv run --no-sync python -m mypy",
+      "log": {
+        "path": "build/refresh-review/mypy-final.log",
+        "sha256": "8b09188cd4334b7a36b9f6dc1f7ef942a9f88d6aa8cc3cdbb7ae7841468e6997"
+      }
+    },
+    "dashboard": {
+      "status": "pass",
+      "passed": 60,
+      "command": "uv run --no-sync pytest -q tests/test_dashboard.py tests/test_catalog_pages.py tests/test_configuration_consistency.py tests/test_panel_summary.py",
+      "log": {
+        "path": "build/refresh-review/backend-dashboard.log",
+        "sha256": "3dc576d03666970dff5410988bb84be9c7e3667050f25a845a809befcf180adb"
+      }
+    },
+    "final_canonical_context": {
+      "status": "pass",
+      "passed": 45,
+      "command": "uv run --no-sync pytest -q tests/test_panel_summary.py tests/test_dashboard.py",
+      "evidence": "Execution transcript; includes registered and state-only temperature canonical-source regressions."
+    },
+    "runtime": {
+      "status": "pass",
+      "passed": 213,
+      "command": "uv run --no-sync pytest -q tests/test_temperature_refresh_work.py tests/test_policy_save_work.py tests/test_monitoring_policies.py tests/test_temperature.py tests/test_runtime_updates.py tests/test_in_place_save.py tests/test_in_place_profiles.py tests/test_in_place_methods.py tests/test_controls.py",
+      "evidence": "Execution transcript"
+    },
+    "final_delivery_preservation": {
+      "status": "pass",
+      "passed": 22,
+      "command": "uv run --no-sync pytest -q tests/test_policy_save_work.py tests/test_group_delivery.py tests/test_device_delivery_activation.py",
+      "evidence": "Execution transcript; suites overlap with runtime checks and counts are not summed."
+    }
+  },
+  "measurements": {
+    "measured_date": "2026-10-17",
+    "environment": {
+      "python": "3.14.7",
+      "home_assistant": "2026.9.3",
+      "health_tree": "0.8.0",
+      "health_tree_source": "published package in WSL prepared virtual environment site-packages",
+      "virtual_environment": "/home/mike/.cache/homeostatic/venv"
+    },
+    "scope": [
+      "Isolated Home Assistant instance; no live installation or notifications.",
+      "Refresh: 6002 entities; three samples per state-change case.",
+      "Save: 6000 entities and 300 devices; real runtime Store write/readback with temporary filesystem storage; registries mocked; notifications disabled.",
+      "Probes serialized on this worker; wall-clock values are host-dependent observations, not performance guarantees."
+    ],
+    "timing_disclaimer": "Phase timings are inclusive and overlap: engine_policy includes discovery when present; persistence includes snapshot_creation and durable verification. Do not sum phase timings. Before/after timings vary; deterministic work counts are the primary regression guard.",
+    "refresh": {
+      "unselected_climate": {
+        "before_file": "build/refresh-review/unselected_climate.json",
+        "after_file": "build\\refresh-review\\after/unselected_climate.json",
+        "before_median_seconds": 0.559507,
+        "after_median_seconds": 0.002177,
+        "before_median_max_loop_gap_seconds": 0.455086,
+        "after_median_max_loop_gap_seconds": 0.002451,
+        "before_inventory_scans": [
+          1,
+          1,
+          1
+        ],
+        "after_inventory_scans": [
+          0,
+          0,
+          0
+        ],
+        "before_save_calls": [
+          1,
+          1,
+          1
+        ],
+        "after_save_calls": [
+          0,
+          0,
+          0
+        ],
+        "before_dashboard_publications": [
+          1,
+          1,
+          1
+        ],
+        "after_dashboard_publications": [
+          0,
+          0,
+          0
+        ]
+      },
+      "ordinary": {
+        "before_file": "build/refresh-review/ordinary.json",
+        "after_file": "build\\refresh-review\\after/ordinary.json",
+        "before_median_seconds": 0.001679,
+        "after_median_seconds": 0.002428,
+        "before_median_max_loop_gap_seconds": 0.001487,
+        "after_median_max_loop_gap_seconds": 0.002667,
+        "before_inventory_scans": [
+          0,
+          0,
+          0
+        ],
+        "after_inventory_scans": [
+          0,
+          0,
+          0
+        ],
+        "before_save_calls": [
+          0,
+          0,
+          0
+        ],
+        "after_save_calls": [
+          0,
+          0,
+          0
+        ],
+        "before_dashboard_publications": [
+          0,
+          0,
+          0
+        ],
+        "after_dashboard_publications": [
+          0,
+          0,
+          0
+        ]
+      },
+      "temperature": {
+        "before_file": "build/refresh-review/temperature.json",
+        "after_file": "build\\refresh-review\\after/temperature.json",
+        "before_median_seconds": 0.566932,
+        "after_median_seconds": 0.305037,
+        "before_median_max_loop_gap_seconds": 0.460768,
+        "after_median_max_loop_gap_seconds": 0.195233,
+        "before_inventory_scans": [
+          1,
+          1,
+          1
+        ],
+        "after_inventory_scans": [
+          0,
+          0,
+          0
+        ],
+        "before_save_calls": [
+          1,
+          1,
+          1
+        ],
+        "after_save_calls": [
+          1,
+          1,
+          1
+        ],
+        "before_dashboard_publications": [
+          1,
+          1,
+          1
+        ],
+        "after_dashboard_publications": [
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "policy_save": {
+      "name": {
+        "before_file": "build/review-refresh-save-2026-10-17/policy-save-name.json",
+        "after_file": "build\\refresh-review\\after/policy-save-name.json",
+        "before_median_save_seconds": 0.7057197870017262,
+        "after_median_save_seconds": 0.4009469130105572,
+        "before_snapshot_bytes": 14475700,
+        "after_snapshot_bytes": 14475700,
+        "before_discovery_phase_present": [
+          true,
+          true,
+          true
+        ],
+        "after_discovery_phase_present": [
+          false,
+          false,
+          false
+        ]
+      },
+      "parameters": {
+        "before_file": "build/review-refresh-save-2026-10-17/policy-save-parameters.json",
+        "after_file": "build\\refresh-review\\after/policy-save-parameters.json",
+        "before_median_save_seconds": 0.845620431995485,
+        "after_median_save_seconds": 0.95503322899458,
+        "before_snapshot_bytes": 14475692,
+        "after_snapshot_bytes": 14475692,
+        "before_discovery_phase_present": [
+          true,
+          true,
+          true
+        ],
+        "after_discovery_phase_present": [
+          true,
+          true,
+          true
+        ]
+      }
+    },
+    "notification_save": {
+      "profile_name": {
+        "before_file": "build/review-refresh-save-2026-10-17/notification-save-profile_name.json",
+        "after_file": "build\\refresh-review\\after/notification-save-profile_name.json",
+        "loads": [
+          {
+            "load": "first_after_completed_startup",
+            "queued_state_changes": 0,
+            "before_save_seconds": 0.5461048870056402,
+            "after_save_seconds": 0.48315319599350914,
+            "before_drain_seconds": 0.00005460999091155827,
+            "after_drain_seconds": 0.00001047900877892971,
+            "before_snapshot_bytes": 15121800,
+            "after_snapshot_bytes": 15121800
+          },
+          {
+            "load": "settled",
+            "queued_state_changes": 0,
+            "before_save_seconds": 0.5292296849947888,
+            "after_save_seconds": 0.5397985449963016,
+            "before_drain_seconds": 0.00000437899143435061,
+            "after_drain_seconds": 0.000003712993930093944,
+            "before_snapshot_bytes": 15121800,
+            "after_snapshot_bytes": 15121800
+          },
+          {
+            "load": "observation_burst",
+            "queued_state_changes": 50,
+            "before_save_seconds": 1.924173008010257,
+            "after_save_seconds": 2.097480106007424,
+            "before_drain_seconds": 1.2146026739937952,
+            "after_drain_seconds": 1.297132624007645,
+            "before_snapshot_bytes": 15365352,
+            "after_snapshot_bytes": 15365352
+          }
+        ]
+      },
+      "method_definition": {
+        "before_file": "build/review-refresh-save-2026-10-17/notification-save-method_definition.json",
+        "after_file": "build\\refresh-review\\after/notification-save-method_definition.json",
+        "loads": [
+          {
+            "load": "first_after_completed_startup",
+            "queued_state_changes": 0,
+            "before_save_seconds": 0.4606340839964105,
+            "after_save_seconds": 0.500021371000912,
+            "before_drain_seconds": 0.00000353099312633276,
+            "after_drain_seconds": 0.000004281988367438316,
+            "before_snapshot_bytes": 15121800,
+            "after_snapshot_bytes": 15121800
+          },
+          {
+            "load": "settled",
+            "queued_state_changes": 0,
+            "before_save_seconds": 0.520961004003766,
+            "after_save_seconds": 0.5986652830033563,
+            "before_drain_seconds": 0.00000344500585924834,
+            "after_drain_seconds": 0.0000036860001273453236,
+            "before_snapshot_bytes": 15121800,
+            "after_snapshot_bytes": 15121800
+          },
+          {
+            "load": "observation_burst",
+            "queued_state_changes": 50,
+            "before_save_seconds": 2.151255588993081,
+            "after_save_seconds": 2.403175318002468,
+            "before_drain_seconds": 1.367617016978329,
+            "after_drain_seconds": 1.5413506689947098,
+            "before_snapshot_bytes": 15365352,
+            "after_snapshot_bytes": 15365352
+          }
+        ]
+      }
+    },
+    "panel_payload": {
+      "before_file": "build/refresh-review/payload.json",
+      "after_file": "build\\refresh-review\\after/payload.json",
+      "before_legacy_summary_bytes": 314008,
+      "after_legacy_summary_bytes": 314008,
+      "after_panel_summary_bytes": 1423,
+      "before_coverage_bytes": 312619,
+      "after_coverage_bytes": 312619,
+      "note": "New opt-in panel payload is reported separately; legacy subscribers retain their existing summary. Refresh measure dashboard_bytes counts the legacy update and is not the panel payload size."
+    },
+    "remaining_cost": [
+      "Selected temperature observations still evaluate and durably save once; eliminating discovery does not eliminate snapshot creation, disk write, and verification.",
+      "Policy parameter changes still rediscover and reconcile monitoring; this retained repeat is slower than baseline and no threshold-save speedup is claimed.",
+      "Notification saves still drain ordered queued observations while holding the runtime mutation lock. Fifty queued transitions dominate burst-save latency.",
+      "Runtime persistence snapshots remain approximately 14.5 to 15.4 MB in these fixtures; no persistence or outbox durability reduction was made."
+    ]
+  },
+  "frontend_measurements": {
+    "environment": "Windows Node 24.14.0; warmed JavaScript generation, excluding browser paint",
+    "entities": 6000,
+    "devices": 600,
+    "before_artifact": {
+      "path": "build/review-refresh-save-2026-10-17/review.md",
+      "sha256": "dc42e9171dedaef124e8634662197253cea990bf0c51a957b14ba35440fd11f3"
+    },
+    "after_artifact": {
+      "path": "build/ui-acceptance/picker-performance-after.jsonl",
+      "sha256": "8f66b552a8c14e1a46135f8b563f33fadf0cabcda942fc15455e4a1c41d39139"
+    },
+    "closed_editor_median_ms": {
+      "before": 208.36,
+      "after": 0.01
+    },
+    "open_picker_median_ms": {
+      "before": 238.59,
+      "after": 1.73
+    },
+    "picker_html_bytes": {
+      "before": 2144822,
+      "after": 22529
+    },
+    "initial_rows": 50,
+    "after_samples": [
+      {
+        "entities": 1000,
+        "devices": 100,
+        "rows": 1101,
+        "results": [
+          {
+            "name": "device exclusion choices",
+            "medianMs": 0,
+            "minMs": 0,
+            "maxMs": 0.01
+          },
+          {
+            "name": "closed device policy editor",
+            "medianMs": 0.04,
+            "minMs": 0.03,
+            "maxMs": 0.05,
+            "bytes": 4074
+          },
+          {
+            "name": "open ignored entity picker",
+            "medianMs": 0.46,
+            "minMs": 0.33,
+            "maxMs": 0.6,
+            "bytes": 22529
+          },
+          {
+            "name": "sources tree and index",
+            "medianMs": 0,
+            "minMs": 0,
+            "maxMs": 0.01
+          },
+          {
+            "name": "collapsed sources browser",
+            "medianMs": 0.94,
+            "minMs": 0.7,
+            "maxMs": 1.3,
+            "bytes": 1983
+          }
+        ]
+      },
+      {
+        "entities": 3000,
+        "devices": 300,
+        "rows": 3301,
+        "results": [
+          {
+            "name": "device exclusion choices",
+            "medianMs": 0,
+            "minMs": 0,
+            "maxMs": 0.05
+          },
+          {
+            "name": "closed device policy editor",
+            "medianMs": 0.02,
+            "minMs": 0.01,
+            "maxMs": 0.02,
+            "bytes": 4074
+          },
+          {
+            "name": "open ignored entity picker",
+            "medianMs": 1.05,
+            "minMs": 0.82,
+            "maxMs": 1.86,
+            "bytes": 22529
+          },
+          {
+            "name": "sources tree and index",
+            "medianMs": 0.01,
+            "minMs": 0,
+            "maxMs": 0.02
+          },
+          {
+            "name": "collapsed sources browser",
+            "medianMs": 2.28,
+            "minMs": 1.94,
+            "maxMs": 4.47,
+            "bytes": 1983
+          }
+        ]
+      },
+      {
+        "entities": 6000,
+        "devices": 600,
+        "rows": 6601,
+        "results": [
+          {
+            "name": "device exclusion choices",
+            "medianMs": 0,
+            "minMs": 0,
+            "maxMs": 0.01
+          },
+          {
+            "name": "closed device policy editor",
+            "medianMs": 0.01,
+            "minMs": 0.01,
+            "maxMs": 0.01,
+            "bytes": 4074
+          },
+          {
+            "name": "open ignored entity picker",
+            "medianMs": 1.73,
+            "minMs": 1.09,
+            "maxMs": 2.64,
+            "bytes": 22529
+          },
+          {
+            "name": "sources tree and index",
+            "medianMs": 0,
+            "minMs": 0,
+            "maxMs": 0.01
+          },
+          {
+            "name": "collapsed sources browser",
+            "medianMs": 5.25,
+            "minMs": 3.67,
+            "maxMs": 7.06,
+            "bytes": 1983
+          }
+        ]
+      }
+    ]
+  },
+  "browser_runs": [
+    {
+      "report": {
+        "path": "build/ui-acceptance/refresh-save-desktop-retry/report.json",
+        "sha256": "73dbba9e500a68456c5aafd0644f9d0f4f5e4eb0ffc7aab4b61a0cd7a55a137f"
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "13a7df93b87cc4f3722f5edc598ab604406e7499",
+        "dirty": true,
+        "component_sha256": "dc063ff68700257c34f2cbd29d23f25aa6b03cfd4e6814d5e8750c068263a817",
+        "fixture_sha256": "eaf754737ac7f0ff389cc316059efc7c4fb22a073110b6bede4e9040e821085c",
+        "frozen_at": "2026-10-17T14:33:33.078Z"
+      },
+      "environment": {
+        "group": "all",
+        "viewport": {
+          "width": 1200,
+          "height": 900
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "all",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "155.0.8059.80",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.8.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "fixture_counts": {
+        "pass": 68,
+        "untested": 4
+      },
+      "live_inventory_counts": {
+        "pass": 114,
+        "fail": 3,
+        "untested": 1
+      },
+      "case_counts": {
+        "pass": 121,
+        "fail": 3
+      },
+      "failed_cases": [
+        {
+          "id": "issues.individual",
+          "status": "fail",
+          "environment": "isolated Home Assistant",
+          "duration_ms": 1518,
+          "error": "AssertionError [ERR_ASSERTION]: Every canonical entity policy is offered, beyond the current issue policy\n    at file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:228:12\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:16:76\n    at async run (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:97:20)\n    at async Module.runIssueGaps (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:219:3)\n    at async runLiveCases (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:467:5)\n    at async main (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:278:25)\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:313:79",
+          "screenshot": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-desktop-retry/all-issues.individual.png",
+          "dom": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-desktop-retry/all-issues.individual.txt"
+        },
+        {
+          "id": "issues.availability-batch",
+          "status": "fail",
+          "environment": "isolated Home Assistant",
+          "duration_ms": 13660,
+          "error": "locator.click: Timeout 12000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('homeostatic-panel-v44').last().locator('dialog[open] [data-issue-availability=\"remove\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button disabled type=\"button\" class=\"button\" data-issue-availability=\"remove\" data-issue-id=\"01a14a4b-e3e2-7001-9233-9dc1a248cdce\">Stop Monitoring</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    23 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not enabled\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\n    at /mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:309:332\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:16:76\n    at async run (/mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:97:20)\n    at async Module.runIssueGaps (/mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:307:3)\n    at async runLiveCases (/mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:467:5)\n    at async main (/mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:278:25)\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:313:79",
+          "screenshot": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-desktop-retry/all-issues.availability-batch.png",
+          "dom": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-desktop-retry/all-issues.availability-batch.txt"
+        },
+        {
+          "id": "updates.retention",
+          "status": "fail",
+          "environment": "isolated Home Assistant",
+          "duration_ms": 1739,
+          "error": "AssertionError [ERR_ASSERTION]: Unhandled browser errors occurred during this case\n+ actual - expected\n\n+ [\n+   'Object'\n+ ]\n- []\n\n    at run (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:98:14)\n    at async Module.runLayoutGaps (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_layout.mjs:43:3)\n    at async runLiveCases (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:467:5)\n    at async main (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:278:25)\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:313:79",
+          "screenshot": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-desktop-retry/all-updates.retention.png",
+          "dom": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-desktop-retry/all-updates.retention.txt"
+        }
+      ],
+      "selected_cases": null,
+      "diagnostics": [
+        "Unhandled rejection (updates.retention): not_found Subscription not found.",
+        "Browser: Object"
+      ],
+      "unhandled_rejections": [
+        {
+          "code": "not_found",
+          "message": "Subscription not found.",
+          "case": "updates.retention",
+          "at": "2026-10-17T14:38:38.033Z"
+        }
+      ]
+    },
+    {
+      "report": {
+        "path": "build/ui-acceptance/refresh-save-phone/report.json",
+        "sha256": "77eec1bdfcbb174e49ac01da12c96ff370ea6582ac30fcfdff1a96effb842401"
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "13a7df93b87cc4f3722f5edc598ab604406e7499",
+        "dirty": true,
+        "component_sha256": "dc063ff68700257c34f2cbd29d23f25aa6b03cfd4e6814d5e8750c068263a817",
+        "fixture_sha256": "eaf754737ac7f0ff389cc316059efc7c4fb22a073110b6bede4e9040e821085c",
+        "frozen_at": "2026-10-17T14:33:33.078Z"
+      },
+      "environment": {
+        "group": "all",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "browser": "chromium",
+        "mode": "all",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "155.0.8059.80",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.8.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "fixture_counts": {
+        "pass": 68,
+        "untested": 4
+      },
+      "live_inventory_counts": {
+        "pass": 114,
+        "fail": 3,
+        "untested": 1
+      },
+      "case_counts": {
+        "pass": 121,
+        "fail": 3
+      },
+      "failed_cases": [
+        {
+          "id": "issues.individual",
+          "status": "fail",
+          "environment": "isolated Home Assistant",
+          "duration_ms": 1543,
+          "error": "AssertionError [ERR_ASSERTION]: Every canonical entity policy is offered, beyond the current issue policy\n    at file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:228:12\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:16:76\n    at async run (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:97:20)\n    at async Module.runIssueGaps (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:219:3)\n    at async runLiveCases (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:467:5)\n    at async main (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:278:25)\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:313:79",
+          "screenshot": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-phone/all-issues.individual.png",
+          "dom": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-phone/all-issues.individual.txt"
+        },
+        {
+          "id": "issues.availability-batch",
+          "status": "fail",
+          "environment": "isolated Home Assistant",
+          "duration_ms": 13730,
+          "error": "locator.click: Timeout 12000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('homeostatic-panel-v44').last().locator('dialog[open] [data-issue-availability=\"remove\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button disabled type=\"button\" class=\"button\" data-issue-availability=\"remove\" data-issue-id=\"01a14a4c-d63a-7001-8523-c1b5fd2e434b\">Stop Monitoring</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    23 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not enabled\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\n    at /mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:309:332\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:16:76\n    at async run (/mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:97:20)\n    at async Module.runIssueGaps (/mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_issues.mjs:307:3)\n    at async runLiveCases (/mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:467:5)\n    at async main (/mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:278:25)\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:313:79",
+          "screenshot": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-phone/all-issues.availability-batch.png",
+          "dom": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-phone/all-issues.availability-batch.txt"
+        },
+        {
+          "id": "updates.retention",
+          "status": "fail",
+          "environment": "isolated Home Assistant",
+          "duration_ms": 1611,
+          "error": "AssertionError [ERR_ASSERTION]: Unhandled browser errors occurred during this case\n+ actual - expected\n\n+ [\n+   'Object'\n+ ]\n- []\n\n    at run (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:98:14)\n    at async Module.runLayoutGaps (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_layout.mjs:43:3)\n    at async runLiveCases (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:467:5)\n    at async main (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:278:25)\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:313:79",
+          "screenshot": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-phone/all-updates.retention.png",
+          "dom": "/mnt/c/GitHub/homeostatic/build/ui-acceptance/refresh-save-phone/all-updates.retention.txt"
+        }
+      ],
+      "selected_cases": null,
+      "diagnostics": [
+        "Unhandled rejection (updates.retention): not_found Subscription not found.",
+        "Browser: Object"
+      ],
+      "unhandled_rejections": [
+        {
+          "code": "not_found",
+          "message": "Subscription not found.",
+          "case": "updates.retention",
+          "at": "2026-10-17T14:39:39.766Z"
+        }
+      ]
+    },
+    {
+      "report": {
+        "path": "build/ui-acceptance/refresh-save-corrected-desktop/report.json",
+        "sha256": "826003364f99f767b015ed488213baa26e7f4de8d69a1862cb4ee948ab6f5236"
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "13a7df93b87cc4f3722f5edc598ab604406e7499",
+        "dirty": true,
+        "component_sha256": "c0690334db4c0976129c9aae297b505694e6f8006a6238120379ef32519e3e54",
+        "fixture_sha256": "9e2a766255d7198aef12e95709c40f836d7982bd3a48bc266fb51b2fefc38831",
+        "frozen_at": "2026-10-17T14:43:22.812Z"
+      },
+      "environment": {
+        "group": "issues",
+        "viewport": {
+          "width": 1200,
+          "height": 900
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "selected_cases": [
+          "issues.individual",
+          "issues.availability-batch",
+          "issues.empty",
+          "issues.controls",
+          "issues.device-hierarchy",
+          "issues.entity-navigation"
+        ],
+        "browser_version": "155.0.8059.80",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.8.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "fixture_counts": {
+        "untested": 72
+      },
+      "live_inventory_counts": {
+        "pass": 6,
+        "untested": 67
+      },
+      "case_counts": {
+        "pass": 6
+      },
+      "failed_cases": [],
+      "selected_cases": [
+        "issues.individual",
+        "issues.availability-batch",
+        "issues.empty",
+        "issues.controls",
+        "issues.device-hierarchy",
+        "issues.entity-navigation"
+      ],
+      "diagnostics": [],
+      "unhandled_rejections": []
+    },
+    {
+      "report": {
+        "path": "build/ui-acceptance/refresh-save-corrected-phone/report.json",
+        "sha256": "4c9e94c487fd7cc73edd97536c2bab4886cefaea905ee05aabf4ebf4223133c9"
+      },
+      "candidate": {
+        "branch": "main",
+        "revision": "13a7df93b87cc4f3722f5edc598ab604406e7499",
+        "dirty": true,
+        "component_sha256": "c0690334db4c0976129c9aae297b505694e6f8006a6238120379ef32519e3e54",
+        "fixture_sha256": "9e2a766255d7198aef12e95709c40f836d7982bd3a48bc266fb51b2fefc38831",
+        "frozen_at": "2026-10-17T14:43:22.812Z"
+      },
+      "environment": {
+        "group": "issues",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "browser": "chromium",
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "selected_cases": [
+          "issues.individual",
+          "issues.availability-batch",
+          "issues.empty",
+          "issues.controls",
+          "issues.device-hierarchy",
+          "issues.entity-navigation"
+        ],
+        "browser_version": "155.0.8059.80",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.8.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "fixture_counts": {
+        "untested": 72
+      },
+      "live_inventory_counts": {
+        "pass": 6,
+        "untested": 67
+      },
+      "case_counts": {
+        "pass": 6
+      },
+      "failed_cases": [],
+      "selected_cases": [
+        "issues.individual",
+        "issues.availability-batch",
+        "issues.empty",
+        "issues.controls",
+        "issues.device-hierarchy",
+        "issues.entity-navigation"
+      ],
+      "diagnostics": [],
+      "unhandled_rejections": []
+    }
+  ],
+  "correction": {
+    "files": [
+      "custom_components/homeostatic/dashboard.py",
+      "custom_components/homeostatic/frontend/homeostatic.js",
+      "custom_components/homeostatic/frontend/issue-monitoring.mjs"
+    ],
+    "original_failures": [
+      "issues.individual",
+      "issues.availability-batch"
+    ],
+    "resolved": "Add the canonical entity edge for temperature checks and load the complete catalog when an availability issue opens. Six affected real-HA paths pass on both corrected desktop and phone candidates, with no browser diagnostics. Earlier passing workflows remain evidence of the earlier candidate; no report merges different component hashes."
+  },
+  "visual_inspection": {
+    "picker": {
+      "path": "build/ui-acceptance/refresh-save-final-picker-enlarged/receipt.json",
+      "sha256": "7d50012bcc7594611f53001c36093479cf931342ee42b049a0cf9188869ce23a"
+    },
+    "inspected": [
+      "1200px light bounded household picker",
+      "390px dark bounded household picker",
+      "320px picker at normal and doubled text",
+      "1200px and 390px picker at doubled text",
+      "Corrected real-HA 390px dark final issue list"
+    ],
+    "result": "Picker bounds, complete search, selection, Show 50 more, Done and focus pass. Shared header title/Settings text overlap at 320px doubled text also reproduces in the earlier candidate with identical styles; enlarged-layout failure is retained outside the picker performance scope."
+  },
+  "preserved_attempts": [
+    {
+      "report": "build/ui-acceptance/refresh-save-desktop/report.json",
+      "reason": "Initial fixture expected the previous custom-element identity; fixture corrected. Real HA did not start because an expanded Python path was /bin/python; rerun used its absolute prepared path."
+    }
+  ],
+  "reconnect_diagnosis": {
+    "path": "build/ui-acceptance/refresh-save-reconnect-baseline/diagnosis.json",
+    "sha256": "b071c9b38df1af220fd3a4d31b40843492323e8c6b3fa85da93ca01b2e34016f"
+  },
+  "remaining_limits": [
+    "Snapshot creation, verified storage and draining queued observations remain measurable. No storage format or outbox durability change was made.",
+    "updates.retention remains failed with the independently reproduced native Home Assistant subscription cleanup error. The current trace points to a stale persistent-notification subscription id; exact caller attribution is an inference because no caller stack was supplied. Homeostatic draft, focus, selection, read-only and saved-state assertions passed before the browser-error gate. Prior plain-HA reproduction has no Homeostatic mounts or requests and the same installed frontend bundle fingerprint; see docs/performance/ui-fixes-1.8.0-2026-10-15/upstream-ha-reconnect.json.",
+    "Shared header overlap at 320px doubled text is pre-existing; full accessibility is not claimed.",
+    "Physical Safari, representative household sustained load, live installation and real notification receipt were not exercised. All test requests used isolated mock destinations.",
+    "Timings are small-sample observations on a shared host, not guarantees. Backend profiles were serialized on one worker; independent browser acceptance also ran on the host."
+  ],
+  "raw_report_policy": "Earlier failures are retained. Corrected targeted runs leave unrelated inventory paths untested by design; they do not certify the entire inventory or erase the known upstream reconnect failure."
+}

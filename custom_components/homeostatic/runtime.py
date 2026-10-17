@@ -111,6 +111,7 @@ from .monitoring_runtime import (
     original_identity,
     retain_source_identities,
     temperature_sources,
+    thermostat_enrolled,
     ups_sources,
 )
 from .notification_routes import async_send, notification_url, unavailable_destinations
@@ -437,9 +438,21 @@ class Runtime:
         )
         if metadata_changed:
             self._inventory_dirty = True
-        if entity_id.startswith("climate.") and any(
-            item.enabled and item.check == "thermostat"
-            for item in self.settings.monitoring_policies
+        if (
+            entity_id.startswith("climate.")
+            and thermostat_enrolled(old) != thermostat_enrolled(new)
+            and any(
+                not candidate.disabled
+                and item.enabled
+                and item.check == "thermostat"
+                and item.matches(candidate.attributes, source_id=candidate.node_id)
+                for identity in (
+                    f"entity:entity_id:{entity_id}",
+                    f"entity:registry:{registered.id}" if registered else "",
+                )
+                if (candidate := self.candidates.get(identity)) is not None
+                for item in self.settings.monitoring_policies
+            )
         ):
             self._inventory_dirty = True
             self._request_refresh()
@@ -458,8 +471,6 @@ class Runtime:
             for source in sources:
                 if source.kind in TEMPERATURE_CHECKS:
                     temperature_states.append((source.node_id, new))
-                    self._inventory_dirty = True
-                    self._request_refresh()
                     continue
                 observation = (
                     self._observe_device(source, now, entity_id, new)
@@ -918,16 +929,41 @@ class Runtime:
                 "phase=routes_before seconds=%.6f", perf_counter() - phase_started
             )
             reconcile = tuple(
-                replace(item, notifications=())
+                replace(item, name="", notifications=())
                 for item in self.settings.monitoring_policies
             ) != tuple(
-                replace(item, notifications=()) for item in settings.monitoring_policies
+                replace(item, name="", notifications=())
+                for item in settings.monitoring_policies
+            )
+            previous_names = {
+                item.id: item.name for item in self.settings.monitoring_policies
+            }
+            names_only = (
+                self.settings != settings
+                and replace(
+                    settings,
+                    monitoring_policies=tuple(
+                        replace(item, name=previous_names.get(item.id, item.name))
+                        for item in settings.monitoring_policies
+                    ),
+                )
+                == self.settings
             )
             try:
                 phase_started = perf_counter()
                 self.settings = settings
                 events = self._evaluate(now, reconcile=reconcile)
-                self._handle(events, now)
+                self._handle(
+                    events,
+                    now,
+                    renamed_sources={
+                        node_id: (route_sources[node_id].name, source.name)
+                        for node_id, source in self.sources.items()
+                        if names_only
+                        and node_id in route_sources
+                        and source.name != route_sources[node_id].name
+                    },
+                )
                 _SAVE_TIMING_LOGGER.debug(
                     "phase=evaluation seconds=%.6f", perf_counter() - phase_started
                 )
@@ -1517,13 +1553,39 @@ class Runtime:
                 raise invalid
             return response
 
+    def _renamed_sources(self) -> dict[str, Source]:
+        """Refresh policy-owned names without rediscovering unchanged equipment."""
+        if self._compiled_settings is None:
+            return self.sources
+        previous = {
+            item.id: item.name for item in self._compiled_settings.monitoring_policies
+        }
+        renamed = {
+            item.id: (previous[item.id], item.name)
+            for item in self.settings.monitoring_policies
+            if item.id in previous and item.name != previous[item.id]
+        }
+        if not renamed:
+            return self.sources
+        sources = dict(self.sources)
+        for node_id, source in self.sources.items():
+            if source.kind == "ups" or source.monitoring_policy not in renamed:
+                continue
+            old, new = renamed[source.monitoring_policy]
+            suffix = f" · {old}"
+            if source.name.endswith(suffix):
+                sources[node_id] = replace(
+                    source, name=f"{source.name.removesuffix(suffix)} · {new}"
+                )
+        return sources
+
     def _evaluate(self, now: datetime, *, reconcile: bool = True) -> list[HealthEvent]:
         first = self.engine is None
         discover = reconcile or self._inventory_dirty or first
         previous_candidates = self.candidates
         previous_targets = self.targets
         previous_changes = tuple(self.enrollment_changes)
-        sources = self._discover() if discover else self.sources
+        sources = self._discover() if discover else self._renamed_sources()
         policy_changed = (
             first
             or self.settings is not self._compiled_settings
@@ -1569,7 +1631,7 @@ class Runtime:
                 events.extend(self.engine.register_many(changed, now))
             for node_id in removed:
                 events.extend(self.engine.remove(node_id, now))
-        if discover:
+        if discover or sources != self.sources:
             rules = enrollment_rules(self.settings.monitoring_policies)
             rules_changed = (
                 self._compiled_settings is None
@@ -1983,10 +2045,20 @@ class Runtime:
         return device_observation(source, states, now)
 
     def _handle(
-        self, events: list[HealthEvent], now: datetime, cause: Context | None = None
+        self,
+        events: list[HealthEvent],
+        now: datetime,
+        cause: Context | None = None,
+        *,
+        renamed_sources: dict[str, tuple[str, str]] | None = None,
     ) -> None:
         assert self.policy is not None
         for event in events:
+            presentation_only = (
+                bool(renamed_sources)
+                and isinstance(event, EpisodeUpdated)
+                and self._renamed_episode(event, renamed_sources or {})
+            )
             split_deliveries = None
             if isinstance(event, EpisodeOpened) and event.split_from is not None:
                 for control in tuple(self.controls):
@@ -2058,15 +2130,51 @@ class Runtime:
                 # Reconciliation has already read the available HA evidence. A
                 # cached entity update cannot establish physical freshness.
                 continue
-            self._deliveries(
+            deliveries = (
                 split_deliveries
                 if split_deliveries is not None
                 else self.policy.handle(event, now, PolicyContext())
             )
+            if presentation_only:
+                deliveries = [
+                    delivery
+                    for delivery in deliveries
+                    if not (
+                        isinstance(delivery, Notification)
+                        and delivery.silent
+                        and delivery.cause == "update"
+                    )
+                ]
+            self._deliveries(deliveries)
             if rearm:
                 self._deliveries(
                     self.policy.rearm(event.episode.episode_id, now, PolicyContext())
                 )
+
+    def _renamed_episode(
+        self, event: EpisodeUpdated, renamed: dict[str, tuple[str, str]]
+    ) -> bool:
+        """Recognize only exact policy-name substitutions in adapter presentation."""
+        previous = deepcopy(self.episodes.get(event.episode.episode_id))
+        if previous is None:
+            return False
+        current = json_object(event.episode)
+        current["updated_at"] = previous["updated_at"]
+        for episode in (current, previous):
+            labels = cast(dict[str, JSONValue], episode["labels"])
+            if event.episode.anchor in renamed:
+                old, new = renamed[event.episode.anchor]
+                if labels.get("name") == new:
+                    labels["name"] = old
+            for finding in cast(list[dict[str, JSONValue]], episode["reasons"]):
+                node_id = str(finding["node_id"])
+                message = finding.get("message")
+                if node_id in renamed and isinstance(message, str):
+                    old, new = renamed[node_id]
+                    prefix = f"{new}: "
+                    if message.startswith(prefix):
+                        finding["message"] = f"{old}: {message.removeprefix(prefix)}"
+        return current == previous
 
     def _functions(self, episode: dict[str, JSONValue] | None) -> frozenset[str]:
         if episode is None:
