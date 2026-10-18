@@ -22,6 +22,7 @@ from custom_components.homeostatic import phone_actions
 from custom_components.homeostatic import runtime as runtime_module
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.notification_routes import Destination
+from tests.policy_helpers import immediate_notification, monitoring_policy
 from tests.test_device_notifications import device_sources
 from tests.test_lifecycle import start_monitor
 from tests.test_startup_quiet import fresh_start, slow_integration
@@ -34,7 +35,7 @@ async def test_enabling_existing_device_failures_sends_one_acknowledgeable_messa
     monkeypatch: pytest.MonkeyPatch,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """Activation combines device and entity issues and binds the shown occurrences."""
+    """Activation combines independent entity issues and binds the shown occurrences."""
     device, temperature, switch = device_sources(hass, config_data)
     config_data["notifications"] = False
     config_data["notification_definitions"]["methods"]["test"]["destinations"] = [
@@ -55,7 +56,7 @@ async def test_enabling_existing_device_failures_sends_one_acknowledgeable_messa
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     shown = set(runtime.episodes)
-    assert len(shown) == 3
+    assert len(shown) == 2
     assert not events
     assert not runtime.delivery.outbox
     send.assert_not_called()
@@ -100,7 +101,7 @@ async def test_enabling_existing_device_failures_sends_one_acknowledgeable_messa
         runtime.episodes
     )
     new_failures = set(runtime.episodes) - shown
-    assert len(new_failures) == 2
+    assert len(new_failures) == 1
     await runtime.async_phone_action(
         Event(
             "mobile_app_notification_action",
@@ -149,12 +150,19 @@ async def test_startup_hold_emits_one_message_per_device_without_individual_copi
     hass.states.async_set(temperature.entity_id, "unavailable")
     hass.states.async_set(switch.entity_id, "unavailable")
     hass.states.async_set(humidity.entity_id, "unavailable")
+    config_data["monitoring_policies"].append(
+        monitoring_policy(
+            "humidity",
+            {"kind": ["entity"], "entity": [f"registry:{humidity.id}"]},
+            notifications=immediate_notification(),
+        )
+    )
     slow = slow_integration(hass, config_data)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await fresh_start(hass, entry)
     assert runtime.startup_quiet
-    assert len(runtime.episodes) == 5
+    assert len(runtime.episodes) == 3
     assert not events
     assert len(runtime.delivery.outbox) == 2
     slow.mock_state(hass, ConfigEntryState.LOADED)
@@ -167,7 +175,7 @@ async def test_startup_hold_emits_one_message_per_device_without_individual_copi
     }
     assert len({event.data["tag"] for event in events}) == 2
     assert all(not event.data["silent"] for event in events)
-    assert sorted(len(event.data["episodes"]) for event in events) == [2, 3]
+    assert sorted(len(event.data["episodes"]) for event in events) == [1, 2]
     assert {episode for event in events for episode in event.data["episodes"]} == set(
         runtime.episodes
     )
@@ -189,7 +197,7 @@ async def test_partial_recovery_during_startup_hold_delivers_only_remaining_fail
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await fresh_start(hass, entry)
     assert runtime.startup_quiet
-    assert len(runtime.episodes) == 3
+    assert len(runtime.episodes) == 2
     remaining = next(
         episode
         for episode, issue in runtime.episodes.items()
@@ -225,7 +233,7 @@ async def test_disabled_notifications_stay_silent_after_startup_and_partial_reco
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await fresh_start(hass, entry)
     assert runtime.startup_quiet
-    assert len(runtime.episodes) == 3
+    assert len(runtime.episodes) == 2
     slow.mock_state(hass, ConfigEntryState.LOADED)
     hass.states.async_set(switch.entity_id, "on")
     await hass.async_block_till_done()

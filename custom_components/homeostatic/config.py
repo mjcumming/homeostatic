@@ -184,6 +184,18 @@ def uses_legacy_notification_settings(data: Mapping[str, Any]) -> bool:
         candidate["notification_definitions"]["profiles"][identity]["timing"][
             "collection_delay_seconds"
         ] = 0
+    # Validate the published device-policy shape before the authorized reset.
+    # This copy is discarded; current policies still reject device checks.
+    policies = candidate.get("monitoring_policies")
+    if isinstance(policies, list):
+        for row in policies:
+            if (
+                isinstance(row, dict)
+                and row.get("check") == "availability"
+                and isinstance(row.get("match"), dict)
+                and row["match"].get("kind") in (["device"], "device")
+            ):
+                row["match"]["kind"] = ["entity"]
     # The old shape alone cannot turn unrelated corruption into a settings reset.
     Settings.from_data(candidate, functions_enabled=False)
     return True

@@ -24,6 +24,10 @@
 
 - Compact device rows in Open issues keep the device, problem and opening time together, omit redundant entity headings and single-issue counts, and retain one View action per device.
 
+### Fixed
+
+- Keep the supported reset of older named-notification settings working when those settings contain a published device availability policy. Invalid settings still fail without reset.
+
 ## [1.10.0] - 2026-10-18
 
 ### Upgrade notes

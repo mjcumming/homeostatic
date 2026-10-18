@@ -44,7 +44,7 @@ async def test_open_finding_moves_between_device_and_standalone_then_recovers(
     registry.async_update_entity(
         temperature.entity_id, device_id=associations[initially_standalone]
     )
-    config_data["monitoring_policies"][1]["notifications"][0]["timing"] = {
+    config_data["monitoring_policies"][0]["notifications"][0]["timing"] = {
         "mode": "acknowledge",
         "remind_every": "1h",
     }
@@ -114,7 +114,7 @@ async def test_detaching_finding_keeps_device_siblings_and_their_message(
     hass.states.async_set(switch.entity_id, "unavailable")
     await hass.async_block_till_done()
     original = events[-1].data
-    assert len(original["episodes"]) == 3
+    assert len(original["episodes"]) == 2
     moved_episode = next(
         identity
         for identity, episode in runtime.episodes.items()
@@ -137,7 +137,7 @@ async def test_detaching_finding_keeps_device_siblings_and_their_message(
     assert standalone["episodes"] == [moved_episode]
     assert standalone["episode_id"] == moved_episode
     assert standalone["title"] == "hall controller"
-    assert standalone["message"] == "hall controller · entities: unavailable"
+    assert standalone["message"] == "hall controller · temperature: unavailable"
 
     events.clear()
     hass.states.async_set(temperature.entity_id, "22")
@@ -209,7 +209,7 @@ async def test_changing_grouped_route_to_scheduled_report_retires_old_membership
     [episode] = runtime.episodes
     original = events[-1].data
     changed = deepcopy(config_data)
-    changed["monitoring_policies"][1]["notifications"][0]["timing"] = {
+    changed["monitoring_policies"][0]["notifications"][0]["timing"] = {
         "mode": "report",
         "at": "08:00",
         "weekdays": list(range(7)),
