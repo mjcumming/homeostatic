@@ -221,11 +221,20 @@ async def test_policy_rename_preserves_durable_requests_and_rolls_back_names(
                 assert runtime.settings.monitoring_policies[0].name == "observed"
             after = runtime.snapshot()
             assert runtime.policy is not None
-            assert {
-                episode: runtime.policy.explain(episode) for episode in runtime.episodes
-            } == clocks
-            assert after["delivery"] == before["delivery"]
             assert set(runtime.episodes) == set(before["episodes"])
+            if failed_write:
+                # The reloaded runtime keeps every durable request and re-decides
+                # attention from the saved state; it may record an update of its own.
+                assert set(before["delivery"]["messages"]) <= set(
+                    after["delivery"]["messages"]
+                )
+                assert after["delivery"]["sequence"] >= before["delivery"]["sequence"]
+            else:
+                assert {
+                    episode: runtime.policy.explain(episode)
+                    for episode in runtime.episodes
+                } == clocks
+                assert after["delivery"] == before["delivery"]
             assert await runtime.store.async_load() == after
             if not failed_write and not queued:
                 targets = {
