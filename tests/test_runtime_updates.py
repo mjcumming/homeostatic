@@ -242,19 +242,18 @@ async def test_entry_lifecycle_preserves_evidence_without_catalog_rebuild(
         await hass.async_block_till_done()
         assert len(runtime.episodes) == 1
         assert (
-            runtime.integration_evidence.view(node_id)["last_failure"]["message"]
+            runtime.evidence.view(node_id)["last_failure"]["message"]
             == "Connection failed"
         )
         source._async_set_state(hass, ConfigEntryState.SETUP_IN_PROGRESS, None)
         await hass.async_block_till_done()
         assert (
-            runtime.integration_evidence.view(node_id)["current"]["reason"]
-            == "setup_in_progress"
+            runtime.evidence.view(node_id)["current"]["reason"] == "setup_in_progress"
         )
         source._async_set_state(hass, ConfigEntryState.LOADED, None)
         await hass.async_block_till_done()
     assert not runtime.episodes
-    assert runtime.integration_evidence.view(node_id)["last_failure"] is None
+    assert runtime.evidence.view(node_id)["last_failure"] is None
     assert runtime.inventory_static is catalog
     assert await runtime.store.async_load() == runtime.snapshot()
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -368,7 +367,7 @@ async def test_entry_lifecycle_queued_during_notification_save_is_durable(
     )
     assert len(runtime.episodes) == 1
     assert (
-        runtime.integration_evidence.view(node_id)["last_failure"]["message"]
+        runtime.evidence.view(node_id)["last_failure"]["message"]
         == "Connection failed during save"
     )
     # The trailing evidence-only refresh persists when its window closes.

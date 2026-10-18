@@ -490,7 +490,7 @@ async def test_source_temperature_evidence_tracks_deadline_gap_and_recovery(
         qualification = {
             key: monitor.since for key, monitor in runtime.temperature_monitors.items()
         }
-        observations = deepcopy(runtime.temperature_observations)
+        observations = {key: runtime.evidence.latest(key) for key in runtime.sources}
         await client.send_json(
             {"id": request_id, "type": "homeostatic/source", "node_id": node_id}
         )
@@ -513,7 +513,9 @@ async def test_source_temperature_evidence_tracks_deadline_gap_and_recovery(
         assert {
             key: monitor.since for key, monitor in runtime.temperature_monitors.items()
         } == qualification
-        assert runtime.temperature_observations == observations
+        assert {
+            key: runtime.evidence.latest(key) for key in runtime.sources
+        } == observations
         return condition
 
     pending = await query_temperature(1)
@@ -547,7 +549,7 @@ async def test_source_temperature_evidence_tracks_deadline_gap_and_recovery(
     hass.states.async_remove(entity_id)
     await hass.async_block_till_done()
     await runtime.async_refresh()
-    assert not runtime.temperature_observations
+    assert runtime.evidence.latest(pending["node_id"]) is None
     assert runtime.temperature_status(pending["node_id"])["observation"] is None
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()

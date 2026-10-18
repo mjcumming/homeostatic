@@ -34,7 +34,7 @@ _STORE_WRITE = Store._async_write_data
     [
         {"schema_version": 999},
         {"engine": []},
-        {"integration_evidence": []},
+        {"evidence": []},
         {"monitoring_identities": []},
         {"monitoring_identities": {"monitoring:entities": "monitoring:entities"}},
         {"monitoring_identities": {"monitoring:a:key:one": "monitoring:b:key:one"}},
@@ -61,7 +61,7 @@ _STORE_WRITE = Store._async_write_data
     ids=[
         "version",
         "engine-shape",
-        "integration-evidence-shape",
+        "evidence-shape",
         "monitoring-identities-shape",
         "monitoring-identity-shape",
         "monitoring-identity-policy",

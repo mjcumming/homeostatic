@@ -627,7 +627,7 @@ def websocket_node(
                     runtime.settings.monitoring_policies, source, runtime.sources
                 )
             ],
-            "integration_evidence": runtime.integration_evidence.view(node_id),
+            "integration_evidence": runtime.evidence.view(node_id),
             "entity_status": runtime.entity_status(node_id),
             "temperature_status": runtime.temperature_status(node_id)
             if source.kind in TEMPERATURE_CHECKS
@@ -819,7 +819,7 @@ def websocket_source(
     }
     temperature_checks = _temperature_checks(runtime, source, candidates)
     policy_ids.update(str(item["policy_id"]) for item in temperature_checks)
-    evidence = runtime.integration_evidence.view(observed_node) or {}
+    evidence = runtime.evidence.view(observed_node) or {}
     if source.kind == "integration" and source.entry_id:
         entry = hass.config_entries.async_get_entry(source.entry_id)
         if entry is not None and not evidence.get("current"):

@@ -22,7 +22,7 @@ The persistence boundary is durable facts. A durable fact is state the product c
 For the adapter's own sections:
 
 - Route signatures persist as a digest of their canonical JSON. Equality is the only use of the stored value; a legacy snapshot holding the full signature converts to its digest on restore.
-- Check and integration evidence persist the last known failure and whether history is complete, which the history goal needs. The current observation stays in memory and is rebuilt by the first refresh.
+- Evidence persists the last known failure and whether history is complete, which the history goal needs. The current observation stays in memory, in the one latest-observation map the audit's step 2 introduced, and is rebuilt by the first refresh.
 - The runtime serializes the envelope once, keeps a digest of the last verified write, and skips a save whose bytes equal it. The serialization already existed for byte verification, which now compares the stored file with those same bytes.
 - The refresh trace records the engine event types each refresh produced, so the saves that still happen can be attributed.
 

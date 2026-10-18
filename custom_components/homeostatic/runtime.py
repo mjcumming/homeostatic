@@ -98,7 +98,7 @@ from .enrollment import (
     report,
     restore_enrollment,
 )
-from .evidence import ReportedCondition, ReportedEvidence
+from .evidence import ReportedEvidence
 from .facts import (
     FACT_SCHEMA_VERSION,
     Fact,
@@ -203,13 +203,11 @@ class Runtime:
         self.episodes: dict[str, dict[str, JSONValue]] = {}
         self.history = ResolvedHistory()
         self._resolved_sources: dict[str, Source] = {}
-        self.integration_evidence = ReportedEvidence()
-        self.check_evidence = ReportedEvidence()
-        self.entity_evidence: dict[str, ReportedCondition] = {}
+        # One map holds the latest observation of every source (audit step 2).
+        self.evidence = ReportedEvidence()
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
         self.temperature_monitors: dict[str, TemperatureMonitor] = {}
-        self.temperature_observations: dict[str, Observation] = {}
         self.ups_monitors: dict[str, UpsMonitor] = {}
         self._ups_saved: dict[str, Any] = {}
         self._temperature_saved: dict[str, Any] = {}
@@ -397,10 +395,21 @@ class Runtime:
         self.phone_actions.restore(self.saved.get("phone_actions", {}))
         if "resolved_history" in self.saved:
             self.history.restore(self.saved["resolved_history"])
-        self.integration_evidence.restore(self.saved.get("integration_evidence", {}))
-        self.check_evidence.restore(
-            self.saved.get("check_evidence", {}),
-            history_complete="check_evidence" in self.saved,
+        stored_evidence = self.saved.get("evidence")
+        if stored_evidence is None:
+            # Snapshots before audit step 2 kept two sections.
+            integration = self.saved.get("integration_evidence", {})
+            checks = self.saved.get("check_evidence", {})
+            stored_evidence = (
+                {**integration, **checks}
+                if isinstance(integration, dict) and isinstance(checks, dict)
+                else integration
+                if not isinstance(integration, dict)
+                else checks
+            )
+        self.evidence.restore(
+            stored_evidence,
+            history_complete="evidence" in self.saved or "check_evidence" in self.saved,
         )
         self.controls = restore_controls(self.saved.get("operator_controls", []))
         self.enrolled = restore_enrollment(self.saved.get("enrollment", {}))
@@ -1973,31 +1982,12 @@ class Runtime:
             for key, value in self.temperature_monitors.items()
             if key in sources
         }
-        self.temperature_observations = {
-            key: value
-            for key, value in self.temperature_observations.items()
-            if key in sources
-        }
         self._temperature_deadlines = {
             key: value
             for key, value in self._temperature_deadlines.items()
             if key in sources
         }
-        self.entity_evidence = {
-            key: value
-            for key, value in self.entity_evidence.items()
-            if key in sources and sources[key].watched
-        }
-        self.check_evidence.retain(
-            {key for key, source in sources.items() if source.watched}
-        )
-        self.integration_evidence.retain(
-            {
-                source.node_id
-                for source in sources.values()
-                if source.kind == "integration" and source.watched
-            }
-        )
+        self.evidence.retain({key for key, source in sources.items() if source.watched})
         self._listen_entries()
         if first and self.saved is not None:
             self.episodes = self.saved["episodes"].copy()
@@ -2123,11 +2113,8 @@ class Runtime:
             source = self.sources[observation.node_id]
             if source.kind == "ups" and source.node_id in self.ups_monitors:
                 self.ups_monitors[source.node_id].latest = observation
-            if source.kind in TEMPERATURE_CHECKS:
-                self.temperature_observations[source.node_id] = observation
-            if source.kind == "integration":
-                self.integration_evidence.observe(observation, source.name)
-            elif source.kind in {
+            if source.kind in {
+                "integration",
                 "entity",
                 "device",
                 "battery",
@@ -2135,13 +2122,7 @@ class Runtime:
                 "ups",
                 *TEMPERATURE_CHECKS,
             }:
-                self.entity_evidence[source.node_id] = ReportedCondition(
-                    reason=observation.reason,
-                    message=observation.message or "",
-                    observed_at=observation.observed_at,
-                    status=observation.status.value,
-                )
-                self.check_evidence.observe(observation, source.name)
+                self.evidence.observe(observation, source.name)
                 if source.kind == "device":
                     self._device_signatures[source.node_id] = (
                         observation.status.value,
@@ -2930,8 +2911,7 @@ class Runtime:
                 for node_id, metadata in self.enrolled.items()
             },
             "resolved_history": self.history.snapshot(),
-            "integration_evidence": self.integration_evidence.snapshot(),
-            "check_evidence": self.check_evidence.snapshot(),
+            "evidence": self.evidence.snapshot(),
             "operator_controls": presentation(self.controls),
             "engine": self.engine.snapshot(),
             "policy": self.policy.snapshot(),
@@ -3348,7 +3328,7 @@ class Runtime:
 
     def temperature_status(self, node_id: str) -> dict[str, JSONValue]:
         """Present captured temperature evidence without advancing qualification."""
-        current = self.temperature_observations.get(node_id)
+        current = self.evidence.latest(node_id)
         monitor = self.temperature_monitors.get(node_id)
         deadline = self._temperature_deadlines.get(node_id)
         return {
@@ -3363,12 +3343,11 @@ class Runtime:
 
     def entity_status(self, node_id: str) -> dict[str, JSONValue] | None:
         """Present captured HA state alongside current public library answers."""
-        current = self.entity_evidence.get(node_id)
-        if current is None:
+        evidence = self.evidence.view(node_id)
+        if evidence is None or evidence["current"] is None:
             return None
-        evidence = self.check_evidence.view(node_id)
         return {
-            "current": json_object(current),
+            "current": evidence["current"],
             **(
                 {"last_failure": evidence["last_failure"]}
                 if evidence and evidence["history_complete"]
@@ -3405,9 +3384,7 @@ class Runtime:
                 if monitor.latest is not None
             },
             "integration_evidence": {
-                str(episode["anchor"]): self.integration_evidence.view(
-                    str(episode["anchor"])
-                )
+                str(episode["anchor"]): self.evidence.view(str(episode["anchor"]))
                 for episode in self.episodes.values()
                 if self.sources[str(episode["anchor"])].kind == "integration"
             },

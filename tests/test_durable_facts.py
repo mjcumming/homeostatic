@@ -32,12 +32,12 @@ async def test_snapshot_holds_route_digests_and_last_failures_only(
         isinstance(value, str) and len(value) == 64 for value in routes.values()
     )
     assert routes == runtime._route_digests()
-    evidence = snapshot["check_evidence"]
+    evidence = snapshot["evidence"]
     assert evidence
     for record in evidence.values():
         assert set(record) == {"last_failure", "history_complete"}
     [node_id] = [key for key, item in evidence.items() if item["last_failure"]]
-    view = runtime.check_evidence.view(node_id)
+    view = runtime.evidence.view(node_id)
     assert view is not None and view["current"]["status"] in {"warn", "fail"}
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -94,16 +94,16 @@ async def test_evidence_restores_without_current_and_rebuilds_it(
     runtime = await start_monitor(hass, entry)
     [node_id] = [
         key
-        for key, item in runtime.snapshot()["check_evidence"].items()
+        for key, item in runtime.snapshot()["evidence"].items()
         if item["last_failure"]
     ]
-    before = runtime.check_evidence.view(node_id)
+    before = runtime.evidence.view(node_id)
     assert before is not None and before["current"]["status"] in {"warn", "fail"}
     assert before["last_failure"] == before["current"]
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data
-    after = runtime.check_evidence.view(node_id)
+    after = runtime.evidence.view(node_id)
     assert after is not None
     # The first refresh re-observes the still failing source and refreshes the time.
     assert {k: v for k, v in after["last_failure"].items() if k != "observed_at"} == {

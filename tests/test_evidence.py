@@ -57,7 +57,7 @@ async def test_failure_retry_reload_and_confirmed_recovery(
     source._async_set_state(hass, state, "Connection timed out")
     await hass.async_block_till_done()
     episode = next(iter(runtime.episodes.values()))
-    original = runtime.integration_evidence.view(node_id)
+    original = runtime.evidence.view(node_id)
     assert original is not None
     failure = original["last_failure"]
     assert isinstance(failure, dict)
@@ -83,10 +83,10 @@ async def test_failure_retry_reload_and_confirmed_recovery(
         == detail["integration_evidence"]
     )
     detail["integration_evidence"]["last_failure"]["message"] = "changed client copy"
-    assert runtime.integration_evidence.view(node_id)["last_failure"] == failure
+    assert runtime.evidence.view(node_id)["last_failure"] == failure
     source._async_set_state(hass, ConfigEntryState.LOADED, None)
     await hass.async_block_till_done()
-    assert runtime.integration_evidence.view(node_id)["last_failure"] is None
+    assert runtime.evidence.view(node_id)["last_failure"] is None
     assert runtime.episodes
     freezer.tick(timedelta(seconds=11))
     await runtime.async_refresh()
@@ -119,13 +119,13 @@ async def test_disabled_source_stays_browsable_without_evidence_issue(
     assert not runtime.episodes
     assert runtime.candidates[node_id].disabled
     assert not runtime.candidates[node_id].watched
-    assert runtime.integration_evidence.view(node_id) is None
+    assert runtime.evidence.view(node_id) is None
     hass.config_entries.async_update_entry(
         entry, data={**config_data, "monitoring_policies": []}
     )
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
-    assert entry.runtime_data.integration_evidence.view(node_id) is None
+    assert entry.runtime_data.evidence.view(node_id) is None
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -261,7 +261,7 @@ async def test_legacy_open_issue_keeps_incomplete_history_through_unknown_reload
     node_id = bound_identity(policy, f"vacuum:registry:{entity.id}")
     assert runtime.entity_status(node_id)["last_failure"]["reason"] == "vacuum_error"
     assert await hass.config_entries.async_unload(entry.entry_id)
-    hass_storage[f"{DOMAIN}.{entry.entry_id}"]["data"].pop("check_evidence")
+    hass_storage[f"{DOMAIN}.{entry.entry_id}"]["data"].pop("evidence")
     hass.states.async_set(entity.entity_id, "unavailable")
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -275,7 +275,7 @@ async def test_legacy_open_issue_keeps_incomplete_history_through_unknown_reload
             runtime.entity_status(node_id)["current"]["reason"] == "vacuum_unavailable"
         )
         assert "last_failure" not in runtime.entity_status(node_id)
-        assert runtime.check_evidence.view(node_id)["history_complete"] is False
+        assert runtime.evidence.view(node_id)["history_complete"] is False
         assert (
             "last_failure"
             not in hass.data[DATA_DASHBOARD].value["inventory"]["entity_status"][
@@ -287,5 +287,5 @@ async def test_legacy_open_issue_keeps_incomplete_history_through_unknown_reload
     await hass.async_block_till_done()
     assert runtime.episodes == {}
     assert runtime.entity_status(node_id)["last_failure"] is None
-    assert runtime.check_evidence.view(node_id)["history_complete"] is True
+    assert runtime.evidence.view(node_id)["history_complete"] is True
     assert await hass.config_entries.async_unload(entry.entry_id)

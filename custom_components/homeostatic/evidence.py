@@ -1,4 +1,9 @@
-"""Observed conditions for presentation, independent of health decisions."""
+"""The latest observation of every source, with the durable part persisted.
+
+One map serves every reader: detail views read the current observation and the
+last known failure from here, and the snapshot persists only the failure and
+whether history is complete (ADR 0097). Health decisions stay in the engine.
+"""
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -60,7 +65,7 @@ class EvidenceContext:
 
 
 class ReportedEvidence:
-    """Retain one reported problem through evidence gaps and across reloads.
+    """Latest observation per source, for presentation only.
 
     Also used for independent checks; this is presentation evidence only.
     """
@@ -68,10 +73,12 @@ class ReportedEvidence:
     def __init__(self) -> None:
         """Begin without synthesizing historical observations."""
         self._records: dict[str, EvidenceContext] = {}
+        self._latest: dict[str, Observation] = {}
         self._history_complete = True
 
     def observe(self, observation: Observation, name: str) -> None:
         """Capture evidence only when the matching observation is ingested."""
+        self._latest[observation.node_id] = observation
         report = ReportedCondition(
             reason=observation.reason,
             message=(observation.message or "").removeprefix(f"{name}: "),
@@ -106,10 +113,17 @@ class ReportedEvidence:
             current=report, last_failure=failure, history_complete=history_complete
         )
 
+    def latest(self, node_id: str) -> Observation | None:
+        """The most recent observation of a source, as ingested."""
+        return self._latest.get(node_id)
+
     def retain(self, node_ids: set[str]) -> None:
         """Discard presentation when monitoring of the source ends."""
         self._records = {
             key: value for key, value in self._records.items() if key in node_ids
+        }
+        self._latest = {
+            key: value for key, value in self._latest.items() if key in node_ids
         }
 
     def view(self, node_id: str) -> dict[str, JSONValue] | None:
@@ -163,4 +177,5 @@ class ReportedEvidence:
                 ),
             )
         self._records = records
+        self._latest = {}
         self._history_complete = history_complete
