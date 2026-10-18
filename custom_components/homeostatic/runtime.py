@@ -1,8 +1,9 @@
 """Home Assistant lifecycle, observation, persistence, and delivery adapter."""
 
 import asyncio
+import gc
 import logging
-from collections import deque
+from collections import Counter, deque
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import replace
@@ -133,6 +134,20 @@ _LOGGER = logging.getLogger(__name__)
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 
+def _new_window() -> dict[str, Any]:
+    """Start a fresh counter window for the periodic timing summary."""
+    return {
+        "started": perf_counter(),
+        "refreshes": Counter[str](),
+        "discoveries": 0,
+        "saves": 0,
+        "evaluation_seconds": 0.0,
+        "snapshot_seconds": 0.0,
+        "gc_long": 0,
+        "gc_seconds": 0.0,
+    }
+
+
 class Runtime:
     """Serialize engine calls and publish durable adapter state on the HA loop."""
 
@@ -214,6 +229,10 @@ class Runtime:
         self.inventory_revision = 0
         self.inventory_static: dict[str, JSONValue] = {}
         self._refresh_task: asyncio.Task[None] | None = None
+        self._refresh_causes: set[str] = set()
+        self._lock_holder: str | None = None
+        self._gc_started: float | None = None
+        self._window = _new_window()
         self._refresh_requested = False
         self._reconcile_requested = False
         self._lock = asyncio.Lock()
@@ -416,7 +435,9 @@ class Runtime:
         )
         if self.fresh_start:
             self._quiet_since = dt_util.utcnow()
-        await self.async_refresh()
+        if self._on_gc not in gc.callbacks:
+            gc.callbacks.append(self._on_gc)
+        await self.async_refresh(cause="start")
 
     @callback
     def _state_changed(self, event: Event[Any]) -> None:
@@ -522,7 +543,7 @@ class Runtime:
                 if source.entry_id == entry.entry_id and source.watched
             ]
             self._pending.append((now, observations, None, ()))
-            self._request_refresh()
+            self._request_refresh(cause="config_entry")
 
     async def _drain_pending(self) -> None:
         assert self.engine is not None
@@ -576,19 +597,19 @@ class Runtime:
                 self._broken_created.add(event.data["entity_id"])
             elif action == "update" and "old_entity_id" in event.data:
                 self._broken_named.add(event.data["old_entity_id"])
-        self._request_refresh()
+        self._request_refresh(cause="registry")
 
     @callback
     def _automations_reloaded(self, event: Event[Any]) -> None:
         self._broken_full = True
-        self._request_refresh()
+        self._request_refresh(cause="automations")
 
     @callback
     def _repairs_changed(self, event: Event[ir.EventIssueRegistryUpdatedData]) -> None:
         if event.data["domain"] != DOMAIN:
             self._repairs_dirty = True
             self._inventory_dirty = True
-            self._request_refresh()
+            self._request_refresh(cause="repairs")
 
     @callback
     def _config_entry_changed(
@@ -606,16 +627,19 @@ class Runtime:
             and candidate.attributes.get("domain") == (entry.domain,)
         ):
             # Entry lifecycle evidence is captured by the dedicated state listener.
-            self._request_refresh()
+            self._request_refresh(cause="config_entry")
             return
         self._inventory_dirty = True
-        self._request_refresh(reconcile=True)
+        self._request_refresh(reconcile=True, cause="config_entry")
 
     @callback
-    def _request_refresh(self, *, reconcile: bool = False) -> None:
+    def _request_refresh(
+        self, *, reconcile: bool = False, cause: str = "state"
+    ) -> None:
         if self.running:
             self._refresh_requested = True
             self._reconcile_requested |= reconcile
+            self._refresh_causes.add(cause)
             if self._refresh_task is None:
                 self._refresh_task = self.hass.async_create_task(
                     self._queued_refresh(), eager_start=False
@@ -627,15 +651,18 @@ class Runtime:
                 self._refresh_requested = False
                 reconcile = self._reconcile_requested
                 self._reconcile_requested = False
-                await self.async_refresh(reconcile=reconcile)
+                cause = ",".join(sorted(self._refresh_causes)) or "unknown"
+                self._refresh_causes.clear()
+                await self.async_refresh(reconcile=reconcile, cause=cause)
         finally:
             self._refresh_task = None
 
     async def _timer(self, now: datetime) -> None:
-        self._request_refresh()
+        self._request_refresh(cause="deadline")
 
     async def _reconcile_timer(self, now: datetime) -> None:
-        self._request_refresh(reconcile=True)
+        self._log_window()
+        self._request_refresh(reconcile=True, cause="reconcile")
 
     async def _stop_event(self, event: Event[Any]) -> None:
         await self.async_stop()
@@ -840,10 +867,14 @@ class Runtime:
     async def async_apply_settings(self, settings: Settings) -> None:
         """Reconcile a monitoring draft and verify storage before publishing it."""
         phase_started = perf_counter()
+        holder = self._lock_holder
         async with self._lock:
             _SAVE_TIMING_LOGGER.debug(
-                "phase=runtime_lock seconds=%.6f", perf_counter() - phase_started
+                "phase=runtime_lock seconds=%.6f holder=%s",
+                perf_counter() - phase_started,
+                holder or "none",
             )
+            self._lock_holder = "save"
             if not self.running or not self.available:
                 raise HomeAssistantError("Homeostatic is unavailable")
             if not self.can_apply_settings(settings):
@@ -1028,14 +1059,22 @@ class Runtime:
                     self._failed(err)
                 raise
             finally:
+                self._lock_holder = None
                 async_dispatcher_send(self.hass, self.signal)
 
-    async def async_refresh(self, *, reconcile: bool = True) -> None:
+    async def async_refresh(
+        self, *, reconcile: bool = True, cause: str = "direct"
+    ) -> None:
         """Process captured evidence, optionally reconcile, then persist deliveries."""
+        waited = perf_counter()
         async with self._lock:
+            lock_wait = perf_counter() - waited
             if not self.running:
                 return
+            self._lock_holder = f"refresh:{cause}"
             now = dt_util.utcnow()
+            discover = False
+            evaluation = 0.0
             try:
                 if self.engine is not None:
                     await self._drain_pending()
@@ -1058,8 +1097,11 @@ class Runtime:
                         self.hass, full=full, named=named, created=created
                     ):
                         self._inventory_dirty = True
+                discover = reconcile or self._inventory_dirty or self.engine is None
+                phase_started = perf_counter()
                 events = self._evaluate(now, reconcile=reconcile)
                 self._handle(events, now)
+                evaluation = perf_counter() - phase_started
                 await self._complete(now)
             except (
                 OSError,
@@ -1073,7 +1115,82 @@ class Runtime:
                     self.policy = None
                 self._failed(err)
             finally:
+                self._lock_holder = None
+                self._note_refresh(
+                    cause,
+                    reconcile,
+                    discover,
+                    lock_wait,
+                    evaluation,
+                    perf_counter() - waited,
+                )
                 async_dispatcher_send(self.hass, self.signal)
+
+    def _note_refresh(
+        self,
+        cause: str,
+        reconcile: bool,
+        discover: bool,
+        lock_wait: float,
+        evaluation: float,
+        total: float,
+    ) -> None:
+        """Record one refresh for the periodic summary and the debug trace."""
+        window = self._window
+        window["refreshes"][cause] += 1
+        window["discoveries"] += int(discover)
+        window["evaluation_seconds"] += evaluation
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=refresh cause=%s reconcile=%s discover=%s lock_wait=%.6f"
+            " evaluation=%.6f total=%.6f",
+            cause,
+            reconcile,
+            discover,
+            lock_wait,
+            evaluation,
+            total,
+        )
+
+    def _log_window(self) -> None:
+        """Emit one summary line per reconcile interval and start a new window."""
+        window = self._window
+        refreshes = cast(Counter[str], window["refreshes"])
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=summary seconds=%.1f refreshes=%d causes=%s discoveries=%d"
+            " saves=%d evaluation_seconds=%.3f snapshot_seconds=%.3f gc_long=%d"
+            " gc_seconds=%.3f",
+            perf_counter() - window["started"],
+            sum(refreshes.values()),
+            ",".join(f"{key}:{count}" for key, count in sorted(refreshes.items()))
+            or "none",
+            window["discoveries"],
+            window["saves"],
+            window["evaluation_seconds"],
+            window["snapshot_seconds"],
+            window["gc_long"],
+            window["gc_seconds"],
+        )
+        self._window = _new_window()
+
+    def _on_gc(self, phase: str, info: dict[str, int]) -> None:
+        """Time garbage collections so long pauses can be matched to phases."""
+        if phase == "start":
+            self._gc_started = perf_counter()
+            return
+        started = self._gc_started
+        self._gc_started = None
+        if started is None:
+            return
+        elapsed = perf_counter() - started
+        self._window["gc_seconds"] += elapsed
+        if elapsed >= 0.1 or info.get("generation") == 2:
+            self._window["gc_long"] += 1
+            _SAVE_TIMING_LOGGER.debug(
+                "phase=gc generation=%d collected=%d seconds=%.6f",
+                info.get("generation", -1),
+                info.get("collected", 0),
+                elapsed,
+            )
 
     def _failed(self, err: Exception) -> None:
         # Facts describe saved state; an unsaved change is never published.
@@ -1580,12 +1697,14 @@ class Runtime:
         return sources
 
     def _evaluate(self, now: datetime, *, reconcile: bool = True) -> list[HealthEvent]:
+        started = perf_counter()
         first = self.engine is None
         discover = reconcile or self._inventory_dirty or first
         previous_candidates = self.candidates
         previous_targets = self.targets
         previous_changes = tuple(self.enrollment_changes)
         sources = self._discover() if discover else self._renamed_sources()
+        after_discovery = perf_counter()
         policy_changed = (
             first
             or self.settings is not self._compiled_settings
@@ -1631,6 +1750,7 @@ class Runtime:
                 events.extend(self.engine.register_many(changed, now))
             for node_id in removed:
                 events.extend(self.engine.remove(node_id, now))
+        after_engine = perf_counter()
         if discover or sources != self.sources:
             rules = enrollment_rules(self.settings.monitoring_policies)
             rules_changed = (
@@ -1702,6 +1822,7 @@ class Runtime:
                         if entity_id and entity_id != source.entity_id
                     ):
                         self._entity_sources.setdefault(entity_id, []).append(source)
+        after_catalog = perf_counter()
         # Retain the observed source until resolution handling, even when this
         # reconciliation removes it from the current catalog.
         self._resolved_sources = {
@@ -1740,6 +1861,7 @@ class Runtime:
             self.policy.restore(previous_policy, now)
         self._compiled_policy = compiled
         self._compiled_settings = self.settings
+        after_policy = perf_counter()
         assert self.policy is not None
         self.temperature_monitors = {
             key: value
@@ -1870,6 +1992,17 @@ class Runtime:
             events.extend(self.engine.ingest_many(observations, now))
         else:
             events.extend(self.engine.advance(now))
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=evaluate discover=%s discovery=%.6f engine=%.6f catalog=%.6f"
+            " policy=%.6f rest=%.6f total=%.6f",
+            discover,
+            after_discovery - started,
+            after_engine - after_discovery,
+            after_catalog - after_engine,
+            after_policy - after_catalog,
+            perf_counter() - after_policy,
+            perf_counter() - started,
+        )
         return events
 
     def _record_observations(self, observations: list[Observation]) -> None:
@@ -2695,9 +2828,10 @@ class Runtime:
     async def _save(self) -> None:
         phase_started = perf_counter()
         snapshot = self.snapshot()
-        _SAVE_TIMING_LOGGER.debug(
-            "phase=snapshot seconds=%.6f", perf_counter() - phase_started
-        )
+        elapsed = perf_counter() - phase_started
+        self._window["saves"] += 1
+        self._window["snapshot_seconds"] += elapsed
+        _SAVE_TIMING_LOGGER.debug("phase=snapshot seconds=%.6f", elapsed)
         phase_started = perf_counter()
         await self.store.async_save(snapshot)
         _SAVE_TIMING_LOGGER.debug(
@@ -3078,6 +3212,8 @@ class Runtime:
         """Cancel future work and save the final state before unloading."""
         self.running = False
         self._stopped = True
+        if self._on_gc in gc.callbacks:
+            gc.callbacks.remove(self._on_gc)
         for cancel in self._subscriptions:
             cancel()
         self._subscriptions.clear()

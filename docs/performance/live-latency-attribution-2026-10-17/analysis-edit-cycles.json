@@ -1,0 +1,120 @@
+{
+ "window_local": [
+  "2026-10-17T19:39:26.544000",
+  "2026-10-17T19:40:32.706000"
+ ],
+ "window_seconds": 66.2,
+ "refreshes": {
+  "count": 5,
+  "per_minute": 4.53,
+  "by_cause": {
+   "state": 2,
+   "config_entry": 2,
+   "reconcile": 1
+  },
+  "with_discovery": 1,
+  "evaluation_median": 0.0372,
+  "evaluation_median_discovering": 0.6165,
+  "evaluation_median_not_discovering": 0.037,
+  "evaluation_sum": 0.76,
+  "evaluation_share_of_window": 0.0115,
+  "lock_wait_max": 0.305947,
+  "total_median": 0.3942
+ },
+ "evaluate_phases_discovering": {
+  "discovery": 0.4634,
+  "engine": 0.0997,
+  "catalog": 0.8113,
+  "policy": 0.1053,
+  "rest": 0.0704,
+  "total": 1.5683
+ },
+ "evaluate_phases_not_discovering": {
+  "discovery": 0.0,
+  "engine": 0.0017,
+  "catalog": 0.0001,
+  "policy": 0.0,
+  "rest": 0.0349,
+  "total": 0.0368
+ },
+ "saves": {
+  "count": 11,
+  "per_minute": 9.98,
+  "snapshot_median": 0.1428,
+  "snapshot_over_0_5s": 0,
+  "checkpoint_over_0_5s": 1
+ },
+ "gc": {
+  "lines": 4,
+  "by_generation": {
+   "2": 4
+  },
+  "seconds_sum": 3.499,
+  "gen2_median": 0.8695,
+  "gen2_max": 0.941968,
+  "threads": {
+   "MainThread": 3,
+   "SyncWorker_1": 1
+  },
+  "per_minute": 3.63
+ },
+ "edit_saves": [
+  {
+   "ts": "2026-10-17T19:39:28.775000",
+   "request_total": 2.231141
+  },
+  {
+   "ts": "2026-10-17T19:39:41.631000",
+   "request_total": 2.185554
+  },
+  {
+   "ts": "2026-10-17T19:39:53.669000",
+   "request_total": 3.253972
+  },
+  {
+   "ts": "2026-10-17T19:40:07.100000",
+   "request_total": 3.146193
+  },
+  {
+   "ts": "2026-10-17T19:40:17.908000",
+   "request_total": 2.302663
+  },
+  {
+   "ts": "2026-10-17T19:40:32.706000",
+   "request_total": 3.060606
+  }
+ ],
+ "lock_holders": {
+  "none": 6
+ },
+ "summaries": [
+  {
+   "seconds": "61.9",
+   "refreshes": "4",
+   "causes": "config_entry:2,reconcile:1,state:1",
+   "discoveries": "1",
+   "saves": "9",
+   "evaluation_seconds": "0.739",
+   "snapshot_seconds": "1.271",
+   "gc_long": "4",
+   "gc_seconds": "4.571"
+  }
+ ],
+ "pause_gc_correlation": [
+  {
+   "phase": "checkpoint",
+   "ts": "2026-10-17T19:40:30.622000",
+   "seconds": 0.963793,
+   "gc_within_pause": [
+    {
+     "gen": "2",
+     "seconds": 0.845973,
+     "thread": "MainThread",
+     "ends_before_pause_end_s": 0.06
+    }
+   ]
+  }
+ ],
+ "pauses_explained_by_gc": 1,
+ "pauses_total": 1
+}
