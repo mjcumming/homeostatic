@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-18T16:05:00Z",
+  "outcome": "Step 3 of the core design audit (ADR 0098): integration entries are observed only when discovering or when a retry hold elapsed, a config-entry update that changes nothing visible requests no refresh, and the 60-second reconciliation became a 15-minute sweep. Idle writes fell from 1.75 to 0.71 a minute, and two copies of the store file taken a minute apart in a quiet stretch were byte-identical: a quiet minute now produces no write.",
+  "plan": "Core design audit order of work, step 3 (events update their subject; the installation is swept rarely)",
+  "status": {
+    "branch": "main",
+    "revision": "5a551ff",
+    "dirty": false,
+    "installed_component": "working tree of 5a551ff (which includes the evidence follow-up 6650d47) copied over the Samba share at 2026-10-18T15:24:52Z, 76 files byte-identical; Core restarted 15:25:04Z; first store write 15:32:07Z",
+    "commit": "5a551ff",
+    "release": "Not published"
+  },
+  "method": "Store file sizes and section sizes from copies taken over the Samba share, a modification-time sample every three seconds for writes per minute after a ten-minute settle, and two copies about a minute apart for the fields that change between saves. The trace journal was not readable (no signed-in session), so refreshes per minute, discovery time and engine event types are not in this receipt. Aggregates only.",
+  "before": {
+    "source": "performance/durable-facts-2026-10-18.json idle window (79429bd)",
+    "writes_per_minute": 1.75,
+    "refreshes_per_minute_from_earlier_trace": 1.82,
+    "changing_between_idle_saves": "engine check records and policy route states every minute, plus re-stamped ongoing failures",
+    "bytes_on_disk": 7606950,
+    "open_issues": 164
+  },
+  "after": {
+    "idle_window": {"utc": "15:42:10Z to 15:57:06Z", "minutes": 14.1, "writes": 10, "writes_per_minute": 0.71},
+    "write_pattern": "writes arrive in pairs about ten seconds apart around events (a refresh with engine events saves at once and its deliveries save again); stretches of up to four minutes have no write",
+    "two_copies_a_minute_apart": "byte-identical (15:57:06Z and 15:58:11Z)",
+    "bytes_on_disk": 7219607,
+    "compact_mb": 4.615,
+    "sections_compact_mb": {"engine": 2.234, "policy": 1.478, "enrollment": 0.465, "episodes": 0.168, "evidence": "below 0.02"},
+    "open_issues": 159,
+    "first_write_after_restart": "15:32:07Z, seven minutes after the restart request; the house starts slowly since the 13:37Z restart"
+  },
+  "remaining": [
+    "Refreshes per idle minute, discovery time per minute and the engine event types behind the remaining saves need a trace capture with a signed-in session.",
+    "The engine and policy snapshots still change whenever an observation arrives; the library change (audit step 4) removes that churn and lets the write-skip cover event-driven refreshes too.",
+    "The 84 stale issues from the 13:37Z restart are still open (159 issues against 58 before it); a household matter to check in Open issues."
+  ]
+}

@@ -4,7 +4,8 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
-| [0098](0098-update-the-subject-and-sweep-rarely.md) | Update the subject of each event and sweep rarely | Accepted; implementation in progress; supersedes the 60-second reconciliation as the normal discovery path |
+| [0099](0099-two-supplied-entity-availability-policies.md) | Supply general and important equipment availability policies | Accepted; partially supersedes fresh-install defaults in 0058/0066; retains affected equipment attention on shared integration issues and extends compatible grouping in 0064 |
+| [0098](0098-update-the-subject-and-sweep-rarely.md) | Update the subject of each event and sweep rarely | Accepted; implemented, installed and measured; supersedes the 60-second reconciliation as the normal discovery path |
 | [0097](0097-shrink-the-snapshot-and-save-durable-changes.md) | Persist durable facts only | Accepted; adapter step implemented; asks health-tree to keep observation times out of its snapshot |
 | [0096](0096-coalesce-evidence-saves-and-verify-bytes.md) | Coalesce evidence-only saves and verify stored bytes | Accepted; implemented, installed and measured; extends the persistence verification rule |
 | [0095](0095-patch-catalog-after-edits.md) | Patch the catalog after an edit instead of reloading it | Accepted; implemented, installed and measured for a local trial; partially supersedes 0029's reload on every revision change |
@@ -75,15 +76,15 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0055](0055-separate-notification-schedules-and-methods.md) | Pair reusable notification schedules and delivery methods on policies | Accepted; schedule library superseded by 0057; test-setting migration by 0058 |
 | [0056](0056-ha-delivery-methods-and-presence.md) | Deliver through Home Assistant methods with optional presence selection | Accepted; UI simplification by 0059 |
 | [0057](0057-policy-owned-notification-timing.md) | Configure notification timing inside each policy | Accepted; test-setting migration superseded by 0058; UI simplification by 0059; notification ownership/defaults partially superseded by 0066 |
-| [0058](0058-unified-policy-lifecycle.md) | Use one editable policy lifecycle | Accepted; UI simplification by 0059; eligibility and delivery presentation by 0064; notification ownership/defaults partially superseded by 0066 |
+| [0058](0058-unified-policy-lifecycle.md) | Use one editable policy lifecycle | Accepted; UI simplification by 0059; eligibility and delivery presentation by 0064; notification ownership/defaults partially superseded by 0066; fresh-install entity selections by 0099 |
 | [0059](0059-save-directly-and-test-configured-methods.md) | Save directly and test configured delivery methods | Accepted; UI workflow and scope partially superseded by 0061; compound inline-method drafts by 0066 |
 | [0060](0060-hide-recovery-confirmation-from-issue-lists.md) | Keep recovery confirmation out of issue lists and explain related-source findings | Accepted; evidence-gap list visibility partially superseded by 0065 |
 | [0061](0061-issues-first-product-workflows.md) | Use Issues-first product workflows and scoped editing | Accepted; notification ownership/defaults partially superseded by 0066; detail presentation by 0086; maintenance creation UI superseded by 0087 |
 | [0062](0062-disabled-integrations-and-add-ons.md) | Keep disabled integrations and add-ons visible without availability issues | Accepted |
 | [0063](0063-remove-superseded-configuration-and-ui.md) | Remove superseded configuration and interface implementations | Accepted |
-| [0064](0064-monitoring-coverage-and-device-evidence.md) | Monitor operational entities and consolidate device notifications | Accepted; notification ownership/defaults partially superseded by 0066 |
+| [0064](0064-monitoring-coverage-and-device-evidence.md) | Monitor operational entities and consolidate device notifications | Accepted; notification ownership/defaults partially superseded by 0066; shared integration attention and delivery grouping extended by 0099 |
 | [0065](0065-separate-availability-evidence-gaps-from-issues.md) | Keep current availability evidence gaps in Sources without changing monitoring | Accepted |
-| [0066](0066-reusable-notifications-own-timing-and-delivery.md) | Reuse six named notifications with timing, delivery and explicit policy assignments | Accepted; method reload boundary superseded by 0067 |
+| [0066](0066-reusable-notifications-own-timing-and-delivery.md) | Reuse six named notifications with timing, delivery and explicit policy assignments | Accepted; method reload boundary superseded by 0067; fresh-install entity notification assignments by 0099 |
 | [0067](0067-save-delivery-methods-in-place.md) | Save delivery methods in place while preserving routing and queued requests | Accepted |
 | [0068](0068-contextual-availability-monitoring-controls.md) | Act on availability monitoring from compact source details | Accepted; action wording and Issues workflow extended by 0069; source-detail disclosures superseded by 0071 |
 | [0069](0069-bulk-availability-removal-from-issues.md) | Remove unwanted availability monitoring from Issues | Accepted; extends 0068; group placement and scope superseded by 0074 |
