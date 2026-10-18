@@ -183,3 +183,42 @@ async def test_refresh_trace_names_the_engine_events(
     assert any("events=none" in line for line in lines), lines
     assert any("EpisodeOpened:1" in line for line in lines), lines
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+def test_ongoing_failure_keeps_its_first_report_and_healthy_records_are_not_persisted() -> (
+    None
+):
+    """Evidence persists only facts: a continuing failure keeps its first report."""
+    from datetime import UTC, datetime
+
+    from health_tree.types import Observation, Status
+
+    evidence = ReportedEvidence()
+    first = datetime(2026, 10, 18, 4, 0, tzinfo=UTC)
+    later = datetime(2026, 10, 18, 4, 1, tzinfo=UTC)
+
+    def observe(status: Status, at: datetime, reason: str = "unavailable") -> None:
+        evidence.observe(
+            Observation(
+                node_id="node",
+                check_id="availability",
+                status=status,
+                reason=reason,
+                message=f"Sensor: {reason}",
+                observed_at=at,
+            ),
+            "Sensor",
+        )
+
+    observe(Status.FAIL, first)
+    observe(Status.FAIL, later)
+    view = evidence.view("node")
+    assert view is not None
+    assert view["current"]["observed_at"] == later.isoformat()
+    assert view["last_failure"]["observed_at"] == first.isoformat()
+    observe(Status.FAIL, later, reason="timeout")
+    assert evidence.view("node")["last_failure"]["reason"] == "timeout"
+    assert "node" in evidence.snapshot()
+    observe(Status.PASS, later)
+    assert evidence.view("node")["current"]["status"] == "pass"
+    assert evidence.snapshot() == {}

@@ -84,7 +84,20 @@ class ReportedEvidence:
             previous.history_complete if previous else self._history_complete
         )
         if observation.status in {Status.FAIL, Status.WARN}:
-            failure = report
+            # A failure that continues with the same reason keeps its first
+            # report, so an ongoing failure does not change the snapshot.
+            failure = (
+                previous.last_failure
+                if previous is not None
+                and previous.last_failure is not None
+                and (
+                    previous.last_failure.reason,
+                    previous.last_failure.message,
+                    previous.last_failure.status,
+                )
+                == (report.reason, report.message, report.status)
+                else report
+            )
             history_complete = True
         elif observation.status is Status.PASS:
             failure = None
@@ -105,7 +118,10 @@ class ReportedEvidence:
         return json_object(record) if record else None
 
     def snapshot(self) -> dict[str, JSONValue]:
-        """Persist the durable part: the last failure and history completeness."""
+        """Persist the durable part: known failures and incomplete history.
+
+        A source with no known failure and complete history carries no fact.
+        """
         return {
             node_id: {
                 "last_failure": json_object(record.last_failure)
@@ -114,6 +130,7 @@ class ReportedEvidence:
                 "history_complete": record.history_complete,
             }
             for node_id, record in self._records.items()
+            if record.last_failure is not None or not record.history_complete
         }
 
     def restore(self, value: Any, *, history_complete: bool = True) -> None:
