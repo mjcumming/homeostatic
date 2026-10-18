@@ -1,0 +1,16 @@
+{
+  "page": "Monitoring detail page of fan.main_floor_bathroom_fan (entity:registry:dcb0247bdb17422abc57bd21f3de42ec), built-in browser on the Windows PC, in-page wrapper from live-latency-2026-10-17/",
+  "component_installed_utc": "2026-10-18T03:11:58Z",
+  "core_running_utc": "2026-10-18T03:14:56Z",
+  "trace_enabled_utc": "2026-10-18T03:14:58Z",
+  "cycles": [
+    {"mode": "stop", "confirm_utc": "2026-10-18T03:51:38.889Z", "save_ms": 2306, "settled_s": 2.431, "catalog_pages": 0, "config_revision_after": "3bbad0e6189e", "excluded_sources_after": 14},
+    {"mode": "resume", "confirm_utc": "2026-10-18T03:51:57.861Z", "save_ms": 1346, "settled_s": 1.444, "catalog_pages": 0, "config_revision_after": "7731a5ead9f5", "excluded_sources_after": 13},
+    {"mode": "stop", "confirm_utc": "2026-10-18T03:52:24.924Z", "save_ms": 2379, "settled_s": 2.489, "catalog_pages": 0, "config_revision_after": "3bbad0e6189e", "excluded_sources_after": 14},
+    {"mode": "resume", "confirm_utc": "2026-10-18T03:52:42.031Z", "save_ms": 1341, "settled_s": 1.422, "catalog_pages": 0, "config_revision_after": "7731a5ead9f5", "excluded_sources_after": 13},
+    {"mode": "stop", "confirm_utc": "2026-10-18T03:52:54.403Z", "save_ms": 1464, "settled_s": 1.547, "catalog_pages": 0, "config_revision_after": "3bbad0e6189e", "excluded_sources_after": 14},
+    {"mode": "resume", "confirm_utc": "2026-10-18T03:53:11.818Z", "save_ms": 3006, "settled_s": 3.093, "catalog_pages": 0, "config_revision_after": "7731a5ead9f5", "excluded_sources_after": 13}
+  ],
+  "requests_per_cycle": {"homeostatic/save_settings": 1, "homeostatic/configuration": 1, "homeostatic/source": 2, "homeostatic/catalog": 0},
+  "ui_errors": 0
+}

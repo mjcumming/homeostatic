@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-18T04:05:00Z",
+  "outcome": "Phase 3 step 5 of the latency plan (ADR 0096): every save verifies by comparing the stored bytes with the Store serializer's output and parses the file only when they differ, and a refresh that changed no episode, control or setting and queued no request waits up to 15 seconds for one timed save. Idle saves fell from one per refresh to 0.85 per refresh and idle generation-2 collections from 0.4 to 0.27 a minute; the storage phase of a save fell from 0.20 s to 0.11 s. The Stop and Resume medians did not improve because a generation-2 collection landed inside three of the six edits.",
+  "plan": "Homeostatic save and refresh latency investigation plan, phase 3 step 5 (fix by measured share with a live before and after)",
+  "status": {
+    "branch": "main",
+    "revision": "d94f511",
+    "dirty": false,
+    "code_changes": "custom_components/homeostatic/runtime.py: _save() compares the stored file with prepare_save_json output of the Store envelope in the executor and falls back to the parsed comparison only when the bytes differ; _complete(now, durable=...) defers evidence-only saves to one async_call_later of SAVE_COALESCE_SECONDS (15) and saves at once for engine events, notification activation, pruned controls, startup, a non-empty outbox, unpublished facts, error recovery, settings saves, operator actions and shutdown; const.py: SAVE_COALESCE_SECONDS.",
+    "installed_component": "working tree copied over the Samba share at 2026-10-18T03:11:58Z, 76 files byte-identical to the component files of d94f511; Core restarted and reported RUNNING at 03:14:56Z; save_timing trace enabled at 03:14:58Z",
+    "commit": "6fd91cd (implementation and scenarios), d94f511 (scenario adaptations and trace-line format)",
+    "release": "Not published at recording time"
+  },
+  "method": "Same as the phase 2 and 3.3/3.4 receipts: permanent debug trace on custom_components.homeostatic.save_timing read from the Supervisor core journal, an idle window with no edits, then three Stop and three Resume actions on fan.main_floor_bathroom_fan from its own Monitoring detail page in the built-in browser with the in-page wrapper (save response, settled time, catalog pages). Journal lines are local time (UTC-5); analyze_phase2.py attributes refreshes, saves, deferred saves, byte verifications and collections.",
+  "measurements": {
+    "idle_window": {
+      "utc": "2026-10-18T03:17:03Z to 03:49:58Z",
+      "seconds": 1974.6,
+      "refreshes": 60,
+      "refreshes_per_minute": 1.82,
+      "refresh_causes": {"reconcile": 33, "config_entry": 17, "state": 5, "deadline": 4, "registry": 1},
+      "refreshes_with_discovery": 34,
+      "saves": 51,
+      "saves_per_minute": 1.55,
+      "saves_per_refresh": 0.85,
+      "refreshes_deferred": 39,
+      "byte_verification_median_s": 0.044,
+      "parsed_fallbacks": 0,
+      "storage_write_median_s": 0.068,
+      "snapshot_median_s": 0.155,
+      "gen2_collections": 9,
+      "gen2_per_minute": 0.27,
+      "gen2_median_s": 0.841,
+      "gen2_max_s": 0.865,
+      "snapshot_pauses_over_0_5s": 5,
+      "snapshot_pauses_with_a_collection_inside": 5,
+      "discovery_per_reconcile_s": 0.46,
+      "evaluation_share_of_window": 0.0115
+    },
+    "idle_before_from_phase_2_capture": {
+      "refreshes_per_minute": 2.5,
+      "saves_per_refresh": 1.0,
+      "gen2_per_minute": 0.4,
+      "storage_phase_s": 0.2
+    },
+    "cycles": [
+      {"action": "stop", "confirm_utc": "2026-10-18T03:51:38.889Z", "client_save": 2.306, "server_total": 2.228, "settled": 2.431, "gen2_inside": 0.871, "evaluate": {"discovery": 0.324, "engine": 0.197, "catalog": 0.086, "policy": 0.982, "total": 1.649}, "storage_write": 0.069, "storage_verify": 0.044},
+      {"action": "resume", "confirm_utc": "2026-10-18T03:51:57.861Z", "client_save": 1.346, "server_total": 1.265, "settled": 1.444, "gen2_inside": null, "evaluate": {"discovery": 0.324, "engine": 0.096, "catalog": 0.085, "policy": 0.122, "total": 0.701}, "storage_write": 0.064, "storage_verify": 0.044},
+      {"action": "stop", "confirm_utc": "2026-10-18T03:52:24.924Z", "client_save": 2.379, "server_total": 2.284, "settled": 2.489, "gen2_inside": 0.893, "evaluate": {"discovery": 0.321, "engine": 0.211, "catalog": 0.088, "policy": 0.118, "total": 0.816}, "snapshot": 1.036, "storage_write": 0.067, "storage_verify": 0.046},
+      {"action": "resume", "confirm_utc": "2026-10-18T03:52:42.031Z", "client_save": 1.341, "server_total": 1.276, "settled": 1.422, "gen2_inside": null, "evaluate": {"discovery": 0.321, "engine": 0.096, "catalog": 0.085, "policy": 0.121, "total": 0.704}, "storage_write": 0.066, "storage_verify": 0.041},
+      {"action": "stop", "confirm_utc": "2026-10-18T03:52:54.403Z", "client_save": 1.464, "server_total": 1.384, "settled": 1.547, "gen2_inside": null, "evaluate": {"discovery": 0.316, "engine": 0.211, "catalog": 0.085, "policy": 0.118, "total": 0.806}, "storage_write": 0.060, "storage_verify": 0.047},
+      {"action": "resume", "confirm_utc": "2026-10-18T03:53:11.818Z", "client_save": 3.006, "server_total": 2.933, "settled": 3.093, "gen2_inside": 0.868, "evaluate": {"discovery": 0.339, "engine": 0.967, "catalog": 0.087, "policy": 0.123, "total": 1.596}, "storage_write": 0.815, "storage_verify": 0.054}
+    ],
+    "medians_after": {"client_save": 1.89, "server_total": 1.81, "settled": 1.99, "checkpoint": 0.12, "snapshot": 0.146, "storage_write": 0.066, "storage_verify": 0.045, "complete": 0.28, "catalog_pages": 0},
+    "medians_after_without_a_collection": {"client_save": 1.35, "server_total": 1.28, "settled": 1.44, "cycles": 3},
+    "medians_before_from_scan_reuse_receipt": {"client_save": 1.41, "server_total": 1.33, "settled": 1.52, "cycles_with_a_collection": "1 of 6"},
+    "gen2_during_edits": "3 collections in 115 s (1.57 a minute), each inside a save; the scan reuse run had 2 in 72 s",
+    "refreshes_that_still_saved_at_once": "state-change and config-entry refreshes in the idle window saved immediately because the engine returned events for them; only refreshes without events (33 reconcile ticks and a few state changes) deferred"
+  },
+  "ranking_for_the_next_change": [
+    "Generation-2 collections: 0.27 a minute idle and about one in two edits, 0.84 to 0.89 s each; the evaluation of an edit (engine, catalog, policy) and the minute discovery (0.46 s) are the remaining allocation sources.",
+    "Idle discovery on registry, config-entry and repairs events instead of the minute tick: 33 discoveries in 33 minutes idle at 0.46 s each.",
+    "Which engine events make a state-change or config-entry refresh save at once: 21 of 60 idle refreshes saved immediately; a trace of event types per refresh decides whether evidence-only events can defer too."
+  ],
+  "raw_captures": "docs/performance/live-latency-coalesced-saves-2026-10-17/ (journal lines from 03:15Z to 03:55Z, client cycles, analysis of the idle window and of the edit window)",
+  "remaining": [
+    "A crash can lose up to 15 seconds of evidence-only state, re-derived by the next refresh.",
+    "The byte comparison depends on the Store serializer helper; the parsed comparison remains the fallback and ran zero times in this capture."
+  ]
+}
