@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Documentation
+
+- Rewrite the manual in fewer, shorter pages for the current release, and trim the roadmap to open work.
+
 ## [1.10.0] - 2026-10-18
 
 ### Upgrade notes
