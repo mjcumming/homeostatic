@@ -145,6 +145,8 @@ async def test_in_place_save_rolls_back_failed_durable_application(
     """A failed write or verification restores options, state and exact delivery ids."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
+    # The last write is not known to be current, so this save writes (ADR 0097).
+    runtime._stored_digest = None
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     configuration = (await client.receive_json())["result"]
@@ -243,6 +245,8 @@ async def test_save_keeps_observations_queued_during_io(
     hass.states.async_set("sensor.other", "1")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
+    # The last write is not known to be current, so this save writes (ADR 0097).
+    runtime._stored_digest = None
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     configuration = (await client.receive_json())["result"]

@@ -38,7 +38,11 @@ def _count_saves(runtime: Any, calls: list[dict[str, Any]]) -> Any:
 async def test_evidence_only_refreshes_save_once_per_window(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """Refreshes without requests or episode changes defer to one timed save."""
+    """Refreshes without requests or episode changes defer to one timed save attempt.
+
+    With durable-only snapshots the attempt writes nothing when the content is
+    unchanged (ADR 0097, health-tree 0.9.0).
+    """
     config_data["notifications"] = False
     hass.states.async_set("sensor.observed", "1")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -52,7 +56,7 @@ async def test_evidence_only_refreshes_save_once_per_window(
         assert runtime._pending_save_cancel is not None
         async_fire_time_changed(hass, dt_util.utcnow() + WINDOW)
         await hass.async_block_till_done()
-        assert len(calls) == 1
+        assert calls == []
         assert runtime._save_pending is False
         assert runtime._pending_save_cancel is None
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -93,7 +97,7 @@ async def test_episode_changes_and_settings_save_immediately(
 async def test_unload_saves_and_cancels_the_pending_timer(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """Shutdown performs the final save and leaves no timer behind."""
+    """Shutdown attempts the final save and leaves no timer behind."""
     config_data["notifications"] = False
     hass.states.async_set("sensor.observed", "1")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -103,7 +107,8 @@ async def test_unload_saves_and_cancels_the_pending_timer(
         await runtime.async_refresh(reconcile=False, cause="test")
         assert runtime._pending_save_cancel is not None
         assert await hass.config_entries.async_unload(entry.entry_id)
-        assert len(calls) == 1
+        # Nothing changed since the last verified write, so nothing is written.
+        assert calls == []
     assert runtime._pending_save_cancel is None
     assert runtime._save_pending is False
 
@@ -164,6 +169,8 @@ async def test_failed_deferred_save_is_reported_and_retried(
     runtime = await start_monitor(hass, entry)
     await runtime.async_refresh(reconcile=False, cause="test")
     assert runtime._save_pending is True
+    # The last write is not known to be current, so the timed save writes.
+    runtime._stored_digest = None
     with patch.object(
         runtime.store, "async_save", side_effect=OSError("disk unavailable")
     ):

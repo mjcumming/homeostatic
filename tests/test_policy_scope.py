@@ -282,10 +282,7 @@ async def test_device_member_exclusions_apply_only_to_their_policy(
 
     # A refresh with a durable change saves inside the refresh (ADR 0096).
     runtime._save_required = True
-    # A refresh with a durable change saves inside the refresh (ADR 0096).
-    runtime._save_required = True
-    # A refresh with a durable change saves inside the refresh (ADR 0096).
-    runtime._save_required = True
+    runtime._stored_digest = None  # the stored content is not known to be current
     with patch.object(runtime.store, "async_save", side_effect=capture):
         await runtime.async_refresh()
         await hass.async_block_till_done()

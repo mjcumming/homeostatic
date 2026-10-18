@@ -1,6 +1,6 @@
 # ADR 0097: Persist durable facts only
 
-**Status:** Accepted on 2026-10-18; the adapter part is implemented, installed and measured on the household installation; the health-tree part is requested
+**Status:** Accepted on 2026-10-18; the adapter part is implemented, installed and measured on the household installation; the library part shipped in health-tree 0.9.0 (its ADR 0041)
 **Implementation status:** See the [roadmap](../roadmap.md#current-work).
 
 **Date:** 2026-10-18
@@ -26,7 +26,7 @@ For the adapter's own sections:
 - The runtime serializes the envelope once, keeps a digest of the last verified write, and skips a save whose bytes equal it. The serialization already existed for byte verification, which now compares the stored file with those same bytes.
 - The refresh trace records the engine event types each refresh produced, so the saves that still happen can be attributed.
 
-For the library's sections, Homeostatic asks health-tree to keep volatile observation state out of the engine and policy snapshots, or to report whether a snapshot changed in content. Until then the engine's check records change every minute and the digest comparison skips only saves the engine leaves unchanged.
+For the library's sections, health-tree 0.9.0 keeps volatile observation state out of the engine and policy snapshots (its ADR 0041): the engine drops its clock and each check's observation payload in favor of the payload's durable details, and policy routes persist each tracked episode's decision instead of the clock. Two snapshots taken while no condition changed are equal, so the digest comparison skips every save that follows an unchanged refresh.
 
 The Store format, the atomic write, the byte verification and the coalescing window do not change. User documentation states that the state file grows with the installation and is rewritten after changes, and recommends an SSD for large installations.
 

@@ -138,6 +138,8 @@ async def test_final_save_failure_completes_cleanup(
     # Pending evidence-only state makes the final save write (ADR 0097).
     await runtime.async_refresh(reconcile=False, cause="test")
     assert runtime._save_pending
+    # The last write is not known to be current, so the final save writes.
+    runtime._stored_digest = None
     with patch.object(
         runtime.store, "async_save", side_effect=OSError("disk unavailable")
     ):
