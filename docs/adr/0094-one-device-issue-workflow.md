@@ -1,6 +1,6 @@
 # ADR 0094: Use one device issue workflow from every investigation page
 
-**Status:** Accepted; implemented, installed and verified for a local trial; unreleased
+**Status:** Accepted
 **Date:** 2026-10-17
 
 **Partially supersedes:** ADR 0093's availability-only membership and singular entry points from Open issues; ADR 0091's combined-header opening time and primary device navigation; the per-finding queue navigation in ADRs 0085 and 0090; the entity/policy disclosure presentation of the confirmation retained by ADR 0074. ADR 0093's exact selection contract, ADR 0090's independent issue lifecycle and existing notification deep-link targets remain unchanged.
@@ -27,6 +27,4 @@ Stop Monitoring retains its separate availability-coverage confirmation under AD
 
 Exercise the same device from Open issues and Monitoring with all entities unavailable, only some unavailable, one remaining entity issue, a previous failure with missing current evidence, and an independent condition such as a battery or temperature problem. Verify one queue View, no per-finding popup controls, the same full device issue set and the same response area. An unattached entity retains its own view. A name collision, stale ownership, a wider integration issue and a cross-device issue cannot join the device action scope.
 
-Cover initial all selection, subset and zero selection, a single direct action, later arrivals, recovery, replacement identities, pending operations and partial failure. Verify exact notification links remain exact. Coverage confirmation, cancellation, stale evidence and failure must preserve unrelated settings. Inspect desktop and phone layouts, enlarged text, keyboard operation, editor return and restored list context. Confirm the combined opening date is absent, the device link is secondary, action widths match, and policy/notification rows wrap without clipping. Record executable and rendered checks in the existing acceptance receipt; report installation separately.
-
-The [local trial receipt](../performance/device-issue-workflow-2026-10-17.json) records focused checks, rendered desktop and phone workflows, enlarged-text inspection, the installed component hashes and live verification. The household check opened the Dishwasher's three issues together despite partial availability, reviewed the exact two unavailable entities in Stop Monitoring, and canceled without saving. Saved settings and the notification switch were unchanged. Physical Safari and full release acceptance remain outside this trial.
+Cover initial all selection, subset and zero selection, a single direct action, later arrivals, recovery, replacement identities, pending operations and partial failure. Verify exact notification links remain exact. Coverage confirmation, cancellation, stale evidence and failure must preserve unrelated settings. Inspect desktop and phone layouts, enlarged text, keyboard operation, editor return and restored list context. Confirm the combined opening date is absent, the device link is secondary, action widths match, and policy/notification rows wrap without clipping.

@@ -5,14 +5,14 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [0102](0102-collect-requests-by-saved-notification.md) | Collect requests by saved notification before delivery | Accepted; extends timing in 0066 and replaces device-based reusable message grouping in 0064; shared issues are not required |
-| [0100](0100-a-failed-settings-save-reloads-from-the-store.md) | A failed settings save reloads from the store | Accepted; implemented; retires the settings-save checkpoint copy and in-process rollback |
+| [0100](0100-a-failed-settings-save-reloads-from-the-store.md) | A failed settings save reloads from the store | Accepted; retires the settings-save checkpoint copy and in-process rollback |
 | [0099](0099-two-supplied-entity-availability-policies.md) | Supply general and important equipment availability policies | Accepted; partially supersedes fresh-install defaults in 0058/0066; retains affected equipment attention on shared integration issues; notification collection follows 0102 |
-| [0098](0098-update-the-subject-and-sweep-rarely.md) | Update the subject of each event and sweep rarely | Accepted; implemented, installed and measured; supersedes the 60-second reconciliation as the normal discovery path |
-| [0097](0097-shrink-the-snapshot-and-save-durable-changes.md) | Persist durable facts only | Accepted; adapter step implemented; asks health-tree to keep observation times out of its snapshot |
-| [0096](0096-coalesce-evidence-saves-and-verify-bytes.md) | Coalesce evidence-only saves and verify stored bytes | Accepted; implemented, installed and measured; extends the persistence verification rule |
-| [0095](0095-patch-catalog-after-edits.md) | Patch the catalog after an edit instead of reloading it | Accepted; implemented, installed and measured for a local trial; partially supersedes 0029's reload on every revision change |
-| [0094](0094-one-device-issue-workflow.md) | Use one device issue workflow from every investigation page | Accepted; implemented, installed and verified for a local trial; supersedes entry routing and device membership in 0093 and refines 0091 presentation |
-| [0093](0093-explicit-device-availability-issue-selection.md) | Act on explicitly selected device availability issues | Accepted; earlier local trial installed and verified; entry routing and availability-only membership superseded by 0094; selection contract retained |
+| [0098](0098-update-the-subject-and-sweep-rarely.md) | Update the subject of each event and sweep rarely | Accepted; supersedes the 60-second reconciliation as the normal discovery path |
+| [0097](0097-shrink-the-snapshot-and-save-durable-changes.md) | Persist durable facts only | Accepted; with health-tree 0.9.0, keeps observation times out of saved state |
+| [0096](0096-coalesce-evidence-saves-and-verify-bytes.md) | Coalesce evidence-only saves and verify stored bytes | Accepted; extends the persistence verification rule |
+| [0095](0095-patch-catalog-after-edits.md) | Patch the catalog after an edit instead of reloading it | Accepted; partially supersedes 0029's reload on every revision change |
+| [0094](0094-one-device-issue-workflow.md) | Use one device issue workflow from every investigation page | Accepted; supersedes entry routing and device membership in 0093 and refines 0091 presentation |
+| [0093](0093-explicit-device-availability-issue-selection.md) | Act on explicitly selected device availability issues | Accepted; entry routing and availability-only membership superseded by 0094; selection contract retained |
 | [0092](0092-scoped-refresh-and-coherent-saves.md) | Scope refresh work and keep configuration reads coherent | Accepted; extends 0010/0067 and finalizes 0029's loading boundary |
 | [0091](0091-direct-issue-actions-and-coverage.md) | Show issue actions and coverage directly | Accepted; supersedes availability action wording in 0073/0074 and opened-issue disclosures and navigation in 0086 |
 | [0090](0090-independent-issues-under-healthy-integrations.md) | Keep failures independent under healthy integrations | Accepted; refines 0041 and supersedes healthy-integration grouping in 0085 and 0088 |

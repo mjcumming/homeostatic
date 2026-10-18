@@ -1,7 +1,6 @@
 # ADR 0096: Coalesce evidence-only saves and verify stored bytes
 
-**Status:** Accepted on 2026-10-18; implemented, installed and measured on the household installation; released in 1.9.0
-**Implementation status:** See the [roadmap](../roadmap.md#current-work).
+**Status:** Accepted; released in 1.9.0
 
 **Date:** 2026-10-18
 
@@ -9,7 +8,7 @@
 
 ## Context
 
-Every refresh ends in a verified save: the runtime builds its snapshot, about 7.8 MB of JSON on the household installation, asks Home Assistant's Store to write it, reads the file back, parses it into a second object tree and compares the two in the executor. The [phase 2 trace](../save-performance.md#what-the-remaining-second-is) measured 2.5 such saves a minute in an idle house, each allocating two large object trees, and CPython generation-2 collections of about 0.85 s on the main thread: 0.4 a minute idle, 2 to 4 a minute during edits. After the [catalog](performance/live-latency-candidate-rows-2026-10-17.json) and [scan](performance/live-latency-scan-reuse-2026-10-17.json) changes a Stop Monitoring save takes 1.33 s on the server, so a collection landing inside it is now more than half of that save, and it lands in roughly one edit in two or three. Home Assistant Core sets no collector thresholds; the integration can only lower what it allocates.
+Every refresh ends in a verified save: the runtime builds its snapshot, about 7.8 MB of JSON on the household installation, asks Home Assistant's Store to write it, reads the file back, parses it into a second object tree and compares the two in the executor. A trace of the household installation measured 2.5 such saves a minute in an idle house, each allocating two large object trees, and CPython generation-2 collections of about 0.85 s on the main thread: 0.4 a minute idle, 2 to 4 a minute during edits. After the catalog and scan changes a Stop Monitoring save takes 1.33 s on the server, so a collection landing inside it is now more than half of that save, and it lands in roughly one edit in two or three. Home Assistant Core sets no collector thresholds; the integration can only lower what it allocates.
 
 The verification exists because Store logs a write failure without raising. The read-back guards two things: a notification request is published only after the state that records it is durable, and an accepted settings edit is never reported as saved when it is not.
 

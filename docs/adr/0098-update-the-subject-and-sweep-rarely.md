@@ -1,7 +1,6 @@
 # ADR 0098: Update the subject of each event and sweep rarely
 
-**Status:** Accepted on 2026-10-18; implemented, installed and measured on the household installation
-**Implementation status:** See the [roadmap](../roadmap.md#current-work).
+**Status:** Accepted; released in 1.10.0
 
 **Date:** 2026-10-18
 
@@ -9,7 +8,7 @@
 
 ## Context
 
-The [core design audit](../core-design-audit-2026-10-18.md) found that the loop knows what changed when an event arrives and then recomputes the installation anyway. Every 60 seconds the reconciliation reads every registry entry, re-evaluates every candidate, composes every source, rebuilds the catalog rows and re-observes every check, 0.46 s on the event loop of the household installation, whether or not anything changed. Every refresh, whatever its cause, also re-observes all 79 integration entries, and a config-entry rewrite by another integration with no change to the entry's title, domain or disabled state requests such a refresh: 17 of the 60 idle refreshes in 33 minutes, 16 of which saved at once because the engine returned events for the re-observed entries.
+A review of the core loop found that it knows what changed when an event arrives and then recomputes the installation anyway. Every 60 seconds the reconciliation reads every registry entry, re-evaluates every candidate, composes every source, rebuilds the catalog rows and re-observes every check, 0.46 s on the event loop of the household installation, whether or not anything changed. Every refresh, whatever its cause, also re-observes all 79 integration entries, and a config-entry rewrite by another integration with no change to the entry's title, domain or disabled state requests such a refresh: 17 of the 60 idle refreshes in 33 minutes, 16 of which saved at once because the engine returned events for the re-observed entries.
 
 State changes already update their subject. The state listener builds observations for the sources indexed to that entity and queues them in order; the refresh that drains the queue evaluates in 0.03 s. Config-entry state changes have the same path through each watched entry's state listener. Registry, Repairs and automation-reload events request a rediscovery, and those are rare: one registry change in the same 33 minutes. The deadline timer already drives time-based transitions: settle windows, holds, batch windows and digest schedules request a refresh at their due time.
 

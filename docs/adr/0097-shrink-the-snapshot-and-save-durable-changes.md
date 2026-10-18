@@ -1,7 +1,6 @@
 # ADR 0097: Persist durable facts only
 
-**Status:** Accepted on 2026-10-18; the adapter part is implemented, installed and measured on the household installation; the library part shipped in health-tree 0.9.0 (its ADR 0041)
-**Implementation status:** See the [roadmap](../roadmap.md#current-work).
+**Status:** Accepted; released in 1.10.0, with the library part in health-tree 0.9.0 (its ADR 0041)
 
 **Date:** 2026-10-18
 
@@ -9,7 +8,7 @@
 
 ## Context
 
-After the latency series the household installation still rewrites a 7.7 MB file about 1.5 times a minute, roughly 17 GB a day, and the allocation behind each save triggers a generation-2 collection that pauses the whole Home Assistant process for about 0.85 s every three to four minutes. The [footprint measurement](../performance/snapshot-footprint-2026-10-18.json) and the [core design audit](../core-design-audit-2026-10-18.md) explain both.
+After the latency series the household installation still rewrites a 7.7 MB file about 1.5 times a minute, roughly 17 GB a day, and the allocation behind each save triggers a generation-2 collection that pauses the whole Home Assistant process for about 0.85 s every three to four minutes. A footprint measurement and a review of the core loop explain both.
 
 The snapshot persists three kinds of state. Durable facts, about 1 MB: episodes, resolved history, operator controls, the delivery ledger, monitoring identities and scopes, enrollment, retry starts, phone actions, automation alerts, Repairs, broken automations, temperature and UPS monitor progress, notification flags and policy settings. Library working memory, 2.8 MB: the engine's check records with the full last observation of each of 1,757 checks, and the policy's route states. Caches, 1.8 MB: route signatures that store the full JSON of the same thirteen rules once per route, and check and integration evidence that store the last observation's reason, message, time and status for every source.
 

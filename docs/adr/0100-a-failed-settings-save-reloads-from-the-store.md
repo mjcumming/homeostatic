@@ -1,11 +1,10 @@
 # ADR 0100: A failed settings save reloads from the store
 
-**Status:** Accepted on 2026-10-18; implemented
-**Implementation status:** See the [roadmap](../roadmap.md#current-work).
+**Status:** Accepted; released in 1.10.0
 
 **Date:** 2026-10-18
 
-**Extends:** [ADR 0097](0097-shrink-the-snapshot-and-save-durable-changes.md) and [ADR 0098](0098-update-the-subject-and-sweep-rarely.md); the fifth step of the [core design audit](../core-design-audit-2026-10-18.md). **Supersedes:** the in-process rollback of the settings transaction described in the [specification](../spec.md).
+**Extends:** [ADR 0097](0097-shrink-the-snapshot-and-save-durable-changes.md) and [ADR 0098](0098-update-the-subject-and-sweep-rarely.md); the fifth step of the October 18 review of the core loop. **Supersedes:** the in-process rollback of the settings transaction described in the [specification](../spec.md).
 
 ## Context
 
