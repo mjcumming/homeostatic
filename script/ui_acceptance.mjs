@@ -172,8 +172,8 @@ async function waitForExit(child) {
 }
 
 async function main() {
-  const {values:args}=parseArgs({options:{group:{type:"string",default:"all"},output:{type:"string",default:"build/ui-acceptance"},port:{type:"string",default:"8127"},width:{type:"string",default:"1440"},height:{type:"string",default:"1000"},theme:{type:"string",default:"light"},browser:{type:"string",default:"chromium"},mode:{type:"string",default:"all"},python:{type:"string",default:process.env.VIRTUAL_ENV?join(process.env.VIRTUAL_ENV,"bin/python"):"python"},"playwright-module":{type:"string"},snapshot:{type:"string"},freeze:{type:"string"},merge:{type:"string",multiple:true},help:{type:"boolean",default:false}}});
-  if(args.help){console.log("Usage: node script/ui_acceptance.mjs [--group all|issues|policies|notifications|layout] [--snapshot frozen-directory] [--freeze new-directory] [--mode all|fixtures|live] [--port 8127] [--output build/ui-acceptance] [--width 1440 --height 1000 --theme light|dark] [--browser chromium|firefox|webkit] [--python /path/to/python] [--playwright-module /path/to/playwright/index.mjs]\nMerge: --merge path/to/report.json --merge another/report.json --output build/ui-acceptance/combined");return;}
+  const {values:args}=parseArgs({options:{group:{type:"string",default:"all"},output:{type:"string",default:"build/ui-acceptance"},port:{type:"string",default:"8127"},width:{type:"string",default:"1440"},height:{type:"string",default:"1000"},theme:{type:"string",default:"light"},browser:{type:"string",default:"chromium"},mode:{type:"string",default:"all"},python:{type:"string",default:process.env.VIRTUAL_ENV?join(process.env.VIRTUAL_ENV,"bin/python"):"python"},"playwright-module":{type:"string"},"browser-channel":{type:"string"},headed:{type:"boolean",default:false},snapshot:{type:"string"},freeze:{type:"string"},merge:{type:"string",multiple:true},help:{type:"boolean",default:false}}});
+  if(args.help){console.log("Usage: node script/ui_acceptance.mjs [--group all|issues|policies|notifications|layout] [--snapshot frozen-directory] [--freeze new-directory] [--mode all|fixtures|live] [--port 8127] [--output build/ui-acceptance] [--width 1440 --height 1000 --theme light|dark] [--browser chromium|firefox|webkit] [--python /path/to/python] [--playwright-module /path/to/playwright/index.mjs] [--browser-channel chrome|msedge|chromium] [--headed]\nMerge: --merge path/to/report.json --merge another/report.json --output build/ui-acceptance/combined");return;}
   for(const [key,allowed] of Object.entries({group:["all","issues","policies","notifications","layout"],mode:["all","fixtures","live"],theme:["light","dark"],browser:["chromium","firefox","webkit"]}))if(!allowed.includes(args[key]))throw Error(`Invalid ${key}: ${args[key]}`);
   const viewport={width:Number(args.width),height:Number(args.height)},port=Number(args.port);
   if(!Number.isInteger(port)||port<1024||port>65535||Object.values(viewport).some(n=>!Number.isInteger(n)||n<240||n>4000))throw Error("Invalid port or viewport");
@@ -202,7 +202,7 @@ async function main() {
   const candidate=args.snapshot?JSON.parse(await readFile(join(sourceRoot,"candidate.json"),"utf8")):candidateInfo(await fingerprint(component));
   if(await fingerprint(component)!==candidate.component_sha256)throw Error("Frozen component no longer matches its manifest");
   if(args.snapshot&&await fingerprint(join(sourceRoot,"tests/frontend"))!==candidate.fixture_sha256)throw Error("Frozen fixtures no longer match their manifest");
-  const report={schema_version:1,coverage_revision:2,started_at:new Date().toISOString(),candidate,environment:{group:args.group,viewport,theme:args.theme,browser:args.browser,mode:args.mode,notifications:"captured by synthetic services only"},fixtures:emptyReceipt(),live:emptyReceipt(),diagnostics:[],artifacts:[]};
+  const report={schema_version:1,coverage_revision:2,started_at:new Date().toISOString(),candidate,environment:{group:args.group,viewport,theme:args.theme,browser:args.browser,browser_channel:args["browser-channel"]??null,headed:args.headed,mode:args.mode,notifications:"captured by synthetic services only"},fixtures:emptyReceipt(),live:emptyReceipt(),diagnostics:[],artifacts:[]};
   if(process.env.HOMEOSTATIC_UI_CASES)report.environment.selected_cases=process.env.HOMEOSTATIC_UI_CASES.split(",").filter(Boolean);
   const record=(layer)=>(id,status,evidence)=>{observe(report[layer],id,status,`${args.group}/${args.width}px/${args.theme}: ${typeof evidence==="string"?evidence:JSON.stringify(evidence)}`);console.log(`${layer} ${status} ${id}`);};
   let browser,server,child,lab,context,logStream;
@@ -218,7 +218,7 @@ async function main() {
   try{
     const modulePath=args["playwright-module"]??process.env.PLAYWRIGHT_MODULE??join(root,".tools/ui-acceptance/node_modules/playwright/index.mjs");
     const playwright=await import(pathToFileURL(resolve(modulePath)).href);
-    browser=await playwright[args.browser].launch({headless:true});
+    browser=await playwright[args.browser].launch({headless:!args.headed,...(args["browser-channel"]?{channel:args["browser-channel"]}:{})});
     report.environment.browser_version=browser.version();
     if(args.mode!=="live"){
       const fixtureServer=await staticServer(sourceRoot);server=fixtureServer.server;
