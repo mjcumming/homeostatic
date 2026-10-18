@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-18T04:35:00Z",
+  "question": "Why does the household installation save so often and write so much per save?",
+  "installation": "Household installation, Raspberry Pi 5, Home Assistant 2026.10.0, Homeostatic 1.9.0, about 6,000 entities and 300 devices; store file .storage/homeostatic.<entry>",
+  "method": "Two copies of the store file taken 60 seconds apart during an idle minute, sized per section as compact JSON and compared field by field; save causes from the coalesced saves receipt's idle window. Aggregates only; no household data is recorded here.",
+  "file": {
+    "bytes_on_disk": 7708239,
+    "compact_json_bytes": 5406000,
+    "indentation_share": 0.30,
+    "note": "Home Assistant's Store writes two-space indented JSON; the indentation is 2.3 MB of the 7.7 MB."
+  },
+  "sections_compact_mb": {
+    "engine": {"total": 2.112, "checks": 1.476, "checks_records": 1757, "checks_observation_field": 0.726, "nodes": 0.541, "nodes_records": 3505, "episodes": 0.095, "owner": "health-tree snapshot (opaque to the adapter)"},
+    "attention_routes": {"total": 1.364, "routes": 8, "per_route": 0.170, "note": "Each route signature stores the full JSON of the same 13 rules; a digest would compare equally.", "owner": "adapter"},
+    "policy": {"total": 0.691, "routes": 8, "per_route": 0.086, "owner": "health-tree Policy snapshot"},
+    "enrollment": {"total": 0.465, "records": 1754, "owner": "adapter"},
+    "check_evidence": {"total": 0.443, "records": 1675, "owner": "adapter"},
+    "everything_else": {"total": 0.33, "sections": 18}
+  },
+  "changes_between_two_idle_saves_one_minute_apart": {
+    "check_evidence": "current.observed_at changed in all 1,675 records (0.28 MB); last_failure in 36",
+    "engine": "checks changed (1.48 MB): each check record carries its last observation with its time",
+    "integration_evidence": "current changed in all 79 records",
+    "policy": "all 8 route states changed",
+    "unchanged": "enrollment, episodes, resolved_history, operator_controls, delivery, attention_routes and the other 14 sections"
+  },
+  "why_every_minute_saves": "The minute reconcile re-observes every check and records the observation time in the evidence and engine sections, so the snapshot differs every minute even when no condition changed; the coalescing window then writes it once.",
+  "idle_saves_by_cause_33_minutes": {
+    "reconcile_tick_deferred_then_timed": 33,
+    "config_entry_rewrite_by_another_integration_immediate": 16,
+    "config_entry_rewrite_deferred": 1,
+    "deadline_immediate": 4,
+    "state_change_immediate": 1,
+    "state_change_deferred": 4,
+    "registry_change_deferred": 1,
+    "timed_saves_that_merged_more_than_one_refresh": 7
+  },
+  "write_volume_estimate": "7.7 MB per save at 1.55 saves a minute is about 17 GB a day on this installation; before 1.9.0 it was 2.5 to 2.8 saves a minute, about 30 GB a day",
+  "memory": "Not measured: the Supervisor core stats endpoint refused the frontend session and the agent API does not expose it",
+  "open_question": "Which engine events make a config-entry rewrite by another integration an immediate save; a per-refresh trace of event types answers it"
+}

@@ -4,6 +4,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0097](0097-shrink-the-snapshot-and-save-durable-changes.md) | Shrink the snapshot and save only durable changes | Proposed; extends 0096 and asks health-tree to keep observation times out of its snapshot |
 | [0096](0096-coalesce-evidence-saves-and-verify-bytes.md) | Coalesce evidence-only saves and verify stored bytes | Accepted; implemented, installed and measured; extends the persistence verification rule |
 | [0095](0095-patch-catalog-after-edits.md) | Patch the catalog after an edit instead of reloading it | Accepted; implemented, installed and measured for a local trial; partially supersedes 0029's reload on every revision change |
 | [0094](0094-one-device-issue-workflow.md) | Use one device issue workflow from every investigation page | Accepted; implemented, installed and verified for a local trial; supersedes entry routing and device membership in 0093 and refines 0091 presentation |
