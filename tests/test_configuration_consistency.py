@@ -56,10 +56,15 @@ async def test_configuration_read_waits_for_coherent_save(
         read_started.set()
         await configuration(current_hass, connection, msg)
 
+    failures = 0
+
     async def completing(
         current_runtime: Runtime, now: datetime, *, durable: bool = False
     ) -> None:
-        if fail:
+        nonlocal failures
+        # Only the first editor's save fails; the reload that follows completes.
+        if fail and failures == 0:
+            failures += 1
             raise OSError("Write failed")
         await complete(now, durable=durable)
 
@@ -105,6 +110,10 @@ async def test_configuration_read_waits_for_coherent_save(
             assert fresh["revision"] == dashboard._configuration(runtime)[1]
             assert (fresh["revision"] == baseline["revision"]) is fail
 
+        if fail:
+            # The failed save reloads the integration from the saved state (ADR 0100).
+            await hass.async_block_till_done()
+            runtime = config_entry.runtime_data
         second_draft = deepcopy(fresh["settings"])
         second_draft["monitoring_policies"][0]["enabled"] = False
         await second.send_json(
@@ -115,7 +124,13 @@ async def test_configuration_read_waits_for_coherent_save(
                 "settings": second_draft,
             }
         )
-        assert (await second.receive_json())["result"] == {"saved": True}
+        second_saved = await second.receive_json()
+        assert second_saved.get("result") == {"saved": True}, (
+            second_saved,
+            config_entry.state,
+            getattr(config_entry.runtime_data, "error", None),
+            getattr(config_entry.runtime_data, "running", None),
+        )
         assert (
             runtime.settings.monitoring_policies[0].name
             == expected["monitoring_policies"][0]["name"]

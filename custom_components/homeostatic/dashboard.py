@@ -1366,9 +1366,7 @@ async def _async_apply_monitoring(
         connection.send_error(
             msg["id"],
             "apply_failed",
-            "Could not apply settings; previous options restored"
-            if runtime.available
-            else "Previous options restored, but monitoring is unavailable",
+            "Could not save settings; monitoring is reloading from the last saved state",
         )
     else:
         connection.send_result(msg["id"], {"saved": True})
@@ -1455,7 +1453,7 @@ async def _async_save_settings_locked(
                 connection.send_error(
                     msg["id"],
                     "reload_failed",
-                    "Could not apply settings; previous options restored"
+                    "Could not save settings; monitoring is reloading from the last saved state"
                     if recovered
                     else "Previous options restored, but monitoring is unavailable",
                 )

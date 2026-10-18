@@ -6,6 +6,7 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import Event, HomeAssistant, callback
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
@@ -134,15 +135,15 @@ async def test_monitoring_save_preserves_other_episodes_clocks_and_history(
 
 
 @pytest.mark.parametrize("edit", ["monitoring", "profile", "method"])
-@pytest.mark.parametrize("failure", ["write", "verification", "rollback"])
-async def test_in_place_save_rolls_back_failed_durable_application(
+@pytest.mark.parametrize("failure", ["write", "verification"])
+async def test_failed_durable_save_reloads_from_the_store(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,
     hass_ws_client: WebSocketGenerator,
     failure: str,
     edit: str,
 ) -> None:
-    """A failed write or verification restores options, state and exact delivery ids."""
+    """A failed write or verification answers with an error and reloads the saved state (ADR 0100)."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
     # The last write is not known to be current, so this save writes (ADR 0097).
@@ -165,14 +166,9 @@ async def test_in_place_save_rolls_back_failed_durable_application(
         }[edit]
     )
     save = runtime.store.async_save
-    calls = 0
 
     async def failing_save(data: dict[str, Any]) -> None:
-        nonlocal calls
-        calls += 1
-        await save(data)
-        if calls == 1 or failure == "rollback":
-            raise OSError("Test storage failure")
+        raise OSError("Test storage failure")
 
     load = runtime.store.async_load
     reads = 0
@@ -181,23 +177,19 @@ async def test_in_place_save_rolls_back_failed_durable_application(
         nonlocal reads
         reads += 1
         data = await load()
-        if reads == 1:
-            return {}
-        return data
+        return {} if reads == 1 else data
 
-    implementations = {
-        "write": failing_save,
-        "verification": save,
-        "rollback": failing_save,
-    }
-    verifications = {
-        "write": load,
-        "verification": failing_verification,
-        "rollback": load,
-    }
     with (
-        patch.object(runtime.store, "async_save", side_effect=implementations[failure]),
-        patch.object(runtime.store, "async_load", side_effect=verifications[failure]),
+        patch.object(
+            runtime.store,
+            "async_save",
+            side_effect=failing_save if failure == "write" else save,
+        ),
+        patch.object(
+            runtime.store,
+            "async_load",
+            side_effect=failing_verification if failure == "verification" else load,
+        ),
     ):
         await client.send_json(
             {
@@ -208,17 +200,24 @@ async def test_in_place_save_rolls_back_failed_durable_application(
             }
         )
         response = await client.receive_json()
-    assert response["error"]["code"] == "apply_failed"
-    assert not config_entry.options
-    assert runtime.settings.monitoring_policies[0].enabled
-    assert runtime.snapshot()["episodes"] == before["episodes"]
-    assert runtime.snapshot()["resolved_history"] == before["resolved_history"]
-    assert runtime.snapshot()["delivery"] == before["delivery"]
-    assert (
-        runtime.snapshot()["monitoring_identities"] == before["monitoring_identities"]
+        assert response["error"]["code"] == "apply_failed"
+        assert not config_entry.options
+        # Until the reload completes, reads see the saved settings and no monitoring.
+        assert runtime.settings.monitoring_policies[0].enabled
+        assert not runtime.available
+    await hass.async_block_till_done()
+    assert config_entry.state is ConfigEntryState.LOADED
+    reloaded = config_entry.runtime_data
+    assert reloaded is not runtime
+    assert reloaded.available
+    assert reloaded.settings.monitoring_policies[0].enabled
+    assert reloaded.settings == runtime.settings
+    if failure == "write":
+        assert reloaded.snapshot()["episodes"] == before["episodes"]
+        assert reloaded.snapshot()["delivery"] == before["delivery"]
+    assert set(reloaded.snapshot()["monitoring_identities"]) == set(
+        before["monitoring_identities"]
     )
-    assert runtime.snapshot()["monitoring_scopes"] == before["monitoring_scopes"]
-    assert runtime.available == (failure != "rollback")
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     await client.close()
 
@@ -385,7 +384,12 @@ async def test_failed_outbox_cleanup_never_reuses_a_published_delivery_id(
     config_entry: MockConfigEntry,
     hass_ws_client: WebSocketGenerator,
 ) -> None:
-    """A request already published before an I/O error keeps a unique identity."""
+    """A request already published before an I/O error keeps a unique identity.
+
+    The store written before publishing holds the ids the outbox assigned, so
+    the reload after the failed cleanup replays the same request under the same
+    id and gives later requests new ones (ADR 0100).
+    """
     from custom_components.homeostatic.const import EVENT_NOTIFICATION
 
     hass.states.async_set("sensor.observed", "unavailable")
@@ -395,11 +399,13 @@ async def test_failed_outbox_cleanup_never_reuses_a_published_delivery_id(
     configuration = (await client.receive_json())["result"]
     draft = configuration["settings"]
     draft["monitoring_policies"][0]["enabled"] = False
-    requested: list[str] = []
+    requested: list[tuple[str, str, str]] = []
 
     @callback
     def record_request(event: Event[Any]) -> None:
-        requested.append(event.data["delivery_id"])
+        requested.append(
+            (event.data["delivery_id"], event.data["tag"], event.data["action"])
+        )
 
     cancel = hass.bus.async_listen(EVENT_NOTIFICATION, record_request)
     save = runtime.store.async_save
@@ -423,9 +429,12 @@ async def test_failed_outbox_cleanup_never_reuses_a_published_delivery_id(
         )
         assert (await client.receive_json())["error"]["code"] == "apply_failed"
     assert not config_entry.options
-    assert runtime.episodes
-    assert len(requested) == 1
-    published_id = requested[0]
+    published_id = requested[0][0]
+    # The reload restores the store written before publishing; the policy may
+    # request the still-open issue again under a new id.
+    await hass.async_block_till_done()
+    reloaded = config_entry.runtime_data
+    assert reloaded is not runtime and reloaded.available
     await client.send_json(
         {
             "id": 3,
@@ -436,13 +445,17 @@ async def test_failed_outbox_cleanup_never_reuses_a_published_delivery_id(
     )
     assert (await client.receive_json())["result"] == {"saved": True}
     await hass.async_block_till_done()
-    assert len(requested) == 2
-    assert requested[1] != published_id
-    assert runtime.snapshot()["delivery"]["sequence"] >= int(
-        requested[1].rsplit(":", 1)[1]
+    by_id: dict[str, set[str]] = {}
+    for delivery_id, tag, _action in requested:
+        by_id.setdefault(delivery_id, set()).add(tag)
+    # An id names one message: a replay or a later action on that message repeats
+    # it, a request about another message gets a new id.
+    assert all(len(messages) == 1 for messages in by_id.values())
+    assert any(delivery_id != published_id for delivery_id, _, _ in requested[1:])
+    assert reloaded.snapshot()["delivery"]["sequence"] >= max(
+        int(delivery_id.rsplit(":", 1)[1]) for delivery_id, _, _ in requested
     )
     cancel()
-    assert await hass.config_entries.async_unload(config_entry.entry_id)
     await client.close()
 
 

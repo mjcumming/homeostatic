@@ -953,71 +953,6 @@ class Runtime:
             assert self.engine is not None
             assert self.policy is not None
             now = dt_util.utcnow()
-            engine_state, policy_state = self.engine.snapshot(), self.policy.snapshot()
-            # Keep HA subscriptions, captured observations and task ownership live
-            # while saving. Only adapter-owned evaluated state is transactional.
-            infrastructure = {
-                "hass",
-                "entry",
-                "store",
-                "engine",
-                "policy",
-                "_lock",
-                "_subscriptions",
-                "_entries",
-                "_deadline_cancel",
-                "_refresh_task",
-                "_pending",
-                "running",
-                "_stopped",
-                "_refresh_requested",
-                "_reconcile_requested",
-                "_repairs_dirty",
-                "_broken_full",
-                "_broken_named",
-                "_broken_created",
-                "_refresh_causes",
-                "_lock_holder",
-                "_gc_started",
-                "_window",
-                "_save_required",
-                "_save_pending",
-                "_pending_save_cancel",
-                "_stored_digest",
-                "_refresh_events",
-            }
-            previous = {
-                key: value
-                for key, value in vars(self).items()
-                if key not in infrastructure
-            }
-            # Discovery replaces these views; preserving their references avoids
-            # copying the entire catalog just to roll back a small settings edit.
-            replaced_views = {
-                "settings",
-                "sources",
-                "candidates",
-                "targets",
-                "enrolled",
-                "inventory_static",
-                "_compiled_settings",
-                "_compiled_policy",
-                "_entity_sources",
-                "_scan",
-            }
-            previous = {
-                **previous,
-                **deepcopy(
-                    {
-                        key: value
-                        for key, value in previous.items()
-                        if key not in replaced_views
-                    }
-                ),
-            }
-            _SAVE_TIMING_LOGGER.debug(
-                "phase=checkpoint seconds=%.6f", perf_counter() - phase_started
-            )
             phase_started = perf_counter()
             definitions_changed = (
                 self.settings.notification_definitions
@@ -1054,6 +989,7 @@ class Runtime:
                 )
                 == self.settings
             )
+            applied_from = self.settings
             try:
                 phase_started = perf_counter()
                 self.settings = settings
@@ -1100,39 +1036,21 @@ class Runtime:
                     raise HomeAssistantError(
                         "Homeostatic stopped while applying settings"
                     )
-            except OSError, HomeAssistantError, ValueError, KeyError, TypeError:
-                published = self._resolved_requests != previous["_resolved_requests"]
-                last_sequence = self.delivery.sequence
-                self.__dict__.update(previous)
-                if published:
-                    self.delivery.sequence = max(self.delivery.sequence, last_sequence)
-                self.engine = Engine(
-                    replace(self.settings.engine_settings(), startup_grace=timedelta(0))
-                )
-                if self.sources:
-                    self.engine.register_many(
-                        [
-                            source.node(self.settings)
-                            for source in self.sources.values()
-                        ],
-                        now,
-                    )
-                self.engine.restore(engine_state, now)
-                self.policy = Policy(self._policy_config())
-                self.policy.restore(policy_state, now)
-                self._inventory_dirty = True
+            except (
+                OSError,
+                HomeAssistantError,
+                ValueError,
+                KeyError,
+                TypeError,
+            ) as err:
+                # The store holds the last verified state and the config entry
+                # keeps its previous options: report, go unavailable and reload
+                # from them instead of rolling back in process (ADR 0100).
+                # Reads until the reload completes must show the saved settings.
+                self.settings = applied_from
+                self._failed(err)
                 if self.running:
-                    self._listen_entries()
-                try:
-                    await self._save()
-                except (
-                    OSError,
-                    HomeAssistantError,
-                    ValueError,
-                    KeyError,
-                    TypeError,
-                ) as err:
-                    self._failed(err)
+                    self.hass.config_entries.async_schedule_reload(self.entry.entry_id)
                 raise
             finally:
                 self._lock_holder = None

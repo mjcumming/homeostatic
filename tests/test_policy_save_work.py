@@ -17,6 +17,7 @@ from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.enrollment import report
 from custom_components.homeostatic.monitoring_runtime import enrollment_rules
+from custom_components.homeostatic.runtime import Runtime
 from custom_components.homeostatic.serialization import json_object
 from tests.policy_helpers import monitoring_policy
 from tests.test_lifecycle import start_monitor
@@ -172,7 +173,6 @@ async def test_policy_rename_preserves_durable_requests_and_rolls_back_names(
                 episode: deepcopy(runtime.policy.explain(episode))
                 for episode in runtime.episodes
             }
-            sources, inventory = runtime.sources, runtime.inventory_static
             changed = deepcopy(config_data)
             changed["monitoring_policies"][0]["name"] = "Renamed policy"
             save = runtime.store.async_save
@@ -196,9 +196,9 @@ async def test_policy_rename_preserves_durable_requests_and_rolls_back_names(
                 if failed_write:
                     with pytest.raises(OSError, match="Storage rejected"):
                         await runtime.async_apply_settings(Settings.from_data(changed))
-                    assert runtime.sources is sources
-                    assert runtime.inventory_static is inventory
+                    # Reads see the saved settings until the reload completes (ADR 0100).
                     assert runtime.settings.monitoring_policies[0].name == "observed"
+                    assert not runtime.available
                 else:
                     await runtime.async_apply_settings(Settings.from_data(changed))
                     assert (
@@ -209,6 +209,16 @@ async def test_policy_rename_preserves_durable_requests_and_rolls_back_names(
                         for source in runtime.sources.values()
                         if source.monitoring_policy == "observed"
                     )
+            if failed_write:
+                # The failed save reloads the integration from the saved state.
+                with (
+                    patch.object(Runtime, "_flush_events", new=AsyncMock())
+                    if queued
+                    else nullcontext()
+                ):
+                    await hass.async_block_till_done()
+                runtime = entry.runtime_data
+                assert runtime.settings.monitoring_policies[0].name == "observed"
             after = runtime.snapshot()
             assert runtime.policy is not None
             assert {
