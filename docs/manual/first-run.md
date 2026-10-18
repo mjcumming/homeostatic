@@ -1,73 +1,52 @@
-# Your first monitoring setup
+# Get started
 
-[Homeostatic manual](../guide.md)
+This walk-through shows you what Homeostatic watches, sends a test to your phone, connects the notifications the starting policies use, and turns sending on. You don't need a current problem to finish it.
 
-This tutorial takes you from an installed integration to monitoring you have reviewed and a morning report configured for one phone. You can finish it without a current equipment problem. Start after [installing Homeostatic](../install.md), using an administrator account.
+You'll need the Home Assistant Companion app on your phone, signed in to this Home Assistant with notifications allowed.
 
-For the phone steps, have the Home Assistant Companion app connected to this server with notification permission. Link the app's Home Assistant user to the intended person under **Settings → People**.
+## 1. See what's watched
 
-## 1. Check the starting state
+Open **Homeostatic** in the sidebar. **Open issues** lists anything Home Assistant is reporting now. Leave the **Notifications** switch in the header off for the moment.
 
-Open **Homeostatic** in the sidebar. **Open issues** shows the current reported problems. Keep the **Notifications** switch off while reviewing the setup.
+Open **Policies**. A new installation starts with these policies on:
 
-Open **Policies**. A fresh installation enables **Integrations**, **Devices**, **General entity availability**, **Important equipment availability**, **Repairs** and **Broken automations**. Batteries and vacuums start disabled. The supplied policies already select named notifications, but those notifications have no delivery methods yet.
+| Policy | Reports | Notification |
+| --- | --- | --- |
+| Integrations | An integration that fails to load or asks you to sign in again | Morning summary |
+| Devices | A device whose monitored entities are all unavailable | Morning summary |
+| Important equipment availability | An unavailable camera, lock, alarm panel, or smoke, carbon monoxide, gas or leak detector | Immediate |
+| General entity availability | Any other unavailable entity | Morning summary |
+| Repairs | A Home Assistant Repair | Morning summary |
+| Broken automations | An automation that names an entity that no longer exists | Morning summary |
 
-If Homeostatic has been configured before, the saved choices may differ. The [monitoring reference](monitoring-reference.md) lists fresh-install defaults; updates preserve your choices.
+Batteries and Vacuums start off. Temperature limits, thermostat progress and UPS checks are policies you add yourself; see [Choose what to watch](policies.md).
 
-## 2. Inspect familiar equipment
+## 2. Look at a device you know
 
-1. Open **Monitoring** and search for a familiar device, such as a lamp or switch.
-2. Select it and read the current condition and monitoring coverage.
-3. Open one of its policy links to see which sources that policy watches.
+Open **Monitoring**, search for a device such as a lamp, and select it. You'll see how many of its monitored entities are available and which policies watch it. Looking doesn't change anything.
 
-Opening a policy changes nothing. For this walkthrough, leave its source selection as it is. Later, [Choose what to monitor](policies.md) explains how to narrow the selection or make an exception.
+## 3. Add your phone
 
-If an issue is open, inspect its finding in **Open issues** and follow its Home Assistant link if useful. If there are no current issues, continue. A missing reading can still need investigation in Monitoring; an empty issue list is not a complete equipment health check.
+1. Open **Notifications**, switch to **Delivery methods** and select **Add delivery method**.
+2. Name it, for example **My phone**.
+3. Select **Add destination**, choose **App notification** and pick your phone.
+4. Select **Save delivery method**.
+5. Select **Edit delivery method**, then **Send test**, and check that the test arrives.
 
-## 3. Save one phone delivery method
+If your phone isn't listed, check that the Companion app is signed in to this Home Assistant and allowed to send notifications.
 
-1. Open **Notifications → Delivery methods** and select **Add delivery method**.
-2. Give the method a useful name, such as **Household phone**.
-3. Select **Add destination**, choose **App notification** under **Delivery type**, then select your Companion phone. Selecting the destination closes the picker.
-4. Leave presence-based selection off for this first setup.
-5. Select **Save delivery method**. After the save returns to the list, open it with **Edit delivery method**.
+## 4. Connect the notifications
 
-The saved method should show the selected phone. If it is missing from the picker, check the app registration and person association before proceeding.
+In the **Notifications** list, edit **Morning summary**, select **My phone** under **Send using**, and select **Save notification**. Do the same for **Immediate**.
 
-## 4. Request a test
+Morning summary sends one message at 08:00 listing what's still open, and skips the day when nothing is. Immediate covers the important equipment: if a lock or leak detector drops off at night, your phone gets an urgent alert about a minute later. If that's more than you want, leave Immediate without a delivery method, or set the Important equipment availability policy to Morning summary.
 
-Select **Send test** in the saved method's editor. This explicitly requests a test using that method, even while normal notifications are off. A changed method must be saved before testing.
+## 5. Turn sending on
 
-Read the result, then check the phone. A successful request means Home Assistant was asked to send the message; receipt is something you verify on the destination. If the message does not arrive, use [No notifications arriving](../troubleshooting.md#no-notifications-arriving).
+Turn on the **Notifications** switch in the header. Problems that are already open become eligible straight away: Immediate ones are sent after their short wait, and the rest wait for the next morning summary.
 
-## 5. Connect the method to Morning summary
+## Next
 
-1. Return to the named notifications list and select **Edit notification** for **Morning summary**.
-2. Review the time, days and displayed time zone. On a fresh installation it reports daily at 08:00 in Home Assistant's time zone.
-3. Under **Send using**, select **Household phone**.
-4. Inspect the listed policy uses, then select **Save notification**.
-
-This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes General entity, integration and device availability, Repairs and broken-automation policies. Important equipment availability uses Immediate, which needs its own delivery method selection. Disabled policies remain disabled.
-
-Open the policy you reviewed earlier and inspect its **Notifications** assignment. It should select **Morning summary**. If you change the assignment, select **Save policy**. Saving a notification does not save a pending policy edit.
-
-The relationship is now:
-
-```mermaid
-flowchart LR
-    P[Monitoring policy] --> N[Morning summary]
-    N --> M[Household phone delivery method]
-    M --> D[Selected Companion phone]
-```
-
-## 6. Enable normal sending
-
-Return to **Open issues** and review any problems that are already open. When ready, turn on the **Notifications** switch in the header. The switch applies immediately and saves independently of editor drafts.
-
-Existing open problems become eligible under their saved notification choices. Morning summary waits for its next scheduled occurrence; enabling sending does not send that summary immediately. An empty report sends nothing. Other saved immediate assignments can request notifications after their configured collection delay when sending is enabled.
-
-## Keep using it
-
-Use **Open issues** for reported problems, **Monitoring** for equipment and its current evidence, and **History** for ended issues. You can leave this setup running and add [battery checks](batteries.md), [temperature limits](temperature.md) or other monitoring when needed.
-
-For different timing, more destinations or presence choices, continue with [Set up and change notifications](notifications.md).
+- [Respond to issues](issues.md) when something shows up in **Open issues**.
+- [Choose what to watch](policies.md) to turn on battery checks or watch a freezer's temperature.
+- [Set up notifications](notifications.md) for other destinations, delivery hours or presence-based choices.

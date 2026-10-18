@@ -1,121 +1,80 @@
-# Advanced interface reference
+# Automation reference
 
-[Homeostatic manual](guide.md)
-
-This page describes Homeostatic's entities, action schemas, identifiers, cards, dashboard strategy and event-consumer blueprints. It is intended for people integrating Homeostatic with scripts, automations or dashboards. Everyday configuration belongs in the [manual](guide.md).
-
-Automation-defined alerts are unfinished and are not ready for user setup. Their existing action and blueprint contracts remain documented under [Unfinished alert interfaces](#unfinished-alert-interfaces) for development and compatibility work. They are outside the supported manual workflows.
-
-## Contents
-
-- [Configuration references](#setup)
-- [Node ids](#node-ids)
-- [Entities](#entities)
-- [Actions](#actions)
-- [Card](#card)
-- [Dashboard strategy](#dashboard-strategy)
-- [Panel addresses](#panel-addresses)
-- [Blueprints](#blueprints)
-- [Unfinished alert interfaces](#unfinished-alert-interfaces)
-- [Events](#events)
-
-## Setup
-
-For installation, use [Install Homeostatic](install.md). For supported configuration, use [Choose what to monitor](manual/policies.md) and [Set up and change notifications](manual/notifications.md). Configuration is managed in the Homeostatic panel; there is no native Home Assistant Configure form or integration YAML setup.
-
-### Timings
-
-Timing labels, defaults, units and behavior are listed in [Notification and control settings](manual/settings-reference.md). The ordinary settings reference owns these values.
-
-### Fixed limits
-
-History retention, operator-control bounds and other user-facing limits are listed in [Notification and control settings](manual/settings-reference.md). Individual action schemas below repeat bounds needed to validate an API request. Alert-interface limits are confined to the [unfinished interface reference](#unfinished-alert-interfaces).
-
-### Policy notifications
-
-See [Monitoring types and defaults](manual/monitoring-reference.md) for policy defaults and [Notification and control settings](manual/settings-reference.md) for named notifications, timing and destinations. The [notifications how-to](manual/notifications.md) covers assigning and editing them.
+Homeostatic's sensors, actions, cards and panel addresses, for your own automations, scripts and dashboards. Everyday setup is in the [manual](guide.md), and the events Homeostatic fires are in [Events](events.md). Configuration lives in the panel; there's no YAML setup.
 
 ## Node ids
 
-Actions and events use `node_id` for a monitored source or check, and `episode_id` for an issue. Obtain current values from `homeostatic.inventory`. Treat them as opaque identifiers; names are editable and are not identities.
+Actions and events use `node_id` for a monitored source or check and `episode_id` for an issue. Get current values from `homeostatic.inventory` and treat them as opaque; names can change, IDs don't.
 
-Named monitoring policies create distinct checks for their selected sources. A check's `node_id` commonly begins with `monitoring:` and can change when its detection settings change. Its `monitoring_source` identifies the underlying catalog source, and `monitoring_policy` identifies the contributing policy. Use the current monitored `node_id` for `explain`, `readiness`, `impact` and other model queries. A catalog source identity is not necessarily a queryable monitored check.
+Each policy creates its own checks. A check's `node_id` usually starts with `monitoring:` and changes when its detection settings change. Its `monitoring_source` is the underlying source and `monitoring_policy` the policy. Use the check's `node_id` for `explain`, `readiness` and `impact`.
 
-These canonical source forms help interpret inventory data; callers should read the returned identity rather than reconstruct it:
-
-| Source | Canonical identity form |
+| Source | Identity |
 | --- | --- |
 | Integration | `entry:<config entry id>` |
 | Device | `device:<device registry id>` |
-| Entity | `entity:registry:<entity registry id>`, or `entity:entity_id:<entity id>` for a state-only entity |
+| Entity | `entity:registry:<entity registry id>`, or `entity:entity_id:<entity id>` for an entity with no registry entry |
 | Battery | `battery:registry:<primary entity registry id>`, or `battery:entity_id:<entity id>` |
 | Vacuum | `vacuum:registry:<entity registry id>`, or `vacuum:entity_id:<entity id>` |
 
-Other source kinds also expose their identities through inventory. Existing developer alert records use `situation:<id>`; their contracts are [unfinished](#unfinished-alert-interfaces). Functions are dormant: they have no supported setup workflow or registered public action in the current integration.
-
 ## Entities
 
-Homeostatic adds a **Homeostatic** device with model **Health monitor** and these sensors. Entity IDs follow Home Assistant's naming and may differ after renaming or a naming collision; retrieve the actual IDs from the installation.
+Homeostatic adds a **Homeostatic** device with these sensors. Entity IDs follow Home Assistant's naming, so check the actual IDs in your installation.
 
-| Entity | Typical initial entity id | State |
+| Entity | Typical entity ID | State |
 | --- | --- | --- |
-| Readiness | `sensor.homeostatic_readiness` | The [readiness state](#readiness-states) of selected equipment. |
-| Open problems | `sensor.homeostatic_open_problems` | Count of open issues held by monitoring. Diagnostic. |
-| Evidence gaps | `sensor.homeostatic_evidence_gaps` | Count of watched checks that have never reported or have remained unknown beyond the configured wait. Diagnostic. |
+| Readiness | `sensor.homeostatic_readiness` | The [readiness state](#readiness-states) of the selected equipment |
+| Open problems | `sensor.homeostatic_open_problems` | Number of open issues. Diagnostic. |
+| Evidence gaps | `sensor.homeostatic_evidence_gaps` | Number of checks that have never reported or stayed unknown past **Wait for unknown evidence**. Diagnostic. |
 
-The sensors become unavailable when Homeostatic cannot supply a current answer, including startup, storage errors and unload. A failing monitored source does not itself make these sensors unavailable. The Open problems count can exceed the visible **Open issues** count because that page filters availability evidence gaps and recovery-confirmation entries.
+The sensors are unavailable while Homeostatic can't give a current answer, such as during startup or after a storage error. Open problems can be higher than the count in **Open issues**, which hides availability checks with unknown evidence and those waiting to confirm recovery.
 
 ### Readiness states
 
 | State | Meaning |
 | --- | --- |
-| `ready` | The selected equipment requirements have passing evidence. |
-| `degraded` | A requirement has a warning, such as an unavailable entity or low battery. |
-| `blocked` | A requirement has failed, such as an integration setup or authentication failure. |
-| `unknown` | A requirement lacks a current answer and no stronger adverse state applies. Also returned when no equipment is selected. |
+| `ready` | Every selected requirement is passing. |
+| `degraded` | A requirement has a warning, such as an unavailable entity or a low battery. |
+| `blocked` | A requirement has failed, such as an integration that can't set up. |
+| `unknown` | A requirement has no current answer and nothing worse applies, or nothing is selected. |
 
-When results differ, the precedence is `blocked`, `degraded`, `unknown`, `ready`. These states describe Home Assistant evidence; see [What Homeostatic cannot establish](manual/limitations.md).
+The precedence is `blocked`, `degraded`, `unknown`, then `ready`.
 
 ### Sensor attributes
 
 | Attribute | Value |
 | --- | --- |
-| `monitored_nodes` | Number of runtime source records. |
-| `selected_capabilities` | Number of selected targets behind overall readiness. |
-| `notification_consumer_missing` | Whether the configured event-consumer automation is missing or off. |
-| `physical_freshness_verified` | Always `false`. |
-| `updated_at` | Time of Homeostatic's last completed update. |
-| `error` | Homeostatic's current runtime error, if present. |
+| `monitored_nodes` | Number of sources being tracked |
+| `selected_capabilities` | Number of selected targets behind readiness |
+| `notification_consumer_missing` | Whether the configured event-consumer automation is missing or off |
+| `physical_freshness_verified` | Always `false` |
+| `updated_at` | When Homeostatic last finished an update |
+| `error` | Homeostatic's current error, if any |
 
 ## Actions
 
-Read-only actions require a response and do not change live monitoring. Call them through **Developer tools → Actions**, or use `response_variable` in a script or automation. Mutation actions support an optional response. A person calling a mutation must be an administrator; HA-owned automations follow Home Assistant's administrator-service authorization.
-
-Queries require a running Homeostatic instance. Unknown identities and invalid fields return errors. Examples containing `<node_id>`, `<episode_id>` or `<control_id>` require values from the current inventory or control response. Templated expiry examples are intended for scripts or automations; direct calls need a future ISO timestamp with a time zone.
+Read actions need a response: use **Developer tools → Actions**, or `response_variable` in a script. A person calling a change action must be an administrator; automations follow Home Assistant's rules for administrator actions. Times need a time zone, and the examples use templates, which work in scripts and automations.
 
 | Action | Kind | Purpose |
 | --- | --- | --- |
-| [`inventory`](#homeostaticinventory) | Read | Sources, policies, open issues, controls and history. |
-| [`explain`](#homeostaticexplain) | Read | Findings and dependencies for a monitored check. |
-| [`readiness`](#homeostaticreadiness) | Read | Readiness of selected sources. |
-| [`impact`](#homeostaticimpact) | Read | Sources that depend on a monitored check. |
-| [`coverage`](#homeostaticcoverage) | Read | Checks and sources with missing coverage or evidence. |
-| [`rollup`](#homeostaticrollup) | Read | Status and issue-membership counts. |
-| [`policy`](#homeostaticpolicy) | Read | Notification decisions for current issues. |
-| [`operator_controls`](#homeostaticoperator_controls) | Read | Active pauses and maintenance windows. |
-| [`resolved_history`](#homeostaticresolved_history) | Read | Retained ended issues. |
-| [`preview_policy`](#homeostaticpreview_policy) | Preview | Simulate notification-policy activation. |
-| [`preview_maintenance`](#homeostaticpreview_maintenance) | Preview | Calculate the current maintenance scope. |
-| [`acknowledge`](#homeostaticacknowledge) | Change | Acknowledge an issue. |
-| [`shelve`](#homeostaticshelve) | Change | Pause notifications for an issue. |
-| [`start_maintenance`](#homeostaticstart_maintenance) | Change | Hold new issues for equipment undergoing work. |
-| [`cancel_control`](#homeostaticcancel_control) | Change | End one pause or maintenance window early. |
-
-Developer-only `report_alert`, `manage_alert` and `report_situation` are documented [separately](#unfinished-alert-interfaces).
+| [`inventory`](#homeostaticinventory) | Read | Sources, policies, open issues, controls and history |
+| [`explain`](#homeostaticexplain) | Read | Findings and dependencies for a check |
+| [`readiness`](#homeostaticreadiness) | Read | Readiness of selected sources |
+| [`impact`](#homeostaticimpact) | Read | Sources that depend on a check |
+| [`coverage`](#homeostaticcoverage) | Read | Sources and checks with missing coverage or evidence |
+| [`rollup`](#homeostaticrollup) | Read | Status and issue counts |
+| [`policy`](#homeostaticpolicy) | Read | Notification decisions for current issues |
+| [`operator_controls`](#homeostaticoperator_controls) | Read | Active pauses and maintenance windows |
+| [`resolved_history`](#homeostaticresolved_history) | Read | Retained ended issues |
+| [`preview_policy`](#homeostaticpreview_policy) | Preview | Simulate a notification policy |
+| [`preview_maintenance`](#homeostaticpreview_maintenance) | Preview | Work out a maintenance window's scope |
+| [`acknowledge`](#homeostaticacknowledge) | Change | Acknowledge an issue |
+| [`shelve`](#homeostaticshelve) | Change | Pause an issue's notifications |
+| [`start_maintenance`](#homeostaticstart_maintenance) | Change | Hold new issues for equipment during work |
+| [`cancel_control`](#homeostaticcancel_control) | Change | End a pause or maintenance window early |
 
 ### `homeostatic.inventory`
 
-No fields. Returns source and catalog data, `targets`, `enrollment_changes`, `episodes`, `operator_controls`, `resolved_history`, `notification_requests`, `delivery_failures` and current evidence fields. `enrollment_changes` retains at most 50 activity records for the current runtime and is not persistent issue history.
+No fields. Returns sources and catalog data, `targets`, `enrollment_changes` (the last 50, for the current run only), `episodes`, `operator_controls`, `resolved_history`, `notification_requests`, `delivery_failures` and current evidence.
 
 ```yaml
 action: homeostatic.inventory
@@ -126,9 +85,9 @@ response_variable: homeostatic_inventory
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `node_id` | Yes | A current monitored [node id](#node-ids). |
+| `node_id` | Yes | A current check's [node id](#node-ids) |
 
-Returns the check's findings and the condition of its dependencies.
+Returns the check's findings and the state of its dependencies.
 
 ```yaml
 action: homeostatic.explain
@@ -140,7 +99,7 @@ data:
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `node_ids` | No | List of monitored node ids. Defaults to overall-readiness targets. |
+| `node_ids` | No | Check node ids. Defaults to the readiness targets. |
 
 Returns `answer`, `nodes` and `blocked_by`. An empty selection returns `unknown`.
 
@@ -155,9 +114,9 @@ data:
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `node_id` | Yes | A current monitored node id. |
+| `node_id` | Yes | A current check's node id |
 
-Returns dependent nodes and the importance inherited from them.
+Returns the nodes that depend on it and the importance they pass on.
 
 ```yaml
 action: homeostatic.impact
@@ -167,7 +126,7 @@ data:
 
 ### `homeostatic.coverage`
 
-No fields. Returns `no_checks` (registered sources without a check), `never_observed` and `stale` (check-level evidence gaps), plus `notification_consumer_missing`. Use Monitoring and catalog data to inspect discovery and saved selections.
+No fields. Returns `no_checks` (sources without a check), `never_observed` and `stale` (checks without current evidence), and `notification_consumer_missing`.
 
 ```yaml
 action: homeostatic.coverage
@@ -177,9 +136,9 @@ action: homeostatic.coverage
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `node_ids` | No | List of monitored node ids. Defaults to overall-readiness targets. |
+| `node_ids` | No | Check node ids. Defaults to the readiness targets. |
 
-Returns counts per status, divided by own issue, coverage by another issue and no open issue.
+Returns counts per status, split into sources with their own issue, sources covered by another issue and sources with none.
 
 ```yaml
 action: homeostatic.rollup
@@ -190,7 +149,7 @@ data:
 
 ### `homeostatic.policy`
 
-No fields. Returns `episodes` with notification explanations, `next_deadline`, `routes`, `notifications_enabled`, upcoming `reports` and `unavailable_destinations`. Read this response to inspect decisions; it does not request delivery.
+No fields. Returns `episodes` with notification explanations, `next_deadline`, `routes`, `notifications_enabled`, upcoming `reports` and `unavailable_destinations`. It never sends anything.
 
 ```yaml
 action: homeostatic.policy
@@ -198,7 +157,7 @@ action: homeostatic.policy
 
 ### `homeostatic.operator_controls`
 
-No fields. Returns `controls`, each containing `control_id`, `action` (`shelve` or `maintenance`), `target`, `started_at`, `until`, `user_id`, `reason` and `include_dependents`. A control may also retain `monitoring_roots` used to apply its scope.
+No fields. Returns `controls`, each with `control_id`, `action` (`shelve` or `maintenance`), `target`, `started_at`, `until`, `user_id`, `reason` and `include_dependents`.
 
 ```yaml
 action: homeostatic.operator_controls
@@ -206,9 +165,7 @@ action: homeostatic.operator_controls
 
 ### `homeostatic.resolved_history`
 
-No fields. Returns `started_at`, `retention` and `episodes`, newest first. Each record contains the issue as it ended, `resolved_at`, `resolution` (`cleared`, `removed`, `absorbed` or `split`), `absorbed_into`, `split_into` and a source display snapshot when available. `split_into` lists continuing issue IDs when issues separate; it is empty for other outcomes.
-
-New source snapshots retain known ownership and canonical-source metadata. Older records may lack it. Historical names and associations do not change when the current registry changes. `removed` does not establish recovery; `absorbed` identifies an issue that joined another issue. Retention is documented in [Notification and control settings](manual/settings-reference.md).
+No fields. Returns `started_at`, `retention` and `episodes`, newest first. Each record has the issue as it ended, `resolved_at`, `resolution` (`cleared`, `removed`, `absorbed` or `split`), `absorbed_into`, `split_into` and the source's details when known. `removed` means monitoring stopped, not that the problem ended; `absorbed` means the issue joined another one; `split` lists the separate issues that continue it in `split_into`.
 
 ```yaml
 action: homeostatic.resolved_history
@@ -218,9 +175,9 @@ action: homeostatic.resolved_history
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `policy` | Yes | A low-level policy mapping with `timezone`, `recipients` and `rules`; optional `digests`. |
+| `policy` | Yes | A policy-engine mapping with `timezone`, `recipients` and `rules`, and optionally `digests` |
 
-This is the policy engine's configuration shape, separate from the named-notification editor's configuration. It returns `at`, issue explanations in `episodes`, simulated `deliveries`, `reports` and `next_deadline`. The simulation assumes activation and works while normal sending is off. Nothing is saved or sent.
+Simulates turning the policy on now and returns `at`, issue explanations in `episodes`, the `deliveries` it would request, `reports` and `next_deadline`. It works while sending is off, and saves and sends nothing. This is the policy engine's own format, not the panel's named notifications.
 
 ```yaml
 action: homeostatic.preview_policy
@@ -239,11 +196,11 @@ data:
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `node_id` | Yes | An eligible integration, entity or external-capability identity. |
-| `include_dependents` | No | Include graph dependents; default `false`. |
-| `until` | Yes | Zoned ISO timestamp, strictly in the future and no more than seven days away. |
+| `node_id` | Yes | An integration or entity identity |
+| `include_dependents` | No | Also cover equipment that depends on it; default `false` |
+| `until` | Yes | A time in the future, at most seven days away |
 
-Returns `node_ids`, `existing_episode_ids` and `until`. It changes nothing. Starting maintenance recomputes the scope; the preview is not a reservation.
+Returns `node_ids`, `existing_episode_ids` and `until`, and changes nothing. Starting maintenance works out the scope again.
 
 ```yaml
 action: homeostatic.preview_maintenance
@@ -257,9 +214,9 @@ data:
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `episode_id` | Yes | A current open issue id from inventory. |
+| `episode_id` | Yes | An open issue's id |
 
-Records awareness for every recipient and stops acknowledgment-dependent reminders. Other eligible notifications may continue. Returns `acknowledgment` with the first acknowledgment's `at` and `actor_id`. The authenticated Home Assistant context supplies the actor; callers cannot set it.
+Records that someone has seen the issue, for every recipient, and stops reminders that wait for acknowledgment. Returns `acknowledgment` with the first acknowledgment's `at` and `actor_id`, which comes from the calling user.
 
 ```yaml
 action: homeostatic.acknowledge
@@ -273,32 +230,32 @@ The action behind **Pause notifications**.
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `episode_id` | Yes | A current issue id; a summary tag is not an issue id. |
-| `until` | Yes | Zoned ISO timestamp, strictly in the future and no more than seven days away. Existing pauses may be extended, not shortened. |
-| `reason` | No | Text up to 500 characters; default empty. |
+| `episode_id` | Yes | An open issue's id |
+| `until` | Yes | A time in the future, at most seven days away. A pause can be extended but not shortened. |
+| `reason` | No | Up to 500 characters |
 
-Holds new notifications for this issue for every recipient, including urgent routes. Existing messages remain, and recovery can still update or clear them. The issue remains open. Returns the saved `control`.
+Holds new notifications about the issue for everyone, including urgent ones. Existing messages stay, and recovery can still update or clear them. Returns the saved `control`.
 
 ```yaml
 action: homeostatic.shelve
 data:
   episode_id: '<episode_id>'
-  until: '{{ (now() + timedelta(hours=2)).isoformat() }}'
+  until: '{{ (now() + timedelta(days=3)).isoformat() }}'
   reason: Waiting for a replacement part
 ```
 
 ### `homeostatic.start_maintenance`
 
-Start equipment maintenance through this Home Assistant action. Active periods remain visible in the panel, where **End maintenance** ends them early. The panel has no action for starting a period.
+Starts a maintenance window. The panel shows active windows and can end them, but can't start one.
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `node_id` | Yes | An eligible integration, entity or external-capability identity. |
-| `include_dependents` | No | Include graph dependents as relationships change; default `false`. |
-| `until` | Yes | Zoned ISO timestamp, strictly in the future and no more than seven days away. |
-| `reason` | No | Text up to 500 characters; default empty. |
+| `node_id` | Yes | An integration or entity identity |
+| `include_dependents` | No | Also cover equipment that depends on it; default `false` |
+| `until` | Yes | A time in the future, at most seven days away |
+| `reason` | No | Up to 500 characters |
 
-Prevents new issues in the applied scope until expiry. Existing issues, their notifications and observations continue. There is no global maintenance scope. Situation roots and scopes containing situations are rejected. Returns the applied scope, as `preview_maintenance` does, and the saved `control`.
+Prevents new issues in the window's scope until it ends. Issues that are already open, their notifications and monitoring carry on. Returns the scope, as `preview_maintenance` does, and the saved `control`.
 
 ```yaml
 action: homeostatic.start_maintenance
@@ -313,9 +270,9 @@ data:
 
 | Field | Required | Value |
 | --- | --- | --- |
-| `control_id` | Yes | A current control id from `operator_controls`. |
+| `control_id` | Yes | A current control id from `operator_controls` |
 
-Ends that pause or maintenance window early. Overlapping controls and other notification holds remain effective. Missing, expired or replaced control ids are rejected. Returns `cancelled_control_id`.
+Ends that pause or maintenance window early. Other overlapping controls stay. Returns `cancelled_control_id`.
 
 ```yaml
 action: homeostatic.cancel_control
@@ -323,11 +280,13 @@ data:
   control_id: '<control_id>'
 ```
 
-Control mutations save before confirming success. A persistence failure can leave an uncertain outcome. After monitoring recovers, inspect current controls or acknowledgment before retrying; do not automatically repeat an ambiguous request.
+Change actions save before they report success. If saving fails, the result is uncertain: check the current controls or acknowledgment before trying again.
 
-## Card
+## Dashboards
 
-The reusable card type is `custom:homeostatic-card`. Panel and card access require an administrator. For dashboard setup, use [Add Homeostatic to a dashboard](manual/dashboards.md).
+The sidebar panel is there as soon as Homeostatic is installed. To add a Homeostatic dashboard, go to **Settings → Dashboards → Add dashboard**, choose **Homeostatic**, and make it visible to administrators only. It has views for Open issues, Monitoring, Policies, Notifications and History.
+
+To put one page on another dashboard, add a manual card:
 
 ```yaml
 type: custom:homeostatic-card
@@ -337,186 +296,44 @@ navigation: false
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `view` | `issues` | Initial page, using the identifiers below. |
-| `navigation` | `true` | Whether to show page tabs. With tabs hidden, contextual navigation can open another page and a back control returns to the configured view. |
+| `view` | `issues` | The page to show: `issues` (Open issues), `sources` (Monitoring), `policies`, `notifications`, `history` or `settings` |
+| `navigation` | `true` | Whether to show the page tabs. Without them, links to other pages show a button back to this view. |
 
-| `view` | Visible page |
-| --- | --- |
-| `issues` | Open issues |
-| `sources` | Monitoring |
-| `policies` | Policies |
-| `notifications` | Notifications |
-| `settings` | Settings |
-| `history` | History |
-
-Compatibility aliases remain accepted: `overview`, `problems` and `functions` open Open issues; `house` and `coverage` open Monitoring; `configuration` opens Settings. The `functions` alias does not expose a functions page. Internal versioned element names are cache-management details; saved dashboard YAML should use the reusable card name above.
-
-## Dashboard strategy
-
-The `custom:homeostatic` strategy generates a **Homeostatic** dashboard with five panel views. Each contains one card with `navigation: false`; Settings remains available through the card header.
+The ready-made dashboard comes from the `custom:homeostatic` strategy:
 
 ```yaml
 strategy:
   type: custom:homeostatic
 ```
 
-| View title | Path | Card `view` |
-| --- | --- | --- |
-| Open issues | `issues` | `issues` |
-| Monitoring | `sources` | `sources` |
-| Policies | `policies` | `policies` |
-| Notifications | `notifications` | `notifications` |
-| History | `history` | `history` |
-
-Existing dashboard configurations are not rewritten during an update. Their saved views remain, and supported older identifiers open their replacement destinations. The sidebar panel uses the current navigation independently.
-
 ## Panel addresses
 
-The administrator-only sidebar panel is `/homeostatic`. Encode identity values as individual URL path components. Links grant no additional access and do not acknowledge an issue or change monitoring.
+The panel lives at `/homeostatic`. Links grant no extra access and don't acknowledge anything.
 
-| Address | Destination |
+| Address | Opens |
 | --- | --- |
 | `/homeostatic` or `/homeostatic/issues` | Open issues |
-| `/homeostatic/episode/<episode_id>` | Current issue detail, or its retained History entry if it ended |
-| `/homeostatic/node/<node_id>` | Source detail |
+| `/homeostatic/issues/notification/<episode ids>` | Open issues limited to the issues in one notification, comma-separated |
+| `/homeostatic/episode/<episode_id>` | An issue, or its History entry if it has ended |
+| `/homeostatic/node/<node_id>` | A source |
 | `/homeostatic/sources` | Monitoring |
-| `/homeostatic/sources/<source_id>` | Selected source in Monitoring |
-| `/homeostatic/sources/<source_id>/history` | Compatibility route to that source's history |
+| `/homeostatic/sources/<source_id>` | A source selected in Monitoring |
 | `/homeostatic/policies` | Policies |
-| `/homeostatic/policies/<policy_id>` | Policy editor |
+| `/homeostatic/policies/<policy_id>` | A policy's editor |
 | `/homeostatic/notifications` | Named notifications |
-| `/homeostatic/notifications/profiles/<profile_id>` | Named-notification editor |
+| `/homeostatic/notifications/profiles/<profile_id>` | A named notification's editor |
 | `/homeostatic/notifications/methods` | Delivery methods |
-| `/homeostatic/notifications/methods/<method_id>` | Delivery-method editor |
+| `/homeostatic/notifications/methods/<method_id>` | A delivery method's editor |
 | `/homeostatic/history` | History |
-| `/homeostatic/history/<episode_id>` | Selected History entry |
-| `/homeostatic/settings` or `/homeostatic/settings/timing` | Timing settings |
-| `/homeostatic/settings/grouping` | Legacy route to installation timing settings |
+| `/homeostatic/history/<episode_id>` | One History entry |
+| `/homeostatic/settings` | Settings |
 
-The older `/homeostatic/notifications/policies` route opens Policies, with an optional policy id after it. Unrecognized routes fall back to Open issues. If an issue is absent from both current monitoring and retained history, the page reports that its outcome cannot be determined.
+Encode each ID as its own path segment. Unknown addresses open Open issues.
 
 ## Blueprints
 
-The event-consumer blueprints below declare Home Assistant 2026.9.0 as their minimum version. They are optional; the normal [notification setup](manual/notifications.md) uses saved delivery methods.
+These optional blueprints consume Homeostatic's [events](events.md). The built-in delivery methods don't need them.
 
-### Homeostatic Companion notifications
+[`companion_notification.yaml`](../blueprints/automation/homeostatic/companion_notification.yaml) sends `homeostatic_notification` requests for one recipient and channel to a Companion app notify action. Its inputs are **Recipient id** (default `owner`), **Channel id** (default `event`) and the **Companion app notification action**. It reuses tags, sends silent updates and handles withdrawals, but doesn't add the **Acknowledge** button. Don't route the same requests through it and a built-in delivery method.
 
-[`companion_notification.yaml`](../blueprints/automation/homeostatic/companion_notification.yaml) consumes `homeostatic_notification` request events for a selected recipient and channel, then calls a Companion notification action. Avoid routing the same request through both this consumer and a built-in delivery method. The blueprint does not add the built-in sender's phone acknowledgment action. Its description retains older setup wording; it is not a current Notifications configuration guide.
-
-| Input | Default | Value |
-| --- | --- | --- |
-| Recipient id | `owner` | The policy recipient whose request events it accepts. |
-| Channel id | `event` | An exact channel in the request's `channels` list. |
-| Companion app notification action | None | An existing Home Assistant notify action. |
-
-The blueprint reuses notification tags, sends silent updates when requested and handles resolution requests. Event receipt and a successful action call do not prove delivery to a phone.
-
-### Homeostatic problem logbook
-
-[`problem_logbook.yaml`](../blueprints/automation/homeostatic/problem_logbook.yaml) writes a logbook entry when an issue opens, changes or ends. Notification sending need not be enabled.
-
-| Input | Default | Value |
-| --- | --- | --- |
-| Changes to record | `opened`, `updated`, `resolved` | Event changes to log. |
-
-## Unfinished alert interfaces
-
-Automation-defined alerts and their setup blueprints are unfinished and not ready for user use. This section records existing schemas for developers inspecting the implementation or maintaining saved test configurations. It is not an installation procedure or a recommendation to create new alerts. The everyday manual deliberately excludes this feature.
-
-### Reporting choices
-
-The `report_alert` schema accepts the profile values below. They select entries in the separate `automation_profiles` mapping. The current editors do not create that mapping, and a monitoring policy's named notification assignment does not configure it. Existing saved mappings may use their own timing and delivery methods; these identifiers alone do not promise a schedule or destination.
-
-| `profile` | Existing selector label |
-| --- | --- |
-| `immediate` | Immediate |
-| `acknowledge` | Immediate with acknowledgment |
-| `morning` | Morning summary |
-| `evening` | Evening summary |
-| `weekly` | Weekly summary |
-| `dashboard` | Dashboard only |
-
-Selecting a profile neither creates delivery methods nor enables global sending. `dashboard` makes no outgoing request. Report responses distinguish `dashboard_only`, `requests_disabled`, `configured` and `missing_destinations`.
-
-### `homeostatic.report_alert`
-
-Developer-only unfinished interface. Reports a continuing condition owned by a saved automation. The first accepted report creates its declaration. The owning automation's saved identity and `alert_key` determine the alert identity.
-
-| Field | Required | Value |
-| --- | --- | --- |
-| `automation` | Yes | An automation entity with a saved HA automation identity. |
-| `alert_key` | No | Nonempty stable key, at most 100 characters; default `default`. |
-| `name` | Yes | Nonblank name, at most 200 characters. |
-| `message` | Yes | Text at most 2000 characters; may be empty. Used for active reports. |
-| `profile` | Yes | One of the [reporting choices](#reporting-choices). |
-| `state` | Yes | `active`, `clear` or `unknown`. Only `clear` establishes recovery. |
-| `report_timeout` | No | Integer seconds from 60 to 86400; default 300. Expiry makes the evidence unknown. |
-| `adopt_situation_id` | No | Existing declared situation with a report timeout to adopt, preserving its identity. |
-
-Returns `node_id`, `retired` and `reporting_status`. Up to 1000 active declarations are retained; retired declarations do not count toward that limit. Invalid reports mutate nothing. A retired alert rejects reports until explicitly resumed.
-
-### `homeostatic.manage_alert`
-
-Developer-only unfinished interface.
-
-| Field | Required | Value |
-| --- | --- | --- |
-| `automation` | Yes | Owning automation. |
-| `alert_key` | No | Default `default`. |
-| `operation` | Yes | `retire` or `resume`. |
-
-Retiring ends monitoring and rejects further reports until resumed. It does not establish recovery. Returns `node_id`, `retired` and `reporting_status`.
-
-### `homeostatic.report_situation`
-
-Existing-declaration compatibility interface within the unfinished alert feature. It accepts only previously saved situations with a `report_timeout`; the current manual provides no setup path for these declarations.
-
-| Field | Required | Value |
-| --- | --- | --- |
-| `situation_id` | Yes | Declared id matching a lowercase letter followed by lowercase letters, digits or underscores. |
-| `state` | Yes | `active`, `clear` or `unknown`. |
-
-Returns `node_id`, `state`, `accepted_at` and `expires_at`. A declaration adopted by an automation-owned alert rejects further `report_situation` calls for that id.
-
-### Homeostatic alert
-
-Developer-only unfinished blueprint: [`alert.yaml`](../blueprints/automation/homeostatic/alert.yaml). It declares Home Assistant 2026.9.0 as its minimum version. Its existing description references reporting setup that the current editors do not provide; those words do not establish a supported setup procedure.
-
-| Input | Existing contract |
-| --- | --- |
-| Alert name | Declaration name. |
-| Notification message | Text or template; every referenced entity belongs in Required evidence. |
-| Reporting preference | One of the accepted profile values above. |
-| Required evidence | Entities needed by the condition and message. Missing, unknown, unavailable or restored evidence produces an unknown report. |
-| Active when | Conditions that must all hold. |
-| Evidence expires after | Integer seconds from 300 to 86400; default 300. |
-| Exact reevaluation times or other triggers | Additional reevaluation triggers. |
-
-The implementation reevaluates on required-entity changes, HA startup, every minute and additional triggers. It reports active, clear or unknown; invalid evidence does not clear a prior condition.
-
-### Report a situation to Homeostatic
-
-Developer-only compatibility blueprint: [`report_situation.yaml`](../blueprints/automation/homeostatic/report_situation.yaml). It targets previously saved declarations and belongs to the unfinished alert feature.
-
-| Input | Existing contract |
-| --- | --- |
-| Situation ID | Previously declared situation id. |
-| Required evidence | Entities needed by its conditions. |
-| Situation is active when | Conditions that must all hold. |
-| Additional reevaluation triggers | Extra triggers. |
-
-### Diagnostic state as problem
-
-Developer-only helper for the unfinished alert feature: [`diagnostic_state.yaml`](../blueprints/template/homeostatic/diagnostic_state.yaml). It produces a template binary sensor; creating that sensor does not establish a supported Homeostatic alert setup.
-
-| Input | Existing contract |
-| --- | --- |
-| Diagnostic entity | Source with documented fault and clear values. |
-| Fault value | Exact raw state representing the fault. |
-| Clear value | Distinct exact raw state representing recovery. |
-
-The sensor is on for the fault value, off for the clear value and unavailable for any other value or a restored source state. The blueprint declares Home Assistant 2026.9.0 as its minimum version.
-
-## Events
-
-`homeostatic_episode` records issue changes, `homeostatic_control` records control changes, and `homeostatic_notification` carries delivery requests. These events have different meanings: a delivery request is not proof of receipt, acknowledgment or recovery. See [Events](events.md) for their schemas and consumer behavior.
+[`problem_logbook.yaml`](../blueprints/automation/homeostatic/problem_logbook.yaml) writes a logbook entry when an issue opens, changes or ends, whether or not sending is on. **Changes to record** chooses which of `opened`, `updated` and `resolved` to log.

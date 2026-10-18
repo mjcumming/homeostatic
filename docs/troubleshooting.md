@@ -1,98 +1,59 @@
 # Troubleshooting
 
-[Homeostatic manual](guide.md)
-
-Start with the symptom below. Home Assistant's **Settings → System → Logs** is useful for setup, storage and delivery errors; search for `homeostatic`. For the boundaries of supported monitoring, see [What Homeostatic cannot establish](manual/limitations.md).
+Home Assistant's log, under **Settings → System → Logs**, shows setup, storage and delivery errors; search it for `homeostatic`.
 
 ## Setup fails or the panel says unavailable
 
-If Homeostatic is missing from **Add integration**, check that `<config>/custom_components/homeostatic/manifest.json` exists without an extra enclosing directory. Confirm the [requirements](install.md#before-you-start), restart Home Assistant and refresh the browser.
-
-If setup reports that Homeostatic is already configured, open its sidebar panel. One installation uses one Homeostatic integration; monitoring and notification choices are edited in that panel.
-
-If the integration fails to load, read the log:
-
-| Finding | Next step |
+| You see | Do this |
 | --- | --- |
-| A requirements error names `health-tree` | Restore internet access for dependency installation, then restart Home Assistant. |
-| Invalid configuration or saved data | Check the release's upgrade notes and [rollback instructions](manual/maintain-installation.md#roll-back). An older version may need its matching saved data restored. Do not delete settings as a troubleshooting shortcut. |
-| Storage errors, such as a full disk | Correct the storage problem, then reload Homeostatic. Restore a matching backup if its saved data is damaged. |
+| Homeostatic isn't in **Add integration** | Check that `<config>/custom_components/homeostatic/manifest.json` exists, restart Home Assistant and refresh the browser. |
+| The log mentions `health-tree` | Home Assistant couldn't download the library Homeostatic uses. Restore internet access and restart. |
+| The panel says Homeostatic is starting or reloading | Wait. The panel updates when monitoring is ready. |
+| The panel asks for an administrator | Sign in with an administrator account. Cards need one too. |
+| A storage or configuration error | Fix the cause, such as a full disk, and reload Homeostatic. Restore your backup if the saved data is damaged. |
 
-If the integration is loaded but the panel is unavailable, check the message:
+## Old screens after an update
 
-| Panel condition | Next step |
-| --- | --- |
-| Homeostatic is starting or reloading | Let startup finish. The panel should update when monitoring becomes available. |
-| Connection lost | Check the Home Assistant connection. Reconnect before trying to change settings. |
-| Administrator access required | Sign in with an administrator account. Homeostatic cards have the same requirement. |
-| Homeostatic reported an error | Read the Home Assistant log and any Homeostatic storage/configuration notification. |
-| Dashboard and integration out of sync | Follow the upgrade checks below. |
+Restart Home Assistant after updating, then refresh the browser with its cache bypassed. In the Companion app, reopen the app or reset its frontend cache. For a manual install, check that you replaced the whole `custom_components/homeostatic` folder.
 
-While the panel lacks current data, retained content is not evidence that monitoring is current. Loading or failed catalog retrieval is also different from an empty list of sources.
+## No notifications
 
-## Old screens after an upgrade
+Follow the chain from the issue to your phone:
 
-1. Confirm the installed version in HACS, or in the installed `manifest.json` after a manual installation.
-2. Restart Home Assistant after downloading an update.
-3. Refresh the browser with its cache bypassed. In the Companion app, reopen the app and use its frontend-cache reset if necessary.
-4. For a manual installation, confirm that the old component directory was replaced completely. Follow [Upgrade](manual/maintain-installation.md#upgrade) if older files remain.
+1. Open the issue. **Notifications:** shows the named notifications that cover it, or **None assigned** if its policy has none.
+2. Open the named notification and check that **Send using** has a delivery method. Immediate waits for its collection delay, daily hours wait for the start time, and a summary waits for its scheduled time.
+3. Check that the **Notifications** switch is on, and that the issue isn't paused, or already acknowledged under a reminder schedule.
+4. Open the delivery method and select **Send test**. If the test doesn't arrive, check the destination itself. For a phone, check the Companion app's sign-in, its person under **Settings → People**, and its notification permission.
 
-Let Home Assistant finish restarting before judging an out-of-sync message. Save or discard pending edits before deliberately reloading the page.
+## Too many issues or notifications
 
-## No notifications arriving
+If an entity is often unavailable and you don't care, **Stop monitoring** it from its issue. If the issues are useful but the notifications aren't, change the policy's notifications, or move the entity from Important equipment availability to General entity availability so it waits for the morning summary. A longer collection delay bundles more of a burst into one message.
 
-Follow the saved configuration from the issue to its destination:
+Policies can overlap on purpose, so look at every policy watching something before you delete one that seems to be a duplicate.
 
-1. Open the affected issue and its policy. Confirm that monitoring is enabled and the policy covers the source.
-2. Inspect **Notifications** in the policy. **No notifications** means the policy is intentionally dashboard-only.
-3. Open the assigned named notification. Check its timing, days, time zone and **Send using** methods. An assignment without a method cannot request delivery.
-4. Open the method. Check the destination and any presence rule, including its fallback or skip choice. Save changes in each editor separately.
-5. Confirm that the global **Notifications** switch is on. Check whether the issue has paused notifications or has already been acknowledged under a reminder schedule.
-6. Reopen the saved, unchanged delivery method and select **Send test**. Check the destination separately from the request result.
+## Something isn't monitored
 
-A scheduled summary sends at its next occurrence and includes eligible open problems. A daily-hours window holds requests outside its hours; a problem that ends before the next opening produces no delayed message. Acknowledgment stops acknowledgment-dependent reminders, while eligible open problems can still appear in summaries.
-
-If the test arrives but ordinary notifications do not, concentrate on the policy assignment, timing and issue controls. If the test does not arrive, check Home Assistant's delivery provider, logs and destination permissions. For a phone, check the app's signed-in user, its person association under **Settings → People**, and notification permission. [Set up and change notifications](manual/notifications.md) owns the full procedure.
-
-## Too many issues or messages
-
-Use **Open issues** to inspect the actual reported condition before changing anything. If an entity is not expected to remain available, [remove that availability selection](manual/policies.md) or narrow the contributing policy. Ending monitoring records that outcome without claiming the equipment recovered.
-
-Overlapping policies are independent. Inspect their names and settings before deleting an apparent duplicate; two temperature thresholds or notification choices may be intentional.
-
-If the issues are useful but the messages are too frequent, change the named notification or its policy assignment. Inspect the shared uses before saving a named notification. Use [Pause notifications](manual/issues.md) for an existing issue or [maintenance](manual/maintenance.md) for planned equipment work.
-
-## Expected equipment or a check is missing
-
-1. Clear Monitoring search and filters, and include disabled sources if appropriate.
-2. Open **Policies** and inspect whether the relevant policy is enabled and its sources are selected.
-3. Check exclusions and the monitoring type. Availability's broad selections omit diagnostic and configuration entities; exact individual selection is available where supported. Disabled sources remain ineligible.
-4. For a battery, UPS or temperature check, compare the available HA evidence with the [monitoring reference](manual/monitoring-reference.md). Missing required inputs can prevent a check from becoming useful.
-
-**Open issues** lists current reported problems. Missing availability evidence and recovery confirmation can remain visible in Monitoring without appearing there. [How issues work](how-it-works.md) explains that distinction.
+Clear the search and filters in **Monitoring**, and turn on **More filters → Include disabled sources** if you need to. Then check the policy: it must be enabled, its **Include** must cover the source, and the source mustn't be excluded. Availability policies skip anything disabled in Home Assistant, and skip diagnostic and configuration entities unless you pick them individually.
 
 ## A device shows unavailable but works
 
-Open the device in Home Assistant and compare the relevant entities with Homeostatic's selected evidence. Some devices make an unused feature unavailable in standby or another operating mode. Select the entities whose availability you actually expect.
+Some devices make a feature unavailable while it isn't in use, for example in standby. Compare the device's entities in Home Assistant with the ones Homeostatic monitors, and stop monitoring the ones you don't expect to stay available.
 
-A device assessment and an individual policy can cover different members because of exclusions. A working member may keep the device's overall availability assessment clear while an unavailable entity still has its own issue. Current `off`, `idle` and `unknown` values count as available for availability checks; they do not necessarily supply a usable reading for a temperature or battery check.
+## A save failed
 
-## A save failed or its result is uncertain
+The editor keeps your changes and says what went wrong. If someone else saved first, look at the current settings and make your change again. If storing the settings failed, the panel says **Could not save settings; monitoring is reloading from the last saved state** and Homeostatic reloads with the settings it last saved. When it's back, check the settings and save again.
 
-Keep the editor open and read the message. Validation errors identify the fields to correct. A conflict means saved settings changed while the draft was being edited. Review the current saved values before applying the intended change again.
+## A phone tap doesn't open the issue
 
-If the connection was lost during a save, reconnect and keep the draft. Open Homeostatic in a separate browser tab to inspect freshly loaded saved settings, then compare those with the original draft before making another change. Reopening an editor in the original tab can restore its draft and does not establish what was saved. Contextual availability changes offer **Refresh saved monitoring** when their result needs checking. Confirmed saves finish quietly; a persistent success banner is not required. Other editors can still contain unsaved changes.
+Check that the Companion app is signed in to this Home Assistant with an administrator account. A notification about an issue that has since ended opens its History entry, until History no longer keeps it.
 
-Navigation retains drafts within the same browser tab and administrator session. Reloading the page, closing the tab or changing the signed-in user ends that draft session.
+## What Homeostatic can't tell you
 
-## A phone tap does not open the issue
+- Whether a reading is fresh or a command worked. An available entity means Home Assistant's connection to it is working, nothing more.
+- Smoke, carbon monoxide, gas, water, tampering, a jammed lock or a triggered alarm. Important equipment availability only checks that Home Assistant can reach those devices, so use Home Assistant automations for the conditions themselves.
+- That Home Assistant itself has stopped. Homeostatic runs inside it, so you need something outside Home Assistant for that.
+- Whether anyone received a notification. Homeostatic hands requests to Home Assistant, which may log delivery errors.
+- Every automation fault. The broken-automation check finds entity IDs that don't exist; it doesn't read templates or scripts, or tell you whether an automation ran.
+- Problems from before Homeostatic was installed, or older than History keeps.
 
-Single-issue notifications open the issue, or its retained History entry after it ends. Device messages and summaries open **Open issues**. Tests open **Notifications**. An expired History link can no longer show the original record.
-
-Check that the Companion app is connected to the server that sent the message and that its current user has administrator access. Tapping the message opens context; the separate **Acknowledge** action records awareness. A device message's acknowledgment applies to the issues included in that message.
-
-<a id="known-limitations"></a>
-
-## Supported scope
-
-See [What Homeostatic cannot establish](manual/limitations.md) for detection, access, history and delivery boundaries. Automation-defined alerts are unfinished and have no supported setup procedure in this manual.
+Homeostatic doesn't repair anything, retry integrations or operate devices. People without an administrator account can receive notifications and use the phone **Acknowledge** button, but can't open the panel.

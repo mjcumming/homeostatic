@@ -12,7 +12,7 @@ What Homeostatic does today, what's being worked on next, and what's further out
 - Open issues and Monitoring share one device dialog for acknowledging, pausing notifications and stopping monitoring. History keeps the last 100 ended issues from the past 30 days.
 - Events for your own automations, a card for each panel page, a ready-made dashboard, and optional TopoMation grouping in Monitoring.
 
-The [manual](guide.md) covers setup and everyday use. [Limitations](manual/limitations.md) lists what Homeostatic can't establish.
+The [manual](guide.md) covers setup and everyday use, and [Troubleshooting](troubleshooting.md#what-homeostatic-cant-tell-you) lists what Homeostatic can't tell you.
 
 ## Current work
 

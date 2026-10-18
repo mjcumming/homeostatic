@@ -2,60 +2,34 @@
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="custom_components/homeostatic/brand/dark_icon.png"><img src="custom_components/homeostatic/brand/icon.png" alt="Homeostatic icon" width="88"></picture></p>
 
-Homeostatic helps you keep track of what needs attention in Home Assistant. It brings reported problems into one place and notifies people on their schedule.
-
-As your installation grows, an unavailable switch or an integration waiting for you to sign in can be easy to miss. Home Assistant often already knows about the problem. Homeostatic helps you notice it and find where to take action.
+Home Assistant usually knows when something breaks: an integration that can't connect, a lock it can't reach, a low battery, a Repair. It just doesn't tell anyone. Homeostatic watches for those problems, keeps them in one list, and notifies people on the schedule you choose.
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
 [![GitHub Release](https://img.shields.io/github/v/release/mjcumming/homeostatic?sort=semver)](https://github.com/mjcumming/homeostatic/releases)
 [![CI](https://github.com/mjcumming/homeostatic/actions/workflows/ci.yml/badge.svg)](https://github.com/mjcumming/homeostatic/actions/workflows/ci.yml)
 
-## Why use Homeostatic?
+## What you get
 
-- Catch up on routine problems in a morning summary, including low batteries and equipment Home Assistant reports unavailable.
-- Give a sustained temperature problem an immediate notification, with reminders until someone acknowledges it or the condition clears.
-- Investigate an integration failure together with its affected equipment. Follow links back to Home Assistant to take action.
-- Keep a known issue visible while pausing its notifications. History lets you review how earlier problems ended.
+- An alert at night when a lock, camera, alarm panel, or smoke, carbon monoxide, gas or leak detector drops off Home Assistant.
+- A morning summary of everything else that's unavailable, plus Repairs and automations that name entities that no longer exist.
+- One issue when an integration fails, listing the equipment it took down.
+- Optional checks for low batteries, vacuum errors, UPS power and battery, temperature limits, and thermostats that can't reach their target.
+- Acknowledge, pause or stop watching an issue in the panel, or acknowledge it from the notification on your phone.
 
-You choose what to watch, when to hear about it and which configured Home Assistant destinations to use. Checks can also stay on the dashboard without sending notifications.
+![Open issues grouped by integration and device](docs/images/manual-open-issues.png)
 
-![Open issues with an expanded MQTT group and its reported unavailable equipment](docs/images/manual-open-issues.png)
+## Install
 
-Example equipment in Open issues. Expand a group, then open a finding to inspect the problem.
+You need Home Assistant 2026.9.3 or newer and an administrator account.
 
-## What it watches
+In HACS, add `https://github.com/mjcumming/homeostatic` as a custom repository of type **Integration**, download Homeostatic and restart Home Assistant. Then add **Homeostatic** under **Settings → Devices & services → Add integration**. The [install page](docs/install.md) covers manual installation, updates and removal.
 
-A new installation watches integration, device and entity availability, Home Assistant Repairs, and automations that name missing entities. You can also configure battery checks, vacuum errors, UPS conditions, temperature limits and thermostat progress.
+Notifications start off. Follow [Get started](docs/manual/first-run.md) to send a test to your phone and turn them on.
 
-Browse equipment by integration, Home Assistant location, or optional [TopoMation](https://github.com/mjcumming/topomation) locations. Each source shows its current evidence and the checks that watch it. [The manual](docs/guide.md) explains the available monitoring and how to tailor it to your installation.
+## Documentation
 
-## Install and get started
-
-Upgrading an existing installation replaces its earlier notification configuration with fresh defaults and sending off. Read the [upgrade notes](CHANGELOG.md) before installing.
-
-You need Home Assistant 2026.9.3 or newer and an administrator account. The first load needs internet access to install its Python dependency; Homeostatic then runs locally.
-
-In HACS, add `https://github.com/mjcumming/homeostatic` as a custom repository with type **Integration**, download Homeostatic and restart Home Assistant. Then use **Settings → Devices & services → Add integration** to add **Homeostatic**.
-
-Common checks start enabled, with notification sending off. Review what Homeostatic finds, choose what matters to you, then decide who should hear about it.
-
-Start with [Install Homeostatic](docs/install.md) for the full HACS or manual procedure, then follow [Your first monitoring setup](docs/manual/first-run.md) to test one phone destination and arrange a morning report.
-
-## Read the manual
-
-Start at the **[Homeostatic manual](docs/guide.md)**, or go directly to a task:
-
-- [Review and respond to an issue](docs/manual/issues.md)
-- [Choose what to monitor](docs/manual/policies.md)
-- [Set up notifications](docs/manual/notifications.md)
-- [Understand how issues work](docs/how-it-works.md)
-- [Troubleshoot a problem](docs/troubleshooting.md)
-- [Upgrade, roll back or remove Homeostatic](docs/manual/maintain-installation.md)
-
-## Limits
-
-Homeostatic uses what Home Assistant reports. Availability does not establish that a reading is fresh or a command succeeded. It cannot report an outage of Home Assistant itself while running inside it, and it does not repair equipment automatically. Automation-defined alerts are unfinished and are outside the current manual. See [What Homeostatic cannot establish](docs/manual/limitations.md) for the full scope.
+The [manual](docs/guide.md) covers responding to issues, choosing what to watch and setting up notifications. [How Homeostatic works](docs/how-it-works.md) explains the model, and [Troubleshooting](docs/troubleshooting.md) lists what it can't tell you.
 
 ## Contribute
 
-[Contributing](CONTRIBUTING.md) explains development. The [specification](docs/spec.md) owns current behavior, and the [roadmap](docs/roadmap.md) describes unfinished work. The decision engine is the separate [health-tree](https://github.com/mjcumming/health-tree) library. Homeostatic is licensed under the [MIT license](LICENSE).
+[Contributing](CONTRIBUTING.md) explains development. The [specification](docs/spec.md) owns current behavior, and the [roadmap](docs/roadmap.md) lists what's next. The decision engine is the separate [health-tree](https://github.com/mjcumming/health-tree) library. Homeostatic is licensed under the [MIT license](LICENSE).

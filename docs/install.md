@@ -1,53 +1,35 @@
-# Install Homeostatic
+# Install, update or remove Homeostatic
 
-[Homeostatic manual](guide.md)
+You need Home Assistant 2026.9.3 or newer and an administrator account. The first start needs internet access so Home Assistant can download the Python library Homeostatic uses; after that it runs locally. Make sure you have a working [Home Assistant backup](https://www.home-assistant.io/common-tasks/general/#backups) before you install or update.
 
-This page installs Homeostatic and opens its panel. If it is already installed, use [Upgrade, roll back or remove Homeostatic](manual/maintain-installation.md).
-
-## Before you start
-
-You need Home Assistant 2026.9.3 or newer and an administrator account. The first load needs internet access so Home Assistant can install the required Python library. Use a published [Homeostatic release](https://github.com/mjcumming/homeostatic/releases) and the documentation included with it.
-
-Check that you have a usable Home Assistant backup before changing the installation. Home Assistant's [backup instructions](https://www.home-assistant.io/common-tasks/general/#backups) explain how to create and restore one.
-
-Choose one installation method below.
-
-Homeostatic keeps its saved state in a single Home Assistant storage file that grows with the installation, a few megabytes for several thousand entities, and rewrites it when issues, settings or controls change. Large installations run best from an SSD rather than an SD card.
+Homeostatic keeps its state in one Home Assistant storage file. The file grows with your installation, to a few megabytes for several thousand entities, and is rewritten when issues, settings or controls change. Large installations run best from an SSD rather than an SD card.
 
 ## Install with HACS
 
-1. Open HACS and its three-dot menu, then select **Custom repositories**.
+1. In HACS, open the three-dot menu and select **Custom repositories**.
 2. Add `https://github.com/mjcumming/homeostatic` with type **Integration**.
-3. Find **Homeostatic** in HACS and download the stable release.
-4. Restart Home Assistant, then refresh the browser.
-
-This uses HACS's [custom repository procedure](https://hacs.xyz/docs/faq/custom_repositories/).
+3. Download **Homeostatic** and restart Home Assistant.
+4. Go to **Settings → Devices & services → Add integration** and add **Homeostatic**.
+5. Open **Homeostatic** in the sidebar. **Open issues** should load.
 
 ## Install manually
 
-You need access to the Home Assistant configuration directory, such as through a file share or SSH.
+1. From a [release](https://github.com/mjcumming/homeostatic/releases), download `homeostatic-<version>.zip` and its `.zip.sha256` file. GitHub's source-code archive won't work.
+2. Check the archive: `sha256sum -c homeostatic-*.zip.sha256` on Linux, `shasum -a 256 -c homeostatic-*.zip.sha256` on macOS, or on Windows compare `Get-FileHash .\homeostatic-*.zip -Algorithm SHA256` with the checksum file.
+3. Copy the archive's `custom_components/homeostatic` folder into your Home Assistant configuration folder, so that `<config>/custom_components/homeostatic/manifest.json` exists.
+4. Restart Home Assistant, then follow steps 4 and 5 above.
 
-1. Download `homeostatic-<version>.zip` and its matching `.zip.sha256` file from the selected release into an empty folder on your computer. Use the Homeostatic release archive rather than GitHub's source-code archive.
-2. Verify the archive against the checksum. On Linux use `sha256sum -c homeostatic-*.zip.sha256`; on macOS use `shasum -a 256 -c homeostatic-*.zip.sha256`. On Windows, run `Get-FileHash .\homeostatic-*.zip -Algorithm SHA256` in PowerShell and compare the result with the checksum file. Stop if the hashes differ.
-3. Extract the archive and copy its `custom_components/homeostatic` directory into your Home Assistant configuration directory. The resulting path must be `<config>/custom_components/homeostatic/manifest.json`, with no extra enclosing folder.
-4. Restart Home Assistant, then refresh the browser.
+Then follow [Get started](manual/first-run.md).
 
-If an older Homeostatic directory is present, follow the [upgrade procedure](manual/maintain-installation.md#upgrade) to replace it completely and retain a rollback copy.
+## Update
 
-## Add the integration
+Read the release's [upgrade notes](../CHANGELOG.md) first. Update in HACS, or for a manual install replace the whole `custom_components/homeostatic` folder. Restart Home Assistant and refresh your browser. If the panel still looks old, see [Old screens after an update](troubleshooting.md#old-screens-after-an-update).
 
-1. Open **Settings → Devices & services → Add integration**.
-2. Search for **Homeostatic** and add it.
-3. Open **Homeostatic** in the sidebar. The **Open issues** page should load.
+To go back to an earlier version, restore the backup you took before updating. Older code can't always read data saved by a newer version.
 
-The supplied availability, Repairs and broken-automation policies start enabled. Normal notification sending starts off. Batteries and vacuums need enabling; temperature, thermostat and UPS checks need configuration.
+## Remove
 
-If setup or the panel fails, use [Setup fails or the panel says unavailable](troubleshooting.md#setup-fails-or-the-panel-says-unavailable).
-
-Continue with **[Your first monitoring setup](manual/first-run.md)** to review the defaults and prepare one phone destination.
-
-<a id="7-upgrade-and-roll-back"></a>
-
-## Existing installations
-
-[Upgrade, roll back or remove Homeostatic](manual/maintain-installation.md) owns updates, backups, rollback and removal.
+1. Under **Settings → Devices & services**, delete the Homeostatic integration. This removes its settings, issues, history and controls.
+2. Remove Homeostatic in HACS, or delete `<config>/custom_components/homeostatic`.
+3. Restart Home Assistant.
+4. Remove any Homeostatic cards and dashboards, and any automations that call `homeostatic.*` actions.

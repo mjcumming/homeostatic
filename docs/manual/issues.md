@@ -1,57 +1,48 @@
-# Review and respond to an issue
+# Respond to issues
 
-[Homeostatic manual](../guide.md)
+**Open issues** lists the problems Home Assistant is reporting now, grouped by integration and then by device. Use **Find an issue** to search by name, entity ID or condition, and **Sort issues** to change the order.
 
-Use **Open issues** to investigate a reported problem and decide what to do about it. Sign in with a Home Assistant administrator account to use the panel and its controls.
+## Open an issue
 
-## Inspect the problem
+Expand an integration and select **View** beside a device. The dialog shows every current issue on that device, whatever the check: availability, battery, temperature or anything else. **Open device** opens the device in Home Assistant. **Policies:** and **Notifications:** list what covers these issues; select a name to open that editor, and **Back to issue** to return.
 
-1. Open **Open issues**, or follow a notification to its issue.
-2. Use **Find an issue** to search by equipment name, entity ID or reported condition. **Sort issues** can put the newest or longest-open problems first.
-3. Expand the relevant group, then select **View** beside the device name. Its findings open together, even when only some entities are unavailable or a different condition needs attention. An entity without a device opens its own issue. Repairs, broken automations and wider integration issues retain their own views.
-4. Read the reported conditions and affected sources. Relevant evidence appears directly, including earlier recorded sources when they add context.
-5. Select **Open device** to inspect the equipment in Home Assistant. Individual entity issues and other issue types offer their relevant Home Assistant destination.
-6. Under **Policies:**, select a named policy to inspect its full scope and settings. Under **Notifications:**, select a named notification to inspect its timing and delivery methods. Select **Back to issue** to return.
+![A device dialog with three issues selected](../images/manual-issue-detail.png)
 
-The issue should identify what Home Assistant reported and where to investigate. Homeostatic does not repair the equipment. If an unavailable feature is normal for that equipment, [change its availability monitoring](policies.md#stop-availability-monitoring).
+**View** on a device in **Monitoring** opens the same dialog.
 
-Policies lists every policy covering the entity, including checks that use it to assess a device. Notifications lists the saved assignments from those policies, with shared notifications shown once. A **Custom notification** opens its owning policy. The dialog also identifies absent assignments, disabled sending or unconfigured delivery. Opening an editor sends no notification.
+Issues that don't belong to a single device open on their own: an entity without a device, a failed integration, a Repair or a broken automation. A failed integration's issue lists all the equipment it affects.
 
-Unavailable devices have independent issues while their integration is working. An integration failure can affect several devices; opening that integration issue shows its complete scope. The text beside acknowledgment and notification-pause controls explains their full scope before you act. Checks waiting for current information appear directly beneath their device. A previously reported problem stays visible when current information is missing, until recovery is confirmed.
+## Acknowledge or pause
 
-## Respond to a device's issues together
+When a device has several issues, they all start selected. Clear any you want to leave alone, then choose:
 
-1. Select **View** beside the device in **Open issues**, or open the device in **Monitoring** and select its **View** button. Both open the same current device issues, including entity problems and other conditions. A separate device availability issue is not required.
-2. All shown issues start selected. Uncheck any issue you want to handle differently, or use **All issues** to select or clear the list.
-3. Select **Acknowledge selected** to acknowledge those issues, or **Pause notifications…** and choose when the pause should end. Review each issue's resulting state; an operation can succeed for some issues and fail for others.
+- **Acknowledge selected** to record that someone has seen them. Reminders that wait for acknowledgment stop, and summaries still include them.
+- **Pause notifications…** to hold every notification about them, for everyone, for 1, 4 or 24 hours. Pausing again extends a pause.
+- **Resume notifications** to end their pauses early.
 
-If only one current issue belongs to the device, its condition appears above **Acknowledge issue** and **Pause notifications…**, without selection boxes. Selecting an acknowledgment button in this view applies the action without another confirmation. New issues that arrive while the view is open are not added to your selection automatically. An action already under way keeps the issues you submitted, and later issues do not inherit it.
+With one issue the first button reads **Acknowledge issue**. Acknowledging or pausing doesn't change monitoring, and the issues stay open until their checks see recovery. New issues don't inherit an acknowledgment or a pause. If an action fails for one issue, the dialog says which.
 
-**Stop Monitoring** is a separate coverage change. Its confirmation shows the exact affected entities; the issue checkboxes do not set that scope. Availability checks stop for those entities, while other condition checks continue. Use the policy buttons in the issue dialog to inspect or change a policy.
+## Stop watching something
 
-## Acknowledge an issue
+If Home Assistant often reports an entity unavailable and you don't need to know, select **Stop monitoring** in the issue. The confirmation lists the exact entities. Their availability checks stop and the issues end as **Monitoring ended**; other checks on them, such as battery or temperature, continue. [Choose what to watch](policies.md#stop-or-resume-availability-monitoring) explains how to undo it.
 
-1. Follow an exact issue link, such as a notification, or open an entity without a device and select **Acknowledge issue…**.
-2. Check the named issue, then select **Acknowledge issue** to confirm.
-3. Return to the issue to see its acknowledgment time.
+## From a notification
 
-An exact issue link keeps its original scope, including when the entity has a device. It does not automatically select the device's other issues. Acknowledgment records that someone has seen the issue for everyone receiving its notifications. It stops reminders that require acknowledgment. The issue remains open, and it can still appear in scheduled summaries. Dismissing a phone notification does not acknowledge it; see [notification actions](notifications.md) for phone behavior.
+Tapping a notification about one issue opens that issue. A notification about several opens **Issues in this notification**, showing the ones still open, and **Show all open issues** takes you to the full list. Tapping doesn't acknowledge anything. The **Acknowledge** button on a phone notification acknowledges only the issues in that message.
 
-## Pause an issue's notifications
+## When an issue ends
 
-1. Open the issue and select **Pause notifications…**.
-2. Choose an **End date and time** in the range shown. Use **More options** to add a reason if useful.
-3. Select **Pause notifications**.
-4. Check that the saved control shows **Notifications paused** and the intended expiry.
+An issue ends when its check sees recovery. Availability issues wait a little first, so a device that flickers back and drops off again stays one issue; [Defaults and settings](settings-reference.md#installation-timing) lists the wait. An availability issue whose current state is unknown, or that is waiting out that confirmation, leaves **Open issues** but stays visible on its source in **Monitoring**.
 
-The pause holds new notifications for the issue for everyone, including urgent notifications and reminders. When responding to several selected device issues, it applies separately to each selected issue. Other issues can still notify. Monitoring continues, each issue stays open until its condition clears, and an existing phone message is not dismissed by the pause.
+**History** keeps the last 100 ended issues from the past 30 days. Search with **Find a past issue**, and select a row to see what was recorded and when.
 
-An existing pause can be extended. To end it early, open the issue, select **Resume notifications…**, and confirm with **Resume notifications**. Due notifications may become eligible immediately; another overlapping pause can still apply.
+| Outcome | Meaning |
+| --- | --- |
+| Cleared | The check saw the problem end. |
+| Monitoring ended | The source stopped being monitored, or its policy changed. The problem may still be there. |
+| Joined another problem | The issue became part of a bigger one, such as a failed integration. **View related problem** opens it. |
+| Issues separated | A grouped issue split up, for example after its integration recovered. Each problem continues as its own issue. |
 
-## Follow recovery
+## Maintenance windows
 
-When the condition recovers, Homeostatic ends the issue according to that monitoring type's recovery rules. Availability checks wait for recovery confirmation. During that wait, the availability issue leaves **Open issues**, while its source in **Monitoring** retains the pending result.
-
-A missing reading can also remove an availability entry from **Open issues** without establishing recovery. If an issue disappears unexpectedly, inspect its source in **Monitoring**, then check [History](history.md). **Cleared**, **Monitoring ended**, **Joined another problem** and **Issues separated** record different outcomes. When an issue separates, its continuing issues retain any existing acknowledgment and notification pause. Each pause can then be ended independently.
-
-If an action fails or its result is uncertain, read the message and inspect the current acknowledgment or active controls before retrying. [Troubleshooting](../troubleshooting.md) covers connection and saving problems.
+Automations and scripts can hold off new issues for equipment during planned work with the [`homeostatic.start_maintenance`](../reference.md#homeostaticstart_maintenance) action. While a window is active, its source in **Monitoring** shows **Working on equipment** and when it ends. Issues that were already open, and their notifications, carry on. Select **End maintenance…** to end a window early.

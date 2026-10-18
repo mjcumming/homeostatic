@@ -1,68 +1,40 @@
 # How Homeostatic works
 
-[Homeostatic manual](guide.md)
-
-Home Assistant already reports many things that go wrong: an integration cannot load, an entity is unavailable, a battery is low or an automation names an entity that no longer exists. Homeostatic watches the conditions you choose, keeps track of their issues and requests notifications on your schedule.
+Home Assistant already reports most of what goes wrong: an integration that can't load, an entity it can't reach, a low battery, an automation that names an entity that's gone. Homeostatic compares those reports with your policies, opens an issue when one shows a problem, and asks Home Assistant to notify people when the issue's notifications say so.
 
 ## From a report to an issue
 
-A policy connects a source to an expectation. An availability policy expects its selected equipment to remain available through Home Assistant. A battery policy expects the reported charge to stay above its threshold. A temperature policy applies the limits and duration you choose.
+Each policy sets an expectation for the sources it covers. An availability policy expects them to stay reachable, a battery policy expects the level to stay above its threshold, and a temperature policy expects readings to stay within your limits. When a source breaks the expectation, Homeostatic opens an issue. The issue stays open while the problem lasts and ends when the check sees recovery.
 
-When the evidence meets a policy's problem condition, Homeostatic opens an issue. Further reports update that issue while the problem continues. The relevant recovery evidence ends it. Acknowledgment records that someone has seen the issue; it does not change the condition being monitored.
+One source can have several checks. A smart plug can be reachable while its power reading is unavailable, and a battery can be low while the device still works. Each check gets its own issue, so you can treat them differently.
 
-One source can have several checks. A smart plug can be available while its power-reading entity is unavailable. A battery can be low while the device still communicates. The separate findings let you investigate and choose notifications for each condition.
+## What availability means
 
-## Availability and missing readings
-
-Homeostatic distinguishes Home Assistant's current state from the absence of a current report.
-
-| Home Assistant evidence | Availability meaning |
+| Home Assistant reports | Availability |
 | --- | --- |
-| A current value such as `on`, `off`, `idle` or a number | The entity is available through Home Assistant. |
-| A current `unknown` value | Home Assistant supplies a state but has no value for it. This is available evidence for an availability check. |
-| `unavailable` | Home Assistant cannot provide that feature or reading right now. |
-| No current state, or a value restored during startup | There is insufficient current evidence to assess availability. |
+| A value such as `on`, `off`, `idle` or a number | Available |
+| `unknown` | Available: Home Assistant has the entity but no value right now |
+| `unavailable` | Unavailable |
+| Nothing yet, or a value restored at startup | Not known. It doesn't show in **Open issues** or send notifications, and it can't end an issue either. |
 
-These meanings depend on the check. An `unknown` temperature value cannot establish whether a room is within its configured limits, even though that state does not create an entity-availability failure.
+Availability is about Home Assistant's connection. A reachable sensor can still report an old reading, and a reachable lock might not have locked.
 
-A device availability check uses its selected operational entities. It reports unavailable when every selected entity is unavailable. A current state from one member makes that device check pass, while an independently watched unavailable entity can still have its own issue. Diagnostics and configuration entities do not supply the device check. The device assessment shown in Monitoring can use a wider set than a policy with exclusions.
+## When several things fail together
 
-Open issues focuses on current reported problems. Availability findings with only missing evidence stay in Monitoring. An existing availability problem followed by a missing reading remains unresolved there. Likewise, an availability issue awaiting recovery confirmation leaves Open issues while Monitoring shows the pending result. An empty issue list therefore needs to be read alongside monitoring coverage and current evidence.
+When an integration fails, Homeostatic opens one issue for it that lists the equipment it took down, rather than an issue per device. Each affected source keeps its own notifications. If the Zigbee integration uses the morning summary and a leak detector on it uses Immediate, the outage still sends the leak detector's Immediate notification.
 
-## Why related problems appear together
+While an integration is working, each unavailable device gets its own issue, even when several drop off at once. After a failed integration recovers, Homeostatic gives its devices a minute to reconnect, then splits anything still unavailable into separate issues. History records that as **Issues separated**.
 
-Homeostatic uses Home Assistant's recorded relationships between integrations and their equipment. If a watched integration fails, its issue can include the watched devices and entities affected by that connection. While the integration is healthy, unavailable devices keep independent issues, even when their failures begin together. Opening a device issue shows that issue's evidence and actions.
+## From an issue to a person
 
-For example, an unavailable light and motion sensor remain separate problems while their integration is healthy. Acknowledging or pausing one does not affect the other. A loaded integration does not establish that its devices are working.
+A policy names one or more notifications. Each named notification decides when to send, immediately, during daily hours or in a scheduled summary, and which delivery methods to use. Each delivery method lists the destinations.
 
-The Open issues page also arranges findings beneath integration and device headings for browsing. Expanding a heading does not merge issues. Each opened issue retains its own evidence and controls. When an issue becomes part of another problem, History records **Joined another problem** and links to the related issue while it remains available.
+An immediate notification waits for its collection delay, 60 seconds for Immediate, so problems that arrive together share one message. The wait starts with the first problem and doesn't stretch as more arrive, so a long outage can still send more than one message. A summary lists whatever is still open at its scheduled time, including acknowledged issues, so one issue can appear in an immediate message and again in the morning summary.
 
-When a failed integration returns, Homeostatic gives its equipment time to reconnect. Remaining failures then become independent issues. History records **Issues separated** with links to those issues; it does not report that the remaining problems cleared. Existing acknowledgment and pauses follow the affected issues with their original times and expiry.
+A notification is a request to Home Assistant. Homeostatic can't confirm that anyone received, read or heard it.
 
-## How a policy reaches a person
+## Staying current
 
-The configuration has three parts:
+Homeostatic reacts to Home Assistant's events as they happen, so a device that goes unavailable is noticed straight away. Every 15 minutes it also rechecks the whole installation to catch anything an event didn't announce, such as an integration waiting for you to sign in again. Timed steps, like the recovery wait or the end of a pause, run on their own schedule.
 
-| Part | What it decides |
-| --- | --- |
-| Monitoring policy | What to watch, what opens an issue and which named notifications to use |
-| Named notification | When to request attention and which delivery methods to use |
-| Delivery method | Which configured Home Assistant destinations to use, with optional presence choices |
-
-Each policy can select several named notifications. Shared notification edits affect their saved uses; changing one policy's assignment affects that policy. Monitoring continues when a policy has no notification assignments or global sending is off.
-
-Immediate notifications can request attention as an issue becomes eligible. Daily-hours notifications wait outside their window. Scheduled summaries include eligible problems still open at their scheduled time, including acknowledged ones. Problems that clear before a waiting request becomes eligible are omitted. [Notification settings](manual/settings-reference.md) describe the timing choices.
-
-Compatible requests about the same device can share one continuing phone message while their findings remain separate issues. As one finding clears, the message updates to show those still open. Different instructions or destinations keep their messages separate. This message grouping does not change what acknowledgment or a pause means for an individual issue.
-
-Homeostatic hands requests to Home Assistant's configured delivery routes. A request result cannot confirm that a person received or heard the message. [Set up notifications](manual/notifications.md) explains destination tests and phone actions.
-
-## Recovery, changes and restarts
-
-Availability recovery has a confirmation period. Other checks follow their own recovery conditions: for example, a temperature limit needs a usable reading back within range. Missing evidence does not establish recovery. The [monitoring reference](manual/monitoring-reference.md) describes each type.
-
-Changing a monitoring expectation can end its issue even while the equipment is still failing. History calls this **Monitoring ended**. Disabling a policy, removing a source from its scope or changing detection settings is different from observing recovery. [History](manual/history.md) preserves the recorded outcome.
-
-Homeostatic saves open issues, retained history and active controls across a Home Assistant restart. Restored readings wait for fresh evidence, and startup waits allow integrations to load before new issues and notifications become eligible. Open issues continue through that restart; pending notification requests and reminders follow their saved rules. A panel save does not start the full Home Assistant startup wait.
-
-The [settings reference](manual/settings-reference.md) owns timing and retention values. [What Homeostatic cannot establish](manual/limitations.md) explains the limits of reported availability, physical freshness and monitoring from inside Home Assistant.
+After Home Assistant restarts, Homeostatic waits for your integrations to load before it opens new issues or sends notifications, so a restart doesn't look like an outage. Open issues, History, acknowledgments, pauses and notifications waiting to be sent all survive the restart.

@@ -1,96 +1,51 @@
-# Set up and change notifications
+# Set up notifications
 
-[Homeostatic manual](../guide.md)
+Three things decide who hears about a problem and when:
 
-Use **Notifications** to choose when people hear about problems and where the messages go. A [monitoring policy](policies.md) selects a named notification, such as Morning summary. That notification selects one or more delivery methods, such as a phone or a speaker.
+- A **policy** picks one or more named notifications.
+- A **named notification** decides when to send and which delivery methods to use.
+- A **delivery method** lists the destinations: phones, speakers, email, SMS or other Home Assistant notify services.
 
-Start with an administrator account and a notification destination already configured in Home Assistant. For a phone, install and connect the Home Assistant Companion app first. The destination picker shows the supported destinations available to this installation.
+Named notifications and delivery methods are shared. Before you save a change, **Changes apply to** lists the policies or notifications it affects.
 
-## Save and test a delivery method
+## Add a delivery method
 
 1. Open **Notifications → Delivery methods** and select **Add delivery method**.
-2. Enter a useful name, such as `Household phones`.
-3. Select **Add destination**, choose a **Delivery type**, then select a destination. Search by name or room if needed. If a delivery type is missing, select the help icon beside **Delivery type** for an explanation and email or SMS setup links. A speaker with several speech providers asks you to choose a provider; an SMS destination asks for a recipient number.
-4. Add any other destinations this method should use. Leave presence selection at **Fixed destinations** for the simplest setup.
-5. Select **Save delivery method**. When the confirmed save returns to the list, select **Edit delivery method** to reopen it.
-6. Select **Send test** in the saved, unchanged editor, then check the destination yourself.
+2. Name it, select **Add destination**, choose a **Delivery type** and pick a destination. The help icon beside **Delivery type** explains what each type needs, with links for setting up email and SMS.
+3. Add any other destinations, then select **Save delivery method**.
+4. Select **Edit delivery method**, then **Send test**. Tests work while sending is off. A successful test means Home Assistant accepted the request, so check the destination to be sure it arrived.
 
-The test uses only this method's saved destinations and current presence rules. It works while the global **Notifications** switch is off and does not turn that switch on. Saving alone does not send a test. After editing a method, save it again before testing.
+To pick destinations by who's home, open **Change destinations based on who's home** and choose a **Presence selection**:
 
-The result lists the requested deliveries, failures or a presence-related skip. A requested result means Homeostatic asked Home Assistant to send; check the phone, speaker or other destination to establish receipt. See [supported destinations](settings-reference.md#delivery-destinations) for capabilities and prerequisites, or [troubleshooting](../troubleshooting.md) if the expected destination or message is missing.
+| Presence selection | Sends to |
+| --- | --- |
+| Fixed destinations | The destinations under **Send to** |
+| Home or away | One set of destinations while anyone you pick is home, another when they're all away |
+| People currently home | The destinations you set for each person who's home |
 
-![The saved Owner phone delivery method showing its destination and Send test action](../images/manual-delivery-method.png)
-
-This example method has a saved phone destination. Testing is a separate action after saving.
+With either presence mode, **When no recipient can be chosen** decides between **Skip notification** and **Send to instead**. Unknown presence never counts as home or away.
 
 ## Choose when to send
 
-1. Return to the **Notifications** view. Select **Edit notification** on an existing choice, or **Add notification** to create one.
-2. Set the name and **When to notify**. Choose immediate delivery, acknowledgment reminders, daily delivery hours or a scheduled summary. The [settings reference](settings-reference.md#named-notifications) lists the starting choices and timing fields.
-3. For immediate delivery, acknowledgment reminders or daily hours, set **Collection delay (seconds)**. Use a whole number at least 0. Zero sends without waiting. Later requests join the current collection without extending its wait. Scheduled summaries have no extra collection delay.
-4. Under **Send using**, select the saved delivery method or methods to use.
-5. Read **Changes apply to** before saving. It identifies the saved policies that use this notification.
-6. Select **Save notification**.
+Homeostatic starts with six named notifications. Select **Edit notification** on one, or **Add notification** to make another.
 
-For example, Morning summary can use Household phones and report open equipment problems each morning. A notification with no selected delivery method remains saved but sends nothing.
+| When to notify | Sends | Settings |
+| --- | --- | --- |
+| Immediately | As soon as an issue qualifies, day or night | **Collection delay (seconds)** |
+| Immediately, with acknowledgment | The same, then reminders until someone acknowledges | **Collection delay (seconds)**, **Remind every (minutes)** |
+| During daily hours | Only between **Start** and **End**; issues from overnight wait for the start | **Collection delay (seconds)**, **Start**, **End** |
+| Scheduled summary | One message on the days and time you pick, listing what's still open | **Summary time**, **Days** |
 
-The times beside **Start**, **End** and **Summary time** use the displayed Home Assistant time zone. A daily delivery window holds requests outside its hours until the next opening. If the problem ends first, that delayed message is no longer needed. A scheduled summary includes eligible open problems, including acknowledged ones; empty summaries are skipped.
+The collection delay is how long Homeostatic waits to bundle requests for the same notification and destination into one message. If several sensors drop off at about the same time, Immediate sends one message listing them. The wait starts with the first request, later ones don't extend it, and 0 sends straight away.
 
-![Morning summary with its schedule, Owner phone delivery method and affected policy shown](../images/manual-notification.png)
+Under **Send using**, pick the delivery methods, then select **Save notification**. A notification with no delivery method sends nothing.
 
-The example Morning summary uses the Owner phone method. **Changes apply to** identifies the policies affected by an edit.
-
-## Assign the notification to a policy
-
-1. Open **Policies** and select **Edit policy** for the policy that watches the equipment.
-2. In its notification section, use **Add notification** and choose a saved notification. To change an existing assignment, select its replacement in that row.
-3. Review the timing and delivery shown below the selected name. UPS low-reserve assignments also specify whether they apply on mains or backup power.
-4. Select **Save policy**.
-
-An opened issue also lists its assigned named notifications under **Notifications:**. Select a name to open that editor, then **Back to issue** to return. Shared notifications appear once; an older **Custom notification** opens its policy.
-
-A policy can use several notifications. For example, a temperature policy could request immediate acknowledgment and also appear in a morning summary. Each assignment keeps its own timing. Requests using the same saved notification and destination can share one message, including requests about unrelated equipment. Different saved notifications remain separate. Each included issue keeps its own controls; acknowledging a message covers only the issues it showed.
-
-To keep a policy on the dashboard only, select **Remove** on each notification assignment and save the policy. It then shows **No notifications**; its issues still appear in Open issues. This does not change other policies that watch the same equipment.
-
-Older saved assignments may show **Custom notification — keep current settings**. Leaving that choice in place preserves its existing timing and destinations. Selecting a named notification deliberately replaces those settings for that assignment.
+To use a notification, open a policy and select **Add notification** under **Notifications**. Remove all of a policy's notifications to keep its issues in the panel only.
 
 ## Turn sending on or off
 
-Use the **Notifications** switch in the panel header after the methods, named notifications and policy assignments are saved. The switch saves independently of editor drafts. Monitoring and Open issues continue while sending is off.
+The **Notifications** switch in the header turns sending on or off for the whole installation. Monitoring continues either way. When you turn it on, problems that are already open become eligible under their notifications' timing.
 
-When sending is enabled, already-open problems can become eligible under their saved instructions. Immediate notifications wait for their configured collection delay. Daily-hours delivery waits for its open window when necessary before collecting requests, and a scheduled summary waits for its next occurrence. A saved summary assignment can show its next scheduled time in the policy editor; unsaved changes need to be saved before that forecast is available.
+## On your phone
 
-Use [Pause notifications](issues.md#pause-an-issues-notifications) to quiet one open issue temporarily. The [control comparison](settings-reference.md#issue-and-equipment-controls) explains the available choices.
-
-## Choose destinations using presence
-
-Open a delivery method and expand **Change destinations based on who’s home**. Choose one of these **Presence selection** modes:
-
-| Mode | What to configure | How a destination is chosen |
-| --- | --- | --- |
-| Fixed destinations | The destinations under **Send to** | Every request uses those destinations. |
-| Home or away | The people to check, **When someone is home**, and **When everyone is away** | Any selected person reported home selects the home destinations. All selected people must have known away states to select the away destinations. |
-| People currently home | The people to check and a destination for each | Requests use the configured destinations of selected people reported home. |
-
-For either presence-based mode, complete **When no recipient can be chosen**. Select **Skip notification**, or choose destinations under **Send to instead**. Unknown, unavailable, missing or restored presence readings cannot establish that someone is home or away. For Home or away, a known home person still selects the home destinations even if another person's presence is unknown. For People currently home, fallback applies when nobody selected is known to be home.
-
-For example, Home or away could announce through the kitchen speaker while someone is home and use household phones when everyone is away. A phone fallback also handles uncertain presence. Save the method and use **Send test** to check the choice made from current presence; a skipped test explains that no recipient qualified.
-
-## Change shared settings or remove them
-
-A delivery method can serve several named notifications, and a named notification can serve several policies. The editor lists the saved uses affected by an edit. To change just one policy's arrangement, create or duplicate a notification, configure it and assign it to that policy. To change just that notification's destinations without affecting other uses of a method, give it a separate method.
-
-Each **Save policy**, **Save notification** and **Save delivery method** action saves only that editor. Moving between them within the same tab preserves pending drafts; saving a shared definition does not save a pending policy assignment. Do not rely on an unsaved draft surviving a browser reload or tab closure. Use **Discard changes** to return the current editor to its saved values.
-
-Timing, destination and presence changes apply to already-open issues when saved. A collection already waiting to send keeps its accepted settings, destinations and deadline while its assignments remain eligible. Newly eligible requests use the saved changes; scheduled summaries wait for the next occurrence. Renaming alone preserves the existing timing and acknowledgment state. If applying a save fails or disconnects, read the displayed status and keep the pending edits until the outcome is clear.
-
-To delete a saved notification or method, open its **More actions → Delete** menu. If it is used, choose a replacement or explicitly remove its uses. Removing a policy's last notification leaves dashboard-only monitoring. Removing a named notification's last delivery method leaves that notification unconfigured. A deletion that conflicts with relevant pending drafts must be resolved before it can finish.
-
-## Use a phone notification
-
-Tap an individual issue notification to open its Homeostatic context. Messages containing several issues open the included issues that are still open and show how many have ended. **Show all open issues** returns to the complete list. If an individual issue has ended, its link can open the retained History record. Tapping a message does not acknowledge or clear it. Opening the panel still requires a Home Assistant administrator account; the notification link grants no additional access.
-
-The **Acknowledge** button on an active individual, device or collected message records awareness of the issues represented by that message and stops their acknowledgment-dependent reminders. It does not acknowledge a later problem that happens to use the same equipment. Scheduled summaries can still include the acknowledged issues. See [review and respond to an issue](issues.md) for the equivalent panel action.
-
-Immediate notification choices request critical alerts on iPhone and use the **Homeostatic urgent** channel on Android. **Urgent**, the supplied daily-hours choice, uses normal notification priority. Review the phone's notification permissions and channel settings as part of setup. Phone delivery supports updates and clearing of existing messages; other destination types receive new messages without those phone controls.
+Immediate notifications, with or without acknowledgment, arrive as critical alerts on iPhone and on the **Homeostatic urgent** channel on Android. Others use normal priority. Tapping a notification opens its issue, or the issues in that message. The **Acknowledge** button acknowledges the issues in that message. Phone notifications update and clear themselves as issues change; other destinations only get new messages.

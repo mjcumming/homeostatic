@@ -1,87 +1,58 @@
-# Choose what to monitor
+# Choose what to watch
 
-[Homeostatic manual](../guide.md)
+A policy decides which sources to watch, what counts as a problem and which notifications to use. **Monitoring** shows what's watched now, and **Policies** is where you change it.
 
-A monitoring policy chooses the sources to watch, the condition that opens an issue and the notifications to use. Supplied policies and policies you create use the same controls in **Policies**.
+## See what's watched
 
-For eligible sources, starting settings and the conditions each monitoring type detects, see the [monitoring reference](monitoring-reference.md).
+Open **Monitoring** and search for a name or entity ID. **Group by** switches between integrations, Home Assistant locations and, if you use it, TopoMation locations. **Monitoring status** shows only monitored or unmonitored sources, and **More filters** can include disabled sources or show only those with availability exclusions.
+
+Select a source to see its state and coverage. A device shows how many of its monitored entities are available, lists its entities and the policies that watch it, and offers **View** while it has issues. An entity links to its device and integration in Home Assistant, and **Monitoring policies** lists each policy that uses it, what for, and **Edit policy**.
 
 ## Add or change a policy
 
-1. Open **Policies**. Select **Edit policy** beside an existing policy, or select **Add policy**, choose a **Monitoring type**, and select **Continue**.
-2. Give the policy a useful name. Where source selection is supported, choose one of the visible **Include** options, then use the selection button beside the chosen option. Search covers all available sources; **Show 50 more** reveals additional results. Selections stay in the draft when they are outside the visible results. Select **Done** when finished.
-3. Review the detection settings offered for that type. Repairs and broken automations always cover their complete supported set and have no source selector.
-4. Under **Notifications**, use **Add notification** to choose a saved named notification. To keep issues in the panel without notifications from this policy, remove every assignment so the section reads **No notifications**. [Set up notifications](notifications.md) covers timing and destinations.
-5. Set **Policy enabled** as intended, then select **Save policy**.
+1. Open **Policies**. Select **Edit policy**, or select **Add policy**, choose a **Monitoring type** and select **Continue**.
+2. Under **Include**, choose the scope, then pick sources with the button beside it, such as **Choose batteries**.
+3. Fill in **When it becomes a problem**, if the type has settings.
+4. Under **Notifications**, select **Add notification** for each named notification this policy should use. A policy with none still shows its issues in the panel.
+5. Turn on **Policy enabled** and select **Save policy**.
 
-The saved policy controls monitoring. An enabled switch in an unsaved draft has not changed the running policy. A confirmed save removes the unsaved-change controls; if saving fails, the editor retains your draft and explains the problem.
-
-To find the policies watching an entity, select it in **Monitoring**, then open **Monitoring policies**. Each policy explains what it checks, including whether the entity contributes to its device's availability assessment. Use **Edit policy** to change one, or close the dialog to return to the entity. The labeled device and integration names open their Home Assistant pages.
-
-## Choose a scope that will stay useful
-
-| Selection | Use it when |
+| Include | Watches |
 | --- | --- |
-| All sources of the selected type | Every eligible source of that type should be watched, including sources added later. |
-| All except selected | Most sources should be watched, with specific exceptions. Newly added eligible sources are included. |
-| Selected sources | Only the named equipment should be watched. |
-| Sources in areas or with labels | Home Assistant location or labels define the equipment you want. New matching sources join the selection. |
+| All *sources* | Every eligible source of that type, including ones added later |
+| All except selected | Everything except the sources you pick, including ones added later |
+| Selected *sources* | Only the sources you pick |
+| In selected areas, With selected labels | Sources in those areas or with those labels, including ones added later |
+| Matching entity types, All except selected entity types | For entity availability: entities of the domains and device classes you pick, or every other entity |
 
-The editor offers only the choices supported by the monitoring type. Integration selection uses the integration name and includes its current and future configured connections; area and label choices are not offered for integrations. An integration exclusion can identify one configured connection.
+A policy's type can't change, so add a new policy for a different type. **More actions** offers **Duplicate**, whose copy starts disabled, and **Delete**. **Restore defaults** brings back supplied policies you've deleted.
 
-Availability policies automatically select enabled operational entities. To watch a diagnostic or configuration entity individually, choose it explicitly in an entity availability policy. Device availability uses its operational entities and excludes diagnostic and configuration entities. Disabled sources remain outside availability monitoring.
+Policies can overlap. Two battery policies can watch the same battery at different thresholds, each with its own issues and notifications. Changing a policy's scope or settings ends the issues it no longer covers as **Monitoring ended**; renaming it doesn't.
 
-Fresh setup supplies **General entity availability** using Morning summary and **Important equipment availability** using Immediate. Important equipment initially includes cameras, locks, alarm panels and binary sensors reporting smoke, carbon monoxide, gas or moisture. General initially includes the other eligible operational entities. These selections follow entity type and device class, so future matching entities are included. Availability watches whether Home Assistant can provide a state; selecting a smoke or leak detector here does not configure smoke or leak detection.
+## Availability
 
-Both policies use the ordinary policy editor. **Matching entity types** includes the selected types; **All except selected entity types** excludes them. Each selection is independent: editing, disabling or deleting one policy never rewrites the other. Deliberate overlap or gaps remain your saved choices. An integration failure retains affected equipment's assigned notifications, so a lock using Immediate can still request attention while the integration waits for Morning.
+Availability checks ask whether Home Assistant can reach something. They go by the state Home Assistant reports.
 
-Exclusions belong to their policy. In a device availability policy, **Devices** selects or excludes whole devices. **Ignored entities** lists entities separately, grouped under their device. Use **Choose ignored entities** to leave those entities out of the device assessment. Changing device selection keeps ignored entities in place; **Save policy** applies both sections. Ignoring every eligible entity on a device leaves no device availability check. An exclusion remains saved if its source disappears, so it applies if that source returns.
+- **Integrations** reports an integration that fails to load or asks you to sign in again.
+- **Devices** reports a device when all of its monitored entities are unavailable. Its **Ignored entities** section lists entities left out of that check; change them with **Choose ignored entities**.
+- **Important equipment availability** and **General entity availability** report single entities. Important equipment starts with cameras, locks, alarm panels, and smoke, carbon monoxide, gas and leak detectors, and uses Immediate. General covers every other entity and uses Morning summary. Change either one's **Include** to move entity types between them. They're independent, so editing one never changes the other.
 
-## Stop availability monitoring
+Availability policies skip entities disabled in Home Assistant, and skip diagnostic and configuration entities unless you pick them individually.
 
-Use this when Home Assistant regularly marks a feature unavailable and you have decided it does not need an availability check. These controls update the affected policies' exclusions.
+## Stop or resume availability monitoring
 
-1. Choose the appropriate starting point:
+To stop watching an entity Home Assistant often reports unavailable, select **Stop monitoring** in its issue or on the entity in **Monitoring**. For several entities on one device, open the device in **Monitoring**, use **Select entities…**, then **Stop monitoring**. The confirmation lists exactly what stops; other checks on those entities continue.
 
-   | Starting point | Action |
-   | --- | --- |
-   | An opened availability issue | Select **Stop Monitoring**. The review includes its currently unavailable monitored entities. |
-   | One entity in Monitoring | Select **Stop Monitoring**. |
-   | Selected members of a device in Monitoring | Select **Select entities…**, choose the members, then **Stop Monitoring**. |
+To undo it, find the entity in **Monitoring** (**More filters → Availability exclusions only** helps) and select **Resume availability monitoring…**.
 
-2. Review the entity count and the exact names shown in the confirmation. It explains that availability monitoring will stop while other checks continue. A wider issue may cover several devices.
-3. Select **Stop Monitoring** to confirm. Choose **Cancel** to keep the saved monitoring unchanged.
+## Other checks
 
-Stopping ends the affected availability monitoring and can end other availability issues for those same entities. Other checks, such as battery or temperature monitoring, continue. Home Assistant's entities stay enabled. The outcome is **Monitoring ended**, without claiming that the equipment recovered.
+| Type | Set up | Good to know |
+| --- | --- | --- |
+| Low battery | Turn on the supplied **Batteries** policy, or add your own. Set **Battery level at or below (%)**. | A low-battery warning from Home Assistant counts too. The issue ends when the level is normal again or the battery reports charging. |
+| Vacuum error | Turn on the supplied **Vacuums** policy. | The issue ends when the vacuum is cleaning, docked, idle, paused or returning. |
+| Temperature limits | Add a policy, choose sensors, and enter **Below**, **Above** or both, with **For at least**. | **Monitoring** shows **Waiting** while a reading is out of range but hasn't lasted long enough. A reading back in range ends the issue. |
+| Thermostat progress | Add a policy and choose thermostats. | Reports a thermostat in heat, cool or heat_cool mode that stops getting closer to its target, or moves away from it. Turning it off or to another mode ends monitoring. |
+| UPS backup power, low reserve, battery replacement, faults | Add a policy for each condition you want, and choose a NUT or APC UPS Daemon UPS. | Low reserve can use your own **Raise at or below** and **Clear at or above** values for charge or runtime, entered as a pair, or the UPS's own low setting. It has separate notifications for mains and backup power. |
+| Repairs, Broken automations | On from the start, covering everything. | Fix the Repair in Home Assistant, or edit the automation that names a missing entity. |
 
-If the result cannot be confirmed, use **Refresh saved monitoring** when offered and review the saved scope before another action. Later adjustments belong to the policies or the resumption control below.
-
-## Resume availability monitoring
-
-1. Find the source in **Monitoring**. **More filters → Availability exclusions only** helps locate excluded sources.
-2. For an entity, select **Resume availability monitoring…**. For device members, use **Select entities…**, choose the members, and select **Resume availability monitoring for selected entities…**.
-3. Check the exact entities in the confirmation, then select **Resume availability monitoring**.
-
-This removes the reviewed explicit exclusions. The policy must still be enabled and its source selection must still include eligible equipment. Resuming an exclusion does not enable a disabled policy or broaden its selection.
-
-## Duplicate, disable, delete or restore
-
-The monitoring type stays fixed after creation. To configure a different type, add another policy. To reuse existing settings, open **More actions** beside the policy and select **Duplicate**. The copy is independent and starts disabled; review its name, selection, settings and notifications before enabling and saving it.
-
-To stop a policy temporarily, open it, turn **Policy enabled** off, then select **Save policy**. To remove it, choose **More actions → Delete** and review the deletion confirmation. Disabling or deleting ends that policy's monitoring. Other policies watching the same equipment continue.
-
-To restore a deleted supplied policy:
-
-1. Select **Restore defaults** in Policies.
-2. Choose the missing policies to restore and select **Restore selected**.
-3. Open each restored draft, review its settings and select **Save policy**.
-
-Restoration leaves other policies unchanged. It does not recreate deleted notifications or enable global sending. Updates preserve edited and deleted policies.
-
-## Understand the effect of an edit
-
-Policies can overlap. Two battery policies can watch the same battery at different thresholds and use different notifications. Each remains independent; inspect all contributing policies when a change does not remove an issue or notification you expected it to affect.
-
-Renaming a policy keeps its current issues. Changing detection settings or the selected monitoring expectation can end the old issue and begin fresh evaluation. A changed device-member exclusion does this when it changes the evidence that device policy uses. History records the ended monitoring separately from recovery.
-
-Each editor saves its own changes. Saving a policy does not save a pending notification or delivery-method draft. Moving between Homeostatic pages, or visiting another Home Assistant page and returning in the same tab, retains pending drafts. Reloading or closing the tab ends that draft session. Use **Discard changes** to restore a saved policy's settings before saving; it does not undo a completed save.
+[Defaults and settings](settings-reference.md#monitoring-types) lists what each type reads and what ends its issues.
