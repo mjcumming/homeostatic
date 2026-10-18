@@ -1,0 +1,20 @@
+# ADR 0103: Monitor entity availability and select entities in one grouped list
+
+**Status:** Accepted
+**Date:** 2026-10-18
+
+**Supersedes in part:** Device availability policies, inferred device status and speculative integration-report support in ADRs 0009, 0025, 0035, 0045 and 0064; entity source-selection controls in ADR 0061 and the policy editor specification. Device organization and independent issue response in ADR 0094 remain applicable.
+
+## Decision
+
+Remove the device availability monitoring type. Home Assistant reports entity availability; Homeostatic must not present a derived device verdict as an additional observation. Keep devices and integrations as useful organization for entities and related issues. Remove the device reducer, observation path, policy-specific membership exclusions and inferred device-status presentation. Do not retain a dormant implementation of an upstream proposal.
+
+On setup, convert each saved device policy to an entity availability policy with the same identity, name, enabled state and notification assignments. Preserve exclusions. Exact device selections remain device selectors over entities; unrestricted device policies resolve to the current registry device identities. Resolve device area, label and other device-only metadata scopes to the matching registry device identities once, so entity-level area or label overrides cannot lose coverage. All resolved scopes include future entities on their saved devices. Newly discovered devices and devices later moved into an area or assigned a label require selection; conversion never adds standalone entities. Retain missing selected device identities. Whole-device exclusions continue to exclude that device's entities, including future members. Validate the complete converted settings before persisting; an invalid configuration must never trigger a reset. Conversion is idempotent and sends no notifications itself. Old device issues end as monitoring removed through normal reconciliation, never as device recovery. Keep only the generic identity aliases needed to preserve published schema-two entity issues; retire device-member scope and identity machinery. Existing history retains its recorded meaning.
+
+Entity availability selection belongs in its policy editor. Show one searchable list grouped by integration and device, with entity names and area context, ordinary draft checkboxes and group selection. Search considers the complete list; group selection affects only the displayed matches. There is no nested scrolling picker, inclusion radio menu, Done action or manual pagination. Save policy applies the draft through the existing scoped save path; zero selected entities is valid.
+
+Preserve existing dynamic selectors, including the supplied general and important-equipment scopes. Per-entity inclusion and exclusion overrides allow the list to edit their effective membership without silently replacing future matching rules. Show the future scope in a short explanation. Missing saved overrides remain visible and removable. Disabled entities remain visible with an explanation and cannot be newly selected. Loading or stale catalogs must never manufacture selections from an incomplete list.
+
+## Verification
+
+Executable scenarios cover conversion and reload, selected and missing devices, whole-device and member exclusions, device area versus entity area, disabled policies and entities, unchanged notification assignments, invalid-input preservation, independent entity failures and retired device checks. UI scenarios cover grouping, full-list search, entity and filtered group changes, empty selection, unavailable selections, draft preservation, save/discard, keyboard focus and desktop/phone layouts. No household notifications or installation changes are part of this work.

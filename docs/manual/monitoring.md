@@ -13,20 +13,20 @@
 
 The details identify the source, its current condition and its monitoring. Links beside its name open the named Home Assistant destination, such as the device page or entity state.
 
-An **Issues** badge marks a source or group with related open issues. On a device, one **View** opens the same device dialog as **Open issues**, including partial availability and other conditions. Choose which issues to acknowledge or pause there. Entities without a device and wider issues retain their own scope.
+An **Issues** badge marks a source or group with a current reported problem. **Not monitored** is ordinary coverage information. Missing or restored availability readings alone do not create a badge, including after an earlier failure; inspect the source details for those readings. On a device, one **View** opens the same device dialog as **Open issues**, including partial availability and other conditions. Choose which issues to acknowledge or pause there. Entities without a device and wider issues retain their own scope.
 
 ![Monitoring with 3rd Floor Sensor selected and its availability and monitoring coverage visible](../images/manual-monitoring.png)
 
-A device shows its availability summary first, followed by entity names linked to Home Assistant and then monitoring coverage. The summary counts monitored entities; the dialog keeps each issue and its condition separate.
+A device shows its availability summary first, followed by entity names linked to Home Assistant and then monitoring coverage. The summary counts monitored entities. Its dialog names any unavailable entities and explains missing or restored readings, even when no issue is open. The policy links include checks covering the device and its entities; each open issue retains its own condition and controls.
 
 ## Understand what is watched
 
 1. Select the source and read its monitoring summary.
-2. Review the contributing policies. A source may have several checks, such as device availability, individual entity availability and battery condition.
+2. Review the contributing policies. A source may have several checks, such as entity availability and battery condition.
 3. Open the relevant policy to inspect its selection and settings. The editor shows the policy's complete scope, which may include other equipment.
 4. Follow [Choose what to monitor](policies.md) if that scope needs changing.
 
-A device can be available while one of its entities is unavailable. The device assessment and each policy's selected evidence can also differ when a policy excludes some entities. Read the individual findings before treating the device summary as an answer about every feature. [How Homeostatic works](../how-it-works.md#availability-and-missing-readings) explains the state meanings.
+Device details show the current states of its entities and their monitoring coverage. Each entity can have an independent issue; a working sibling does not clear it. [How Homeostatic works](../how-it-works.md#availability-and-missing-readings) explains the state meanings.
 
 ## Find an excluded or disabled source
 

@@ -25,7 +25,7 @@ Homeostatic distinguishes Home Assistant's current state from the absence of a c
 
 These meanings depend on the check. An `unknown` temperature value cannot establish whether a room is within its configured limits, even though that state does not create an entity-availability failure.
 
-A device availability check uses its selected operational entities. It reports unavailable when every selected entity is unavailable. A current state from one member makes that device check pass, while an independently watched unavailable entity can still have its own issue. Diagnostics and configuration entities do not supply the device check. The device assessment shown in Monitoring can use a wider set than a policy with exclusions.
+Devices group related entities and issues. Homeostatic monitors each selected entity’s own availability and displays current readings together under its device. It does not infer a separate device availability state.
 
 Open issues focuses on current reported problems. Availability findings with only missing evidence stay in Monitoring. An existing availability problem followed by a missing reading remains unresolved there. Likewise, an availability issue awaiting recovery confirmation leaves Open issues while Monitoring shows the pending result. An empty issue list therefore needs to be read alongside monitoring coverage and current evidence.
 

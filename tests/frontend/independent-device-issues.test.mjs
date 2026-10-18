@@ -24,7 +24,7 @@ async function detail(fixture,id) {
 
 test("a light's independent issue shows only that device and targets only that issue",async()=>{
   const fixture=independentDeviceIssuesFixture(),html=await detail(fixture,"issue:devices:deck");
-  assert.match(html,/Back Deck Table Light/);
+  assert.match(html,/href="\/config\/devices\/device\/deck"/);
   for(const name of [deviceNames.hallway,deviceNames.mudroom,deviceNames.plug])assert.equal(html.includes(name),false);
   assert.match(html,/data-acknowledge="issue:devices:deck"/);
   assert.match(html,/data-shelf="issue:devices:deck"/);

@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from .entity_not_provided import parameters as not_provided_parameters
 from .rules import Attributes, CatalogRule, alternatives, attributes
 from .temperature import TemperatureLimitParameters, ThermostatParameters
 from .ups_parameters import UPS_CHECKS, ReserveParameters
@@ -15,6 +16,7 @@ from .ups_parameters import UPS_CHECKS, ReserveParameters
 CHECKS = frozenset(
     {
         "availability",
+        "entity_not_provided",
         "battery",
         "vacuum",
         "repair",
@@ -39,6 +41,7 @@ class MonitoringPolicy:
     enabled: bool
     notifications: tuple[dict[str, Any], ...]
     excluded_sources: tuple[str, ...] = ()
+    included_sources: tuple[str, ...] = ()
     match_any: tuple[Attributes, ...] = ()
     match_none: tuple[Attributes, ...] = ()
 
@@ -50,19 +53,18 @@ class MonitoringPolicy:
             checks=(self.check,),
             enabled=self.enabled,
             excluded_sources=self.excluded_sources,
+            included_sources=self.included_sources,
             match_any=self.match_any,
             match_none=self.match_none,
         ).matches(metadata, source_id=source_id)
 
-    def detection_key(self, *, member_exclusions: tuple[str, ...] = ()) -> str:
+    def detection_key(self) -> str:
         """Identify detection edits affecting this check's selected evidence."""
         payload: dict[str, Any] = {
             "check": self.check,
             "match": dict(self.match),
             "parameters": dict(self.parameters),
         }
-        if member_exclusions:
-            payload["excluded_sources"] = member_exclusions
         if self.match_any:
             payload["match_any"] = self.match_any
         if self.match_none:
@@ -84,6 +86,11 @@ class MonitoringPolicy:
             **(
                 {"excluded_sources": list(self.excluded_sources)}
                 if self.excluded_sources
+                else {}
+            ),
+            **(
+                {"included_sources": list(self.included_sources)}
+                if self.included_sources
                 else {}
             ),
             **{
@@ -116,6 +123,7 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
             "enabled",
             "notifications",
             "excluded_sources",
+            "included_sources",
             "match_any",
             "match_none",
         }:
@@ -134,6 +142,12 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
         if "match_any" in row and "match_none" in row:
             raise ValueError("Choose matching entity types or excluded entity types")
         match = attributes(row.get("match", {}))
+        if check == "availability" and match.get("kind") not in {
+            None,
+            ("integration",),
+            ("entity",),
+        }:
+            raise ValueError("Availability policies monitor integrations or entities")
         if ("match_any" in row or "match_none" in row) and (
             check != "availability" or match.get("kind") != ("entity",)
         ):
@@ -141,7 +155,11 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
         parameters = row.get("parameters", {})
         if not isinstance(parameters, dict):
             raise ValueError("Detection parameters must be an object")
-        if check == "temperature_limit":
+        if check == "entity_not_provided":
+            if match.get("kind") != ("entity",):
+                raise ValueError("Entities not provided policies select entities")
+            parameters = not_provided_parameters(parameters)
+        elif check == "temperature_limit":
             parameters = asdict(TemperatureLimitParameters.from_data(parameters))
         elif check == "thermostat":
             parameters = asdict(ThermostatParameters.from_data(parameters))
@@ -161,6 +179,13 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
         elif parameters:
             raise ValueError("This check has no configurable detection parameters")
         excluded = parse_excluded_sources(row.get("excluded_sources", []))
+        included = parse_excluded_sources(row.get("included_sources", []))
+        if included and (
+            check not in {"availability", "entity_not_provided"}
+            or match.get("kind") != ("entity",)
+            or any(not identity.startswith("entity:") for identity in included)
+        ):
+            raise ValueError("Explicit inclusions belong to entity availability")
         enabled = row.get("enabled", False)
         if type(enabled) is not bool:
             raise ValueError("Monitoring enabled must be boolean")
@@ -187,6 +212,7 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
                 enabled=enabled,
                 notifications=tuple(notifications),
                 excluded_sources=excluded,
+                included_sources=included,
                 match_any=alternatives(row["match_any"]) if "match_any" in row else (),
                 match_none=alternatives(row["match_none"])
                 if "match_none" in row

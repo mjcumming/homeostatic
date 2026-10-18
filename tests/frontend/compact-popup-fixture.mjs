@@ -44,6 +44,11 @@ export function compactPopupFixture(id="battery") {
   Object.assign(data.inventory,{nodes,catalog:{candidates:[canonical]},episodes:episode?[episode]:[],attention_controls_supported:true,
     entity_status:{[source.node_id]:status},ups_status:id==="ups"?{[source.node_id]:status}:{},integration_evidence:{},
     resolved_history:{started_at:"2026-10-15T12:00:00Z",retention:{max_age_days:30,max_episodes:100},episodes:[]}});
+  if(definition.device&&definition.kind!=="device") {
+    const device=baseSource("device:"+definition.device,definition.name,"device",{attributes:{device:[definition.device]}});
+    nodes.push(device);data.inventory.catalog.candidates.push(device);
+  }
+  data.devices=definition.device?[{id:definition.device,name:definition.name}]:[];
   const result={source,readiness:{answer:"unknown",nodes:[]},explanation:{findings:[finding],nodes:[]},entity_status:status,
     monitoring_policies:[policy],device_evidence:null,device_availability:null};
   if(id==="integration") {

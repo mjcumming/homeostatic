@@ -42,12 +42,10 @@ def current_config(
 def bound_identity(
     policy: dict[str, Any],
     source_id: str,
-    *,
-    member_exclusions: tuple[str, ...] = (),
 ) -> str:
     """Identify the public policy condition for one catalog source."""
     [parsed] = parse_policies([policy])
-    return f"monitoring:{parsed.id}:{parsed.detection_key(member_exclusions=member_exclusions)}:{source_id}"
+    return f"monitoring:{parsed.id}:{parsed.detection_key()}:{source_id}"
 
 
 def availability_policies(

@@ -12,9 +12,9 @@ export function monitoringExample() {
     for (let entity = 0; entity < (device === 1 ? 105 : 6); entity++) {
       const entity_id = `sensor.camera_${device}_${String(entity).padStart(3,"0")}`;
       if (entity !== 0) members.push(entity_id);
-      rows.push(baseSource(`entity:registry:${id}-${entity}`,`${name} signal ${String(entity).padStart(3,"0")}`,"entity",{entity_id,owner_id:"frigate",attributes:{domain:["sensor"],device:[id],entity:[`registry:${id}-${entity}`]}}));
+      rows.push(baseSource(`entity:registry:${id}-${entity}`,`${name} signal ${String(entity).padStart(3,"0")}`,"entity",{watched:entity!==0,entity_id,owner_id:"frigate",attributes:{domain:["sensor"],device:[id],entity:[`registry:${id}-${entity}`]}}));
     }
-    rows.push(baseSource(`device:${id}`,name,"device",{watched:true,attached_by:["devices"],attributes:{device:[id],integration:["frigate"]},availability_entities:members}));
+    rows.push(baseSource(`device:${id}`,name,"device",{watched:false,attributes:{device:[id],integration:["frigate"]},availability_entities:members}));
   }
   for (let number = 0; number < 125; number++) rows.push(baseSource(`entity:registry:orphan-${number}`,`Unassigned sensor ${String(number).padStart(3,"0")}`,"entity",{entity_id:`sensor.unassigned_${number}`,owner_id:number < 5 ? `missing-${number}` : null,attributes:{domain:["sensor"],entity:[`registry:orphan-${number}`]}}));
   rows.push(baseSource("entity:registry:standalone","Standalone switch","entity",{entity_id:"switch.standalone",attributes:{device:["standalone"],entity:["registry:standalone"]}}));

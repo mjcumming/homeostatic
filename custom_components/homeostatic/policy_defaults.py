@@ -14,7 +14,11 @@ def policy_templates() -> list[dict[str, Any]]:
             "name": name,
             "check": check,
             "match": {"kind": [kind]} if kind else {},
-            "parameters": {"threshold": 20} if check == "battery" else {},
+            "parameters": {"threshold": 20}
+            if check == "battery"
+            else {"duration_seconds": 86400}
+            if check == "entity_not_provided"
+            else {},
             "enabled": enabled,
             "notifications": [
                 {
@@ -31,7 +35,6 @@ def policy_templates() -> list[dict[str, Any]]:
                 "integration",
                 True,
             ),
-            ("default_devices", "Devices", "availability", "device", True),
             (
                 "default_entities",
                 "General entity availability",
@@ -56,6 +59,13 @@ def policy_templates() -> list[dict[str, Any]]:
             ),
             ("default_batteries", "Batteries", "battery", None, False),
             ("default_vacuums", "Vacuums", "vacuum", None, False),
+            (
+                "default_entities_not_provided",
+                "Entities not provided",
+                "entity_not_provided",
+                "entity",
+                True,
+            ),
         )
     ]
     for policy in policies:

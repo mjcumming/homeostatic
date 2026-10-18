@@ -134,19 +134,6 @@ test("only current unavailable availability evidence is selected, with overlap d
   assert.deepEqual(issueAvailabilitySources(card,episodes).map(source=>source.node_id),["entity:0"]);
 });
 
-test("an opened device issue selects only its current unavailable members",async()=>{
-  const {card,data,entities,server,calls}=fixture(5);
-  const check={node_id:"device:check",name:"Device",kind:"device",monitoring_policy:"entities",watched:true,availability_entities:entities.slice(0,4).map(source=>source.entity_id)};
-  data.inventory.nodes=[...data.inventory.nodes,check];data.inventory.entity_status[check.node_id]={current:{status:"warn",reason:"all_unavailable"}};
-  card._hass.states={"sensor.example_2":{state:"unavailable",attributes:{restored:true}},"sensor.example_3":{state:"unknown"}};
-  data.inventory.episodes.push({episode_id:"device-issue",anchor:check.node_id,opened_at:"2026-10-14T12:00:00Z",recorded:[check.node_id],reasons:[]});
-  open(card,"device-issue");click(card,"remove");
-  assert.deepEqual(card.issueAvailabilityPlan.sourceIds,["entity:0","entity:1"]);
-  click(card,"confirm");await tick();
-  assert.deepEqual(server.settings.monitoring_policies[0].excluded_sources,["entity:0","entity:1"]);
-  assert.equal(saves(calls).length,1);
-});
-
 test("episodes without eligible availability findings offer no removal",()=>{
   const {card,checks,episodes}=fixture();checks[0].monitoring_policy="temperature";
   open(card,episodes[0].episode_id);

@@ -1,9 +1,9 @@
 const emptyCoverage = () => ({monitored:false,direct:false,device:false,labels:[]});
-const labelOrder = ["Availability","Device availability","Temperature","Thermostat","Battery","Vacuum","UPS","Repairs","Automation","Reported condition","Monitoring"];
+const labelOrder = ["Availability","Entities not provided","Temperature","Thermostat","Battery","Vacuum","UPS","Repairs","Automation","Reported condition","Monitoring"];
 
 function checkLabel(check) {
+  if(check.kind==="entity_not_provided")return "Entities not provided";
   if(check.kind==="situation")return "Reported condition";
-  if(check.kind==="device"&&(!check.check_id||check.check_id==="availability"))return "Device availability";
   return ({availability:"Availability",temperature_limit:"Temperature",thermostat:"Thermostat",battery:"Battery",vacuum:"Vacuum",repair:"Repairs",broken_automation:"Automation",situation:"Reported condition",ups:"UPS"})[check.kind==="ups"?"ups":check.check_id] || ({entity:"Availability",integration:"Availability",temperature_limit:"Temperature",thermostat:"Thermostat",battery:"Battery",vacuum:"Vacuum",repair:"Repairs",broken_automation:"Automation",situation:"Reported condition"})[check.kind] || "Monitoring";
 }
 
@@ -29,23 +29,18 @@ export function sourceCoverageIndex(data) {
   const checks=[...rows.values()].flatMap(source=>source.disabled?[]:source.monitoring_checks?.length?source.monitoring_checks:[source]);
   for(const check of checks) {
     const sourceId=check.monitoring_source||check.node_id;
-    if(!check.watched||check.disabled||disabledSources.has(sourceId)||disabledEntities.has(check.entity_id))continue;
+    if(check.kind==="device"||!check.watched||check.disabled||disabledSources.has(sourceId)||disabledEntities.has(check.entity_id))continue;
     const label=checkLabel(check);
     const policy=typeof check.monitoring_policy==="string"?check.monitoring_policy:check.monitoring_policy?.id;
     include(bySource,sourceId,label,{direct:true,policy});
     include(bySource,check.node_id,label,{direct:true,policy});
-    if(["temperature_limit","thermostat"].includes(check.kind)) {
+    if(check.kind!=="integration") {
       for(const id of check.attributes?.device||[]) {
         const device=devices.get(id);
         if(device&&!device.disabled)include(bySource,device.node_id,label,{policy});
       }
     }
     if(check.entity_id&&!check.ups_disabled_entities?.includes(check.entity_id))include(byEntity,check.entity_id,label,{direct:true,policy});
-    if(check.kind==="device") {
-      for(const entityId of check.availability_entities||[]) {
-        if(!disabledEntities.has(entityId))include(byEntity,entityId,"Device availability",{device:true,policy});
-      }
-    }
     if(check.kind==="battery") {
       for(const entityId of [check.battery_level_entity,check.battery_warning_entity,check.battery_charging_entity]) {
         if(!disabledEntities.has(entityId))include(byEntity,entityId,"Battery",{policy});

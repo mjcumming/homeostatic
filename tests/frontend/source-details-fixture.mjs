@@ -15,9 +15,9 @@ export function sourceDetailsFixture(view="device",states=["restored","restored"
     owner_id:"lyric",entity_id:index===0?"sensor.3rd_floor_sensor_room_temperature":`sensor.3rd_floor_sensor_${index}`,
     attributes:{integration:["lyric"],device:["third-floor"]},
   }));
-  const deviceCheck={...device,node_id:`monitoring:devices:${DEVICE_ID}`,monitoring_source:DEVICE_ID,monitoring_policy:"devices",watched:true,availability_entities:entities.map(item=>item.entity_id)};
+  const deviceChecks=entities.map(entity=>({...entity,node_id:`monitoring:devices:${entity.node_id}`,monitoring_source:entity.node_id,monitoring_policy:"devices",check_id:"availability",watched:true}));
   const entityCheck={...entities[0],node_id:`monitoring:entities:${ENTITY_ID}`,monitoring_source:ENTITY_ID,monitoring_policy:"entities",watched:true};
-  data.inventory.nodes=[integration,device,...entities,deviceCheck,...(entities.length?[entityCheck]:[])];
+  data.inventory.nodes=[integration,device,...entities,...deviceChecks,...(entities.length?[entityCheck]:[])];
   data.inventory.catalog.candidates=[integration,device,...entities];
   data.devices=[{id:"third-floor",name:device.name,config_entry_id:"lyric"}];
   data.inventory.episodes=[];
@@ -30,12 +30,12 @@ export function sourceDetailsFixture(view="device",states=["restored","restored"
   const selected=view==="entity"?ENTITY_ID:DEVICE_ID;
   const selectedMembers=view==="entity"?members.slice(0,1):members;
   const card={current:{status:"current",data},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(["integration:lyric","source:entry:lyric",`source:${DEVICE_ID}`]),sourcesSelection:`source:${selected}`,
-    configuration:{revision:"r1",settings:{monitoring_policies:[{id:"devices",name:"Devices",check:"availability",enabled:true,match:{kind:["device"]},parameters:{},notifications:[]},{id:"entities",name:"Entities",check:"availability",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]}]}},
+    configuration:{revision:"r1",settings:{monitoring_policies:[{id:"devices",name:"Devices",check:"availability",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]},{id:"entities",name:"Entities",check:"availability",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]}]}},
     _hass:{localize:key=>key==="component.lyric.title"?"Honeywell Lyric":null},
     sourceDetail:{nodeId:selected,members:selectedMembers,total:selectedMembers.length,offset:0,next_offset:null,
       unavailable_count:selectedMembers.filter(item=>item.state==="unavailable"&&!item.restored).length,
       unknown_count:selectedMembers.filter(item=>item.restored||item.state==="missing").length,
       updated_at:UPDATED_AT,
-      device_availability:view==="device"?{status:states.some(state=>!["restored","missing","unavailable"].includes(state))?"available":states.length&&states.every(state=>state==="unavailable")?"unavailable":"unknown",basis:"entities",reason:"incomplete_evidence"}:null}};
+}};
   return card;
 }

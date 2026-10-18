@@ -39,19 +39,6 @@ _STORE_WRITE = Store._async_write_data
         {"monitoring_identities": {"monitoring:entities": "monitoring:entities"}},
         {"monitoring_identities": {"monitoring:a:key:one": "monitoring:b:key:one"}},
         {"monitoring_identities": {"monitoring:a:key:one": "monitoring:a:key:two"}},
-        {"monitoring_scopes": []},
-        {"monitoring_scopes": {2: []}},
-        {"monitoring_scopes": {"entities": "bad"}},
-        {"monitoring_scopes": {"entities": [2]}},
-        {"monitoring_scopes": {"entities": ["not-a-source"]}},
-        {"monitoring_scopes": {"entities": ["entity:registry:"]}},
-        {"monitoring_scopes": {"entities": ["entity:registry:bad id"]}},
-        {
-            "monitoring_identities": {
-                "monitoring:devices:key:device:one": "monitoring:devices:key:device:one"
-            },
-            "monitoring_scopes": {},
-        },
         {"notifications": "bad"},
         {"notifications": [2]},
         {"episodes": {"bad": {"episode_id": "different"}}},
@@ -66,14 +53,6 @@ _STORE_WRITE = Store._async_write_data
         "monitoring-identity-shape",
         "monitoring-identity-policy",
         "monitoring-identity-source",
-        "monitoring-scopes-shape",
-        "monitoring-scope-policy",
-        "monitoring-scope-shape",
-        "monitoring-scope-source",
-        "monitoring-scope-source-prefix",
-        "monitoring-scope-source-empty",
-        "monitoring-scope-source-whitespace",
-        "monitoring-scope-missing-binding-policy",
         "notifications-shape",
         "notification-id",
         "episode-identity",
@@ -97,7 +76,7 @@ async def test_invalid_snapshot_fails_setup(
     assert hass_storage[f"{DOMAIN}.{config_entry.entry_id}"]["data"] == data
 
 
-@pytest.mark.parametrize("field", ["monitoring_identities", "monitoring_scopes"])
+@pytest.mark.parametrize("field", ["monitoring_identities"])
 async def test_current_snapshot_requires_monitoring_continuity_metadata(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,

@@ -10,9 +10,7 @@ An available entity tells you that Home Assistant has a current state for it. Th
 
 Some integrations mark a feature unavailable when the device's current mode does not support it. Homeostatic cannot infer the physical reason from that state. Select the entities you expect to remain available.
 
-A device availability check opens an issue when all its selected operational entities are unavailable. One working member can keep that device check clear while another entity has its own issue. Group entities can also remain available when members fail. Inspect important members directly.
-
-The device assessment uses entity evidence. Native device-availability reports from Home Assistant integrations remain future work. Grouping equipment beneath an integration or location does not prove a physical cause.
+Entities on the same device can have different availability states. Group entities can also remain available when their members fail. Inspect important members directly. Device, integration and location grouping does not establish a physical cause.
 
 ## Detection scope
 

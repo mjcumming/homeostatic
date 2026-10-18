@@ -198,38 +198,6 @@ test("a partial temperature issue reads every canonical policy without loading t
   for(const policy of base.sourceDetail.monitoring_policies)assert.ok(body.innerHTML.includes(`data-definition-id="${policy.id}"`),policy.name);
 });
 
-test("opening a partial device availability issue loads members before enabling removal and offers catalog retry",async()=>{
-  const base=sourceDetailsFixture("device",["unavailable","unavailable"]),full=base.current.data;
-  const source=full.inventory.nodes.find(row=>row.kind==="device"&&row.monitoring_policy);
-  const reason={node_id:source.node_id,check_id:"availability",status:"warn",reason:"all_unavailable"};
-  const episode={episode_id:"device-availability",anchor:source.node_id,recorded:[source.node_id],reasons:[reason],impact:[],opened_at:"2026-10-17T12:00:00Z"};
-  Object.assign(full,{schema_version:3,panel_context:true,catalog_loaded:true,catalog_revision:1});
-  Object.assign(full.inventory,{episodes:[episode],entity_status:{[source.node_id]:{current:reason}}});
-  const partial={...full,catalog_loaded:false,inventory:{...full.inventory,nodes:full.inventory.nodes.filter(row=>row.kind!=="entity"),catalog:{candidates:full.inventory.catalog.candidates.filter(row=>row.kind!=="entity")}}};
-  let catalogs=0;
-  const pending=deferred(),{card,body}=detailCard({...base,current:{status:"current",data:partial},detail:{episodeId:episode.episode_id},store:{ensureCatalog(){catalogs++;return pending.promise;}}});
-  card._hass={...base._hass,connection:{},async callWS(request){
-    assert.equal(request.type,"homeostatic/node");
-    return {source,readiness:{answer:"degraded",nodes:[]},explanation:{findings:[reason],nodes:[]},impact:{nodes:[]},entity_status:{current:reason},
-      device_evidence:{...base.sourceDetail},device_availability:base.sourceDetail.device_availability,monitoring_policies:[{id:"devices",name:"Devices"}]};
-  }};
-  assert.equal(catalogs,0);
-  assert.deepEqual(issueAvailabilitySources(card,[episode]),[]);
-  await card.loadDetail();
-  assert.equal(catalogs,1);
-  assert.match(body.innerHTML,/Loading monitoring sources/);
-  assert.doesNotMatch(body.innerHTML,/data-issue-availability="remove"/);
-  card.current={...card.current,catalogError:"Could not load sources."};
-  await card.loadDetail();
-  assert.match(body.innerHTML,/Could not load sources/);
-  assert.match(body.innerHTML,/data-action="retry-catalog"/);
-  card.current={status:"current",data:full};pending.resolve();
-  await card.loadDetail();
-  assert.equal(issueAvailabilitySources(card,[episode]).length,2);
-  assert.match(body.innerHTML,/data-issue-availability="remove"[^>]*>Stop Monitoring/);
-  assert.doesNotMatch(body.innerHTML,/data-issue-availability="remove"[^>]* disabled|Loading monitoring sources|retry-catalog/);
-});
-
 test("fresh issue context overlays a stale full catalog while unrelated browsing stays available",()=>{
   const previous=dataFixture(),id=previous.inventory.nodes[0].node_id;
   const fresh={...previous.inventory.nodes[0],name:"Updated owner"};

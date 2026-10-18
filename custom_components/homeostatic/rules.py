@@ -31,7 +31,7 @@ def attributes(value: Any) -> Attributes:
         values = [raw] if isinstance(raw, str) else raw
         if (
             not isinstance(values, list)
-            or not values
+            or (not values and key not in {"entity", "device"})
             or not all(isinstance(item, str) and item for item in values)
         ):
             raise ValueError("Match values must be nonempty strings or lists")
@@ -69,12 +69,20 @@ class CatalogRule:
     checks: tuple[str, ...] = ("availability",)
     enabled: bool = True
     excluded_sources: tuple[str, ...] = ()
+    included_sources: tuple[str, ...] = ()
     match_any: tuple[Attributes, ...] = ()
     match_none: tuple[Attributes, ...] = ()
 
     def matches(self, metadata: Attributes, *, source_id: str | None = None) -> bool:
         """Match every field, accepting any of its configured values."""
         if source_id in self.excluded_sources:
+            return False
+        if self.enabled and source_id in self.included_sources:
+            return True
+        if any(
+            f"device:{device}" in self.excluded_sources
+            for device in metadata.get("device", ())
+        ):
             return False
         if (
             "availability" in self.checks

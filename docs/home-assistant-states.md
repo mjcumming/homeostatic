@@ -36,14 +36,9 @@ These are behaviors in Core's source, cited by file because line numbers move.
 
 ## Device availability
 
-Since Core doesn't model device availability, the only written design is [architecture discussion 1400](https://github.com/home-assistant/architecture/discussions/1400), "Device availability reporting", opened in May 2026 and still open. It lets integrations report a device's availability directly, and when none does, derives it from the device's enabled entities:
+Core does not model generic device availability. [Architecture discussion 1400](https://github.com/home-assistant/architecture/discussions/1400) proposes integration-reported availability and an entity fallback, but this is not a supported API. Rechecked against Core's current device registry on October 18, 2026.
 
-- **Disabled** when the device is disabled.
-- **Unknown** when it has no enabled entities.
-- **Available** when any enabled entity has a state other than `unavailable`.
-- **Unavailable** when every enabled entity is `unavailable`.
-
-"Partially available" comes only from integration reports that disagree, never from entity states. Homeostatic retains that distinction and the proposal's vocabulary. Its entity fallback uses enabled operational entities and the missing-evidence rules below. Neither monitoring nor the Sources assessment treats a current connectivity `off` state as unavailable. ADR 0064 supersedes the earlier all-enabled fallback and connectivity exception.
+Homeostatic monitors selected entities independently and groups their evidence under registry devices. It does not derive a device availability verdict or implement the proposal in advance. Saved device policies migrate to entity coverage under [ADR 0103](adr/0103-entity-availability-with-grouped-selection.md). Current connectivity `off` remains a provided entity state, not an availability failure.
 
 ## How integrations use it
 
@@ -88,6 +83,10 @@ The separate device assessment in Sources also uses enabled operational entities
 
 **Other entity states.** An update entity is `on` or `off`, with install progress in attributes (`homeassistant/components/update/const.py`). Valve and cover states are `open`, `opening`, `closed`, and `closing`. Speech-to-text uses `error` as the result of one recognition (`SpeechResultState` in `homeassistant/components/stt/const.py`).
 
+## Entities not provided
+
+The separate Entities not provided policy assesses whether an enabled registered entity has a live provider. After HA has started and the owning config entry is loaded, a missing state or restored placeholder supplies warning evidence qualified by that policy's configured wait. A live non-restored state passes this condition even when its value is unavailable or unknown. Missing ownership or an unloaded owner is unknown and cannot establish recovery. Disabled entities, devices and integrations are ineligible. This condition does not change ordinary availability observations and makes no claim that an entity is obsolete. ADR 0104 owns the policy decision.
+
 ## UPS reports
 
 UPS operating status is integration-specific. Homeostatic maps verified registry signals from NUT and APC UPS Daemon within one HA device. Core types a device identifier as a pair and stores longer tuples without rejecting them. Matching reads the integration and the id. A current usable report can establish its mapped condition. Missing, disabled, restored, unknown or unavailable signals cannot establish recovery. APC communication loss invalidates cached status and numeric readings. HA state timestamps do not establish a physical heartbeat.
@@ -98,8 +97,8 @@ The [UPS decision](adr/0051-monitor-ups-conditions-through-shared-mappings.md) r
 
 - A watched entity that an integration marks unavailable by mode looks like lost contact. Exclude it from the relevant policies if that absence is expected.
 - `available` doesn't prove the device works. A sensor can stay available with a frozen value (ADR 0005).
-- A current sibling can make the device check pass while an independently monitored entity remains unavailable. Broad entity availability covers enabled operational entities, so their individual issues remain visible.
+- A current sibling does not clear another entity’s availability issue. Broad entity availability covers enabled operational entities independently.
 
 ## Keeping this page right
 
-Check Home Assistant behavior against its documentation and Core's source, not against one integration's implementation. Integrations disagree with each other, as the examples above show. When Home Assistant ships native device availability or changes these rules, update this page first, then the decision records that cite it.
+Check Home Assistant behavior against its documentation and Core's source, not against one integration's implementation. Integrations disagree with each other, as the examples above show. When Home Assistant ships native device availability or changes these rules, review the supported signal and record a new decision before adding device monitoring.

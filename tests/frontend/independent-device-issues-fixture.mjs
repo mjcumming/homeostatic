@@ -10,15 +10,15 @@ export function independentDeviceIssuesFixture({integrationFailed=false}={}) {
   const canonical=[integration],checks=[],episodes=[],statuses={};
   const settings=notificationSettings();
   settings.timings={settle:120,unknown_hold:900,retry_hold:120,clear_hold:120,rejoin_grace:60,startup_grace:120,startup_quiet_max:600,coalesce_count:3,coalesce_window:60,batch:30};
-  settings.monitoring_policies=[{id:"devices",name:"Device availability",enabled:true,check:"availability",match:{kind:["device"]},parameters:{},notifications:[]},
-    {id:"deck-extra",name:"Deck availability",enabled:true,check:"availability",match:{kind:["device"],device:["deck"]},parameters:{},notifications:[]}];
+  settings.monitoring_policies=[{id:"devices",name:"Device availability",enabled:true,check:"availability",match:{kind:["entity"]},parameters:{},notifications:[]},
+    {id:"deck-extra",name:"Deck availability",enabled:true,check:"availability",match:{kind:["entity"],device:["deck"]},parameters:{},notifications:[]}];
   for(const [id,name] of Object.entries(deviceNames)) {
     const entity=baseSource(`entity:${id}`,name,"entity",{entity_id:`light.${id}`,owner_id:"matter",attributes:{device:[id],integration:["matter"],domain:["light"]}});
     const device=baseSource(`device:${id}`,name,"device",{owner_id:"matter",attributes:{device:[id],integration:["matter"],integration_domain:["matter"]},availability_entities:[entity.entity_id]});
     canonical.push(device,entity);
     for(const policy of settings.monitoring_policies.filter(policy=>policy.id==="devices"||id==="deck")) {
-      const source={...device,node_id:`check:${policy.id}:${id}`,name:`${name} · ${policy.name}`,monitoring_source:device.node_id,monitoring_policy:policy.id,check_id:"availability",watched:true};
-      const finding={node_id:source.node_id,check_id:"availability",status:"fail",reason:"all_unavailable",message:`${name}: All selected entities are unavailable.`,observed_at:fixtureTime};
+      const source={...entity,node_id:`check:${policy.id}:${id}`,name:`${name} · ${policy.name}`,monitoring_source:entity.node_id,monitoring_policy:policy.id,check_id:"availability",watched:true};
+      const finding={node_id:source.node_id,check_id:"availability",status:"fail",reason:"unavailable",message:`${name}: Entity unavailable in Home Assistant.`,observed_at:fixtureTime};
       checks.push(source);statuses[source.node_id]={current:finding,findings:[finding],last_failure:finding};
       episodes.push({episode_id:`issue:${policy.id}:${id}`,anchor:source.node_id,recorded:[source.node_id],form:"single",impact:[],importance:"normal",opened_at:"2026-10-16T17:00:00Z",reasons:[finding]});
     }

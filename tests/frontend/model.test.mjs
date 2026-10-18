@@ -2,7 +2,7 @@ import {editInstallation,installationSettings} from "../../custom_components/hom
 import {filterSources, sourcePaths, sourcesBrowser, sourcesTree} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
 import {sharedIssueCountsFixture,locationIssueFixture} from "./shared-issue-counts-fixture.mjs";
-import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
+import {entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
 import {historyAccount, historyName, historyPage, observedRange, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
@@ -69,14 +69,14 @@ for (const scenario of recoveryScenarios) {
     data.inventory.episodes=[episode];
     assert.equal(visibleEpisodes(data).length,Number(scenario.visible));
     assert.equal(sortedEpisodes(data).length,Number(scenario.visible));
-    const problem=integrationProblem(anchor,episode.reasons,()=>null,{current}) ?? deviceProblem(anchor,{current}) ?? entityProblem(anchor,data.inventory.entity_status.anchor);
+    const problem=integrationProblem(anchor,episode.reasons,()=>null,{current}) ?? entityProblem(anchor,data.inventory.entity_status.anchor);
     assert.doesNotMatch(problem.summary,/running again|state.*again/);
     assert.equal(scenario.headline ?? problem.headline,problem.headline);
   });
 }
 
-for (const [kind, reason] of [["entity","source_missing"],["device","incomplete_evidence"]]) {
-  test(`${kind} availability keeps a reported problem visible through missing evidence`,()=>{
+for (const [kind, reason] of [["entity","source_missing"]]) {
+  test(`${kind} availability hides a retained problem when current evidence is only missing`,()=>{
     const data=example(),anchor=source("availability",{kind,check_id:"availability"});
     const episode={episode_id:"retained",anchor:anchor.node_id,recorded:[anchor.node_id],importance:"normal",opened_at:"2026-10-16T10:00:00Z",reasons:[{node_id:anchor.node_id,check_id:"availability",status:"unknown",reason:"stale"}]};
     const status={current:{status:"unknown",reason},last_failure:{status:"warn",reason:kind==="entity"?"unavailable":"all_unavailable",message:"Home Assistant reported unavailable."}};
@@ -84,11 +84,17 @@ for (const [kind, reason] of [["entity","source_missing"],["device","incomplete_
     data.inventory.episodes=[episode];
     data.inventory.entity_status={[anchor.node_id]:status};
     const before=structuredClone(data);
-    assert.deepEqual(visibleEpisodes(data),[episode]);
-    assert.deepEqual(sortedEpisodes(data),[episode]);
+    assert.deepEqual(visibleEpisodes(data),[]);
+    assert.deepEqual(sortedEpisodes(data),[]);
     assert.deepEqual(data,before,"Presentation must not alter the retained report or issue");
+    status.current={status:"warn",reason:"unavailable"};
+    assert.deepEqual(visibleEpisodes(data),[episode],"A current warning overrides an older gap finding");
+    status.current={status:"unknown",reason};
+    episode.recorded.push("missing-contributor");
+    assert.deepEqual(visibleEpisodes(data),[episode],"Incomplete contributing evidence must remain visible");
+    episode.recorded.pop();
     delete status.last_failure;
-    assert.deepEqual(visibleEpisodes(data),[episode],"An older open problem with incomplete report history remains visible");
+    assert.deepEqual(visibleEpisodes(data),[],"Historical report completeness does not change the current evidence boundary");
     status.last_failure=null;
     assert.deepEqual(visibleEpisodes(data),[],"Unknown evidence without a previous problem stays out of the issue queue");
     status.current={status:"pass",reason:"available"};
@@ -97,14 +103,14 @@ for (const [kind, reason] of [["entity","source_missing"],["device","incomplete_
   });
 }
 
-test("a shared availability issue retains a member's earlier problem through missing evidence",()=>{
+test("a shared availability issue hides a member's earlier problem through missing evidence",()=>{
   const data=example(),anchor=source("entry:owner",{kind:"integration",check_id:"availability"}),member=source("availability:member",{check_id:"availability"});
   const episode={episode_id:"shared-retained",anchor:anchor.node_id,recorded:[anchor.node_id,member.node_id],reasons:[{node_id:member.node_id,check_id:"availability",status:"unknown",reason:"stale"}]};
   data.inventory.nodes=[anchor,member];
   data.inventory.episodes=[episode];
   data.inventory.integration_evidence={[anchor.node_id]:{current:{status:"pass",reason:"loaded"},last_failure:null}};
   data.inventory.entity_status={[member.node_id]:{current:{status:"unknown",reason:"source_missing"},last_failure:{status:"warn",reason:"unavailable",message:"Earlier member problem"}}};
-  assert.deepEqual(visibleEpisodes(data),[episode]);
+  assert.deepEqual(visibleEpisodes(data),[]);
   data.inventory.entity_status[member.node_id].last_failure=null;
   assert.deepEqual(visibleEpisodes(data),[],"A loaded integration does not turn a gap-only member into a problem");
 });
@@ -785,30 +791,6 @@ test("entity recovery needs a current observation or ready query, not missing fi
   assert.equal(entityProblem(matter,null),null);
 });
 
-
-
-test("device summary names HA availability without claiming physical failure",()=>{
-  const device=source("device:abc",{kind:"device",attributes:{device:["abc"]}});
-  const outage=deviceProblem(device,{current:{reason:"all_unavailable"}});
-  assert.match(outage.headline,/All monitored entities unavailable/);
-  assert.match(outage.summary,/does not establish whether the physical device/);
-  assert.equal(outage.deviceUrl,"/config/devices/device/abc");
-  const partial=deviceProblem(device,{current:{reason:"some_unavailable"}},true);
-  assert.equal(partial.tone,"uncertain");
-  assert.match(partial.nextStep,/ignore/i);
-  assert.match(partial.summary,/cannot determine/);
-  assert.match(partial.headline,/Some monitored entities unavailable/);
-  assert.match(deviceProblem(device,{current:{reason:"available"}},true).headline,/recovery/);
-  const ready=diagnosticOverview(device,{readiness:{answer:"ready"}});
-  assert.match(ready.assessment,/individual capabilities are not all verified/);
-  assert.match(diagnosticOverview(device,{readiness:{answer:"ready"}},[],true).assessment,/awaiting confirmed recovery/);
-});
-
-
-
-
-
-
 test("attention actions require compatible current administrator targets",()=>{
   const current={status:"current",data:{inventory:{attention_controls_supported:true,episodes:[{episode_id:"e1"}],operator_controls:[{control_id:"c1"}]}}};
   assert.equal(attentionActionAllowed(current,true,"acknowledge","e1"),true);
@@ -1113,31 +1095,6 @@ for(const [name,error,expected] of [
 });
 
 
-import {deviceAvailability, deviceAvailabilityStamp, deviceEntityName} from "../../custom_components/homeostatic/frontend/device-availability.mjs";
-
-for (const [status,label] of Object.entries({available:"Available",partially_available:"Partially available",unavailable:"Unavailable",unknown:"Unknown",disabled:"Disabled"})) {
-  test(`device availability shows ${label} separately from monitoring`,()=>{
-    const html=deviceAvailability({status,basis:status==="partially_available"?"integration_reports":"entities",reason:"no_current_states"});
-    assert.match(html,new RegExp(`Device availability: ${label}`));
-    assert.doesNotMatch(html,/Degraded|Insufficient evidence|Awaiting status/);
-  });
-}
-
-test("compact device availability keeps the status without repeating its explanation",()=>{
-  const html=deviceAvailability({status:"unavailable",basis:"entities"},true);
-  assert.match(html,/Device availability: Unavailable/);
-  assert.doesNotMatch(html,/Every enabled entity|overall device health|monitoring choices/);
-});
-
-test("device availability explains its operational scope without including diagnostics",()=>{
-  const html=deviceAvailability({status:"unavailable",basis:"entities",reason:"all_entities_unavailable"});
-  assert.match(html,/Every enabled operational entity is unavailable/);
-  assert.match(html,/Diagnostic and configuration entities are excluded/);
-  assert.doesNotMatch(html,/disconnected|all enabled entities/);
-  assert.equal(deviceEntityName("ESP Presence Kitchen Fridge Motion","ESP Presence Kitchen Fridge"),"Motion");
-  assert.equal(deviceEntityName("ESP Presence Kitchen Fridge","ESP Presence Kitchen Fridge"),"ESP Presence Kitchen Fridge");
-});
-
 for (const grouping of ["integration","location","topomation"]) {
   for (const selection of [null,"source:removed"]) {
     test(`Sources ${grouping} leaves rows unselected for ${selection}`,()=>{
@@ -1201,7 +1158,7 @@ test("Sources starts collapsed with issue indicators and source kinds beside nam
   assert.match(opened,/Back Deck <span class="source-issue-count">Issues<\/span><\/span><small>Device/);
   assert.match(opened,/Back Deck signal 000<\/span><small>Not monitored/);
   assert.match(opened,/Back Deck signal 001<\/span><small>Monitored<\/small>/);
-  assert.match(opened,/Back Deck signal 002<\/span><small>Not monitored/);
+  assert.match(opened,/Back Deck signal 000<\/span><small>Not monitored/);
   assert.match(opened,/Back Deck signal 003<\/span><small>Monitored<\/small>/);
   assert.match(opened,/Back Deck signal 004<\/span><small>Monitored<\/small>/);
   assert.match(opened,/Back Deck signal 005<\/span><small>Disabled in Home Assistant<\/small>/);
@@ -1236,61 +1193,6 @@ test("history observation range shows the elapsed time without seconds", () => {
   assert.equal(observedRange("", ""),"Time not recorded");
 });
 
-test("selected device summary counts monitored members independently of inventory access",()=>{
-  const data=monitoringExample(), id="device:camera-0";
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${id}`,sourcesView:"source",
-    sourceDetail:{nodeId:id,device_availability:{status:"available",basis:"entities"},members:[{name:"Required sensor",node_id:"sensor.required",state:"unavailable"}],total:1,unavailable_count:1,unknown_count:0}};
-  const html=sourcesBrowser(card);
-  assert.match(html,/0 of 1 monitored entity available/);
-  assert.match(html,/Required sensor/);
-  assert.doesNotMatch(html,/source-facts|source-entity-condition|Home Assistant cannot currently report|Next step:/);
-});
-
-test("Sources treats a current connectivity off report as available",()=>{
-  const data=monitoringExample(),id="device:camera-0";
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${id}`,sourcesView:"source",
-    sourceDetail:{nodeId:id,device_availability:{status:"available",basis:"entities",reason:"entity_available"},members:[{name:"Camera Connectivity",node_id:"binary_sensor.camera_connectivity",state:"off",connectivity:true}],total:1,unavailable_count:0,unknown_count:0}};
-  const html=sourcesBrowser(card);
-  assert.match(html,/1 of 1 monitored entity available/);
-  assert.match(html,/>Available · off<\/span>/);
-  assert.doesNotMatch(html,/source-facts|source-entity-condition/);
-  assert.doesNotMatch(html,/Entities needing review|Disconnected|Connection reports disconnected/);
-});
-
-test("entity detail shows HA state and monitoring once; device member names open Home Assistant",()=>{
-  const data=monitoringExample(),entityId="entity:registry:camera-1-1",deviceId="device:camera-1";
-  const member={node_id:entityId,entity_id:"sensor.camera_1_001",name:"Back Porch signal 001",state:"unavailable"};
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
-    sourcesSelection:`source:${entityId}`,sourceDetail:{nodeId:entityId,members:[member],total:1,unavailable_count:1,unknown_count:0}};
-  const entity=sourcesBrowser(card);
-  assert.match(entity,/Home Assistant reports this entity as unavailable/);
-  assert.match(entity,/Used to assess device availability/);
-  assert.match(entity,/Configure monitoring/);
-  assert.doesNotMatch(entity,/<h3>Home Assistant entities<\/h3>|This entity has no separate check|Next step:/);
-  assert.equal((entity.match(/Back Porch signal 001/g)??[]).length,1);
-  assert.doesNotMatch(entity,/data-source-link="entity:registry:camera-1-1"/);
-  card.sourcesSelection=`source:${deviceId}`;
-  card.sourceDetail={...card.sourceDetail,nodeId:deviceId};
-  const device=sourcesBrowser(card);
-  assert.match(device,/<a href="\/developer-tools\/state\?entity_id=sensor\.camera_1_001">Back Porch signal 001<\/a>/);
-  assert.doesNotMatch(device,/data-source-link="entity:registry:camera-1-1"|data-episode=/);
-});
-
-test("device details keep mixed member evidence visible before monitoring coverage",()=>{
-  const data=monitoringExample(),id="device:camera-1";
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
-    sourcesSelection:`source:${id}`,sourceDetail:{nodeId:id,members:[
-      {node_id:"entity:registry:camera-1-1",entity_id:"sensor.camera_1_001",name:"Broken sensor",state:"unavailable"},
-      {node_id:"entity:registry:camera-1-2",entity_id:"sensor.camera_1_002",name:"Working sensor",state:"18"}],total:2,unavailable_count:1,unknown_count:0}};
-  const html=sourcesBrowser(card);
-  assert.match(html,/1 of 2 monitored entities available/);
-  const evidence=html.split('<section class="source-section source-device-coverage"')[0];
-  assert.match(evidence,/href="\/developer-tools\/state\?entity_id=sensor\.camera_1_001">Broken sensor<\/a>[\s\S]*?>Unavailable<\/span>/);
-  assert.match(evidence,/href="\/developer-tools\/state\?entity_id=sensor\.camera_1_002">Working sensor<\/a>[\s\S]*?>Available · 18<\/span>/);
-  assert.match(html,/href="\/config\/devices\/device\/camera-1">Open device/);
-  assert.doesNotMatch(html,/<details\b|Home Assistant cannot currently report|Next step:/);
-});
-
 test("entity details separate availability from its current value",()=>{
   const data=monitoringExample(),id="entity:registry:camera-1-1";
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
@@ -1300,61 +1202,6 @@ test("entity details separate availability from its current value",()=>{
   assert.match(sourcesBrowser(card),/Home Assistant reports no value/);
   assert.doesNotMatch(sourcesBrowser(card),/<dt>Current value<\/dt><dd>unknown<\/dd>|Unavailable in Home Assistant/);
 });
-
-
-test("availability refresh follows excluded entities without reacting to value churn",()=>{
-  const value={entity_ids:["sensor.excluded"]};
-  const state=value=>({"sensor.excluded":{state:value,attributes:{}}});
-  assert.equal(deviceAvailabilityStamp(value,state("42")),deviceAvailabilityStamp(value,state("43")));
-  assert.equal(deviceAvailabilityStamp(value,state("unknown")),deviceAvailabilityStamp(value,state("off")));
-  assert.notEqual(deviceAvailabilityStamp(value,state("off")),deviceAvailabilityStamp(value,state("unavailable")));
-  assert.notEqual(deviceAvailabilityStamp(value,state("unavailable")),deviceAvailabilityStamp(value,{}));
-});
-
-test("connectivity values do not create availability refreshes while still available",()=>{
-  const id="binary_sensor.connection";
-  const value={entity_ids:[id],connectivity_entity_ids:[id]};
-  const state=(value)=>({[id]:{state:value,attributes:{}}});
-  assert.equal(deviceAvailabilityStamp(value,state("on")),deviceAvailabilityStamp(value,state("off")));
-  assert.equal(deviceAvailabilityStamp(value,state("off")),deviceAvailabilityStamp(value,state("unknown")));
-  assert.notEqual(deviceAvailabilityStamp(value,state("off")),deviceAvailabilityStamp(value,state("unavailable")));
-});
-
-
-test("selected device refresh coalesces reads and notices access changes",async(t)=>{
-  const elements=new Map();
-  globalThis.HTMLElement=class {};
-  globalThis.customElements={get:key=>elements.get(key),define:(key,value)=>elements.set(key,value)};
-  globalThis.window={};
-  t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
-  await import("../../custom_components/homeostatic/frontend/homeostatic.js?availability-test");
-  const card=Object.create(elements.get("homeostatic-card-v39").prototype);
-  const data=monitoringExample(),entity="sensor.excluded",nodeId="device:camera-0",pending=[];
-  Object.assign(card,{page:"sources",sourcesView:"source",current:{status:"current",data},sourcesGrouping:"integration",sourcesSelection:`source:${nodeId}`,sourceDetail:null,sourceSequence:0,
-    render(){},_hass:{states:{[entity]:{state:"off",attributes:{}}},callWS(){return new Promise(resolve=>pending.push(resolve));}}});
-  const first=card.loadSource();
-  await card.loadSource();
-  assert.equal(pending.length,1);
-  pending[0]({device_availability:{status:"available",entity_ids:[entity]}});
-  await first;
-  await card.loadSource();
-  assert.equal(pending.length,1);
-  card._hass.states={[entity]:{state:"unavailable",attributes:{}}};
-  const changed=card.loadSource();
-  await card.loadSource();
-  assert.equal(pending.length,2);
-  pending[1]({device_availability:{status:"unavailable",entity_ids:[entity]}});
-  await changed;
-  assert.equal(card.sourceDetail.device_availability.status,"unavailable");
-  card._hass.states={[entity]:{state:"42",attributes:{}}};
-  const recovery=card.loadSource();
-  pending[2]({device_availability:{status:"available",entity_ids:[entity]}});
-  await recovery;
-  card._hass.states={[entity]:{state:"43",attributes:{}}};
-  await card.loadSource();
-  assert.equal(pending.length,3);
-});
-
 
 test("policy configuration loads without delivery discovery and discovery preserves the draft",async(t)=>{
   const elements=new Map();

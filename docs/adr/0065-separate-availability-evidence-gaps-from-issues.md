@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-14
 
+**Later decision:** [ADR 0104](0104-entities-not-provided-policy.md) adds an independently selected Entities not provided policy. A qualified missing-provider warning is a separate maintenance condition; ordinary availability evidence gaps retain this decision's visibility and attention rules.
+
 **Partially supersedes:** [ADR 0060](0060-hide-recovery-confirmation-from-issue-lists.md), solely its requirement to retain missing-evidence conditions in Issues. Preserves the state meanings and monitoring behavior in ADR 0025 and ADR 0064.
 
 ## Context

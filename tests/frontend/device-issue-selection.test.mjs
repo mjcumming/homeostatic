@@ -47,6 +47,42 @@ test("aggregate recovery leaves two entity choices, then one direct identified a
   renderDeviceIssues(card);assert.match(body.innerHTML,/No related issues remain open/);assert.doesNotMatch(body.innerHTML,/data-device-response=/);
 });
 
+test("the count explains unavailable and missing members even without open issues",()=>{
+  const {card,fixture,body}=harness();
+  fixture.data.inventory.episodes=[];
+  fixture.members[0].state="unknown";
+  fixture.members[1].state="missing";
+  fixture.members[2].restored=true;
+  card.deviceIssueContext=deviceIssueReply(fixture);
+  renderDeviceIssues(card);
+  assert.match(body.innerHTML,/1 of 3 monitored entities available/);
+  assert.match(body.innerHTML,/No current state from Home Assistant/);
+  assert.match(body.innerHTML,/Not currently provided by its integration/);
+  assert.match(body.innerHTML,new RegExp(fixture.members[1].name));
+  assert.match(body.innerHTML,/No related issues remain open/);
+  assert.doesNotMatch(body.innerHTML,/data-device-response=/);
+  assert.match(body.innerHTML,/data-definition-id="entities"/);
+  fixture.members[1].state="unavailable";
+  card.deviceIssueContext=deviceIssueReply(fixture);renderDeviceIssues(card);
+  assert.match(body.innerHTML,/Home Assistant reports this entity as unavailable/);
+});
+
+test("device evidence follows every member page and keeps endpoint coverage without open issues",async()=>{
+  const {card,fixture,body,calls}=harness();
+  fixture.data.inventory.episodes=[];
+  const reply=deviceIssueReply(fixture),normal=card._hass.callWS;
+  card._hass.callWS=async request=>{
+    if(request.type!=="homeostatic/source")return normal(request);
+    calls.push(request);
+    return request.offset?{...reply,members:reply.members.slice(1),offset:1,next_offset:null}:{...reply,members:reply.members.slice(0,1),next_offset:1};
+  };
+  await readDeviceIssues(card,()=>true);
+  assert.equal(card.deviceIssueContext.members.length,3);
+  assert.equal(calls[1].offset,1);
+  for(const member of fixture.members)assert.ok(body.innerHTML.includes(`entity_id=${encodeURIComponent(member.entity_id)}`));
+  assert.match(body.innerHTML,/data-definition-id="entities"/);
+});
+
 test("source read uses canonical device evidence and ignores a stale return",async()=>{
   const {card,fixture,calls,body,title}=harness(),call=card._hass.callWS;
   fixture.device.watched=false;
@@ -75,7 +111,7 @@ test("a source missing from the initial issue summary waits for verified catalog
   assert.equal(calls.length,previousCalls);assert.equal(body.innerHTML,"newer detail","Navigation while catalog loads invalidates the pending detail read");
 });
 
-test("partial availability retains missing evidence after a failure and excludes confirming recovery",()=>{
+test("partial availability excludes gap-only prior failures and confirming recovery",()=>{
   const {card,fixture,body}=harness(),inventory=fixture.data.inventory;
   inventory.episodes=inventory.episodes.filter(item=>["issue:alarm","issue:timer","issue:battery"].includes(item.episode_id));
   fixture.members[0].state="idle";fixture.members[2].state="off";
@@ -89,13 +125,13 @@ test("partial availability retains missing evidence after a failure and excludes
   battery.current={...battery.current,reason:"battery_low"};
   renderDeviceIssues(card);
   assert.match(body.innerHTML,/2 of 3 monitored entities available/);
-  assert.match(body.innerHTML,/Waiting for a fresh reading/);
+  assert.doesNotMatch(body.innerHTML,/Waiting for a fresh reading/);
   assert.doesNotMatch(body.innerHTML,/Available — confirming recovery|data-device-issue-select="issue:timer"/);
   assert.match(body.innerHTML,/Battery low/);
   assert.doesNotMatch(body.innerHTML,/All monitored entities unavailable|data-device-issue-select="issue:device"|<dt>Opened<\/dt>/);
   assert.match(body.innerHTML,/<a class="button" href="\/config\/devices\/device\/audi">Open device<\/a>/);
   assert.match(body.innerHTML,/class="actions device-issue-actions"/);
-  assert.deepEqual(new Set(selectedDeviceIssueIds(card)),new Set(["issue:alarm","issue:battery"]));
+  assert.deepEqual(new Set(selectedDeviceIssueIds(card)),new Set(["issue:battery"]));
 });
 
 test("a temperature finding retains actionable captured evidence and its exact independent target",async()=>{

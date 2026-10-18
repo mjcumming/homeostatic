@@ -8,7 +8,7 @@ import {sourceDetailsFixture,ENTITY_ID,DEVICE_ID} from "./source-details-fixture
 function fixture() {
   const card=sourceDetailsFixture("entity",["72","40","71","0"]);
   const rows=card.current.data.inventory.nodes;
-  rows.find(row=>row.kind==="device"&&row.watched).availability_entities=rows.filter(row=>row.kind==="entity").slice(0,2).map(row=>row.entity_id);
+  for(let n=rows.length-1;n>=0;n--)if(rows[n].monitoring_policy==="devices"&&![ENTITY_ID,"entity:third-floor-humidity"].includes(rows[n].monitoring_source))rows.splice(n,1);
   const temperature=rows.find(row=>row.node_id==="entity:third-floor-average");
   rows.push({...temperature,kind:"temperature_limit",node_id:"temperature:average",watched:true,monitoring_policy:"temperature",check_id:"temperature_limit"});
   card.sourcesMonitoring="all";
@@ -82,7 +82,7 @@ test("entity details state the condition once with native navigation near the na
 
 test("device details show availability, entity evidence and coverage without a fact grid",()=>{
   const html=sourcesBrowser(sourceDetailsFixture("device",["72","40","71"])).split('<section class="config-detail" aria-label="Selected source">')[1];
-  assert.match(html,/3 of 3 monitored entities available/);
+  assert.match(html,/3 of 3 entities available/);
   assert.match(html,/source-device-entities/);
   assert.match(html,/source-device-coverage/);
   assert.match(html,/href="\/config\/devices\/device/);

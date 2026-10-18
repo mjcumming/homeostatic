@@ -23,7 +23,7 @@ function inventory() {
     ...(selected.length?[{...device,node_id:`monitoring:devices:${DEVICE_ID}`,monitoring_source:DEVICE_ID,monitoring_policy:"devices",watched:true,availability_entities:selected.map(item=>item.entity_id)}]:[])];
   data.inventory.episodes=exclusion("entities",ENTITY_ID)?[]:[{episode_id:"shared",anchor:"entry:lyric",recorded:["entry:lyric",`monitoring:entities:${ENTITY_ID}`],reasons:[{node_id:`monitoring:entities:${ENTITY_ID}`,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT}];
   if(withSibling) {
-    const source={...copy(entities[0]),node_id:"entity:unrelated",entity_id:"sensor.unrelated_reading",name:"Other unavailable reading"};
+    const source={...copy(entities[0]),node_id:"entity:unrelated",entity_id:"sensor.unrelated_reading",name:"Other unavailable reading",attributes:{...entities[0].attributes,device:[]}};
     const check={...source,node_id:"monitoring:entities:entity:unrelated",monitoring_source:source.node_id,monitoring_policy:"entities",watched:true};
     const finding={node_id:check.node_id,message:"Other reading is unavailable",status:"warn",reason:"unavailable"};
     data.inventory.catalog.candidates.push(source);data.inventory.nodes.push(source,check);
@@ -104,7 +104,7 @@ document.querySelector("#run").onclick=async()=>{
     check(stopIssue.textContent==="Stop Monitoring"&&stopIssue.classList.contains("button")&&!stopIssue.classList.contains("link"),"Opened issue uses an outlined Stop Monitoring button");
     click('.dialog-body [data-issue-availability="remove"][data-issue-id="shared"]');await settle();
     check(root.activeElement?.dataset.issueAvailability==="confirm","Issue confirmation receives focus");
-    check(!root.querySelector('.dialog-body .source-availability-confirm details').open,"Entity and policy details start collapsed");
+    check(!root.querySelector('.dialog-body .source-availability-confirm details'),"Exact affected entities and policies are visible in the flat confirmation");
     check(card.issueAvailabilityEpisode==="shared"&&card.issueAvailabilityPlan.sourceIds.join(",")===ENTITY_ID,"Review includes only this issue's unavailable entity");
     click('.dialog-body [data-issue-availability="cancel"][data-issue-id="shared"]');
     check(saves().length===0&&card.dialog.open&&!card.issueAvailabilityPlan,"Cancel keeps the issue open without saving");
@@ -156,7 +156,7 @@ document.querySelector("#run").onclick=async()=>{
     card.settingsDraft.notification_definitions.methods.phone.name="Pending phone";
     check(root.querySelector('[data-availability-action="stop"]').textContent==="Stop Monitoring","Entity monitoring uses the Stop Monitoring label");
     click('[data-availability-action="stop"]');
-    check(root.querySelector(".source-availability-confirm").textContent.includes("Devices")&&root.querySelector(".source-availability-confirm").textContent.includes("Entities"),"Both availability roles must be reviewed");
+    check(card.availabilityPlan.changes.map(policy=>policy.id).sort().join(",")==="devices,entities","The reviewed change covers both availability roles");
     check(root.activeElement?.dataset.availabilityAction==="confirm","Confirmation receives keyboard focus");
     click('[data-availability-action="cancel"]');check(saves().length===0,"Cancel must not save");
     click('[data-availability-action="stop"]');click('[data-availability-action="confirm"]');await settle();

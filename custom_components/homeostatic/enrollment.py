@@ -84,6 +84,11 @@ def inventory(
         for value in policy.match.get("entity", ())
     )
     references.update(
+        source.removeprefix("entity:")
+        for policy in settings.monitoring_policies
+        for source in policy.included_sources
+    )
+    references.update(
         f"registry:{entry.id}"
         for entry in registry.entities.values()
         if entry.platform != DOMAIN
@@ -306,6 +311,7 @@ def changed_exclusions(
             before.enabled,
             before.match_any,
             before.match_none,
+            before.included_sources,
         ) != (
             after.id,
             after.match,
@@ -313,9 +319,12 @@ def changed_exclusions(
             after.enabled,
             after.match_any,
             after.match_none,
+            after.included_sources,
         ):
             return None
         changed.update(set(before.excluded_sources) ^ set(after.excluded_sources))
+    if any(identity.startswith("device:") for identity in changed):
+        return None
     return frozenset(changed)
 
 
@@ -350,7 +359,7 @@ def evaluate(
             source,
             watched=decision.watched
             and not source.disabled
-            and not (source.kind == "device" and not source.availability_entities),
+            and source.kind != "device",
             attached_by=decision.attached_by,
         )
     for node_id, source in tuple(result.items()):

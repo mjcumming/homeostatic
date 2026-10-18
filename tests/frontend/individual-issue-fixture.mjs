@@ -21,7 +21,7 @@ export function individualIssueFixture(condition="low") {
   const observation={...structuredClone(conditions[condition]),observed_at:"2026-10-15T17:25:00Z"};
   source.kind=condition==="stalled"||condition==="worsening"?"thermostat":"temperature_limit";
   source.check_id=source.kind;
-  const status={current:{status:observation.status,reason:observation.reason},findings:[{node_id:source.node_id,check_id:source.check_id,...observation}]};
+  const status={current:structuredClone(observation),findings:[{node_id:source.node_id,check_id:source.check_id,...observation}]};
   const episode={episode_id:ISSUE_ID,anchor:source.node_id,recorded:[source.node_id],impact:[],importance:"normal",opened_at:"2026-10-15T17:20:00Z",reasons:structuredClone(status.findings)};
   Object.assign(data,{catalog_loaded:true,schema_version:3});
   Object.assign(data.inventory,{episodes:[episode],attention_controls_supported:true,entity_status:{[source.node_id]:status},resolved_history:{started_at:"2026-10-15T12:00:00Z",retention:{max_age_days:30,max_episodes:100},episodes:[]}});

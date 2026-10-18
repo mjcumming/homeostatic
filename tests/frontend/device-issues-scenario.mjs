@@ -7,7 +7,7 @@ import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
 const card=document.querySelector("homeostatic-panel"),root=card.shadowRoot,calls=[];
 const copy=value=>structuredClone(value),families={esphome:"ESPHome",mqtt:"MQTT",eero:"eero"};
 const settings={...notificationSettings(),monitoring_policies:[
-  {id:"devices",name:"Device availability",enabled:true,check:"availability",match:{kind:["device"]},parameters:{},notifications:[]},
+  {id:"devices",name:"Device availability",enabled:true,check:"availability",match:{kind:["entity"]},parameters:{},notifications:[]},
   {id:"entities",name:"Entity availability",enabled:true,check:"availability",match:{kind:["entity"]},parameters:{},notifications:[]},
 ]};
 const configuration=()=>({revision:"device-issues-fixture",settings:copy(settings),delivery_targets:[],notification_people:[],monitoring_policy_templates:[],areas:[],labels:[],floors:[]});
@@ -27,10 +27,11 @@ function inventory() {
     const device=baseSource(`device:${id}`,name,"device",{owner_id:owner,attributes:{device:[id],integration:[owner]}});
     const entities=readings.map(([suffix,label,domain="sensor"])=>baseSource(`entity:${id}-${suffix}`,label,"entity",{entity_id:`${domain}.${id.replaceAll("-","_")}_${suffix}`,owner_id:owner,attributes:{device:[id],integration:[owner],domain:[domain]}}));
     canonical.push(device,...entities);
-    if(deviceCheck)addIssue({...device,availability_entities:entities.map(entity=>entity.entity_id)},`${id}-device`,settings.monitoring_policies[0]);
+    if(deviceCheck)addIssue(entities[0],`${id}-device`,settings.monitoring_policies[0]);
     entities.forEach((entity,index)=>addIssue(entity,`${id}-${readings[index][0]}`,settings.monitoring_policies[1]));
   };
   addDevice("ball","Xiaozhi Ball","esphome",[["player","Xiaozhi Ball","media_player"]]);
+  addDevice("north","North Side","esphome",[["camera","North Side","camera"]],false);
   addDevice("laundry","Laundry Sensor","mqtt",[["temperature","Temperature"],["humidity","Humidity"]]);
   addDevice("twin-a","Window Sensor","mqtt",[["contact","Contact","binary_sensor"]],false);
   addDevice("twin-b","Window Sensor","mqtt",[["contact","Contact","binary_sensor"]],false);
@@ -84,6 +85,18 @@ document.querySelector("#run").onclick=async()=>{
   const receipt={...emptyReceipt({fixture:"device-issues.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",build:"working tree",transport:"synthetic inventory; no live services",physical_safari:"untested"}),status:"running",evidence};
   try {
     reset(false);await settle();
+    const restored=data.inventory.episodes.find(item=>item.episode_id==="ball-device");
+    const restoredStatus=data.inventory.entity_status[restored.anchor];
+    const restoredBaseline=copy(restoredStatus),restoredReasons=copy(restored.reasons);
+    restoredStatus.last_failure=copy(restoredStatus.current);
+    restoredStatus.current={status:"unknown",reason:"incomplete_evidence",message:"Only a restored state is available"};
+    restored.reasons=[{...restoredStatus.current,node_id:restored.anchor,check_id:"availability"}];
+    card.render();await settle();
+    await click('[data-issue-group="integration:esphome"]');
+    check(!root.querySelector('[data-ui-key="issue:ball-device"]')&&root.querySelector('[data-ui-key="issue:ball-player"]'),"Restored device evidence hides the historical failure while a current entity failure stays visible");
+    check(restoredStatus.last_failure.reason==="all_unavailable"&&data.inventory.episodes.includes(restored),"Filtering preserves the unresolved episode and its earlier report");
+    Object.assign(restoredStatus,restoredBaseline);delete restoredStatus.last_failure;restored.reasons=restoredReasons;
+    reset(false);await settle();
     check(root.querySelectorAll(".issue-group").length===3&&!root.querySelector("[data-episode]"),"Integration groups start collapsed");
     check(!card.main.querySelector("[data-issue-availability],.issue-availability,.issue-monitoring-feedback"),"Collapsed queue has no removal controls, counts or review");
     await click('[data-issue-group="integration:esphome"]');await click('[data-issue-group="integration:mqtt"]');
@@ -93,6 +106,13 @@ document.querySelector("#run").onclick=async()=>{
     check(ids(ball).sort().join(",")==="ball-device,ball-player","Device and player findings retain independent identities");
     check(ball.querySelectorAll('[data-device-issues]').length===1&&!ball.querySelector('[data-episode]'),"One device View replaces duplicate finding dialogs");
     check([...ball.querySelectorAll(".issue-title")].every(title=>!title.textContent.includes("Xiaozhi Ball")),"Device name is not repeated as each finding title");
+    check(!find('[data-ui-key="issue:ball-player"] .issue-row',ball).querySelector(".issue-title"),"Generic Entity heading is omitted when the device already names it");
+    check(ball.querySelector(".issue-device-heading .small").textContent==="2 issues","Multiple findings retain their count");
+    const client=find('[data-issue-device="north"]');
+    check(!client.querySelector(".issue-device-heading .small"),"Single-issue devices omit the redundant count");
+    check(ball.querySelector(".issue-condition")&&ball.querySelector(".issue-row .small").textContent.includes("Since"),"Compact rows retain conditions and individual opening times");
+    check([...find('[data-issue-device="laundry"]').querySelectorAll(".issue-title")].some(title=>title.textContent==="Temperature"),"Distinct entity names remain visible");
+    check(client.getBoundingClientRect().height<110,"A single finding fits in a compact device row");
     check(root.querySelectorAll('[data-issue-device="twin-a"],[data-issue-device="twin-b"]').length===2,"Equal names retain distinct registry devices");
     check(!find('[data-episode="standalone"]').closest(".issue-device"),"Standalone findings stay at integration level");
     check(root.querySelectorAll('.issue-device [data-episode="mqtt-shared"]').length===2,"Shared issue appears under both devices with its original action identity");
@@ -110,8 +130,8 @@ document.querySelector("#run").onclick=async()=>{
     check(root.querySelectorAll(".issue-device").length===1&&ids(root).length===3,"Parent device search reveals every matching finding");
     await search("");await sort("name");
     check([...root.querySelectorAll("[data-issue-group]")].map(element=>element.dataset.issueGroup).join(",")==="integration:eero,integration:esphome,integration:mqtt","Name sort orders integration groups");
-    await sort("oldest");check(ids(group("esphome")).join(",")==="ball-device,ball-player","Oldest order preserves device findings");
-    await sort("newest");check(ids(group("esphome")).join(",")==="ball-player,ball-device","Newest order preserves device findings");
+    await sort("oldest");check(ids(group("esphome")).join(",")==="ball-device,ball-player,north-camera","Oldest order preserves device findings");
+    await sort("newest");check(ids(group("esphome")).join(",")==="north-camera,ball-player,ball-device","Newest order preserves device findings");
     await click('[data-issue-group="integration:eero"]');check(ids(group("eero")).length===40,"Initial large integration page is bounded");
     await click('[data-issue-more="integration:eero"]');check(ids(group("eero")).length===45&&new Set(ids(group("eero"))).size===45,"Show more reaches each exact issue once");
     data=copy(data);data.updated_at="2026-10-15T18:01:00Z";card.current={status:"current",data};card.render();await settle();

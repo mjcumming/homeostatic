@@ -75,12 +75,12 @@ async def test_policy_scope_and_name_remain_editable(hass: HomeAssistant) -> Non
     current = initial_settings("UTC")
     draft = deepcopy(_editable_settings(Settings.from_data(current)))
     draft["monitoring_policies"][1].update(
-        name="Upstairs devices", match={"kind": ["device"], "area": ["upstairs"]}
+        name="Upstairs entities", match={"kind": ["entity"], "area": ["upstairs"]}
     )
     saved = await _settings_candidate(hass, current, draft)
     policy = Settings.from_data(saved).monitoring_policies[1]
-    assert policy.name == "Upstairs devices"
-    assert policy.match == {"kind": ("device",), "area": ("upstairs",)}
+    assert policy.name == "Upstairs entities"
+    assert policy.match == {"kind": ("entity",), "area": ("upstairs",)}
 
 
 @pytest.mark.parametrize("version", [None, True, -1, 0, 2, "1"])

@@ -12,6 +12,7 @@ coverage.json
 htmlcov/
 dist/
 build/
+output/
 tmp/
 *.egg-info/
 .DS_Store

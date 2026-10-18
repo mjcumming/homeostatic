@@ -11,7 +11,7 @@ export function deviceIssueFixture() {
   const settings=notificationSettings();
   settings.notification_definitions.profiles.morning.methods=["phone"];
   settings.monitoring_policies=[
-    {id:"devices",name:"Devices",enabled:true,check:"availability",match:{kind:["device"]},parameters:{},notifications:[{id:"morning",profile:"morning"}]},
+    {id:"devices",name:"Devices",enabled:true,check:"availability",match:{kind:["entity"]},parameters:{},notifications:[{id:"morning",profile:"morning"}]},
     {id:"entities",name:"Entities",enabled:true,check:"availability",match:{kind:["entity"]},parameters:{},notifications:[{id:"morning",profile:"morning"}]},
     {id:"batteries",name:"Batteries",enabled:true,check:"battery",match:{kind:["entity"]},parameters:{low:20},notifications:[]},
   ];
@@ -29,7 +29,8 @@ export function deviceIssueFixture() {
     checks.push(check);statuses[check.node_id]={current:finding,findings:[finding],last_failure:finding};
     episodes.push({episode_id:`issue:${key}`,anchor:check.node_id,recorded:[check.node_id],form:"single",importance:"normal",impact:[],opened_at:FIXTURE_TIME,reasons:[finding]});
   };
-  add(device,"device","devices");
+  const connection=baseSource("entity:connection","Connection","entity",{entity_id:"sensor.audi_connection",owner_id:"alexa",attributes:{device:[DEVICE_ID],integration:["alexa"],domain:["sensor"]}});
+  canonical.push(connection);add(connection,"device","devices");
   for(const source of entities)add(source,source.node_id.split(":")[1],"entities");
   add(stranger,"other","entities");add(orphan,"orphan","entities");add(entities[0],"battery","batteries","battery","battery_low");
   const members=entities.map(source=>({node_id:source.node_id,entity_id:source.entity_id,name:source.name,state:"unavailable",restored:false}));
@@ -114,6 +115,12 @@ async function initializeBrowserScenario() {
   document.querySelector("#show").onclick=()=>reset();
   document.querySelector("#two").onclick=async()=>{reset(["issue:alarm","issue:timer"]);await openCombined();};
   document.querySelector("#one").onclick=async()=>{reset(["issue:timer"]);await openCombined();};
+  document.querySelector("#gaps").onclick=async()=>{
+    reset();await settle();await openCombined();
+    fixture.data.inventory.episodes=[];
+    fixture.members[0].state="unknown";fixture.members[1].state="missing";fixture.members[2].restored=true;
+    await card.loadDetail();await settle();
+  };
   document.querySelector("#run").onclick=async()=>{
     const button=document.querySelector("#run"),feedback=document.querySelector("#feedback");button.disabled=true;feedback.textContent="Running exact issue-selection checks…";
     receipt=emptyReceipt({fixture:"device-issue-selection.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",transport:"synthetic data and mocked services",physical_safari:"untested"});
@@ -167,6 +174,15 @@ async function initializeBrowserScenario() {
         check(card.issueAvailabilityPlan.sourceIds.length===3,"Stop Monitoring uses its full reviewed coverage, independently of issue selection");
         await click('[data-issue-availability="cancel"]',card.dialog);
         check(JSON.stringify(fixture.settings)===settingsBefore&&mutations().length===0&&!calls.some(request=>request.type==="homeostatic/save_settings"),"Navigation and coverage cancellation mutate nothing");
+        fixture.data.inventory.episodes=[];
+        fixture.members[0].state="unknown";
+        fixture.members[1].state="missing";
+        fixture.members[2].restored=true;
+        await card.loadDetail();await settle();
+        check(card.dialog.innerText.includes("1 of 3 monitored entities available"),"Unknown values still pass availability");
+        check(card.dialog.innerText.includes("Next alarm")&&card.dialog.innerText.includes("No current state from Home Assistant"),"Missing member is named without an open issue");
+        check(card.dialog.innerText.includes("Next timer")&&card.dialog.innerText.includes("Not currently provided by its integration"),"Restored member has its distinct explanation");
+        check(card.dialog.querySelector('[data-definition-id="entities"]')&&!card.dialog.querySelector('[data-device-response]'),"Healthy child policy coverage stays visible without issue actions");
         await close();check(card.page==="sources"&&card.sourcesSelection===`source:${DEVICE_SOURCE}`,"Close restores the originating inspector");
         check(root.querySelector('.shell').scrollWidth<=root.querySelector('.shell').clientWidth+1,"Panel fits the selected width");
       },"Monitoring offers one combined View and native entity links. Shared dialog has one Open device, policy return preserves device context, and Stop Monitoring reviews its independent coverage without saving on cancellation.");
@@ -184,6 +200,13 @@ async function initializeBrowserScenario() {
         check(find('[data-device-issues-all]',card.dialog).checked,"All device issues initially selected");
         check(!card.dialog.querySelector('.issue-facts'),"Combined context omits ambiguous opening date");
         check(!find(`a[href="/config/devices/device/${DEVICE_ID}"]`,card.dialog).classList.contains('primary'),"Open device has secondary styling");
+        const nativeStyle=getComputedStyle(find(`a[href="/config/devices/device/${DEVICE_ID}"]`,card.dialog));
+        for(const [selector,label] of [['[data-device-response="acknowledge"]','Acknowledge'],['[data-device-response="pause"]','Pause'],['[data-issue-availability="remove"]','Stop Monitoring']]) {
+          const button=find(selector,card.dialog),style=getComputedStyle(button);
+          check(button.textContent===label,`Short action label: ${label}`);
+          check(style.color===nativeStyle.color&&style.borderColor===nativeStyle.borderColor&&style.backgroundColor===nativeStyle.backgroundColor,`${label} matches Open device styling`);
+          check(button.getBoundingClientRect().height>=44,`${label} retains a touch target`);
+        }
         await select("issue:alarm",false);await select("issue:timer",false);
         await click('[data-device-response="acknowledge"]',card.dialog);checkTargets(["issue:battery"]);
         await close();check(card.page==="problems","Close returns to Open issues");
@@ -191,7 +214,7 @@ async function initializeBrowserScenario() {
         check(!card.dialog.querySelector('[data-device-issue-select], [data-device-issues-all]'),"Unattached entity has no selection controls");
         check(find('[data-acknowledge]',card.dialog).dataset.acknowledge==="issue:orphan","Unattached entity retains its original issue scope");
         await close();check(card.page==="problems","Singular close preserves the issue list");
-      },"The Open issues device heading opens the same device context for entity-only and battery problems. All current device issues initially select, one battery exception can be acknowledged independently, and close returns to the queue. An unattached entity retains its exact singular dialog. Device details omit ambiguous opening chronology and use an outlined native device action.");
+      },"The Open issues device heading opens the same device context for entity-only and battery problems. All current device issues initially select, one battery exception can be acknowledged independently, and close returns to the queue. An unattached entity retains its exact singular dialog. Device actions use Acknowledge, Pause and Stop Monitoring, match the outlined Open device colors, and retain touch targets. Device details omit ambiguous opening chronology.");
       reset();await openCombined();feedback.textContent="PASS: Exact selection, partial outcomes, source navigation and single-issue controls checked.";
     }catch(error){feedback.textContent=`FAIL: ${error.stack}`;}finally{button.disabled=false;report();}
   };

@@ -10,8 +10,11 @@
 import "../../custom_components/homeostatic/frontend/homeostatic.js";
 import {sourcesTree,sourcePaths} from "../../custom_components/homeostatic/frontend/sources-workspace.mjs";
 import {sharedIssueCountsFixture,locationIssueFixture} from "./shared-issue-counts-fixture.mjs";
+import {dockBadgeFixture} from "./dock-badge-fixture.mjs";
 import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
 const card=document.querySelector("homeostatic-card"),variant=document.querySelector("#variant"),width=document.querySelector("#width"),theme=document.querySelector("#theme"),feedback=document.querySelector("#feedback"),query=new URLSearchParams(location.search);
+for(const condition of ["restored","unmonitored","unavailable","error"])variant.add(new Option(`Dock: ${condition}`,`dock-${condition}`));
+width.add(new Option("1200","1200"));
 variant.value=["independent","locations"].includes(query.get("variant"))?query.get("variant"):"shared";width.value=query.has("phone")?"390":query.get("width")||"1100";theme.value=query.get("theme")||"light";
 card.navigation.enabled=false;
 card.loadSource=()=>Promise.resolve();
@@ -22,8 +25,10 @@ card._hass={user:{is_admin:true},localize:()=>null,config:{time_zone:"America/Ch
   return {source,explanation:{findings},entity_status:{current:{status:"warn",reason:"unavailable",message:"Synthetic entity unavailable",evidence:{}},findings},device_evidence:null};
 }};
 function show() {
-  const {data,devices}=variant.value==="locations"?locationIssueFixture():sharedIssueCountsFixture(variant.value);
-  if(variant.value!=="locations") {
+  const dock=variant.value.startsWith("dock-");
+  document.querySelector("#run-layout").disabled=dock;
+  const {data,devices}=dock?dockBadgeFixture(variant.value.slice(5)):variant.value==="locations"?locationIssueFixture():sharedIssueCountsFixture(variant.value);
+  if(!dock&&variant.value!=="locations") {
   devices[0].name="Front Hallway";devices[1].name="Front Hallway Chandelier with a long equipment name";
   for(const device of devices)data.devices.find(item=>item.id===device.attributes.device[0]).name=device.name;
   data.floors=[{id:"main",name:"Main floor"}];data.areas=[{id:"hall",name:"Front hallway",floor_id:"main"}];
@@ -32,11 +37,27 @@ function show() {
   card.current={status:"current",data};card.sourcesSelection=null;card.sourcesMobileDetail=false;card.sourcesQuery="";
   card.sourcesGrouping=variant.value==="locations"?"location":query.get("group")||"integration";
   card.sourcesExpanded=new Set([...sourcePaths(sourcesTree(data,card.sourcesGrouping)).values()].filter(item=>item.node.type==="location"||item.node.family).map(item=>item.node.key));
+  if(dock)card.sourcesExpanded=new Set(sourcePaths(sourcesTree(data,card.sourcesGrouping)).keys());
   card.style.maxWidth=`${width.value}px`;document.documentElement.dataset.theme=theme.value;card.setConfig({view:"sources"});card.render();
   feedback.textContent="Select a row to see its distinct issues, or expand it to inspect sources.";
 }
 variant.onchange=width.onchange=theme.onchange=show;
 document.querySelector("#run").onclick=()=>{
+  const previous=variant.value,receipt=emptyReceipt({browser:navigator.userAgent,width:Number(width.value),theme:theme.value,data:"synthetic",fixture:"shared-issue-counts.html"});
+  receipt.results=receipt.results.filter(row=>row.id==="sources.current-issue-badges");
+  try {
+    for(const condition of ["restored","unmonitored","unavailable","error"]) {
+      variant.value=`dock-${condition}`;show();
+      const root=card.shadowRoot,badges=[...root.querySelectorAll('.config-pick:has(.source-issue-count)')].map(row=>row.dataset.sourcesSelect);
+      const unavailable=condition==="unavailable",error=condition==="error";
+      if(Boolean(badges.length)!==(unavailable||error)||badges.includes("source:device:dock")!==unavailable||badges.includes("source:entity:dock-2")!==unavailable)throw Error(`Wrong ${condition} dock badge scope`);
+      if(badges.some(id=>[0,1,3,4].some(index=>id===`source:entity:dock-${index}`)))throw Error("An unmonitored entity received a badge");
+      if(root.querySelector('.shell').scrollWidth>root.querySelector('.shell').clientWidth+1)throw Error("Dock tree overflows");
+    }
+    recordResult(receipt,"sources.current-issue-badges","pass","Retained unavailable-then-restored device issue and unmonitored entities have no fault badge; current unavailable entity and integration error retain exact badges; no horizontal overflow.");
+  } catch(error) {recordResult(receipt,"sources.current-issue-badges","fail",error.message);throw error;}
+  finally {variant.value=previous;show();document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);parent.postMessage({type:"homeostatic-acceptance",fixture:"shared-issue-counts.html",receipt},location.origin);}
+  if(previous.startsWith("dock-")){feedback.textContent="PASS: dock badges follow current problem evidence.";return;}
   const root=card.shadowRoot,rows=[...root.querySelectorAll(".config-pick")];
   const badge=id=>rows.find(row=>row.dataset.sourcesSelect===id)?.querySelector(".source-issue-count")?.textContent;
   const expected="Issues";

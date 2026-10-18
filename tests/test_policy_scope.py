@@ -1,9 +1,7 @@
 """Policy-owned exclusions and registry-based availability eligibility."""
 
-import asyncio
 from copy import deepcopy
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
@@ -89,7 +87,6 @@ async def test_categories_require_explicit_entity_selection_and_enabled_registry
     hass.states.async_set(entity.entity_id, "unavailable")
     policies = [
         monitoring_policy("entities", {"kind": ["entity"]}),
-        monitoring_policy("devices", {"kind": ["device"]}),
     ]
     config_data.update(notifications=False, monitoring_policies=policies)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -206,89 +203,4 @@ async def test_all_except_preserves_absent_exclusions_and_enrolls_new_entities(
     assert set(runtime.settings.monitoring_policies[0].excluded_sources) == set(
         selected["excluded_sources"]
     )
-    assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-async def test_device_member_exclusions_apply_only_to_their_policy(
-    hass: HomeAssistant, config_data: dict[str, Any]
-) -> None:
-    """One device policy can exclude evidence without changing a sibling policy."""
-    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
-    owner.add_to_hass(hass)
-    device = dr.async_get(hass).async_get_or_create(
-        config_entry_id=owner.entry_id, identifiers={("test", "members")}
-    )
-    registry = er.async_get(hass)
-    failed = registry.async_get_or_create(
-        "sensor", "test", "failed", config_entry=owner, device_id=device.id
-    )
-    healthy = registry.async_get_or_create(
-        "sensor", "test", "healthy", config_entry=owner, device_id=device.id
-    )
-    hass.states.async_set(failed.entity_id, "unavailable")
-    hass.states.async_set(healthy.entity_id, "on")
-    complete = monitoring_policy("complete", {"kind": ["device"]})
-    reduced = {
-        **monitoring_policy("reduced", {"kind": ["device"]}),
-        "excluded_sources": [f"entity:registry:{healthy.id}"],
-    }
-    omitted = {
-        **monitoring_policy("omitted", {"kind": ["device"]}),
-        "excluded_sources": [f"device:{device.id}"],
-    }
-    config_data.update(
-        notifications=False, monitoring_policies=[complete, reduced, omitted]
-    )
-    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    runtime = await start_monitor(hass, entry)
-    canonical = f"device:{device.id}"
-    complete_id, reduced_id = (
-        bound_identity(complete, canonical),
-        bound_identity(
-            reduced,
-            canonical,
-            member_exclusions=(f"entity:registry:{healthy.id}",),
-        ),
-    )
-    assert runtime.sources[reduced_id].availability_entities == (failed.entity_id,)
-    assert set(runtime.sources[complete_id].availability_entities) == {
-        failed.entity_id,
-        healthy.entity_id,
-    }
-    assert bound_identity(omitted, canonical) not in runtime.sources
-    assert runtime.engine.readiness([complete_id]).answer == "ready"
-    assert runtime.engine.readiness([reduced_id]).answer == "degraded"
-    assert len(runtime.episodes) == 1
-    assert await hass.config_entries.async_reload(entry.entry_id)
-    await hass.async_block_till_done()
-    runtime = entry.runtime_data
-    assert runtime.sources[reduced_id].availability_entities == (failed.entity_id,)
-    assert runtime.engine.readiness([complete_id]).answer == "ready"
-    assert runtime.engine.readiness([reduced_id]).answer == "degraded"
-    assert len(runtime.episodes) == 1
-    save = runtime.store.async_save
-    calls = 0
-
-    async def capture(data: dict[str, Any]) -> None:
-        nonlocal calls
-        calls += 1
-        await save(data)
-        if calls == 1:
-            hass.states.async_set(healthy.entity_id, "unavailable")
-            hass.states.async_set(healthy.entity_id, "on")
-            processed = asyncio.Event()
-            hass.loop.call_soon(processed.set)
-            await processed.wait()
-
-    # A refresh with a durable change saves inside the refresh (ADR 0096).
-    runtime._save_required = True
-    runtime._stored_digest = None  # the stored content is not known to be current
-    with patch.object(runtime.store, "async_save", side_effect=capture):
-        await runtime.async_refresh()
-        await hass.async_block_till_done()
-    history = runtime.history.snapshot()["episodes"]
-    assert [row["episode"]["anchor"] for row in history] == [complete_id]
-    assert runtime.engine.readiness([complete_id]).answer == "ready"
-    assert runtime.engine.readiness([reduced_id]).answer == "degraded"
-    assert len(runtime.episodes) == 1
     assert await hass.config_entries.async_unload(entry.entry_id)

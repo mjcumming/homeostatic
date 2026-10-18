@@ -54,10 +54,11 @@ test("policy and notification names remain text",()=>{
 
 test("coverage includes auxiliary battery and grouped device policies without unrelated checks",()=>{
   const card=fixture(),entity={node_id:"entity:warning",kind:"entity",entity_id:"binary_sensor.low_battery"};
-  const device={node_id:"device:hall",kind:"device"};
+  const device={node_id:"device:hall",kind:"device",attributes:{device:["hall"]}};
+  entity.attributes={device:["hall"]};
   const checks=[
     {node_id:"check:battery",kind:"battery",watched:true,monitoring_policy:"battery",battery_warning_entity:entity.entity_id},
-    {node_id:"check:device",kind:"device",watched:true,monitoring_source:device.node_id,monitoring_policy:"device",availability_entities:[entity.entity_id]},
+    {...entity,node_id:"check:entity",watched:true,monitoring_source:entity.node_id,monitoring_policy:"device"},
     {node_id:"check:other",kind:"entity",watched:true,monitoring_policy:"other",entity_id:"sensor.other"},
   ];
   for(const source of [entity,device,...checks])source.name=source.node_id;

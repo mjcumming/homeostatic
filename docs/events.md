@@ -39,7 +39,7 @@ The `change` field says what happened:
 | `device_id`, `area_id`, `floor_id` | The source's Home Assistant device, area and floor IDs, or `null` |
 | `status` | `warn`, `fail` or `unknown` |
 | `importance` | `low`, `normal`, `high` or `critical`. |
-| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `battery`, `vacuum`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
+| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `entity_not_provided`, `battery`, `vacuum`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
 | `opened_at` | When the issue opened, as an ISO 8601 timestamp |
 | `shelved` | Whether Pause notifications was on for the issue |
 | `maintenance` | Whether the source was covered by an equipment maintenance window |
@@ -50,6 +50,8 @@ The `change` field says what happened:
 | `split_from` | On successor `opened` events: the predecessor issue ID whose controls and attention state were retained |
 
 Vacuum evidence gaps use `vacuum_unavailable`, `vacuum_unknown`, `vacuum_missing`, `vacuum_restored` or `vacuum_unrecognized`, each with status `unknown`. Device grouping in the panel does not change event issue identities or recorded membership.
+
+The Entities not provided policy uses check `entity_not_provided`. Qualified warnings have reason `entity_not_provided`; a live entity reports `entity_provided`. Startup or unloaded owners use unknown reason `provider_not_loaded`; missing or mismatched ownership uses `provider_not_confirmed`. Unknown findings request no notifications and do not claim recovery. The ordinary issue lifecycle and notification event schemas are unchanged.
 
 ### `homeostatic_control`
 
@@ -234,3 +236,5 @@ Homeostatic saves the state an event describes before it fires the event. `homeo
 Every payload carries `schema_version: 1`. Within a version, fields are only ever added, never renamed or removed, so ignore fields you don't recognize and match `schema_version: 1` in your triggers. Treat IDs and tags as opaque text.
 
 Homeostatic's own Acknowledge button on phones arrives as a `mobile_app_notification_action` event whose `action` starts with `HOMEOSTATIC_ACK_`. Homeostatic handles it, and it isn't meant for your automations. The panel's WebSocket commands aren't an automation interface either; [spec.md](spec.md#live-dashboard) describes them.
+
+Retiring a saved device availability policy converts its coverage to entity checks. Reconciliation ends the old device issues with the existing removed outcome; it does not emit observed recovery. Device notification subjects still organize related entity issues and do not assert device availability.

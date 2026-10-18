@@ -338,18 +338,6 @@ for(const type of ["integration","device","entity","battery","vacuum","thermosta
   assert.ok(Object.values(policy.match).some(values=>values.length===0));
 });
 
-test("device exclusions use canonical identities for devices and individual members",()=>{
-  const {card}=fixture(),policy=newMonitoringPolicy([],"device");
-  const rows=card.current.data.inventory.nodes;
-  rows.push({...rows.find(source=>source.node_id==="device:standalone"),node_id:"monitoring:policy:device:standalone",monitoring_source:"device:standalone"});
-  const choices=policySelectionChoices(card,policy,"all_except");
-  assert.deepEqual(choices.find(item=>item.id==="device:standalone"),{id:"device:standalone",name:"Standalone device",context:"No area assigned",detail:"",group:"Whole devices"});
-  assert.deepEqual(choices.find(item=>item.id==="entity:registry:standalone"),{id:"entity:registry:standalone",name:"Standalone switch",entity_id:"switch.standalone",context:"No area assigned",detail:"",group:"Standalone device"});
-  assert.equal(choices.filter(item=>item.id==="device:standalone").length,1);
-  assert.ok(choices.every(item=>!item.id.startsWith("monitoring:")));
-  assert.ok(choices.every(item=>!item.id.startsWith("entity:registry:orphan-")));
-});
-
 test("integration exclusions identify individual connections while selected scope still uses families",()=>{
   const {card}=fixture(),policy=newMonitoringPolicy([],"integration");
   const rows=card.current.data.inventory.nodes;
@@ -357,30 +345,6 @@ test("integration exclusions identify individual connections while selected scop
   rows.push({node_id:"entry:mobile-two",kind:"integration",name:"Second phone",attributes:{integration_domain:["mobile_app"]}});
   assert.equal(policySelectionChoices(card,policy,"selected").filter(item=>item.id==="mobile_app").length,1);
   assert.deepEqual(policySelectionChoices(card,policy,"all_except").filter(item=>item.id.startsWith("entry:mobile-")).map(item=>item.id),["entry:mobile-one","entry:mobile-two"]);
-});
-
-test("excluded sources survive picker search, missing inventory and scoped save",async()=>{
-  const {card,calls}=fixture(),policy=newMonitoringPolicy([],"device");
-  card.settingsDraft.monitoring_policies=[policy];
-  card.definitionSelection={kind:"policies",id:policy.id};
-  change(card,"policies",policy.id,"watch","all_except");
-  change(card,"policies",policy.id,"selection",true,{definitionValue:"device:standalone"});
-  change(card,"policies",policy.id,"selection",true,{definitionValue:"entity:registry:missing"});
-  click(card,"pick","policies",policy.id);
-  editReusable(card,{type:"input",target:{dataset:{definitionPickerSearch:""},value:"Back Deck"}});
-  const html=namedPolicies(card);
-  assert.match(html,/Check sources to exclude them from this policy/);
-  assert.match(html,/Show excluded only/);assert.match(html,/1 excluded/);
-  click(card,"pick-ignored","policies",policy.id);
-  const ignoredHtml=namedPolicies(card);
-  assert.match(ignoredHtml,/Unavailable excluded source — clear to include if it returns/);
-  assert.match(ignoredHtml,/data-definition-value="entity:registry:missing" checked/);
-  assert.deepEqual(policy.excluded_sources,["device:standalone","entity:registry:missing"]);
-  assert.deepEqual(policy.match,{kind:["device"]});
-  click(card,"finish-pick","policies",policy.id);
-  assert.match(namedPolicies(card),/Standalone device<\/span><span class="small">No area assigned[\s\S]*Unavailable excluded source/);
-  assert.equal(await saveScopedConfiguration(card,{kind:"policy",id:policy.id}),true);
-  assert.deepEqual(calls.find(call=>call.type==="homeostatic/save_settings").settings.monitoring_policies[0].excluded_sources,["device:standalone","entity:registry:missing"]);
 });
 
 test("clearing the final exclusion retains broad matching and permits saving",async()=>{
@@ -395,7 +359,7 @@ test("clearing the final exclusion retains broad matching and permits saving",as
 });
 
 test("saved combined area scope keeps exclusions and does not imply all sources are included",()=>{
-  const {card}=fixture(),policy=newMonitoringPolicy([],"entity");
+  const {card}=fixture(),policy=newMonitoringPolicy([],"battery");
   card.settingsDraft.monitoring_policies=[policy];
   policy.match={kind:["entity"],area:["kitchen"]};policy.excluded_sources=["entity:registry:standalone"];
   card.configuration.areas=[{id:"kitchen",name:"Kitchen"}];
@@ -423,13 +387,6 @@ test("area picker groups names by floor and preserves multiple selections throug
   assert.match(namedPolicies(card),/2 selected/);assert.doesNotMatch(namedPolicies(card),/<legend>Upstairs/);
   click(card,"finish-pick","policies",policy.id);assert.match(namedPolicies(card),/Kitchen<\/span><span class="small">Main floor[\s\S]*Bedroom<\/span><span class="small">Upstairs/);
   change(card,"policies",policy.id,"watch","label");assert.deepEqual(policy.match,{kind:["entity"],label:[]});assert.equal(watchMode(policy),"label");
-});
-
-test("selected source picker uses stable values and filters by monitoring type",()=>{
-  const {card}=fixture();const policy=newMonitoringPolicy([],"device");
-  const choices=policySelectionChoices(card,policy,"selected");
-  assert.ok(choices.length>0);assert.ok(choices.some(item=>item.id==="standalone"));
-  assert.ok(choices.every(item=>!item.id.startsWith("registry:")));
 });
 
 test("selective restoration preserves edits and deleted defaults remain absent until chosen",()=>{
@@ -467,18 +424,7 @@ test("unified problem detail renders policy actions and base source links withou
   assert.match(body.innerHTML,/>Open Entity<\/button>/);
   assert.doesNotMatch(body.innerHTML,/View in Monitoring|<summary>Details<\/summary>/);
   assert.doesNotMatch(body.innerHTML,/data-ignore-availability|Stop checking/);
-  result.source={...source,kind:"device",attributes:{device:["one"]}};
-  result.device_evidence={total:3,unavailable_count:1,unknown_count:0,members:[
-    {node_id:"entity:registry:one",name:"Temperature",state:"unavailable"},
-    {node_id:"entity:registry:connection",name:"Connection",state:"off",connectivity:true},
-    {node_id:"entity:registry:unknown",name:"Unknown value",state:"unknown"}
-  ]};
-  await prototype.loadDetail.call(detail);
-  assert.match(body.innerHTML,/data-definition-action="open-policy"/);
-  assert.doesNotMatch(body.innerHTML,/data-ignore-availability|Stop checking/);
-  const deviceBrief=body.innerHTML.split('<details data-disclosure="technical"')[0];
-  assert.match(deviceBrief,/<h3 class="problem-status">Temperature unavailable in Home Assistant<\/h3>/);
-  assert.doesNotMatch(deviceBrief,/Disconnected|Monitored entities need review|Unknown value|Connection.*off/);
+
 });
 
 test("integration picker lists families once and stores domain selection",()=>{
@@ -799,37 +745,4 @@ for(const [name,savedEnabled,draftEnabled] of [
   assert.match(html,/Summary scheduling changes after you save this policy/);
   assert.doesNotMatch(html,/Next summary:|No summary is currently scheduled/);
   assert.equal(card.configuration.settings.monitoring_policies[0].enabled,savedEnabled);
-});
-
- test("device scope and ignored member editing stay independent",()=>{
-  const {card}=fixture(),policy=newMonitoringPolicy([],"device");
-  policy.excluded_sources=["entity:registry:standalone"];
-  card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
-  assert.equal(watchMode(policy),"all");
-  let html=namedPolicies(card);
-  assert.match(html,/value="all" checked/);
-  assert.match(html,/Ignored entities[\s\S]*<h4>Standalone device<\/h4>[\s\S]*Standalone switch/);
-  assert.doesNotMatch(html.split('class="policy-ignored-entities"')[0],/Standalone switch/);
-  change(card,"policies",policy.id,"watch","all_except");
-  click(card,"pick","policies",policy.id);
-  assert.doesNotMatch(namedPolicies(card),/data-definition-field="selection" data-definition-value="entity:/);
-  change(card,"policies",policy.id,"selection",true,{definitionValue:"device:standalone"});
-  click(card,"pick-ignored","policies",policy.id);
-  assert.doesNotMatch(namedPolicies(card),/data-definition-field="ignored-selection" data-definition-value="device:/);
-  change(card,"policies",policy.id,"ignored-selection",false,{definitionValue:"entity:registry:standalone"});
-  assert.deepEqual(policy.excluded_sources,["device:standalone"]);
-  change(card,"policies",policy.id,"ignored-selection",true,{definitionValue:"entity:registry:standalone"});
-  for(const mode of ["all","area","label","selected"]) {
-    change(card,"policies",policy.id,"watch",mode);
-    assert.deepEqual(policy.excluded_sources,["entity:registry:standalone"]);
-  }
- });
-
-test("ignored entity groups distinguish devices with identical names",()=>{
-  const {card}=fixture(),policy=newMonitoringPolicy([],"device");
-  const candidates=card.current.data.inventory.catalog.candidates;
-  candidates.push({node_id:"device:second",kind:"device",name:"Standalone device",attributes:{device:["second"]}},
-    {node_id:"entity:registry:second",kind:"entity",name:"Second switch",attributes:{device:["second"]}});
-  const choices=policySelectionChoices(card,policy,"all_except");
-  assert.notEqual(choices.find(item=>item.id==="entity:registry:standalone").group,choices.find(item=>item.id==="entity:registry:second").group);
 });

@@ -9,14 +9,22 @@ For eligible sources, starting settings and the conditions each monitoring type 
 ## Add or change a policy
 
 1. Open **Policies**. Select **Edit policy** beside an existing policy, or select **Add policy**, choose a **Monitoring type**, and select **Continue**.
-2. Give the policy a useful name. Where source selection is supported, choose one of the visible **Include** options, then use the selection button beside the chosen option. Search covers all available sources; **Show 50 more** reveals additional results. Selections stay in the draft when they are outside the visible results. Select **Done** when finished.
+2. Give the policy a useful name. For **Entity availability**, search the list grouped by integration and device, then check the entities to monitor. A device-group checkbox changes only the displayed matches. **Monitored only** helps review the selection. Other monitoring types offer their supported **Include** choices and source picker.
 3. Review the detection settings offered for that type. Repairs and broken automations always cover their complete supported set and have no source selector.
 4. Under **Notifications**, use **Add notification** to choose a saved named notification. To keep issues in the panel without notifications from this policy, remove every assignment so the section reads **No notifications**. [Set up notifications](notifications.md) covers timing and destinations.
 5. Set **Policy enabled** as intended, then select **Save policy**.
 
 The saved policy controls monitoring. An enabled switch in an unsaved draft has not changed the running policy. A confirmed save removes the unsaved-change controls; if saving fails, the editor retains your draft and explains the problem.
 
-To find the policies watching an entity, select it in **Monitoring**, then open **Monitoring policies**. Each policy explains what it checks, including whether the entity contributes to its device's availability assessment. Use **Edit policy** to change one, or close the dialog to return to the entity. The labeled device and integration names open their Home Assistant pages.
+To find the policies watching an entity, select it in **Monitoring**, then open **Monitoring policies**. Each policy explains what it checks, including its availability and other condition checks. Use **Edit policy** to change one, or close the dialog to return to the entity. The labeled device and integration names open their Home Assistant pages.
+
+## Watch entities an integration is not providing
+
+Choose **Entities not provided** when registered entities remain in Home Assistant but their integration no longer supplies them. The owning integration must be loaded. Select the entities in the existing grouped list and set **For at least (hours)**; the default is 24 hours. Save the policy and choose its notification assignments as usual.
+
+An enabled registration with a missing state or restored placeholder can qualify. A live entity reporting unavailable is being provided and belongs to availability monitoring. Disabled entities are excluded. Startup and integration reloads interrupt the waiting period.
+
+The issue identifies the entity and its loaded integration. Use **Open Entity** to inspect it in Home Assistant. Homeostatic does not delete registrations or determine whether they are obsolete.
 
 ## Choose a scope that will stay useful
 
@@ -29,13 +37,15 @@ To find the policies watching an entity, select it in **Monitoring**, then open 
 
 The editor offers only the choices supported by the monitoring type. Integration selection uses the integration name and includes its current and future configured connections; area and label choices are not offered for integrations. An integration exclusion can identify one configured connection.
 
-Availability policies automatically select enabled operational entities. To watch a diagnostic or configuration entity individually, choose it explicitly in an entity availability policy. Device availability uses its operational entities and excludes diagnostic and configuration entities. Disabled sources remain outside availability monitoring.
+Availability policies automatically select enabled operational entities. To watch a diagnostic or configuration entity individually, choose it explicitly in an entity availability policy. Disabled sources remain outside availability monitoring.
 
 Fresh setup supplies **General entity availability** using Morning summary and **Important equipment availability** using Immediate. Important equipment initially includes cameras, locks, alarm panels and binary sensors reporting smoke, carbon monoxide, gas or moisture. General initially includes the other eligible operational entities. These selections follow entity type and device class, so future matching entities are included. Availability watches whether Home Assistant can provide a state; selecting a smoke or leak detector here does not configure smoke or leak detection.
 
-Both policies use the ordinary policy editor. **Matching entity types** includes the selected types; **All except selected entity types** excludes them. Each selection is independent: editing, disabling or deleting one policy never rewrites the other. Deliberate overlap or gaps remain your saved choices. An integration failure retains affected equipment's assigned notifications, so a lock using Immediate can still request attention while the integration waits for Morning.
+Both policies use the same entity list. Their starting selections follow entity types, including future matching entities. Individual checkboxes override those selections without changing the other policy. The short explanation above the list describes how new entities are included. Clearing every checkbox is allowed. Changes apply when you select **Save policy**.
 
-Exclusions belong to their policy. In a device availability policy, **Devices** selects or excludes whole devices. **Ignored entities** lists entities separately, grouped under their device. Use **Choose ignored entities** to leave those entities out of the device assessment. Changing device selection keeps ignored entities in place; **Save policy** applies both sections. Ignoring every eligible entity on a device leaves no device availability check. An exclusion remains saved if its source disappears, so it applies if that source returns.
+Exclusions belong to their policy and remain saved if a source disappears. Missing saved choices appear in the list with **Remove saved choice**. Devices organize the list and related issues; Homeostatic does not assign a device availability status.
+
+Existing device availability policies become entity availability policies during an upgrade, retaining their names, enabled state and notifications. Selected devices retain coverage of their operational entities. Area and label device selections retain the devices matching at upgrade time and include future entities on those devices. Review the resulting list if devices later move or gain labels.
 
 ## Stop availability monitoring
 
@@ -82,6 +92,8 @@ Restoration leaves other policies unchanged. It does not recreate deleted notifi
 
 Policies can overlap. Two battery policies can watch the same battery at different thresholds and use different notifications. Each remains independent; inspect all contributing policies when a change does not remove an issue or notification you expected it to affect.
 
-Renaming a policy keeps its current issues. Changing detection settings or the selected monitoring expectation can end the old issue and begin fresh evaluation. A changed device-member exclusion does this when it changes the evidence that device policy uses. History records the ended monitoring separately from recovery.
+Renaming a policy keeps its current issues. Changing detection settings or the selected monitoring expectation can end the old issue and begin fresh evaluation. History records the ended monitoring separately from recovery.
 
 Each editor saves its own changes. Saving a policy does not save a pending notification or delivery-method draft. Moving between Homeostatic pages, or visiting another Home Assistant page and returning in the same tab, retains pending drafts. Reloading or closing the tab ends that draft session. Use **Discard changes** to restore a saved policy's settings before saving; it does not undo a completed save.
+
+When an older device availability policy is converted to entity availability, it retains the devices in its saved scope and covers future entities on those devices. Newly discovered devices require selection. Standalone entities are not added to that converted coverage.

@@ -47,7 +47,7 @@ Read the result, then check the phone. A successful request means Home Assistant
 3. Under **Send using**, select **Household phone**.
 4. Inspect the listed policy uses, then select **Save notification**.
 
-This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes General entity, integration and device availability, Repairs and broken-automation policies. Important equipment availability uses Immediate, which needs its own delivery method selection. Disabled policies remain disabled.
+This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes General entity and integration availability, Repairs and broken-automation policies. Important equipment availability uses Immediate, which needs its own delivery method selection. Disabled policies remain disabled.
 
 Open the policy you reviewed earlier and inspect its **Notifications** assignment. It should select **Morning summary**. If you change the assignment, select **Save policy**. Saving a notification does not save a pending policy edit.
 

@@ -76,7 +76,7 @@ document.querySelector("#run").onclick=async()=>{
     card.sourcesMonitoring="all";publish();selectDevice();await settle();
     const settings=JSON.stringify(card.configuration.settings),states=JSON.stringify(card._hass.states);
     check(detailText().includes("Home Interior Temperature Monitoring")&&article().innerText.includes("Waiting")&&article().innerText.includes("1 hour"),"Thermostat shows named policy and one-hour waiting state without opening Details");
-    check(!find(".source-monitoring-explanation").open,"Secondary Details starts collapsed");
+    check(!root.querySelector(".source-monitoring-explanation"),"Short device evidence needs no Details disclosure");
     for(const grouping of ["integration","location","topomation"]) {
       await showTree();await change("[data-sources-group]",grouping);await change("[data-sources-search]",sensor.entity_id);
       const rows=[...root.querySelectorAll('[data-sources-select="source:'+ENTITY_ID+'"]')];
@@ -87,7 +87,7 @@ document.querySelector("#run").onclick=async()=>{
     }
     await click("#legacy-link",document);
     check(card.sourcesSelection===`source:${ENTITY_ID}`&&article().innerText.includes("Waiting"),"Old derived temperature route resolves to the real sensor");
-    await click("#show-device",document);await click(".source-monitoring-explanation > summary");
+    await click("#show-device",document);
     await click('[data-definition-action="open-policy"][data-definition-id="home-temperature"]');
     check(card.page==="policies"&&card.definitionSelection?.id==="home-temperature"&&root.querySelector('[data-definition-field="name"]').value==="Home Interior Temperature Monitoring","Device policy link opens the actual temperature editor");
     await click('.nav [data-page="sources"]');await click("#show-device",document);

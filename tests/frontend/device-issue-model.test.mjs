@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {issueDeviceId,relatedDeviceIssues} from "../../custom_components/homeostatic/frontend/device-issue-model.mjs";
-import {deviceAvailabilitySummary} from "../../custom_components/homeostatic/frontend/device-availability.mjs";
+import {deviceEntitySummary} from "../../custom_components/homeostatic/frontend/device-entities.mjs";
 
 const DEVICE="registry-device-one",OTHER_DEVICE="registry-device-two";
 const source=(id,name,kind="entity",device=DEVICE)=>({node_id:id,name,kind,attributes:{device:[device]}});
@@ -35,7 +35,7 @@ test("entity availability issues remain reachable after the aggregate device iss
   assert.deepEqual(relatedDeviceIssues(data,DEVICE).map(entry=>entry.episode),episodes.slice(1,4));
 });
 
-test("device selection retains prior failures but excludes passive gaps and confirming recovery",()=>{
+test("device selection excludes gap-only prior failures and confirming recovery",()=>{
   const {data,checks,episodes}=fixture();
   for(const check of checks)check.watched=true;
   const failure={status:"warn",reason:"unavailable",message:"Previously unavailable"};
@@ -48,7 +48,7 @@ test("device selection retains prior failures but excludes passive gaps and conf
   };
   data.inventory.episodes=episodes.slice(0,4);
   for(const episode of data.inventory.episodes)episode.reasons=[data.inventory.entity_status[episode.anchor].current];
-  assert.deepEqual(relatedDeviceIssues(data,DEVICE).map(entry=>entry.episode.episode_id),[episodes[0].episode_id,episodes[1].episode_id]);
+  assert.deepEqual(relatedDeviceIssues(data,DEVICE).map(entry=>entry.episode.episode_id),[episodes[0].episode_id]);
   assert.equal(issueDeviceId(data,episodes[2]),DEVICE,"Ownership alone does not turn a passive evidence gap into an actionable issue");
 });
 
@@ -125,19 +125,19 @@ test("missing or ambiguous current membership cannot establish a device issue sc
 });
 
 test("complete server counts cover members outside the loaded page",()=>{
-  const result=deviceAvailabilitySummary({total:10,unavailable_count:3,unknown_count:2,members:[{state:"unavailable"}],next_offset:1});
+  const result=deviceEntitySummary({total:10,unavailable_count:3,unknown_count:2,members:[{state:"unavailable"}],next_offset:1});
   assert.deepEqual(result,{total:10,available:5,unavailable:3,unknown:2,label:"5 of 10 monitored entities available"});
 });
 
 test("complete member evidence separates unavailable, missing and restored from unknown values",()=>{
   const members=[{state:"unavailable"},{state:"unavailable",restored:true},{state:"missing",restored:true},{state:"unknown"},{state:"off"},{state:"idle"},{state:"72"},{state:"72",restored:true}];
-  const result=deviceAvailabilitySummary({members});
+  const result=deviceEntitySummary({members});
   assert.deepEqual(result,{total:8,available:4,unavailable:1,unknown:3,label:"4 of 8 monitored entities available"});
 });
 
 test("partial pages without both complete counts never infer available members",()=>{
   for(const counts of [{},{unavailable_count:2},{unknown_count:1}]) {
-    const result=deviceAvailabilitySummary({total:6,members:[{state:"unknown"},{state:"unavailable"}],next_offset:2,...counts});
+    const result=deviceEntitySummary({total:6,members:[{state:"unknown"},{state:"unavailable"}],next_offset:2,...counts});
     assert.equal(result.total,6);
     assert.equal(result.available,null);
     assert.equal(result.label,"Availability readings incomplete");
@@ -145,7 +145,7 @@ test("partial pages without both complete counts never infer available members",
 });
 
 test("unmonitored summaries do not imply monitoring and singular counts stay readable",()=>{
-  assert.deepEqual(deviceAvailabilitySummary({members:[{state:"unknown"}]},{monitored:false}),{total:1,available:1,unavailable:0,unknown:0,label:"1 of 1 entity available"});
-  assert.equal(deviceAvailabilitySummary({members:[{state:"unavailable"}]}).label,"0 of 1 monitored entity available");
-  assert.equal(deviceAvailabilitySummary({members:[{state:"off"},{state:"unavailable"}]},{monitored:false}).label,"1 of 2 entities available");
+  assert.deepEqual(deviceEntitySummary({members:[{state:"unknown"}]},{monitored:false}),{total:1,available:1,unavailable:0,unknown:0,label:"1 of 1 entity available"});
+  assert.equal(deviceEntitySummary({members:[{state:"unavailable"}]}).label,"0 of 1 monitored entity available");
+  assert.equal(deviceEntitySummary({members:[{state:"off"},{state:"unavailable"}]},{monitored:false}).label,"1 of 2 entities available");
 });

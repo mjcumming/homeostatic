@@ -171,12 +171,9 @@ def unavailable(hass: HomeAssistant, sources: AvailabilitySources) -> None:
 def isolated_issues(
     runtime: Runtime, sources: AvailabilitySources, config_data: dict[str, Any]
 ) -> dict[str, str]:
-    """Assert ten independent findings and return their source-to-issue map."""
+    """Assert six independent findings and return their source-to-issue map."""
     policies = {row["id"]: row for row in config_data["monitoring_policies"]}
     expected = {
-        bound_identity(policies["default_devices"], f"device:{device.id}")
-        for device in sources.devices[:4]
-    } | {
         bound_identity(policies["default_entities"], f"entity:registry:{entity.id}")
         for members in sources.members[:4]
         for entity in members
@@ -186,7 +183,7 @@ def isolated_issues(
         for identity, episode in runtime.episodes.items()
     }
     assert set(episodes) == expected
-    assert len(episodes) == 10
+    assert len(episodes) == 6
     assert sources.owner.state is ConfigEntryState.LOADED
     for episode in runtime.episodes.values():
         assert episode["form"] == "root"
@@ -405,7 +402,7 @@ async def test_restored_common_parent_group_splits_without_claiming_recovery(
         hass.states.async_set(entity.entity_id, "unavailable")
     await hass.async_block_till_done()
     later_ids = set(runtime.episodes) - restored_ids
-    assert len(later_ids) == 2
+    assert len(later_ids) == 1
     assert runtime.policy is not None
     assert all(
         runtime.policy.acknowledgment(identity) is None for identity in later_ids

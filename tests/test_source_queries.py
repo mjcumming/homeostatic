@@ -347,7 +347,7 @@ async def test_source_temperature_checks_show_independent_member_conditions(
         notifications=False,
         monitoring_policies=[
             {
-                **monitoring_policy("devices", {"kind": ["device"]}),
+                **monitoring_policy("entities", {"kind": ["entity"]}),
                 "excluded_sources": [canonical],
             },
             *policies,

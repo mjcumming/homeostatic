@@ -9,6 +9,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import State
 
 from .config import Settings
+from .entity_not_provided import node as not_provided_node
 from .rules import Attributes
 
 
@@ -47,6 +48,8 @@ class Source:
 
     def node(self, settings: Settings) -> Node:
         """Declare a check for the observed HA control-path capability."""
+        if self.kind == "entity_not_provided":
+            return not_provided_node(self, settings)
         if self.kind in {"thermostat", "temperature_limit", "ups"}:
             return Node(
                 node_id=self.node_id,
@@ -146,7 +149,7 @@ class Source:
             importance=self.importance,
             depends_on=(
                 tuple(Edge(to=target) for target in self.requirements)
-                if self.watched and (self.kind == "device" or self.monitoring_policy)
+                if self.watched and self.monitoring_policy
                 else (Edge(to=f"entry:{self.owner_id}"),)
                 if self.owner_id and self.watched
                 else ()
@@ -210,56 +213,6 @@ def entity_observation(
         evidence={
             "entity_id": source.entity_id,
             "state": state.state if state is not None else None,
-            "physical_freshness_verified": False,
-        },
-    )
-
-
-def device_observation(
-    source: Source, states: tuple[State | None, ...], now: datetime
-) -> Observation:
-    """Summarize HA availability across one device's selected entities.
-
-    The device counts as unavailable only when every selected entity is
-    unavailable. Any
-    selected entity with a current state, including an HA `unknown` value, makes
-    the device available.
-    """
-    signatures = tuple(entity_state_signature(state)[0] for state in states)
-    value_unknown = sum(
-        state is not None
-        and state.state == STATE_UNKNOWN
-        and not state.attributes.get("restored")
-        for state in states
-    )
-    available = signatures.count(Status.PASS) - value_unknown
-    unavailable = signatures.count(Status.WARN)
-    unknown = len(signatures) - available - unavailable
-    if source.disabled:
-        status, reason = Status.UNKNOWN, "disabled"
-    elif not signatures:
-        status, reason = Status.UNKNOWN, "source_missing"
-    elif signatures.count(Status.PASS):
-        status, reason = Status.PASS, "available"
-    elif unavailable == len(signatures):
-        status, reason = Status.WARN, "all_unavailable"
-    else:
-        # Unavailable members alongside missing or restored ones: no member has
-        # a current state, but not every member is known to be unavailable.
-        status, reason = Status.UNKNOWN, "incomplete_evidence"
-    return Observation(
-        node_id=source.node_id,
-        check_id="availability",
-        status=status,
-        reason=reason,
-        observed_at=now,
-        message=f"{source.name}: {reason.replace('_', ' ')}",
-        evidence={
-            "device_id": next(iter(source.attributes.get("device", ())), None),
-            "entity_count": len(signatures),
-            "available": available,
-            "unavailable": unavailable,
-            "unknown": unknown,
             "physical_freshness_verified": False,
         },
     )

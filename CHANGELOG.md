@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-18
+
+### Upgrade notes
+
+- Saved device availability policies become entity policies while preserving their identities, names, enabled states, exclusions and notification assignments. Broad device scopes retain the existing devices and their future entity members. Take a full Home Assistant backup before upgrading; recovery requires the matching backup and component version.
+
+### Changed
+
+- Remove device availability policies and inferred device status. Existing policies retain their coverage and notifications as entity availability policies.
+- Select entity availability in one searchable list grouped by integration and device, with individual and group checkboxes, ordinary Save/Discard and no nested picker.
+
+- Add an Entities not provided policy for enabled registrations that a loaded integration persistently fails to provide. Its configurable wait starts at 24 hours; issues link to the entity in Home Assistant without deletion controls. The supplied policy is enabled on fresh setup with Morning summary; existing saved policy lists remain unchanged.
+
+- Device dialogs identify unavailable entities and missing or restored readings even when no issue is open, and include policies covering the device's entities. Availability saves accept unchanged settings returned with a different JSON field order while retaining conflict checks for changed values.
+
+- Shorten device issue actions to Acknowledge and Pause, and use consistent accent-colored outlined buttons throughout issue dialogs.
+
+- Keep availability issues with only missing or restored current readings out of Open issues, even when an earlier failure remains in Monitoring. Current warnings and failures remain visible.
+- Apply the same current-evidence rule to Monitoring issue badges: a retained earlier availability failure followed only by missing or restored readings does not mark the device or its location as a current problem. Unmonitored entities remain neutral.
+
+- Compact device rows in Open issues keep the device, problem and opening time together, omit redundant entity headings and single-issue counts, and retain one View action per device.
+
 ## [1.10.0] - 2026-10-18
 
 ### Upgrade notes

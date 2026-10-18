@@ -1,5 +1,7 @@
 # ADR 0025: Follow Home Assistant entity availability semantics
 
+**Later decision:** [ADR 0103](0103-entity-availability-with-grouped-selection.md) retires device availability policies and inferred device assessments. Historical device rules below no longer define current behavior.
+
 **Status:** Accepted; the partial-device warning is superseded by [ADR 0045](0045-device-issue-requires-every-selected-entity-unavailable.md); diagnostic fallback and broad entity eligibility are superseded by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md)
 **Date:** 2026-09-28
 **Decider:** Michael Cumming

@@ -16,6 +16,7 @@ from .config import Settings, uses_legacy_notification_settings
 from .const import DOMAIN, EVENT_NOTIFICATION, STORE_VERSION
 from .dashboard import async_register_dashboard, async_remove_dashboard
 from .policy_defaults import initial_settings
+from .policy_migration import migrate_device_policies
 from .runtime import Runtime
 from .services import async_register_services, async_remove_services
 
@@ -32,6 +33,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
         if uses_legacy_notification_settings(data):
             data = initial_settings(hass.config.time_zone)
             hass.config_entries.async_update_entry(entry, data=data, options={})
+        converted = migrate_device_policies(hass, data)
+        if converted != data:
+            hass.config_entries.async_update_entry(entry, data=converted, options={})
+            data = converted
         runtime = Runtime(
             hass,
             entry,

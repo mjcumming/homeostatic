@@ -1,6 +1,7 @@
 """Bind named expectations to discovered sources without private engine state."""
 
 import hashlib
+import json
 from dataclasses import replace
 from typing import Any
 
@@ -21,11 +22,12 @@ def enrollment_rules(policies: tuple[MonitoringPolicy, ...]) -> tuple[CatalogRul
             checks=(policy.check,),
             enabled=policy.enabled,
             excluded_sources=policy.excluded_sources,
+            included_sources=policy.included_sources,
             match_any=policy.match_any,
             match_none=policy.match_none,
         )
         for policy in policies
-        if policy.check not in TEMPERATURE_CHECKS | UPS_CHECKS
+        if policy.check not in TEMPERATURE_CHECKS | UPS_CHECKS | {"entity_not_provided"}
     )
 
 
@@ -63,15 +65,10 @@ def ordinary_sources(
     for policy in policies:
         if not policy.enabled or policy.check not in ordinary:
             continue
-        excluded_entities = {
-            identity: candidate.entity_id
-            for identity in policy.excluded_sources
-            if (candidate := candidates.get(identity)) is not None
-            and candidate.kind == "entity"
-        }
         for source in originals.values():
             if (
                 source.disabled
+                or source.kind == "device"
                 or policy.check != source.check_id
                 or not policy.matches(
                     source.attributes,
@@ -79,22 +76,7 @@ def ordinary_sources(
                 )
             ):
                 continue
-            member_exclusions: tuple[str, ...] = ()
-            if source.kind == "device":
-                member_exclusions = tuple(
-                    identity
-                    for identity, entity_id in excluded_entities.items()
-                    if entity_id in source.availability_entities
-                )
-                members = tuple(
-                    entity_id
-                    for entity_id in source.availability_entities
-                    if entity_id not in excluded_entities.values()
-                )
-                if not members:
-                    continue
-                source = replace(source, availability_entities=members)
-            detection_key = policy.detection_key(member_exclusions=member_exclusions)
+            detection_key = policy.detection_key()
             identity = f"monitoring:{policy.id}:{detection_key}:{source.node_id}"
             bindings.setdefault(source.node_id, []).append(identity)
             result[identity] = replace(
@@ -112,13 +94,7 @@ def ordinary_sources(
             result[identity] = replace(source, watched=False, attached_by=())
     for identity, source in tuple(result.items()):
         if source.monitoring_source is not None and source.check_id == "availability":
-            upstream = (
-                source.requirements
-                if source.kind == "device"
-                else (f"entry:{source.owner_id}",)
-                if source.owner_id
-                else ()
-            )
+            upstream = (f"entry:{source.owner_id}",) if source.owner_id else ()
             result[identity] = replace(
                 source,
                 requirements=tuple(
@@ -137,59 +113,41 @@ def ordinary_sources(
     return result
 
 
-def retain_source_identities(
+def original_identity(identity: str) -> str:
+    """Resolve the registry record behind an independent policy condition."""
+    return identity.split(":", 3)[3] if identity.startswith("monitoring:") else identity
+
+
+def restore_entity_identities(
     sources: dict[str, Source],
     bindings: dict[str, str],
-    *,
-    policies: tuple[MonitoringPolicy, ...],
-    previous_scopes: dict[str, tuple[str, ...]],
-    candidates: dict[str, Source],
     legacy_policies: tuple[MonitoringPolicy, ...] = (),
 ) -> tuple[dict[str, Source], dict[str, str]]:
-    """Preserve device checks through catalog churn and replace edited scopes."""
-    base_keys = {policy.id: policy.detection_key() for policy in policies}
-    scope_changes = {
-        policy.id: set(previous_scopes.get(policy.id, policy.excluded_sources))
-        ^ set(policy.excluded_sources)
-        for policy in policies
+    """Keep published entity issues stable across the schema-two exclusion upgrade."""
+    legacy_keys = {}
+    for policy in legacy_policies:
+        payload: dict[str, Any] = {
+            "check": policy.check,
+            "match": dict(policy.match),
+            "parameters": dict(policy.parameters),
+        }
+        if policy.excluded_sources:
+            payload["excluded_sources"] = policy.excluded_sources
+        if policy.match_any:
+            payload["match_any"] = policy.match_any
+        if policy.match_none:
+            payload["match_none"] = policy.match_none
+        legacy_keys[policy.id] = hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode()
+        ).hexdigest()[:16]
+    translated = {
+        identity: (
+            f"monitoring:{source.monitoring_policy}:{legacy_keys[source.monitoring_policy]}:{original_identity(identity)}"
+            if source.monitoring_policy in legacy_keys
+            else bindings.get(identity, identity)
+        )
+        for identity, source in sources.items()
     }
-    canonical_entities = {
-        source.entity_id: identity
-        for identity, source in candidates.items()
-        if source.kind == "entity" and source.entity_id is not None
-    }
-    legacy_keys = {
-        policy.id: policy.detection_key(member_exclusions=policy.excluded_sources)
-        for policy in legacy_policies
-    }
-    retained: dict[str, str] = {}
-    translated: dict[str, str] = {}
-    for identity, source in sources.items():
-        key = identity
-        policy_id = source.monitoring_policy
-        device_id = source.monitoring_source if source.kind == "device" else None
-        if device_id is not None and policy_id is not None:
-            key = f"monitoring:{policy_id}:{base_keys[policy_id]}:{device_id}"
-        bound = bindings.get(key, identity)
-        if policy_id is not None and policy_id in legacy_keys:
-            bound = f"monitoring:{policy_id}:{legacy_keys[policy_id]}:{original_identity(identity)}"
-        elif device_id is not None and policy_id is not None and key in bindings:
-            eligible = {
-                canonical_entities[entity_id]
-                for entity_id in sources[device_id].availability_entities
-                if entity_id in canonical_entities
-            }
-            if eligible & scope_changes[policy_id]:
-                bound = identity
-                if bound == bindings[key]:
-                    # Registry churn may have retained this hash from an earlier scope.
-                    digest = hashlib.sha256(
-                        f"{bound}:scope-change".encode()
-                    ).hexdigest()[:16]
-                    bound = f"monitoring:{policy_id}:{digest}:{device_id}"
-        translated[identity] = bound
-        if (device_id is not None and policy_id is not None) or bound != identity:
-            retained[key] = bound
     return {
         translated[identity]: replace(
             source,
@@ -199,12 +157,7 @@ def retain_source_identities(
             ),
         )
         for identity, source in sources.items()
-    }, retained
-
-
-def original_identity(identity: str) -> str:
-    """Resolve the registry record behind an independent policy condition."""
-    return identity.split(":", 3)[3] if identity.startswith("monitoring:") else identity
+    }, {identity: bound for identity, bound in translated.items() if identity != bound}
 
 
 def thermostat_enrolled(state: State | None) -> bool:

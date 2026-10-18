@@ -70,13 +70,13 @@ async def exercise(config: Path, port: int) -> None:
             identity: [{"id": "default", "profile": profile}]
             for identity, profile in (
                 ("default_integrations", "morning"),
-                ("default_devices", "morning"),
                 ("default_entities", "morning"),
                 ("default_important_equipment", "immediate"),
                 ("default_repairs", "morning"),
                 ("default_broken_automations", "morning"),
                 ("default_batteries", "morning"),
                 ("default_vacuums", "evening"),
+                ("default_entities_not_provided", "morning"),
             )
         }
         definitions = entry.data["notification_definitions"]

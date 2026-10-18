@@ -76,7 +76,6 @@ from .battery import observe as battery_observation
 from .broken_automations import BrokenAutomations
 from .catalog import (
     Source,
-    device_observation,
     entity_observation,
     entity_state_signature,
     entry_observation,
@@ -100,6 +99,8 @@ from .enrollment import (
     report,
     restore_enrollment,
 )
+from .entity_not_provided import observe as not_provided_observation
+from .entity_not_provided import sources as not_provided_sources
 from .evidence import ReportedEvidence
 from .facts import (
     FACT_SCHEMA_VERSION,
@@ -111,13 +112,13 @@ from .facts import (
 )
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
-from .monitoring import TEMPERATURE_CHECKS, parse_excluded_sources
+from .monitoring import TEMPERATURE_CHECKS
 from .monitoring_runtime import (
     assignments,
     enrollment_rules,
     ordinary_sources,
     original_identity,
-    retain_source_identities,
+    restore_entity_identities,
     temperature_sources,
     thermostat_enrolled,
     ups_sources,
@@ -195,11 +196,10 @@ class Runtime:
         self._compiled_policy: PolicyConfig | None = None
         self._compiled_settings: Settings | None = None
         self.sources: dict[str, Source] = {}
-        self._monitoring_identities: dict[str, str] = {}
-        self._monitoring_scopes: dict[str, tuple[str, ...]] = {}
         self.targets: list[str] = []
         self.enrolled: dict[str, Attributes] = {}
         self.candidates: dict[str, Source] = {}
+        self._monitoring_identities: dict[str, str] = {}
         self.enrollment_changes: deque[dict[str, JSONValue]] = deque(maxlen=50)
         self._discovered = False
         self.episodes: dict[str, dict[str, JSONValue]] = {}
@@ -244,7 +244,6 @@ class Runtime:
         self.error: str | None = None
         self.updated_at: datetime | None = None
         self._entity_sources: dict[str, list[Source]] = {}
-        self._device_signatures: dict[str, tuple[str, str]] = {}
         self._inventory_dirty = True
         self.inventory_revision = 0
         self.inventory_static: dict[str, JSONValue] = {}
@@ -352,10 +351,8 @@ class Runtime:
         for key in ("engine", "policy", "episodes", "retry_since"):
             if not isinstance(self.saved.get(key), dict):
                 raise ValueError(f"Invalid stored {key}")
-        identities = (
-            self.saved.get("monitoring_identities")
-            if version == 3
-            else self.saved.get("monitoring_identities", {})
+        identities = self.saved.get(
+            "monitoring_identities", {} if version == 2 else None
         )
         if not isinstance(identities, dict) or any(
             not isinstance(identity, str)
@@ -370,22 +367,6 @@ class Runtime:
         ):
             raise ValueError("Invalid stored monitoring identities")
         self._monitoring_identities = dict(identities)
-        scopes = self.saved.get("monitoring_scopes") if version == 3 else {}
-        if (
-            not isinstance(scopes, dict)
-            or any(not isinstance(policy_id, str) for policy_id in scopes)
-            or (
-                version == 3
-                and any(
-                    identity.split(":", 2)[1] not in scopes for identity in identities
-                )
-            )
-        ):
-            raise ValueError("Invalid stored monitoring scopes")
-        self._monitoring_scopes = {
-            policy_id: parse_excluded_sources(exclusions)
-            for policy_id, exclusions in scopes.items()
-        }
         self.delivery.restore(self.saved["delivery"])
         if type(self.saved.get("notifications_enabled")) is not bool:
             raise ValueError("Invalid notification activation state")
@@ -517,7 +498,14 @@ class Runtime:
         if sources and (
             any(source.kind == "situation" for source in sources)
             or any(
-                source.kind in {"battery", "vacuum", "ups", *TEMPERATURE_CHECKS}
+                source.kind
+                in {
+                    "battery",
+                    "vacuum",
+                    "ups",
+                    "entity_not_provided",
+                    *TEMPERATURE_CHECKS,
+                }
                 for source in sources
             )
             or entity_state_signature(event.data["old_state"])
@@ -531,9 +519,7 @@ class Runtime:
                     temperature_states.append((source.node_id, new))
                     continue
                 observation = (
-                    self._observe_device(source, now, entity_id, new)
-                    if source.kind == "device"
-                    else battery_observation(
+                    battery_observation(
                         self.hass,
                         source,
                         now,
@@ -550,15 +536,18 @@ class Runtime:
                         changed_state=new,
                     )
                     if source.kind == "vacuum"
+                    else not_provided_observation(
+                        self.hass,
+                        source,
+                        now,
+                        changed_entity_id=entity_id,
+                        changed_state=new,
+                    )
+                    if source.kind == "entity_not_provided"
                     else self._observe_ups(source, now, entity_id, new)
                     if source.kind == "ups"
                     else entity_observation(source, event.data["new_state"], now)
                 )
-                if source.kind == "device":
-                    signature = (observation.status.value, observation.reason)
-                    if self._device_signatures.get(source.node_id) == signature:
-                        continue
-                    self._device_signatures[source.node_id] = signature
                 observations.append(observation)
             if observations or temperature_states:
                 self._pending.append(
@@ -579,6 +568,13 @@ class Runtime:
                 for source in self.sources.values()
                 if source.entry_id == entry.entry_id and source.watched
             ]
+            observations.extend(
+                not_provided_observation(self.hass, source, now)
+                for source in self.sources.values()
+                if source.kind == "entity_not_provided"
+                and source.owner_id == entry.entry_id
+                and source.watched
+            )
             self._pending.append((now, observations, None, ()))
             self._request_refresh(cause="config_entry")
 
@@ -840,23 +836,19 @@ class Runtime:
                 self.hass, self.settings.monitoring_policies, candidates
             )
         )
+        sources.update(
+            not_provided_sources(self.settings.monitoring_policies, candidates)
+        )
         sources = ordinary_sources(
             self.settings.monitoring_policies, sources, candidates=candidates
         )
-        sources, self._monitoring_identities = retain_source_identities(
+        sources, self._monitoring_identities = restore_entity_identities(
             sources,
             self._monitoring_identities,
-            policies=self.settings.monitoring_policies,
-            previous_scopes=self._monitoring_scopes,
-            candidates=candidates,
-            legacy_policies=self.settings.monitoring_policies
+            self.settings.monitoring_policies
             if self.saved is not None and self.saved["schema_version"] == 2
             else (),
         )
-        self._monitoring_scopes = {
-            policy.id: policy.excluded_sources
-            for policy in self.settings.monitoring_policies
-        }
         targets = set(self.targets)
         self.targets = [
             identity
@@ -878,6 +870,12 @@ class Runtime:
             source.entry_id
             for source in self.sources.values()
             if source.entry_id and source.watched
+        } | {
+            source.owner_id
+            for source in self.sources.values()
+            if source.kind == "entity_not_provided"
+            and source.owner_id
+            and source.watched
         }
         for entry_id, (previous, cancel) in list(self._entries.items()):
             current = self.hass.config_entries.async_get_entry(entry_id)
@@ -1840,18 +1838,10 @@ class Runtime:
                     "targets": list(self.targets),
                 }
             self._inventory_dirty = False
-            self._device_signatures = {
-                node_id: signature
-                for node_id, signature in self._device_signatures.items()
-                if node_id in sources and sources[node_id].watched
-            }
             self._entity_sources = {}
             for source in sources.values():
                 if source.entity_id and source.watched:
                     self._entity_sources.setdefault(source.entity_id, []).append(source)
-                elif source.kind == "device" and source.watched:
-                    for entity_id in source.availability_entities:
-                        self._entity_sources.setdefault(entity_id, []).append(source)
                 if source.kind == "ups" and source.watched:
                     for entity_id in dict.fromkeys(
                         entity for _, entity in source.ups_entities
@@ -2014,13 +2004,13 @@ class Runtime:
                 observations.append(self._observe_ups(source, now))
             elif source.kind == "vacuum" and discover:
                 observations.append(vacuum_observation(self.hass, source, now))
+            elif source.kind == "entity_not_provided" and discover:
+                observations.append(not_provided_observation(self.hass, source, now))
             elif source.kind in {"entity", "situation"} and discover:
                 state = (
                     self.hass.states.get(source.entity_id) if source.entity_id else None
                 )
                 observations.append(entity_observation(source, state, now))
-            elif source.kind == "device" and discover:
-                observations.append(self._observe_device(source, now))
             elif source.kind == "integration" and (
                 discover or self._retry_due(source, now)
             ):
@@ -2054,15 +2044,11 @@ class Runtime:
                 "device",
                 "battery",
                 "vacuum",
+                "entity_not_provided",
                 "ups",
                 *TEMPERATURE_CHECKS,
             }:
                 self.evidence.observe(observation, source.name)
-                if source.kind == "device":
-                    self._device_signatures[source.node_id] = (
-                        observation.status.value,
-                        observation.reason,
-                    )
 
     def _observe_ups(
         self,
@@ -2195,21 +2181,6 @@ class Runtime:
             None,
         )
         return float(policy.parameters["threshold"]) if policy is not None else 20.0
-
-    def _observe_device(
-        self,
-        source: Source,
-        now: datetime,
-        changed_entity_id: str | None = None,
-        changed_state: State | None = None,
-    ) -> Observation:
-        states = tuple(
-            changed_state
-            if entity_id == changed_entity_id
-            else self.hass.states.get(entity_id)
-            for entity_id in source.availability_entities
-        )
-        return device_observation(source, states, now)
 
     def _handle(
         self,
@@ -2869,10 +2840,6 @@ class Runtime:
         return {
             "schema_version": 3,
             "monitoring_identities": self._monitoring_identities.copy(),
-            "monitoring_scopes": {
-                policy_id: list(exclusions)
-                for policy_id, exclusions in self._monitoring_scopes.items()
-            },
             "temperature_monitors": {
                 key: monitor.snapshot()
                 for key, monitor in self.temperature_monitors.items()
@@ -3112,16 +3079,11 @@ class Runtime:
         sources.update(
             temperature_sources(self.hass, settings.monitoring_policies, candidates)
         )
+        sources.update(not_provided_sources(settings.monitoring_policies, candidates))
         sources = ordinary_sources(
             settings.monitoring_policies, sources, candidates=candidates
         )
-        retained, _ = retain_source_identities(
-            sources,
-            self._monitoring_identities,
-            policies=settings.monitoring_policies,
-            previous_scopes=self._monitoring_scopes,
-            candidates=candidates,
-        )
+        retained, _ = restore_entity_identities(sources, self._monitoring_identities)
         return retained
 
     def preview_policy(
@@ -3245,65 +3207,6 @@ class Runtime:
             return json_object(self.engine.impact(data["node_id"]))
         return json_object(self.engine.explain(data["node_id"]))
 
-    def device_evidence(
-        self, node_id: str, *, offset: int = 0, limit: int = 50
-    ) -> dict[str, JSONValue] | None:
-        """List current expected entity states for an on-demand detail view."""
-        source = self.sources[node_id]
-        if source.kind != "device":
-            return None
-        if offset < 0 or not 1 <= limit <= 200:
-            raise ValueError("Choose a nonnegative offset and a limit from 1 to 200")
-        candidates = {
-            item.entity_id: item
-            for item in self.candidates.values()
-            if item.kind == "entity" and item.entity_id
-        }
-        members: list[dict[str, JSONValue]] = []
-        for entity_id in source.availability_entities:
-            member = candidates[entity_id]
-            state = self.hass.states.get(entity_id)
-            members.append(
-                {
-                    "node_id": member.node_id,
-                    "entity_id": entity_id,
-                    "name": member.name,
-                    "state": state.state if state is not None else "missing",
-                    "restored": bool(state and state.attributes.get("restored")),
-                }
-            )
-        members.sort(
-            key=lambda item: (
-                not (item["state"] in {"unavailable", "missing"} or item["restored"]),
-                str(item["name"]),
-                str(item["entity_id"]),
-            )
-        )
-        if offset > len(members):
-            raise ValueError("The offset exceeds this device's selected members")
-        end = min(offset + limit, len(members))
-        return json_object(
-            {
-                "members": members[offset:end],
-                "offset": offset,
-                "next_offset": end if end < len(members) else None,
-                "total": len(members),
-                "reporting_count": sum(
-                    item["state"] not in {"missing", "unavailable"}
-                    and not item["restored"]
-                    for item in members
-                ),
-                "unavailable_count": sum(
-                    item["state"] == "unavailable" and not item["restored"]
-                    for item in members
-                ),
-                "unknown_count": sum(
-                    item["state"] == "missing" or bool(item["restored"])
-                    for item in members
-                ),
-            }
-        )
-
     def temperature_status(self, node_id: str) -> dict[str, JSONValue]:
         """Present captured temperature evidence without advancing qualification."""
         current = self.evidence.latest(node_id)
@@ -3371,7 +3274,15 @@ class Runtime:
                 for node_id in sorted(issue_sources)
                 if (source := self.sources.get(node_id)) is not None
                 and source.kind
-                in {"entity", "device", "battery", "vacuum", "ups", *TEMPERATURE_CHECKS}
+                in {
+                    "entity",
+                    "device",
+                    "battery",
+                    "vacuum",
+                    "ups",
+                    "entity_not_provided",
+                    *TEMPERATURE_CHECKS,
+                }
             },
             "resolved_history": self.history.view(dt_util.utcnow()),
             "operator_controls": [json_object(control) for control in self.controls],
