@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-18T01:40:00Z",
+  "outcome": "Phase 3 step 3 of the latency plan: after an enrollment rule change the runtime reuses the serialized rows of candidates whose decisions did not change instead of re-evaluating and re-serializing all 5,785 of them. On the household installation the catalog block of a save fell from a median 0.81 s to 0.11 s, the evaluation from 1.59 s to 0.86 s, the server save total from 2.68 s to 1.96 s, the client save response from 3.23 s to 2.20 s and the settled panel from 3.35 s to 2.38 s. A save without a collector pause now takes about 1.5 s on the server; every Stop in this run still contained one generation-2 collection of about 0.85 s and every Resume did not.",
+  "plan": "Homeostatic save and refresh latency investigation plan, phase 3 step 3 (fix by measured share with a live before and after)",
+  "status": {
+    "branch": "main",
+    "revision": "cff2c9b",
+    "dirty": true,
+    "code_changes": "custom_components/homeostatic/enrollment.py: report() accepts already-evaluated sources and previous rows and reuses a row when its source is unchanged; custom_components/homeostatic/runtime.py: the catalog rebuild passes the evaluated candidates, the previous candidates and the published rows. tests/test_candidate_row_reuse.py: an exclusion edit serializes exactly one candidate row and reuses the rest as the same objects, the delta carries exactly that row, a fresh report equals the patched rows by key, and excluding many candidates regenerates exactly those rows.",
+    "installed_component": "working tree copied over the Samba share at 2026-10-18T01:23:50Z, 76 files byte-identical; Core restarted 01:24:14Z and reported RUNNING with Homeostatic loaded at 01:26:43Z",
+    "commit": "Not committed",
+    "release": "Not published"
+  },
+  "method": "Same as the phase 2 attribution receipt: built-in browser on the Windows PC with the in-page wrapper, three Stop and three Resume actions on fan.main_floor_bathroom_fan from its own Monitoring detail page between 01:29:54Z and 01:30:53Z (about three minutes after Core reported RUNNING), save_timing logger at debug from 01:26:44Z to 01:31:25Z read from the Supervisor journal and summarized with build/perf-live-2026-10-17/analyze_phase2.py. Devices policy excluded_sources 13 -> 14 -> 13 on each pair; configuration revision 7731a5ea (pre-test) after each Resume; logger returned to warning.",
+  "measurements": {
+    "cycles": [
+      {"action": "stop", "confirm_utc": "2026-10-18T01:29:54.932Z", "client_save": 2.500, "server_total": 2.379, "settled": 2.599, "catalog_pages": 0, "gc": "0.841 s generation-2 collection inside the save"},
+      {"action": "resume", "confirm_utc": "2026-10-18T01:30:07.642Z", "client_save": 1.635, "server_total": 1.475, "settled": 1.725, "catalog_pages": 0},
+      {"action": "stop", "confirm_utc": "2026-10-18T01:30:17.540Z", "client_save": 2.530, "server_total": 2.427, "settled": 2.629, "catalog_pages": 0, "gc": "0.860 s generation-2 collection inside the save"},
+      {"action": "resume", "confirm_utc": "2026-10-18T01:30:30.286Z", "client_save": 1.551, "server_total": 1.460, "settled": 1.633, "catalog_pages": 0},
+      {"action": "stop", "confirm_utc": "2026-10-18T01:30:39.990Z", "client_save": 2.517, "server_total": 2.430, "settled": 2.617, "catalog_pages": 0, "gc": "0.857 s generation-2 collection inside completion (complete 1.16 s)"},
+      {"action": "resume", "confirm_utc": "2026-10-18T01:30:52.697Z", "client_save": 1.891, "server_total": 1.534, "settled": 2.168, "catalog_pages": 0, "note": "three source reads 0.25 s and a configuration read 0.19 s after the save"}
+    ],
+    "evaluate_phase_medians_with_discovery": {"discovery": 0.466, "engine": 0.100, "catalog": 0.113, "policy": 0.117, "rest": 0.063, "total": 0.864},
+    "medians_after": {"client_save": 2.20, "server_total": 1.96, "evaluate_total": 0.86, "catalog": 0.11, "settled": 2.38, "catalog_pages": 0},
+    "medians_before_from_attribution_receipt": {"client_save": 3.23, "server_total": 2.68, "evaluate_total": 1.59, "catalog": 0.81, "settled": 3.35, "catalog_pages": 0},
+    "server_total_without_a_collection": "1.46 to 1.53 s (the three Resumes)",
+    "server_total_with_a_collection": "2.38 to 2.43 s (the three Stops, each with one 0.84 to 0.86 s generation-2 collection)",
+    "gen2_during_edits": "3 collections in 66 s, all on the main thread"
+  },
+  "ranking_for_the_next_change": [
+    "Garbage collection: with the catalog block gone, a 0.85 s generation-2 collection is now a third of a Stop; lower the allocation churn around saves (snapshot, read-back and compare on every refresh, checkpoint deep copies) and debounce saves",
+    "Discovery (0.47 s on every save and once a minute): run it on registry, config-entry and repairs events with a slow safety reconcile",
+    "The remaining fixed costs of a save are checkpoint 0.12 s, snapshot 0.15 s, storage about 0.2 s and completion 0.3 s"
+  ],
+  "raw_captures": "docs/performance/live-latency-candidate-rows-2026-10-17/ (journal lines, client cycles, analysis of the cycle window)",
+  "remaining": [
+    "Six samples about three minutes after a restart; the phase 2 attribution cycles ran eighteen minutes after one",
+    "Physical Safari, phone browsers and sustained household load remain outside this acceptance",
+    "The rendered-browser sweep was not repeated for this backend-only change; the catalog delta scenarios and the new row-reuse scenarios cover the contract"
+  ]
+}

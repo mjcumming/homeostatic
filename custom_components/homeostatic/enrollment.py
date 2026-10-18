@@ -317,10 +317,23 @@ def evaluate(
 
 
 def report(
-    sources: dict[str, Source], rules: tuple[CatalogRule, ...]
+    sources: dict[str, Source],
+    rules: tuple[CatalogRule, ...],
+    *,
+    evaluated: bool = False,
+    previous: dict[str, Source] | None = None,
+    previous_rows: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Return match counts and per-node explanations for an unsaved rule set."""
-    evaluated = evaluate(sources, rules)
+    """Return match counts and per-node explanations for a rule set.
+
+    ``evaluated`` says ``sources`` already carry this rule set's decisions. When
+    ``previous`` sources and their serialized ``previous_rows`` are given, a row
+    whose source is unchanged is reused instead of serialized again, so a rule
+    change costs only the rows whose decisions changed.
+    """
+    decided = sources if evaluated else evaluate(sources, rules)
+    earlier = previous or {}
+    rows = previous_rows or {}
     return {
         "rules": [
             {
@@ -332,6 +345,11 @@ def report(
             }
             for rule in rules
         ],
-        "watched": sum(source.watched for source in evaluated.values()),
-        "candidates": [json_object(source) for source in evaluated.values()],
+        "watched": sum(source.watched for source in decided.values()),
+        "candidates": [
+            rows[node_id]
+            if node_id in rows and earlier.get(node_id) == source
+            else json_object(source)
+            for node_id, source in decided.items()
+        ],
     }

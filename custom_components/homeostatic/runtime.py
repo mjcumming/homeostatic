@@ -1696,6 +1696,14 @@ class Runtime:
                 )
         return sources
 
+    def _candidate_rows(self) -> dict[str, Any]:
+        """Index the published candidate rows by node id for reuse."""
+        catalog = cast(dict[str, Any], self.inventory_static.get("catalog", {}))
+        return {
+            str(row["node_id"]): row
+            for row in cast(list[dict[str, Any]], catalog.get("candidates", []))
+        }
+
     def _evaluate(self, now: datetime, *, reconcile: bool = True) -> list[HealthEvent]:
         started = perf_counter()
         first = self.engine is None
@@ -1784,7 +1792,13 @@ class Runtime:
                         else json_object(source)
                         for identity, source in sources.items()
                     ],
-                    "catalog": report(self.candidates, rules)
+                    "catalog": report(
+                        self.candidates,
+                        rules,
+                        evaluated=True,
+                        previous=previous_candidates,
+                        previous_rows=self._candidate_rows(),
+                    )
                     if first or rules_changed or self.candidates != previous_candidates
                     else self.inventory_static["catalog"],
                     "enrollment_changes": list(self.enrollment_changes),

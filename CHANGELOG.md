@@ -13,6 +13,7 @@
 
 ### Fixed
 
+- Reuse unchanged candidate rows when a monitoring edit changes enrollment rules instead of serializing every candidate again, which was most of the remaining save time on large installations.
 - Read each device's owning integration through the current Home Assistant registry field. On Home Assistant 2026.10 every save and every minute's background refresh spent most of its time in deprecation reporting for each of the installation's devices, which held up the panel for several seconds.
 - Keep Monitoring and the evidence-gap sensor available when coverage contains stale or never-observed checks.
 - Keep settings and their revision consistent when another editor reads during a save or rollback, preventing an accepted edit from being silently overwritten.
