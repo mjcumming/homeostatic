@@ -16,7 +16,7 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.homeostatic.const import DOMAIN, RECONCILE_INTERVAL
+from custom_components.homeostatic.const import DOMAIN, SWEEP_INTERVAL
 from tests.test_lifecycle import start_monitor
 from tests.test_runtime_scaling import populate
 
@@ -78,7 +78,7 @@ async def test_live_rate_refresh_profile(
             if index % 10 == 9:
                 await hass.async_block_till_done()
         await hass.async_block_till_done()
-        now += RECONCILE_INTERVAL
+        now += SWEEP_INTERVAL
         async_fire_time_changed(hass, now)
         await hass.async_block_till_done()
 
@@ -108,7 +108,7 @@ async def test_live_rate_refresh_profile(
         "replay": {
             "minutes": minutes,
             "state_changes_per_minute": rate,
-            "reconcile_interval_seconds": RECONCILE_INTERVAL.total_seconds(),
+            "sweep_interval_seconds": SWEEP_INTERVAL.total_seconds(),
         },
         "refreshes": {
             "count": len(refreshes),

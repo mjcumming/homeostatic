@@ -8,7 +8,9 @@ STORE_VERSION = 1
 EVENT_NOTIFICATION = "homeostatic_notification"
 EVENT_EPISODE = "homeostatic_episode"
 EVENT_CONTROL = "homeostatic_control"
-RECONCILE_INTERVAL = timedelta(seconds=60)
+# Safety-net sweep: rediscover and re-observe everything this often. Events and
+# deadlines drive all other refreshes (ADR 0098).
+SWEEP_INTERVAL = timedelta(minutes=15)
 # Evidence-only refreshes persist at most this often; requests, episode and
 # control changes, settings and shutdown save immediately (ADR 0096).
 SAVE_COALESCE_SECONDS = 15

@@ -4,6 +4,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0098](0098-update-the-subject-and-sweep-rarely.md) | Update the subject of each event and sweep rarely | Accepted; implementation in progress; supersedes the 60-second reconciliation as the normal discovery path |
 | [0097](0097-shrink-the-snapshot-and-save-durable-changes.md) | Persist durable facts only | Accepted; adapter step implemented; asks health-tree to keep observation times out of its snapshot |
 | [0096](0096-coalesce-evidence-saves-and-verify-bytes.md) | Coalesce evidence-only saves and verify stored bytes | Accepted; implemented, installed and measured; extends the persistence verification rule |
 | [0095](0095-patch-catalog-after-edits.md) | Patch the catalog after an edit instead of reloading it | Accepted; implemented, installed and measured for a local trial; partially supersedes 0029's reload on every revision change |

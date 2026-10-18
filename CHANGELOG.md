@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Replace the minute reconciliation with a sweep every 15 minutes and observe only the sources whose events arrived in between: a config-entry update that changes nothing visible no longer refreshes, and the startup hold ends on its own clock. Idle work falls to the rate of real changes.
 - Persist route signatures as digests and evidence as the last known failure only, rebuild the current observation on the first refresh after a restart, and skip a save whose content equals the last verified write. The saved state of a large installation shrinks by about a third.
 
 ### Documentation

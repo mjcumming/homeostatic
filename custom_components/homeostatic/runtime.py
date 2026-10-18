@@ -86,9 +86,9 @@ from .const import (
     EVENT_EPISODE,
     EVENT_NOTIFICATION,
     NAME,
-    RECONCILE_INTERVAL,
     SAVE_COALESCE_SECONDS,
     STORE_VERSION,
+    SWEEP_INTERVAL,
 )
 from .controls import OperatorControl, expiry, presentation, restore_controls
 from .delivery import DeliveryState
@@ -440,9 +440,7 @@ class Runtime:
                 async_dispatcher_connect(
                     hass, SIGNAL_CONFIG_ENTRY_CHANGED, self._config_entry_changed
                 ),
-                async_track_time_interval(
-                    hass, self._reconcile_timer, RECONCILE_INTERVAL
-                ),
+                async_track_time_interval(hass, self._sweep_timer, SWEEP_INTERVAL),
             )
         )
         self._subscriptions.extend(
@@ -654,8 +652,8 @@ class Runtime:
             and candidate.disabled == (entry.disabled_by is not None)
             and candidate.attributes.get("domain") == (entry.domain,)
         ):
-            # Entry lifecycle evidence is captured by the dedicated state listener.
-            self._request_refresh(cause="config_entry")
+            # Entry lifecycle evidence is captured by the dedicated state listener;
+            # nothing the catalog shows changed (ADR 0098).
             return
         self._inventory_dirty = True
         self._request_refresh(reconcile=True, cause="config_entry")
@@ -688,9 +686,9 @@ class Runtime:
     async def _timer(self, now: datetime) -> None:
         self._request_refresh(cause="deadline")
 
-    async def _reconcile_timer(self, now: datetime) -> None:
+    async def _sweep_timer(self, now: datetime) -> None:
         self._log_window()
-        self._request_refresh(reconcile=True, cause="reconcile")
+        self._request_refresh(reconcile=True, cause="sweep")
 
     async def _stop_event(self, event: Event[Any]) -> None:
         await self.async_stop()
@@ -2098,7 +2096,9 @@ class Runtime:
                 observations.append(entity_observation(source, state, now))
             elif source.kind == "device" and discover:
                 observations.append(self._observe_device(source, now))
-            elif source.kind == "integration":
+            elif source.kind == "integration" and (
+                discover or self._retry_due(source, now)
+            ):
                 observations.append(self._observe_entry(source, now))
         if observations:
             self._record_observations(observations)
@@ -2241,6 +2241,11 @@ class Runtime:
         if result.removed:
             self._temperature_removed.add(source.node_id)
         return result.observation
+
+    def _retry_due(self, source: Source, now: datetime) -> bool:
+        """Whether a setup retry has run past its hold and needs a fresh observation."""
+        since = self.retry_since.get(source.entry_id or "")
+        return since is not None and now >= since + self.settings.duration("retry_hold")
 
     def _observe_entry(self, source: Source, now: datetime) -> Observation:
         assert source.entry_id is not None

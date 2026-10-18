@@ -386,7 +386,7 @@ async def test_entry_lifecycle_queued_during_notification_save_is_durable(
 async def test_unwatched_owner_lifecycle_keeps_clean_refresh(
     hass: HomeAssistant, config_data: dict[str, Any]
 ) -> None:
-    """Owner state still refreshes runtime context when only its entity is monitored."""
+    """An unwatched owner's state change neither refreshes nor dirties the inventory."""
     source = MockConfigEntry(
         domain="test", title="Controller", state=ConfigEntryState.LOADED
     )
@@ -412,14 +412,10 @@ async def test_unwatched_owner_lifecycle_keeps_clean_refresh(
     ):
         source._async_set_state(hass, ConfigEntryState.SETUP_RETRY, "Retrying owner")
         await hass.async_block_till_done()
-        # Evidence-only refreshes persist once per coalescing window (ADR 0096).
+        # An unwatched entry's state change requests no refresh (ADR 0098).
         assert save.call_count == 0
-        assert runtime._save_pending
-        async_fire_time_changed(
-            hass, dt_util.utcnow() + timedelta(seconds=SAVE_COALESCE_SECONDS + 1)
-        )
-        await hass.async_block_till_done()
-    assert save.call_count == 1
+        assert not runtime._save_pending
+    assert save.call_count == 0
     assert not runtime._inventory_dirty
     assert runtime.available
     assert await hass.config_entries.async_unload(entry.entry_id)

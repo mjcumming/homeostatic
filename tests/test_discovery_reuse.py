@@ -14,7 +14,7 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.homeostatic import enrollment
 from custom_components.homeostatic.config import Settings
-from custom_components.homeostatic.const import DOMAIN, RECONCILE_INTERVAL
+from custom_components.homeostatic.const import DOMAIN, SWEEP_INTERVAL
 from tests.policy_helpers import monitoring_policy
 from tests.test_lifecycle import start_monitor
 
@@ -51,7 +51,7 @@ async def test_exclusion_edit_reuses_the_last_scan(
     with patch(
         "custom_components.homeostatic.runtime.inventory", side_effect=_counting(calls)
     ):
-        async_fire_time_changed(hass, dt_util.utcnow() + RECONCILE_INTERVAL)
+        async_fire_time_changed(hass, dt_util.utcnow() + SWEEP_INTERVAL)
         await hass.async_block_till_done()
     assert calls == ["scan"]
     calls.clear()
@@ -81,7 +81,7 @@ async def test_selection_changes_and_registry_changes_still_scan(
     """Selecting new sources or changing a registry reads the registries again."""
     entry = await _prepare(hass, config_data)
     runtime = await start_monitor(hass, entry)
-    async_fire_time_changed(hass, dt_util.utcnow() + RECONCILE_INTERVAL)
+    async_fire_time_changed(hass, dt_util.utcnow() + SWEEP_INTERVAL)
     await hass.async_block_till_done()
     calls: list[str] = []
     widened = deepcopy(config_data)
@@ -118,7 +118,7 @@ async def test_reconcile_tick_keeps_reading_the_registries(
     with patch(
         "custom_components.homeostatic.runtime.inventory", side_effect=_counting(calls)
     ):
-        async_fire_time_changed(hass, dt_util.utcnow() + RECONCILE_INTERVAL)
+        async_fire_time_changed(hass, dt_util.utcnow() + SWEEP_INTERVAL)
         await hass.async_block_till_done()
     assert calls == ["scan"]
     assert runtime._scan is not None
@@ -131,7 +131,7 @@ async def test_exclusion_edit_decides_only_the_named_candidates(
     """Rules that differ only by exclusions re-decide only the excluded ids."""
     entry = await _prepare(hass, config_data)
     runtime = await start_monitor(hass, entry)
-    async_fire_time_changed(hass, dt_util.utcnow() + RECONCILE_INTERVAL)
+    async_fire_time_changed(hass, dt_util.utcnow() + SWEEP_INTERVAL)
     await hass.async_block_till_done()
     target = "entity:entity_id:sensor.candidate_5"
     decided: list[str | None] = []

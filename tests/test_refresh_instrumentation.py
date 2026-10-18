@@ -16,7 +16,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.homeostatic.config import Settings
-from custom_components.homeostatic.const import DOMAIN, RECONCILE_INTERVAL
+from custom_components.homeostatic.const import DOMAIN, SWEEP_INTERVAL
 from tests.test_lifecycle import start_monitor
 
 TIMING_LOGGER = "custom_components.homeostatic.save_timing"
@@ -69,13 +69,13 @@ async def test_refreshes_name_their_cause_and_split_evaluation(
     assert registry[-1]["discover"] == "True"
     caplog.clear()
 
-    async_fire_time_changed(hass, dt_util.utcnow() + RECONCILE_INTERVAL)
+    async_fire_time_changed(hass, dt_util.utcnow() + SWEEP_INTERVAL)
     await hass.async_block_till_done()
     summary = [_fields(line) for line in _lines(caplog, "summary")]
     assert len(summary) == 1
     assert int(summary[0]["refreshes"]) >= 0 and int(summary[0]["saves"]) >= 0
     reconcile = [_fields(line) for line in _lines(caplog, "refresh")]
-    assert reconcile and reconcile[-1]["cause"] == "reconcile"
+    assert reconcile and reconcile[-1]["cause"] == "sweep"
     assert reconcile[-1]["reconcile"] == "True"
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -131,5 +131,5 @@ async def test_deadline_refreshes_are_distinguished(
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=30))
     await hass.async_block_till_done()
     causes = {_fields(line)["cause"] for line in _lines(caplog, "refresh")}
-    assert causes & {"deadline", "reconcile"}
+    assert causes & {"deadline", "sweep"}
     assert await hass.config_entries.async_unload(entry.entry_id)

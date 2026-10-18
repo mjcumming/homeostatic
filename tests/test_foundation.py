@@ -628,6 +628,8 @@ async def test_stop_during_save_cannot_rearm_timer(
         await original_save()
 
     with patch.object(runtime, "_save", side_effect=wait_for_storage):
+        # A durable change saves inside the refresh instead of 15 s later.
+        runtime._save_required = True
         refresh = hass.async_create_task(runtime.async_refresh())
         await entered.wait()
         stopping = hass.async_create_task(runtime.async_stop())
