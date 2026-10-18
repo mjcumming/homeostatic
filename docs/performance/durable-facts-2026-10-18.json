@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-18T14:20:00Z",
+  "outcome": "Step 1 of the core design audit (ADR 0097, adapter part): route signatures persist as digests and evidence as the last known failure only. The adapter's persisted sections fell from 1.81 MB to 0.25 MB of compact JSON on the household installation. Writes per idle minute did not change, because the engine's check records still carry observation times that change every minute; that is the health-tree request recorded in its RFP.",
+  "plan": "Core design audit order of work, step 1 (persist durable facts only; adapter sections)",
+  "status": {
+    "branch": "main",
+    "revision": "79429bd",
+    "dirty": false,
+    "installed_component": "working tree of 79429bd copied over the Samba share at 2026-10-18T13:36:41Z, 76 files byte-identical; Core restarted 13:37:09Z; first store write 13:45:02Z",
+    "commit": "79429bd (digests, lean evidence, skipped identical writes, event trace); the follow-up that keeps an ongoing failure's first report is committed after this measurement and not yet installed",
+    "release": "Not published"
+  },
+  "method": "Store file sizes and section sizes from copies of .storage/homeostatic.<entry> taken over the Samba share, a modification-time sample every three seconds for writes per minute, and two copies about a minute apart for the fields that change between saves. The trace journal was not readable in this run because the browser session had to be re-authenticated and the agent's link to Core was down; the event-type attribution waits for the next capture. Aggregates only.",
+  "before": {
+    "source": "performance/snapshot-footprint-2026-10-18.json (1.9.0, idle, 58 open issues)",
+    "bytes_on_disk": 7708239,
+    "compact_mb": 5.406,
+    "adapter_sections_compact_mb": {"attention_routes": 1.364, "check_evidence": 0.443, "integration_evidence": 0.020, "total": 1.827},
+    "library_sections_compact_mb": {"engine": 2.112, "policy": 0.691},
+    "writes_per_minute": 1.55,
+    "changing_between_idle_saves": "check_evidence.current in all 1,675 records, engine.checks, integration_evidence.current in all 79, policy.routes"
+  },
+  "after": {
+    "first_write_after_startup": {"utc": "2026-10-18T13:45:02Z", "bytes_on_disk": 5998101, "compact_mb": 3.994, "open_issues": 73},
+    "idle_window": {"utc": "13:59:10Z to 14:12:06Z", "minutes": 12.0, "writes": 21, "writes_per_minute": 1.75, "bytes_on_disk": 7606950, "compact_mb": 4.906, "open_issues": 164},
+    "adapter_sections_compact_mb": {"attention_routes": 0.0005, "check_evidence": 0.244, "integration_evidence": 0.010, "total": 0.255},
+    "library_sections_compact_mb": {"engine": 2.240, "policy": 1.517},
+    "changing_between_idle_saves": "engine (observation times in check records), policy.routes (all 8), check_evidence.last_failure in 65 records and integration_evidence.last_failure in 1 (ongoing failures re-stamped each minute; fixed in the follow-up commit), one episode flapping",
+    "startup_burst": "17 writes between 13:45:02Z and 13:48:14Z while the startup hold ended and issues opened"
+  },
+  "comparison_note": "The on-disk size is not comparable between the two runs: 70 stale issues opened at 13:46Z after this restart (entities without state, mostly YAML-defined lights, switches, scripts and input booleans), which grew the engine episodes and the policy route states by about 1 MB. The adapter sections are comparable and fell by 1.57 MB of compact JSON, about 2.1 MB on disk with indentation.",
+  "open_question": "Why 70 entities had no state 25 minutes after this restart, when the restart ten hours earlier produced none; this is a household matter for the owner to check, not a Homeostatic defect visible in the store.",
+  "remaining": [
+    "Install the follow-up so ongoing failures stop re-stamping evidence, and confirm the adapter sections are byte-identical between quiet minutes.",
+    "health-tree: keep observation times out of Engine.snapshot() and Policy.snapshot(), or report content change; until then writes per minute stay at the engine's cadence.",
+    "Read the trace with a signed-in session to attribute the remaining saves by engine event type.",
+    "check_evidence keys still cost 0.24 MB because every observed source has a record; the follow-up persists only records with a known failure or incomplete history."
+  ]
+}

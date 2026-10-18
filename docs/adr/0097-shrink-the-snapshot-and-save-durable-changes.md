@@ -1,6 +1,6 @@
 # ADR 0097: Persist durable facts only
 
-**Status:** Accepted on 2026-10-18; step 1 of the [core design audit](../core-design-audit-2026-10-18.md) in progress
+**Status:** Accepted on 2026-10-18; the adapter part is implemented, installed and measured on the household installation; the health-tree part is requested
 **Implementation status:** See the [roadmap](../roadmap.md#current-work).
 
 **Date:** 2026-10-18
