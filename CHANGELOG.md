@@ -13,6 +13,7 @@
 
 ### Fixed
 
+- Re-evaluate the last registry scan when a monitoring edit changes only exclusions, keeping the decisions of candidates the edit does not name, instead of reading every registry entry and deciding every candidate again.
 - Reuse unchanged candidate rows when a monitoring edit changes enrollment rules instead of serializing every candidate again, which was most of the remaining save time on large installations.
 - Read each device's owning integration through the current Home Assistant registry field. On Home Assistant 2026.10 every save and every minute's background refresh spent most of its time in deprecation reporting for each of the installation's devices, which held up the panel for several seconds.
 - Keep Monitoring and the evidence-gap sensor available when coverage contains stale or never-observed checks.

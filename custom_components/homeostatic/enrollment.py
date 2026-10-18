@@ -287,12 +287,55 @@ def inventory(
     return sources
 
 
+def changed_exclusions(
+    previous: tuple[CatalogRule, ...] | None, current: tuple[CatalogRule, ...]
+) -> frozenset[str] | None:
+    """Return the source ids whose exclusion changed when rules differ only there.
+
+    None means the rule sets differ in some other way, so every decision must be
+    made again.
+    """
+    if previous is None or len(previous) != len(current):
+        return None
+    changed: set[str] = set()
+    for before, after in zip(previous, current, strict=True):
+        if (before.id, before.match, before.checks, before.enabled) != (
+            after.id,
+            after.match,
+            after.checks,
+            after.enabled,
+        ):
+            return None
+        changed.update(set(before.excluded_sources) ^ set(after.excluded_sources))
+    return frozenset(changed)
+
+
 def evaluate(
-    sources: dict[str, Source], rules: tuple[CatalogRule, ...]
+    sources: dict[str, Source],
+    rules: tuple[CatalogRule, ...],
+    *,
+    previous: dict[str, Source] | None = None,
+    previous_rules: tuple[CatalogRule, ...] | None = None,
 ) -> dict[str, Source]:
-    """Attach provenance and effective checks without mutating inventory."""
+    """Attach provenance and effective checks without mutating inventory.
+
+    When ``previous`` decisions exist for ``previous_rules`` that differ from
+    ``rules`` only in their exclusions, an unchanged source whose exclusion did
+    not change keeps its earlier decision instead of being decided again.
+    """
+    affected = changed_exclusions(previous_rules, rules) if previous else None
     result = {}
     for node_id, source in sources.items():
+        if affected is not None and node_id not in affected:
+            prior = previous.get(node_id) if previous else None
+            if prior is not None and prior == replace(
+                source,
+                watched=prior.watched,
+                attached_by=prior.attached_by,
+                requirements=prior.requirements,
+            ):
+                result[node_id] = prior
+                continue
         decision = decide(rules, source.attributes, source.check_id, source_id=node_id)
         result[node_id] = replace(
             source,

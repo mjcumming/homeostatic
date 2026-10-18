@@ -1,0 +1,104 @@
+{
+ "window_local": [
+  "2026-10-17T21:05:52.140000",
+  "2026-10-17T21:06:49.397000"
+ ],
+ "window_seconds": 57.3,
+ "refreshes": {
+  "count": 3,
+  "per_minute": 3.14,
+  "by_cause": {
+   "config_entry": 2,
+   "reconcile": 1
+  },
+  "with_discovery": 1,
+  "evaluation_median": 0.0355,
+  "evaluation_median_discovering": 0.5634,
+  "evaluation_median_not_discovering": 0.0343,
+  "evaluation_sum": 0.632,
+  "evaluation_share_of_window": 0.011,
+  "lock_wait_max": 9e-06,
+  "total_median": 0.3771
+ },
+ "evaluate_phases_discovering": {
+  "discovery": 0.3207,
+  "engine": 0.0961,
+  "catalog": 0.0822,
+  "policy": 0.1129,
+  "rest": 0.0619,
+  "total": 0.6754
+ },
+ "evaluate_phases_not_discovering": {
+  "discovery": 0.0,
+  "engine": 0.0019,
+  "catalog": 0.0002,
+  "policy": 0.0,
+  "rest": 0.0321,
+  "total": 0.0342
+ },
+ "saves": {
+  "count": 9,
+  "per_minute": 9.43,
+  "snapshot_median": 0.1424,
+  "snapshot_over_0_5s": 0,
+  "checkpoint_over_0_5s": 0
+ },
+ "gc": {
+  "lines": 2,
+  "by_generation": {
+   "2": 2
+  },
+  "seconds_sum": 1.704,
+  "gen2_median": 0.8519,
+  "gen2_max": 0.868495,
+  "threads": {
+   "MainThread": 2
+  },
+  "per_minute": 2.1
+ },
+ "edit_saves": [
+  {
+   "ts": "2026-10-17T21:05:53.472000",
+   "request_total": 1.332001
+  },
+  {
+   "ts": "2026-10-17T21:06:05.095000",
+   "request_total": 1.337411
+  },
+  {
+   "ts": "2026-10-17T21:06:15.672000",
+   "request_total": 1.375394
+  },
+  {
+   "ts": "2026-10-17T21:06:27.201000",
+   "request_total": 1.293345
+  },
+  {
+   "ts": "2026-10-17T21:06:37.831000",
+   "request_total": 2.317958
+  },
+  {
+   "ts": "2026-10-17T21:06:49.397000",
+   "request_total": 1.274836
+  }
+ ],
+ "lock_holders": {
+  "none": 6
+ },
+ "summaries": [
+  {
+   "seconds": "60.0",
+   "refreshes": "3",
+   "causes": "config_entry:2,reconcile:1",
+   "discoveries": "1",
+   "saves": "8",
+   "evaluation_seconds": "0.635",
+   "snapshot_seconds": "1.978",
+   "gc_long": "3",
+   "gc_seconds": "3.295"
+  }
+ ],
+ "pause_gc_correlation": [],
+ "pauses_explained_by_gc": 0,
+ "pauses_total": 0
+}

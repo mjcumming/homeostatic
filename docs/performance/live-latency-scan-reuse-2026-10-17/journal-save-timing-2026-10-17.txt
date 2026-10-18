@@ -1,0 +1,593 @@
+2026-10-17 20:51:38.280 [Recorder] phase=gc generation=2 collected=21093 seconds=0.846123
+2026-10-17 20:51:44.873 phase=evaluate discover=False discovery=0.000025 engine=0.001689 catalog=0.000101 policy=0.000016 rest=0.028130 total=0.029962
+2026-10-17 20:51:45.017 phase=snapshot seconds=0.135096
+2026-10-17 20:51:45.079 phase=storage_write seconds=0.062010
+2026-10-17 20:51:45.122 phase=storage_read seconds=0.042538
+2026-10-17 20:51:45.139 phase=storage_compare seconds=0.017593
+2026-10-17 20:51:45.160 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000005 evaluation=0.030140 total=0.360115
+2026-10-17 20:51:45.322 phase=evaluate discover=False discovery=0.000018 engine=0.001715 catalog=0.000103 policy=0.000014 rest=0.032967 total=0.034819
+2026-10-17 20:51:45.460 phase=snapshot seconds=0.130299
+2026-10-17 20:51:45.518 phase=storage_write seconds=0.057409
+2026-10-17 20:51:45.558 phase=storage_read seconds=0.040423
+2026-10-17 20:51:45.578 phase=storage_compare seconds=0.019507
+2026-10-17 20:51:45.598 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000004 evaluation=0.034990 total=0.347279
+2026-10-17 20:51:54.882 phase=evaluate discover=False discovery=0.000016 engine=0.001655 catalog=0.000099 policy=0.000012 rest=0.036088 total=0.037870
+2026-10-17 20:51:55.021 phase=snapshot seconds=0.130271
+2026-10-17 20:51:55.083 phase=storage_write seconds=0.062029
+2026-10-17 20:51:55.128 phase=storage_read seconds=0.044629
+2026-10-17 20:51:55.146 phase=storage_compare seconds=0.017942
+2026-10-17 20:51:55.165 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000005 evaluation=0.038041 total=0.357918
+2026-10-17 20:51:55.467 phase=evaluate discover=False discovery=0.000016 engine=0.001661 catalog=0.000097 policy=0.000011 rest=0.029097 total=0.030883
+2026-10-17 20:51:55.611 phase=snapshot seconds=0.135746
+2026-10-17 20:51:55.675 phase=storage_write seconds=0.063707
+2026-10-17 20:51:55.720 phase=storage_read seconds=0.045715
+2026-10-17 20:51:55.741 phase=storage_compare seconds=0.020457
+2026-10-17 20:51:55.761 phase=refresh cause=config_entry,state reconcile=False discover=False lock_wait=0.000004 evaluation=0.031061 total=0.506953
+2026-10-17 20:51:55.954 phase=evaluate discover=False discovery=0.000017 engine=0.001656 catalog=0.000100 policy=0.000013 rest=0.028047 total=0.029833
+2026-10-17 20:51:56.098 phase=snapshot seconds=0.135569
+2026-10-17 20:51:56.162 phase=storage_write seconds=0.063206
+2026-10-17 20:51:56.206 phase=storage_read seconds=0.044255
+2026-10-17 20:51:56.230 phase=storage_compare seconds=0.023658
+2026-10-17 20:51:56.250 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000003 evaluation=0.030010 total=0.400757
+2026-10-17 20:51:59.432 phase=gc generation=2 collected=18549 seconds=0.814038
+2026-10-17 20:51:59.440 phase=evaluate discover=False discovery=0.000018 engine=0.001685 catalog=0.000102 policy=0.000013 rest=0.847989 total=0.849807
+2026-10-17 20:51:59.586 phase=snapshot seconds=0.137051
+2026-10-17 20:51:59.653 phase=storage_write seconds=0.066761
+2026-10-17 20:51:59.695 phase=storage_read seconds=0.041803
+2026-10-17 20:51:59.717 phase=storage_compare seconds=0.021510
+2026-10-17 20:51:59.737 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000004 evaluation=0.849957 total=1.183216
+2026-10-17 20:52:00.055 phase=evaluate discover=False discovery=0.000018 engine=0.001672 catalog=0.000102 policy=0.000012 rest=0.029798 total=0.031603
+2026-10-17 20:52:00.206 phase=snapshot seconds=0.142340
+2026-10-17 20:52:00.273 phase=storage_write seconds=0.066801
+2026-10-17 20:52:00.320 phase=storage_read seconds=0.046576
+2026-10-17 20:52:00.343 phase=storage_compare seconds=0.023009
+2026-10-17 20:52:00.364 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000002 evaluation=0.031779 total=0.537745
+2026-10-17 20:52:02.268 phase=evaluate discover=False discovery=0.000016 engine=0.001677 catalog=0.000100 policy=0.000012 rest=0.032425 total=0.034232
+2026-10-17 20:52:02.412 phase=snapshot seconds=0.135501
+2026-10-17 20:52:02.522 phase=storage_write seconds=0.109853
+2026-10-17 20:52:02.571 phase=storage_read seconds=0.048695
+2026-10-17 20:52:02.594 phase=storage_compare seconds=0.023181
+2026-10-17 20:52:02.615 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000005 evaluation=0.034420 total=0.418654
+2026-10-17 20:52:03.668 phase=evaluate discover=False discovery=0.000017 engine=0.001666 catalog=0.000099 policy=0.000013 rest=0.029407 total=0.031203
+2026-10-17 20:52:03.820 phase=snapshot seconds=0.143465
+2026-10-17 20:52:03.881 phase=storage_write seconds=0.061305
+2026-10-17 20:52:03.931 phase=storage_read seconds=0.049639
+2026-10-17 20:52:03.956 phase=storage_compare seconds=0.025071
+2026-10-17 20:52:03.979 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000005 evaluation=0.031388 total=0.927069
+2026-10-17 20:52:04.105 phase=evaluate discover=False discovery=0.000015 engine=0.001630 catalog=0.000105 policy=0.000012 rest=0.036842 total=0.038604
+2026-10-17 20:52:04.251 phase=snapshot seconds=0.136930
+2026-10-17 20:52:04.312 phase=storage_write seconds=0.061208
+2026-10-17 20:52:04.357 phase=storage_read seconds=0.045059
+2026-10-17 20:52:04.380 phase=storage_compare seconds=0.022604
+2026-10-17 20:52:04.402 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000003 evaluation=0.038771 total=0.336028
+2026-10-17 20:52:05.388 phase=evaluate discover=False discovery=0.000015 engine=0.001666 catalog=0.000098 policy=0.000012 rest=0.028920 total=0.030711
+2026-10-17 20:52:05.537 phase=snapshot seconds=0.140374
+2026-10-17 20:52:05.600 phase=storage_write seconds=0.063318
+2026-10-17 20:52:05.640 phase=storage_read seconds=0.039683
+2026-10-17 20:52:05.662 phase=storage_compare seconds=0.021922
+2026-10-17 20:52:05.684 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000003 evaluation=0.030891 total=0.363782
+2026-10-17 20:52:05.844 phase=evaluate discover=False discovery=0.000016 engine=0.001655 catalog=0.000098 policy=0.000011 rest=0.028691 total=0.030470
+2026-10-17 20:52:06.666 phase=gc generation=2 collected=967 seconds=0.802702
+2026-10-17 20:52:06.801 phase=snapshot seconds=0.947872
+2026-10-17 20:52:06.861 phase=storage_write seconds=0.059973
+2026-10-17 20:52:06.903 phase=storage_read seconds=0.041998
+2026-10-17 20:52:06.927 phase=storage_compare seconds=0.023631
+2026-10-17 20:52:06.948 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000002 evaluation=0.030637 total=1.176213
+2026-10-17 20:52:11.758 phase=evaluate discover=False discovery=0.000016 engine=0.001652 catalog=0.000098 policy=0.000012 rest=0.042420 total=0.044198
+2026-10-17 20:52:11.905 phase=snapshot seconds=0.138577
+2026-10-17 20:52:11.965 phase=storage_write seconds=0.060029
+2026-10-17 20:52:12.012 phase=storage_read seconds=0.047044
+2026-10-17 20:52:12.036 phase=storage_compare seconds=0.023983
+2026-10-17 20:52:12.061 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000003 evaluation=0.044374 total=0.386086
+2026-10-17 20:52:15.667 phase=evaluate discover=False discovery=0.000016 engine=0.001755 catalog=0.000117 policy=0.000013 rest=0.028814 total=0.030716
+2026-10-17 20:52:15.817 phase=snapshot seconds=0.141188
+2026-10-17 20:52:15.879 phase=storage_write seconds=0.061774
+2026-10-17 20:52:15.920 phase=storage_read seconds=0.041062
+2026-10-17 20:52:15.943 phase=storage_compare seconds=0.022817
+2026-10-17 20:52:15.965 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000003 evaluation=0.030902 total=0.367400
+2026-10-17 20:52:25.894 phase=evaluate discover=False discovery=0.000016 engine=0.001666 catalog=0.000098 policy=0.000011 rest=0.029563 total=0.031354
+2026-10-17 20:52:26.048 phase=snapshot seconds=0.145684
+2026-10-17 20:52:26.140 phase=storage_write seconds=0.091502
+2026-10-17 20:52:26.181 phase=storage_read seconds=0.040512
+2026-10-17 20:52:26.202 phase=storage_compare seconds=0.020898
+2026-10-17 20:52:26.222 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000003 evaluation=0.031544 total=0.401021
+2026-10-17 20:52:31.732 phase=summary seconds=104.1 refreshes=16 causes=config_entry:6,config_entry,state:1,start:1,state:8 discoveries=1 saves=16 evaluation_seconds=3.988 snapshot_seconds=3.113 gc_long=4 gc_seconds=4.117
+2026-10-17 20:52:32.330 phase=evaluate discover=True discovery=0.465170 engine=0.028701 catalog=0.034548 policy=0.002218 rest=0.066483 total=0.597121
+2026-10-17 20:52:32.476 phase=snapshot seconds=0.130469
+2026-10-17 20:52:32.537 phase=storage_write seconds=0.060361
+2026-10-17 20:52:32.580 phase=storage_read seconds=0.043248
+2026-10-17 20:52:32.601 phase=storage_compare seconds=0.020698
+2026-10-17 20:52:32.623 phase=refresh cause=reconcile reconcile=True discover=True lock_wait=0.000004 evaluation=0.604859 total=0.890753
+2026-10-17 20:52:36.173 phase=evaluate discover=False discovery=0.000016 engine=0.001712 catalog=0.000105 policy=0.000013 rest=0.028672 total=0.030519
+2026-10-17 20:52:36.319 phase=snapshot seconds=0.137214
+2026-10-17 20:52:36.377 phase=storage_write seconds=0.058130
+2026-10-17 20:52:36.418 phase=storage_read seconds=0.040727
+2026-10-17 20:52:36.439 phase=storage_compare seconds=0.020585
+2026-10-17 20:52:36.460 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000004 evaluation=0.030705 total=0.354414
+2026-10-17 20:52:56.021 phase=evaluate discover=False discovery=0.000017 engine=0.001756 catalog=0.000105 policy=0.000013 rest=0.036038 total=0.037929
+2026-10-17 20:52:56.165 phase=snapshot seconds=0.135957
+2026-10-17 20:52:56.229 phase=storage_write seconds=0.063427
+2026-10-17 20:52:56.272 phase=storage_read seconds=0.042576
+2026-10-17 20:52:56.294 phase=storage_compare seconds=0.021739
+2026-10-17 20:52:56.315 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000003 evaluation=0.038113 total=0.369141
+2026-10-17 20:53:06.295 phase=evaluate discover=False discovery=0.000015 engine=0.001708 catalog=0.000103 policy=0.000012 rest=0.038239 total=0.040078
+2026-10-17 20:53:06.443 phase=snapshot seconds=0.138809
+2026-10-17 20:53:06.514 phase=storage_write seconds=0.071101
+2026-10-17 20:53:06.553 phase=storage_read seconds=0.038586
+2026-10-17 20:53:06.574 phase=storage_compare seconds=0.021578
+2026-10-17 20:53:06.596 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000005 evaluation=0.040264 total=0.377845
+2026-10-17 20:53:21.676 phase=gc generation=2 collected=5797 seconds=0.802596
+2026-10-17 20:53:31.732 phase=summary seconds=60.0 refreshes=4 causes=config_entry:3,reconcile:1 discoveries=1 saves=4 evaluation_seconds=0.714 snapshot_seconds=0.542 gc_long=1 gc_seconds=0.988
+2026-10-17 20:53:32.322 phase=evaluate discover=True discovery=0.458800 engine=0.030462 catalog=0.037893 policy=0.002108 rest=0.059055 total=0.588317
+2026-10-17 20:53:32.501 phase=snapshot seconds=0.150179
+2026-10-17 20:53:32.566 phase=storage_write seconds=0.064524
+2026-10-17 20:53:32.610 phase=storage_read seconds=0.043347
+2026-10-17 20:53:32.632 phase=storage_compare seconds=0.022745
+2026-10-17 20:53:32.656 phase=refresh cause=deadline,reconcile reconcile=True discover=True lock_wait=0.000005 evaluation=0.606345 total=0.923133
+2026-10-17 20:53:34.404 phase=evaluate discover=False discovery=0.000017 engine=0.001675 catalog=0.000104 policy=0.000014 rest=0.029890 total=0.031700
+2026-10-17 20:53:34.557 phase=snapshot seconds=0.142424
+2026-10-17 20:53:34.623 phase=storage_write seconds=0.065286
+2026-10-17 20:53:34.674 phase=storage_read seconds=0.051001
+2026-10-17 20:53:34.698 phase=storage_compare seconds=0.024321
+2026-10-17 20:53:34.722 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000003 evaluation=0.031883 total=1.218648
+2026-10-17 20:53:56.300 phase=evaluate discover=False discovery=0.000017 engine=0.001705 catalog=0.000106 policy=0.000012 rest=0.029151 total=0.030992
+2026-10-17 20:53:56.457 phase=snapshot seconds=0.145965
+2026-10-17 20:53:56.526 phase=storage_write seconds=0.069745
+2026-10-17 20:53:56.567 phase=storage_read seconds=0.040620
+2026-10-17 20:53:56.590 phase=storage_compare seconds=0.022674
+2026-10-17 20:53:56.612 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000003 evaluation=0.031168 total=0.381823
+2026-10-17 20:54:03.084 phase=evaluate discover=False discovery=0.000019 engine=0.002587 catalog=0.000164 policy=0.000018 rest=0.031376 total=0.034165
+2026-10-17 20:54:03.248 phase=snapshot seconds=0.152224
+2026-10-17 20:54:03.329 phase=storage_write seconds=0.081038
+2026-10-17 20:54:03.373 phase=storage_read seconds=0.044237
+2026-10-17 20:54:03.398 phase=storage_compare seconds=0.024185
+2026-10-17 20:54:03.421 phase=refresh cause=deadline reconcile=False discover=False lock_wait=0.000003 evaluation=0.036298 total=0.371572
+2026-10-17 20:54:03.564 phase=evaluate discover=False discovery=0.000015 engine=0.001880 catalog=0.000115 policy=0.000013 rest=0.029487 total=0.031511
+2026-10-17 20:54:04.494 phase=gc generation=2 collected=1984 seconds=0.820806
+2026-10-17 20:54:04.542 phase=snapshot seconds=0.967028
+2026-10-17 20:54:04.615 phase=storage_write seconds=0.072523
+2026-10-17 20:54:04.658 phase=storage_read seconds=0.042691
+2026-10-17 20:54:04.680 phase=storage_compare seconds=0.021973
+2026-10-17 20:54:04.702 phase=refresh cause=deadline reconcile=False discover=False lock_wait=0.000004 evaluation=0.034372 total=1.169776
+2026-10-17 20:54:06.584 phase=evaluate discover=False discovery=0.000017 engine=0.001681 catalog=0.000102 policy=0.000012 rest=0.028991 total=0.030803
+2026-10-17 20:54:06.736 phase=snapshot seconds=0.143806
+2026-10-17 20:54:06.833 phase=storage_write seconds=0.096298
+2026-10-17 20:54:06.877 phase=storage_read seconds=0.043758
+2026-10-17 20:54:06.899 phase=storage_compare seconds=0.022222
+2026-10-17 20:54:06.921 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000004 evaluation=0.030979 total=0.408247
+2026-10-17 20:54:31.733 phase=summary seconds=60.0 refreshes=6 causes=config_entry:2,deadline:2,deadline,reconcile:1,state:1 discoveries=1 saves=6 evaluation_seconds=0.771 snapshot_seconds=1.702 gc_long=1 gc_seconds=1.170
+2026-10-17 20:54:32.325 phase=evaluate discover=True discovery=0.459499 engine=0.030650 catalog=0.037942 policy=0.002062 rest=0.059872 total=0.590025
+2026-10-17 20:54:32.491 phase=snapshot seconds=0.145857
+2026-10-17 20:54:32.554 phase=storage_write seconds=0.062237
+2026-10-17 20:54:32.602 phase=storage_read seconds=0.048256
+2026-10-17 20:54:32.626 phase=storage_compare seconds=0.023719
+2026-10-17 20:54:32.649 phase=refresh cause=reconcile reconcile=True discover=True lock_wait=0.000004 evaluation=0.602026 total=0.914095
+2026-10-17 20:54:44.764 phase=request_queue seconds=0.000020
+2026-10-17 20:54:44.765 phase=save_lock seconds=0.000008
+2026-10-17 20:54:44.773 phase=validation seconds=0.007843
+2026-10-17 20:54:44.777 phase=runtime_lock seconds=0.000009 holder=none
+2026-10-17 20:54:44.777 phase=pending_observations seconds=0.000006
+2026-10-17 20:54:45.199 phase=checkpoint seconds=0.421276
+2026-10-17 20:54:45.199 phase=routes_before seconds=0.000357
+2026-10-17 20:54:46.018 phase=evaluate discover=True discovery=0.346997 engine=0.193415 catalog=0.102573 policy=0.107082 rest=0.068276 total=0.818344
+2026-10-17 20:54:46.024 phase=evaluation seconds=0.824520
+2026-10-17 20:54:46.024 phase=routes_after seconds=0.000136
+2026-10-17 20:54:46.167 phase=snapshot seconds=0.134274
+2026-10-17 20:54:46.233 phase=storage_write seconds=0.065562
+2026-10-17 20:54:46.273 phase=storage_read seconds=0.040268
+2026-10-17 20:54:46.293 phase=storage_compare seconds=0.019711
+2026-10-17 20:54:46.314 phase=complete seconds=0.289188
+2026-10-17 20:54:46.465 phase=request_total seconds=1.700111
+2026-10-17 20:54:56.734 phase=request_queue seconds=0.000021
+2026-10-17 20:54:56.734 phase=save_lock seconds=0.000007
+2026-10-17 20:54:56.742 phase=validation seconds=0.007508
+2026-10-17 20:54:56.746 phase=runtime_lock seconds=0.000007 holder=none
+2026-10-17 20:54:56.747 phase=pending_observations seconds=0.000006
+2026-10-17 20:54:57.917 phase=gc generation=2 collected=2115 seconds=0.896563
+2026-10-17 20:54:58.069 phase=checkpoint seconds=1.321620
+2026-10-17 20:54:58.069 phase=routes_before seconds=0.000332
+2026-10-17 20:54:58.816 phase=evaluate discover=True discovery=0.358153 engine=0.092629 catalog=0.105506 policy=0.113556 rest=0.076423 total=0.746268
+2026-10-17 20:54:58.821 phase=evaluation seconds=0.751516
+2026-10-17 20:54:58.821 phase=routes_after seconds=0.000135
+2026-10-17 20:54:58.967 phase=snapshot seconds=0.137299
+2026-10-17 20:54:59.030 phase=storage_write seconds=0.063566
+2026-10-17 20:54:59.076 phase=storage_read seconds=0.045110
+2026-10-17 20:54:59.098 phase=storage_compare seconds=0.022302
+2026-10-17 20:54:59.118 phase=complete seconds=0.296926
+2026-10-17 20:54:59.272 phase=request_total seconds=2.538115
+2026-10-17 20:55:07.573 phase=request_queue seconds=0.000017
+2026-10-17 20:55:07.574 phase=save_lock seconds=0.000005
+2026-10-17 20:55:07.582 phase=validation seconds=0.007966
+2026-10-17 20:55:07.586 phase=runtime_lock seconds=0.000004 holder=none
+2026-10-17 20:55:07.586 phase=pending_observations seconds=0.000005
+2026-10-17 20:55:08.013 phase=checkpoint seconds=0.426402
+2026-10-17 20:55:08.013 phase=routes_before seconds=0.000333
+2026-10-17 20:55:08.854 phase=evaluate discover=True discovery=0.350196 engine=0.219396 catalog=0.102409 policy=0.107056 rest=0.060782 total=0.839839
+2026-10-17 20:55:08.861 phase=evaluation seconds=0.847112
+2026-10-17 20:55:08.861 phase=routes_after seconds=0.000132
+2026-10-17 20:55:09.018 phase=snapshot seconds=0.149093
+2026-10-17 20:55:09.091 phase=storage_write seconds=0.072413
+2026-10-17 20:55:09.137 phase=storage_read seconds=0.045833
+2026-10-17 20:55:09.163 phase=storage_compare seconds=0.026032
+2026-10-17 20:55:09.185 phase=complete seconds=0.323836
+2026-10-17 20:55:09.336 phase=request_total seconds=1.762208
+2026-10-17 20:55:16.450 phase=evaluate discover=False discovery=0.000017 engine=0.002030 catalog=0.000232 policy=0.000014 rest=0.036600 total=0.038893
+2026-10-17 20:55:16.595 phase=snapshot seconds=0.136404
+2026-10-17 20:55:16.655 phase=storage_write seconds=0.060176
+2026-10-17 20:55:16.698 phase=storage_read seconds=0.042542
+2026-10-17 20:55:16.720 phase=storage_compare seconds=0.022126
+2026-10-17 20:55:16.743 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000004 evaluation=0.039079 total=0.371452
+2026-10-17 20:55:19.605 phase=request_queue seconds=0.000018
+2026-10-17 20:55:19.605 phase=save_lock seconds=0.000004
+2026-10-17 20:55:19.613 phase=validation seconds=0.007816
+2026-10-17 20:55:19.617 phase=runtime_lock seconds=0.000005 holder=none
+2026-10-17 20:55:19.618 phase=pending_observations seconds=0.000005
+2026-10-17 20:55:20.042 phase=checkpoint seconds=0.423615
+2026-10-17 20:55:20.042 phase=routes_before seconds=0.000337
+2026-10-17 20:55:21.135 phase=gc generation=2 collected=4107 seconds=0.886666
+2026-10-17 20:55:21.670 phase=evaluate discover=True discovery=1.242103 engine=0.091998 catalog=0.102957 policy=0.117477 rest=0.072438 total=1.626974
+2026-10-17 20:55:21.674 phase=evaluation seconds=1.631866
+2026-10-17 20:55:21.675 phase=routes_after seconds=0.000133
+2026-10-17 20:55:21.820 phase=snapshot seconds=0.136411
+2026-10-17 20:55:21.881 phase=storage_write seconds=0.061795
+2026-10-17 20:55:21.938 phase=storage_read seconds=0.056738
+2026-10-17 20:55:21.962 phase=storage_compare seconds=0.023645
+2026-10-17 20:55:21.984 phase=complete seconds=0.309647
+2026-10-17 20:55:22.137 phase=request_total seconds=2.532530
+2026-10-17 20:55:30.444 phase=request_queue seconds=0.000019
+2026-10-17 20:55:30.444 phase=save_lock seconds=0.000005
+2026-10-17 20:55:30.453 phase=validation seconds=0.007474
+2026-10-17 20:55:30.456 phase=runtime_lock seconds=0.000004 holder=none
+2026-10-17 20:55:30.457 phase=pending_observations seconds=0.000006
+2026-10-17 20:55:30.877 phase=checkpoint seconds=0.420436
+2026-10-17 20:55:30.878 phase=routes_before seconds=0.000323
+2026-10-17 20:55:31.732 phase=evaluate discover=True discovery=0.349315 engine=0.211001 catalog=0.102996 policy=0.118237 rest=0.072178 total=0.853728
+2026-10-17 20:55:31.739 phase=evaluation seconds=0.860494
+2026-10-17 20:55:31.739 phase=routes_after seconds=0.000132
+2026-10-17 20:55:31.883 phase=snapshot seconds=0.136131
+2026-10-17 20:55:31.915 phase=summary seconds=60.2 refreshes=2 causes=reconcile:1,state:1 discoveries=1 saves=7 evaluation_seconds=0.641 snapshot_seconds=0.975 gc_long=2 gc_seconds=2.685
+2026-10-17 20:55:31.948 phase=storage_write seconds=0.064764
+2026-10-17 20:55:32.002 phase=storage_read seconds=0.053529
+2026-10-17 20:55:32.026 phase=storage_compare seconds=0.024279
+2026-10-17 20:55:32.048 phase=complete seconds=0.309445
+2026-10-17 20:55:32.198 phase=request_total seconds=1.753724
+2026-10-17 20:55:33.089 phase=gc generation=2 collected=316 seconds=0.834918
+2026-10-17 20:55:33.640 phase=evaluate discover=True discovery=1.304061 engine=0.030895 catalog=0.038389 policy=0.001905 rest=0.063288 total=1.438539
+2026-10-17 20:55:33.813 phase=snapshot seconds=0.151168
+2026-10-17 20:55:33.876 phase=storage_write seconds=0.063498
+2026-10-17 20:55:33.926 phase=storage_read seconds=0.049943
+2026-10-17 20:55:33.950 phase=storage_compare seconds=0.023781
+2026-10-17 20:55:33.972 phase=refresh cause=reconcile reconcile=True discover=True lock_wait=0.280516 evaluation=1.451269 total=2.051561
+2026-10-17 20:55:44.251 phase=request_queue seconds=0.000011
+2026-10-17 20:55:44.251 phase=save_lock seconds=0.000004
+2026-10-17 20:55:44.259 phase=validation seconds=0.006875
+2026-10-17 20:55:44.263 phase=runtime_lock seconds=0.000008 holder=none
+2026-10-17 20:55:44.264 phase=pending_observations seconds=0.000006
+2026-10-17 20:55:44.691 phase=checkpoint seconds=0.426626
+2026-10-17 20:55:44.691 phase=routes_before seconds=0.000326
+2026-10-17 20:55:45.441 phase=evaluate discover=True discovery=0.354514 engine=0.095694 catalog=0.103939 policy=0.118004 rest=0.077609 total=0.749761
+2026-10-17 20:55:45.446 phase=evaluation seconds=0.754682
+2026-10-17 20:55:45.446 phase=routes_after seconds=0.000135
+2026-10-17 20:55:45.594 phase=snapshot seconds=0.138811
+2026-10-17 20:55:45.657 phase=storage_write seconds=0.062943
+2026-10-17 20:55:45.698 phase=storage_read seconds=0.040585
+2026-10-17 20:55:45.721 phase=storage_compare seconds=0.023144
+2026-10-17 20:55:45.744 phase=complete seconds=0.297054
+2026-10-17 20:55:45.899 phase=request_total seconds=1.647846
+2026-10-17 20:55:46.736 phase=evaluate discover=False discovery=0.000018 engine=0.001783 catalog=0.000121 policy=0.000015 rest=0.031585 total=0.033522
+2026-10-17 20:55:46.889 phase=snapshot seconds=0.145195
+2026-10-17 20:55:46.953 phase=storage_write seconds=0.063902
+2026-10-17 20:55:46.997 phase=storage_read seconds=0.043244
+2026-10-17 20:55:47.019 phase=storage_compare seconds=0.022248
+2026-10-17 20:55:47.042 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000005 evaluation=0.033725 total=0.379002
+2026-10-17 20:55:56.987 phase=evaluate discover=False discovery=0.000017 engine=0.001743 catalog=0.000114 policy=0.000013 rest=0.032218 total=0.034105
+2026-10-17 20:55:57.138 phase=snapshot seconds=0.142543
+2026-10-17 20:55:57.204 phase=storage_write seconds=0.066582
+2026-10-17 20:55:57.244 phase=storage_read seconds=0.039293
+2026-10-17 20:55:57.266 phase=storage_compare seconds=0.021588
+2026-10-17 20:55:57.297 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000007 evaluation=0.034301 total=0.381911
+2026-10-17 21:02:43.589 phase=storage_write seconds=0.085599
+2026-10-17 21:02:43.653 phase=storage_read seconds=0.064101
+2026-10-17 21:02:43.749 phase=storage_compare seconds=0.095651
+2026-10-17 21:02:43.768 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=1.471414 evaluation=0.029985 total=1.947931
+2026-10-17 21:02:45.206 [Recorder] phase=gc generation=2 collected=21122 seconds=0.809276
+2026-10-17 21:02:46.726 phase=evaluate discover=False discovery=0.000019 engine=0.001810 catalog=0.000110 policy=0.000014 rest=0.030188 total=0.032140
+2026-10-17 21:02:46.874 phase=snapshot seconds=0.140110
+2026-10-17 21:02:46.935 phase=storage_write seconds=0.060428
+2026-10-17 21:02:46.980 phase=storage_read seconds=0.045256
+2026-10-17 21:02:47.001 phase=storage_compare seconds=0.020315
+2026-10-17 21:02:47.022 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000006 evaluation=0.032311 total=0.366752
+2026-10-17 21:02:49.444 phase=evaluate discover=False discovery=0.000017 engine=0.001725 catalog=0.000108 policy=0.000013 rest=0.032220 total=0.034083
+2026-10-17 21:02:49.585 phase=snapshot seconds=0.133049
+2026-10-17 21:02:49.647 phase=storage_write seconds=0.061891
+2026-10-17 21:02:49.690 phase=storage_read seconds=0.042878
+2026-10-17 21:02:49.714 phase=storage_compare seconds=0.023751
+2026-10-17 21:02:49.737 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000005 evaluation=0.034261 total=1.389950
+2026-10-17 21:02:52.017 phase=evaluate discover=False discovery=0.000015 engine=0.001738 catalog=0.000106 policy=0.000012 rest=0.035931 total=0.037802
+2026-10-17 21:02:52.820 phase=gc generation=2 collected=14148 seconds=0.793670
+2026-10-17 21:02:52.955 phase=snapshot seconds=0.929898
+2026-10-17 21:02:53.016 phase=storage_write seconds=0.060397
+2026-10-17 21:02:53.055 phase=storage_read seconds=0.039545
+2026-10-17 21:02:53.078 phase=storage_compare seconds=0.023106
+2026-10-17 21:02:53.100 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000007 evaluation=0.037980 total=1.159163
+2026-10-17 21:02:59.751 phase=evaluate discover=False discovery=0.000017 engine=0.001889 catalog=0.000161 policy=0.000014 rest=0.029637 total=0.031719
+2026-10-17 21:02:59.902 phase=snapshot seconds=0.143182
+2026-10-17 21:02:59.970 phase=storage_write seconds=0.067187
+2026-10-17 21:03:00.010 phase=storage_read seconds=0.039742
+2026-10-17 21:03:00.030 phase=storage_compare seconds=0.020592
+2026-10-17 21:03:00.051 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000009 evaluation=0.031903 total=0.375354
+2026-10-17 21:03:02.091 phase=evaluate discover=False discovery=0.000015 engine=0.001708 catalog=0.000112 policy=0.000011 rest=0.034891 total=0.036738
+2026-10-17 21:03:02.233 phase=snapshot seconds=0.134613
+2026-10-17 21:03:02.306 phase=storage_write seconds=0.072691
+2026-10-17 21:03:02.354 phase=storage_read seconds=0.047625
+2026-10-17 21:03:02.384 phase=storage_compare seconds=0.029829
+2026-10-17 21:03:02.406 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000006 evaluation=0.036921 total=0.388776
+2026-10-17 21:03:02.604 phase=evaluate discover=False discovery=0.000017 engine=0.001696 catalog=0.000112 policy=0.000012 rest=0.030183 total=0.032021
+2026-10-17 21:03:02.755 phase=snapshot seconds=0.142557
+2026-10-17 21:03:02.819 phase=storage_write seconds=0.064300
+2026-10-17 21:03:02.865 phase=storage_read seconds=0.045579
+2026-10-17 21:03:02.888 phase=storage_compare seconds=0.022328
+2026-10-17 21:03:02.910 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000005 evaluation=0.032192 total=0.416523
+2026-10-17 21:03:03.196 phase=evaluate discover=False discovery=0.000016 engine=0.001735 catalog=0.000121 policy=0.000013 rest=0.030754 total=0.032639
+2026-10-17 21:03:03.349 phase=snapshot seconds=0.145114
+2026-10-17 21:03:03.414 phase=storage_write seconds=0.064442
+2026-10-17 21:03:03.456 phase=storage_read seconds=0.041711
+2026-10-17 21:03:03.481 phase=storage_compare seconds=0.025225
+2026-10-17 21:03:03.503 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000005 evaluation=0.032811 total=0.504319
+2026-10-17 21:03:05.835 phase=evaluate discover=False discovery=0.000017 engine=0.001754 catalog=0.000119 policy=0.000012 rest=0.031365 total=0.033268
+2026-10-17 21:03:05.988 phase=snapshot seconds=0.143983
+2026-10-17 21:03:06.052 phase=storage_write seconds=0.063595
+2026-10-17 21:03:06.099 phase=storage_read seconds=0.047319
+2026-10-17 21:03:06.124 phase=storage_compare seconds=0.024911
+2026-10-17 21:03:06.146 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000008 evaluation=0.033434 total=0.382317
+2026-10-17 21:03:06.308 phase=evaluate discover=False discovery=0.000016 engine=0.001758 catalog=0.000118 policy=0.000012 rest=0.030389 total=0.032293
+2026-10-17 21:03:06.458 phase=snapshot seconds=0.142503
+2026-10-17 21:03:06.528 phase=storage_write seconds=0.069929
+2026-10-17 21:03:06.572 phase=storage_read seconds=0.043605
+2026-10-17 21:03:06.596 phase=storage_compare seconds=0.023489
+2026-10-17 21:03:06.617 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000005 evaluation=0.032471 total=0.383047
+2026-10-17 21:03:07.624 phase=gc generation=2 collected=1039 seconds=0.789929
+2026-10-17 21:03:07.640 phase=evaluate discover=False discovery=0.000018 engine=0.001826 catalog=0.000121 policy=0.000013 rest=0.823441 total=0.825419
+2026-10-17 21:03:07.784 phase=snapshot seconds=0.135208
+2026-10-17 21:03:07.854 phase=storage_write seconds=0.069982
+2026-10-17 21:03:07.901 phase=storage_read seconds=0.047241
+2026-10-17 21:03:07.925 phase=storage_compare seconds=0.023491
+2026-10-17 21:03:07.947 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000005 evaluation=0.825576 total=1.242805
+2026-10-17 21:03:09.482 phase=evaluate discover=False discovery=0.000023 engine=0.002090 catalog=0.000141 policy=0.000013 rest=0.037991 total=0.040260
+2026-10-17 21:03:09.628 phase=snapshot seconds=0.137583
+2026-10-17 21:03:09.690 phase=storage_write seconds=0.061974
+2026-10-17 21:03:09.730 phase=storage_read seconds=0.040446
+2026-10-17 21:03:09.753 phase=storage_compare seconds=0.022559
+2026-10-17 21:03:09.775 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000007 evaluation=0.040438 total=0.372342
+2026-10-17 21:03:10.918 phase=evaluate discover=False discovery=0.000015 engine=0.001697 catalog=0.000115 policy=0.000012 rest=0.032717 total=0.034558
+2026-10-17 21:03:11.061 phase=snapshot seconds=0.134785
+2026-10-17 21:03:11.122 phase=storage_write seconds=0.060770
+2026-10-17 21:03:11.179 phase=storage_read seconds=0.057078
+2026-10-17 21:03:11.201 phase=storage_compare seconds=0.021744
+2026-10-17 21:03:11.223 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000007 evaluation=0.034736 total=0.940924
+2026-10-17 21:03:11.346 phase=evaluate discover=False discovery=0.000012 engine=0.001640 catalog=0.000105 policy=0.000011 rest=0.034079 total=0.035848
+2026-10-17 21:03:11.499 phase=snapshot seconds=0.145446
+2026-10-17 21:03:11.559 phase=storage_write seconds=0.059111
+2026-10-17 21:03:11.602 phase=storage_read seconds=0.042919
+2026-10-17 21:03:11.624 phase=storage_compare seconds=0.022264
+2026-10-17 21:03:11.645 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000005 evaluation=0.036017 total=0.336132
+2026-10-17 21:03:13.134 phase=evaluate discover=False discovery=0.000016 engine=0.001686 catalog=0.000105 policy=0.000011 rest=0.030706 total=0.032525
+2026-10-17 21:03:13.291 phase=snapshot seconds=0.148498
+2026-10-17 21:03:13.357 phase=storage_write seconds=0.066244
+2026-10-17 21:03:13.399 phase=storage_read seconds=0.041524
+2026-10-17 21:03:13.423 phase=storage_compare seconds=0.024278
+2026-10-17 21:03:13.444 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000008 evaluation=0.032698 total=0.385724
+2026-10-17 21:03:33.236 phase=evaluate discover=False discovery=0.000015 engine=0.001786 catalog=0.000140 policy=0.000015 rest=0.036600 total=0.038557
+2026-10-17 21:03:34.035 phase=gc generation=2 collected=2451 seconds=0.790417
+2026-10-17 21:03:34.172 phase=snapshot seconds=0.927550
+2026-10-17 21:03:34.234 phase=storage_write seconds=0.062212
+2026-10-17 21:03:34.279 phase=storage_read seconds=0.044672
+2026-10-17 21:03:34.303 phase=storage_compare seconds=0.024036
+2026-10-17 21:03:34.325 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000006 evaluation=0.038734 total=1.165688
+2026-10-17 21:03:38.859 phase=summary seconds=104.6 refreshes=17 causes=config_entry:5,start:1,state:11 discoveries=1 saves=17 evaluation_seconds=4.003 snapshot_seconds=4.066 gc_long=5 gc_seconds=5.012
+2026-10-17 21:03:39.399 phase=evaluate discover=True discovery=0.440192 engine=0.021010 catalog=0.012786 policy=0.002034 rest=0.062140 total=0.538163
+2026-10-17 21:03:39.546 phase=snapshot seconds=0.138779
+2026-10-17 21:03:39.607 phase=storage_write seconds=0.060718
+2026-10-17 21:03:39.656 phase=storage_read seconds=0.048808
+2026-10-17 21:03:39.678 phase=storage_compare seconds=0.021677
+2026-10-17 21:03:39.698 phase=refresh cause=reconcile reconcile=True discover=True lock_wait=0.000008 evaluation=0.538761 total=0.838749
+2026-10-17 21:03:44.683 phase=evaluate discover=False discovery=0.000014 engine=0.001875 catalog=0.000181 policy=0.000012 rest=0.035915 total=0.037998
+2026-10-17 21:03:44.825 phase=snapshot seconds=0.133085
+2026-10-17 21:03:44.886 phase=storage_write seconds=0.061367
+2026-10-17 21:03:44.925 phase=storage_read seconds=0.038229
+2026-10-17 21:03:44.945 phase=storage_compare seconds=0.020544
+2026-10-17 21:03:44.966 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000008 evaluation=0.038185 total=0.359559
+2026-10-17 21:04:24.909 phase=evaluate discover=False discovery=0.000015 engine=0.001740 catalog=0.000103 policy=0.000014 rest=0.041615 total=0.043489
+2026-10-17 21:04:25.052 phase=snapshot seconds=0.134328
+2026-10-17 21:04:25.110 phase=storage_write seconds=0.058059
+2026-10-17 21:04:25.243 phase=storage_read seconds=0.132751
+2026-10-17 21:04:25.269 phase=storage_compare seconds=0.026568
+2026-10-17 21:04:25.292 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000005 evaluation=0.043672 total=0.464470
+2026-10-17 21:04:35.293 phase=evaluate discover=False discovery=0.000015 engine=0.001797 catalog=0.000107 policy=0.000012 rest=0.041320 total=0.043251
+2026-10-17 21:04:35.436 phase=snapshot seconds=0.133392
+2026-10-17 21:04:35.496 phase=storage_write seconds=0.060449
+2026-10-17 21:04:35.536 phase=storage_read seconds=0.039143
+2026-10-17 21:04:35.555 phase=storage_compare seconds=0.019731
+2026-10-17 21:04:35.576 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000007 evaluation=0.043431 total=0.369253
+2026-10-17 21:04:38.897 phase=evaluate discover=False discovery=0.000019 engine=0.002674 catalog=0.000184 policy=0.000016 rest=0.034122 total=0.037016
+2026-10-17 21:04:39.077 phase=snapshot seconds=0.149243
+2026-10-17 21:04:39.077 phase=summary seconds=60.2 refreshes=4 causes=config_entry:3,reconcile:1 discoveries=1 saves=5 evaluation_seconds=0.664 snapshot_seconds=0.689 gc_long=0 gc_seconds=0.246
+2026-10-17 21:04:39.166 phase=storage_write seconds=0.088663
+2026-10-17 21:04:39.210 phase=storage_read seconds=0.043772
+2026-10-17 21:04:39.231 phase=storage_compare seconds=0.021287
+2026-10-17 21:04:39.256 phase=refresh cause=deadline reconcile=False discover=False lock_wait=0.000009 evaluation=0.052358 total=0.396476
+2026-10-17 21:04:40.003 phase=evaluate discover=True discovery=0.475538 engine=0.022068 catalog=0.013564 policy=0.002376 rest=0.077534 total=0.591080
+2026-10-17 21:04:40.919 phase=gc generation=2 collected=4913 seconds=0.830545
+2026-10-17 21:04:41.004 phase=snapshot seconds=0.985526
+2026-10-17 21:04:41.075 phase=storage_write seconds=0.070770
+2026-10-17 21:04:41.122 phase=storage_read seconds=0.046998
+2026-10-17 21:04:41.146 phase=storage_compare seconds=0.023602
+2026-10-17 21:04:41.171 phase=refresh cause=reconcile reconcile=True discover=True lock_wait=0.000005 evaluation=0.592046 total=1.760436
+2026-10-17 21:04:43.663 phase=evaluate discover=False discovery=0.000017 engine=0.002665 catalog=0.000129 policy=0.000011 rest=0.035001 total=0.037824
+2026-10-17 21:04:43.830 phase=snapshot seconds=0.152036
+2026-10-17 21:04:43.904 phase=storage_write seconds=0.073611
+2026-10-17 21:04:43.951 phase=storage_read seconds=0.047487
+2026-10-17 21:04:43.975 phase=storage_compare seconds=0.023368
+2026-10-17 21:04:43.999 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000008 evaluation=0.038008 total=0.431079
+2026-10-17 21:04:48.379 phase=evaluate discover=False discovery=0.000022 engine=0.002887 catalog=0.000199 policy=0.000019 rest=0.034599 total=0.037726
+2026-10-17 21:04:48.545 phase=snapshot seconds=0.149208
+2026-10-17 21:04:48.612 phase=storage_write seconds=0.067356
+2026-10-17 21:04:48.659 phase=storage_read seconds=0.046661
+2026-10-17 21:04:48.682 phase=storage_compare seconds=0.022855
+2026-10-17 21:04:48.707 phase=refresh cause=deadline reconcile=False discover=False lock_wait=0.000009 evaluation=0.039909 total=0.365989
+2026-10-17 21:04:48.879 phase=evaluate discover=False discovery=0.000012 engine=0.001775 catalog=0.000108 policy=0.000011 rest=0.031271 total=0.033178
+2026-10-17 21:04:49.045 phase=snapshot seconds=0.149204
+2026-10-17 21:04:49.112 phase=storage_write seconds=0.066581
+2026-10-17 21:04:49.155 phase=storage_read seconds=0.042595
+2026-10-17 21:04:49.177 phase=storage_compare seconds=0.022685
+2026-10-17 21:04:49.201 phase=refresh cause=deadline reconcile=False discover=False lock_wait=0.000005 evaluation=0.039422 total=0.355677
+2026-10-17 21:04:57.841 phase=evaluate discover=False discovery=0.000016 engine=0.001715 catalog=0.000103 policy=0.000012 rest=0.030929 total=0.032775
+2026-10-17 21:04:57.998 phase=snapshot seconds=0.146316
+2026-10-17 21:04:58.063 phase=storage_write seconds=0.065223
+2026-10-17 21:04:58.108 phase=storage_read seconds=0.044688
+2026-10-17 21:04:58.133 phase=storage_compare seconds=0.024249
+2026-10-17 21:04:58.155 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000008 evaluation=0.032958 total=0.392098
+2026-10-17 21:05:10.322 phase=evaluate discover=False discovery=0.000019 engine=0.002577 catalog=0.000164 policy=0.000015 rest=0.038048 total=0.040823
+2026-10-17 21:05:10.474 phase=snapshot seconds=0.140224
+2026-10-17 21:05:10.566 phase=storage_write seconds=0.091434
+2026-10-17 21:05:10.608 phase=storage_read seconds=0.041635
+2026-10-17 21:05:10.633 phase=storage_compare seconds=0.025633
+2026-10-17 21:05:10.656 phase=refresh cause=deadline reconcile=False discover=False lock_wait=0.000008 evaluation=0.043200 total=0.375193
+2026-10-17 21:05:10.799 phase=evaluate discover=False discovery=0.000013 engine=0.001837 catalog=0.000175 policy=0.000010 rest=0.032724 total=0.034760
+2026-10-17 21:05:10.958 phase=snapshot seconds=0.147461
+2026-10-17 21:05:11.024 phase=storage_write seconds=0.066754
+2026-10-17 21:05:11.069 phase=storage_read seconds=0.044797
+2026-10-17 21:05:11.092 phase=storage_compare seconds=0.022582
+2026-10-17 21:05:11.114 phase=refresh cause=deadline reconcile=False discover=False lock_wait=0.000008 evaluation=0.037436 total=0.350362
+2026-10-17 21:05:39.078 phase=summary seconds=60.0 refreshes=8 causes=deadline:5,reconcile:1,state:2 discoveries=1 saves=7 evaluation_seconds=0.875 snapshot_seconds=1.870 gc_long=1 gc_seconds=1.199
+2026-10-17 21:05:39.645 phase=evaluate discover=True discovery=0.457992 engine=0.020409 catalog=0.012607 policy=0.002060 rest=0.072515 total=0.565584
+2026-10-17 21:05:40.583 phase=gc generation=2 collected=3706 seconds=0.843388
+2026-10-17 21:05:40.637 phase=snapshot seconds=0.982778
+2026-10-17 21:05:40.713 phase=storage_write seconds=0.075938
+2026-10-17 21:05:40.761 phase=storage_read seconds=0.047466
+2026-10-17 21:05:40.785 phase=storage_compare seconds=0.024020
+2026-10-17 21:05:40.808 phase=refresh cause=reconcile reconcile=True discover=True lock_wait=0.000007 evaluation=0.566528 total=1.729364
+2026-10-17 21:05:52.140 phase=request_queue seconds=0.000021
+2026-10-17 21:05:52.140 phase=save_lock seconds=0.000007
+2026-10-17 21:05:52.148 phase=validation seconds=0.007281
+2026-10-17 21:05:52.152 phase=runtime_lock seconds=0.000009 holder=none
+2026-10-17 21:05:52.152 phase=pending_observations seconds=0.000006
+2026-10-17 21:05:52.270 phase=checkpoint seconds=0.117102
+2026-10-17 21:05:52.270 phase=routes_before seconds=0.000390
+2026-10-17 21:05:53.021 phase=evaluate discover=True discovery=0.320723 engine=0.190087 catalog=0.081395 policy=0.102148 rest=0.056359 total=0.750712
+2026-10-17 21:05:53.027 phase=evaluation seconds=0.756903
+2026-10-17 21:05:53.028 phase=routes_after seconds=0.000157
+2026-10-17 21:05:53.175 phase=snapshot seconds=0.138940
+2026-10-17 21:05:53.233 phase=storage_write seconds=0.058388
+2026-10-17 21:05:53.279 phase=storage_read seconds=0.045330
+2026-10-17 21:05:53.301 phase=storage_compare seconds=0.021590
+2026-10-17 21:05:53.321 phase=complete seconds=0.293447
+2026-10-17 21:05:53.472 phase=request_total seconds=1.332001
+2026-10-17 21:05:55.368 phase=evaluate discover=False discovery=0.000016 engine=0.001898 catalog=0.000190 policy=0.000012 rest=0.033160 total=0.035277
+2026-10-17 21:05:55.519 phase=snapshot seconds=0.142442
+2026-10-17 21:05:55.581 phase=storage_write seconds=0.061298
+2026-10-17 21:05:55.623 phase=storage_read seconds=0.041804
+2026-10-17 21:05:55.644 phase=storage_compare seconds=0.021278
+2026-10-17 21:05:55.666 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000007 evaluation=0.035460 total=0.375091
+2026-10-17 21:06:03.758 phase=request_queue seconds=0.000017
+2026-10-17 21:06:03.758 phase=save_lock seconds=0.000006
+2026-10-17 21:06:03.765 phase=validation seconds=0.006292
+2026-10-17 21:06:03.769 phase=runtime_lock seconds=0.000011 holder=none
+2026-10-17 21:06:03.769 phase=pending_observations seconds=0.000006
+2026-10-17 21:06:03.891 phase=checkpoint seconds=0.121590
+2026-10-17 21:06:03.892 phase=routes_before seconds=0.000399
+2026-10-17 21:06:04.559 phase=evaluate discover=True discovery=0.317053 engine=0.089474 catalog=0.082248 policy=0.117337 rest=0.060485 total=0.666598
+2026-10-17 21:06:04.563 phase=evaluation seconds=0.671362
+2026-10-17 21:06:04.564 phase=routes_after seconds=0.000152
+2026-10-17 21:06:04.717 phase=snapshot seconds=0.144784
+2026-10-17 21:06:04.779 phase=storage_write seconds=0.062003
+2026-10-17 21:06:04.901 phase=storage_read seconds=0.121355
+2026-10-17 21:06:04.927 phase=storage_compare seconds=0.025735
+2026-10-17 21:06:04.948 phase=complete seconds=0.384203
+2026-10-17 21:06:05.095 phase=request_total seconds=1.337411
+2026-10-17 21:06:05.652 phase=evaluate discover=False discovery=0.000016 engine=0.001818 catalog=0.000112 policy=0.000011 rest=0.031080 total=0.033037
+2026-10-17 21:06:05.805 phase=snapshot seconds=0.143911
+2026-10-17 21:06:05.868 phase=storage_write seconds=0.063602
+2026-10-17 21:06:05.909 phase=storage_read seconds=0.040219
+2026-10-17 21:06:05.931 phase=storage_compare seconds=0.021689
+2026-10-17 21:06:05.953 phase=refresh cause=config_entry reconcile=False discover=False lock_wait=0.000009 evaluation=0.033223 total=0.377100
+2026-10-17 21:06:11.964 phase=gc generation=2 collected=2720 seconds=0.835259
+2026-10-17 21:06:14.297 phase=request_queue seconds=0.000012
+2026-10-17 21:06:14.297 phase=save_lock seconds=0.000004
+2026-10-17 21:06:14.305 phase=validation seconds=0.007784
+2026-10-17 21:06:14.309 phase=runtime_lock seconds=0.000007 holder=none
+2026-10-17 21:06:14.310 phase=pending_observations seconds=0.000006
+2026-10-17 21:06:14.434 phase=checkpoint seconds=0.124153
+2026-10-17 21:06:14.435 phase=routes_before seconds=0.000350
+2026-10-17 21:06:15.226 phase=evaluate discover=True discovery=0.316943 engine=0.205584 catalog=0.082833 policy=0.112864 rest=0.073054 total=0.791279
+2026-10-17 21:06:15.233 phase=evaluation seconds=0.798358
+2026-10-17 21:06:15.234 phase=routes_after seconds=0.000137
+2026-10-17 21:06:15.378 phase=snapshot seconds=0.135515
+2026-10-17 21:06:15.441 phase=storage_write seconds=0.063703
+2026-10-17 21:06:15.486 phase=storage_read seconds=0.044274
+2026-10-17 21:06:15.507 phase=storage_compare seconds=0.020841
+2026-10-17 21:06:15.528 phase=complete seconds=0.294402
+2026-10-17 21:06:15.672 phase=request_total seconds=1.375394
+2026-10-17 21:06:25.908 phase=request_queue seconds=0.000017
+2026-10-17 21:06:25.908 phase=save_lock seconds=0.000004
+2026-10-17 21:06:25.916 phase=validation seconds=0.007084
+2026-10-17 21:06:25.920 phase=runtime_lock seconds=0.000007 holder=none
+2026-10-17 21:06:25.920 phase=pending_observations seconds=0.000005
+2026-10-17 21:06:26.045 phase=checkpoint seconds=0.124395
+2026-10-17 21:06:26.045 phase=routes_before seconds=0.000375
+2026-10-17 21:06:26.718 phase=evaluate discover=True discovery=0.316926 engine=0.091389 catalog=0.080802 policy=0.122057 rest=0.061537 total=0.672711
+2026-10-17 21:06:26.723 phase=evaluation seconds=0.677527
+2026-10-17 21:06:26.723 phase=routes_after seconds=0.000132
+2026-10-17 21:06:26.884 phase=snapshot seconds=0.151931
+2026-10-17 21:06:26.954 phase=storage_write seconds=0.069549
+2026-10-17 21:06:27.002 phase=storage_read seconds=0.048086
+2026-10-17 21:06:27.028 phase=storage_compare seconds=0.025772
+2026-10-17 21:06:27.053 phase=complete seconds=0.329725
+2026-10-17 21:06:27.201 phase=request_total seconds=1.293345
+2026-10-17 21:06:35.513 phase=request_queue seconds=0.000012
+2026-10-17 21:06:35.513 phase=save_lock seconds=0.000004
+2026-10-17 21:06:35.522 phase=validation seconds=0.007800
+2026-10-17 21:06:35.525 phase=runtime_lock seconds=0.000007 holder=none
+2026-10-17 21:06:35.526 phase=pending_observations seconds=0.000005
+2026-10-17 21:06:35.658 phase=checkpoint seconds=0.131718
+2026-10-17 21:06:35.658 phase=routes_before seconds=0.000365
+2026-10-17 21:06:37.043 phase=gc generation=2 collected=1284 seconds=0.868495
+2026-10-17 21:06:37.345 phase=evaluate discover=True discovery=0.321851 engine=1.079886 catalog=0.084988 policy=0.120708 rest=0.079072 total=1.686506
+2026-10-17 21:06:37.352 phase=evaluation seconds=1.693864
+2026-10-17 21:06:37.353 phase=routes_after seconds=0.000142
+2026-10-17 21:06:37.499 phase=snapshot seconds=0.137282
+2026-10-17 21:06:37.587 phase=storage_write seconds=0.087976
+2026-10-17 21:06:37.635 phase=storage_read seconds=0.047789
+2026-10-17 21:06:37.658 phase=storage_compare seconds=0.023291
+2026-10-17 21:06:37.680 phase=complete seconds=0.327600
+2026-10-17 21:06:37.831 phase=request_total seconds=2.317958
+2026-10-17 21:06:39.079 phase=summary seconds=60.0 refreshes=3 causes=config_entry:2,reconcile:1 discoveries=1 saves=8 evaluation_seconds=0.635 snapshot_seconds=1.978 gc_long=3 gc_seconds=3.295
+2026-10-17 21:06:39.643 phase=evaluate discover=True discovery=0.453169 engine=0.020934 catalog=0.012695 policy=0.002176 rest=0.073729 total=0.562705
+2026-10-17 21:06:39.788 phase=snapshot seconds=0.136032
+2026-10-17 21:06:39.858 phase=storage_write seconds=0.068904
+2026-10-17 21:06:39.921 phase=storage_read seconds=0.063427
+2026-10-17 21:06:39.946 phase=storage_compare seconds=0.024740
+2026-10-17 21:06:39.971 phase=refresh cause=reconcile reconcile=True discover=True lock_wait=0.000007 evaluation=0.563438 total=0.891179
+2026-10-17 21:06:48.122 phase=request_queue seconds=0.000017
+2026-10-17 21:06:48.122 phase=save_lock seconds=0.000005
+2026-10-17 21:06:48.131 phase=validation seconds=0.007549
+2026-10-17 21:06:48.134 phase=runtime_lock seconds=0.000007 holder=none
+2026-10-17 21:06:48.135 phase=pending_observations seconds=0.000005
+2026-10-17 21:06:48.257 phase=checkpoint seconds=0.121987
+2026-10-17 21:06:48.257 phase=routes_before seconds=0.000382
+2026-10-17 21:06:48.933 phase=evaluate discover=True discovery=0.322337 engine=0.096143 catalog=0.083567 policy=0.111393 rest=0.061944 total=0.675386
+2026-10-17 21:06:48.938 phase=evaluation seconds=0.680252
+2026-10-17 21:06:48.938 phase=routes_after seconds=0.000133
+2026-10-17 21:06:49.095 phase=snapshot seconds=0.148540
+2026-10-17 21:06:49.156 phase=storage_write seconds=0.060237
+2026-10-17 21:06:49.202 phase=storage_read seconds=0.046022
+2026-10-17 21:06:49.226 phase=storage_compare seconds=0.024176
+2026-10-17 21:06:49.248 phase=complete seconds=0.309709
+2026-10-17 21:06:49.397 phase=request_total seconds=1.274836
+2026-10-17 21:07:12.449 phase=evaluate discover=False discovery=0.000020 engine=0.001896 catalog=0.000226 policy=0.000022 rest=0.038863 total=0.041028
+2026-10-17 21:07:12.598 phase=snapshot seconds=0.140246
+2026-10-17 21:07:12.670 phase=storage_write seconds=0.072280
+2026-10-17 21:07:12.736 phase=storage_read seconds=0.065116
+2026-10-17 21:07:12.767 phase=storage_compare seconds=0.031246
+2026-10-17 21:07:12.791 phase=refresh cause=state reconcile=False discover=False lock_wait=0.000006 evaluation=0.041222 total=0.424466
+2026-10-17 21:07:13.699 phase=gc generation=2 collected=2944 seconds=0.871310

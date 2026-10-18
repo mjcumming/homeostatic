@@ -230,6 +230,7 @@ class Runtime:
         self.inventory_static: dict[str, JSONValue] = {}
         self._refresh_task: asyncio.Task[None] | None = None
         self._refresh_causes: set[str] = set()
+        self._scan: tuple[Any, dict[str, Source]] | None = None
         self._lock_holder: str | None = None
         self._gc_started: float | None = None
         self._window = _new_window()
@@ -667,13 +668,41 @@ class Runtime:
     async def _stop_event(self, event: Event[Any]) -> None:
         await self.async_stop()
 
-    def _discover(self) -> dict[str, Source]:
+    def _scan_key(self) -> Any:
+        """Identify the settings the registry scan reads: selections, never exclusions."""
+        return (
+            self.settings.functions,
+            tuple(
+                (policy.match, policy.enabled)
+                for policy in self.settings.monitoring_policies
+            ),
+        )
+
+    def _discover(self, *, rescan: bool = True) -> dict[str, Source]:
         rules = (*enrollment_rules(self.settings.monitoring_policies),)
-        discovered = inventory(self.hass, self.settings, self.enrolled)
+        key = self._scan_key()
+        cached = self._scan
+        if not rescan and cached is not None and cached[0] == key:
+            # A rule or exclusion edit changes no registry: re-evaluate the last
+            # scan. Metadata retained for vanished sources refreshes at the next
+            # reconciliation, which always scans.
+            discovered = cached[1]
+        else:
+            discovered = inventory(self.hass, self.settings, self.enrolled)
+            cached = (key, discovered)
         discovered = retained_candidates(
             self.hass, discovered, self.candidates, self._ups_saved
         )
-        candidates = evaluate(discovered, rules)
+        candidates = evaluate(
+            discovered,
+            rules,
+            previous=self.candidates,
+            previous_rules=(
+                (*enrollment_rules(self._compiled_settings.monitoring_policies),)
+                if self._compiled_settings is not None
+                else None
+            ),
+        )
         selected_ups = ups_sources(self.settings.monitoring_policies, candidates)
         at = dt_util.utcnow().isoformat()
         batch = uuid4().hex
@@ -805,6 +834,7 @@ class Runtime:
             if source.kind in {"entity", "integration", "device", "battery", "vacuum"}
             or (source.kind == "ups" and source.monitoring_policy is None)
         }
+        self._scan = cached
         return sources
 
     def _listen_entries(self) -> None:
@@ -912,6 +942,10 @@ class Runtime:
                 "_broken_full",
                 "_broken_named",
                 "_broken_created",
+                "_refresh_causes",
+                "_lock_holder",
+                "_gc_started",
+                "_window",
             }
             previous = {
                 key: value
@@ -930,6 +964,7 @@ class Runtime:
                 "_compiled_settings",
                 "_compiled_policy",
                 "_entity_sources",
+                "_scan",
             }
             previous = {
                 **previous,
@@ -983,7 +1018,9 @@ class Runtime:
             try:
                 phase_started = perf_counter()
                 self.settings = settings
-                events = self._evaluate(now, reconcile=reconcile)
+                events = self._evaluate(
+                    now, reconcile=reconcile, rescan=self._inventory_dirty
+                )
                 self._handle(
                     events,
                     now,
@@ -1704,14 +1741,20 @@ class Runtime:
             for row in cast(list[dict[str, Any]], catalog.get("candidates", []))
         }
 
-    def _evaluate(self, now: datetime, *, reconcile: bool = True) -> list[HealthEvent]:
+    def _evaluate(
+        self, now: datetime, *, reconcile: bool = True, rescan: bool = True
+    ) -> list[HealthEvent]:
         started = perf_counter()
         first = self.engine is None
         discover = reconcile or self._inventory_dirty or first
         previous_candidates = self.candidates
         previous_targets = self.targets
         previous_changes = tuple(self.enrollment_changes)
-        sources = self._discover() if discover else self._renamed_sources()
+        sources = (
+            self._discover(rescan=rescan or first or self._inventory_dirty)
+            if discover
+            else self._renamed_sources()
+        )
         after_discovery = perf_counter()
         policy_changed = (
             first
