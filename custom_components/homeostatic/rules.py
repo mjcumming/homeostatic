@@ -39,6 +39,27 @@ def attributes(value: Any) -> Attributes:
     return result
 
 
+def alternatives(value: Any) -> tuple[Attributes, ...]:
+    """Validate editable entity-type alternatives using domains and device classes."""
+    if not isinstance(value, list) or not value:
+        raise ValueError("Metadata alternatives must be a nonempty list")
+    result = tuple(attributes(item) for item in value)
+    if any(
+        "domain" not in item or item.keys() - {"domain", "device_class"}
+        for item in result
+    ):
+        raise ValueError(
+            "Metadata alternatives need a domain and optional device class"
+        )
+    return result
+
+
+def _matches(match: Mapping[str, tuple[str, ...]], metadata: Attributes) -> bool:
+    return all(
+        set(values).intersection(metadata.get(key, ())) for key, values in match.items()
+    )
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CatalogRule:
     """One compiled policy selector with a stable explanation id."""
@@ -48,6 +69,8 @@ class CatalogRule:
     checks: tuple[str, ...] = ("availability",)
     enabled: bool = True
     excluded_sources: tuple[str, ...] = ()
+    match_any: tuple[Attributes, ...] = ()
+    match_none: tuple[Attributes, ...] = ()
 
     def matches(self, metadata: Attributes, *, source_id: str | None = None) -> bool:
         """Match every field, accepting any of its configured values."""
@@ -62,9 +85,14 @@ class CatalogRule:
             return False
         if "device" in metadata.get("kind", ()) and "kind" not in self.match:
             return False
-        return self.enabled and all(
-            set(values).intersection(metadata.get(key, ()))
-            for key, values in self.match.items()
+        return (
+            self.enabled
+            and _matches(self.match, metadata)
+            and (
+                not self.match_any
+                or any(_matches(match, metadata) for match in self.match_any)
+            )
+            and not any(_matches(match, metadata) for match in self.match_none)
         )
 
 

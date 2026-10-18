@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-14
 
+**Later decisions:** [ADR 0099](0099-two-supplied-entity-availability-policies.md) retains applicable equipment availability notifications on a confirmed shared integration issue. [ADR 0102](0102-collect-requests-by-saved-notification.md) replaces device-based message collection for reusable notifications with a fixed collection window keyed by saved notification, recipient and destination. A shared issue is not required; distinct saved notifications remain independent.
+
 **Later decision:** [ADR 0093](0093-explicit-device-availability-issue-selection.md) adds explicit selection of same-device availability issues in the shared dashboard dialog. It supersedes the single-issue-only response presentation; independent issue controls and notification grouping remain unchanged.
 
 **Later decision:** Empty supplied notification assignments are superseded by [ADR 0066](0066-reusable-notifications-own-timing-and-delivery.md). The historical decision below remains for context.

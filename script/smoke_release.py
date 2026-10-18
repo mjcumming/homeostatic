@@ -7,6 +7,7 @@ import json
 import socket
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -24,6 +25,8 @@ def unpack(archive_path: Path, config: Path) -> dict[str, str]:
     with ZipFile(archive_path) as archive:
         assert archive.testzip() is None, "Corrupt installation archive"
         info = json.loads(archive.read("BUILD_INFO.json"))
+        changelog = archive.read("CHANGELOG.md").decode("utf-8")
+        assert f"## [{info['version']}]" in changelog, "Missing release upgrade notes"
         for name, digest in info["files_sha256"].items():
             data = archive.read(name)
             assert hashlib.sha256(data).hexdigest() == digest, name
@@ -59,7 +62,7 @@ async def exercise(config: Path, port: int) -> None:
         entry = result["result"]
         assert entry.state is ConfigEntryState.LOADED, entry.state
         assert entry.data["monitoring_policy_version"] == 1
-        assert len(entry.data["monitoring_policies"]) == 7
+        assert len(entry.data["monitoring_policies"]) == 8
         assert {
             item["id"]: item["notifications"]
             for item in entry.data["monitoring_policies"]
@@ -69,6 +72,7 @@ async def exercise(config: Path, port: int) -> None:
                 ("default_integrations", "morning"),
                 ("default_devices", "morning"),
                 ("default_entities", "morning"),
+                ("default_important_equipment", "immediate"),
                 ("default_repairs", "morning"),
                 ("default_broken_automations", "morning"),
                 ("default_batteries", "morning"),
@@ -88,9 +92,61 @@ async def exercise(config: Path, port: int) -> None:
             profile["methods"] == [] for profile in definitions["profiles"].values()
         )
         assert definitions["methods"] == {}
+        assert {
+            identity: definitions["profiles"][identity]["timing"][
+                "collection_delay_seconds"
+            ]
+            for identity in ("immediate", "acknowledge", "urgent")
+        } == {"immediate": 60, "acknowledge": 5, "urgent": 60}
+        assert all(
+            "collection_delay_seconds"
+            not in definitions["profiles"][identity]["timing"]
+            for identity in ("morning", "evening", "weekly")
+        )
         assert entry.data["notifications"] is False
         assert entry.data["consumer"] is None
         assert not entry.runtime_data.query("inventory", {})["notification_requests"]
+
+        # Published 1.9 settings used these named timing shapes without a delay.
+        # Exercise the authorized reset through real setup, using only a fake route.
+        fresh = deepcopy(dict(entry.data))
+        legacy = deepcopy(fresh)
+        legacy["notifications"] = True
+        legacy["consumer"] = "automation.legacy_consumer"
+        legacy["timings"]["batch"] = 123
+        legacy_definitions = legacy["notification_definitions"]
+        for profile in legacy_definitions["profiles"].values():
+            profile["timing"].pop("collection_delay_seconds", None)
+        legacy_definitions["methods"] = {
+            "legacy": {
+                "name": "Legacy destination",
+                "mode": "fixed",
+                "destinations": ["service:legacy_unused"],
+            }
+        }
+        legacy_definitions["profiles"]["immediate"].update(
+            name="Legacy immediate", methods=["legacy"]
+        )
+        legacy["monitoring_policies"] = [
+            {
+                "id": "legacy_policy",
+                "name": "Legacy entity choice",
+                "check": "availability",
+                "enabled": True,
+                "match": {"kind": ["entity"]},
+                "parameters": {},
+                "notifications": [{"id": "now", "profile": "immediate"}],
+            }
+        ]
+        hass.config_entries.async_update_entry(entry, options=legacy)
+        assert await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        assert entry.state is ConfigEntryState.LOADED, entry.state
+        assert dict(entry.data) == fresh, "Legacy settings did not reset to defaults"
+        assert not entry.options, "Legacy options still override the reset settings"
+        assert not entry.runtime_data.settings.notifications
+        assert not entry.runtime_data.query("inventory", {})["notification_requests"]
+
         hass.config_entries.async_update_entry(
             entry,
             options={

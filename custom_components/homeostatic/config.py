@@ -1,6 +1,7 @@
 """Validated source selection and timing configuration."""
 
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from datetime import UTC, datetime, timedelta
@@ -156,6 +157,36 @@ class Settings:
     def duration(self, key: str) -> timedelta:
         """Return a configured duration in seconds."""
         return timedelta(seconds=self.timings[key])
+
+
+def uses_legacy_notification_settings(data: Mapping[str, Any]) -> bool:
+    """Recognize valid saved settings from before named collection delays."""
+    definitions = data.get("notification_definitions")
+    if not isinstance(definitions, dict):
+        return False
+    profiles = definitions.get("profiles")
+    if not isinstance(profiles, dict):
+        return False
+    collecting = [
+        identity
+        for identity, profile in profiles.items()
+        if isinstance(profile, dict)
+        and isinstance(profile.get("timing"), dict)
+        and profile["timing"].get("mode") in {"immediate", "acknowledge", "window"}
+    ]
+    if not collecting or any(
+        "collection_delay_seconds" in profiles[identity]["timing"]
+        for identity in collecting
+    ):
+        return False
+    candidate = deepcopy(dict(data))
+    for identity in collecting:
+        candidate["notification_definitions"]["profiles"][identity]["timing"][
+            "collection_delay_seconds"
+        ] = 0
+    # The old shape alone cannot turn unrelated corruption into a settings reset.
+    Settings.from_data(candidate, functions_enabled=False)
+    return True
 
 
 def entity_reference(hass: HomeAssistant, entity_id: str) -> str:

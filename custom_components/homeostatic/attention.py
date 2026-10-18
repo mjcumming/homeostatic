@@ -98,6 +98,7 @@ _SCHEMA = vol.Schema(
                     vol.Optional("escalate_after"): duration,
                     vol.Optional("require_acknowledgment"): bool,
                     vol.Optional("route"): str,
+                    vol.Optional("batch"): duration,
                 }
             ],
             vol.Length(min=1),
@@ -173,6 +174,7 @@ def _rule(row: dict[str, Any]) -> Rule:
         remind_every=row.get("remind_every"),
         escalate_after=row.get("escalate_after"),
         route=row.get("route", ""),
+        batch=row.get("batch"),
         require_acknowledgment=row.get("require_acknowledgment", False),
     )
     return rule

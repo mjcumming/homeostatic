@@ -110,6 +110,40 @@ export async function runNotificationGaps(ctx) {
     return "Required-name validation focuses the input, retains the other draft fields and emits zero save requests.";
   });
 
+  await fresh("profiles.collection-delay",async()=>{
+    const before=await snapshot(),captures=(await status()).capture_count,delay=field("timing:collection_delay_seconds");
+    for(const [id,value] of [["immediate",60],["acknowledge",5],["urgent",60]]) {
+      await edit("profiles",id);assert.equal(await at(delay).inputValue(),String(value));
+      assert.equal(await at(delay).getAttribute("min"),"0");assert.equal(await at(delay).getAttribute("step"),"1");
+    }
+    await edit("profiles","immediate");
+    assert.match(await bodyText(),/Wait this long to combine requests using this notification\. Later requests don’t extend the wait\. 0 sends without waiting\./);
+    for(const invalid of ["","-1","1.5"]) {
+      await fill(delay,invalid);const count=transport.saveRequests;await click(action("save-scoped"));
+      assert.equal(transport.saveRequests,count);assert.equal(await at(delay).evaluate(el=>el.checkValidity()),false);
+      assert.equal(await at(delay).evaluate(el=>el.getRootNode().activeElement===el),true);
+    }
+    await at(delay).fill("");await at(delay).pressSequentially("later");await at(delay).press("Tab");
+    const count=transport.saveRequests;await click(action("save-scoped"));assert.equal(transport.saveRequests,count);assert.equal(await at(delay).evaluate(el=>el.checkValidity()),false);
+    await noChange(before);
+    await at(delay).focus();await page.keyboard.press("ControlOrMeta+A");await page.keyboard.type("23");await page.keyboard.press("Tab");
+    await save();await focusEdit("profiles","immediate");
+    const after=await snapshot();scopeOnly(before,after,"profiles","immediate");assert.equal(after.notification_definitions.profiles.immediate.timing.collection_delay_seconds,23);
+    await edit("profiles","immediate");assert.equal(await at(delay).inputValue(),"23");
+    const bounds=await at(delay).boundingBox();assert.ok(bounds&&bounds.x>=0&&bounds.x+bounds.width<=page.viewportSize().width+1,"The seconds field fits the viewport");
+    await fill(delay,"31");transport.mode="reject";await click(action("save-scoped"));await error(/Synthetic save failure|failed|reject/i);
+    assert.equal(await at(delay).inputValue(),"31");assert.equal((await snapshot()).notification_definitions.profiles.immediate.timing.collection_delay_seconds,23);
+    transport.mode=null;await discard();assert.equal(await at(delay).inputValue(),"23");
+    await choose(field("timing:mode"),"report");assert.equal(await at(delay).count(),0);await save();
+    assert.equal("collection_delay_seconds" in (await snapshot()).notification_definitions.profiles.immediate.timing,false);
+    await edit("profiles","immediate");assert.equal(await at(delay).count(),0);await choose(field("timing:mode"),"acknowledge");assert.equal(await at(delay).inputValue(),"0");await discard();
+    const custom=await add("profiles","Custom collection");assert.equal(await at(delay).inputValue(),"0");await fill(delay,"7");await save();await edit("profiles",custom);assert.equal(await at(delay).inputValue(),"7");
+    await page.screenshot({path:`${ctx.artifactDir}/notifications-collection-editor.png`,fullPage:false});
+    await fill(delay,"0");await save();assert.equal((await snapshot()).notification_definitions.profiles[custom].timing.collection_delay_seconds,0);
+    await unchangedCapture(captures);
+    return "Notifications owns this single inline seconds field: supplied/custom defaults, invalid/keyboard entry, exact scoped save/reopen, rejected save/discard, zero and report-mode removal passed; field fits viewport and no notification was requested.";
+  });
+
   await fresh("profiles.save",async()=>{
     const before=await snapshot(),policy=before.monitoring_policies[0];await policyDraft(policy.id,"Companion policy draft");
     await edit("methods","lab_messages");await fill(field("name"),"Companion method draft");
@@ -148,7 +182,7 @@ export async function runNotificationGaps(ctx) {
 
   for(const resolution of ["urgent","remove-rows"])await fresh(resolution==="urgent"?"profiles.delete-replace":"profiles.delete-remove",async()=>{
     const before=await fixture(settings=>{
-      settings.notification_definitions.profiles.gap_delete={name:"Delete shared notification",timing:{mode:"immediate"},methods:[]};
+      settings.notification_definitions.profiles.gap_delete={name:"Delete shared notification",timing:{mode:"immediate",collection_delay_seconds:0},methods:[]};
       settings.monitoring_policies.find(p=>p.id==="lab_ups_reserve").notifications=[{id:"gap_mains",profile:"gap_delete",when:"mains"},{id:"gap_backup",profile:"gap_delete",when:"backup"}];
       settings.monitoring_policies.find(p=>p.id==="default_batteries").notifications=[{id:"gap_only",profile:"gap_delete"}];
       settings.monitoring_policies.find(p=>p.id==="default_entities").notifications.push({id:"gap_extra",profile:"gap_delete"});

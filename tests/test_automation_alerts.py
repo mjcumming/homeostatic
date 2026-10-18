@@ -666,14 +666,21 @@ def test_phone_group_requires_exact_active_device_issues(
     assert not actions.records
 
 
+@pytest.mark.parametrize(
+    "group",
+    [
+        {"notification_subject": "device:one"},
+        {"notification_id": "acknowledge", "group": "collection_one"},
+    ],
+)
 def test_grouped_phone_reference_freezes_shown_issues(
-    hass: HomeAssistant, phone_policy: dict[str, Any]
+    hass: HomeAssistant, phone_policy: dict[str, Any], group: dict[str, str]
 ) -> None:
     """Later changes to a message cannot expand an already-issued button's authority."""
     actions = PhoneActions()
     payload = {
         "episode_id": "device-group",
-        "notification_subject": "device:one",
+        **group,
         "episodes": ["first", "second"],
         "recipient": "method:mine",
         "delivery_id": "delivery",
@@ -690,11 +697,19 @@ def test_grouped_phone_reference_freezes_shown_issues(
         actions.restore({token: {**saved[token], "episodes": []}})
 
 
+@pytest.mark.parametrize(
+    "group",
+    [
+        {"notification_subject": "device:one"},
+        {"notification_id": "acknowledge", "group": "collection_one"},
+    ],
+)
 async def test_grouped_phone_ack_survives_partial_recovery_without_clearing_later_issues(
     hass: HomeAssistant,
     phone_policy: dict[str, Any],
     owner: str,
     hass_read_only_user: User,
+    group: dict[str, str],
 ) -> None:
     """A saved device button acknowledges remaining shown issues, never later failures."""
     entry = MockConfigEntry(domain=DOMAIN, data=phone_policy)
@@ -707,7 +722,7 @@ async def test_grouped_phone_ack_survives_partial_recovery_without_clearing_late
         hass,
         {
             "episode_id": "device-group",
-            "notification_subject": "device:one",
+            **group,
             "episodes": [first, second],
             "recipient": "method:mine",
             "delivery_id": "group-delivery",

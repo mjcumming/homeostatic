@@ -1,6 +1,7 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=95";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=95";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=95";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=97";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=97";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=97";
+import {metadataSelectionField,selectedEntityTypes,entityTypeMatches,entityTypeChoices} from "./entity-types.mjs?v=97";
 
 export const POLICY_CHECKS = {
   availability: "HA availability", battery: "Battery condition", vacuum: "Vacuum error",
@@ -36,6 +37,10 @@ const compactNames=names=>names.slice(0,2).join(", ")+(names.length>2?` +${names
 const useCount=uses=>uses.length?`${uses.length} ${uses.length===1?"use":"uses"}`:"Not used yet";
 function policyScopeSummary(card,policy) {
   const mode=watchMode(policy);
+  if(mode==="types"||mode==="types_except") {
+    const values=selectedEntityTypes(policy,mode),choices=entityTypeChoices([],values);
+    return `${mode==="types_except"?"All entities except":"Entity types"}: ${values.map(id=>choices.find(item=>item.id===id).name).join(", ")||"None selected"}`;
+  }
   if(mode==="all")return watchChoices(policy).all+(devicePolicy(policy)&&memberExclusions(policy).length?`; ${memberExclusions(policy).length} ignored entities`:"");
   const field=mode==="selected"?sourceField(policy):mode;
   const values=mode==="all_except"?(devicePolicy(policy)?deviceExclusions(policy):policy.excluded_sources||[]):policy.match[field]||[];
@@ -68,9 +73,11 @@ function timingSummary(timing={mode:"immediate"}) {
     const days=timing.weekdays||[];
     return `${timing.at} · ${DAYS.every((_,day)=>days.includes(day))?"Every day":days.map(day=>DAYS[day].slice(0,3)).join(", ")||"No days selected"}`;
   }
-  if(timing.mode==="acknowledge")return `Immediately; remind every ${reminderMinutes(timing.remind_every)} minutes until acknowledged`;
-  if(timing.mode==="window")return `${timing.start}–${timing.end} daily; hold outside these hours`;
-  return "Immediately";
+  const collection=timing.collection_delay_seconds===undefined?"":timing.collection_delay_seconds===0?"; no collection wait":`; collect for ${timing.collection_delay_seconds} seconds`;
+  const eligible=timing.collection_delay_seconds===undefined?"Immediately":"When eligible";
+  if(timing.mode==="acknowledge")return `${eligible}${collection}; remind every ${reminderMinutes(timing.remind_every)} minutes until acknowledged`;
+  if(timing.mode==="window")return `${timing.start}–${timing.end} daily; hold outside these hours${collection}`;
+  return `${eligible}${collection}`;
 }
 function notificationChoices(profiles) {
   const order={acknowledge:0,immediate:1,window:2,report:3};
@@ -219,7 +226,7 @@ function sourceKind(policy) {
 export function watchChoices(policy) {
   const type=policyType(policy),noun=sourceNoun(policy);
   if(["repair","broken_automation"].includes(type))return {all:type==="repair"?"All Repairs":"All automations"};
-  return {all:`All ${noun}`,all_except:"All except selected",selected:`Selected ${noun}`,...(type==="integration"?{}:{area:"In selected areas",label:"With selected labels"})};
+  return {all:`All ${noun}`,all_except:"All except selected",selected:`Selected ${noun}`,...(type==="integration"?{}:{area:"In selected areas",label:"With selected labels"}),...(type==="entity"?{types:"Matching entity types",types_except:"All except selected entity types"}:{})};
 }
 function sourceField(policy) {
   return {integration:"integration_domain",device:"device",ups:"device"}[sourceKind(policy)]||"entity";
@@ -231,6 +238,8 @@ const selectionIndexes=new WeakMap();
 const PICKER_PAGE_SIZE=50;
 
 export function watchMode(policy) {
+  if(policy.match_any)return "types";
+  if(policy.match_none)return "types_except";
   return policy.match.area?"area":policy.match.label?"label":policy.match[sourceField(policy)]||policy.match.integration?"selected":(devicePolicy(policy)?(deviceExclusions(policy).length>0||policy.excluded_sources?.length===0):Object.hasOwn(policy,"excluded_sources"))?"all_except":"all";
 }
 function completeSelectionCatalog(card) {
@@ -307,6 +316,7 @@ function sourceCount(policy,count) {
 export function policySelectionChoices(card,policy,mode,selectedIds=null) {
   if(selectedIds?.length===0)return [];
   const index=selectionIndex(card);
+  if(mode==="types"||mode==="types_except")return entityTypeChoices(policySources(card,policy,index),selectedEntityTypes(policy,mode)).filter(item=>!selectedIds||selectedIds.includes(item.id));
   if(mode==="area"||mode==="label") {
     const complete=completeSelectionCatalog(card),stale=complete&&card.current.data.catalog_stale;
     const counts=new Map(),field=sourceField(policy);
@@ -343,10 +353,11 @@ function watchEditor(card,policy,ignored=false) {
   if(policy.check==="repair")return '<p>Watches all Home Assistant Repairs.</p>';
   if(policy.check==="broken_automation")return '<p>Checks all automations for references to entities that no longer exist.</p>';
   const mode=ignored?"all_except":card.policyScopeChoice?.policy===policy?card.policyScopeChoice.mode:watchMode(policy),choices=watchChoices(policy),field=mode==="selected"?sourceField(policy):mode,excluding=mode==="all_except",grouped=["area","label"].includes(mode);
-  const noun=ignored?"entities":mode==="area"?"areas":mode==="label"?"labels":excluding&&sourceKind(policy)==="integration"?"integration connections":sourceNoun(policy);
+  const metadataMode=mode==="types"||mode==="types_except";
+  const noun=ignored?"entities":metadataMode?"entity types":mode==="area"?"areas":mode==="label"?"labels":excluding&&sourceKind(policy)==="integration"?"integration connections":sourceNoun(policy);
   const data=card.current?.data,catalogPending=mode!=="all"&&!completeSelectionCatalog(card),catalogStale=mode!=="all"&&data?.catalog_stale;
   const catalogStatus=catalogPending||catalogStale?`<p class="note" role="status">${card.current?.catalogError?`Could not ${catalogPending?"load":"update"} available sources: ${esc(card.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry loading sources</button>`:catalogPending?"Loading available sources…":"Updating available sources. You can keep using the previous complete list until the update finishes."}</p>`:"";
-  const values=excluding?(devicePolicy(policy)?ignored?memberExclusions(policy):deviceExclusions(policy):policy.excluded_sources||[]):policy.match[field]||[];
+  const values=metadataMode?selectedEntityTypes(policy,mode):excluding?(devicePolicy(policy)?ignored?memberExclusions(policy):deviceExclusions(policy):policy.excluded_sources||[]):policy.match[field]||[];
   const picker=card.policyPicker?.id===policy.id&&Boolean(card.policyPicker.ignored)===ignored?card.policyPicker:null;
   const items=policySelectionChoices(card,policy,mode,picker?null:values).filter(item=>!devicePolicy(policy)||!excluding||item.id.startsWith("entity:")===ignored);
   const fallback=catalogPending?excluding?"Saved exclusion":"Saved selection":excluding?"Unavailable excluded source":"Unavailable selection";
@@ -359,7 +370,7 @@ function watchEditor(card,policy,ignored=false) {
   const ordered=[...groupedItems.values()].flatMap(items=>items.sort((a,b)=>a.name.localeCompare(b.name)||(a.context||"").localeCompare(b.context||"")||a.id.localeCompare(b.id)));
   const shown=ordered.slice(0,picker?.limit||PICKER_PAGE_SIZE),groups=[...new Set(shown.map(item=>item.group))];
   const verb=ignored?"ignored":excluding?"excluded":"selected",choose=ignored?"Choose ignored entities":excluding?`Exclude ${noun}`:`Choose ${noun}`;
-  const description=excluding?`Includes current and future ${sourceNoun(policy)}, except the sources chosen here. Exclusions apply only to this policy.`:mode==="selected"?policyType(policy)==="integration"?"Includes all current and future connections for each selected integration.":`Only the selected ${sourceNoun(policy)} are included.`:`Includes current and future matching ${sourceNoun(policy)} in any selected ${mode==="area"?"area":"label"}.`;
+  const description=metadataMode?`Includes current and future operational entities ${mode==="types_except"?"except those matching":"matching"} any selected type. This policy's choices are independent of other policies.`:excluding?`Includes current and future ${sourceNoun(policy)}, except the sources chosen here. Exclusions apply only to this policy.`:mode==="selected"?policyType(policy)==="integration"?"Includes all current and future connections for each selected integration.":`Only the selected ${sourceNoun(policy)} are included.`:`Includes current and future matching ${sourceNoun(policy)} in any selected ${mode==="area"?"area":"label"}.`;
   const excludedChoices=!devicePolicy(policy)&&!excluding&&policy.excluded_sources?.length?policySelectionChoices(card,policy,"all_except",policy.excluded_sources):[];
   const additionalExclusions=!devicePolicy(policy)&&!excluding&&policy.excluded_sources?.length?`<p class="small">This scope also excludes: ${policy.excluded_sources.map(id=>esc(choiceSummary(excludedChoices.find(item=>item.id===id),"Unavailable excluded source"))).join(", ")}. Saved exclusions remain in effect.</p>`:"";
   const availabilityNote=policy.check==="availability"&&["entity","device"].includes(sourceKind(policy))?devicePolicy(policy)?'<p class="small">Device availability uses enabled operational entities. Diagnostic and configuration entities are excluded.</p>':'<p class="small">Diagnostic and configuration entities are excluded unless individually selected. Disabled sources are not monitored.</p>':"";
@@ -515,7 +526,8 @@ function notificationProfileFields(card,id,profile) {
   if(timing.mode==="acknowledge")body+=input(kind,id,"timing:minutes","Remind every (minutes)",reminderMinutes(timing.remind_every),"number",'min="1" step="1" required')+'<p class="small">Reminders stop after the problem is acknowledged.</p>';
   else if(timing.mode==="window")body+=input(kind,id,"timing:start",`Start · ${zone}`,timing.start,"time","required")+input(kind,id,"timing:end",`End · ${zone}`,timing.end,"time","required")+'<p class="small">Notify during these hours every day. Outside them, hold the request until the next opening.</p>';
   else if(timing.mode==="report")body+=input(kind,id,"timing:at",`Summary time · ${zone}`,timing.at,"time","required")+`<fieldset class="policy-weekdays"><legend>Days</legend>${DAYS.map((day,index)=>`<label class="installation-toggle"><input type="checkbox" ${attrs(kind,id,"timing:weekdays")} data-definition-value="${index}"${checked(timing.weekdays.includes(index))}>${day}</label>`).join("")}</fieldset><p class="small">Includes open problems, even after acknowledgment. Empty summaries are skipped.</p>`;
-  else body+='<p class="small">Notify when the problem begins, including overnight.</p>';
+  else body+='<p class="small">Notify when the problem becomes eligible, including overnight.</p>';
+  if(timing.mode!=="report")body+=input(kind,id,"timing:collection_delay_seconds","Collection delay (seconds)",timing.collection_delay_seconds,"number",`min="0" step="1" required aria-describedby="collection-help-${esc(id)}"`)+`<p class="small" id="collection-help-${esc(id)}">Wait this long to combine requests using this notification. Later requests don’t extend the wait. 0 sends without waiting.</p>`;
   const methods=card.configuration.settings.notification_definitions.methods||{};
   body+=`<fieldset><legend>Send using</legend>${Object.entries(methods).map(([methodId,method])=>`<label class="installation-toggle"><input type="checkbox" ${attrs(kind,id,"methods")} data-definition-value="${esc(methodId)}"${checked(profile.methods.includes(methodId))}>${esc(method.name)}</label>`).join("")}${profile.methods.filter(method=>!methods[method]).map(method=>`<label class="installation-toggle"><input type="checkbox" ${attrs(kind,id,"methods")} data-definition-value="${esc(method)}" checked>Unavailable delivery method — clear to remove</label>`).join("")}${profile.methods.length?"":`<p class="note">${Object.keys(methods).length?"No delivery method selected.":"Add a delivery method first."} This notification will not send until a method is assigned.</p>`}</fieldset>`;
   return body;
@@ -633,8 +645,8 @@ export function editReusable(card,event) {
           card.main.querySelector?.(`[data-definition-field="parameters:${validation.field}"]`)?.focus?.();return true;
         }
         if([...(card.main.querySelectorAll?.(".installation-editor input, .installation-editor select")||[])].some(input=>!input.reportValidity()))return true;
-        if(policy&&Object.values(policy.match||{}).some(values=>Array.isArray(values)&&!values.length)) {
-          card.scopedStatusScope=`policy:${id}`;card.scopedError="Choose at least one source, area, or label, or choose All.";card.scopedNotice=null;card.render();return true;
+        if(policy&&(Object.values(policy.match||{}).some(values=>Array.isArray(values)&&!values.length)||[policy.match_any,policy.match_none].some(values=>Array.isArray(values)&&!values.length))) {
+          card.scopedStatusScope=`policy:${id}`;card.scopedError="Choose at least one source, area, label, or entity type, or choose All.";card.scopedNotice=null;card.render();return true;
         }
         void saveEditor(card,scope);
       }
@@ -700,7 +712,7 @@ export function editReusable(card,event) {
         definitions[kind]??={};
         const newId=nextDefinitionId(definitions[kind],kind==="profiles"?"notification":"method");
         const original=definitions[kind][id];
-        definitions[kind][newId]=action==="duplicate"?{...structuredClone(original),name:`${original.name} copy`}:kind==="profiles"?{name:"New notification",timing:{mode:"immediate"},methods:[]}:{name:"New delivery method",mode:"fixed",destinations:[]};
+        definitions[kind][newId]=action==="duplicate"?{...structuredClone(original),name:`${original.name} copy`}:kind==="profiles"?{name:"New notification",timing:{mode:"immediate",collection_delay_seconds:0},methods:[]}:{name:"New delivery method",mode:"fixed",destinations:[]};
         card.definitionSelection={kind,id:newId};
         void card.loadDeliveryConfiguration?.(true);
       }
@@ -758,8 +770,12 @@ export function editReusable(card,event) {
       const item=kind==="policies"?policies.find(policy=>policy.id===id):kind==="profiles"?definitions.profiles[id]:editableMethod(card,id),field=d.definitionField;
       if(kind==="profiles"&&field.startsWith("timing:")) {
         const key=field.slice(7);
-        if(key==="mode")item.timing=element.value==="report"?{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]}:element.value==="acknowledge"?{mode:"acknowledge",remind_every:1800}:element.value==="window"?{mode:"window",start:"08:00",end:"22:00"}:{mode:"immediate"};
+        if(key==="mode") {
+          const collection_delay_seconds=item.timing.collection_delay_seconds??0;
+          item.timing=element.value==="report"?{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]}:element.value==="acknowledge"?{mode:"acknowledge",remind_every:1800,collection_delay_seconds}:element.value==="window"?{mode:"window",start:"08:00",end:"22:00",collection_delay_seconds}:{mode:"immediate",collection_delay_seconds};
+        }
         else if(key==="minutes")item.timing.remind_every=Number(element.value)*60;
+        else if(key==="collection_delay_seconds")item.timing.collection_delay_seconds=element.value.trim()===""?"":Number.isFinite(Number(element.value))?Number(element.value):element.value;
         else if(key==="weekdays")item.timing.weekdays=element.checked?[...new Set([...item.timing.weekdays,Number(d.definitionValue)])].sort():item.timing.weekdays.filter(day=>day!==Number(d.definitionValue));
         else item.timing[key]=element.value;
       }else if(kind==="profiles"&&field==="methods") {
@@ -774,9 +790,12 @@ export function editReusable(card,event) {
         }
       }else if(field==="watch") {
         card.policyScopeChoice={policy:item,mode:element.value};
-        const selector=element.value==="selected"?sourceField(item):element.value==="all_except"?"all":element.value;
+        const metadataMode=element.value==="types"||element.value==="types_except";
+        const selector=element.value==="selected"?sourceField(item):element.value==="all_except"||metadataMode?"all":element.value;
         const members=devicePolicy(item)?memberExclusions(item):[];
         delete item.excluded_sources;
+        delete item.match_any;delete item.match_none;
+        if(metadataMode)item[metadataSelectionField(element.value)]=[];
         if(element.value==="all_except"||members.length)item.excluded_sources=members;
         item.match={kind:[sourceKind(item)],...(selector==="all"?{}:{[selector]:[]})};card.policyPicker=null;
       }else if(field==="ignored-selection") {
@@ -785,9 +804,10 @@ export function editReusable(card,event) {
         if(!item.excluded_sources.length)delete item.excluded_sources;
       }else if(field==="selection") {
         const mode=card.policyScopeChoice?.policy===item?card.policyScopeChoice.mode:watchMode(item),selector=mode==="selected"?sourceField(item):mode;
-        const values=mode==="all_except"?item.excluded_sources||[]:item.match[selector]||[];
+        const metadataMode=mode==="types"||mode==="types_except";
+        const values=metadataMode?selectedEntityTypes(item,mode):mode==="all_except"?item.excluded_sources||[]:item.match[selector]||[];
         const next=element.checked?[...new Set([...values,d.definitionValue])]:values.filter(value=>value!==d.definitionValue);
-        if(mode==="all_except")item.excluded_sources=next;else item.match[selector]=next;
+        if(metadataMode)item[metadataSelectionField(mode)]=entityTypeMatches(next);else if(mode==="all_except")item.excluded_sources=next;else item.match[selector]=next;
       }else if(field.startsWith("match:")) {
         const key=field.slice(6),values=element.value.split(",").map(value=>value.trim()).filter(Boolean);
         if(values.length)item.match[key]=values;else delete item.match[key];
@@ -835,18 +855,21 @@ export function editReusable(card,event) {
   }
   invalidate(card);
   const editingTemperature=event.type!=="click"&&kind==="policies"&&element.type==="number"&&policies.find(item=>item.id===id&&item.check==="temperature_limit");
-  if(editingTemperature) {
+  const editingCollection=event.type!=="click"&&kind==="profiles"&&d.definitionField==="timing:collection_delay_seconds";
+  if(editingTemperature||editingCollection) {
     // Keep native intermediate input such as a leading minus or trailing decimal.
-    const rule=card.main?.querySelector?.(".policy-rule");
-    if(rule)rule.textContent=temperatureRule(editingTemperature);
-    card.main?.querySelector?.(".policy-section .config-error")?.remove?.();
-    for(const field of card.main?.querySelectorAll?.('.unified-policy-editor [aria-invalid="true"]')||[]) {
-      field.removeAttribute("aria-invalid");field.removeAttribute("aria-describedby");
+    if(editingTemperature) {
+      const rule=card.main?.querySelector?.(".policy-rule");
+      if(rule)rule.textContent=temperatureRule(editingTemperature);
+      card.main?.querySelector?.(".policy-section .config-error")?.remove?.();
+      for(const field of card.main?.querySelectorAll?.('.unified-policy-editor [aria-invalid="true"]')||[]) {
+        field.removeAttribute("aria-invalid");field.removeAttribute("aria-describedby");
+      }
     }
     const footer=card.main?.querySelector?.("[data-scoped-editor]");
     if(footer) {
       const template=document.createElement("template");
-      template.innerHTML=scopedEditorFooter(card,{kind:"policy",id},"Save policy");
+      template.innerHTML=scopedEditorFooter(card,{kind:editingCollection?"profile":"policy",id},editingCollection?"Save notification":"Save policy");
       if(!footer.isEqualNode(template.content.firstElementChild))footer.replaceWith(template.content);
     }
     card.renderedContent=null;

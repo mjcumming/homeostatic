@@ -135,7 +135,9 @@ async def test_small_catalog_change_travels_as_a_one_step_delta(
     for section in SECTIONS:
         assert _by_key(section, patched[section]) == _by_key(section, fresh[section])
 
-    hass.states.async_set("sensor.observed", "2", {"friendly_name": "Renamed"})
+    hass.states.async_set(
+        "sensor.observed", "unavailable", {"friendly_name": "Renamed"}
+    )
     await hass.async_block_till_done()
     evidence = (await client.receive_json())["event"]
     assert evidence["catalog_revision"] == revision + 1

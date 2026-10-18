@@ -21,6 +21,8 @@ def enrollment_rules(policies: tuple[MonitoringPolicy, ...]) -> tuple[CatalogRul
             checks=(policy.check,),
             enabled=policy.enabled,
             excluded_sources=policy.excluded_sources,
+            match_any=policy.match_any,
+            match_none=policy.match_none,
         )
         for policy in policies
         if policy.check not in TEMPERATURE_CHECKS | UPS_CHECKS
@@ -320,7 +322,10 @@ def assignments(
                 for row in policy.notifications
             )
         if matched:
-            result[source.node_id] = {"default": rows, "checks": {}}
+            result[source.node_id] = {
+                "default": [],
+                "checks": {source.check_id: rows},
+            }
     return result
 
 

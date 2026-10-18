@@ -144,6 +144,43 @@ export async function runIssueGaps(ctx) {
     assert.equal(Date.parse(saved.until),Date.parse(until));assert.equal(saved.reason,reason);return saved;
   };
 
+  await scenario("issues.notification-membership",async()=>{
+    const screenshot=async name=>{await page.locator('#ha-launch-screen').waitFor({state:"hidden"});await page.screenshot({path:`${ctx.artifactDir}/${name}.png`});};
+    const before=await snapshot(),policyBefore=await query("policy");
+    const first=await episodeFor("offline","entity"),second=await episodeFor("offline_second","entity"),device=await episodeFor("offline","device");
+    const ids=[first.episode_id,second.episode_id],path=`/homeostatic/issues/notification/${ids.map(encodeURIComponent).join(",")}`,url=`${lab.url}${path}`;
+    const shown=async()=>{await expandIssues();return [...new Set(await at('main [data-episode]').evaluateAll(items=>items.map(item=>item.dataset.episode)))].sort();};
+    await page.goto(url);await text('main h1',/^Issues in this notification$/);
+    assert.deepEqual(await shown(),[...ids].sort());assert.equal(await at('main [data-device-issues]').count(),0,"A notification cannot widen to other issues on the same device");
+    assert.ok(!ids.includes(device.episode_id),"Another issue already exists on the included device");
+    await fit('.intro');await screenshot("notification-membership");
+    const openFirst=async()=>{await at(`[data-episode="${first.episode_id}"]`).focus();await page.keyboard.press("Enter");await at(`dialog[open] [data-acknowledge="${first.episode_id}"]`).waitFor();};
+    await openFirst();assert.equal(new URL(page.url()).pathname,`${path}/episode/${encodeURIComponent(first.episode_id)}`);
+    assert.equal(await at('dialog[open] [data-device-issue-select]').count(),0);
+    await page.reload();await at(`dialog[open] [data-acknowledge="${first.episode_id}"]`).waitFor();
+    await page.keyboard.press("Escape");await at('dialog[open]').waitFor({state:"hidden"});assert.equal(new URL(page.url()).pathname,path);assert.deepEqual(await shown(),[...ids].sort());
+    await go("sources");await page.goBack();await text('main h1',/^Issues in this notification$/);assert.deepEqual(await shown(),[...ids].sort());
+    await page.reload();await text('main h1',/^Issues in this notification$/);assert.deepEqual(await shown(),[...ids].sort());
+    await realState("history","unavailable");await control("advance",{seconds:1});const later=await episodeFor("history","entity");assert.ok(!ids.includes(later.episode_id));
+    await page.reload();await text('main h1',/^Issues in this notification$/);assert.deepEqual(await shown(),[...ids].sort(),"A later issue stays outside the message membership after reload");
+    await openFirst();await click('[data-acknowledge]');await submit();await text('dialog[open]',/Awareness recorded/);
+    const acknowledged=await query("policy");assert.ok(acknowledged.episodes.find(item=>item.episode_id===first.episode_id)?.acknowledgment);
+    for(const issue of acknowledged.episodes.filter(item=>item.episode_id!==first.episode_id))assert.deepEqual(issue.acknowledgment,policyBefore.episodes.find(item=>item.episode_id===issue.episode_id)?.acknowledgment??null,"Other included, unrelated and later issues retain their acknowledgment");
+    await cancelTool();await page.goto(url);await text('main h1',/^Issues in this notification$/);await shown();
+    await at(`[data-episode="${first.episode_id}"]`).click();await at(`dialog[open] [data-shelf="${first.episode_id}"]`).waitFor();
+    await realState("offline","23");await control("advance",{seconds:1});await text('dialog[open]',/This included issue is no longer open/);
+    assert.equal(new URL(page.url()).pathname,`${path}/episode/${encodeURIComponent(first.episode_id)}`);assert.equal(await at('main h1').innerText(),"Issues in this notification","Recovery in an open dialog cannot silently navigate to the full history page");
+    await page.reload();await text('dialog[open]',/This included issue is no longer open/);
+    await click('dialog[open] [data-action="close"]');await text('[data-notification-scope]',/1 included issue is no longer open/);assert.deepEqual(await shown(),[second.episode_id]);
+    await screenshot("notification-membership-partial");
+    await realState("offline_second","23");await control("advance",{seconds:1});await page.reload();await text('main',/No included issues are still open/);
+    assert.deepEqual(await shown(),[]);assert.equal(new URL(page.url()).pathname,path);await fit('.intro');await screenshot("notification-membership-ended");
+    const all=at('[data-all-issues]');assert.equal(await all.getAttribute("href"),"/homeostatic/issues");assert.ok((await all.boundingBox()).height>=44);
+    await all.focus();await page.keyboard.press("Enter");await text('main h1',/^Open issues$/);assert.equal(new URL(page.url()).pathname,"/homeostatic/issues");assert.ok((await shown()).includes(later.episode_id));
+    await page.goBack();await text('main',/No included issues are still open/);assert.equal(new URL(page.url()).pathname,path);
+    await noChange(before);assert.deepEqual(await controls(),[]);
+    return "Exact included IDs survive direct entry, issue dialog refresh, close, browser Back and page reload. Same-device, unrelated and later issues stay excluded; acknowledgment affects only the chosen included issue. Partial and full recovery explain ended membership, and keyboard navigation to all issues preserves settings and fits this viewport.";
+  });
   await scenario("issues.independent-devices",async()=>{
     await control("integration_failure",{failed:false});await control("recover");
     for(const key of ["offline","offline_second","battery","cleaner"])await realState(key,"unavailable");

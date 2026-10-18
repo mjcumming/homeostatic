@@ -76,6 +76,7 @@ const policy=()=>card.settingsDraft.monitoring_policies.find(item=>item.id==="ba
 const publish=()=>{window.policyPickerReceipt=receipt;document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);document.querySelector("#saved-state").textContent=JSON.stringify(saved,null,2);};
 const reset=()=>{saved=structuredClone(initial);revision=1;calls.length=0;rejectSave=false;card.scopedConfiguration=null;card.scopedError=null;card.scopedNotice=null;card.configuration=configuration();card.settingsDraft=structuredClone(saved);card.current={status:"current",data:freshData()};card.page="policies";card.definitionSelection={kind:"policies",id:"battery"};card.policyPicker=null;card.render();};
 const cases=[
+  ["entity-types","Edit metadata union and complement, save and reopen","Entity types remain independent editable rules for future entities; the picker supports narrow screens and existing focus behavior."],
   ["household-picker","Browse and search 6,000 entities, retain missing choices, save and reopen","The picker starts with 50 rows, searches the complete catalog and preserves source scope and keyboard focus."],
   ["device-exclusions","Device scope, ignored entities, grouped summary, save and reopen","Whole devices and ignored entity evidence have independent controls and persisted choices."],
   ["keyboard-escape","Open picker, focus search, press the native Escape key","Escape closes the picker, preserves the draft and returns focus to Choose batteries."],
@@ -122,6 +123,28 @@ document.querySelector("#dark").onchange=event=>{document.documentElement.datase
 document.querySelector("#run").onclick=async()=>{
   reset();receipt=freshReceipt();publish();feedback.textContent="Running isolated picker checks…";
   try {
+    await runPath("entity-types",async()=>{
+      const selected=card.settingsDraft.monitoring_policies.find(item=>item.id==="entity"),other=structuredClone(saved.monitoring_policies.find(item=>item.id==="device"));
+      card.definitionSelection={kind:"policies",id:"entity"};card.policyPicker=null;card.render();await tick();
+      await change('[data-definition-field="watch"]',"types");
+      check(root.activeElement?.dataset.watchMode==="types","Metadata radio retains keyboard focus");
+      const before=saveCount();await save();check(saveCount()===before&&root.textContent.includes("Choose at least one"),"Empty metadata scope is rejected before sending");
+      await pick();check(root.activeElement===find('[data-definition-picker-search]'),"Metadata picker focuses search");
+      await change('[data-definition-picker-search]',"camera");await click(option("camera"));
+      await change('[data-definition-picker-search]',"moisture");await click(option("binary_sensor:moisture"));
+      check(root.activeElement?.dataset.definitionValue==="binary_sensor:moisture","Metadata checkbox retains keyboard focus after selection");
+      await finish();check(root.activeElement?.dataset.definitionAction==="pick","Metadata Done returns focus to its trigger");
+      check(root.textContent.includes("All cameras")&&root.textContent.includes("Moisture · Binary sensors")&&root.textContent.includes("current and future"),"Visible summary explains the saved metadata scope");
+      for(const label of root.querySelectorAll(".policy-scope-choice"))check(label.getBoundingClientRect().height>=44&&label.scrollWidth<=label.clientWidth+1,"Metadata mode labels fit the viewport and retain touch targets");
+      await save();check(JSON.stringify(saved.monitoring_policies.find(item=>item.id==="entity").match_any)===JSON.stringify([{domain:["camera"]},{domain:["binary_sensor"],device_class:["moisture"]}]),"Saved metadata contains no materialized source inventory");
+      check(JSON.stringify(saved.monitoring_policies.find(item=>item.id==="device"))===JSON.stringify(other),"Metadata save does not edit the other policy");
+      await change('[data-definition-field="watch"]',"types_except");await pick();await change('[data-definition-picker-search]',"lock");await click(option("lock"));await finish();await save();
+      const confirmed=saved.monitoring_policies.find(item=>item.id==="entity");
+      check(!confirmed.match_any&&JSON.stringify(confirmed.match_none)===JSON.stringify([{domain:["lock"]}]),"Complement replaces only this policy's positive metadata expression");
+      card.definitionSelection=null;card.render();await tick();await click('[data-definition-action="edit"][data-definition-id="entity"]');
+      check(find('[data-watch-mode="types_except"]').checked&&root.textContent.includes("All locks"),"Reopened editor retains complement and readable exclusion");
+      reset();await tick();
+    });
     await runPath("source-context",async()=>{
       const scopes=[...root.querySelectorAll('.policy-scope input[type="radio"]')];
       check(scopes.length===5&&scopes.filter(input=>input.checked).length===1,"All five scope choices are visible with one selected");

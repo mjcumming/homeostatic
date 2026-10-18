@@ -9,6 +9,12 @@ export function parseWorkspacePath(path = "") {
   if(parts[0] === "homeostatic")parts.shift();
   const [name,encoded,extra] = parts;
   const id = encoded ? decode(encoded) : null;
+  if(name === "issues" && encoded === "notification") {
+    const members = extra ? extra.split(",").map(decode) : [];
+    const issueIds = members.every(Boolean) ? [...new Set(members)] : [];
+    const episodeId = parts[3] === "episode" && parts[4] ? decode(parts[4]) : null;
+    return {page:"problems",issueIds,...(episodeId && issueIds.includes(episodeId) ? {detail:{episodeId}} : {})};
+  }
   if(name === "episode" && id)return {page:"problems",detail:{episodeId:id}};
   if(name === "node" && id)return {page:"sources",detail:{nodeId:id}};
   if(name === "device-issues" && id)return {page:"sources",detail:{deviceId:id}};
@@ -26,6 +32,11 @@ export function parseWorkspacePath(path = "") {
 
 export function workspacePath(route) {
   const encode = encodeURIComponent;
+  if(workspacePage(route.page) === "problems" && Array.isArray(route.issueIds) && (!route.detail || route.issueIds.includes(route.detail.episodeId))) {
+    const members = route.issueIds.map(encode).join(",");
+    const detail = route.issueIds.includes(route.detail?.episodeId) ? `/episode/${encode(route.detail.episodeId)}` : "";
+    return `/issues/notification/${members}${detail}`;
+  }
   if(route.detail?.episodeId)return `/episode/${encode(route.detail.episodeId)}`;
   if(route.detail?.nodeId)return `/node/${encode(route.detail.nodeId)}`;
   if(route.detail?.deviceId)return `/device-issues/${encode(route.detail.deviceId)}`;
@@ -45,6 +56,7 @@ export function workspaceRoute(card) {
   const page = workspacePage(card.page);
   return {
     page,
+    issueIds:page === "problems" && Array.isArray(card.notificationIssueIds) ? [...card.notificationIssueIds] : null,
     source:page === "sources" ? card.sourcesSelection : null,
     sourcesView:card.sourcesView,
     definition:page === "policies" && card.definitionSelection?.kind === "policies" || page === "notifications" && ["profiles","methods"].includes(card.definitionSelection?.kind) ? card.definitionSelection : null,
@@ -166,6 +178,8 @@ export class WorkspaceNavigation {
       this.currentId = historyState?.id || `view-${++this.sequence}`;
       restoreWorkspaceContext(card,cached?.context || historyState?.context);
       card.page = route.page;
+      card.notificationIssueIds = Array.isArray(route.issueIds) ? [...route.issueIds] : null;
+      if(!cached && !historyState?.context && card.notificationIssueIds)card.issueQuery = "";
       if(route.source !== undefined)card.sourcesSelection = route.source;
       if(route.sourcesView)card.sourcesView = route.sourcesView;
       card.definitionSelection = route.definition || null;

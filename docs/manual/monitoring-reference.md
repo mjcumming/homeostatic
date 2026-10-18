@@ -12,7 +12,8 @@ The named notifications below initially have no delivery methods, and global sen
 | --- | --- | --- | --- |
 | Integration availability | Eligible Home Assistant integration connections. | **Integrations** is enabled. | Morning summary |
 | Device availability | Enabled devices with at least one eligible operational entity. | **Devices** is enabled. | Morning summary |
-| Entity availability | Enabled operational entities, including entities without a device. | **Entities** is enabled. | Morning summary |
+| Entity availability | Enabled operational entities outside the Important equipment selection, including entities without a device. | **General entity availability** is enabled. | Morning summary |
+| Entity availability | Enabled operational cameras, locks, alarm panels and smoke, carbon monoxide, gas and moisture binary sensors. | **Important equipment availability** is enabled. | Immediate |
 | Low battery | Battery percentage sensors or numbers, or battery-class low-warning binary sensors. An associated charging report supplies context. | **Batteries** is disabled; threshold 20%. | Morning summary |
 | Vacuum error | Vacuum entities with a reported activity. | **Vacuums** is disabled. | Evening summary |
 | Repairs | Active Home Assistant Repairs, excluding Homeostatic's own Repairs. | **Repairs** is enabled and covers all eligible Repairs. | Morning summary |

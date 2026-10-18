@@ -161,3 +161,20 @@ test("newest is the default across groups and their issues, with explicit oldest
   const names=issuesWorkspace(card);
   assert.ok(names.indexOf('data-issue-group="integration:alpha"')<names.indexOf('data-issue-group="integration:matter"'));
 });
+
+
+test("notification membership excludes later issues even on the same device and never widens response scope",()=>{
+  const data=fixture(),before=structuredClone(data),card=issueCard(data);
+  card.notificationIssueIds=["issue-0","issue-1","ended"];
+  card.issueGroupsExpanded.add("integration:matter");
+  const rows=[];card.issueRow=(_,item,_nodes,_device,options)=>{rows.push({id:item.episode_id,...options});return `<button data-episode="${item.episode_id}">${item.episode_id}</button>`;};
+  const html=issuesWorkspace(card);
+  assert.match(html,/Issues in this notification/);assert.match(html,/3 issues included in this notification. 1 included issue is no longer open/);
+  assert.deepEqual(rows.map(row=>row.id).sort(),["issue-0","issue-1"]);
+  assert.ok(rows.every(row=>row.interactive));assert.doesNotMatch(html,/data-device-issues|data-episode="issue-2"/);
+  assert.match(html,/href="\/homeostatic\/issues" data-all-issues/);assert.deepEqual(data,before);
+  card.issueQuery="unmatched";assert.match(issuesWorkspace(card),/No matching issues/);
+  card.issueQuery="";card.notificationIssueIds=["ended"];
+  assert.match(issuesWorkspace(card),/No included issues are still open/);
+  card.notificationIssueIds=[];assert.doesNotMatch(issuesWorkspace(card),/data-episode=/);
+});

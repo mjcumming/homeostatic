@@ -265,7 +265,16 @@ def _entity(hass: HomeAssistant, identity: str, domain: str) -> er.RegistryEntry
 
 
 def notification_url(payload: dict[str, Any]) -> str:
-    """Link individual deliveries to history-safe issue detail on the HA server."""
+    """Keep the delivered membership in a history-safe issue destination."""
+    included = payload.get("episodes")
+    if isinstance(included, list):
+        identities = list(
+            dict.fromkeys(item for item in included if isinstance(item, str) and item)
+        )
+        if len(identities) == 1:
+            return f"/homeostatic/episode/{quote(identities[0], safe='')}"
+        members = ",".join(quote(item, safe="") for item in identities)
+        return f"/homeostatic/issues/notification/{members}"
     episode_id = payload.get("episode_id")
     if payload.get("episodes") is not None or payload.get("action") in {
         "summary",

@@ -128,7 +128,7 @@ async def test_fresh_setup_preview_and_delete(
     assert details["source"]["monitoring_source"] == cloned.monitoring_source
     await client.send_json({"id": 3, "type": "homeostatic/configuration"})
     configuration = (await client.receive_json())["result"]
-    assert len(configuration["monitoring_policy_templates"]) == 7
+    assert len(configuration["monitoring_policy_templates"]) == 8
     draft = configuration["settings"]
     draft["monitoring_policies"] = []
     await client.send_json(

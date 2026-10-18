@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {hasWorkspaceDrafts,parseWorkspacePath,workspacePath,workspaceRoute,workspaceContext,restoreWorkspaceContext,WorkspaceNavigation} from "../../custom_components/homeostatic/frontend/workspace-navigation.mjs";
 
-for(const path of ["/issues","/sources","/sources/source%3Aentity%3Alight.deck","/sources/device%3Adeck/history","/episode/a%2Fb","/policies/availability","/notifications/methods/phone","/notifications/profiles/morning","/notifications/methods","/history","/history/closed","/settings/timing"])
+for(const path of ["/issues","/issues/notification/","/issues/notification/a%2Fb,c%2Cd","/issues/notification/one,two/episode/two","/sources","/sources/source%3Aentity%3Alight.deck","/sources/device%3Adeck/history","/episode/a%2Fb","/policies/availability","/notifications/methods/phone","/notifications/profiles/morning","/notifications/methods","/history","/history/closed","/settings/timing"])
   test(`round trip ${path}`,()=>assert.equal(workspacePath(parseWorkspacePath(path)),path));
 
 test("retired grouping destinations normalize to Timing without restoring an obsolete section",()=>{
@@ -105,4 +105,31 @@ test("switching pages does not expose a return route for another page's retained
   card.sourcesExcludedOnly=false;
   restoreWorkspaceContext(card,context);
   assert.equal(card.sourcesExcludedOnly,true);
+});
+
+
+test("notification paths keep invalid and ended membership restricted",()=>{
+  assert.deepEqual(parseWorkspacePath("/homeostatic/issues/notification/a%2Fb,c%2Cd,a%2Fb"),{page:"problems",issueIds:["a/b","c,d"]});
+  assert.deepEqual(parseWorkspacePath("/issues/notification/one,%ZZ"),{page:"problems",issueIds:[]});
+  assert.deepEqual(parseWorkspacePath("/issues/notification/one,two/episode/unseen"),{page:"problems",issueIds:["one","two"]});
+  assert.equal(workspacePath({page:"problems",issueIds:["one","two"],detail:{nodeId:"entry:connection"}}),"/node/entry%3Aconnection");
+  assert.equal(workspacePath({page:"problems",issueIds:["one","two"],detail:{deviceId:"device"}}),"/device-issues/device");
+});
+
+test("notification list, exact dialog, reload and browser history retain scope without mutating drafts",()=>{
+  globalThis.window={addEventListener(){},removeEventListener(){},location:{pathname:"/fixture"}};
+  const draft={name:"Unfinished"},card={page:"problems",current:{status:"current"},isConnected:true,configuration:{},settingsDraft:draft,issueQuery:"old search",renderedCurrent:false,dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
+  const nav=new WorkspaceNavigation(card);
+  nav.applyPath("/issues/notification/one,two");
+  assert.deepEqual(card.notificationIssueIds,["one","two"]);assert.equal(card.issueQuery,"");
+  const list=nav.capture();card.detail={episodeId:"one"};nav.finish(list);
+  const detail=workspacePath(workspaceRoute(card));
+  assert.equal(detail,"/issues/notification/one,two/episode/one");
+  nav.lastPath=null;nav.applyPath(detail);
+  assert.deepEqual(card.notificationIssueIds,["one","two"]);assert.equal(card.detail.episodeId,"one");
+  card.detail=null;assert.equal(workspacePath(workspaceRoute(card)),"/issues/notification/one,two");
+  nav.applyPath("/issues");assert.equal(card.notificationIssueIds,null);
+  nav.applyPath("/issues/notification/one,two",list);
+  assert.deepEqual(card.notificationIssueIds,["one","two"]);assert.equal(card.settingsDraft,draft);
+  delete globalThis.window;
 });

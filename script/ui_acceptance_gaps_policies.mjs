@@ -51,6 +51,27 @@ export async function runPolicyGaps(ctx) {
     return "Custom and supplied policies: exact add/edit/enable/disable/duplicate/discard/delete/cancel effects; full installation snapshots and independent notification draft checked.";
   });
 
+  await test("policies.entity-types",async()=>{
+    const before=await snapshot(),id="default_entities",original=policy(before,id);
+    await edit("policies",id);await choose(field("watch"),"types");
+    const requests=transport.saveRequests;await click(action("save-scoped"));assert.equal(transport.saveRequests,requests);assert.match(await bodyText(),/Choose at least one/);await noChange(before);
+    await click(action("pick"));await focus('[data-definition-picker-search]');await fill('[data-definition-picker-search]',"camera");
+    await at(selection("camera")).focus();await page.keyboard.press("Space");await focus(selection("camera"));
+    await fill('[data-definition-picker-search]',"moisture");await at(selection("binary_sensor:moisture")).check();
+    await click(action("finish-pick"));await focus(action("pick"));assert.match(await bodyText(),/All cameras/);assert.match(await bodyText(),/Moisture · Binary sensors/);assert.match(await bodyText(),/current and future/);
+    const expected={...original,match_any:[{domain:["camera"]},{domain:["binary_sensor"],device_class:["moisture"]}]};delete expected.match_none;delete expected.excluded_sources;
+    let saved=await savePolicy(before,id,expected);await edit("policies",id);assert.equal(await at('[data-watch-mode="types"]').isChecked(),true);
+    await page.screenshot({path:`${ctx.artifactDir}/policies-entity-types.png`,fullPage:false});
+    for(const box of await at('.policy-scope-choice').evaluateAll(rows=>rows.map(row=>({height:row.getBoundingClientRect().height,scroll:row.scrollWidth,width:row.clientWidth}))))assert.ok(box.height>=44&&box.scroll<=box.width+1,"Metadata scope controls fit and retain touch targets");
+    await choose(field("watch"),"types_except");await click(action("pick"));await fill('[data-definition-picker-search]',"lock");await at(selection("lock")).check();await click(action("finish-pick"));
+    transport.mode="reject";await click(action("save-scoped"));await waitError();assert.equal(await at('[data-watch-mode="types_except"]').isChecked(),true);await noChange(saved);
+    transport.mode=null;await discard();assert.equal(await at('[data-watch-mode="types"]').isChecked(),true);await noChange(saved);
+    await choose(field("watch"),"types_except");await click(action("pick"));await fill('[data-definition-picker-search]',"lock");await at(selection("lock")).check();await click(action("finish-pick"));
+    const complement={...expected,match_none:[{domain:["lock"]}]};delete complement.match_any;
+    saved=await savePolicy(saved,id,complement);await clean();await edit("policies",id);assert.equal(await at('[data-watch-mode="types_except"]').isChecked(),true);assert.match(await bodyText(),/All locks/);await noChange(saved);
+    return "Policy editor owns reusable entity-type rules: union/complement save/reopen, empty rejection, keyboard selection and focus return, failed save/discard, exact single-policy persistence, future-entity explanation and narrow touch targets passed.";
+  });
+
   await test("policies.device-exclusions",async()=>{
     const before=await snapshot(),original=before.monitoring_policies.find(p=>p.check==="availability"&&p.match.kind.includes("device")),id=original.id;
     const member=`entity:registry:${lab.registry_ids.offline}`,device=`device:${lab.devices.offline}`;

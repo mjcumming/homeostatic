@@ -11,7 +11,7 @@ test("a changed panel identity loads current code with older elements already re
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
 
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?upgrade=first");
-  const Panel=elements.get("homeostatic-panel-v47"),Card=elements.get("homeostatic-card-v43");
+  const Panel=elements.get("homeostatic-panel-v49"),Card=elements.get("homeostatic-card-v45");
   assert.equal(typeof Panel,"function");
   assert.equal(typeof Card,"function");
   assert.notEqual(Panel,OldPanel);
@@ -20,11 +20,11 @@ test("a changed panel identity loads current code with older elements already re
   assert.equal(elements.get("homeostatic-panel-v46"),OldPanel);
   assert.equal(elements.get("homeostatic-card-v42"),OldCard);
   const dashboard=await elements.get("ll-strategy-dashboard-homeostatic").generate();
-  assert.ok(dashboard.views.every(view=>view.cards.every(card=>card.type==="custom:homeostatic-card-v43")));
+  assert.ok(dashboard.views.every(view=>view.cards.every(card=>card.type==="custom:homeostatic-card-v45")));
 
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?upgrade=repeat");
-  assert.equal(elements.get("homeostatic-panel-v47"),Panel);
-  assert.equal(elements.get("homeostatic-card-v43"),Card);
+  assert.equal(elements.get("homeostatic-panel-v49"),Panel);
+  assert.equal(elements.get("homeostatic-card-v45"),Card);
 });
 
 test("a saved previous-version dashboard loads after a fresh browser start",async t=>{
@@ -34,7 +34,7 @@ test("a saved previous-version dashboard loads after a fresh browser start",asyn
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?upgrade=saved-dashboard");
-  const SavedCard=elements.get("homeostatic-card-v42"),CurrentCard=elements.get("homeostatic-card-v43");
+  const SavedCard=elements.get("homeostatic-card-v42"),CurrentCard=elements.get("homeostatic-card-v45");
   assert.equal(typeof SavedCard,"function");
   assert.notEqual(SavedCard,CurrentCard);
   assert.equal(Object.getPrototypeOf(SavedCard.prototype),CurrentCard.prototype);

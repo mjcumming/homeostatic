@@ -50,9 +50,19 @@ def test_supplied_profiles_are_unconfigured_and_sending_stays_off() -> None:
         "evening",
         "weekly",
     }
-    assert [
-        row["notifications"][0]["profile"] for row in data["monitoring_policies"]
-    ] == ["morning", "morning", "morning", "morning", "morning", "morning", "evening"]
+    assert {
+        row["id"]: row["notifications"][0]["profile"]
+        for row in data["monitoring_policies"]
+    } == {
+        "default_integrations": "morning",
+        "default_devices": "morning",
+        "default_entities": "morning",
+        "default_important_equipment": "immediate",
+        "default_repairs": "morning",
+        "default_broken_automations": "morning",
+        "default_batteries": "morning",
+        "default_vacuums": "evening",
+    }
     assert settings.notification_definitions["profiles"]["weekly"]["timing"] == {
         "mode": "report",
         "at": "08:00",
@@ -79,15 +89,15 @@ def build(data: dict[str, Any]) -> PolicyConfig:
 
 
 @pytest.mark.parametrize(
-    ("opened_at", "delivered_at"),
+    ("opened_at", "eligible_at"),
     [
         pytest.param(
-            "2026-10-15T02:59:00+00:00", "2026-10-15T02:59:30+00:00", id="inside-window"
+            "2026-10-15T02:59:00+00:00", "2026-10-15T02:59:00+00:00", id="inside-window"
         ),
         pytest.param(
             "2026-10-15T02:59:50+00:00",
-            "2026-10-15T13:00:00+00:00",
-            id="batch-crosses-close",
+            "2026-10-15T02:59:50+00:00",
+            id="just-before-close",
         ),
         pytest.param(
             "2026-10-15T03:00:00+00:00", "2026-10-15T13:00:00+00:00", id="at-close"
@@ -96,7 +106,7 @@ def build(data: dict[str, Any]) -> PolicyConfig:
             "2026-10-15T12:59:00+00:00", "2026-10-15T13:00:00+00:00", id="before-open"
         ),
         pytest.param(
-            "2026-10-15T13:00:00+00:00", "2026-10-15T13:00:30+00:00", id="at-open"
+            "2026-10-15T13:00:00+00:00", "2026-10-15T13:00:00+00:00", id="at-open"
         ),
         pytest.param(
             "2026-11-01T05:00:00+00:00",
@@ -105,17 +115,24 @@ def build(data: dict[str, Any]) -> PolicyConfig:
         ),
     ],
 )
-def test_regular_window_holds_until_local_open_and_survives_restart(
-    named: dict[str, Any], opened_at: str, delivered_at: str
+def test_regular_window_eligibility_has_no_second_batch_and_survives_restart(
+    named: dict[str, Any], opened_at: str, eligible_at: str
 ) -> None:
-    """Opening and closing boundaries use HA's timezone and retain pending work."""
-    now, due = datetime.fromisoformat(opened_at), datetime.fromisoformat(delivered_at)
+    """Policy eligibility honors local hours before the separate collection step."""
+    now, due = datetime.fromisoformat(opened_at), datetime.fromisoformat(eligible_at)
     policy = Policy(build(named))
-    assert policy.handle(problem(now), now, PolicyContext()) == []
-    assert policy.advance(due - timedelta(seconds=1), PolicyContext()) == []
-    restored = Policy(build(named))
-    restored.restore(policy.snapshot(), due - timedelta(seconds=1))
-    [notice] = restored.advance(due, PolicyContext())
+    opening = policy.handle(problem(now), now, PolicyContext())
+    assert opening == []
+    if due == now:
+        [notice] = policy.advance(now, PolicyContext())
+        restored = Policy(build(named))
+        restored.restore(policy.snapshot(), now)
+        assert restored.advance(now, PolicyContext()) == []
+    else:
+        assert policy.advance(due - timedelta(seconds=1), PolicyContext()) == []
+        restored = Policy(build(named))
+        restored.restore(policy.snapshot(), due - timedelta(seconds=1))
+        [notice] = restored.advance(due, PolicyContext())
     assert notice.route == "window"
     assert notice.channels == ("method:phone",)
     assert notice.recipient.startswith("window:")
@@ -146,7 +163,12 @@ def test_shared_method_keeps_immediate_and_different_windows_independent(
     """One method can receive overnight immediate requests and two distinct windows."""
     named["profiles"]["early"] = {
         "name": "Early",
-        "timing": {"mode": "window", "start": "06:00", "end": "18:00"},
+        "timing": {
+            "mode": "window",
+            "start": "06:00",
+            "end": "18:00",
+            "collection_delay_seconds": 0,
+        },
         "methods": ["phone"],
     }
     named["default"] += [
@@ -206,11 +228,25 @@ def test_named_weekly_report_uses_sunday_eight_in_ha_timezone(
         pytest.param({"name": ""}, id="empty-name"),
         pytest.param({"methods": ["missing"]}, id="missing-method"),
         pytest.param(
-            {"timing": {"mode": "window", "start": "08:00", "end": "08:00"}},
+            {
+                "timing": {
+                    "mode": "window",
+                    "start": "08:00",
+                    "end": "08:00",
+                    "collection_delay_seconds": 0,
+                }
+            },
             id="empty-window",
         ),
         pytest.param(
-            {"timing": {"mode": "window", "start": "24:00", "end": "22:00"}},
+            {
+                "timing": {
+                    "mode": "window",
+                    "start": "24:00",
+                    "end": "22:00",
+                    "collection_delay_seconds": 0,
+                }
+            },
             id="invalid-window-time",
         ),
     ],
@@ -257,22 +293,26 @@ def test_named_reference_preserves_inline_compilation_and_pending_report(
     assert (notice.route, notice.recipient) == ("existing", "method:phone")
 
 
-def test_compatible_instructions_resolve_profile_contents(
+def test_named_identity_stays_out_of_legacy_instruction_grouping(
     named: dict[str, Any],
 ) -> None:
-    """Equivalent saved instructions group across named and legacy policy choices."""
+    """Only equivalent inline rows use compatibility grouping; named IDs stay separate."""
     rows = [{"id": "row", "profile": "morning"}]
     policies = [
         monitoring_policy("named", {}, notifications=rows),
         monitoring_policy(
             "inline", {}, notifications=definitions.resolve_rows(named, rows)
         ),
+        monitoring_policy(
+            "inline_copy", {}, notifications=definitions.resolve_rows(named, rows)
+        ),
     ]
     settings = Settings.from_data(
         current_config(policies, notification_definitions=named)
     )
     result = notification_grouping.compatible_intents(settings)
-    assert result["policy_named_row"] == result["policy_inline_row"]
+    assert set(result) == {"policy_inline_row", "policy_inline_copy_row"}
+    assert result["policy_inline_row"] == result["policy_inline_copy_row"]
 
 
 async def test_profile_edits_track_effective_window_and_current_phone_permissions(

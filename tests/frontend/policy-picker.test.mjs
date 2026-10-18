@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {editReusable,namedPolicies,newMonitoringPolicy,policySelectionChoices} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
+import {editReusable,namedPolicies,newMonitoringPolicy,policySelectionChoices,watchMode} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
+import {selectedEntityTypes} from "../../custom_components/homeostatic/frontend/entity-types.mjs";
 import {notificationSettings} from "./notification-profiles-fixture.mjs";
 
 const areas=[{id:"kitchen",name:"Kitchen",floor_id:"ground"},{id:"garage",name:"Garage",floor_id:"ground"},{id:"office",name:"Office",floor_id:"upper"},{id:"empty",name:"Spare room",floor_id:"upper"}];
@@ -32,6 +33,29 @@ function fixture(type="battery",mode="selected",values=[]) {
 }
 const choiceIds=html=>[...html.matchAll(/data-definition-value="([^"]+)"/g)].map(match=>match[1]);
 const contextFor=(card,policy,id)=>policySelectionChoices(card,policy,"selected").find(item=>item.id===id)?.context;
+
+for(const mode of ["types","types_except"])test(`${mode} keeps editable domain and device-class rules for future entities`,()=>{
+  const {card,policy}=fixture("entity","all");
+  policy.match={kind:["entity"]};
+  policy[mode==="types"?"match_any":"match_none"]=[{domain:["camera","lock","alarm_control_panel"]},{domain:["binary_sensor"],device_class:["smoke","carbon_monoxide","gas","moisture"]}];
+  card.policyPicker=null;
+  assert.equal(watchMode(policy),mode);
+  const before=structuredClone(policy),html=namedPolicies(card);
+  assert.match(html,/Matching entity types/);
+  assert.match(html,/All except selected entity types/);
+  assert.match(html,/All cameras/);
+  assert.match(html,/Moisture · Binary sensors/);
+  assert.match(html,/current and future operational entities/);
+  assert.deepEqual(policy,before,"Rendering preserves the saved expression");
+  const element={dataset:{definitionField:"selection",definitionKind:"policies",definitionId:policy.id,definitionValue:"binary_sensor:door"},checked:true};
+  editReusable(card,{type:"change",target:element});
+  assert.ok(selectedEntityTypes(policy,mode).includes("binary_sensor:door"));
+  assert.ok(selectedEntityTypes(policy,mode).includes("camera"));
+  assert.ok(!JSON.stringify(policy).includes("registry:"));
+  editReusable(card,{type:"change",target:{dataset:{definitionField:"watch",definitionKind:"policies",definitionId:policy.id},value:"all"}});
+  assert.deepEqual(policy.match,{kind:["entity"]});
+  assert.equal(policy.match_any,undefined);assert.equal(policy.match_none,undefined);
+});
 
 function householdFixture() {
   const {card,policy}=fixture("device","all");

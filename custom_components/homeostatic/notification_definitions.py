@@ -25,17 +25,26 @@ def default_profiles() -> dict[str, dict[str, Any]]:
     return {
         "immediate": {
             "name": "Immediate",
-            "timing": {"mode": "immediate"},
+            "timing": {"mode": "immediate", "collection_delay_seconds": 60},
             "methods": [],
         },
         "acknowledge": {
             "name": "Immediate with acknowledgment",
-            "timing": {"mode": "acknowledge", "remind_every": 1800},
+            "timing": {
+                "mode": "acknowledge",
+                "remind_every": 1800,
+                "collection_delay_seconds": 5,
+            },
             "methods": [],
         },
         "urgent": {
             "name": "Urgent",
-            "timing": {"mode": "window", "start": "08:00", "end": "22:00"},
+            "timing": {
+                "mode": "window",
+                "start": "08:00",
+                "end": "22:00",
+                "collection_delay_seconds": 60,
+            },
             "methods": [],
         },
         **{
@@ -130,7 +139,7 @@ def _method(key: str, value: object) -> None:
             _channels(channels, empty=False)
 
 
-def _timing(value: object) -> None:
+def _timing(value: object, *, named: bool = False) -> None:
     """Validate timing for a named notification or a saved inline entry."""
     if not isinstance(value, dict):
         raise ValueError("Provide timing settings on each notification entry")
@@ -146,6 +155,11 @@ def _timing(value: object) -> None:
         raise ValueError(
             "Choose immediate, acknowledgment, window, or scheduled reporting"
         )
+    if named and mode != "report":
+        fields.add("collection_delay_seconds")
+        delay = value.get("collection_delay_seconds")
+        if type(delay) is not int or delay < 0:
+            raise ValueError("Collection delay must be whole seconds, 0 or greater")
     if set(value) != fields:
         raise ValueError("Provide the settings for the selected timing")
     if mode == "acknowledge":
@@ -210,7 +224,7 @@ def validate(value: object) -> dict[str, Any]:
             raise ValueError(
                 "Provide a name, timing, and delivery methods for each notification"
             )
-        _timing(profile["timing"])
+        _timing(profile["timing"], named=True)
         if any(
             method not in data["methods"] for method in _strings(profile["methods"])
         ):
@@ -382,6 +396,15 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
     )
     scopes.append(({}, data["default"]))
     identities = {row["id"]: row for _, rows in scopes for row in rows}
+    assignment_routes = {
+        row["id"]
+        for assignment in data["assignments"].values()
+        for rows in (
+            assignment.get("default", []),
+            *assignment.get("checks", {}).values(),
+        )
+        for row in rows
+    }
     recipients: dict[str, Any] = {
         f"method:{key}": {"channels": [f"method:{key}"]} for key in data["methods"]
     }
@@ -430,13 +453,32 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
                 "to": targets[0],
                 "repeat_open": True,
             }
-        for match, rows in scopes:
+        route_scopes = (
+            sorted(
+                scopes,
+                key=lambda scope: (
+                    not any(item["id"] == identity for item in scope[1])
+                    if scope[0]
+                    else True
+                ),
+            )
+            if identity in assignment_routes
+            else scopes
+        )
+        for match, rows in route_scopes:
+            selected_row = next((item for item in rows if item["id"] == identity), None)
+            # Granting scopes come first for independent source routes. A matching
+            # integration with another assignment cannot mask affected equipment.
             rule: dict[str, Any] = {
                 "route": identity,
                 "match": match,
                 "loudness": "record",
+                **(
+                    {"batch": 0}
+                    if "profile" in row and schedule["mode"] != "report"
+                    else {}
+                ),
             }
-            selected_row = next((item for item in rows if item["id"] == identity), None)
             if selected_row is not None and targets:
                 when = selected_row.get("when")
                 if when is not None:

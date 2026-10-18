@@ -148,6 +148,28 @@ document.querySelector("#run").onclick=async()=>{
       await save();check(saved.notification_definitions.profiles.weekly.timing.at==="10:00"&&JSON.stringify(saved.notification_definitions.profiles.weekly.timing.weekdays)==="[6]","Summary saves selected weekday and time");
       savedList("profiles","weekly","Weekly summary");
     });
+    await runPath("profiles.collection-delay",async()=>{
+      const selector='[data-definition-field="timing:collection_delay_seconds"]';
+      await edit("immediate");
+      check(find(selector).value==="60","Supplied Immediate starts with 60 seconds");
+      check(root.textContent.includes("Later requests don’t extend the wait")&&root.textContent.includes("0 sends without waiting"),"The fixed-window boundary and zero are explained inline");
+      for(const invalid of ["","-1","1.5","later"]) {
+        await change(selector,invalid);const before=persistCount();await save();
+        check(persistCount()===before&&!find(selector).checkValidity(),"Invalid seconds stay unsaved: "+invalid);
+      }
+      await change(selector,"23");await save();await edit("immediate");
+      check(find(selector).value==="23"&&saved.notification_definitions.profiles.immediate.timing.collection_delay_seconds===23,"Saved seconds reopen exactly");
+      await change(selector,"31");await click('[data-definition-action="discard-scoped"]');
+      check(find(selector).value==="23","Discard restores the saved delay");
+      await change('[data-definition-field="timing:mode"]',"report");
+      check(!root.querySelector(selector),"Fixed-time reports hide the field");
+      await save();await edit("immediate");
+      check(!("collection_delay_seconds" in saved.notification_definitions.profiles.immediate.timing),"Fixed-time reports save no hidden delay");
+      await change('[data-definition-field="timing:mode"]',"immediate");
+      check(find(selector).value==="0","Returning from report mode starts without collection wait");
+      await click('[data-definition-action="discard-scoped"]');
+      await profiles();
+    });
     await runPath("profiles.delete-cancel",async()=>{
       const before=JSON.stringify(saved);await more("weekly","delete");await click('[data-definition-action="cancel-delete"]');check(JSON.stringify(saved)===before,"Cancel preserves saved configuration");
     });

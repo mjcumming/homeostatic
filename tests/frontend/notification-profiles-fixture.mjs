@@ -4,9 +4,9 @@ export function notificationSettings() {
   const definitions=emptyNotificationDefinitions("America/Chicago");
   definitions.methods.phone={name:"Owner phone",mode:"fixed",destinations:["phone:owner"]};
   definitions.profiles={
-    immediate:{name:"Immediate",timing:{mode:"immediate"},methods:[]},
-    acknowledge:{name:"Immediate with acknowledgment",timing:{mode:"acknowledge",remind_every:1800},methods:[]},
-    urgent:{name:"Urgent",timing:{mode:"window",start:"08:00",end:"22:00"},methods:[]},
+    immediate:{name:"Immediate",timing:{mode:"immediate",collection_delay_seconds:60},methods:[]},
+    acknowledge:{name:"Immediate with acknowledgment",timing:{mode:"acknowledge",remind_every:1800,collection_delay_seconds:5},methods:[]},
+    urgent:{name:"Urgent",timing:{mode:"window",start:"08:00",end:"22:00",collection_delay_seconds:60},methods:[]},
     morning:{name:"Morning summary",timing:{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]},methods:[]},
     evening:{name:"Evening summary",timing:{mode:"report",at:"18:00",weekdays:[0,1,2,3,4,5,6]},methods:[]},
     weekly:{name:"Weekly summary",timing:{mode:"report",at:"08:00",weekdays:[6]},methods:[]},

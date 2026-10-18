@@ -1,4 +1,4 @@
-import {inventoryRows} from "./model.mjs?v=95";
+import {inventoryRows} from "./model.mjs?v=97";
 
 const byName = (left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
 

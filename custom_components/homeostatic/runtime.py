@@ -9,13 +9,14 @@ from collections import Counter, deque
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from functools import partial
 from operator import ne
 from time import perf_counter
 from typing import Any, cast
 from uuid import uuid4
 
+from health_tree.delivery_collections import CollectionRequest
 from health_tree.engine import Engine
 from health_tree.policy import Policy
 from health_tree.types import (
@@ -30,6 +31,7 @@ from health_tree.types import (
     PolicyConfig,
     PolicyContext,
     ProbeRequested,
+    QuietHours,
     QuietWindow,
     View,
 )
@@ -608,7 +610,7 @@ class Runtime:
             if observations:
                 self._record_observations(observations)
                 self._handle(self.engine.ingest_many(observations, now), now, cause)
-            self._deliveries(self.policy.advance(now, PolicyContext()))
+            self._deliveries(self.policy.advance(now, PolicyContext()), now)
             processed += 1
             if self._pending and (
                 processed >= 8 or perf_counter() - slice_started >= 0.020
@@ -1207,7 +1209,9 @@ class Runtime:
         assert self.policy is not None
         if self._activating:
             self._save_required = True
-            self.delivery.deactivate(routes=self._activating_routes)
+            self.delivery.deactivate(
+                routes=self._activating_routes, preserve_pending=True
+            )
             self._activating = False
             activated = (
                 self.policy.activate(now, PolicyContext())
@@ -1216,15 +1220,24 @@ class Runtime:
                     now, PolicyContext(), routes=self._activating_routes
                 )
             )
-            self._deliveries(activated)
+            self._deliveries(activated, now)
             self._activating_routes = None
-        self._deliveries(self.policy.advance(now, PolicyContext()))
+        self._deliveries(self.policy.advance(now, PolicyContext()), now)
         self._prune_controls(now)
         self.history.advance(now)
         self.phone_actions.prune(now)
         if not self.settings.notifications:
             self.delivery.deactivate()
         self._end_quiet(now)
+        if self.settings.notifications:
+            previous_collection_state = self.delivery.collections.snapshot()
+            for update in self.delivery.collections.advance(
+                now, self.policy, held=self.startup_quiet
+            ):
+                self.delivery.record_collection(update)
+                self._save_required = True
+            if self.delivery.collections.snapshot() != previous_collection_state:
+                self._save_required = True
         # Facts and error recovery describe saved state, so they save at once.
         if (
             durable
@@ -1400,7 +1413,9 @@ class Runtime:
                 if target not in self.episodes:
                     raise ValueError("Acknowledgment requires a current episode id")
                 first = self.policy.acknowledgment(target) is None
-                self._deliveries(self.policy.acknowledge(target, now, actor_id=user_id))
+                self._deliveries(
+                    self.policy.acknowledge(target, now, actor_id=user_id), now
+                )
                 if first:
                     self._facts.append(
                         Fact(
@@ -1430,7 +1445,7 @@ class Runtime:
             ):
                 raise ValueError("An existing shelf can only be extended")
             response: dict[str, JSONValue] = {}
-            self._deliveries(self.policy.shelve(target, until, now))
+            self._deliveries(self.policy.shelve(target, until, now), now)
             for control in self.controls:
                 if control.action == "shelve" and control.target == target:
                     self._control_fact(
@@ -1488,7 +1503,9 @@ class Runtime:
         if control is None:
             raise ValueError("This control has already ended or no longer exists")
         if control.action == "shelve":
-            self._deliveries(self.policy.unshelve(control.target, now, PolicyContext()))
+            self._deliveries(
+                self.policy.unshelve(control.target, now, PolicyContext()), now
+            )
         else:
             for root in self._maintenance_roots(control.target):
                 self._handle(
@@ -2298,10 +2315,11 @@ class Runtime:
                         and delivery.cause == "update"
                     )
                 ]
-            self._deliveries(deliveries)
+            self._deliveries(deliveries, now)
             if rearm:
                 self._deliveries(
-                    self.policy.rearm(event.episode.episode_id, now, PolicyContext())
+                    self.policy.rearm(event.episode.episode_id, now, PolicyContext()),
+                    now,
                 )
 
     def _renamed_episode(
@@ -2518,11 +2536,13 @@ class Runtime:
             if fact.event_type == EVENT_EPISODE:
                 async_dispatcher_send(self.hass, self.fact_signal, fact)
 
-    def _deliveries(self, deliveries: list[Delivery]) -> None:
+    def _deliveries(self, deliveries: list[Delivery], now: datetime) -> None:
         if not deliveries or not self.settings.notifications or self._activating:
             return
         self.delivery.prepare_reports(deliveries)
         intents = notification_grouping.compatible_intents(self.settings)
+        collections = notification_grouping.collection_settings(self.settings)
+        requests: list[CollectionRequest] = []
         grouped: list[Delivery] = []
         group_ids: dict[tuple[str, str], str] = {}
         contents: dict[tuple[str, str], dict[str, JSONValue]] = {}
@@ -2533,6 +2553,30 @@ class Runtime:
                 else {}
             )
             if isinstance(delivery, Notification):
+                if delivery.route in collections:
+                    accepted = collections[delivery.route]
+                    instructions = accepted["instructions"]
+                    timing = instructions["timing"]
+                    requests.append(
+                        CollectionRequest(
+                            notification=replace(
+                                delivery,
+                                channels=self._resolve_channels(delivery.channels),
+                            ),
+                            group_id=accepted["group_id"],
+                            delay=timedelta(seconds=timing["collection_delay_seconds"]),
+                            instructions=instructions,
+                            content=content,
+                            quiet_hours=QuietHours(
+                                start=time.fromisoformat(timing["end"]),
+                                end=time.fromisoformat(timing["start"]),
+                            )
+                            if timing["mode"] == "window"
+                            else None,
+                            timezone=instructions["timezone"],
+                        )
+                    )
+                    continue
                 subject = content.get("notification_subject")
                 previous = self.delivery.messages.get(
                     f"{delivery.recipient}:{delivery.episode_id}"
@@ -2580,6 +2624,18 @@ class Runtime:
             key=lambda update: not update.closed,
         ):
             self.delivery.record_group(update, contents)
+        assert self.policy is not None
+        for collected in self.delivery.collections.apply(
+            requests,
+            [item for item in deliveries if not isinstance(item, Notification)],
+            now,
+            self.policy,
+            held=self.startup_quiet,
+            flush=False,
+        ):
+            self.delivery.record_collection(collected)
+        if requests:
+            self._save_required = True
 
     def _resolve_channels(self, channels: tuple[str, ...]) -> tuple[str, ...]:
         result = []
@@ -2780,7 +2836,11 @@ class Runtime:
             self._deadline_cancel = None
         assert self.engine is not None
         assert self.policy is not None
-        deadlines = [self.engine.next_deadline(), self.policy.next_deadline()]
+        deadlines = [
+            self.engine.next_deadline(),
+            self.policy.next_deadline(),
+            self.delivery.collections.next_deadline(),
+        ]
         deadlines.extend(self._temperature_deadlines.values())
         deadlines.extend(
             control.until for control in self.controls if control.until > now

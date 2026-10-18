@@ -1,8 +1,8 @@
-import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=95";
+import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=97";
 
-import {deviceEntityName} from "./device-availability.mjs?v=95";
-import {waitingOnly} from "./check-presentation.mjs?v=95";
-import {issueDeviceId} from "./device-issue-model.mjs?v=95";
+import {deviceEntityName} from "./device-availability.mjs?v=97";
+import {waitingOnly} from "./check-presentation.mjs?v=97";
+import {issueDeviceId} from "./device-issue-model.mjs?v=97";
 
 const count = (value, singular, plural = `${singular}s`) => `${value} ${value === 1 ? singular : plural}`;
 const sourceId = source => source?.monitoring_source || source?.node_id;
@@ -134,7 +134,10 @@ function ordered(episodes, sort, nodes) {
 
 /** Render one entry per issue, with evidence available in its details. */
 export function issuesWorkspace(card) {
-  const data = card.current.data, nodes = inventoryMap(data), groups = issueGroups(data,key => card._hass?.localize?.(key));
+  const included = Array.isArray(card.notificationIssueIds) ? new Set(card.notificationIssueIds) : null;
+  const current = card.current.data;
+  const data = included ? {...current,inventory:{...current.inventory,episodes:current.inventory.episodes.filter(episode=>included.has(episode.episode_id))}} : current;
+  const nodes = inventoryMap(data), groups = issueGroups(data,key => card._hass?.localize?.(key));
   const owners = new Map(data.inventory.episodes.map(episode => [episode.episode_id, issueDeviceId(data, episode, nodes)]));
   const devices = new Map((data.devices || []).map(device=>[device.id,device]));
   const query = (card.issueQuery || "").trim().toLocaleLowerCase(), expanded = card.issueGroupsExpanded || new Set(), sort = card.issueSort || "newest";
@@ -155,7 +158,7 @@ export function issuesWorkspace(card) {
       const shown = subject.episodes.slice(0,remaining);
       remaining -= shown.length;shownCount += shown.length;
       if (!shown.length) return "";
-      const combined = subject.deviceId && subject.episodes.some(episode => owners.get(episode.episode_id) === subject.deviceId);
+      const combined = !included && subject.deviceId && subject.episodes.some(episode => owners.get(episode.episode_id) === subject.deviceId);
       const rows = shown.map(episode=>`<div data-ui-key="issue:${esc(episode.episode_id)}">${card.issueRow(data,episode,nodes,subject.deviceId ? subject : null,{interactive:!combined || owners.get(episode.episode_id)!==subject.deviceId})}</div>`).join("");
       if (!subject.deviceId) return rows;
       const view = combined ? `<button type="button" class="button" data-device-issues="${esc(subject.deviceId)}" aria-label="View issues for ${esc(subject.name)}">View</button>` : "";
@@ -170,8 +173,10 @@ export function issuesWorkspace(card) {
   const hidden = data.inventory.episodes.filter(episode=>!visibleIds.has(episode.episode_id));
   const monitored = data.inventory.monitored_count ?? data.inventory.nodes.filter(source => source.watched).length;
   const monitoringKnown=Number.isInteger(data.inventory.monitored_count)||data.catalog_loaded!==false;
-  const empty = query ? `<h2>No matching issues</h2><p>Try another source name, entity ID or reported condition.</p><button type="button" class="link" data-action="clear-issue-search">Clear search</button>` : hidden.length ? `<h2>No current issues</h2><p>Monitoring shows current status and any pending recovery confirmation.</p><button type="button" class="link" data-page="sources">View monitoring</button>` : `<h2>${monitored ? "No open issues" : monitoringKnown ? "Nothing is monitored" : "No open issues reported"}</h2><p>${monitored ? "No open problems are reported by the current monitoring." : monitoringKnown ? "Choose a monitoring policy to start checking sources." : "Open Policies to inspect the configured monitoring scope."}</p><button type="button" class="link" data-page="policies">View policies</button>`;
-  return `<div class="intro"><div><h1>Open issues</h1><p class="page-description">Problems that need attention.</p></div></div><div class="issues-toolbar"><label><span>Find an issue</span><input type="search" data-issue-search value="${esc(card.issueQuery || "")}" placeholder="Find an issue"></label><label><span>Sort issues</span><select data-issue-sort>${[["newest","Newest first"],["oldest","Longest open"],["name","Source name"],["importance","Importance"]].map(([value,label]) => `<option value="${value}"${sort === value ? " selected" : ""}>${label}</option>`).join("")}</select></label></div><p class="small">${query ? `${visible} of ${total} issues match` : `${count(total,"open issue")}`}</p>${rows || `<section class="panel body">${empty}</section>`}`;
+  const ended = included ? included.size - data.inventory.episodes.length : 0;
+  const notification = included ? `<p class="page-description" data-notification-scope>${included.size ? `${count(included.size,"issue")} included in this notification.${ended ? ` ${count(ended,"included issue")} ${ended === 1 ? "is" : "are"} no longer open.` : ""}` : "This notification has no included issue IDs."}</p><a class="button" href="/homeostatic/issues" data-all-issues>Show all open issues</a>` : "";
+  const empty = included && !data.inventory.episodes.length ? `<h2>No included issues are still open</h2><p>Other open issues are available from Show all open issues.</p>` : query ? `<h2>No matching issues</h2><p>Try another source name, entity ID or reported condition.</p><button type="button" class="link" data-action="clear-issue-search">Clear search</button>` : hidden.length ? `<h2>No current issues</h2><p>Monitoring shows current status and any pending recovery confirmation.</p><button type="button" class="link" data-page="sources">View monitoring</button>` : `<h2>${monitored ? "No open issues" : monitoringKnown ? "Nothing is monitored" : "No open issues reported"}</h2><p>${monitored ? "No open problems are reported by the current monitoring." : monitoringKnown ? "Choose a monitoring policy to start checking sources." : "Open Policies to inspect the configured monitoring scope."}</p><button type="button" class="link" data-page="policies">View policies</button>`;
+  return `<div class="intro"><div><h1>${included ? "Issues in this notification" : "Open issues"}</h1>${included ? notification : `<p class="page-description">Problems that need attention.</p>`}</div></div><div class="issues-toolbar"><label><span>Find an issue</span><input type="search" data-issue-search value="${esc(card.issueQuery || "")}" placeholder="Find an issue"></label><label><span>Sort issues</span><select data-issue-sort>${[["newest","Newest first"],["oldest","Longest open"],["name","Source name"],["importance","Importance"]].map(([value,label]) => `<option value="${value}"${sort === value ? " selected" : ""}>${label}</option>`).join("")}</select></label></div><p class="small">${query ? `${visible} of ${total} issues match` : `${count(total,"open issue")}`}</p>${rows || `<section class="panel body">${empty}</section>`}`;
 }
 
 

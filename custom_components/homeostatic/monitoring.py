@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from .rules import Attributes, CatalogRule, attributes
+from .rules import Attributes, CatalogRule, alternatives, attributes
 from .temperature import TemperatureLimitParameters, ThermostatParameters
 from .ups_parameters import UPS_CHECKS, ReserveParameters
 
@@ -39,6 +39,8 @@ class MonitoringPolicy:
     enabled: bool
     notifications: tuple[dict[str, Any], ...]
     excluded_sources: tuple[str, ...] = ()
+    match_any: tuple[Attributes, ...] = ()
+    match_none: tuple[Attributes, ...] = ()
 
     def matches(self, metadata: Attributes, *, source_id: str | None = None) -> bool:
         """Apply positive scope, registry eligibility, and exact source exclusions."""
@@ -48,17 +50,23 @@ class MonitoringPolicy:
             checks=(self.check,),
             enabled=self.enabled,
             excluded_sources=self.excluded_sources,
+            match_any=self.match_any,
+            match_none=self.match_none,
         ).matches(metadata, source_id=source_id)
 
     def detection_key(self, *, member_exclusions: tuple[str, ...] = ()) -> str:
         """Identify detection edits affecting this check's selected evidence."""
-        payload = {
+        payload: dict[str, Any] = {
             "check": self.check,
             "match": dict(self.match),
             "parameters": dict(self.parameters),
         }
         if member_exclusions:
             payload["excluded_sources"] = member_exclusions
+        if self.match_any:
+            payload["match_any"] = self.match_any
+        if self.match_none:
+            payload["match_none"] = self.match_none
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[
             :16
         ]
@@ -78,6 +86,17 @@ class MonitoringPolicy:
                 if self.excluded_sources
                 else {}
             ),
+            **{
+                key: [
+                    {field: list(values) for field, values in match.items()}
+                    for match in matches
+                ]
+                for key, matches in (
+                    ("match_any", self.match_any),
+                    ("match_none", self.match_none),
+                )
+                if matches
+            },
         }
 
 
@@ -97,6 +116,8 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
             "enabled",
             "notifications",
             "excluded_sources",
+            "match_any",
+            "match_none",
         }:
             raise ValueError("Unknown monitoring policy field")
         identity, name, check = row.get("id"), row.get("name"), row.get("check")
@@ -110,6 +131,13 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
             raise ValueError("Choose a monitoring policy name")
         if not isinstance(check, str) or check not in CHECKS:
             raise ValueError("Choose a supported monitoring check")
+        if "match_any" in row and "match_none" in row:
+            raise ValueError("Choose matching entity types or excluded entity types")
+        match = attributes(row.get("match", {}))
+        if ("match_any" in row or "match_none" in row) and (
+            check != "availability" or match.get("kind") != ("entity",)
+        ):
+            raise ValueError("Entity type alternatives belong to entity availability")
         parameters = row.get("parameters", {})
         if not isinstance(parameters, dict):
             raise ValueError("Detection parameters must be an object")
@@ -154,11 +182,15 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
                 id=identity,
                 name=name.strip(),
                 check=check,
-                match=attributes(row.get("match", {})),
+                match=match,
                 parameters=parameters,
                 enabled=enabled,
                 notifications=tuple(notifications),
                 excluded_sources=excluded,
+                match_any=alternatives(row["match_any"]) if "match_any" in row else (),
+                match_none=alternatives(row["match_none"])
+                if "match_none" in row
+                else (),
             )
         )
         ids.add(identity)

@@ -34,6 +34,8 @@ def method_config(
         },
     }
     definitions["profiles"]["acknowledge"]["methods"] = ["test"]
+    # These scenarios edit already-authorized outbox requests, before transport.
+    definitions["profiles"]["acknowledge"]["timing"]["collection_delay_seconds"] = 0
     config_data["monitoring_policies"][0]["notifications"] = [
         {"id": "edited", "profile": "acknowledge"},
         {

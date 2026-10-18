@@ -767,10 +767,10 @@ def test_grouped_source_condition_exceptions(
     ] == expected
 
 
-def test_nonadjacent_source_choices_retain_precedence(
+def test_nonadjacent_source_choices_retain_independent_routes(
     configured: dict[str, Any],
 ) -> None:
-    """A group issue retains the first matching explicit source override."""
+    """A dashboard-only member cannot mask another member's selected route."""
     immediate = [configured["default"][0]]
     configured["assignments"] = {
         "device:one": {"default": immediate},
@@ -787,5 +787,8 @@ def test_nonadjacent_source_choices_retain_precedence(
         ),
     )
     policy = Policy(build_policy(definitions.generate(configured), timedelta(0)))
-    assert policy.handle(opened, now, PolicyContext()) == []
+    assert {item.route for item in policy.handle(opened, now, PolicyContext())} == {
+        "urgent"
+    }
+    policy.acknowledge("issue", now + timedelta(minutes=1), actor_id="owner")
     assert policy.advance(now + timedelta(hours=1), PolicyContext()) == []

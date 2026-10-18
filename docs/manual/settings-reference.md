@@ -10,10 +10,10 @@ These are the six editable choices supplied with a fresh setup. All start withou
 
 | Supplied name | Starting timing | Supplied policy assignments |
 | --- | --- | --- |
-| Immediate | As soon as eligible, including overnight | Available to select |
-| Immediate with acknowledgment | Immediately, then every 30 minutes until acknowledged or the problem ends | Temperature-limit templates; UPS low reserve on backup power |
-| Urgent | Every day from 08:00 to 22:00 | Thermostat, UPS backup-power and UPS fault templates |
-| Morning summary | Every day at 08:00 | Availability, Repairs, broken automations and batteries; UPS battery replacement and low reserve on mains power |
+| Immediate | Eligible requests collect for 60 seconds, including overnight | Important equipment availability |
+| Immediate with acknowledgment | Eligible requests collect for 5 seconds, then reminders every 30 minutes until acknowledged or the problem ends | Temperature-limit templates; UPS low reserve on backup power |
+| Urgent | Every day from 08:00 to 22:00, with a 60-second collection delay | Thermostat, UPS backup-power and UPS fault templates |
+| Morning summary | Every day at 08:00, with no extra delay | General entity, integration and device availability, Repairs, broken automations and batteries; UPS battery replacement and low reserve on mains power |
 | Evening summary | Every day at 18:00 | Vacuums |
 | Weekly summary | Sunday at 08:00 | Available to select |
 
@@ -25,12 +25,13 @@ The notification editor provides these settings:
 | --- | --- |
 | Name | A nonempty name for the shared notification. Renaming preserves its assignments. |
 | When to notify | **Immediately**, **Immediately, with acknowledgment**, **During daily hours** or **Scheduled summary**. |
+| Collection delay (seconds) | A whole number at least 0. Wait this long to combine requests using this notification. Later requests don't extend the wait. Zero sends without waiting. Hidden for scheduled summaries, which have no additional delay. |
 | Remind every (minutes) | A whole number of minutes, at least 1. Shown for acknowledgment reminders. |
 | Start and End | Distinct local times. Shown for daily hours. The start is included; the end is excluded. A window can cross midnight. |
 | Summary time and Days | One local time and at least one weekday. Shown for scheduled summaries. |
 | Send using | One or more saved delivery methods. An empty selection sends nothing. |
 
-Scheduled times use the Home Assistant installation time zone displayed in the editor and follow its daylight-saving rules. During daily hours, eligible requests use standard notification batching. Requests held outside the window wait for its next opening and are dropped if the problem ends first. Scheduled summaries include eligible open problems even after immediate delivery or acknowledgment. Empty summaries are skipped.
+Scheduled times use the Home Assistant installation time zone displayed in the editor and follow its daylight-saving rules. During daily hours, still-eligible requests start collecting when hours open. If the collection deadline falls after closing, sending waits for the next opening without another collection delay. Requests are dropped if the problem ends first. Scheduled summaries include eligible open problems even after immediate delivery or acknowledgment. Empty summaries are skipped.
 
 ## Delivery destinations
 
@@ -38,7 +39,7 @@ A method may combine several destinations and delivery types. Configure the supp
 
 | Delivery type in the picker | Required Home Assistant destination | Homeostatic capabilities |
 | --- | --- | --- |
-| App notification | A registered Companion app phone with push notifications | Issue links, replacement and clearing of messages, and an Acknowledge action on active issue or device messages |
+| App notification | A registered Companion app phone with push notifications | Issue links, replacement and clearing of messages, and an Acknowledge action on active individual, device or collected messages |
 | Speaker announcement | An Assist satellite that supports announcements, or a media player that supports media playback with an available text-to-speech provider | Spoken message; choose the speaker first, then a provider when several are available |
 | Email | A recognized email notification entity or action, such as a configured SMTP route | New message through the configured route |
 | SMS | A recognized SMS action with a recipient number | New message to that number; the picker accepts 5–15 digits, optionally beginning with `+` |
@@ -90,7 +91,7 @@ Open **Settings**. The first three settings are shown directly; the remaining ti
 | Wait for unknown evidence | 15 min | Sets the wait before a check treats missing or uncertain evidence as stale. Availability evidence gaps stay out of Open issues and do not request availability notifications; their unresolved evidence remains in Monitoring. Condition checks use their own evidence rules. |
 | Allow reconnecting devices | 1 min | Gives devices and entities time to recover after their failed integration returns. |
 | Maximum startup wait | 10 min | Limits how long notifications wait for watched integrations to finish loading after Home Assistant starts. |
-| Standard notification batching | 30 sec | Combines eligible standard requests, including delivery during daily hours. Immediate delivery and scheduled summaries use their own timing. |
+| Standard notification batching | 30 sec | Applies to supported Custom standard requests. Named notifications use their own collection delay or scheduled summary time. |
 
 Waits accept nonnegative whole values in the unit shown. There is no separate general delay before a watched failure opens an issue beyond the applicable waits and its policy's detection criteria.
 

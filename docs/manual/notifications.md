@@ -27,9 +27,10 @@ This example method has a saved phone destination. Testing is a separate action 
 
 1. Return to the **Notifications** view. Select **Edit notification** on an existing choice, or **Add notification** to create one.
 2. Set the name and **When to notify**. Choose immediate delivery, acknowledgment reminders, daily delivery hours or a scheduled summary. The [settings reference](settings-reference.md#named-notifications) lists the starting choices and timing fields.
-3. Under **Send using**, select the saved delivery method or methods to use.
-4. Read **Changes apply to** before saving. It identifies the saved policies that use this notification.
-5. Select **Save notification**.
+3. For immediate delivery, acknowledgment reminders or daily hours, set **Collection delay (seconds)**. Use a whole number at least 0. Zero sends without waiting. Later requests join the current collection without extending its wait. Scheduled summaries have no extra collection delay.
+4. Under **Send using**, select the saved delivery method or methods to use.
+5. Read **Changes apply to** before saving. It identifies the saved policies that use this notification.
+6. Select **Save notification**.
 
 For example, Morning summary can use Household phones and report open equipment problems each morning. A notification with no selected delivery method remains saved but sends nothing.
 
@@ -48,7 +49,7 @@ The example Morning summary uses the Owner phone method. **Changes apply to** id
 
 An opened issue also lists its assigned named notifications under **Notifications:**. Select a name to open that editor, then **Back to issue** to return. Shared notifications appear once; an older **Custom notification** opens its policy.
 
-A policy can use several notifications. For example, a temperature policy could request immediate acknowledgment and also appear in a morning summary. Each assignment keeps its own timing. Compatible messages about the same equipment may be combined for delivery.
+A policy can use several notifications. For example, a temperature policy could request immediate acknowledgment and also appear in a morning summary. Each assignment keeps its own timing. Requests using the same saved notification and destination can share one message, including requests about unrelated equipment. Different saved notifications remain separate. Each included issue keeps its own controls; acknowledging a message covers only the issues it showed.
 
 To keep a policy on the dashboard only, select **Remove** on each notification assignment and save the policy. It then shows **No notifications**; its issues still appear in Open issues. This does not change other policies that watch the same equipment.
 
@@ -58,7 +59,7 @@ Older saved assignments may show **Custom notification — keep current settings
 
 Use the **Notifications** switch in the panel header after the methods, named notifications and policy assignments are saved. The switch saves independently of editor drafts. Monitoring and Open issues continue while sending is off.
 
-When sending is enabled, already-open problems can become eligible under their saved instructions. Immediate notifications may be requested then. Daily-hours delivery waits for its open window when necessary, and a scheduled summary waits for its next occurrence. A saved summary assignment can show its next scheduled time in the policy editor; unsaved changes need to be saved before that forecast is available.
+When sending is enabled, already-open problems can become eligible under their saved instructions. Immediate notifications wait for their configured collection delay. Daily-hours delivery waits for its open window when necessary before collecting requests, and a scheduled summary waits for its next occurrence. A saved summary assignment can show its next scheduled time in the policy editor; unsaved changes need to be saved before that forecast is available.
 
 Use [Pause notifications](issues.md#pause-an-issues-notifications) to quiet one open issue temporarily. The [control comparison](settings-reference.md#issue-and-equipment-controls) explains the available choices.
 
@@ -82,14 +83,14 @@ A delivery method can serve several named notifications, and a named notificatio
 
 Each **Save policy**, **Save notification** and **Save delivery method** action saves only that editor. Moving between them within the same tab preserves pending drafts; saving a shared definition does not save a pending policy assignment. Do not rely on an unsaved draft surviving a browser reload or tab closure. Use **Discard changes** to return the current editor to its saved values.
 
-Timing, destination and presence changes apply to already-open issues when saved. Immediate reporting can request another message; scheduled summaries wait for the next occurrence. Renaming alone preserves the existing timing and acknowledgment state. If applying a save fails or disconnects, read the displayed status and keep the pending edits until the outcome is clear.
+Timing, destination and presence changes apply to already-open issues when saved. A collection already waiting to send keeps its accepted settings, destinations and deadline while its assignments remain eligible. Newly eligible requests use the saved changes; scheduled summaries wait for the next occurrence. Renaming alone preserves the existing timing and acknowledgment state. If applying a save fails or disconnects, read the displayed status and keep the pending edits until the outcome is clear.
 
 To delete a saved notification or method, open its **More actions → Delete** menu. If it is used, choose a replacement or explicitly remove its uses. Removing a policy's last notification leaves dashboard-only monitoring. Removing a named notification's last delivery method leaves that notification unconfigured. A deletion that conflicts with relevant pending drafts must be resolved before it can finish.
 
 ## Use a phone notification
 
-Tap an individual issue notification to open its Homeostatic context. Device messages and summaries open Open issues. If an individual issue has ended, its link can open the retained History record. Tapping a message does not acknowledge or clear it. Opening the panel still requires a Home Assistant administrator account; the notification link grants no additional access.
+Tap an individual issue notification to open its Homeostatic context. Messages containing several issues open the included issues that are still open and show how many have ended. **Show all open issues** returns to the complete list. If an individual issue has ended, its link can open the retained History record. Tapping a message does not acknowledge or clear it. Opening the panel still requires a Home Assistant administrator account; the notification link grants no additional access.
 
-The **Acknowledge** button on an active issue or device message records awareness of the issues represented by that message and stops their acknowledgment-dependent reminders. It does not acknowledge a later problem that happens to use the same equipment. Scheduled summaries can still include the acknowledged issues. See [review and respond to an issue](issues.md) for the equivalent panel action.
+The **Acknowledge** button on an active individual, device or collected message records awareness of the issues represented by that message and stops their acknowledgment-dependent reminders. It does not acknowledge a later problem that happens to use the same equipment. Scheduled summaries can still include the acknowledged issues. See [review and respond to an issue](issues.md) for the equivalent panel action.
 
 Immediate notification choices request critical alerts on iPhone and use the **Homeostatic urgent** channel on Android. **Urgent**, the supplied daily-hours choice, uses normal notification priority. Review the phone's notification permissions and channel settings as part of setup. Phone delivery supports updates and clearing of existing messages; other destination types receive new messages without those phone controls.

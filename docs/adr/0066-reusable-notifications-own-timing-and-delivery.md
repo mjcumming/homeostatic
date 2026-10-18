@@ -3,6 +3,12 @@
 **Status:** Accepted
 **Date:** 2026-10-14
 
+**Release exception:** [ADR 0102](0102-collect-requests-by-saved-notification.md) authorizes replacing the otherwise-valid earlier named-notification configuration with fresh defaults and sending off. This supersedes preservation for that release transition only.
+
+**Later decision:** [ADR 0102](0102-collect-requests-by-saved-notification.md) adds a user-editable collection delay to when-eligible and delivery-hours notifications and groups requests by saved identity, recipient and destination, without requiring a shared issue. Supplied defaults are 5 seconds for Immediate with acknowledgment and 60 seconds for Immediate and Urgent. Scheduled reports have no additional collection delay or delay control.
+
+**Later decision:** [ADR 0099](0099-two-supplied-entity-availability-policies.md) assigns Morning to General entity availability and Immediate to Important equipment availability at first installation. Global sending and destination safeguards remain unchanged.
+
 **Later decision:** [ADR 0067](0067-save-delivery-methods-in-place.md) supersedes only the shared-method reload requirement below. Other notification, preservation and installation boundaries remain in force.
 
 **Supersedes in part:** ADR 0057's policy-owned timing and removal of reusable timing choices; ADR 0026's prohibition on regular-hours delivery; ADR 0058 and ADR 0064's empty supplied notification assignments; ADR 0061's placement of timing controls; and ADR 0059/0061's compound inline-method drafts. Their monitoring, direct-save safeguards, delivery-method and global-activation boundaries remain in force. The earlier waiver for pre-policy test configurations does not permit discarding supported inline notification entries.

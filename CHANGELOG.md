@@ -2,14 +2,21 @@
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-18
+
+### Upgrade notes
+
+- This release replaces older Homeostatic settings that lack collection delays with a fresh default configuration. Custom policies, notification assignments and delivery methods are replaced; notification sending starts off. Review the new policies and configure destinations before enabling sending. Saved issue history is retained. Take a full Home Assistant backup before upgrading; rollback requires the matching backup and component version.
+- Use the published health-tree 0.10.0 package. The manual archive now includes this changelog alongside its installation guide.
+
 ### Changed
 
 - Supply editable General entity availability using Morning and Important equipment availability using Immediate. Their saved metadata selections cover future entities independently, and confirmed integration failures retain affected equipment's configured availability notifications.
-- Collect requests using the same saved notification, recipient and destination during a fixed, editable delay. Immediate starts at 60 seconds, acknowledgment reminders at 5 seconds and daily-hours delivery at 60 seconds; zero sends without waiting and scheduled reports have no extra delay. Pending membership, accepted destinations and deadlines survive restart.
+- Collect requests using the same saved notification, recipient and destination during a fixed, editable delay. Immediate starts at 60 seconds, Immediate with acknowledgment at 5 seconds and daily-hours delivery at 60 seconds; zero sends without waiting and scheduled reports have no extra delay. Pending membership, accepted destinations and deadlines survive restart.
 - Replace the minute reconciliation with a sweep every 15 minutes and observe only the sources whose events arrived in between: a config-entry update that changes nothing visible no longer refreshes, and the startup hold ends on its own clock. Idle work falls to the rate of real changes.
 - Persist route signatures as digests and evidence as the last known failure only, rebuild the current observation on the first refresh after a restart, and skip a save whose content equals the last verified write. The saved state of a large installation shrinks by about a third.
 - Keep one map of each source's latest observation for every detail view, persisted as a single evidence section that keeps a continuing failure's first report; earlier snapshots with two evidence sections still load.
-- Use health-tree 0.9.0, whose engine and policy snapshots hold durable state only, so a quiet refresh produces the same bytes as the last save and writes nothing; earlier saved state restores.
+- Use health-tree snapshots that hold durable state only, so a quiet refresh produces the same bytes as the last save and writes nothing; earlier saved state restores.
 - Stop copying the runtime before every settings save. A save whose write or verification fails now reports the error and reloads the integration from the last saved state instead of rolling back in place.
 
 ### Documentation

@@ -109,8 +109,8 @@ def _change_rows(changes: dict[str, JSONValue]) -> int:
     )
 
 
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=95"
-PANEL_ELEMENT = "homeostatic-panel-v47"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=97"
+PANEL_ELEMENT = "homeostatic-panel-v49"
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 

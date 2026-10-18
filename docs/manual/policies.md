@@ -31,6 +31,10 @@ The editor offers only the choices supported by the monitoring type. Integration
 
 Availability policies automatically select enabled operational entities. To watch a diagnostic or configuration entity individually, choose it explicitly in an entity availability policy. Device availability uses its operational entities and excludes diagnostic and configuration entities. Disabled sources remain outside availability monitoring.
 
+Fresh setup supplies **General entity availability** using Morning summary and **Important equipment availability** using Immediate. Important equipment initially includes cameras, locks, alarm panels and binary sensors reporting smoke, carbon monoxide, gas or moisture. General initially includes the other eligible operational entities. These selections follow entity type and device class, so future matching entities are included. Availability watches whether Home Assistant can provide a state; selecting a smoke or leak detector here does not configure smoke or leak detection.
+
+Both policies use the ordinary policy editor. **Matching entity types** includes the selected types; **All except selected entity types** excludes them. Each selection is independent: editing, disabling or deleting one policy never rewrites the other. Deliberate overlap or gaps remain your saved choices. An integration failure retains affected equipment's assigned notifications, so a lock using Immediate can still request attention while the integration waits for Morning.
+
 Exclusions belong to their policy. In a device availability policy, **Devices** selects or excludes whole devices. **Ignored entities** lists entities separately, grouped under their device. Use **Choose ignored entities** to leave those entities out of the device assessment. Changing device selection keeps ignored entities in place; **Save policy** applies both sections. Ignoring every eligible entity on a device leaves no device availability check. An exclusion remains saved if its source disappears, so it applies if that source returns.
 
 ## Stop availability monitoring

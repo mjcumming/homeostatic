@@ -10,7 +10,7 @@ For the phone steps, have the Home Assistant Companion app connected to this ser
 
 Open **Homeostatic** in the sidebar. **Open issues** shows the current reported problems. Keep the **Notifications** switch off while reviewing the setup.
 
-Open **Policies**. A fresh installation enables **Integrations**, **Devices**, **Entities**, **Repairs** and **Broken automations**. Batteries and vacuums start disabled. The supplied policies already select named notifications, but those notifications have no delivery methods yet.
+Open **Policies**. A fresh installation enables **Integrations**, **Devices**, **General entity availability**, **Important equipment availability**, **Repairs** and **Broken automations**. Batteries and vacuums start disabled. The supplied policies already select named notifications, but those notifications have no delivery methods yet.
 
 If Homeostatic has been configured before, the saved choices may differ. The [monitoring reference](monitoring-reference.md) lists fresh-install defaults; updates preserve your choices.
 
@@ -47,7 +47,7 @@ Read the result, then check the phone. A successful request means Home Assistant
 3. Under **Send using**, select **Household phone**.
 4. Inspect the listed policy uses, then select **Save notification**.
 
-This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes the availability, Repairs and broken-automation policies. Disabled policies remain disabled.
+This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes General entity, integration and device availability, Repairs and broken-automation policies. Important equipment availability uses Immediate, which needs its own delivery method selection. Disabled policies remain disabled.
 
 Open the policy you reviewed earlier and inspect its **Notifications** assignment. It should select **Morning summary**. If you change the assignment, select **Save policy**. Saving a notification does not save a pending policy edit.
 
@@ -64,7 +64,7 @@ flowchart LR
 
 Return to **Open issues** and review any problems that are already open. When ready, turn on the **Notifications** switch in the header. The switch applies immediately and saves independently of editor drafts.
 
-Existing open problems become eligible under their saved notification choices. Morning summary waits for its next scheduled occurrence; enabling sending does not send that summary immediately. An empty report sends nothing. Other saved immediate assignments can request notifications when sending is enabled.
+Existing open problems become eligible under their saved notification choices. Morning summary waits for its next scheduled occurrence; enabling sending does not send that summary immediately. An empty report sends nothing. Other saved immediate assignments can request notifications after their configured collection delay when sending is enabled.
 
 ## Keep using it
 

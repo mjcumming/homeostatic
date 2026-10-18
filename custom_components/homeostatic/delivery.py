@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from typing import Any, cast
 
+from health_tree.delivery_collections import CollectedGroup, DeliveryCollections
 from health_tree.delivery_groups import DeliveryGroup, DeliveryGroups
 from health_tree.types import Delivery, JSONValue, Loudness, Notification
 
@@ -19,6 +20,7 @@ class DeliveryState:
         self.summarized: set[str] = set()
         self.attempted: set[str] = set()
         self.groups = DeliveryGroups()
+        self.collections = DeliveryCollections()
 
     @property
     def episode_ids(self) -> set[str]:
@@ -28,7 +30,7 @@ class DeliveryState:
     def restore(self, data: dict[str, Any]) -> None:
         """Reject malformed delivery state before mutating it."""
         if (
-            set(data) - {"delivery_groups"}
+            set(data) - {"delivery_groups", "delivery_collections"}
             not in (
                 {"sequence", "messages", "outbox", "summarized"},
                 {"sequence", "messages", "outbox", "summarized", "attempted"},
@@ -82,12 +84,16 @@ class DeliveryState:
         groups = DeliveryGroups()
         if "delivery_groups" in data:
             groups.restore(data["delivery_groups"])
+        collections = DeliveryCollections()
+        if "delivery_collections" in data:
+            collections.restore(data["delivery_collections"])
         self.sequence = data["sequence"]
         self.messages = {key: dict(value) for key, value in messages.items()}
         self.outbox = [dict(value) for value in outbox]
         self.summarized = set(summarized)
         self.attempted = set(attempts)
         self.groups = groups
+        self.collections = collections
 
     def snapshot(self) -> dict[str, Any]:
         """Return the adapter-owned durable state."""
@@ -98,7 +104,64 @@ class DeliveryState:
             "summarized": sorted(self.summarized),
             "attempted": sorted(self.attempted),
             "delivery_groups": self.groups.snapshot(),
+            "delivery_collections": self.collections.snapshot(),
         }
+
+    def record_collection(self, update: CollectedGroup) -> None:
+        """Render the library's exact collection for its accepted destination."""
+        group = f"collection_{update.group.key}"
+        previous_members = {
+            key: payload
+            for key, payload in self.messages.items()
+            if payload.get("group") == group
+        }
+        previous = next(iter(previous_members.values()), None)
+        for key in previous_members:
+            self.messages.pop(key)
+        for member in update.group.members:
+            content = dict(update.contents[(member.episode_id, member.route)])
+            key = (
+                f"{member.recipient}:{member.episode_id}"
+                f"{self._route_suffix(member)}_{group}"
+            )
+            self.messages[key] = {
+                **content,
+                "recipient": member.recipient,
+                "route": member.route,
+                "channels": list(member.channels),
+                "_target_channels": list(member.channels),
+                "loudness": member.loudness.value,
+                "silent": member.silent,
+                "action": member.cause,
+                "digest": member.digest,
+                "previously_reported": member.previously_reported,
+                "notification_id": update.instructions["notification_id"],
+                "group": group,
+                "tag": f"homeostatic_{self.entry_id}_{group}",
+            }
+        if not update.group.members and previous is None:
+            return
+        alerting = [
+            change
+            for change in update.group.changes
+            if isinstance(change, Notification) and not change.silent
+        ]
+        resolution = next(
+            (
+                change.resolution
+                for change in reversed(update.group.changes)
+                if not isinstance(change, Notification)
+            ),
+            "replaced",
+        )
+        self._group(
+            group,
+            alerting[-1].cause if alerting else "update",
+            update.group.silent,
+            previous,
+            resolution,
+            alert_episodes={change.episode_id for change in alerting},
+        )
 
     def record_group(
         self,
@@ -412,6 +475,9 @@ class DeliveryState:
             )
             return
         members.sort(key=lambda item: bool(item.get("previously_reported", False)))
+        routes = list(dict.fromkeys(str(item.get("route", "")) for item in members))
+        if group.startswith("collection_"):
+            members = list({str(item["episode_id"]): item for item in members}.values())
         first = members[0]
         standalone = group.startswith("device_") and str(
             first.get("notification_subject", "")
@@ -450,9 +516,7 @@ class DeliveryState:
                 "episodes": list(
                     dict.fromkeys(str(item["episode_id"]) for item in members)
                 ),
-                "routes": list(
-                    dict.fromkeys(str(item.get("route", "")) for item in members)
-                ),
+                "routes": cast(list[JSONValue], routes),
                 "action": action,
                 "silent": not noisy,
                 "_alerting": [item["episode_id"] for item in noisy],
@@ -461,6 +525,8 @@ class DeliveryState:
                 ).value,
                 "title": first["notification_subject_name"]
                 if group.startswith("device_")
+                else f"Homeostatic: {len(members)} issues need attention"
+                if group.startswith("collection_")
                 else f"Homeostatic: {len(members)} open problems",
                 "message": first["message"]
                 if standalone and len(members) == 1
@@ -494,10 +560,16 @@ class DeliveryState:
             }
         )
 
-    def deactivate(self, *, routes: set[str] | None = None) -> None:
+    def deactivate(
+        self, *, routes: set[str] | None = None, preserve_pending: bool = False
+    ) -> None:
         """Withdraw selected requests without claiming that their problems recovered."""
         for update in self.groups.deactivate(routes=routes):
             self.record_group(update, {})
+        for collected in self.collections.deactivate(
+            routes=routes, preserve_pending=preserve_pending
+        ):
+            self.record_collection(collected)
         self.outbox = [
             payload
             for payload in self.outbox

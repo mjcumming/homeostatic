@@ -31,6 +31,8 @@ Browse equipment by integration, Home Assistant location, or optional [TopoMatio
 
 ## Install and get started
 
+Upgrading an existing installation replaces its earlier notification configuration with fresh defaults and sending off. Read the [upgrade notes](CHANGELOG.md) before installing.
+
 You need Home Assistant 2026.9.3 or newer and an administrator account. The first load needs internet access to install its Python dependency; Homeostatic then runs locally.
 
 In HACS, add `https://github.com/mjcumming/homeostatic` as a custom repository with type **Integration**, download Homeostatic and restart Home Assistant. Then use **Settings → Devices & services → Add integration** to add **Homeostatic**.

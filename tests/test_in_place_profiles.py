@@ -27,7 +27,7 @@ from tests.test_lifecycle import start_monitor
 
 @pytest.fixture
 def named_config(config_data: dict[str, Any]) -> dict[str, Any]:
-    """Keep independent immediate and overnight-held routes on one watched entity."""
+    """Keep immediate and overnight-held routes without a collection wait."""
     definitions = config_data["notification_definitions"]
     definitions["methods"]["other"] = {
         "name": "Other",
@@ -35,12 +35,14 @@ def named_config(config_data: dict[str, Any]) -> dict[str, Any]:
         "destinations": ["service:other_test"],
     }
     definitions["profiles"]["acknowledge"]["methods"] = ["test"]
+    definitions["profiles"]["acknowledge"]["timing"]["collection_delay_seconds"] = 0
     definitions["profiles"]["urgent"]["methods"] = ["test"]
     now = dt_util.utcnow()
     definitions["profiles"]["urgent"]["timing"] = {
         "mode": "window",
         "start": (now + timedelta(hours=2)).strftime("%H:%M"),
         "end": (now + timedelta(hours=3)).strftime("%H:%M"),
+        "collection_delay_seconds": 0,
     }
     config_data["monitoring_policies"][0]["notifications"] = [
         {"id": "edited", "profile": "acknowledge"},
@@ -80,7 +82,11 @@ async def test_named_notification_saves_keep_panel_runtime_and_unaffected_clocks
                 **choices,
                 "acknowledge": {
                     **choices["acknowledge"],
-                    "timing": {"mode": "acknowledge", "remind_every": 3600},
+                    "timing": {
+                        "mode": "acknowledge",
+                        "remind_every": 3600,
+                        "collection_delay_seconds": 0,
+                    },
                 },
             },
             "methods": {
@@ -89,7 +95,11 @@ async def test_named_notification_saves_keep_panel_runtime_and_unaffected_clocks
             },
             "create": {
                 **choices,
-                "new": {"name": "New", "timing": {"mode": "immediate"}, "methods": []},
+                "new": {
+                    "name": "New",
+                    "timing": {"mode": "immediate", "collection_delay_seconds": 0},
+                    "methods": [],
+                },
             },
             "delete": {key: value for key, value in choices.items() if key != "weekly"},
         }
@@ -270,7 +280,13 @@ async def test_profile_edit_with_monitoring_scope_changes_keeps_reload_boundary(
     [
         pytest.param({"name": "Renamed"}, [], id="name-preserves-attention"),
         pytest.param(
-            {"timing": {"mode": "acknowledge", "remind_every": 3600}},
+            {
+                "timing": {
+                    "mode": "acknowledge",
+                    "remind_every": 3600,
+                    "collection_delay_seconds": 0,
+                }
+            },
             [{"policy_observed_edited"}],
             id="timing-reactivates-only-its-route",
         ),
@@ -417,7 +433,13 @@ async def test_notification_only_save_reuses_unchanged_source_inventory(
     draft = configuration["settings"]
     changes = {
         "name": {"name": "Renamed"},
-        "timing": {"timing": {"mode": "acknowledge", "remind_every": 3600}},
+        "timing": {
+            "timing": {
+                "mode": "acknowledge",
+                "remind_every": 3600,
+                "collection_delay_seconds": 0,
+            }
+        },
         "methods": {"methods": ["other"]},
         "assignment": {},
     }

@@ -24,6 +24,35 @@ class NotifyProvider:
         """Accept a mocked service request."""
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"episode_id": "one"}, "/homeostatic/episode/one"),
+        ({"action": "summary"}, "/homeostatic/issues"),
+        ({"episodes": []}, "/homeostatic/issues/notification/"),
+        ({"episodes": ["one", "one"]}, "/homeostatic/episode/one"),
+        (
+            {"episode_id": "synthetic", "episodes": ["a/b", "c,d", "é ?#"]},
+            "/homeostatic/issues/notification/a%2Fb,c%2Cd,%C3%A9%20%3F%23",
+        ),
+        (
+            {"action": "summary", "episodes": ["one", "two", "one", None, ""]},
+            "/homeostatic/issues/notification/one,two",
+        ),
+        (
+            {"episodes": [f"issue-{index}" for index in range(30)]},
+            "/homeostatic/issues/notification/"
+            + ",".join(f"issue-{index}" for index in range(30)),
+        ),
+    ],
+)
+def test_notification_link_preserves_included_membership(
+    payload: dict[str, Any], expected: str
+) -> None:
+    """Collected requests never link to unseen or later issues."""
+    assert notification_routes.notification_url(payload) == expected
+
+
 def test_legacy_classification_uses_provider_identity(hass: HomeAssistant) -> None:
     """Renamed SMS providers work while misleading action names remain generic."""
     sms = NotifyProvider()

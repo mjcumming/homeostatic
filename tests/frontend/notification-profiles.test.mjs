@@ -27,6 +27,53 @@ function click(card,action,kind,id="",extra={}) {
   assert.equal(editReusable(card,{type:"click",target}),true);
 }
 
+test("collection delay is a shared editable seconds field with explicit timing summaries",()=>{
+  const {card}=fixture();
+  for(const [id,seconds] of [["immediate",60],["acknowledge",5],["urgent",60]]) {
+    click(card,"edit","profiles",id);
+    const html=namedNotifications(card);
+    assert.match(html,new RegExp(`Collection delay \\(seconds\\)[\\s\\S]*?type="number" value="${seconds}" min="0" step="1" required`));
+    assert.match(html,/Wait this long to combine requests using this notification\. Later requests don’t extend the wait\. 0 sends without waiting\./);
+    change(card,"profiles",id,"timing:collection_delay_seconds",0);
+    assert.equal(card.settingsDraft.notification_definitions.profiles[id].timing.collection_delay_seconds,0);
+  }
+  click(card,"close","profiles","urgent");
+  assert.match(namedNotifications(card),/When eligible; collect for 60 seconds/);
+  click(card,"add","profiles");
+  const id=card.definitionSelection.id;
+  assert.equal(card.settingsDraft.notification_definitions.profiles[id].timing.collection_delay_seconds,0);
+  assert.match(namedNotifications(card),/Collection delay \(seconds\)/);
+});
+
+test("report mode removes the collection wait and switching back starts at zero",async()=>{
+  const {card}=fixture();
+  click(card,"edit","profiles","immediate");
+  change(card,"profiles","immediate","timing:collection_delay_seconds",77);
+  change(card,"profiles","immediate","timing:mode","window");
+  assert.equal(card.settingsDraft.notification_definitions.profiles.immediate.timing.collection_delay_seconds,77);
+  change(card,"profiles","immediate","timing:mode","report");
+  assert.doesNotMatch(namedNotifications(card),/Collection delay|collection_delay_seconds/);
+  assert.equal("collection_delay_seconds" in card.settingsDraft.notification_definitions.profiles.immediate.timing,false);
+  assert.equal(await saveScopedConfiguration(card,{kind:"profile",id:"immediate"}),true);
+  assert.equal("collection_delay_seconds" in card.configuration.settings.notification_definitions.profiles.immediate.timing,false);
+  change(card,"profiles","immediate","timing:mode","acknowledge");
+  assert.equal(card.settingsDraft.notification_definitions.profiles.immediate.timing.collection_delay_seconds,0);
+});
+
+for(const bad of ["",-1,1.5,"later"])test(`invalid collection draft ${JSON.stringify(bad)} is not replaced with zero`,()=>{
+  const {card}=fixture();
+  change(card,"profiles","immediate","timing:collection_delay_seconds",bad);
+  assert.equal(card.settingsDraft.notification_definitions.profiles.immediate.timing.collection_delay_seconds,bad);
+});
+
+test("typing collection seconds retains the native input and its cursor",()=>{
+  const {card}=fixture();let renders=0;card.render=()=>{renders++;};
+  change(card,"profiles","immediate","timing:collection_delay_seconds",2);
+  change(card,"profiles","immediate","timing:collection_delay_seconds",23);
+  assert.equal(renders,0);
+  assert.equal(card.settingsDraft.notification_definitions.profiles.immediate.timing.collection_delay_seconds,23);
+});
+
 test("Notifications manages six named defaults without a policy index or staging changes",()=>{
   const {card,calls}=fixture(),before=structuredClone(card.settingsDraft),html=namedNotifications(card);
   for(const profile of Object.values(before.notification_definitions.profiles))assert.ok(html.includes(profile.name));
@@ -176,10 +223,10 @@ test("profile timing edits stay independent and discard restores only this notif
   assert.match(namedNotifications(card),/class="button editor-back"[^>]*data-definition-action="close"/);
   change(card,"profiles","morning","timing:mode","acknowledge");
   change(card,"profiles","morning","timing:minutes",45);
-  assert.deepEqual(card.settingsDraft.notification_definitions.profiles.morning.timing,{mode:"acknowledge",remind_every:2700});
+  assert.deepEqual(card.settingsDraft.notification_definitions.profiles.morning.timing,{mode:"acknowledge",remind_every:2700,collection_delay_seconds:0});
   change(card,"profiles","morning","timing:mode","window");
   change(card,"profiles","morning","timing:start","09:00");
-  assert.deepEqual(card.settingsDraft.notification_definitions.profiles.morning.timing,{mode:"window",start:"09:00",end:"22:00"});
+  assert.deepEqual(card.settingsDraft.notification_definitions.profiles.morning.timing,{mode:"window",start:"09:00",end:"22:00",collection_delay_seconds:0});
   change(card,"profiles","morning","timing:mode","report");
   change(card,"profiles","morning","timing:weekdays",false,{definitionValue:"6"});
   assert.deepEqual(card.settingsDraft.notification_definitions.profiles.morning.timing.weekdays,[0,1,2,3,4,5]);

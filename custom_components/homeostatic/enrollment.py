@@ -299,11 +299,20 @@ def changed_exclusions(
         return None
     changed: set[str] = set()
     for before, after in zip(previous, current, strict=True):
-        if (before.id, before.match, before.checks, before.enabled) != (
+        if (
+            before.id,
+            before.match,
+            before.checks,
+            before.enabled,
+            before.match_any,
+            before.match_none,
+        ) != (
             after.id,
             after.match,
             after.checks,
             after.enabled,
+            after.match_any,
+            after.match_none,
         ):
             return None
         changed.update(set(before.excluded_sources) ^ set(after.excluded_sources))

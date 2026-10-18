@@ -8,7 +8,7 @@ from .notification_definitions import defaults
 
 def policy_templates() -> list[dict[str, Any]]:
     """Return fresh editable records for the supplied monitoring policies."""
-    return [
+    policies: list[dict[str, Any]] = [
         {
             "id": identity,
             "name": name,
@@ -32,7 +32,20 @@ def policy_templates() -> list[dict[str, Any]]:
                 True,
             ),
             ("default_devices", "Devices", "availability", "device", True),
-            ("default_entities", "Entities", "availability", "entity", True),
+            (
+                "default_entities",
+                "General entity availability",
+                "availability",
+                "entity",
+                True,
+            ),
+            (
+                "default_important_equipment",
+                "Important equipment availability",
+                "availability",
+                "entity",
+                True,
+            ),
             ("default_repairs", "Repairs", "repair", None, True),
             (
                 "default_broken_automations",
@@ -45,6 +58,20 @@ def policy_templates() -> list[dict[str, Any]]:
             ("default_vacuums", "Vacuums", "vacuum", None, False),
         )
     ]
+    for policy in policies:
+        if policy["id"] not in {"default_entities", "default_important_equipment"}:
+            continue
+        important = policy["id"] == "default_important_equipment"
+        policy["match_any" if important else "match_none"] = [
+            {"domain": ["camera", "lock", "alarm_control_panel"]},
+            {
+                "domain": ["binary_sensor"],
+                "device_class": ["smoke", "carbon_monoxide", "gas", "moisture"],
+            },
+        ]
+        if important:
+            policy["notifications"][0]["profile"] = "immediate"
+    return policies
 
 
 def initial_settings(timezone: str) -> dict[str, Any]:

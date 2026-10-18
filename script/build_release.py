@@ -43,6 +43,7 @@ def main() -> None:
             "docs",
             "LICENSE",
             "README.md",
+            "CHANGELOG.md",
         )
         .decode()
         .splitlines()

@@ -78,9 +78,20 @@ class PhoneActions:
             return None
         episodes = payload.get("episodes")
         subject = payload.get("notification_subject")
+        collection = (
+            isinstance(payload.get("notification_id"), str)
+            and bool(payload["notification_id"])
+            and isinstance(payload.get("group"), str)
+            and payload["group"].startswith("collection_")
+        )
         if ("episodes" in payload or "notification_subject" in payload) and (
-            not isinstance(subject, str)
-            or not subject.startswith(("device:", "entity:"))
+            not (
+                collection
+                or (
+                    isinstance(subject, str)
+                    and subject.startswith(("device:", "entity:"))
+                )
+            )
             or not isinstance(episodes, list)
             or not episodes
             or any(not isinstance(episode, str) or not episode for episode in episodes)

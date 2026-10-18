@@ -8,16 +8,18 @@ Use these procedures for an existing installation. For a new installation, start
 
 Read the target release's [upgrade notes](../../CHANGELOG.md) first. Check that a usable Home Assistant backup exists. Take a fresh backup before an update that changes saved data, configuration structure or dependencies, or when no usable recent backup is available.
 
+This release replaces the earlier notification configuration with fresh defaults. Custom policies, notification assignments and delivery methods are replaced, while saved issue history is retained. Sending starts off. After upgrading, review the new policies and configure destinations before enabling sending. Restore the matching full backup and component version if you need to return to the earlier setup.
+
 1. With HACS, download the chosen Homeostatic release. For a manual installation, download and verify the new archive as described in [Install manually](../install.md#install-manually).
 2. For a manual installation, move the old `custom_components/homeostatic` directory outside `custom_components` as a rollback copy, then copy in the new directory. Replace the whole directory so removed files cannot remain.
 3. Restart Home Assistant and refresh the browser. If an old interface remains, follow [Old screens after an upgrade](../troubleshooting.md#old-screens-after-an-upgrade).
 4. Open Homeostatic and check the saved policies, notification assignments, delivery methods and sending switch. Inspect an open issue or a familiar source and confirm that History loads.
 
-Supported settings retain your changes, disabled policies, deleted supplied policies and explicit choices to use no notifications. An older assignment shown as **Custom notification — keep current settings** retains its settings until you replace or remove it.
+After this replacement, ordinary saves and restarts retain your changes, disabled policies, deleted supplied policies and explicit choices to use no notifications. An assignment shown as **Custom notification — keep current settings** retains its settings until you replace or remove it.
 
 ### An older configuration fails validation
 
-The upgrade notes identify releases whose older configuration model is unsupported. Homeostatic does not automatically reset or convert those settings. Keep the prior backup and try the new defaults in a separate Home Assistant test installation before deciding to replace the old setup.
+The upgrade notes identify the earlier notification configuration that this release replaces. Other unsupported configuration formats fail validation without being reset or converted. Keep the prior backup and try the new defaults in a separate Home Assistant test installation before deciding to replace the old setup.
 
 Deleting the integration and adding it again creates a fresh setup and loses its saved settings and history. Use that path only when you intend to start over. Restoring a backup of the matching older installation is the route back.
 

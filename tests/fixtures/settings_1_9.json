@@ -1,0 +1,214 @@
+{
+  "monitoring_policy_version": 1,
+  "monitoring_policies": [
+    {
+      "id": "default_integrations",
+      "name": "Integrations",
+      "check": "availability",
+      "match": {
+        "kind": [
+          "integration"
+        ]
+      },
+      "parameters": {},
+      "enabled": true,
+      "notifications": [
+        {
+          "id": "default",
+          "profile": "morning"
+        }
+      ]
+    },
+    {
+      "id": "default_devices",
+      "name": "Devices",
+      "check": "availability",
+      "match": {
+        "kind": [
+          "device"
+        ]
+      },
+      "parameters": {},
+      "enabled": true,
+      "notifications": [
+        {
+          "id": "default",
+          "profile": "morning"
+        }
+      ]
+    },
+    {
+      "id": "default_entities",
+      "name": "Entities",
+      "check": "availability",
+      "match": {
+        "kind": [
+          "entity"
+        ]
+      },
+      "parameters": {},
+      "enabled": true,
+      "notifications": [
+        {
+          "id": "default",
+          "profile": "morning"
+        }
+      ]
+    },
+    {
+      "id": "default_repairs",
+      "name": "Repairs",
+      "check": "repair",
+      "match": {},
+      "parameters": {},
+      "enabled": true,
+      "notifications": [
+        {
+          "id": "default",
+          "profile": "morning"
+        }
+      ]
+    },
+    {
+      "id": "default_broken_automations",
+      "name": "Broken automations",
+      "check": "broken_automation",
+      "match": {},
+      "parameters": {},
+      "enabled": true,
+      "notifications": [
+        {
+          "id": "default",
+          "profile": "morning"
+        }
+      ]
+    },
+    {
+      "id": "default_batteries",
+      "name": "Batteries",
+      "check": "battery",
+      "match": {},
+      "parameters": {
+        "threshold": 20
+      },
+      "enabled": false,
+      "notifications": [
+        {
+          "id": "default",
+          "profile": "morning"
+        }
+      ]
+    },
+    {
+      "id": "default_vacuums",
+      "name": "Vacuums",
+      "check": "vacuum",
+      "match": {},
+      "parameters": {},
+      "enabled": false,
+      "notifications": [
+        {
+          "id": "default",
+          "profile": "evening"
+        }
+      ]
+    }
+  ],
+  "notification_definitions": {
+    "timezone": "America/Chicago",
+    "methods": {},
+    "profiles": {
+      "immediate": {
+        "name": "Immediate",
+        "timing": {
+          "mode": "immediate"
+        },
+        "methods": []
+      },
+      "acknowledge": {
+        "name": "Immediate with acknowledgment",
+        "timing": {
+          "mode": "acknowledge",
+          "remind_every": 1800
+        },
+        "methods": []
+      },
+      "urgent": {
+        "name": "Urgent",
+        "timing": {
+          "mode": "window",
+          "start": "08:00",
+          "end": "22:00"
+        },
+        "methods": []
+      },
+      "morning": {
+        "name": "Morning summary",
+        "timing": {
+          "mode": "report",
+          "at": "08:00",
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        },
+        "methods": []
+      },
+      "evening": {
+        "name": "Evening summary",
+        "timing": {
+          "mode": "report",
+          "at": "18:00",
+          "weekdays": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        },
+        "methods": []
+      },
+      "weekly": {
+        "name": "Weekly summary",
+        "timing": {
+          "mode": "report",
+          "at": "08:00",
+          "weekdays": [
+            6
+          ]
+        },
+        "methods": []
+      }
+    },
+    "default": [],
+    "repairs": [],
+    "broken_automations": [],
+    "assignments": {},
+    "automation_profiles": {}
+  },
+  "functions": [],
+  "situations": [],
+  "external_capabilities": [],
+  "notifications": false,
+  "consumer": null,
+  "timings": {
+    "settle": 120,
+    "rejoin_grace": 60,
+    "startup_grace": 120,
+    "startup_quiet_max": 600,
+    "coalesce_count": 3,
+    "coalesce_window": 60,
+    "batch": 30,
+    "clear_hold": 120,
+    "unknown_hold": 900,
+    "retry_hold": 120
+  }
+}

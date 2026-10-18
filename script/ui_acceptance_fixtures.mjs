@@ -7,6 +7,7 @@ const evidenceKind = "Synthetic backend; existing fixture uses DOM-scripted inte
 const knownIds = new Set(controlPaths.map(row => row.id));
 const localCases = {
   "policy-picker.html": {
+    "policies.entity-types": ["entity-types"],
     "policies.device-exclusions": ["device-exclusions"],
     "policies.picker-context": ["keyboard-escape", "source-context", "area-relevance", "label-relevance", "catalog-loading", "scoped-save", "save-rejection", "selection-layout"],
   },

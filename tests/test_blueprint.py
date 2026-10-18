@@ -97,6 +97,18 @@ from custom_components.homeostatic.const import EVENT_EPISODE, EVENT_NOTIFICATIO
         pytest.param("é" * 33, id="multibyte-tag"),
     ],
 )
+@pytest.mark.parametrize(
+    ("episodes", "membership_url"),
+    [
+        (None, None),
+        (["one/two"], "/homeostatic/episode/one%2Ftwo"),
+        (
+            ["one/two", "three,four", "one/two"],
+            "/homeostatic/issues/notification/one%2Ftwo,three%2Cfour",
+        ),
+        ([], "/homeostatic/issues/notification/"),
+    ],
+)
 async def test_companion_consumer(
     hass: HomeAssistant,
     action: str,
@@ -106,6 +118,8 @@ async def test_companion_consumer(
     critical: int | None,
     expected_url: str | None,
     tag: str,
+    episodes: list[str] | None,
+    membership_url: str | None,
 ) -> None:
     """The real blueprint routes requests without contacting any device."""
     path = (
@@ -150,6 +164,7 @@ async def test_companion_consumer(
             "silent": silent,
             "title": "Garage",
             "message": "Door open",
+            **({"episodes": episodes} if episodes is not None else {}),
         },
     )
     await hass.async_block_till_done()
@@ -158,6 +173,8 @@ async def test_companion_consumer(
     expected_tag = sha256(tag.encode()).hexdigest() if len(tag.encode()) > 64 else tag
     assert calls[0].data["data"]["tag"] == expected_tag
     assert len(calls[0].data["data"]["tag"].encode()) <= 64
+    if episodes is not None and action != "resolve":
+        expected_url = membership_url
     assert calls[0].data["data"].get("url") == expected_url
     assert calls[0].data["data"].get("clickAction") == expected_url
     assert (
