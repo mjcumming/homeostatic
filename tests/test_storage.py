@@ -265,7 +265,11 @@ async def test_failed_platform_unload_keeps_monitor(
 async def test_large_snapshot_keeps_loop_responsive(
     hass: HomeAssistant, config_data: dict[str, Any], tmp_path: Path
 ) -> None:
-    """A large verified save lets HA capture evidence before persistence finishes."""
+    """A large verified save lets HA capture evidence before persistence finishes.
+
+    Serialization and byte verification run off the loop; equal bytes need no
+    parsed comparison.
+    """
     config_data["notifications"] = False
     config_entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     hass.states.async_set("sensor.observed", "42")
@@ -274,6 +278,7 @@ async def test_large_snapshot_keeps_loop_responsive(
     snapshot["large_inventory"] = {str(node): "x" * 3500 for node in range(3966)}
     loop_thread = get_ident()
     serialization_threads: list[int] = []
+    verification_threads: list[int] = []
     comparison_threads: list[int] = []
     evidence_captured = Event()
     prepare_json = storage_json.prepare_save_json
@@ -290,6 +295,11 @@ async def test_large_snapshot_keeps_loop_responsive(
         assert evidence_captured.wait(timeout=5)
         return prepare_json(data, encoder=encoder)
 
+    def verify(data: Any, *, encoder: Any = None) -> tuple[str, str | bytes]:
+        verification_threads.append(get_ident())
+        assert get_ident() != loop_thread
+        return prepare_json(data, encoder=encoder)
+
     def differs(stored: Any, expected: Any) -> bool:
         comparison_threads.append(get_ident())
         assert get_ident() != loop_thread
@@ -303,6 +313,7 @@ async def test_large_snapshot_keeps_loop_responsive(
             runtime.store, "_async_write_data", _STORE_WRITE.__get__(runtime.store)
         ),
         patch.object(storage_json, "prepare_save_json", side_effect=serialize),
+        patch("custom_components.homeostatic.runtime.prepare_save_json", new=verify),
         patch("custom_components.homeostatic.runtime.ne", new=differs),
     ):
         async with runtime._lock:
@@ -311,7 +322,8 @@ async def test_large_snapshot_keeps_loop_responsive(
             assert not runtime.episodes
 
     assert len(serialization_threads) == 1
-    assert len(comparison_threads) == 1
+    assert len(verification_threads) == 1
+    assert comparison_threads == []
     await hass.async_block_till_done()
     assert runtime.available
     assert len(runtime.episodes) == 1

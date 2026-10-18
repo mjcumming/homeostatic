@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Save evidence-only refreshes at most every 15 seconds while requests, issue changes, settings and shutdown still save at once, and verify saves by comparing the stored bytes, parsing the file only when they differ.
 - Patch the monitoring catalog in place when a small change arrives instead of reloading every page, and keep the catalog revision when a refresh republishes equal content.
 - Use the same device issue dialog from Open issues and Monitoring. One View opens the current issues belonging to that device, including partial availability and other conditions. Acknowledge or pause them together, with individual exceptions and direct controls when only one issue remains. Entities without a device retain their own issue view.
 - Limit policy source picker rendering while keeping search complete, reuse unchanged source indexes, and coalesce detail refreshes. Open issues loads its current context before the full monitoring catalog is needed.

@@ -56,10 +56,12 @@ async def test_configuration_read_waits_for_coherent_save(
         read_started.set()
         await configuration(current_hass, connection, msg)
 
-    async def completing(current_runtime: Runtime, now: datetime) -> None:
+    async def completing(
+        current_runtime: Runtime, now: datetime, *, durable: bool = False
+    ) -> None:
         if fail:
             raise OSError("Write failed")
-        await complete(now)
+        await complete(now, durable=durable)
 
     await runtime._lock.acquire()
     try:

@@ -57,9 +57,11 @@ from homeassistant.helpers.dispatcher import (
     async_dispatcher_send,
 )
 from homeassistant.helpers.event import (
+    async_call_later,
     async_track_point_in_utc_time,
     async_track_time_interval,
 )
+from homeassistant.helpers.json import prepare_save_json
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -83,6 +85,7 @@ from .const import (
     EVENT_NOTIFICATION,
     NAME,
     RECONCILE_INTERVAL,
+    SAVE_COALESCE_SECONDS,
     STORE_VERSION,
 )
 from .controls import OperatorControl, expiry, presentation, restore_controls
@@ -141,6 +144,7 @@ def _new_window() -> dict[str, Any]:
         "refreshes": Counter[str](),
         "discoveries": 0,
         "saves": 0,
+        "deferred": 0,
         "evaluation_seconds": 0.0,
         "snapshot_seconds": 0.0,
         "gc_long": 0,
@@ -230,6 +234,9 @@ class Runtime:
         self.inventory_static: dict[str, JSONValue] = {}
         self._refresh_task: asyncio.Task[None] | None = None
         self._refresh_causes: set[str] = set()
+        self._save_required = False
+        self._save_pending = False
+        self._pending_save_cancel: Callable[[], None] | None = None
         self._scan: tuple[Any, dict[str, Source]] | None = None
         self._lock_holder: str | None = None
         self._gc_started: float | None = None
@@ -438,6 +445,8 @@ class Runtime:
             self._quiet_since = dt_util.utcnow()
         if self._on_gc not in gc.callbacks:
             gc.callbacks.append(self._on_gc)
+        # The first refresh after startup persists at once (ADR 0096).
+        self._save_required = True
         await self.async_refresh(cause="start")
 
     @callback
@@ -946,6 +955,9 @@ class Runtime:
                 "_lock_holder",
                 "_gc_started",
                 "_window",
+                "_save_required",
+                "_save_pending",
+                "_pending_save_cancel",
             }
             previous = {
                 key: value
@@ -1053,7 +1065,7 @@ class Runtime:
                     "phase=routes_after seconds=%.6f", perf_counter() - phase_started
                 )
                 phase_started = perf_counter()
-                await self._complete(now)
+                await self._complete(now, durable=True)
                 _SAVE_TIMING_LOGGER.debug(
                     "phase=complete seconds=%.6f", perf_counter() - phase_started
                 )
@@ -1194,14 +1206,15 @@ class Runtime:
         refreshes = cast(Counter[str], window["refreshes"])
         _SAVE_TIMING_LOGGER.debug(
             "phase=summary seconds=%.1f refreshes=%d causes=%s discoveries=%d"
-            " saves=%d evaluation_seconds=%.3f snapshot_seconds=%.3f gc_long=%d"
-            " gc_seconds=%.3f",
+            " saves=%d deferred=%d evaluation_seconds=%.3f snapshot_seconds=%.3f"
+            " gc_long=%d gc_seconds=%.3f",
             perf_counter() - window["started"],
             sum(refreshes.values()),
             ",".join(f"{key}:{count}" for key, count in sorted(refreshes.items()))
             or "none",
             window["discoveries"],
             window["saves"],
+            window["deferred"],
             window["evaluation_seconds"],
             window["snapshot_seconds"],
             window["gc_long"],
@@ -1242,9 +1255,10 @@ class Runtime:
             f"{DOMAIN}_{self.entry.entry_id}_error",
         )
 
-    async def _complete(self, now: datetime) -> None:
+    async def _complete(self, now: datetime, *, durable: bool = False) -> None:
         assert self.policy is not None
         if self._activating:
+            self._save_required = True
             self.delivery.deactivate(routes=self._activating_routes)
             self._activating = False
             activated = (
@@ -1263,7 +1277,18 @@ class Runtime:
         if not self.settings.notifications:
             self.delivery.deactivate()
         self._end_quiet(now)
-        await self._save()
+        # Facts and error recovery describe saved state, so they save at once.
+        if (
+            durable
+            or self._save_required
+            or self.delivery.outbox
+            or self._facts
+            or self.error is not None
+            or not self.running
+        ):
+            await self._save()
+        else:
+            self._defer_save()
         if self.running:
             # The startup hold applies to attention, not to detected facts.
             self._publish_facts()
@@ -1328,6 +1353,8 @@ class Runtime:
                 self._control_fact("ended", control, ended_reason="target_removed")
             else:
                 kept.append(control)
+        if len(kept) != len(self.controls):
+            self._save_required = True
         self.controls = kept
 
     def _maintenance_roots(self, node_id: str) -> list[str]:
@@ -1687,7 +1714,7 @@ class Runtime:
                     invalid = err
                 # Reconciliation can resolve the requested episode. Its events
                 # still need a durable save even when the action is rejected.
-                await self._complete(now)
+                await self._complete(now, durable=True)
             except (
                 OSError,
                 HomeAssistantError,
@@ -2243,6 +2270,8 @@ class Runtime:
         renamed_sources: dict[str, tuple[str, str]] | None = None,
     ) -> None:
         assert self.policy is not None
+        if events:
+            self._save_required = True
         for event in events:
             presentation_only = (
                 bool(renamed_sources)
@@ -2882,7 +2911,60 @@ class Runtime:
             },
         }
 
+    @callback
+    def _defer_save(self) -> None:
+        """Persist evidence-only state once the coalescing window closes."""
+        self._save_pending = True
+        self._window["deferred"] += 1
+        if self._pending_save_cancel is None:
+            self._pending_save_cancel = async_call_later(
+                self.hass, SAVE_COALESCE_SECONDS, self._pending_save_timer
+            )
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=save_deferred window=%d", SAVE_COALESCE_SECONDS
+        )
+
+    async def _pending_save_timer(self, now: datetime) -> None:
+        self._pending_save_cancel = None
+        async with self._lock:
+            if not self.running or not self._save_pending:
+                return
+            try:
+                await self._save()
+            except (
+                OSError,
+                HomeAssistantError,
+                ValueError,
+                KeyError,
+                TypeError,
+            ) as err:
+                self._failed(err)
+                async_dispatcher_send(self.hass, self.signal)
+
+    def _stored_bytes_match(self, snapshot: dict[str, Any]) -> bool:
+        """Compare the stored file with the bytes the Store serializer produces."""
+        envelope = {
+            "version": self.store.version,
+            "minor_version": self.store.minor_version,
+            "key": self.store.key,
+            "data": snapshot,
+        }
+        try:
+            _, expected = prepare_save_json(envelope)
+            with open(self.store.path, "rb") as handle:
+                stored = handle.read()
+        except OSError, ValueError, TypeError, HomeAssistantError:
+            return False
+        if isinstance(expected, str):
+            expected = expected.encode("utf-8")
+        return stored == expected
+
     async def _save(self) -> None:
+        if self._pending_save_cancel is not None:
+            self._pending_save_cancel()
+            self._pending_save_cancel = None
+        self._save_pending = False
+        self._save_required = False
         phase_started = perf_counter()
         snapshot = self.snapshot()
         elapsed = perf_counter() - phase_started
@@ -2896,6 +2978,19 @@ class Runtime:
         )
         # Store logs some write failures without raising. Read-back prevents
         # delivering a problem whose new persistence state was not accepted.
+        # Equal bytes verify without a second object tree; a difference falls
+        # back to the parsed comparison so serializer changes stay harmless.
+        phase_started = perf_counter()
+        verified = await self.hass.async_add_executor_job(
+            self._stored_bytes_match, snapshot
+        )
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=storage_verify seconds=%.6f bytes=%s",
+            perf_counter() - phase_started,
+            verified,
+        )
+        if verified:
+            return
         phase_started = perf_counter()
         stored = await self.store.async_load()
         _SAVE_TIMING_LOGGER.debug(
@@ -3280,6 +3375,9 @@ class Runtime:
         if self._deadline_cancel is not None:
             self._deadline_cancel()
             self._deadline_cancel = None
+        if self._pending_save_cancel is not None:
+            self._pending_save_cancel()
+            self._pending_save_cancel = None
         async with self._lock:
             if (
                 self.engine is not None
