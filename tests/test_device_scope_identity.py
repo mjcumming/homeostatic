@@ -321,7 +321,7 @@ async def test_failed_device_exclusion_restores_identity_scope_and_controls(
     config_data: dict[str, Any],
     hass_ws_client: WebSocketGenerator,
 ) -> None:
-    """A failed durable scope change restores the original issue and binding metadata."""
+    """A failed durable scope change reloads the original issue and binding metadata."""
     item = equipment(hass, config_data)
     runtime = await start_monitor(hass, item.entry)
     episode_id = next(iter(runtime.episodes))
@@ -336,15 +336,9 @@ async def test_failed_device_exclusion_restores_identity_scope_and_controls(
     draft["monitoring_policies"][0]["excluded_sources"].append(
         f"entity:registry:{item.selected.id}"
     )
-    save = runtime.store.async_save
-    calls = 0
 
     async def failing_save(data: dict[str, Any]) -> None:
-        nonlocal calls
-        calls += 1
-        await save(data)
-        if calls == 1:
-            raise OSError("Test device scope storage failure")
+        raise OSError("Test device scope storage failure")
 
     with patch.object(runtime.store, "async_save", side_effect=failing_save):
         await client.send_json(
@@ -358,17 +352,20 @@ async def test_failed_device_exclusion_restores_identity_scope_and_controls(
         response = await client.receive_json()
     assert response["error"]["code"] == "apply_failed"
     assert not item.entry.options
-    assert runtime.available
-    restored = runtime.snapshot()
+    # The failed save reloads the integration from the saved state (ADR 0100).
+    await hass.async_block_till_done()
+    reloaded = item.entry.runtime_data
+    assert reloaded is not runtime and reloaded.available
+    restored = reloaded.snapshot()
     for key in (
         "monitoring_identities",
         "monitoring_scopes",
-        "episodes",
         "operator_controls",
         "resolved_history",
     ):
         assert restored[key] == before[key]
-    assert attention_clocks(runtime, episode_id) == clocks
-    assert runtime.preview_sources(runtime.settings) == runtime.sources
+    assert set(restored["episodes"]) == set(before["episodes"])
+    assert attention_clocks(reloaded, episode_id) == clocks
+    assert reloaded.preview_sources(reloaded.settings) == reloaded.sources
     assert await hass.config_entries.async_unload(item.entry.entry_id)
     await client.close()
