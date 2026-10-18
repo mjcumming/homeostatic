@@ -1,6 +1,6 @@
 # ADR 0029: Load revision-bound catalog pages on demand
 
-**Status:** Accepted; finalized by [ADR 0092](0092-scoped-refresh-and-coherent-saves.md) on 2026-10-17
+**Status:** Accepted; finalized by [ADR 0092](0092-scoped-refresh-and-coherent-saves.md) on 2026-10-17; the reload of every page on each revision change is superseded by [ADR 0095](0095-patch-catalog-after-edits.md)
 **Implementation status:** See the [roadmap](../roadmap.md#current-work).
 
 **Date:** 2026-09-29

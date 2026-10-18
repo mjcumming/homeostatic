@@ -1468,3 +1468,78 @@ for(const [name,expected,badge] of [
     assert.doesNotMatch(sourcesBrowser(card),/source-issue-count/);
   });
 }
+
+function sectionCounts(sections) {
+  return Object.fromEntries(Object.entries(sections).map(([key,rows])=>[key,rows.length]));
+}
+function byKey(rows,key) {
+  return new Map(rows.map(row=>[key ? row[key] : row,row]));
+}
+
+test("a one-step catalog delta patches the loaded catalog without page requests",async()=>{
+  const old=pagedExample(1,5);
+  const client=connection(), store=dashboardStore(client), requests=[];
+  const stop=store.listen(()=>{});
+  client.callback(old.data);
+  client.sendMessagePromise=async request=>{requests.push(request);return catalogPage(request,old.sections);};
+  await store.ensureCatalog();
+  const loaded=requests.length;
+  const renamed=source("candidate-1",{name:"Renamed"}), added=source("candidate-9",{name:"Added"}), node=source("sensor.b");
+  const record={batch:"b1",node_id:"sensor.b",reason:"added"}, attic={id:"attic",name:"Attic",floor_id:"main"};
+  const sections={...old.sections,
+    candidates:[...old.sections.candidates.filter(row=>!["candidate-1","candidate-3"].includes(row.node_id)),renamed,added],
+    nodes:[...old.sections.nodes,node],targets:["sensor.b"],enrollment_changes:[record],areas:[...old.sections.areas,attic]};
+  const delta={from_revision:1,sections:{
+    candidates:{upsert:[renamed,added],remove:["candidate-3"]},nodes:{upsert:[node],remove:[]},
+    targets:{upsert:["sensor.b"],remove:[]},enrollment_changes:{append:[record]},areas:{upsert:[attic],remove:[]}}};
+  const next={...old.data,catalog_revision:2,catalog_delta:delta,catalog_sections:sectionCounts(sections)};
+  client.callback(next);
+  const data=store.state.data;
+  assert.equal(requests.length,loaded);
+  assert.equal(data.catalog_loaded,true);
+  assert.equal(data.catalog_stale,false);
+  assert.equal(data.catalog_revision,2);
+  assert.deepEqual(byKey(data.inventory.catalog.candidates,"node_id"),byKey(sections.candidates,"node_id"));
+  assert.deepEqual(byKey(data.inventory.nodes,"node_id"),byKey(sections.nodes,"node_id"));
+  assert.deepEqual(byKey(data.areas,"id"),byKey(sections.areas,"id"));
+  assert.deepEqual([...data.inventory.targets].sort(),["sensor.b"]);
+  assert.deepEqual(data.inventory.enrollment_changes,[record]);
+  assert.equal(inventoryRows(data).some(row=>row.name==="Added"),true);
+  assert.equal(inventoryRows(data).some(row=>row.node_id==="candidate-3"),false);
+  await store.ensureCatalog();
+  assert.equal(requests.length,loaded);
+  const {catalog_delta,...evidenceOnly}=next;
+  client.callback({...evidenceOnly,updated_at:"later"});
+  assert.equal(store.state.data.inventory.catalog,data.inventory.catalog);
+  assert.equal(store.state.data.updated_at,"later");
+  stop();await Promise.resolve();
+});
+
+test("a delta from another base or with mismatched counts falls back to a full reload",async()=>{
+  const old=pagedExample(1,5);
+  const client=connection(), store=dashboardStore(client), requests=[];
+  const stop=store.listen(()=>{});
+  client.callback(old.data);
+  client.sendMessagePromise=async request=>{requests.push(request);return catalogPage(request,old.sections);};
+  await store.ensureCatalog();
+  const previous=store.state.data.inventory.catalog.candidates;
+  const added=source("candidate-9",{name:"Added"});
+  const sections={...old.sections,candidates:[...old.sections.candidates,added]};
+  const skipped={...old.data,catalog_revision:3,catalog_delta:{from_revision:2,sections:{candidates:{upsert:[added],remove:[]}}},catalog_sections:sectionCounts(sections)};
+  client.callback(skipped);
+  assert.equal(store.state.data.catalog_stale,true);
+  assert.equal(store.state.data.inventory.catalog.candidates,previous);
+  client.sendMessagePromise=async request=>{requests.push(request);return catalogPage(request,{...sections});};
+  await store.ensureCatalog();
+  assert.equal(store.state.data.catalog_stale,false);
+  assert.equal(store.state.data.catalog_revision,3);
+  const before=requests.length;
+  const wrongCounts={...skipped,catalog_revision:4,catalog_delta:{from_revision:3,sections:{candidates:{upsert:[source("candidate-10")],remove:[]}}},
+    catalog_sections:{...sectionCounts(sections),candidates:sections.candidates.length+5}};
+  client.callback(wrongCounts);
+  assert.equal(store.state.data.catalog_stale,true);
+  assert.equal(store.state.data.catalog_revision,4);
+  await store.ensureCatalog();
+  assert.equal(requests.length>before,true);
+  stop();await Promise.resolve();
+});

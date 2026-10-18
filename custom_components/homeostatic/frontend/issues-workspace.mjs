@@ -1,8 +1,8 @@
-import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=94";
+import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=95";
 
-import {deviceEntityName} from "./device-availability.mjs?v=94";
-import {waitingOnly} from "./check-presentation.mjs?v=94";
-import {issueDeviceId} from "./device-issue-model.mjs?v=94";
+import {deviceEntityName} from "./device-availability.mjs?v=95";
+import {waitingOnly} from "./check-presentation.mjs?v=95";
+import {issueDeviceId} from "./device-issue-model.mjs?v=95";
 
 const count = (value, singular, plural = `${singular}s`) => `${value} ${value === 1 ? singular : plural}`;
 const sourceId = source => source?.monitoring_source || source?.node_id;

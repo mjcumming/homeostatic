@@ -114,12 +114,12 @@ that need the complete inventory load it on demand with `homeostatic/catalog`:
 revision, section, offset and limit (1–200, default 200). Each response contains
 the same revision, section, offset, total, items and next offset, or null when
 complete. Stale revisions return `stale_catalog`; unavailable monitoring returns
-`not_ready`. This endpoint is administrator-only and read-only.
+`not_ready`. This endpoint is administrator-only and read-only. The catalog revision changes only when section content changed, compared by row identity: `node_id` for nodes and candidates, `id` for areas, devices and floors, the value for readiness targets, and appended records for enrollment changes. When the change fits in one page of rows, the schema-3 event announcing the new revision also carries `catalog_delta`: the previous revision and, per section, the inserted or replaced rows and removed keys. A client whose complete catalog is loaded at that previous revision patches it in place and requests no page. Any other client, a larger change, or a mismatch between the patched sections and `catalog_sections` reloads the pages as before.
 
 The Issues list renders from this context without requesting the full catalog. Opening an availability issue requests the complete catalog needed to review all contributing availability policies; its Stop Monitoring control waits for that catalog and shows a retryable loading error on failure. Other issue details can resolve canonical source coverage through the bounded source endpoint. One shared client fetches at most four pages concurrently when an inventory-dependent view needs it and installs the completed catalog
 atomically, merging the latest dynamic evidence. Partial pages never imply a
 complete search or empty healthy inventory. The first Monitoring visit waits for a
-complete catalog. Once loaded, a new revision keeps the previous complete tree
+complete catalog. Once loaded, a new revision without an applicable delta keeps the previous complete tree
 available with an updating notice while replacement pages arrive; the notice
 identifies results as potentially out of date and offers retry if loading fails.
 Fresh issue-context rows overlay the previous complete catalog while replacement pages are pending. No partial replacement catalog is shown. Unavailability, disconnect and final unsubscribe

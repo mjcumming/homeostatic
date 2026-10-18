@@ -1,15 +1,15 @@
-import {sourceReporting} from "./reporting.mjs?v=94";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=94";
-import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=94";
-import {monitoringTree} from "./configuration.mjs?v=94";
-import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=94";
+import {sourceReporting} from "./reporting.mjs?v=95";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=95";
+import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=95";
+import {monitoringTree} from "./configuration.mjs?v=95";
+import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=95";
 
-import {deviceAvailabilitySummary, deviceEntityName} from "./device-availability.mjs?v=94";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=94";
-import {upsSourceSummary} from "./ups.mjs?v=94";
-import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=94";
-import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=94";
-import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=94";
+import {deviceAvailabilitySummary, deviceEntityName} from "./device-availability.mjs?v=95";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=95";
+import {upsSourceSummary} from "./ups.mjs?v=95";
+import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=95";
+import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=95";
+import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=95";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);

@@ -4,6 +4,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0095](0095-patch-catalog-after-edits.md) | Patch the catalog after an edit instead of reloading it | Accepted; implemented, installed and measured for a local trial; partially supersedes 0029's reload on every revision change |
 | [0094](0094-one-device-issue-workflow.md) | Use one device issue workflow from every investigation page | Accepted; implemented, installed and verified for a local trial; supersedes entry routing and device membership in 0093 and refines 0091 presentation |
 | [0093](0093-explicit-device-availability-issue-selection.md) | Act on explicitly selected device availability issues | Accepted; earlier local trial installed and verified; entry routing and availability-only membership superseded by 0094; selection contract retained |
 | [0092](0092-scoped-refresh-and-coherent-saves.md) | Scope refresh work and keep configuration reads coherent | Accepted; extends 0010/0067 and finalizes 0029's loading boundary |
@@ -42,7 +43,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0026](0026-fixed-reporting-preferences.md) | Use five fixed reporting preferences | Accepted; details settled by 0027; fixed profile model superseded by 0055; notification ownership/defaults partially superseded by 0066 |
 | [0027](0027-reporting-defaults-and-delivery.md) | Fixed reporting defaults and delivery semantics | Accepted; combined profiles and single-choice assignment superseded by 0055 |
 | [0028](0028-settings-scope-and-visible-reporting.md) | Keep global policies in Settings and expose reporting directly | Accepted; catalog presentation superseded by 0030; page placement superseded by 0047; UI simplification by 0059 |
-| [0029](0029-load-catalog-pages-on-demand.md) | Load revision-bound catalog pages on demand | Accepted; panel context and loading boundary finalized by 0092 |
+| [0029](0029-load-catalog-pages-on-demand.md) | Load revision-bound catalog pages on demand | Accepted; panel context and loading boundary finalized by 0092; reload on every revision change superseded by 0095 |
 | [0030](0030-separate-group-policies-from-source-choices.md) | Show group policies separately from individual source choices | Accepted; partially supersedes 0028; page placement superseded by 0047; catalog editor by 0048; reusable-definition ownership by 0054 |
 | [0031](0031-review-source-settings-together.md) | Review integration monitoring and reporting together | Accepted; UI simplification by 0059; UI workflow and scope partially superseded by 0061 |
 | [0032](0032-automation-reported-situations.md) | Receive expiring situation reports from HA automations | Accepted; setup and registration partially superseded by 0034 |

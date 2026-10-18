@@ -1,14 +1,14 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=94";
-import {callAction} from "./history-controls.mjs?v=94";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=94";
-import {deviceAvailabilitySummary} from "./device-availability.mjs?v=94";
-import {sourceCoverageIndex,sourceCoverage} from "./source-coverage.mjs?v=94";
-import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=94";
-import {issueAvailabilityAction, issueAvailabilityNeedsCatalog, renderIssueAvailability} from "./issue-monitoring.mjs?v=94";
-import {batteryProblem,deviceProblem,entityProblem,vacuumProblem} from "./problem.mjs?v=94";
-import {temperatureProblem} from "./source-temperature.mjs?v=94";
-import {upsProblem} from "./ups.mjs?v=94";
-import {retainedProblem} from "./check-presentation.mjs?v=94";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=95";
+import {callAction} from "./history-controls.mjs?v=95";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=95";
+import {deviceAvailabilitySummary} from "./device-availability.mjs?v=95";
+import {sourceCoverageIndex,sourceCoverage} from "./source-coverage.mjs?v=95";
+import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=95";
+import {issueAvailabilityAction, issueAvailabilityNeedsCatalog, renderIssueAvailability} from "./issue-monitoring.mjs?v=95";
+import {batteryProblem,deviceProblem,entityProblem,vacuumProblem} from "./problem.mjs?v=95";
+import {temperatureProblem} from "./source-temperature.mjs?v=95";
+import {upsProblem} from "./ups.mjs?v=95";
+import {retainedProblem} from "./check-presentation.mjs?v=95";
 
 const date=value=>new Date(value).toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const issueId=item=>item.episode.episode_id;

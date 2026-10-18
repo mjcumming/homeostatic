@@ -1,6 +1,6 @@
 /** Read-model helpers and a shared, lifecycle-bound HA subscription. */
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=94";
-import {waitingOnly} from "./check-presentation.mjs?v=94";
+import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=95";
+import {waitingOnly} from "./check-presentation.mjs?v=95";
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -186,6 +186,11 @@ export function mergeDashboard(previous, data) {
       throw new Error("Incomplete Homeostatic catalog summary. Retry the connection.");
     }
     if (previous?.schema_version !== 3 || !previous.catalog_loaded) return data;
+    const patched = applyCatalogDelta(previous, data);
+    if (patched) return {...data,catalog_loaded:true,catalog_stale:false,
+      inventory:{...data.inventory,nodes:patched.nodes,catalog:{...data.inventory.catalog,candidates:patched.candidates},
+        targets:patched.targets,enrollment_changes:patched.enrollment_changes},
+      areas:patched.areas,devices:patched.devices,floors:patched.floors};
     const stale = Boolean(previous.catalog_stale || previous.catalog_revision !== data.catalog_revision);
     const overlay=(saved,current,key)=>[...new Map([...saved,...current].map(row=>[row[key],row])).values()];
     const context=stale&&data.panel_context;
@@ -210,6 +215,38 @@ export function mergeDashboard(previous, data) {
     throw new Error("Homeostatic catalog is out of date. Retry the connection.");
   }
   return {...data, inventory:{...previous.inventory, ...data.inventory}, areas:previous.areas, floors:previous.floors, devices:previous.devices};
+}
+
+const SECTION_KEYS = {nodes:"node_id",candidates:"node_id",areas:"id",devices:"id",floors:"id"};
+
+function patchRows(rows, change, key) {
+  if (!change) return rows;
+  const identity = row => key ? row[key] : row;
+  const map = new Map(rows.map(row => [identity(row), row]));
+  for (const removed of change.remove ?? []) map.delete(removed);
+  for (const row of change.upsert ?? []) map.set(identity(row), row);
+  return [...map.values()];
+}
+
+/** Patch a complete catalog with a one-step delta; anything uncertain reloads instead. */
+export function applyCatalogDelta(previous, data) {
+  const delta = data.catalog_delta;
+  if (!delta || previous.catalog_stale || delta.from_revision !== previous.catalog_revision ||
+      data.catalog_revision === previous.catalog_revision || !delta.sections) return null;
+  const sections = {
+    nodes:patchRows(previous.inventory.nodes,delta.sections.nodes,SECTION_KEYS.nodes),
+    candidates:patchRows(previous.inventory.catalog.candidates,delta.sections.candidates,SECTION_KEYS.candidates),
+    targets:patchRows(previous.inventory.targets ?? [],delta.sections.targets,null),
+    enrollment_changes:delta.sections.enrollment_changes
+      ? [...(previous.inventory.enrollment_changes ?? []),...(delta.sections.enrollment_changes.append ?? [])]
+      : previous.inventory.enrollment_changes ?? [],
+    areas:patchRows(previous.areas,delta.sections.areas,SECTION_KEYS.areas),
+    devices:patchRows(previous.devices,delta.sections.devices,SECTION_KEYS.devices),
+    floors:patchRows(previous.floors,delta.sections.floors,SECTION_KEYS.floors),
+  };
+  const counts = data.catalog_sections ?? {};
+  if (CATALOG_SECTIONS.some(section => sections[section].length !== counts[section])) return null;
+  return sections;
 }
 
 /** Saved editors depend on catalog/configuration changes, not new issue evidence. */

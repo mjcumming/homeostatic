@@ -52,8 +52,65 @@ from .vacuum import observe as vacuum_observation
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
 SIGNAL_DASHBOARD = "homeostatic_dashboard_updated"
 ASSET_URL = "/homeostatic_static"
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=94"
-PANEL_ELEMENT = "homeostatic-panel-v46"
+CATALOG_PAGE_ROWS = 200
+_SECTION_KEYS = {
+    "nodes": "node_id",
+    "candidates": "node_id",
+    "areas": "id",
+    "devices": "id",
+    "floors": "id",
+}
+
+
+def catalog_changes(
+    previous: dict[str, list[JSONValue]], current: dict[str, list[JSONValue]]
+) -> dict[str, JSONValue] | None:
+    """Describe how published catalog sections changed, keyed by row identity.
+
+    Returns an empty mapping when every section has equal content, or None when
+    the change has no one-step representation (an enrollment change history that
+    was not extended in place).
+    """
+    changes: dict[str, JSONValue] = {}
+    for section, rows in current.items():
+        before = previous.get(section, [])
+        if section == "enrollment_changes":
+            if rows == before:
+                continue
+            if rows[: len(before)] != before:
+                return None
+            changes[section] = {"append": rows[len(before) :]}
+            continue
+        key = _SECTION_KEYS.get(section)
+        if key is None:
+            kept = set(rows)
+            seen = set(before)
+            upsert = [value for value in rows if value not in seen]
+            remove = [value for value in before if value not in kept]
+        else:
+            indexed = {str(cast(dict[str, JSONValue], row)[key]): row for row in before}
+            current_keys = {str(cast(dict[str, JSONValue], row)[key]) for row in rows}
+            upsert = [
+                row
+                for row in rows
+                if indexed.get(str(cast(dict[str, JSONValue], row)[key])) != row
+            ]
+            remove = [identity for identity in indexed if identity not in current_keys]
+        if upsert or remove:
+            changes[section] = {"upsert": upsert, "remove": remove}
+    return changes
+
+
+def _change_rows(changes: dict[str, JSONValue]) -> int:
+    return sum(
+        len(cast(list[JSONValue], items))
+        for change in changes.values()
+        for items in cast(dict[str, JSONValue], change).values()
+    )
+
+
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=95"
+PANEL_ELEMENT = "homeostatic-panel-v47"
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 
@@ -152,6 +209,7 @@ class Dashboard:
         self.value = snapshot(None)
         self.update = self.value
         self.catalog_revision = 0
+        self.catalog_delta: dict[str, JSONValue] | None = None
         self._catalog: dict[str, JSONValue] | None = None
         self._locations: dict[str, JSONValue] = {}
         self.catalog_sections: dict[str, list[JSONValue]] = {}
@@ -188,6 +246,7 @@ class Dashboard:
             else None
         )
         self.value = snapshot(self.runtime, dynamic_inventory=dynamic)
+        self.catalog_delta = None
         if self.runtime is not None and self.runtime.available:
             assert dynamic is not None
             locations = {key: self.value[key] for key in ("areas", "devices", "floors")}
@@ -195,52 +254,28 @@ class Dashboard:
                 self._catalog is not self.runtime.inventory_static
                 or self._locations != locations
             ):
+                sections = self._sections(self.runtime.inventory_static, locations)
+                # Content decides the revision: an equal republication keeps every
+                # client's catalog, and a small change travels as a one-step delta.
+                changes = (
+                    catalog_changes(self.catalog_sections, sections)
+                    if self._catalog is not None
+                    else None
+                )
                 self._catalog = self.runtime.inventory_static
-                self.catalog_revision += 1
                 self._locations = locations
-                catalog = cast(dict[str, JSONValue], self._catalog["catalog"])
-                self.catalog_sections = {
-                    key: cast(list[JSONValue], self._catalog[key])
-                    for key in ("nodes", "targets", "enrollment_changes")
-                }
-                self.catalog_sections["candidates"] = cast(
-                    list[JSONValue], catalog["candidates"]
-                )
-                self.catalog_sections.update(
-                    {
-                        key: cast(list[JSONValue], value)
-                        for key, value in self._locations.items()
-                    }
-                )
-                self._node_rows = {
-                    str(cast(dict[str, JSONValue], row)["node_id"]): row
-                    for row in self.catalog_sections["nodes"]
-                }
-                self._context_rows = {
-                    str(row["node_id"]): row
-                    for row in cast(
-                        list[dict[str, JSONValue]],
-                        self.catalog_sections["candidates"]
-                        + self.catalog_sections["nodes"],
-                    )
-                }
-                self._entity_nodes = {
-                    str(row["entity_id"]): str(row["node_id"])
-                    for row in self._context_rows.values()
-                    if row.get("kind") == "entity"
-                    and not row.get("monitoring_policy")
-                    and row.get("entity_id")
-                }
-                self._device_rows = {
-                    str(row["id"]): row
-                    for row in cast(
-                        list[dict[str, JSONValue]], self.catalog_sections["devices"]
-                    )
-                }
-                self._monitored_count = sum(
-                    bool(cast(dict[str, JSONValue], row).get("watched"))
-                    for row in self.catalog_sections["nodes"]
-                )
+                if changes != {}:
+                    if (
+                        changes is not None
+                        and _change_rows(changes) <= CATALOG_PAGE_ROWS
+                    ):
+                        self.catalog_delta = {
+                            "from_revision": self.catalog_revision,
+                            "sections": changes,
+                        }
+                    self.catalog_revision += 1
+                    self.catalog_sections = sections
+                    self._index_sections()
             self.value.update(self._locations)
             self.update = {
                 **{
@@ -272,6 +307,11 @@ class Dashboard:
                 **self.update,
                 "schema_version": 3,
                 "catalog_loaded": False,
+                **(
+                    {"catalog_delta": self.catalog_delta}
+                    if self.catalog_delta is not None
+                    else {}
+                ),
                 "catalog_sections": {
                     key: len(rows) for key, rows in self.catalog_sections.items()
                 },
@@ -300,6 +340,53 @@ class Dashboard:
             self.summary = {**self.value, "schema_version": 3, "catalog_loaded": False}
             self.panel_summary = {**self.summary, "panel_context": True}
         async_dispatcher_send(self.hass, SIGNAL_DASHBOARD)
+
+    @staticmethod
+    def _sections(
+        static: dict[str, JSONValue], locations: dict[str, JSONValue]
+    ) -> dict[str, list[JSONValue]]:
+        """Arrange the static inventory and HA locations as pageable sections."""
+        catalog = cast(dict[str, JSONValue], static["catalog"])
+        sections = {
+            key: cast(list[JSONValue], static[key])
+            for key in ("nodes", "targets", "enrollment_changes")
+        }
+        sections["candidates"] = cast(list[JSONValue], catalog["candidates"])
+        sections.update(
+            {key: cast(list[JSONValue], value) for key, value in locations.items()}
+        )
+        return sections
+
+    def _index_sections(self) -> None:
+        """Rebuild the row indexes that summaries and detail views read."""
+        self._node_rows = {
+            str(cast(dict[str, JSONValue], row)["node_id"]): row
+            for row in self.catalog_sections["nodes"]
+        }
+        self._context_rows = {
+            str(row["node_id"]): row
+            for row in cast(
+                list[dict[str, JSONValue]],
+                self.catalog_sections["candidates"] + self.catalog_sections["nodes"],
+            )
+        }
+        self._entity_nodes = {
+            str(row["entity_id"]): str(row["node_id"])
+            for row in self._context_rows.values()
+            if row.get("kind") == "entity"
+            and not row.get("monitoring_policy")
+            and row.get("entity_id")
+        }
+        self._device_rows = {
+            str(row["id"]): row
+            for row in cast(
+                list[dict[str, JSONValue]], self.catalog_sections["devices"]
+            )
+        }
+        self._monitored_count = sum(
+            bool(cast(dict[str, JSONValue], row).get("watched"))
+            for row in self.catalog_sections["nodes"]
+        )
 
     def _panel_summary(self, dynamic: dict[str, JSONValue]) -> dict[str, JSONValue]:
         """Include current issue context without the installation-wide catalog."""

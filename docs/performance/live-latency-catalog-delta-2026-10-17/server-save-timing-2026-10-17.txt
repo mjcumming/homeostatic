@@ -1,0 +1,72 @@
+Server save_timing lines (America/Chicago; UTC = local + 5 h) from the Supervisor journal after the 23:31Z restart with the ADR 0095 build. Debug logging 23:33:23Z to 23:37:27Z. Condensed to request, checkpoint, evaluation, snapshot, complete and total phases; storage phases stayed at 0.05 to 0.10 s each.
+
+18:33:23.598 snapshot 0.142937          <- first save after setup
+18:34:01.591 snapshot 0.133814
+18:34:02.036 snapshot 0.142423
+18:34:08.544 snapshot 0.141889
+18:34:18.678 snapshot 0.144376
+18:34:20.332 snapshot 0.135954
+18:34:29.786 snapshot 0.963570          <- 1.0 s snapshot pause
+18:34:42.236 snapshot 0.142346
+18:35:09.319 snapshot 0.144850
+18:35:19.618 snapshot 0.150580
+18:35:20.670 snapshot 0.142360
+18:35:21.244 snapshot 0.163898
+18:35:26.176 snapshot 0.990257          <- 1.0 s snapshot pause just before Stop 1's handler
+Stop 1 (client confirm 23:35:25.112Z = 18:35:25.112 local; client round trip 5.680 s)
+18:35:26.225 request_queue 0.000012     <- handler started 1.11 s after the click
+18:35:26.485 runtime_lock 0.249663
+18:35:26.614 checkpoint 0.128251
+18:35:28.376 evaluation 1.760987
+18:35:28.618 snapshot 0.188582
+18:35:28.892 complete 0.516010
+18:35:29.441 request_total 3.216793     <- response reached the client at 18:35:30.79
+18:35:30.586 snapshot 0.992664          <- 1.0 s snapshot pause between server completion and the response
+18:35:31.181 snapshot 0.169963
+Resume 1 (confirm 18:35:41.644; client 2.292 s)
+18:35:41.730 request_queue 0.000019
+18:35:41.743 runtime_lock 0.000009
+18:35:41.862 checkpoint 0.118424
+18:35:43.400 evaluation 1.536989
+18:35:43.556 snapshot 0.144086
+18:35:43.717 complete 0.317209
+18:35:43.918 request_total 2.187172
+18:35:57.042 snapshot 0.138619
+18:35:57.523 snapshot 0.146885
+Stop 2 (confirm 18:36:08.278; client 2.376 s)
+18:36:08.362 request_queue 0.000016
+18:36:08.374 runtime_lock 0.000008
+18:36:08.501 checkpoint 0.126725
+18:36:10.133 evaluation 1.631038
+18:36:10.282 snapshot 0.140310
+18:36:10.428 complete 0.294098
+18:36:10.620 request_total 2.258771
+18:36:20.427 snapshot 0.151826
+Resume 2 (confirm 18:36:20.862; client 3.061 s)
+18:36:20.944 request_queue 0.000017
+18:36:20.958 runtime_lock 0.000008
+18:36:21.072 checkpoint 0.113324
+18:36:23.437 evaluation 2.363926
+18:36:23.587 snapshot 0.141087
+18:36:23.736 complete 0.298861
+18:36:23.921 request_total 2.977003
+18:36:39.776 snapshot 0.133318
+18:36:40.392 snapshot 0.137773
+Stop 3 (confirm 18:36:43.185; client 3.623 s)
+18:36:43.264 request_queue 0.000012
+18:36:43.273 runtime_lock 0.000007
+18:36:43.398 checkpoint 0.123668
+18:36:45.995 evaluation 2.596696
+18:36:46.140 snapshot 0.135495
+18:36:46.510 complete 0.514004
+18:36:46.695 request_total 3.430698
+18:36:52.049 snapshot 0.135355
+Resume 3 (confirm 18:36:57.463; client 3.237 s)
+18:36:57.553 request_queue 0.000016
+18:36:57.565 runtime_lock 0.000008
+18:36:57.682 checkpoint 0.116992
+18:37:00.113 evaluation 2.430040
+18:37:00.263 snapshot 0.141284
+18:37:00.447 complete 0.333076
+18:37:00.637 request_total 3.083464
+18:37:20.449 snapshot 0.141786
