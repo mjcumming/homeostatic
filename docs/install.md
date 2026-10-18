@@ -12,6 +12,8 @@ Check that you have a usable Home Assistant backup before changing the installat
 
 Choose one installation method below.
 
+Homeostatic keeps its saved state in a single Home Assistant storage file that grows with the installation, a few megabytes for several thousand entities, and rewrites it when issues, settings or controls change. Large installations run best from an SSD rather than an SD card.
+
 ## Install with HACS
 
 1. Open HACS and its three-dot menu, then select **Custom repositories**.

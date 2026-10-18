@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Persist route signatures as digests and evidence as the last known failure only, rebuild the current observation on the first refresh after a restart, and skip a save whose content equals the last verified write. The saved state of a large installation shrinks by about a third.
+
+### Documentation
+
+- Record the core design audit and the durable-facts persistence boundary, and note in the install guide that the saved state grows with the installation.
+
 ## [1.9.0] - 2026-10-17
 
 ### Changed

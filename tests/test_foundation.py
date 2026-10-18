@@ -135,6 +135,9 @@ async def test_final_save_failure_completes_cleanup(
 ) -> None:
     """Storage failure is visible without retaining a stopped loaded runtime."""
     runtime = await start_monitor(hass, config_entry)
+    # Pending evidence-only state makes the final save write (ADR 0097).
+    await runtime.async_refresh(reconcile=False, cause="test")
+    assert runtime._save_pending
     with patch.object(
         runtime.store, "async_save", side_effect=OSError("disk unavailable")
     ):

@@ -1,43 +1,46 @@
-# ADR 0097: Shrink the snapshot and save only durable changes
+# ADR 0097: Persist durable facts only
 
-**Status:** Proposed on 2026-10-18
+**Status:** Accepted on 2026-10-18; step 1 of the [core design audit](../core-design-audit-2026-10-18.md) in progress
 **Implementation status:** See the [roadmap](../roadmap.md#current-work).
 
 **Date:** 2026-10-18
 
-**Extends:** [ADR 0096](0096-coalesce-evidence-saves-and-verify-bytes.md), which bounded how often evidence-only refreshes save, and the persistence rules in the [specification](../spec.md). **Depends on:** a health-tree decision for the engine and policy snapshots.
+**Extends:** [ADR 0096](0096-coalesce-evidence-saves-and-verify-bytes.md), which bounded how often evidence-only refreshes save, and the persistence rules in the [specification](../spec.md). **Depends on:** a health-tree decision for the engine and policy snapshots, requested in that repository's RFP acceptance section.
 
 ## Context
 
-After the latency series the household installation still rewrites a 7.7 MB file about 1.5 times a minute, roughly 17 GB a day, and the allocation behind each save triggers a generation-2 collection that pauses the whole Home Assistant process for about 0.85 s every three to four minutes. The [footprint measurement](../performance/snapshot-footprint-2026-10-18.json) explains both.
+After the latency series the household installation still rewrites a 7.7 MB file about 1.5 times a minute, roughly 17 GB a day, and the allocation behind each save triggers a generation-2 collection that pauses the whole Home Assistant process for about 0.85 s every three to four minutes. The [footprint measurement](../performance/snapshot-footprint-2026-10-18.json) and the [core design audit](../core-design-audit-2026-10-18.md) explain both.
 
-The file is 30 percent indentation, which the Home Assistant Store applies to every file it writes. Of the 5.4 MB of content, the engine snapshot is 2.1 MB, of which 1.5 MB is the last observation of each of 1,757 checks; the adapter's attention route signatures are 1.4 MB because each of eight routes stores the full JSON of the same thirteen rules; the policy snapshot is 0.7 MB; enrollment rows and check evidence are 0.9 MB together; the remaining eighteen sections are 0.3 MB.
+The snapshot persists three kinds of state. Durable facts, about 1 MB: episodes, resolved history, operator controls, the delivery ledger, monitoring identities and scopes, enrollment, retry starts, phone actions, automation alerts, Repairs, broken automations, temperature and UPS monitor progress, notification flags and policy settings. Library working memory, 2.8 MB: the engine's check records with the full last observation of each of 1,757 checks, and the policy's route states. Caches, 1.8 MB: route signatures that store the full JSON of the same thirteen rules once per route, and check and integration evidence that store the last observation's reason, message, time and status for every source.
 
-Between two idle saves one minute apart, only observation times changed: the current record of every check and integration, the engine's check records and the policy route states. Episodes, history, controls, enrollment and delivery were identical. The minute reconcile re-observes every check and stamps the time into persisted evidence, so the snapshot differs every minute even when nothing happened, and the coalescing window writes it once. Config-entry rewrites by other integrations added sixteen immediate saves in 33 minutes because the engine returned events for each; which events is the open question the trace answers.
+Between two idle saves one minute apart, only observation times changed. The minute reconcile re-observes every check and stamps the time into persisted evidence and into the engine's check records, so a quiet installation produces a different snapshot every minute and the coalescing window writes it once.
 
 ## Decision
 
-The adapter persists only what it cannot re-derive from Home Assistant, and skips a save whose content equals the last stored content.
+The persistence boundary is durable facts. A durable fact is state the product cannot re-derive from Home Assistant after a restart: an issue's identity and history, what the owner decided, what was delivered, what was enrolled, and timing progress that a restart would otherwise reset. Everything observed from Home Assistant is a cache that the first refresh rebuilds, as startup already re-observes every source before the panel is used.
 
-- Route signatures store a digest of their canonical JSON instead of the JSON. Equality is all the comparison needs.
-- Check and integration evidence persist the condition, not the time it was last observed. The observation time is presentation state that the first refresh after a restart re-derives, as startup already re-observes every source.
-- Before writing, the runtime serializes the envelope once, hashes the bytes and skips the write when the hash equals the hash of the last verified write. The serialization already exists for byte verification, so a skipped save costs one serialization in the executor and no disk write.
-- A per-refresh trace of engine event types, in the existing identifier-token format, records why a refresh saved at once.
+For the adapter's own sections:
 
-The engine and policy snapshots are health-tree's. This decision asks the library to keep volatile observation times out of its snapshot or to expose whether a snapshot changed in content, and records that request in both roadmaps; until then the adapter's hash comparison only helps when the engine snapshot is unchanged.
+- Route signatures persist as a digest of their canonical JSON. Equality is the only use of the stored value; a legacy snapshot holding the full signature converts to its digest on restore.
+- Check and integration evidence persist the last known failure and whether history is complete, which the history goal needs. The current observation stays in memory and is rebuilt by the first refresh.
+- The runtime serializes the envelope once, keeps a digest of the last verified write, and skips a save whose bytes equal it. The serialization already existed for byte verification, which now compares the stored file with those same bytes.
+- The refresh trace records the engine event types each refresh produced, so the saves that still happen can be attributed.
+
+For the library's sections, Homeostatic asks health-tree to keep volatile observation state out of the engine and policy snapshots, or to report whether a snapshot changed in content. Until then the engine's check records change every minute and the digest comparison skips only saves the engine leaves unchanged.
 
 The Store format, the atomic write, the byte verification and the coalescing window do not change. User documentation states that the state file grows with the installation and is rewritten after changes, and recommends an SSD for large installations.
 
 ## Alternatives
 
 - Compressing or hand-formatting the file departs from the Store format every other integration uses and from the backup and migration tooling built on it.
-- Splitting the snapshot into several Store files per section reduces the bytes per write but multiplies the atomic writes and verifications and complicates rollback of a failed save.
-- Lengthening the coalescing window beyond 15 seconds trades more lost evidence for fewer writes without removing the cause, which is that a reconcile with no change produces a different snapshot.
+- Splitting the snapshot into several Store files reduces the bytes per write but multiplies atomic writes and verifications and complicates rollback of a failed save.
+- Lengthening the coalescing window trades more lost evidence for fewer writes without removing the cause.
+- Persisting the current observation but not its time keeps the churn out of the file at the cost of showing a stale reading as current after a restart; the first refresh replaces it anyway, so the record is not worth keeping.
 
 ## Acceptance
 
-A reconcile that observes no changed condition leaves the adapter's snapshot sections byte-identical and, once the library keeps times out of its snapshot, performs no write. Route signatures still detect every rule, digest, method and quiet-hours change. Evidence views still show the last observation time after a refresh and show it again after a restart once the first refresh completes. The size of the household store file and the saves per idle minute are measured before and after, and the write volume per day is recorded in the receipt.
+A reconcile that observes no changed condition leaves every adapter section of the snapshot byte-identical; once the library keeps times out of its snapshot, it performs no write. Route digests detect every rule, digest, method and quiet-hours change that the full signatures detected, and a legacy snapshot restores without re-activating unchanged routes. Evidence views show the last observation after the first refresh and the last failure after a restart. A save whose bytes equal the last verified write performs no write. The household store file size, the saves per idle minute and the refresh event types are measured before and after.
 
 ## Consequences
 
-The store file falls by at least the 1.4 MB of route content plus its indentation, and idle writes fall from one per minute to one per real change. Restart loses the displayed observation times until the first refresh, which already happens before the panel is used. The adapter gains a dependency on health-tree's snapshot behavior for the remaining per-minute churn.
+The store file falls by the route content and the evidence records plus their indentation, about 2.3 MB of 7.7 MB, and the adapter's sections stop changing on a quiet minute. Idle writes keep happening until the library change lands, because the engine's check records carry observation times. Restart loses the displayed observation times until the first refresh, which completes before the panel is used. The adapter gains a dependency on health-tree's snapshot behavior for the remaining churn, recorded in both roadmaps.

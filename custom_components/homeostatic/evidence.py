@@ -28,7 +28,7 @@ _REPORT = {
 _STORED = vol.Schema(
     {
         str: {
-            vol.Required("current"): _REPORT,
+            vol.Optional("current"): _REPORT,
             vol.Required("last_failure"): vol.Any(None, _REPORT),
             vol.Optional("history_complete"): bool,
         }
@@ -48,9 +48,13 @@ class ReportedCondition:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EvidenceContext:
-    """Current evidence and a previous failure, without a health verdict."""
+    """Current evidence and a previous failure, without a health verdict.
 
-    current: ReportedCondition
+    The current observation is presentation state rebuilt by the first refresh
+    after a restart; only the last failure and history completeness persist.
+    """
+
+    current: ReportedCondition | None
     last_failure: ReportedCondition | None
     history_complete: bool = True
 
@@ -101,21 +105,31 @@ class ReportedEvidence:
         return json_object(record) if record else None
 
     def snapshot(self) -> dict[str, JSONValue]:
-        """Serialize presentation separately from opaque library snapshots."""
-        return json_object(self._records)
+        """Persist the durable part: the last failure and history completeness."""
+        return {
+            node_id: {
+                "last_failure": json_object(record.last_failure)
+                if record.last_failure is not None
+                else None,
+                "history_complete": record.history_complete,
+            }
+            for node_id, record in self._records.items()
+        }
 
     def restore(self, value: Any, *, history_complete: bool = True) -> None:
         """Reject malformed evidence before replacing any retained record."""
         data = _STORED(value)
         records = {}
         for node_id, item in data.items():
-            current = ReportedCondition(**item["current"])
+            current = (
+                ReportedCondition(**item["current"]) if item.get("current") else None
+            )
             failure = (
                 ReportedCondition(**item["last_failure"])
                 if item["last_failure"]
                 else None
             )
-            if failure and failure.observed_at > current.observed_at:
+            if failure and current and failure.observed_at > current.observed_at:
                 raise ValueError(
                     "Reported failure cannot be newer than current evidence"
                 )
@@ -124,7 +138,11 @@ class ReportedEvidence:
                 last_failure=failure,
                 history_complete=item.get(
                     "history_complete",
-                    failure is not None or current.status in {"pass", "warn", "fail"},
+                    failure is not None
+                    or (
+                        current is not None
+                        and current.status in {"pass", "warn", "fail"}
+                    ),
                 ),
             )
         self._records = records

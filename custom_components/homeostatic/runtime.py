@@ -2,6 +2,8 @@
 
 import asyncio
 import gc
+import hashlib
+import json
 import logging
 from collections import Counter, deque
 from collections.abc import Callable
@@ -137,6 +139,19 @@ _LOGGER = logging.getLogger(__name__)
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 
+def _digest(value: Any) -> str:
+    """Stable digest of JSON-compatible data, for equality comparison only."""
+    canonical = json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _event_summary(counts: Counter[str]) -> str:
+    """Render engine event type counts for the refresh trace."""
+    return (
+        ",".join(f"{name}:{count}" for name, count in sorted(counts.items())) or "none"
+    )
+
+
 def _new_window() -> dict[str, Any]:
     """Start a fresh counter window for the periodic timing summary."""
     return {
@@ -145,6 +160,7 @@ def _new_window() -> dict[str, Any]:
         "discoveries": 0,
         "saves": 0,
         "deferred": 0,
+        "skipped": 0,
         "evaluation_seconds": 0.0,
         "snapshot_seconds": 0.0,
         "gc_long": 0,
@@ -237,6 +253,8 @@ class Runtime:
         self._save_required = False
         self._save_pending = False
         self._pending_save_cancel: Callable[[], None] | None = None
+        self._stored_digest: str | None = None
+        self._refresh_events: Counter[str] = Counter()
         self._scan: tuple[Any, dict[str, Source]] | None = None
         self._lock_holder: str | None = None
         self._gc_started: float | None = None
@@ -958,6 +976,8 @@ class Runtime:
                 "_save_required",
                 "_save_pending",
                 "_pending_save_cancel",
+                "_stored_digest",
+                "_refresh_events",
             }
             previous = {
                 key: value
@@ -1191,14 +1211,16 @@ class Runtime:
         window["evaluation_seconds"] += evaluation
         _SAVE_TIMING_LOGGER.debug(
             "phase=refresh cause=%s reconcile=%s discover=%s lock_wait=%.6f"
-            " evaluation=%.6f total=%.6f",
+            " evaluation=%.6f total=%.6f events=%s",
             cause,
             reconcile,
             discover,
             lock_wait,
             evaluation,
             total,
+            _event_summary(self._refresh_events),
         )
+        self._refresh_events.clear()
 
     def _log_window(self) -> None:
         """Emit one summary line per reconcile interval and start a new window."""
@@ -1206,7 +1228,7 @@ class Runtime:
         refreshes = cast(Counter[str], window["refreshes"])
         _SAVE_TIMING_LOGGER.debug(
             "phase=summary seconds=%.1f refreshes=%d causes=%s discoveries=%d"
-            " saves=%d deferred=%d evaluation_seconds=%.3f snapshot_seconds=%.3f"
+            " saves=%d deferred=%d skipped=%d evaluation_seconds=%.3f snapshot_seconds=%.3f"
             " gc_long=%d gc_seconds=%.3f",
             perf_counter() - window["started"],
             sum(refreshes.values()),
@@ -1215,6 +1237,7 @@ class Runtime:
             window["discoveries"],
             window["saves"],
             window["deferred"],
+            window["skipped"],
             window["evaluation_seconds"],
             window["snapshot_seconds"],
             window["gc_long"],
@@ -1996,8 +2019,14 @@ class Runtime:
                 and self.saved.get("notifications_enabled")
                 and "attention_routes" in self.saved
             ):
-                previous_routes = self.saved["attention_routes"]
-                current_routes = self._route_signatures()
+                stored_routes = self.saved["attention_routes"]
+                previous_routes = {
+                    route: value if isinstance(value, str) else _digest(value)
+                    for route, value in (
+                        stored_routes.items() if isinstance(stored_routes, dict) else ()
+                    )
+                }
+                current_routes = self._route_digests()
                 self._activating_routes = {
                     route
                     for route in previous_routes.keys() | current_routes.keys()
@@ -2272,6 +2301,7 @@ class Runtime:
         assert self.policy is not None
         if events:
             self._save_required = True
+            self._refresh_events.update(type(event).__name__ for event in events)
         for event in events:
             presentation_only = (
                 bool(renamed_sources)
@@ -2901,7 +2931,7 @@ class Runtime:
             "engine": self.engine.snapshot(),
             "policy": self.policy.snapshot(),
             "policy_settings": self._policy_settings(),
-            "attention_routes": self._route_signatures(),
+            "attention_routes": self._route_digests(),
             "episodes": self.episodes.copy(),
             "notifications": sorted(self.desired_notifications),
             "notifications_enabled": self.settings.notifications,
@@ -2941,23 +2971,24 @@ class Runtime:
                 self._failed(err)
                 async_dispatcher_send(self.hass, self.signal)
 
-    def _stored_bytes_match(self, snapshot: dict[str, Any]) -> bool:
-        """Compare the stored file with the bytes the Store serializer produces."""
+    def _serialize(self, snapshot: dict[str, Any]) -> bytes:
+        """Produce the bytes the Store serializer writes for this snapshot."""
         envelope = {
             "version": self.store.version,
             "minor_version": self.store.minor_version,
             "key": self.store.key,
             "data": snapshot,
         }
+        _, expected = prepare_save_json(envelope)
+        return expected.encode("utf-8") if isinstance(expected, str) else expected
+
+    def _stored_bytes_match(self, expected: bytes) -> bool:
+        """Compare the stored file with the serialized snapshot."""
         try:
-            _, expected = prepare_save_json(envelope)
             with open(self.store.path, "rb") as handle:
-                stored = handle.read()
-        except OSError, ValueError, TypeError, HomeAssistantError:
+                return handle.read() == expected
+        except OSError:
             return False
-        if isinstance(expected, str):
-            expected = expected.encode("utf-8")
-        return stored == expected
 
     async def _save(self) -> None:
         if self._pending_save_cancel is not None:
@@ -2971,6 +3002,25 @@ class Runtime:
         self._window["saves"] += 1
         self._window["snapshot_seconds"] += elapsed
         _SAVE_TIMING_LOGGER.debug("phase=snapshot seconds=%.6f", elapsed)
+        # Serialize once: the digest skips a write whose content equals the
+        # last verified write, and the same bytes verify the write (ADR 0097).
+        phase_started = perf_counter()
+        serialized: bytes | None
+        try:
+            serialized = await self.hass.async_add_executor_job(
+                self._serialize, snapshot
+            )
+        except ValueError, TypeError, HomeAssistantError:
+            serialized = None
+        digest = hashlib.sha256(serialized).hexdigest() if serialized else None
+        _SAVE_TIMING_LOGGER.debug(
+            "phase=storage_serialize seconds=%.6f", perf_counter() - phase_started
+        )
+        if digest is not None and digest == self._stored_digest:
+            self._window["skipped"] += 1
+            _SAVE_TIMING_LOGGER.debug("phase=storage_skip seconds=%.6f", 0.0)
+            return
+        self._stored_digest = None
         phase_started = perf_counter()
         await self.store.async_save(snapshot)
         _SAVE_TIMING_LOGGER.debug(
@@ -2981,13 +3031,14 @@ class Runtime:
         # Equal bytes verify without a second object tree; a difference falls
         # back to the parsed comparison so serializer changes stay harmless.
         phase_started = perf_counter()
-        verified = await self.hass.async_add_executor_job(
-            self._stored_bytes_match, snapshot
+        verified = serialized is not None and await self.hass.async_add_executor_job(
+            self._stored_bytes_match, serialized
         )
         _SAVE_TIMING_LOGGER.debug(
             "phase=storage_verify seconds=%.6f", perf_counter() - phase_started
         )
         if verified:
+            self._stored_digest = digest
             return
         phase_started = perf_counter()
         stored = await self.store.async_load()
@@ -3001,6 +3052,21 @@ class Runtime:
         )
         if different:
             raise HomeAssistantError("Homeostatic snapshot could not be saved")
+        self._stored_digest = digest
+
+    def _route_digests(
+        self,
+        settings: Settings | None = None,
+        *,
+        sources: dict[str, Source] | None = None,
+    ) -> dict[str, str]:
+        """Digest each route signature; equality is the only use of the stored value."""
+        return {
+            route: _digest(signature)
+            for route, signature in self._route_signatures(
+                settings, sources=sources
+            ).items()
+        }
 
     def _route_signatures(
         self,
