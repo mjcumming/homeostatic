@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-17
+
 ### Changed
 
 - Save evidence-only refreshes at most every 15 seconds while requests, issue changes, settings and shutdown still save at once, and verify saves by comparing the stored bytes, parsing the file only when they differ.

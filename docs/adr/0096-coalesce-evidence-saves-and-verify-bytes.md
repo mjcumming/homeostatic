@@ -1,6 +1,6 @@
 # ADR 0096: Coalesce evidence-only saves and verify stored bytes
 
-**Status:** Accepted on 2026-10-18; implemented, installed and measured on the household installation; unreleased
+**Status:** Accepted on 2026-10-18; implemented, installed and measured on the household installation; released in 1.9.0
 **Implementation status:** See the [roadmap](../roadmap.md#current-work).
 
 **Date:** 2026-10-18

@@ -1,6 +1,6 @@
 # ADR 0095: Patch the catalog after an edit instead of reloading it
 
-**Status:** Accepted on 2026-10-17; implemented, installed and measured on the household installation; unreleased
+**Status:** Accepted on 2026-10-17; implemented, installed and measured on the household installation; released in 1.9.0
 **Implementation status:** See the [roadmap](../roadmap.md#current-work).
 
 **Date:** 2026-10-17
