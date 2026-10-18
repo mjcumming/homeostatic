@@ -87,6 +87,8 @@ async def test_source_transition_survives_storage_wait(
         patch.object(runtime, "_save", side_effect=slow_save),
         patch.object(runtime, "_handle", wraps=runtime._handle) as handle,
     ):
+        # A refresh with a durable change saves inside the refresh (ADR 0096).
+        runtime._save_required = True
         in_progress = hass.async_create_task(runtime.async_refresh())
         await storage_entered.wait()
         hass.states.async_set("sensor.observed", "unavailable")

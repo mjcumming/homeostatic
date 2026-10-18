@@ -2921,7 +2921,7 @@ class Runtime:
                 self.hass, SAVE_COALESCE_SECONDS, self._pending_save_timer
             )
         _SAVE_TIMING_LOGGER.debug(
-            "phase=save_deferred window=%d", SAVE_COALESCE_SECONDS
+            "phase=save_deferred seconds=%.6f", float(SAVE_COALESCE_SECONDS)
         )
 
     async def _pending_save_timer(self, now: datetime) -> None:
@@ -2985,9 +2985,7 @@ class Runtime:
             self._stored_bytes_match, snapshot
         )
         _SAVE_TIMING_LOGGER.debug(
-            "phase=storage_verify seconds=%.6f bytes=%s",
-            perf_counter() - phase_started,
-            verified,
+            "phase=storage_verify seconds=%.6f", perf_counter() - phase_started
         )
         if verified:
             return

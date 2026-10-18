@@ -1,14 +1,19 @@
 """Temperature reports preserve evidence while avoiding unrelated discovery work."""
 
+from datetime import timedelta
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
-from custom_components.homeostatic.const import DOMAIN
+from custom_components.homeostatic.const import DOMAIN, SAVE_COALESCE_SECONDS
 from tests.policy_helpers import monitoring_policy
 from tests.test_lifecycle import start_monitor
 
@@ -57,7 +62,9 @@ async def test_temperature_readings_use_existing_inventory_and_preserve_gaps(
         assert not runtime.episodes
         assert runtime.history.snapshot()["episodes"][0]["resolution"] == "cleared"
         assert runtime.inventory_static is inventory
-        assert save.await_count == 4
+        # Gap readings changed no episode; the resolving save flushed them.
+        assert save.await_count == 3
+        assert not runtime._save_pending
         discover.assert_not_called()
         register.assert_not_called()
         assert await runtime.store.async_load() == runtime.snapshot()
@@ -135,5 +142,10 @@ async def test_thermostat_refresh_follows_selected_enrollment_transitions(
         await hass.async_block_till_done()
         assert len(runtime.temperature_monitors) == 1
         assert discover.call_count == 2
+        # Re-enrollment changed no episode; its save waits for the window.
+        async_fire_time_changed(
+            hass, dt_util.utcnow() + timedelta(seconds=SAVE_COALESCE_SECONDS + 1)
+        )
+        await hass.async_block_till_done()
         assert await runtime.store.async_load() == runtime.snapshot()
     assert await hass.config_entries.async_unload(entry.entry_id)

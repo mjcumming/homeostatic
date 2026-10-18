@@ -2,6 +2,7 @@
 
 import asyncio
 from copy import deepcopy
+from datetime import timedelta
 from typing import Any
 from unittest.mock import patch
 
@@ -10,11 +11,15 @@ from homeassistant.config_entries import ConfigEntryDisabler, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.homeostatic.config import Settings
-from custom_components.homeostatic.const import DOMAIN
+from custom_components.homeostatic.const import DOMAIN, SAVE_COALESCE_SECONDS
 from custom_components.homeostatic.dashboard import DATA_DASHBOARD
 from tests.policy_helpers import (
     availability_policies,
@@ -366,6 +371,11 @@ async def test_entry_lifecycle_queued_during_notification_save_is_durable(
         runtime.integration_evidence.view(node_id)["last_failure"]["message"]
         == "Connection failed during save"
     )
+    # The trailing evidence-only refresh persists when its window closes.
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + timedelta(seconds=SAVE_COALESCE_SECONDS + 1)
+    )
+    await hass.async_block_till_done()
     assert await runtime.store.async_load() == runtime.snapshot()
     assert not runtime._pending
     assert not runtime._inventory_dirty
@@ -401,6 +411,13 @@ async def test_unwatched_owner_lifecycle_keeps_clean_refresh(
         patch.object(runtime, "_save", wraps=runtime._save) as save,
     ):
         source._async_set_state(hass, ConfigEntryState.SETUP_RETRY, "Retrying owner")
+        await hass.async_block_till_done()
+        # Evidence-only refreshes persist once per coalescing window (ADR 0096).
+        assert save.call_count == 0
+        assert runtime._save_pending
+        async_fire_time_changed(
+            hass, dt_util.utcnow() + timedelta(seconds=SAVE_COALESCE_SECONDS + 1)
+        )
         await hass.async_block_till_done()
     assert save.call_count == 1
     assert not runtime._inventory_dirty

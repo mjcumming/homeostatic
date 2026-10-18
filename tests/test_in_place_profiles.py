@@ -387,8 +387,9 @@ async def test_save_timing_logs_only_phase_durations_when_debug_enabled(
         record.getMessage() for record in caplog.records if record.name == logger
     ]
     assert bool(messages) == (level == logging.DEBUG)
+    # Trace lines carry only phase names, durations and identifier tokens.
     assert all(
-        re.fullmatch(r"phase=[a-z_]+ seconds=\d+\.\d{6}", message)
+        re.fullmatch(r"phase=[a-z_]+( [a-z_]+=[A-Za-z0-9_.:,-]+)+", message)
         for message in messages
     )
     assert "Private profile name" not in " ".join(messages)

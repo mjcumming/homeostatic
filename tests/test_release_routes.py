@@ -293,9 +293,7 @@ def test_destination_catalog_uses_current_registry_and_state(
     phone_channel: str | None,
 ) -> None:
     """Displayed routes reflect current phones and enabled notify entities."""
-    phone = SimpleNamespace(
-        id="phone-device", config_entries={"entry"}, name="Kitchen phone"
-    )
+    phone = SimpleNamespace(id="phone-device", entries={"entry"}, name="Kitchen phone")
     notify = SimpleNamespace(
         id="notify-id",
         domain="notify",
@@ -314,6 +312,13 @@ def test_destination_catalog_uses_current_registry_and_state(
     other = SimpleNamespace(id="other", domain="sensor", disabled_by=None)
     monkeypatch.setattr(
         routes.dr, "async_get", lambda _: SimpleNamespace(devices=[phone])
+    )
+    monkeypatch.setattr(
+        routes.dr,
+        "async_entries_for_config_entry",
+        lambda registry, entry_id: [
+            device for device in registry.devices if entry_id in device.entries
+        ],
     )
     monkeypatch.setattr(
         routes.er,
