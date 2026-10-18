@@ -21,14 +21,14 @@ function availabilityIssueFixture(states=["unavailable","unavailable","unavailab
 
 test("device has one collective issue action and native entity links for three monitored members",()=>{
   const card=availabilityIssueFixture();
-  card.tools={detailButtons:(...args)=>DashboardTools.prototype.detailButtons.call({},...args)};
+  card.tools={maintenanceControls:(...args)=>DashboardTools.prototype.maintenanceControls.call({},...args)};
   const html=detail(card);
   assert.match(html,/0 of 3 monitored entities available/);
   assert.equal((html.match(/data-device-issues="third-floor"/g)||[]).length,1);
   assert.match(html,/data-device-issues="third-floor"[^>]*>View<\/button>/);
   assert.equal((html.match(/href="\/developer-tools\/state\?entity_id=/g)||[]).length,3);
   assert.doesNotMatch(html,/>Unavailable<|source-entity-condition/);
-  assert.doesNotMatch(html,/data-episode=|data-acknowledge|data-shelf|data-source-link=|<details\b|4 related issues/);
+  assert.doesNotMatch(html,/data-episode=|data-device-response|data-source-link=|<details\b|4 related issues/);
 });
 
 test("device keeps its single View after the aggregate clears and only one entity issue remains",()=>{
@@ -37,7 +37,7 @@ test("device keeps its single View after the aggregate clears and only one entit
   const html=detail(card);
   assert.match(html,/2 of 3 monitored entities available/);
   assert.equal((html.match(/data-device-issues="third-floor"/g)||[]).length,1);
-  assert.doesNotMatch(html,/data-episode=|data-acknowledge|data-shelf/);
+  assert.doesNotMatch(html,/data-episode=|data-device-response/);
 });
 
 test("device preserves unavailable evidence when no issue exists and offers no empty issue dialog",()=>{
@@ -59,7 +59,7 @@ test("device summary describes selected policy members without a separate invent
 test("unavailable entity puts its condition, scoped action and one contextual policy action in view",()=>{
   const html=detail(sourceDetailsFixture("entity",["unavailable"]));
   assert.match(condition(html),/Home Assistant reports this entity as unavailable/);
-  assert.match(html,/class="button" data-availability-action="stop"[^>]*>Stop Monitoring<\/button>/);
+  assert.match(html,/class="button" data-availability-action="stop"[^>]*>Stop monitoring…<\/button>/);
   assert.match(html,/data-source-policies="open"[^>]*>Monitoring policies<\/button>/);
   assert.doesNotMatch(html,/data-definition-id=|source-policy-dialog/);
   assert.doesNotMatch(html,/<dt>Availability<\/dt>|<dt>Monitoring<\/dt>|<summary>Details<\/summary>/);
@@ -75,7 +75,7 @@ test("short confirmation shows exact entities without repeating policy names",()
   assert.doesNotMatch(html,/data-availability-action="stop"/);
   assert.doesNotMatch(html,/<li>Devices<\/li>|<li>Entities<\/li>/);
   assert.match(html,/<h3>Stop monitoring this entity\?<\/h3>/);
-  assert.match(html,/data-availability-action="confirm"[^>]*>Stop Monitoring<\/button>/);
+  assert.match(html,/data-availability-action="confirm"[^>]*>Stop monitoring<\/button>/);
   assert.match(html,/Stop availability monitoring for this entity\. Other checks stay enabled\./);
   assert.doesNotMatch(html,/<details data-ui-key="availability-confirm-details"|<summary>Details<\/summary>/);
 });
@@ -93,12 +93,12 @@ test("an entity opens its related issue without exposing controls for the larger
   const card=sourceDetailsFixture("entity",["unavailable"]);
   card.current.data.inventory.attention_controls_supported=true;
   card.current.data.inventory.episodes=[{episode_id:"shared",anchor:"entry:lyric",recorded:["entry:lyric","monitoring:entities:"+ENTITY_ID],reasons:[{node_id:"monitoring:entities:"+ENTITY_ID,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT}];
-  card.tools={detailButtons:(...args)=>DashboardTools.prototype.detailButtons.call({},...args)};
+  card.tools={maintenanceControls:(...args)=>DashboardTools.prototype.maintenanceControls.call({},...args)};
   const html=detail(card);
   assert.match(html,/Home Assistant reports this entity as unavailable/);
   assert.match(html,/data-episode="shared"[^>]*>View issue<\/button>/);
   assert.match(html,/issue involving 2 sources/);
-  assert.doesNotMatch(html,/data-acknowledge|data-shelf|whole issue headed by|source-issue-actions/);
+  assert.doesNotMatch(html,/data-device-response|whole issue headed by|source-issue-actions/);
 });
 
 test("device names and mixed current conditions stay visible before monitoring coverage",()=>{
@@ -120,11 +120,11 @@ test("a wider integration issue keeps an exact link without response controls in
   const card=sourceDetailsFixture("device",["unavailable"]);
   card.current.data.inventory.attention_controls_supported=true;
   card.current.data.inventory.episodes=[{episode_id:"shared",anchor:"entry:lyric",recorded:["entry:lyric","monitoring:entities:"+ENTITY_ID],reasons:[{node_id:"monitoring:entities:"+ENTITY_ID,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT}];
-  card.tools={detailButtons:(...args)=>DashboardTools.prototype.detailButtons.call({},...args)};
+  card.tools={maintenanceControls:(...args)=>DashboardTools.prototype.maintenanceControls.call({},...args)};
   const html=detail(card),visible=html.split('<details class="source-section source-monitoring-explanation"')[0];
   assert.match(visible,/data-episode="shared"/);
   assert.match(visible,/This device is part of an issue involving 2 sources/);
-  assert.doesNotMatch(html,/data-device-issues|data-acknowledge|data-shelf|source-issue-actions|Actions for this issue|<details\b/);
+  assert.doesNotMatch(html,/data-device-issues|data-device-response|source-issue-actions|Actions for this issue|<details\b/);
 });
 
 test("integration connections are named directly without an additional disclosure or repeated count",()=>{
@@ -385,7 +385,7 @@ test("temperature and availability retain their evidence with one entity destina
   assert.doesNotMatch(html,/source-device-member-state[^>]*>Unavailable/);
 });
 
-test("integration maintenance appears once beside distinct issue controls",()=>{
+test("integration maintenance appears once and related issues open the shared issue response",()=>{
   const card=sourceDetailsFixture();
   card.sourcesSelection="source:entry:lyric";
   card.sourceDetail={nodeId:"entry:lyric",integration_evidence:{current:{status:"fail",reason:"setup_error"}}};
@@ -394,12 +394,12 @@ test("integration maintenance appears once beside distinct issue controls",()=>{
   card.current.data.inventory.episodes=["first","second"].map(id=>({episode_id:id,anchor:"entry:lyric",recorded:["entry:lyric"],reasons:[{node_id:"entry:lyric",message:`Setup failure ${id}`,status:"fail",reason:"setup_error"}],opened_at:UPDATED_AT}));
   card.current.data.inventory.operator_controls=[{control_id:"integration-maintenance",action:"maintenance",target:"entry:lyric",until:"2026-10-17T00:00:00Z",include_dependents:false,reason:"Inspecting connection"},{control_id:"first-pause",action:"shelve",target:"first",until:"2026-10-17T00:00:00Z",include_dependents:false,reason:"Awaiting service"}];
   const saved=structuredClone(card.current.data.inventory.operator_controls);
-  card.tools={detailButtons:(...args)=>DashboardTools.prototype.detailButtons.call({},...args)};
+  card.tools={maintenanceControls:(...args)=>DashboardTools.prototype.maintenanceControls.call({},...args)};
   const html=detail(card);
   assert.equal((html.match(/data-cancel-control="integration-maintenance"/g)||[]).length,1);
-  assert.equal((html.match(/data-cancel-control="first-pause"/g)||[]).length,1);
   assert.equal((html.match(/Inspecting connection/g)||[]).length,1);
-  for(const id of ["first","second"])assert.match(html,new RegExp(`data-shelf="${id}"`));
+  assert.doesNotMatch(html,/data-cancel-control="first-pause"|data-device-response/);
+  for(const id of ["first","second"])assert.match(html,new RegExp(`data-episode="${id}"`));
   assert.deepEqual(card.current.data.inventory.operator_controls,saved);
 });
 
@@ -485,7 +485,7 @@ test("connectivity off remains an available value without a review finding",()=>
 for(const view of ["entity","device"]) {
   test(`${view} source retains active maintenance controls without creation`,()=>{
     const card=sourceDetailsFixture(view),selected=view==="entity"?ENTITY_ID:DEVICE_ID;
-    card.tools={detailButtons:(...args)=>DashboardTools.prototype.detailButtons.call({},...args)};
+    card.tools={maintenanceControls:(...args)=>DashboardTools.prototype.maintenanceControls.call({},...args)};
     card.current.data.inventory.attention_controls_supported=true;
     card.current.data.inventory.operator_controls=[{control_id:"saved-maintenance",action:"maintenance",target:selected,until:"2026-10-15T00:00:00Z",include_dependents:false,reason:"Synthetic maintenance"}];
     const html=detail(card);
@@ -541,5 +541,5 @@ test("independent issues on one entity retain distinct escaped findings and exac
   assert.doesNotMatch(cold,/Reading unavailable|Temperature is low & falling/);
   assert.equal((html.match(/data-episode="availability-issue"/g)||[]).length,1);
   assert.equal((html.match(/data-episode="temperature-issue"/g)||[]).length,1);
-  assert.doesNotMatch(rows.join(""),/data-acknowledge|data-shelf|An issue is open for this entity/);
+  assert.doesNotMatch(rows.join(""),/data-device-response|An issue is open for this entity/);
 });

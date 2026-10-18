@@ -35,7 +35,7 @@ async def _prepare(hass: HomeAssistant, config_data: dict[str, Any]) -> MockConf
 async def test_exclusion_serializes_only_the_changed_candidate(
     hass: HomeAssistant, config_data: dict[str, Any], hass_ws_client: WebSocketGenerator
 ) -> None:
-    """One Stop Monitoring edit re-serializes one candidate row and reuses the rest."""
+    """One Stop monitoring edit re-serializes one candidate row and reuses the rest."""
     entry = await _prepare(hass, config_data)
     runtime = await start_monitor(hass, entry)
     dashboard = hass.data[DATA_DASHBOARD]

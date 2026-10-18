@@ -169,9 +169,9 @@ document.querySelector("#run").onclick=async()=>{
     await click('[data-episode="mqtt-shared"]');
     const scope=[...card.dialog.querySelectorAll('p')].find(element=>element.textContent.includes("apply to the entire issue"));
     check(scope?.getClientRects().length&&!scope.closest('details'),"Complete action scope is visible without opening Details");
-    check(scope.nextElementSibling?.contains(find('[data-acknowledge]',card.dialog))&&scope.nextElementSibling?.contains(find('[data-shelf]',card.dialog)),"Scope explanation stays beside acknowledgment and pause controls");
-    check(find('[data-acknowledge]',card.dialog).dataset.acknowledge==="mqtt-shared","Shared actions retain the original issue");
-    check(find('[data-shelf]',card.dialog).dataset.shelf==="mqtt-shared","Pause retains the original issue scope");
+    const response=find('[data-issue-response]',card.dialog);
+    check(scope.nextElementSibling===response&&response.querySelector('[data-device-response="acknowledge"]')&&response.querySelector('[data-device-response="pause"]'),"Scope explanation stays beside acknowledgment and pause controls");
+    check(response.dataset.issueResponse==="mqtt-shared","Acknowledgment and pause retain the original issue");
     await click('[data-action="close"]',card.dialog);
     evidence.push("Issue rows omit internal grouping labels. Waiting checks and their conditions are directly visible under their device through refresh; prior vacuum error survives unavailability in list and dialog; complete scope remains visible beside acknowledgment and pause, both targeting the original issue.");
     receipt.status="pass";feedback.textContent="PASS: Device hierarchy, original issue actions, search, sorting, pagination, refresh and Cancel. Synthetic data only.";

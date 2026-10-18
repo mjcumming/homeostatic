@@ -5,7 +5,7 @@ import {controlsPanel,DashboardTools} from "../../custom_components/homeostatic/
 const source={node_id:"source:one",name:"Hall thermostat - temperature policy",kind:"entity"};
 const episode={episode_id:"issue:one",anchor:source.node_id};
 const pause={control_id:"pause:one",action:"shelve",target:episode.episode_id,until:"2026-10-15T17:30:00Z",reason:"Checking the sensor"};
-const maintenance={control_id:"maintenance:one",action:"maintenance",target:source.node_id,until:"2026-10-15T18:00:00Z",include_dependents:true};
+const maintenance={control_id:"maintenance:one",action:"maintenance",target:source.node_id,until:"2026-10-15T18:00:00Z",include_dependents:true,reason:"Replacing the sensor"};
 const data=()=>({inventory:{nodes:[source],episodes:[episode],attention_controls_supported:true,operator_controls:[pause,maintenance]},policy:{episodes:[]}});
 
 function actionTools() {
@@ -13,21 +13,18 @@ function actionTools() {
   const tools={
     card:{current:{status:"current",data:data()},_hass:{user:{is_admin:true}},detail:episode,detailSequence:0,dialog:{close(){}},displaySourceName:()=>"Hall thermostat"},
     body:{innerHTML:""},dialog:{open:false,querySelector:()=>title,showModal(){}},
-    refreshFormState(){},refreshImmediate(){},clearSelection:DashboardTools.prototype.clearSelection,
+    refreshImmediate(){},clearSelection:DashboardTools.prototype.clearSelection,
   };
   return {tools,title};
 }
 
-test("scoped active controls preserve exact targets and expiries without repeating source identity",()=>{
-  const html=controlsPanel(data(),[episode.episode_id]);
+test("scoped controls list maintenance only and leave issue pauses to the issue response",()=>{
+  const html=controlsPanel(data(),[source.node_id,episode.episode_id]);
   assert.match(html,/class="active-controls"/);
-  assert.match(html,/Notifications paused/);
-  assert.match(html,/Until /);
-  assert.match(html,/data-cancel-control="pause:one">Resume notifications…<\/button>/);
-  assert.match(html,/everyone, including urgent notifications/);
-  assert.match(html,/issue remains open/);
-  assert.match(html,/Checking the sensor/);
-  assert.doesNotMatch(html,/maintenance:one|Hall thermostat|class="panel"|class="note"/);
+  assert.match(html,/Working on equipment/);
+  assert.match(html,/data-cancel-control="maintenance:one">End maintenance…<\/button>/);
+  assert.match(html,/Replacing the sensor/);
+  assert.doesNotMatch(html,/pause:one|Notifications paused|Resume notifications|Hall thermostat/);
 });
 
 test("unscoped controls name equipment and retain dependent maintenance scope",()=>{
@@ -35,76 +32,35 @@ test("unscoped controls name equipment and retain dependent maintenance scope",(
   assert.match(html,/class="control-target">Hall thermostat/);
   assert.match(html,/Also covers dependent equipment/);
   assert.match(html,/Existing problems and notifications remain active/);
-  assert.match(html,/data-cancel-control="maintenance:one">End maintenance…<\/button>/);
+  assert.doesNotMatch(html,/pause:one/);
 });
 
-test("acknowledgment has one quiet status and leaves pause and end-control actions available",()=>{
-  const current=data();
-  current.policy.episodes=[{episode_id:episode.episode_id,acknowledgment:{at:"2026-10-15T15:00:00Z"}}];
-  const html=DashboardTools.prototype.detailButtons(source,episode,current);
-  assert.equal(html.match(/Acknowledged/g).length,1);
-  assert.match(html,/class="control-status"/);
-  assert.match(html,/Awaiting recovery/);
-  assert.match(html,/data-shelf="issue:one"/);
-  assert.match(html,/data-cancel-control="pause:one">Resume notifications…<\/button>/);
-  assert.doesNotMatch(html,/data-acknowledge|class="panel"|class="note"/);
-});
-
-test("pause form shows one canonical target and preserves expiry and reason",()=>{
-  const {tools,title}=actionTools();
-  DashboardTools.prototype.openControl.call(tools,"shelve",episode.episode_id);
-  assert.equal(tools.body.innerHTML.match(/Hall thermostat/g).length,1);
-  assert.doesNotMatch(tools.body.innerHTML,/temperature policy/);
-  assert.match(tools.body.innerHTML,/class="control-target"/);
-  assert.match(tools.body.innerHTML,/name="untilLocal" required/);
-  assert.match(tools.body.innerHTML,/name="reason"/);
-  assert.equal(title.textContent,"Pause notifications");
-  assert.match(tools.body.innerHTML,/this whole issue for everyone, including urgent notifications/);
-  assert.match(tools.body.innerHTML,/Existing notifications are not dismissed; other issues are unaffected/);
-  assert.match(tools.body.innerHTML,/An existing pause can only be extended/);
-  assert.doesNotMatch(tools.body.innerHTML,/data-duration|includeDependents/);
-});
-
-for(const kind of ["entity","integration","external","device"])test(`${kind} details retain active maintenance without offering creation`,()=>{
+for(const kind of ["entity","integration","external","device","ups"])test(`${kind} details retain active maintenance without issue response or creation controls`,()=>{
   const current=data(),selected={...source,kind};
-  const html=DashboardTools.prototype.detailButtons(selected,null,current);
-  assert.doesNotMatch(html,/data-maintenance|Working on this equipment|Start maintenance/);
+  const html=DashboardTools.prototype.maintenanceControls(selected,current);
   assert.match(html,/data-cancel-control="maintenance:one"/);
   assert.match(html,/Until /);
-  current.inventory.operator_controls=[];
-  assert.equal(DashboardTools.prototype.detailButtons(selected,null,current),"");
+  assert.doesNotMatch(html,/data-maintenance|Start maintenance|data-device-response|Acknowledge|Pause notifications/);
+  current.inventory.operator_controls=[pause];
+  assert.equal(DashboardTools.prototype.maintenanceControls(selected,current),"");
 });
 
-test("obsolete maintenance form requests cannot open or submit a control",async()=>{
+test("End maintenance confirmation names one target and retains its consequence",()=>{
   const {tools,title}=actionTools();
-  tools.card._hass.callWS=()=>assert.fail("Maintenance creation must not call Home Assistant");
-  DashboardTools.prototype.openControl.call(tools,"maintenance",source.node_id);
-  assert.equal(tools.body.innerHTML,"");
-  assert.equal(title.textContent,"");
-  assert.equal(tools.draft,undefined);
-  tools.draft={kind:"maintenance",target:source.node_id};
-  await DashboardTools.prototype.execute.call(tools);
-});
-
-for(const [action,target,title,consequence] of [
-  ["acknowledge",episode.episode_id,"Acknowledge issue",/awareness of this issue for everyone.*acknowledgment-dependent reminders.*Other notifications may continue.*issue remains open until recovery/],
-  ["cancel_control",pause.control_id,"Resume notifications",/notification rules and quiet hours.*Due notifications may be sent now.*Other pauses remain active/],
-  ["cancel_control",maintenance.control_id,"End maintenance",/Problems still present may open now.*Other overlapping maintenance windows remain active/],
-])test(`${title} confirmation names one target and retains its consequence`,()=>{
-  const {tools,title:heading}=actionTools();
-  DashboardTools.prototype.openImmediate.call(tools,action,target);
-  assert.equal(heading.textContent,title);
+  DashboardTools.prototype.openImmediate.call(tools,maintenance.control_id);
+  assert.equal(title.textContent,"End maintenance");
   assert.equal(tools.body.innerHTML.match(/Hall thermostat/g).length,1);
   assert.doesNotMatch(tools.body.innerHTML,/temperature policy/);
-  assert.match(tools.body.innerHTML,consequence);
+  assert.match(tools.body.innerHTML,/Problems still present may open now.*Other overlapping maintenance windows remain active/);
   assert.match(tools.body.innerHTML,/<form class="tool-form">/);
   assert.match(tools.body.innerHTML,/data-immediate-feedback role="status" hidden/);
-  assert.equal(tools.immediate.target,target);
+  assert.equal(tools.immediate.target,maintenance.control_id);
 });
 
-for(const selected of [source,{...source,kind:"ups",check_id:"ups_power"}])test(`${selected.kind} issue actions name their purpose and target the exact issue`,()=>{
-  const html=DashboardTools.prototype.detailButtons(selected,episode,data());
-  assert.match(html,/data-acknowledge="issue:one">Acknowledge issue…<\/button>/);
-  assert.match(html,/data-shelf="issue:one">Pause notifications…<\/button>/);
-  assert.doesNotMatch(html,/\balerts\b|>Acknowledge…|>End now…/);
+test("issue targets cannot open a tools confirmation",()=>{
+  const {tools,title}=actionTools();
+  DashboardTools.prototype.openImmediate.call(tools,episode.episode_id);
+  assert.equal(tools.body.innerHTML,"");
+  assert.equal(title.textContent,"");
+  assert.equal(tools.immediate,undefined);
 });

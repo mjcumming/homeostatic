@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {DashboardTools,historyAccount,historyPage,RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {issuesWorkspace} from "../../custom_components/homeostatic/frontend/issues-workspace.mjs";
+import {selectedDeviceIssueIds} from "../../custom_components/homeostatic/frontend/device-issues.mjs";
 import {independentDeviceIssuesFixture,independentDeviceReply,deviceNames} from "./independent-device-issues-fixture.mjs";
 
 globalThis.HTMLElement=class {};
@@ -15,19 +16,27 @@ async function detail(fixture,id) {
   const body={innerHTML:"",querySelectorAll:()=>[],querySelector:()=>null},label={};
   const card={current:{status:"current",data:fixture.data},configuration:{settings:fixture.settings},detail:{episodeId:id},detailSequence:0,
     shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:label},displaySourceName:source=>source.name,
-    tools:{detailButtons:DashboardTools.prototype.detailButtons},capturePageState:()=>({}),restorePageState:()=>{},
+    tools:{maintenanceControls:DashboardTools.prototype.maintenanceControls},capturePageState:()=>({}),restorePageState:()=>{},
     _hass:{user:{is_admin:true},states:{},localize:()=>"Matter",callWS:async request=>independentDeviceReply(fixture,request.node_id)}};
   Object.setPrototypeOf(card,prototype);
   await card.loadDetail();
-  return body.innerHTML;
+  return {html:body.innerHTML,card};
+}
+
+/** The exact issue view offers the shared direct response for its own issue only. */
+function assertExactResponse({html,card},id) {
+  assert.ok(html.includes(`data-issue-response="${id}"`));
+  assert.match(html,/data-device-response="acknowledge"[^>]*>Acknowledge issue</);
+  assert.match(html,/data-device-response="pause"[^>]*>Pause notifications…</);
+  assert.doesNotMatch(html,/data-device-issue-select/);
+  assert.deepEqual(selectedDeviceIssueIds(card),[id]);
 }
 
 test("a light's independent issue shows only that device and targets only that issue",async()=>{
-  const fixture=independentDeviceIssuesFixture(),html=await detail(fixture,"issue:devices:deck");
+  const fixture=independentDeviceIssuesFixture(),opened=await detail(fixture,"issue:devices:deck"),{html}=opened;
   assert.match(html,/Back Deck Table Light/);
   for(const name of [deviceNames.hallway,deviceNames.mudroom,deviceNames.plug])assert.equal(html.includes(name),false);
-  assert.match(html,/data-acknowledge="issue:devices:deck"/);
-  assert.match(html,/data-shelf="issue:devices:deck"/);
+  assertExactResponse(opened,"issue:devices:deck");
   assert.doesNotMatch(html,/4 devices|entire issue/);
   const queue=issuesWorkspace(Object.assign(Object.create(prototype),{current:{data:fixture.data},_hass:{localize:()=>"Matter"},issueQuery:"",issueSort:"name",issueGroupsExpanded:new Set(["integration:matter"]),issueGroupLimits:new Map()}));
   assert.doesNotMatch(queue,/data-episode=/);
@@ -36,18 +45,15 @@ test("a light's independent issue shows only that device and targets only that i
 });
 
 test("an overlapping policy on one device remains separately actionable",async()=>{
-  const fixture=independentDeviceIssuesFixture(),html=await detail(fixture,"issue:deck-extra:deck");
-  assert.match(html,/data-acknowledge="issue:deck-extra:deck"/);
-  assert.match(html,/data-shelf="issue:deck-extra:deck"/);
-  assert.match(html,/data-definition-id="deck-extra"/);
-  assert.doesNotMatch(html,/data-acknowledge="issue:devices:deck"/);
+  const fixture=independentDeviceIssuesFixture(),opened=await detail(fixture,"issue:deck-extra:deck");
+  assertExactResponse(opened,"issue:deck-extra:deck");
+  assert.match(opened.html,/data-definition-id="deck-extra"/);
 });
 
 test("a failed integration retains one issue with all affected devices",async()=>{
-  const fixture=independentDeviceIssuesFixture({integrationFailed:true}),html=await detail(fixture,"matter-outage");
-  for(const name of Object.values(deviceNames))assert.ok(html.includes(name),name);
-  assert.match(html,/data-acknowledge="matter-outage"/);
-  assert.match(html,/data-shelf="matter-outage"/);
+  const fixture=independentDeviceIssuesFixture({integrationFailed:true}),opened=await detail(fixture,"matter-outage");
+  for(const name of Object.values(deviceNames))assert.ok(opened.html.includes(name),name);
+  assertExactResponse(opened,"matter-outage");
 });
 
 function historyHtml(fixture) {

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Use one response area wherever an issue opens. The device dialog and an exact issue from a notification, Monitoring or History both offer Acknowledge issue or Acknowledge selected, Pause notifications… for 1, 4 or 24 hours and, while a pause is active, Resume notifications. Acknowledging no longer opens a confirmation, and pausing no longer asks for an end date, time or reason.
+- Link Monitoring entity and device details to their related issues with View issue instead of repeating each issue's acknowledgment and pause controls there.
+- Use sentence case for Open entity, Open device and Stop monitoring, and end buttons that open a confirmation or choice with an ellipsis.
+- Remove Standard notification batching from Settings. It applied only to retired Custom assignments; the saved value is kept.
+
 ### Documentation
 
 - Rewrite the manual in fewer, shorter pages for the current release, and trim the roadmap to open work.

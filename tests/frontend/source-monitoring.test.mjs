@@ -84,7 +84,7 @@ for(const [ids,heading] of [[[A],"Stop monitoring this entity?"],[[A,B],"Stop mo
     const {card}=fixture(),plan=prepareAvailabilityChange(card,ids);
     const html=availabilityConfirmation(plan,(mode,label)=>`<button data-mode="${mode}">${label}</button>`);
     assert.ok(html.includes(`<h3>${heading}</h3>`));
-    assert.match(html,/data-mode="confirm">Stop Monitoring<\/button>/);
+    assert.match(html,/data-mode="confirm">Stop monitoring<\/button>/);
     assert.match(html,/sensor.one/);
     assert.equal((html.match(/<li>/g)||[]).length,ids.length);
     if(ids.length>1)assert.match(html,/sensor.two/);

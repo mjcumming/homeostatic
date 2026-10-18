@@ -3,7 +3,7 @@ import {filterSources, sourcePaths, sourcesBrowser, sourcesTree} from "../../cus
 import {monitoringExample, baseSource} from "./monitoring-fixture.mjs";
 import {sharedIssueCountsFixture,locationIssueFixture} from "./shared-issue-counts-fixture.mjs";
 import {deviceProblem, entityProblem, integrationProblem} from "../../custom_components/homeostatic/frontend/problem.mjs";
-import {historyAccount, historyName, historyPage, observedRange, attentionActionAllowed, controlPayload, controlAllowed, callAction, controlsPanel, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
+import {historyAccount, historyName, historyPage, observedRange, attentionActionAllowed, callAction, controlsPanel, RESOLUTIONS} from "../../custom_components/homeostatic/frontend/history-controls.mjs";
 import {diagnosticOverview} from "../../custom_components/homeostatic/frontend/evidence.mjs";
 import assert from "node:assert/strict";
 import {test} from "node:test";
@@ -627,18 +627,6 @@ test("history keeps terminal outcomes distinct and pages retained records", () =
   assert.match(RESOLUTIONS.absorbed[1],/Recovery was not established/);
 });
 
-test("pause request requires explicit bounded expiry and rejects maintenance creation", () => {
-  const now=Date.parse("2026-09-25T12:00:00Z");
-  const shelf={kind:"shelve",target:"episode-1",untilLocal:"2026-09-25T13:00:00Z",reason:"Replacing sensor",includeDependents:true};
-  assert.deepEqual(controlPayload(shelf,now),{episode_id:"episode-1",until:"2026-09-25T13:00:00.000Z",reason:"Replacing sensor"});
-  assert.throws(()=>controlPayload({...shelf,kind:"maintenance",target:"sensor.a"},now),/Only issue notification pauses/);
-  for(const untilLocal of ["","not-a-date","2026-09-25T12:00:00Z","2026-10-02T12:00:01Z"]){
-    assert.throws(()=>controlPayload({...shelf,untilLocal},now),/end time/);
-  }
-  assert.doesNotThrow(()=>controlPayload({...shelf,untilLocal:"2026-10-02T12:00:00Z"},now));
-  assert.throws(()=>controlPayload({...shelf,reason:"a".repeat(501)},now),/500/);
-});
-
 test("diagnostic summary states monitoring limits and configured impact", () => {
   const entry=source("entry:theater",{name:"Home Theater",kind:"integration"});
   const ready=diagnosticOverview(entry,{readiness:{answer:"ready"}});
@@ -652,20 +640,6 @@ test("diagnostic summary states monitoring limits and configured impact", () => 
   assert.match(disabled.monitoring,/cannot assess its health/);
   assert.match(disabled.assessment,/cannot establish readiness/);
   assert.match(diagnosticOverview({...entry,kind:"situation"},{readiness:null},[],true).impact,/selected Home Assistant evidence/);
-});
-
-test("controls require current admin access and an eligible live target", () => {
-  const data=example();data.inventory.episodes=[{episode_id:"active"}];
-  const current={status:"current",data};
-  const shelf={kind:"shelve",target:"active"};
-  assert.equal(controlAllowed(current,true,shelf),true);
-  assert.equal(controlAllowed(current,false,shelf),false);
-  assert.equal(controlAllowed({...current,status:"disconnected"},true,shelf),false);
-  assert.equal(controlAllowed(current,true,{...shelf,target:"resolved"}),false);
-  assert.equal(controlAllowed(current,true,{kind:"maintenance",target:"sensor.a"}),false);
-  assert.equal(controlAllowed(current,true,{kind:"maintenance",target:"function.f"}),false);
-  data.inventory.nodes.push(source("situation.a",{kind:"situation"}));
-  assert.equal(controlAllowed(current,true,{kind:"maintenance",target:"situation.a"}),false);
 });
 
 test("native actions request responses and never retry ambiguous failures", async () => {
@@ -809,16 +783,15 @@ test("device summary names HA availability without claiming physical failure",()
 
 
 
-test("attention actions require compatible current administrator targets",()=>{
+test("ending a control requires a current administrator and a live control",()=>{
   const current={status:"current",data:{inventory:{attention_controls_supported:true,episodes:[{episode_id:"e1"}],operator_controls:[{control_id:"c1"}]}}};
-  assert.equal(attentionActionAllowed(current,true,"acknowledge","e1"),true);
   assert.equal(attentionActionAllowed(current,true,"cancel_control","c1"),true);
-  assert.equal(attentionActionAllowed(current,false,"acknowledge","e1"),false);
-  assert.equal(attentionActionAllowed({...current,status:"disconnected"},true,"acknowledge","e1"),false);
-  assert.equal(attentionActionAllowed(current,true,"acknowledge","gone"),false);
+  assert.equal(attentionActionAllowed(current,false,"cancel_control","c1"),false);
+  assert.equal(attentionActionAllowed({...current,status:"disconnected"},true,"cancel_control","c1"),false);
   assert.equal(attentionActionAllowed(current,true,"cancel_control","gone"),false);
-  current.data.inventory.attention_controls_supported=false;
   assert.equal(attentionActionAllowed(current,true,"acknowledge","e1"),false);
+  current.data.inventory.attention_controls_supported=false;
+  assert.equal(attentionActionAllowed(current,true,"cancel_control","c1"),false);
 });
 
 

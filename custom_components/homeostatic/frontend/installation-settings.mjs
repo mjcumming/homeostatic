@@ -10,11 +10,10 @@ export const TIMINGS = [
   ["Recovery", "rejoin_grace", "Allow reconnecting devices", "Give a dependent source time to recover when its dependency returns."],
   ["Startup", "startup_grace", "Wait after Home Assistant starts", "Hold new issues and notifications during startup."],
   ["Startup", "startup_quiet_max", "Maximum startup wait", "Stop extending startup quiet time after this limit."],
-  ["Notifications", "batch", "Standard notification batching", "Wait before combining standard notification requests."],
 ];
 
 const timingField=(path,label,seconds,help="")=>{
-  const scale=path.endsWith(".batch")||seconds%60!==0?1:60;
+  const scale=seconds%60!==0?1:60;
   const unit=scale===60?"min":"sec";
   return `<div class="timing-row">${field(path,label,seconds/scale,"number",help,`min="0" step="1" required data-setting-scale="${scale}" aria-label="${esc(label)} ${unit}"`)}<span class="timing-unit">${unit}</span></div>`;
 };

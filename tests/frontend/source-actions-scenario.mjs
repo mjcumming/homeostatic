@@ -71,10 +71,15 @@ function reset(includeSibling=false) {
   Object.assign(card,{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,availabilityPlan:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null,detail:null,issueGroupsExpanded:new Set(),issueGroupLimits:new Map(),availabilitySelected:null,availabilityError:null,availabilityContext:null,sourcePoliciesSelection:null,sourcesExcludedOnly:false,sourcesQuery:"",sourcesExpanded:new Set(base.sourcesExpanded),current:{status:"current",data:inventory()},page:"sources"});
   initializeScopedConfiguration(card);choose(ENTITY_ID);
 }
+/** Device-owned issues sit behind the device's View in Open issues; open those as a notification link would. */
+function openExact(id) {
+  if(root.querySelector(`[data-episode="${id}"]`))click(`[data-episode="${id}"]`);else card.openDetail({episodeId:id});
+}
+const listed=id=>root.querySelector(`.issue-group [data-ui-key="issue:${id}"]`);
 async function openIssueReview() {
   reset(true);card.page="issues";card.render();await settle();
   click('[data-issue-group]');await settle();
-  click('[data-episode="shared"]');await settle();
+  openExact("shared");await settle();
   check(card.dialog.open&&card.detail.episodeId==="shared","The actual issue row opens its own removal review");
   click('.dialog-body [data-issue-availability="remove"][data-issue-id="shared"]');
 }
@@ -96,15 +101,15 @@ document.querySelector("#run").onclick=async()=>{
     check(!root.querySelector('.issue-group [data-issue-availability],.issue-group .issue-availability,.issue-monitoring-feedback'),"Collapsed queue has no removal control, count or review");
     click('[data-issue-group]');await settle();
     check(!root.querySelector('.issue-group [data-issue-availability],.issue-group .issue-availability,.issue-monitoring-feedback'),"Expanded queue has no removal control, count or review");
-    check(root.querySelector('[data-episode="shared"]')&&root.querySelector('[data-episode="unrelated"]'),"The same integration contains another unavailable issue");
-    click('[data-episode="shared"]');await settle();
+    check(listed("shared")&&listed("unrelated"),"The same integration contains another unavailable issue");
+    openExact("shared");await settle();
     check(card.dialog.open&&card.detail.episodeId==="shared","The actual issue row opens the exact current issue");
     check(root.querySelector('.dialog-body .issue-availability')?.dataset.issueAvailabilityOwner==="shared","Removal belongs to the opened issue dialog");
     const stopIssue=root.querySelector('.dialog-body [data-issue-availability="remove"]');
-    check(stopIssue.textContent==="Stop Monitoring"&&stopIssue.classList.contains("button")&&!stopIssue.classList.contains("link"),"Opened issue uses an outlined Stop Monitoring button");
+    check(stopIssue.textContent==="Stop monitoring…"&&stopIssue.classList.contains("button")&&!stopIssue.classList.contains("link"),"Opened issue uses an outlined Stop monitoring… button");
     click('.dialog-body [data-issue-availability="remove"][data-issue-id="shared"]');await settle();
     check(root.activeElement?.dataset.issueAvailability==="confirm","Issue confirmation receives focus");
-    check(!root.querySelector('.dialog-body .source-availability-confirm details').open,"Entity and policy details start collapsed");
+    check(!root.querySelector('.dialog-body .source-availability-confirm details')&&root.querySelector('.dialog-body .source-availability-confirm li'),"The review lists its entities without another disclosure");
     check(card.issueAvailabilityEpisode==="shared"&&card.issueAvailabilityPlan.sourceIds.join(",")===ENTITY_ID,"Review includes only this issue's unavailable entity");
     click('.dialog-body [data-issue-availability="cancel"][data-issue-id="shared"]');
     check(saves().length===0&&card.dialog.open&&!card.issueAvailabilityPlan,"Cancel keeps the issue open without saving");
@@ -113,7 +118,7 @@ document.querySelector("#run").onclick=async()=>{
     check(saves().length===1&&exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID),"Issue action removes both availability contributions in one save");
     check(!exclusion("entities",entities[1].node_id)&&!exclusion("devices",entities[2].node_id)&&!exclusion("entities","entity:unrelated")&&!exclusion("devices","entity:unrelated"),"Unknown, off and unrelated unavailable siblings remain monitored");
     check(!card.dialog.open&&!card.detail&&!card.issueAvailabilityPlan,"Saved removal closes the exact issue and clears its review");
-    check(!root.querySelector('[data-episode="shared"]')&&root.querySelector('[data-episode="unrelated"]'),"Only the removed issue disappears from this integration");
+    check(!listed("shared")&&listed("unrelated"),"Only the removed issue disappears from this integration");
     check(!card.main.querySelector('[data-issue-availability],.issue-monitoring-feedback')&&!card.main.textContent.includes("Changes saved."),"The completed change leaves no queue feedback or Undo");
     click('.nav [data-page="history"]');await settle();
     check(root.querySelector('h1').textContent==="History"&&!root.querySelector('.workspace-tabs'),"History opens its own page");
@@ -141,7 +146,7 @@ document.querySelector("#run").onclick=async()=>{
     check(saves().length===1&&card.settingsBusy&&typeof rejectPendingSave==="function","The issue save remains explicitly pending");
     click('[data-action="close"]');await frame();
     check(!card.dialog.open&&!card.issueAvailabilityPlan&&!card.issueAvailabilityEpisode,"Close discards the pending dialog's review");
-    click('[data-episode="unrelated"]');await frame();
+    openExact("unrelated");await frame();
     check(card.dialog.open&&card.detail.episodeId==="unrelated","Another actual issue row can open while the previous save finishes");
     const reject=rejectPendingSave;rejectPendingSave=null;reject();await settle();
     check(saves().length===1&&JSON.stringify(saved)===JSON.stringify(initial),"A late rejected save never applies or retries");
@@ -154,7 +159,7 @@ document.querySelector("#run").onclick=async()=>{
     start("sources.availability");
     card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name="Pending temperature";
     card.settingsDraft.notification_definitions.methods.phone.name="Pending phone";
-    check(root.querySelector('[data-availability-action="stop"]').textContent==="Stop Monitoring","Entity monitoring uses the Stop Monitoring label");
+    check(root.querySelector('[data-availability-action="stop"]').textContent==="Stop monitoring…","Entity monitoring uses the Stop monitoring… label");
     click('[data-availability-action="stop"]');
     check(root.querySelector(".source-availability-confirm").textContent.includes("Devices")&&root.querySelector(".source-availability-confirm").textContent.includes("Entities"),"Both availability roles must be reviewed");
     check(root.activeElement?.dataset.availabilityAction==="confirm","Confirmation receives keyboard focus");
@@ -176,8 +181,8 @@ document.querySelector("#run").onclick=async()=>{
     const healthySelection=root.querySelector('[data-availability-select="'+entities[1].node_id+'"]');
     check(healthySelection?.getClientRects().length&&!healthySelection.closest("details"),"Select entities directly reveals healthy member checkboxes");
     click(`[data-availability-select="${ENTITY_ID}"]`);click(`[data-availability-select="${entities[1].node_id}"]`);
-    check(root.querySelector('[data-availability-action="stop-selected"]').textContent==="Stop Monitoring","Selected members use the Stop Monitoring label");
-    click('[data-availability-action="stop-selected"]');check(root.querySelector('[data-availability-action="confirm"]').textContent==="Stop Monitoring","Confirmation uses the Stop Monitoring label");click('[data-availability-action="confirm"]');await settle();
+    check(root.querySelector('[data-availability-action="stop-selected"]').textContent==="Stop monitoring…","Selected members use the Stop monitoring… label");
+    click('[data-availability-action="stop-selected"]');check(root.querySelector('[data-availability-action="confirm"]').textContent==="Stop monitoring","Confirmation uses the Stop monitoring label");click('[data-availability-action="confirm"]');await settle();
     check(saves().length===1&&policy("devices").excluded_sources.length===2&&policy("entities").excluded_sources.length===2,"Batch persists only the selected entities");
     check(!exclusion("devices",entities[2].node_id),"Unselected off-valued sibling remains monitored");
     click('[data-availability-action="select"]');
@@ -211,19 +216,20 @@ document.querySelector("#run").onclick=async()=>{
     pass(activePath,"Actual controls block affected drafts, stale settings and changed catalogs; disconnected controls are read-only; rejected saves accept deliberate retry; lost applied-save response has no automatic retry or false success and refresh prevents a duplicate write.");
 
     start("sources.contextual-issue-controls");reset();await settle();
-    check(!root.querySelector('.config-detail [data-acknowledge],.config-detail [data-shelf]'),"Entity details never control notifications for a broader issue");
+    check(!root.querySelector('.config-detail [data-device-response]'),"Entity details never control notifications for a broader issue");
     check(root.querySelector('.source-related-issues').textContent.includes("issue involving 2 sources"),"Related issue states its broader scope");
     check(root.querySelector('.source-related-issues').textContent.includes("Room temperature is unavailable"),"Related issue names its reported condition before opening it");
     click('.source-related-issues [data-episode="shared"]');await settle();
     check(card.dialog.open&&card.detail.episodeId==="shared","View issue opens the exact related issue");
-    check(root.querySelector('.dialog-body [data-acknowledge="shared"]').textContent.includes("Acknowledge issue"),"Acknowledgment label identifies the issue");
-    check(root.querySelector('.dialog-body [data-shelf="shared"]').textContent.includes("Pause notifications"),"Pause label identifies notifications");
-    click('.dialog-body [data-acknowledge="shared"]');check(card.tools.dialog.open&&card.tools.immediate?.target==="shared","Acknowledgment dialog targets the correlated issue");click('[data-tool="close"]');
-    click('.source-related-issues [data-episode="shared"]');await settle();
-    click('.dialog-body [data-shelf="shared"]');check(card.tools.dialog.open&&card.tools.draft?.target==="shared","Pause dialog targets the correlated issue");click('[data-tool="close"]');
-    check(!card.tools.dialog.open,"Cancelling the operator action returns to the source");
+    const response=root.querySelector('.dialog-body [data-issue-response="shared"]');
+    check(response?.querySelector('[data-device-response="acknowledge"]')?.textContent==="Acknowledge issue","Acknowledgment label identifies the issue");
+    check(response.querySelector('[data-device-response="pause"]')?.textContent==="Pause notifications…","Pause label identifies notifications");
+    click('.dialog-body [data-device-response="pause"]');await settle();
+    check(root.querySelector('.dialog-body [data-device-pause-duration]'),"Pause offers its durations in the issue view");
+    click('.dialog-body [data-device-response="cancel-pause"]');await settle();
+    check(!root.querySelector('.dialog-body [data-device-pause-duration]')&&root.querySelector('.dialog-body [data-device-response="pause"]'),"Cancelling the pause returns to the issue actions");
     check(!calls.some(item=>!["homeostatic/source","homeostatic/node"].includes(item.type)),"Opening and cancelling issue controls does not mutate state");
-    pass(activePath,"Entity details show broader issue scope and View issue without local acknowledgment or pause. Opened exact shared issue, checked Acknowledge issue and Pause notifications labels, cancelled both dialogs and returned without sending an action request.");
+    pass(activePath,"Entity details show broader issue scope and View issue without local acknowledgment or pause. Opened the exact shared issue, checked the Acknowledge issue and Pause notifications… labels, and opened and cancelled the pause durations without sending an action request.");
 
     start("sources.monitoring-policies");reset();await settle();
     const policySettings=JSON.stringify(saved);

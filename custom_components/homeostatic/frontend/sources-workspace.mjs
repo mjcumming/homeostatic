@@ -417,9 +417,9 @@ function availabilityActions(card,node) {
   const operation=card.availabilityPlan;
   const selected=card.availabilitySelected?.nodeId===source.node_id?card.availabilitySelected:null;
   const action=(mode,label,id=source.node_id)=>`<button type="button" class="button${mode==="confirm"?" primary":""}" data-availability-action="${mode}" data-availability-source="${esc(id)}"${disabled?' disabled':''}>${mode==="confirm"&&card.scopedBusy==="source-availability"?operation?.mode==="stop"?"Stopping monitoring…":"Resuming monitoring…":label}</button>`;
-  const controls=operation&&card.availabilityContext===source.node_id?"":source.kind==="entity"?`${!source.disabled&&state.canStop?action("stop","Stop Monitoring"):""}${!source.disabled&&state.canResume?action("resume","Resume availability monitoring…"):""}`:action(selected?"cancel-selection":"select",selected?"Cancel selection":"Select entities…");
+  const controls=operation&&card.availabilityContext===source.node_id?"":source.kind==="entity"?`${!source.disabled&&state.canStop?action("stop","Stop monitoring…"):""}${!source.disabled&&state.canResume?action("resume","Resume availability monitoring…"):""}`:action(selected?"cancel-selection":"select",selected?"Cancel selection":"Select entities…");
   const choices=selected?[...selected.ids].map(id=>availabilityMonitoring(card,id)):[];
-  const batch=selected?.ids.size?`<div class="source-actions"><span>${selected.ids.size} selected</span>${choices.some(item=>item.canStop)?action("stop-selected","Stop Monitoring"):""}${choices.some(item=>item.canResume)?action("resume-selected","Resume availability monitoring for selected entities…"):""}</div>`:"";
+  const batch=selected?.ids.size?`<div class="source-actions"><span>${selected.ids.size} selected</span>${choices.some(item=>item.canStop)?action("stop-selected","Stop monitoring…"):""}${choices.some(item=>item.canResume)?action("resume-selected","Resume availability monitoring for selected entities…"):""}</div>`:"";
   const confirmation=operation&&card.availabilityContext===source.node_id?availabilityConfirmation(operation,action):"";
   const feedback=card.availabilityContext===source.node_id&&card.availabilityError?`<p class="config-error" role="alert">${esc(card.availabilityError)}</p>${card.scopedConfiguration?.needsRefresh?action("refresh","Refresh saved monitoring"):""}`:"";
   return `${controls?`<div class="source-actions">${controls}</div>`:""}${updating?'<p class="small" role="status">Updating monitoring scope…</p>':""}${batch}${confirmation}${feedback}`;
@@ -612,8 +612,6 @@ function sourceIssueLinks(card,node,episodes,data) {
   if(!linked.length)return "";
   const sources=new Map(inventoryRows(data).map(source=>[source.node_id,source]));
   const ids=sourceIds(node);
-  const controls=data.inventory.operator_controls||[];
-  const shownControls=new Set(controls.filter(control=>control.target===node.source?.node_id).map(control=>control.control_id));
   return `<section class="source-section source-related-issues"><h3>${linked.length===1?"Related issue":`${linked.length} related issues`}</h3>${node.type==="location"||node.type==="integration"?`<p class="small">Each issue is listed once here. A shared issue can appear in more than one group.</p>`:""}${linked.map(episode=>{
     const anchor=sources.get(episode.anchor),name=anchor?.name||"Related issue";
     const finding=(episode.reasons||[]).find(item=>ids.has(item.node_id)&&item.message)||(episode.reasons||[]).find(item=>item.message);
@@ -623,11 +621,7 @@ function sourceIssueLinks(card,node,episodes,data) {
       const condition=finding?.message||name;
       return `<div class="source-related-issue source-entity-issue"><p>${esc(condition)}</p>${grouped?`<p class="small">This ${node.source.kind} is part of an issue${members.size>1?` involving ${members.size} sources`:""}. Grouped under ${esc(name)}.</p>`:""}<button type="button" class="button primary" data-episode="${esc(episode.episode_id)}" aria-label="View issue: ${esc(condition)}">View issue</button></div>`;
     }
-    const issueData={...data,inventory:{...data.inventory,operator_controls:controls.filter(control=>!shownControls.has(control.control_id))}};
-    const buttons=anchor?card.tools?.detailButtons(anchor,episode,issueData)||"":"";
-    if(buttons)for(const control of controls)if([anchor.node_id,episode.episode_id].includes(control.target))shownControls.add(control.control_id);
-    const scope=grouped?`<p class="small">These controls apply to the whole issue headed by ${esc(name)}${members.size>1?`, involving ${members.size} sources`:""}.</p>`:"";
-    return `<div class="source-related-issue"><button type="button" class="source-child" data-episode="${esc(episode.episode_id)}"><span>${esc(finding?.message||name)}</span><small>View issue</small></button>${episode.opened_at?`<p class="small">Issue opened <time datetime="${esc(episode.opened_at)}">${esc(displayDate(episode.opened_at))}</time></p>`:""}${buttons?`${scope}${buttons}`:""}</div>`;
+    return `<div class="source-related-issue"><button type="button" class="source-child" data-episode="${esc(episode.episode_id)}"><span>${esc(finding?.message||name)}</span><small>View issue</small></button>${episode.opened_at?`<p class="small">Issue opened <time datetime="${esc(episode.opened_at)}">${esc(displayDate(episode.opened_at))}</time></p>`:""}</div>`;
   }).join("")}</section>`;
 }
 
@@ -713,7 +707,7 @@ export function sourcesBrowser(card) {
   const entityLocation=entity?selected.parents.filter(parent=>parent.type==="location"&&parent.location&&!["group","unassigned"].includes(parent.location.kind)).map(parent=>parent.name).filter((name,index,names)=>names.indexOf(name)===index).join(" / "):"";
   const type=node?.family?"Integration":node?.source?sourceType(node.source):node?.type==="device"?"Device":"Location";
   const automationReporting=node?.source?.automation_url?sourceReporting(card,node):"";
-  const equipmentControls=node?.source?card.tools?.detailButtons(node.source,null,data)||"":"";
+  const equipmentControls=node?.source?card.tools?.maintenanceControls(node.source,data)||"":"";
   const activeEquipment=node?.source&&(data.inventory.operator_controls||[]).some(control=>control.target===node.source.node_id);
   const inspection=node?sourceInspection(card,node,coverage):null;
   const secondary=`${inspection?.details||""}${equipmentControls&&!activeEquipment?`<section class="source-equipment"><h3>Equipment controls</h3>${equipmentControls}</section>`:""}${automationReporting}${node&&!entity?sourceTechnicalDetails(card,node):""}`;

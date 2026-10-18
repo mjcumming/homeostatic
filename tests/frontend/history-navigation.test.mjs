@@ -22,7 +22,7 @@ for(const retained of [true,false])test(`an ended notification member keeps its 
   assert.deepEqual(card.notificationIssueIds,["ended","other"]);
   assert.match(body.innerHTML,/This included issue is no longer open/);
   assert.equal(body.innerHTML.includes('data-history="ended"'),retained);
-  assert.doesNotMatch(body.innerHTML,/data-acknowledge|data-shelf/);
+  assert.doesNotMatch(body.innerHTML,/data-device-response/);
 });
 
 test("primary labels describe the work while retaining the existing page routes",()=>{

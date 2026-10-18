@@ -12,8 +12,17 @@ import {retainedProblem} from "./check-presentation.mjs?v=97";
 
 const date=value=>new Date(value).toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const issueId=item=>item.episode.episode_id;
-const currentEntries=card=>card.current.data?relatedDeviceIssues(card.current.data,card.detail?.deviceId):[];
+const sentence=text=>/[.!?]$/.test(text)?text:`${text}.`;
+/** A device dialog holds the device's current issues; an exact issue view holds that one issue. */
+const currentEntries=card=>{
+  const data=card.current.data;
+  if(!data)return [];
+  if(card.detail?.deviceId)return relatedDeviceIssues(data,card.detail.deviceId);
+  const episode=card.detail?.episodeId?data.inventory.episodes.find(item=>item.episode_id===card.detail.episodeId):null;
+  return episode?[{episode}]:[];
+};
 const canAct=card=>card.current.status==="current"&&card._hass?.user?.is_admin&&card.current.data?.inventory.attention_controls_supported&&!card.scopedBusy&&!card.settingsBusy;
+const activePauses=(card,id)=>(card.current.data?.inventory.operator_controls||[]).filter(row=>row.action==="shelve"&&row.target===id&&new Date(row.until).getTime()>Date.now());
 const stateFor=(card,entries)=>{
   let state=card.deviceIssues;
   if(!state||state.selection!==card.detail)state=card.deviceIssues={selection:card.detail,selected:new Set(entries.map(issueId)),results:new Map(),busy:false,form:null};
@@ -29,8 +38,8 @@ export function selectedDeviceIssueIds(card,entries=currentEntries(card)) {
 }
 
 function issueName(item) {
-  if(item.source.kind==="device"&&item.source.check_id==="availability")return "Device availability";
-  return item.canonicalSource?.name||item.source.name;
+  if(item.source?.kind==="device"&&item.source.check_id==="availability")return "Device availability";
+  return item.canonicalSource?.name||item.source?.name||"This issue";
 }
 
 function issueProblem(card,item) {
@@ -43,13 +52,19 @@ function issueProblem(card,item) {
   return retained?{...retained,currentDetail:retained!==current?current.headline:null}:{headline:status.current?.message||"Current evidence missing"};
 }
 
+/** Saved results stand in for the current snapshot until the next runtime update arrives. */
+const localResult=(card,state,id)=>{
+  const saved=state.results.get(id);
+  return saved?.snapshot===card.current.data?saved:null;
+};
+const pausedIds=(card,state,ids)=>ids.filter(id=>!localResult(card,state,id)?.resumed&&(localResult(card,state,id)?.until||activePauses(card,id).length));
+
 function issueState(card,item,state) {
   const id=issueId(item),saved=state.results.get(id),notes=[];
-  const local=saved?.snapshot===card.current.data?saved:null;
+  const local=localResult(card,state,id);
   const acknowledged=local?.acknowledged||card.current.data.policy?.episodes?.find(row=>row.episode_id===id)?.acknowledgment;
   if(acknowledged)notes.push("Acknowledged");
-  const pauses=(card.current.data.inventory.operator_controls||[]).filter(row=>row.action==="shelve"&&row.target===id);
-  const until=[local?.until,...pauses.map(row=>row.until)].filter(value=>value&&new Date(value).getTime()>Date.now()).sort().at(-1);
+  const until=local?.resumed?null:[local?.until,...activePauses(card,id).map(row=>row.until)].filter(value=>value&&new Date(value).getTime()>Date.now()).sort().at(-1);
   if(until)notes.push(`Notifications paused until ${date(until)}`);
   return `${notes.length?`<span class="small device-issue-state">${esc(notes.join(" · "))}</span>`:""}${saved?.error?`<span class="device-issue-error" role="alert">${esc(saved.error)}</span>`:""}`;
 }
@@ -60,8 +75,27 @@ function actionArea(card,entries,state) {
     const count=state.form.ids.length;
     return `<form class="device-issue-pause" aria-label="Pause notifications"><h3>Pause notifications</h3><p>For ${count===1?"this issue":`${count} selected issues`} and every recipient, including urgent notifications. Issues stay open.</p><label>Pause for<select data-device-pause-duration${locked?" disabled":""}><option value="1"${state.form.hours===1?" selected":""}>1 hour</option><option value="4"${state.form.hours===4?" selected":""}>4 hours</option><option value="24"${state.form.hours===24?" selected":""}>24 hours</option></select></label><p class="small">Existing pauses can only be extended.</p><div class="actions"><button type="button" class="button primary" data-device-response="apply-pause"${locked?" disabled":""}>${state.busy?"Pausing…":"Apply pause"}</button><button type="button" class="button" data-device-response="cancel-pause"${state.busy?" disabled":""}>Cancel</button></div></form>`;
   }
-  const allAcknowledged=ids.length&&ids.every(id=>state.results.get(id)?.snapshot===card.current.data&&state.results.get(id)?.acknowledged||card.current.data.policy?.episodes?.find(row=>row.episode_id===id)?.acknowledgment);
-  return `<div class="actions device-issue-actions"><button type="button" class="button" data-device-response="acknowledge"${locked||!ids.length||allAcknowledged?" disabled":""}>${state.busy?"Saving…":allAcknowledged?"Acknowledged":entries.length===1?"Acknowledge issue":"Acknowledge selected"}</button><button type="button" class="button" data-device-response="pause"${locked||!ids.length?" disabled":""}>Pause notifications…</button></div>${!ids.length&&entries.length?'<p class="small">Select an issue to acknowledge or pause.</p>':""}`;
+  const allAcknowledged=ids.length&&ids.every(id=>localResult(card,state,id)?.acknowledged||card.current.data.policy?.episodes?.find(row=>row.episode_id===id)?.acknowledgment);
+  const resume=pausedIds(card,state,ids).length?`<button type="button" class="button" data-device-response="resume"${locked?" disabled":""}>Resume notifications</button>`:"";
+  return `<div class="actions device-issue-actions"><button type="button" class="button" data-device-response="acknowledge"${locked||!ids.length||allAcknowledged?" disabled":""}>${state.busy?"Saving…":allAcknowledged?"Acknowledged":entries.length===1?"Acknowledge issue":"Acknowledge selected"}</button><button type="button" class="button" data-device-response="pause"${locked||!ids.length?" disabled":""}>Pause notifications…</button>${resume}</div>${!ids.length&&entries.length?'<p class="small">Select an issue to acknowledge or pause.</p>':""}`;
+}
+
+/** Render the shared response area for one exact issue outside the device dialog. */
+export function issueResponse(card) {
+  if(card.detail?.deviceId||!card.detail?.episodeId||!card.current.data)return "";
+  const entries=currentEntries(card);
+  if(!entries.length||!card.current.data.inventory.attention_controls_supported)return "";
+  const state=stateFor(card,entries);
+  return `<section class="detail device-issues issue-response" data-issue-response="${esc(issueId(entries[0]))}" aria-label="Issue response"><div class="device-issue-single">${issueState(card,entries[0],state)}</div>${actionArea(card,entries,state)}${state.message?`<p role="status">${esc(state.message)}</p>`:""}</section>`;
+}
+
+/** Redraw whichever response area is open after a selection or action changes. */
+function refreshResponse(card) {
+  if(card.detail?.deviceId){renderDeviceIssues(card);return;}
+  const area=card.dialog?.querySelector("[data-issue-response]");
+  if(area)area.outerHTML=issueResponse(card);
+  const close=card.dialog?.querySelector('[data-action="close"]');
+  if(close)close.disabled=Boolean(card.deviceIssues?.selection===card.detail&&card.deviceIssues?.busy);
 }
 
 /** Render one device's current findings inside the shared response dialog. */
@@ -124,38 +158,47 @@ export async function applyDeviceIssueAction(card,action,ids,until=null) {
   const entries=currentEntries(card),state=stateFor(card,entries);
   if(state.busy||!canAct(card)||!ids.length)return;
   const captured=[...new Set(ids)],names=new Map(entries.map(item=>[issueId(item),issueName(item)]));
-  state.busy=true;state.message="";renderDeviceIssues(card);
+  state.busy=true;state.message="";refreshResponse(card);
   let saved=0,failed=0;
   for(const id of captured) {
     if(!canAct(card)||!currentEntries(card).some(item=>issueId(item)===id)) {
       state.results.set(id,{...state.results.get(id),error:"No longer current or monitoring disconnected; no request sent."});failed++;continue;
     }
     try {
+      if(action==="resume") {
+        const controls=new Set([...activePauses(card,id).map(control=>control.control_id),localResult(card,state,id)?.controlId].filter(Boolean));
+        for(const control of controls) {
+          const response=await callAction(card._hass,"cancel_control",{control_id:control});
+          if(response.cancelled_control_id!==control)throw Error("No saved result was returned.");
+        }
+        state.results.set(id,{...state.results.get(id),snapshot:card.current.data,error:null,until:null,resumed:true});saved++;continue;
+      }
       const response=await callAction(card._hass,action,action==="acknowledge"?{episode_id:id}:{episode_id:id,until,reason:""});
       if(action==="acknowledge"?!response.acknowledgment:!response.control)throw Error("No saved result was returned.");
       const result={...state.results.get(id),snapshot:card.current.data,error:null};
       if(action==="acknowledge")result.acknowledged=response.acknowledgment;
-      else result.until=response.control.until;
+      else {result.until=response.control.until;result.controlId=response.control.control_id;result.resumed=false;}
       state.results.set(id,result);saved++;
-    }catch(error){state.results.set(id,{...state.results.get(id),error:`${error?.message||"Result unconfirmed."} Check current state before retrying.`});failed++;}
+    }catch(error){state.results.set(id,{...state.results.get(id),error:`${sentence(error?.message||"Result unconfirmed")} Check current state before retrying.`});failed++;}
   }
   state.busy=false;state.form=null;
   const failures=captured.filter(id=>state.results.get(id)?.error).map(id=>names.get(id)||"Ended issue");
-  state.message=`${saved} ${saved===1?"issue":"issues"} ${action==="acknowledge"?"acknowledged":"paused"}.${failed?` ${failed} not confirmed: ${failures.join(", ")}. Review their results before retrying.`:""}`;
-  if(card.detail===state.selection){renderDeviceIssues(card);card.dialog.querySelector(`[data-device-response="${action==="acknowledge"?"pause":"acknowledge"}"]`)?.focus({preventScroll:true});}
+  const done={acknowledge:"acknowledged",shelve:"paused",resume:"resumed"}[action];
+  state.message=`${saved} ${saved===1?"issue":"issues"} ${done}.${failed?` ${failed} not confirmed: ${failures.join(", ")}. Review their results before retrying.`:""}`;
+  if(card.detail===state.selection){refreshResponse(card);card.dialog.querySelector(`[data-device-response="${action==="acknowledge"?"pause":"acknowledge"}"]`)?.focus({preventScroll:true});}
 }
 
-/** Handle only the combined dialog; individual routes keep their existing exact target. */
+/** Handle the shared response area in the device dialog and in an exact issue view. */
 export function editDeviceIssues(card,event) {
   const target=event.target.closest?.("[data-device-issue-select], [data-device-issues-all], [data-device-response], [data-device-pause-duration]");
-  if(!target||!card.detail?.deviceId)return false;
+  if(!target||!(card.detail?.deviceId||card.detail?.episodeId))return false;
   const entries=currentEntries(card),state=stateFor(card,entries);
   if(state.busy)return true;
   if(target.matches("input")) {
     if(event.type!=="change"||state.form)return true;
     if(target.hasAttribute("data-device-issues-all"))state.selected=new Set(target.checked?entries.map(issueId):[]);
     else if(target.checked)state.selected.add(target.dataset.deviceIssueSelect);else state.selected.delete(target.dataset.deviceIssueSelect);
-    state.message="";renderDeviceIssues(card);return true;
+    state.message="";refreshResponse(card);return true;
   }
   if(target.hasAttribute("data-device-pause-duration")) {
     if(event.type==="change"&&state.form)state.form.hours=Number(target.value);
@@ -164,8 +207,9 @@ export function editDeviceIssues(card,event) {
   if(event.type!=="click"||target.disabled)return true;
   const action=target.dataset.deviceResponse;
   if(action==="acknowledge")void applyDeviceIssueAction(card,"acknowledge",selectedDeviceIssueIds(card,entries));
+  else if(action==="resume")void applyDeviceIssueAction(card,"resume",pausedIds(card,state,selectedDeviceIssueIds(card,entries)));
   else if(action==="pause")state.form={ids:selectedDeviceIssueIds(card,entries),hours:1};
   else if(action==="cancel-pause")state.form=null;
   else if(action==="apply-pause"&&state.form)void applyDeviceIssueAction(card,"shelve",state.form.ids,new Date(Date.now()+state.form.hours*3600000).toISOString());
-  renderDeviceIssues(card);renderIssueAvailability(card);return true;
+  refreshResponse(card);renderIssueAvailability(card);return true;
 }

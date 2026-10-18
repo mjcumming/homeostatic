@@ -231,7 +231,7 @@ test("unchanged issue details retain disclosures and exclude raw diagnostic cont
   const detail={
     current:{status:"current",data:fixture.data},detail:{episodeId:LYRIC_EPISODE},detailSequence:0,
     shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:label},
-    displaySourceName:source=>source.name,tools:{detailButtons:()=>""},
+    displaySourceName:source=>source.name,tools:{maintenanceControls:()=>""},
     capturePageState:()=>({}),restorePageState:()=>{},
     _hass:{localize:lyricLocalize,callWS:async()=>issueEvidenceReply(fixture,"homeostatic/node",LYRIC_ENTRY)},
   };

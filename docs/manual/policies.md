@@ -40,7 +40,7 @@ Availability policies skip entities disabled in Home Assistant, and skip diagnos
 
 ## Stop or resume availability monitoring
 
-To stop watching an entity Home Assistant often reports unavailable, select **Stop monitoring** in its issue or on the entity in **Monitoring**. For several entities on one device, open the device in **Monitoring**, use **Select entities…**, then **Stop monitoring**. The confirmation lists exactly what stops; other checks on those entities continue.
+To stop watching an entity Home Assistant often reports unavailable, select **Stop monitoring…** in its issue or on the entity in **Monitoring**. For several entities on one device, open the device in **Monitoring**, use **Select entities…**, then **Stop monitoring…**. The confirmation lists exactly what stops; other checks on those entities continue.
 
 To undo it, find the entity in **Monitoring** (**More filters → Availability exclusions only** helps) and select **Resume availability monitoring…**.
 

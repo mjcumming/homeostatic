@@ -44,7 +44,9 @@ async function openCase(id) {
   document.querySelector("#example").value=id;
   if(fixture.episode) {
     for(const toggle of [...root.querySelectorAll('[data-issue-group][aria-expanded="false"]')])await click('[data-issue-group="'+toggle.dataset.issueGroup+'"]');
-    await click('[data-episode="'+fixture.episode.episode_id+'"]');
+    // Device-owned issues sit behind the device's View in Open issues; open those as a notification link would.
+    if(root.querySelector('[data-episode="'+fixture.episode.episode_id+'"]'))await click('[data-episode="'+fixture.episode.episode_id+'"]');
+    else{card.openDetail({episodeId:fixture.episode.episode_id});await settle();}
   } else {
     card.openDetail({nodeId:fixture.source.node_id});await settle();
   }
@@ -81,11 +83,11 @@ async function run() {
         check(find("#detail-label").hidden,prefix+"redundant issue label is hidden");
         const opened=body().querySelectorAll(".problem-progress");
         check(opened.length===1&&!opened[0].closest("details"),prefix+"opened time appears once and stays visible");
-        const ack=find("[data-acknowledge]",body()),pause=find("[data-shelf]",body());
-        check(ack.dataset.acknowledge===fixture.episode.episode_id&&pause.dataset.shelf===fixture.episode.episode_id,prefix+"attention controls retain the exact episode");
+        const response=find("[data-issue-response]",body()),ack=find('[data-device-response="acknowledge"]',response),pause=find('[data-device-response="pause"]',response);
+        check(response.dataset.issueResponse===fixture.episode.episode_id,prefix+"attention controls retain the exact episode");
         check(!ack.closest("details")&&!pause.closest("details"),prefix+"attention controls remain visible");
       } else {
-        check(!body().querySelector("[data-acknowledge],[data-shelf],.problem-progress"),prefix+"source without an issue has no issue action or invented opening time");
+        check(!body().querySelector("[data-device-response],.problem-progress"),prefix+"source without an issue has no issue action or invented opening time");
       }
       const policies=[...body().querySelectorAll('[data-definition-action="open-policy"]')];
       check(fixture.policyIds.every(id=>policies.some(link=>link.dataset.definitionId===id)),prefix+"each responsible policy is reachable");
@@ -101,12 +103,12 @@ async function run() {
     check(body().querySelectorAll('[data-source-link="'+deviceRoute+'"]').length===1,"Partial device evidence offers one route to the complete readings");
     check(!find('[data-source-link="'+deviceRoute+'"]',body()).closest('details'),"Complete-reading navigation stays with the partial evidence");
     await openCase("battery");
-    find('[data-shelf]',body()).focus();
+    find('[data-device-response="pause"]',body()).focus();
     fixture.result.entity_status.current.reason="charging";
     fixture.result.explanation.findings[0].message="The battery reports charging.";
     publish();await settle();
     check(!body().querySelector('[data-disclosure="issue-details"]'),"Changed live evidence retains the flat layout");
-    check(root.activeElement?.matches('[data-shelf]'),"Action keyboard focus survives changed live evidence");
+    check(root.activeElement?.matches('[data-device-response="pause"]'),"Action keyboard focus survives changed live evidence");
     check(body().innerText.includes("Battery charging"),"Current evidence refreshes without keeping the previous warning");
     await close();await openCase("source");
     check(!body().innerText.includes("Household impact")&&!body().innerText.includes("What Homeostatic knows"),"Source evidence omits redundant technical explanations");

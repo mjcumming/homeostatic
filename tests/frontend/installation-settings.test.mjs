@@ -17,10 +17,10 @@ test("timing starts with the ordinary waits and keeps advanced values available 
   assert.ok(advanced);
   assert.doesNotMatch(advanced[0].slice(0,advanced[0].indexOf(">")),/\bopen\b/);
   assert.deepEqual(fields(html.replace(advanced[0],"")),["retry_hold","clear_hold","startup_grace"]);
-  assert.deepEqual(fields(advanced[1]),["settle","unknown_hold","rejoin_grace","startup_quiet_max","batch"]);
+  assert.deepEqual(fields(advanced[1]),["settle","unknown_hold","rejoin_grace","startup_quiet_max"]);
   assert.match(html,/Zero removes a wait/);
   assert.match(html,/Hold new issues and notifications during startup/);
-  assert.match(advanced[1],/Standard notification batching/);
+  assert.doesNotMatch(html,/Standard notification batching/);
   assert.deepEqual(card.settingsDraft,before);
 });
 
@@ -28,13 +28,13 @@ test("old grouping destinations show timing without inactive controls or empty n
   const card=fixture();card.settingsSection="grouping";
   const before=structuredClone(card.settingsDraft);
   const html=installationSettings(card);
-  assert.deepEqual(fields(html),["retry_hold","clear_hold","startup_grace","settle","unknown_hold","rejoin_grace","startup_quiet_max","batch"]);
+  assert.deepEqual(fields(html),["retry_hold","clear_hold","startup_grace","settle","unknown_hold","rejoin_grace","startup_quiet_max"]);
   assert.doesNotMatch(html,/coalesce_|Problem grouping|installation-nav|installation-layout|data-settings-section/);
   assert.match(html,/<h2>Timing<\/h2>/);
   assert.deepEqual(card.settingsDraft,before);
 });
 
-test("timing edits preserve inactive saved grouping values",()=>{
+test("timing edits preserve inactive saved grouping and batching values",()=>{
   const card=fixture();card.render=()=>{};
   const event=key=>({type:"input",target:{dataset:{settingPath:`timings.${key}`,settingScale:"60"},value:"4",checkValidity:()=>true,closest:()=>null}});
   assert.equal(editInstallation(card,event("clear_hold")),true);
@@ -42,6 +42,8 @@ test("timing edits preserve inactive saved grouping values",()=>{
   assert.equal(editInstallation(card,event("coalesce_count")),false);
   assert.equal(card.settingsDraft.timings.coalesce_count,3);
   assert.equal(card.settingsDraft.timings.coalesce_window,60);
+  assert.equal(editInstallation(card,event("batch")),false);
+  assert.equal(card.settingsDraft.timings.batch,30);
 });
 
 test("initial settings load waits without offering a competing reload action",()=>{

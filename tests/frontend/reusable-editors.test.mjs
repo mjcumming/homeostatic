@@ -459,12 +459,12 @@ test("unified problem detail renders policy actions and base source links withou
   data.inventory.episodes=[episode];data.inventory.nodes.push(source);
   const result={source,monitoring_policies:[{id:"policy-1",name:"Entity monitoring"}],explanation:{findings:[],nodes:[]},entity_status:[]};
   const body={innerHTML:"",querySelectorAll:()=>[],querySelector:()=>({addEventListener(){}})};
-  const detail={...card,detailSequence:0,detail:{episodeId:episode.episode_id},configuration:{...card.configuration,monitoring_policy_version:1},shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:{textContent:""}},displaySourceName:item=>item.name,tools:{detailButtons:()=>""},capturePageState:()=>({}),restorePageState:()=>{},_hass:{callWS:async()=>result}};
+  const detail={...card,detailSequence:0,detail:{episodeId:episode.episode_id},configuration:{...card.configuration,monitoring_policy_version:1},shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:{textContent:""}},displaySourceName:item=>item.name,tools:{maintenanceControls:()=>""},capturePageState:()=>({}),restorePageState:()=>{},_hass:{callWS:async()=>result}};
   detail.readDetail=()=>prototype.readDetail.call(detail);
   await prototype.loadDetail.call(detail);
   assert.match(body.innerHTML,/data-definition-action="open-policy"/);
   assert.match(body.innerHTML,/Hall thermostat/);
-  assert.match(body.innerHTML,/>Open Entity<\/button>/);
+  assert.match(body.innerHTML,/>Open entity<\/button>/);
   assert.doesNotMatch(body.innerHTML,/View in Monitoring|<summary>Details<\/summary>/);
   assert.doesNotMatch(body.innerHTML,/data-ignore-availability|Stop checking/);
   result.source={...source,kind:"device",attributes:{device:["one"]}};

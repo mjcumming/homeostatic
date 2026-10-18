@@ -150,7 +150,7 @@ export function deviceProblem(source, status, openProblem = true) {
       "Check the device connection in Home Assistant.","uncertain","Connection reported disconnected"],
     all_unavailable:["All monitored entities unavailable",
       "Home Assistant reports every entity selected for this availability check as unavailable. Monitoring expects them to be available; this does not establish whether the physical device has failed.",
-      "Check the listed entities and their connection, or use Stop Monitoring to stop their availability checks.","uncertain","Expected availability missing"],
+      "Check the listed entities and their connection, or use Stop monitoring to stop their availability checks.","uncertain","Expected availability missing"],
     some_unavailable:["Some monitored entities unavailable",
       "Home Assistant reports at least one selected entity as unavailable. This can reflect a normal operating mode or a failure; Homeostatic cannot determine which from this state alone.",
       "Review the listed entities. If an entity is normally unavailable and is not required, ignore its availability check.","uncertain","Expected availability missing"],

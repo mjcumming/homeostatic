@@ -37,7 +37,9 @@ export async function runIssueGaps(ctx) {
   };
   // Existing exact-issue cases exercise the published notification/history route.
   // Queue device entry is covered separately by issues.device-entry below.
-  const openIssue=async id=>{await close();await page.goto(`${lab.url}/homeostatic/episode/${encodeURIComponent(id)}`);await at(`dialog[open] [data-shelf="${id}"]`).waitFor();};
+  const response=id=>`dialog[open] [data-issue-response="${id}"]`;
+  const respond=async(id,name)=>click(`${response(id)} [data-device-response="${name}"]`);
+  const openIssue=async id=>{await close();await page.goto(`${lab.url}/homeostatic/episode/${encodeURIComponent(id)}`);await at(response(id)).waitFor();};
   const episodeFor=async(key,kind)=>{
     const data=await inventory(),rows=new Map(data.nodes.map(row=>[row.node_id,row]));
     const episode=data.episodes.find(item=>{const node=rows.get(item.anchor);return node&&(!kind||node.kind===kind)&&(key?node.entity_id===lab.entities[key]||node.attributes?.device?.includes(lab.devices[key]):true);});
@@ -59,7 +61,7 @@ export async function runIssueGaps(ctx) {
       const expected=new Map();
       for(const id of issue.recorded){const check=nodes.get(id),source=nodes.get(canonical(id))||check;assert.ok(source);if(!expected.has(canonical(id)))expected.set(canonical(id),{source,names:new Set()});if(check.monitoring_policy){const policy=settings.monitoring_policies.find(item=>item.id===check.monitoring_policy);assert.ok(policy);expected.get(canonical(id)).names.add(policy.name);}}
       assert.ok(expected.size>1,"A failed integration retains its affected device and entity identities");
-      for(const attribute of ["data-acknowledge","data-shelf"])assert.equal(await at(`dialog[open] [${attribute}]`).getAttribute(attribute),issue.episode_id);
+      assert.equal(await at('dialog[open] [data-issue-response]').getAttribute("data-issue-response"),issue.episode_id);
       assert.equal(await at('dialog[open] [data-disclosure="issue-details"]').count(),0);
       const links=at('dialog[open] .issue-recorded [data-source-link]');assert.deepEqual((await links.evaluateAll(items=>items.map(item=>item.dataset.sourceLink))).sort(),[...expected.keys()].sort());
       for(const [id,item] of expected)assert.equal(await at(`dialog[open] .issue-recorded [data-source-link="${id}"]`).innerText(),item.source.name);
@@ -96,7 +98,8 @@ export async function runIssueGaps(ctx) {
       if(expected.has(id))assert.equal(await group.locator(':scope > p').innerText(),"All selected entities unavailable","Device evidence remains visible without duplicating an entity row");
     }
     assert.equal(await at('dialog[open] .issue-facts').isVisible(),true,"Opening time is visible before Details");
-    for(const attribute of ["data-acknowledge","data-shelf"]){const action=at(`dialog[open] [${attribute}]`);assert.equal(await action.isVisible(),true);assert.equal(await action.getAttribute(attribute),issue.episode_id,"Issue controls retain the complete original episode scope");}
+    assert.equal(await at('dialog[open] [data-issue-response]').getAttribute("data-issue-response"),issue.episode_id,"Issue controls retain the complete original episode scope");
+    for(const name of ["acknowledge","pause"])assert.equal(await at(`dialog[open] [data-issue-response] [data-device-response="${name}"]`).isVisible(),true);
     assert.equal(await at('dialog[open] [data-issue-availability="remove"]').getAttribute("data-issue-id"),issue.episode_id);
     assert.equal(await at('dialog[open] [data-disclosure="issue-details"]').count(),0,"Supporting evidence has no Details expander");
     assert.equal(await at('dialog[open] .issue-checks').isVisible(),true);
@@ -132,16 +135,11 @@ export async function runIssueGaps(ctx) {
   };return()=>count;};
   const submit=()=>at('dialog[open] button[type="submit"]').click();
   const cancelTool=()=>at('dialog[open] [data-tool="close"]').click();
-  const endTime=()=>new Date(Date.now()+3_600_000).toISOString().slice(0,16);
-  const pause=async(episode,reason="Acceptance exact pause")=>{
-    await openIssue(episode.episode_id);await click('[data-shelf]');const until=endTime();
-    await fill('dialog[open] [name="untilLocal"]',until);
-    const option=at('dialog[open] details').filter({has:page.locator('[name="reason"]')});
-    if(await option.count()&&!await option.evaluate(element=>element.open))await option.locator("summary").click();
-    if(await at('dialog[open] [name="reason"]').isVisible())await fill('dialog[open] [name="reason"]',reason);
-    await submit();await text('dialog[open]',/Saved by Home Assistant/);
-    const saved=(await controls()).find(item=>item.action==="shelve"&&item.target===episode.episode_id);assert.ok(saved);
-    assert.equal(Date.parse(saved.until),Date.parse(until));assert.equal(saved.reason,reason);return saved;
+  const pause=async(episode,hours=1)=>{
+    const id=episode.episode_id;await openIssue(id);await respond(id,"pause");await choose(`${response(id)} [data-device-pause-duration]`,String(hours));
+    const requested=Date.now();await respond(id,"apply-pause");await text(response(id),/1 issue paused\./);
+    const saved=(await controls()).find(item=>item.action==="shelve"&&item.target===id);assert.ok(saved);
+    assert.ok(Math.abs(Date.parse(saved.until)-requested-hours*3_600_000)<60_000,"The saved pause ends after the chosen duration");return saved;
   };
 
   await scenario("issues.notification-membership",async()=>{
@@ -154,20 +152,20 @@ export async function runIssueGaps(ctx) {
     assert.deepEqual(await shown(),[...ids].sort());assert.equal(await at('main [data-device-issues]').count(),0,"A notification cannot widen to other issues on the same device");
     assert.ok(!ids.includes(device.episode_id),"Another issue already exists on the included device");
     await fit('.intro');await screenshot("notification-membership");
-    const openFirst=async()=>{await at(`[data-episode="${first.episode_id}"]`).focus();await page.keyboard.press("Enter");await at(`dialog[open] [data-acknowledge="${first.episode_id}"]`).waitFor();};
+    const openFirst=async()=>{await at(`[data-episode="${first.episode_id}"]`).focus();await page.keyboard.press("Enter");await at(response(first.episode_id)).waitFor();};
     await openFirst();assert.equal(new URL(page.url()).pathname,`${path}/episode/${encodeURIComponent(first.episode_id)}`);
     assert.equal(await at('dialog[open] [data-device-issue-select]').count(),0);
-    await page.reload();await at(`dialog[open] [data-acknowledge="${first.episode_id}"]`).waitFor();
+    await page.reload();await at(response(first.episode_id)).waitFor();
     await page.keyboard.press("Escape");await at('dialog[open]').waitFor({state:"hidden"});assert.equal(new URL(page.url()).pathname,path);assert.deepEqual(await shown(),[...ids].sort());
     await go("sources");await page.goBack();await text('main h1',/^Issues in this notification$/);assert.deepEqual(await shown(),[...ids].sort());
     await page.reload();await text('main h1',/^Issues in this notification$/);assert.deepEqual(await shown(),[...ids].sort());
     await realState("history","unavailable");await control("advance",{seconds:1});const later=await episodeFor("history","entity");assert.ok(!ids.includes(later.episode_id));
     await page.reload();await text('main h1',/^Issues in this notification$/);assert.deepEqual(await shown(),[...ids].sort(),"A later issue stays outside the message membership after reload");
-    await openFirst();await click('[data-acknowledge]');await submit();await text('dialog[open]',/Awareness recorded/);
+    await openFirst();await respond(first.episode_id,"acknowledge");await text(response(first.episode_id),/1 issue acknowledged\./);
     const acknowledged=await query("policy");assert.ok(acknowledged.episodes.find(item=>item.episode_id===first.episode_id)?.acknowledgment);
     for(const issue of acknowledged.episodes.filter(item=>item.episode_id!==first.episode_id))assert.deepEqual(issue.acknowledgment,policyBefore.episodes.find(item=>item.episode_id===issue.episode_id)?.acknowledgment??null,"Other included, unrelated and later issues retain their acknowledgment");
-    await cancelTool();await page.goto(url);await text('main h1',/^Issues in this notification$/);await shown();
-    await at(`[data-episode="${first.episode_id}"]`).click();await at(`dialog[open] [data-shelf="${first.episode_id}"]`).waitFor();
+    await close();await page.goto(url);await text('main h1',/^Issues in this notification$/);await shown();
+    await at(`[data-episode="${first.episode_id}"]`).click();await at(response(first.episode_id)).waitFor();
     await realState("offline","23");await control("advance",{seconds:1});await text('dialog[open]',/This included issue is no longer open/);
     assert.equal(new URL(page.url()).pathname,`${path}/episode/${encodeURIComponent(first.episode_id)}`);assert.equal(await at('main h1').innerText(),"Issues in this notification","Recovery in an open dialog cannot silently navigate to the full history page");
     await page.reload();await text('dialog[open]',/This included issue is no longer open/);
@@ -191,15 +189,15 @@ export async function runIssueGaps(ctx) {
     await openIssue(selected.episode_id);
     const content=await at('dialog[open]').innerText();
     for(const other of others)assert.equal(content.includes(nodes.get(other.anchor).name),false,"Selected issue omits unrelated devices");
-    assert.equal(await at('dialog[open] [data-acknowledge]').getAttribute("data-acknowledge"),selected.episode_id);
-    await click('[data-acknowledge]');await submit();await text('dialog[open]',/Awareness recorded/);
+    assert.equal(await at('dialog[open] [data-issue-response]').getAttribute("data-issue-response"),selected.episode_id);
+    await respond(selected.episode_id,"acknowledge");await text(response(selected.episode_id),/1 issue acknowledged\./);
     const policy=await query("policy");
     assert.ok(policy.episodes.find(item=>item.episode_id===selected.episode_id).acknowledgment);
     for(const other of others)assert.equal(Boolean(policy.episodes.find(item=>item.episode_id===other.episode_id).acknowledgment),false);
-    await pause(selected,"Selected device only");
+    await pause(selected);
     assert.deepEqual((await controls()).filter(item=>item.action==="shelve").map(item=>item.target),[selected.episode_id]);
     await page.reload();await at('[data-issue-search]').waitFor();await openIssue(others[0].episode_id);
-    assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),others[0].episode_id);
+    assert.equal(await at('dialog[open] [data-issue-response]').getAttribute("data-issue-response"),others[0].episode_id);
     await fit('dialog[open]');
     return "Real healthy integration: three independent unavailable devices; selected detail excludes unrelated devices; acknowledge and pause affect only that issue, with another issue still independently actionable after refresh.";
   });
@@ -256,9 +254,9 @@ export async function runIssueGaps(ctx) {
     await click('dialog[open] [data-issue-availability="remove"]');await click('dialog[open] [data-issue-availability="confirm"]');await at('dialog[open]').waitFor({state:"hidden"});
     await expectedExclusions(before,[remainingEntity]);await at('#sources-detail-title').waitFor();
     assert.equal(page.url(),sourceUrl,"A saved coverage change returns to the originating device route");
-    assert.equal(await at(`[data-sources-select="source:${deviceSource}"]`).getAttribute("aria-current"),"true","The original device selection survives Stop Monitoring");
+    assert.equal(await at(`[data-sources-select="source:${deviceSource}"]`).getAttribute("aria-current"),"true","The original device selection survives Stop monitoring");
     assert.equal(await at('[data-workspace-return]').filter({hasText:/Back to issue/}).count(),0,"Completed coverage leaves no stale Back to issue route");
-    return "Real Home Assistant device and two independent entity availability issues: one Monitoring View, native entity links, all/subset/zero selection, pause cancellation, exact three-issue acknowledgment and one-entity pause with unchanged unrelated acknowledgments/settings. After partial recovery, View remains and one named entity has direct controls without checkboxes; extending its pause preserves the exact issue identity. Separate Stop Monitoring cancellation saves nothing; confirmation excludes only that entity in the applicable availability policies and restores the originating device route without stale issue navigation. Screenshots record combined and single-issue layouts.";
+    return "Real Home Assistant device and two independent entity availability issues: one Monitoring View, native entity links, all/subset/zero selection, pause cancellation, exact three-issue acknowledgment and one-entity pause with unchanged unrelated acknowledgments/settings. After partial recovery, View remains and one named entity has direct controls without checkboxes; extending its pause preserves the exact issue identity. Separate Stop monitoring cancellation saves nothing; confirmation excludes only that entity in the applicable availability policies and restores the originating device route without stale issue navigation. Screenshots record combined and single-issue layouts.";
   });
   await scenario("issues.device-entry",async()=>{
     const before=await snapshot(),device=await episodeFor("offline","device"),first=await episodeFor("offline","entity"),second=await episodeFor("offline_second","entity");
@@ -309,8 +307,8 @@ export async function runIssueGaps(ctx) {
     assert.equal(Boolean(policy.episodes.find(issue=>issue.episode_id===second.episode_id)?.acknowledgment),false,"Another device remains untouched");
     await close();await realState("history","unavailable");await control("advance",{seconds:1});
     const standalone=await episodeFor("history","entity");await go("problems");await fill('[data-issue-search]',"");await expandIssues();await click(`[data-episode="${standalone.episode_id}"]`);
-    await at(`dialog[open] [data-acknowledge="${standalone.episode_id}"]`).waitFor();assert.equal(await choices().count(),0,"Unattached entity retains exact singular controls");await close();
-    await openIssue(second.episode_id);assert.equal(await at('dialog[open] [data-shelf]').getAttribute('data-shelf'),second.episode_id,"An exact notification link retains its original issue scope");
+    await at(response(standalone.episode_id)).waitFor();assert.equal(await choices().count(),0,"Unattached entity retains exact singular controls");await close();
+    await openIssue(second.episode_id);assert.equal(await at('dialog[open] [data-issue-response]').getAttribute('data-issue-response'),second.episode_id,"An exact notification link retains its original issue scope");
     assert.equal(await at('dialog[open] .device-issues').count(),0);await close();
     await openDevice("offline");
     await at('dialog[open]').evaluate(dialog=>{const values=[...dialog.querySelectorAll('label,button,input,select,p,h1,h2,h3,a,span')].map(node=>[node,parseFloat(getComputedStyle(node).fontSize)]);for(const [node,size] of values)node.style.fontSize=`${size*2}px`;});
@@ -331,7 +329,7 @@ export async function runIssueGaps(ctx) {
     for(const device of await at('[data-issue-device]').all())assert.equal(await device.locator('.issue-device-title').count(),1);
     const ids=await at('[data-episode]').evaluateAll(items=>items.map(item=>item.dataset.episode));assert.ok(ids.length>40,"Pagination exposes more than40 issues");assert.equal(new Set(ids).size,ids.length);
     const first=at('[data-episode]').first(),id=await first.getAttribute("data-episode");await first.focus();await page.keyboard.press("Enter");await at('dialog[open]').waitFor();
-    assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),id);await close();
+    assert.equal(await at('dialog[open] [data-issue-response]').getAttribute("data-issue-response"),id);await close();
     await fill('[data-issue-search]',lab.entities.bulk_59);assert.ok(await at('[data-episode]').count());await choose('[data-issue-sort]',"name");
     await page.reload();await at('[data-issue-search]').waitFor();await noChange(before);
     return "Real registry device headings, standalone issues, complete Show more, keyboard issue opening, search/sort/refresh and unchanged saved settings.";
@@ -378,9 +376,9 @@ export async function runIssueGaps(ctx) {
   });
   await scenario("issues.individual",async()=>{
     const before=await snapshot(),episode=await episodeFor("temperature","temperature_limit");await openIssue(episode.episode_id);
-    await text('dialog[open]',/Temperature above|87/);assert.ok(await at('dialog[open] [data-acknowledge]').isVisible());assert.ok(await at('dialog[open] [data-shelf]').isVisible());
+    await text('dialog[open]',/Temperature above|87/);for(const name of ["acknowledge","pause"])assert.ok(await at(`${response(episode.episode_id)} [data-device-response="${name}"]`).isVisible());
     assert.equal(await at('dialog[open] [data-disclosure="issue-details"]').count(),0);
-    assert.equal(await at('dialog[open] [data-entity]').innerText(),"Open Entity");
+    assert.equal(await at('dialog[open] [data-entity]').innerText(),"Open entity");
     assert.ok(!(await read('dialog[open]')).includes("View in Monitoring"));
     const coverage=await call("homeostatic/source",{node_id:await sourceId("temperature")});
     const policyIds=(coverage.monitoring_policies||[]).map(policy=>policy.id);
@@ -393,7 +391,7 @@ export async function runIssueGaps(ctx) {
       await notification.focus();await page.keyboard.press("Enter");await at('.notification-profile-editor').waitFor();
       assert.equal(await at(field("name")).inputValue(),before.notification_definitions.profiles[profileId].name);
       await fill(field("name"),"Pending issue notification");await click('[data-workspace-return]');await at('dialog[open]').waitFor();
-      assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),episode.episode_id);
+      assert.equal(await at('dialog[open] [data-issue-response]').getAttribute("data-issue-response"),episode.episode_id);
       await at(`dialog[open] [data-definition-action="open-notification"][data-definition-id="${profileId}"]`).click();
       assert.equal(await at(field("name")).inputValue(),"Pending issue notification","Back preserves the independent notification draft");
       await discard();await openIssue(episode.episode_id);
@@ -401,8 +399,8 @@ export async function runIssueGaps(ctx) {
     await text('dialog[open]',/Required duration|Duration/);const policy=at('dialog[open] .issue-policy-links [data-definition-action="open-policy"][data-definition-id="lab_temperature"]');assert.ok(await policy.isVisible());await policy.click();
     assert.equal(await at(field("name")).inputValue(),before.monitoring_policies.find(item=>item.id==="lab_temperature").name);await click('[data-workspace-return]');await at('dialog[open]').waitFor();
     await realState("temperature","unknown");await text('dialog[open]',/Waiting for a temperature reading|No temperature reading|unknown/i);assert.ok(!(await read('dialog[open]')).includes("87 °F"));
-    await realState("temperature","87");await text('dialog[open]',/87/);await pause(episode);await openIssue(episode.episode_id);await text('dialog[open]',/Until/);await click('[data-cancel-control]');await cancelTool();
-    await openIssue(episode.episode_id);await click('[data-cancel-control]');await submit();await text('dialog[open]',/selected control has ended/);await noChange(before);await fit('dialog[open]');await realState("temperature","70");await clean();assert.ok(!(await inventory()).episodes.some(item=>item.episode_id===episode.episode_id));
+    await realState("temperature","87");await text('dialog[open]',/87/);await pause(episode);await openIssue(episode.episode_id);await text(response(episode.episode_id),/Notifications paused until/);
+    await respond(episode.episode_id,"resume");await text(response(episode.episode_id),/1 issue resumed\./);assert.deepEqual((await controls()).filter(item=>item.action==="shelve"),[]);await noChange(before);await fit('dialog[open]');await realState("temperature","70");await clean();assert.ok(!(await inventory()).episodes.some(item=>item.episode_id===episode.episode_id));
   });
   await scenario("issues.entity-navigation",async()=>{
     // The synthetic integration has no diagnostics platform. Native HA asks for
@@ -414,10 +412,10 @@ export async function runIssueGaps(ctx) {
     };
     const before=await snapshot(),episode=await episodeFor("offline","entity");await openIssue(episode.episode_id);
     const entityButton=at('dialog[open] [data-entity]'),deviceButton=at('dialog[open] .issue-native-actions a[href^="/config/devices/device/"]');
-    assert.equal(await entityButton.innerText(),"Open Entity");assert.equal(await entityButton.getAttribute("data-entity"),lab.entities.offline);
-    assert.equal(await deviceButton.innerText(),"Open Device");
-    assert.equal(await at('dialog[open] [data-issue-availability="remove"]').innerText(),"Stop Monitoring");
-    const actionMetrics=await at('dialog[open] .issue-native-actions a,dialog[open] .issue-native-actions button,dialog[open] [data-issue-availability="remove"],dialog[open] [data-acknowledge],dialog[open] [data-shelf]').evaluateAll(elements=>elements.map(element=>({label:element.textContent.trim(),height:element.getBoundingClientRect().height,width:element.getBoundingClientRect().width,minHeight:getComputedStyle(element).minHeight})));
+    assert.equal(await entityButton.innerText(),"Open entity");assert.equal(await entityButton.getAttribute("data-entity"),lab.entities.offline);
+    assert.equal(await deviceButton.innerText(),"Open device");
+    assert.equal(await at('dialog[open] [data-issue-availability="remove"]').innerText(),"Stop monitoring…");
+    const actionMetrics=await at('dialog[open] .issue-native-actions a,dialog[open] .issue-native-actions button,dialog[open] [data-issue-availability="remove"],dialog[open] [data-device-response]').evaluateAll(elements=>elements.map(element=>({label:element.textContent.trim(),height:element.getBoundingClientRect().height,width:element.getBoundingClientRect().width,minHeight:getComputedStyle(element).minHeight})));
     await writeFile(`${ctx.artifactDir}/issue-action-metrics.json`,JSON.stringify(actionMetrics,null,2));
     assert.ok(actionMetrics.every(item=>item.height>=44),"Every issue action has a touch target at least 44 pixels high");
     await page.screenshot({path:`${ctx.artifactDir}/unavailable-entity-issue.png`,fullPage:false});
@@ -427,14 +425,14 @@ export async function runIssueGaps(ctx) {
     const destination=await deviceButton.getAttribute("href");assert.equal(destination,`/config/devices/device/${lab.devices.offline}`);
     await deviceButton.click();await page.waitForURL(new URL(destination,lab.url).href);await page.locator('ha-config-device-page').getByText("Lab offline device",{exact:true}).first().waitFor({state:"visible"});
     await page.goBack();await at('[data-issue-search]').waitFor();await openIssue(episode.episode_id);
-    assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),episode.episode_id);
-    await noChange(before);return "Open Entity opens native Home Assistant more-info and Escape dismisses it; Open Device opens the exact registry device page and browser Back retains the issue destination. Saved settings remain unchanged. Only the synthetic integration's diagnostics/get capability response is modeled as having no diagnostic handlers; all navigation and Homeostatic requests use real isolated Home Assistant.";
+    assert.equal(await at('dialog[open] [data-issue-response]').getAttribute("data-issue-response"),episode.episode_id);
+    await noChange(before);return "Open entity opens native Home Assistant more-info and Escape dismisses it; Open device opens the exact registry device page and browser Back retains the issue destination. Saved settings remain unchanged. Only the synthetic integration's diagnostics/get capability response is modeled as having no diagnostic handlers; all navigation and Homeostatic requests use real isolated Home Assistant.";
   });
   await scenario("issues.compact-popups",async()=>{
     const before=await snapshot(),data=await inventory(),nodes=new Map([...data.catalog.candidates,...data.nodes].map(node=>[node.node_id,node]));const seen=new Set(),focusFailures=[],focusChecks=[];let update=10;
     const evidence={device:/Lab offline sensor · unavailable in Home Assistant/,entity:/unavailable/i,battery:/Battery low|12\s*%/,vacuum:/Vacuum error|error/i,ups:/backup power|low reserve|replacement|alarm/i,repair:/Home Assistant Repairs|Repair/i,broken_automation:/light.ui_lab_missing_porch/,situation:/This reported condition remains open/,temperature_limit:/87\s*°F/};
-    for(const episode of data.episodes){const node=nodes.get(episode.anchor),kind=node?.kind;if(seen.has(kind))continue;seen.add(kind);await openIssue(episode.episode_id);const canonical=["temperature_limit","thermostat"].includes(kind)?[...nodes.values()].find(item=>item.kind==="entity"&&item.entity_id===node.entity_id&&!item.monitoring_policy):nodes.get(node.monitoring_source)||node,title=await read('dialog[open] h2');assert.ok([canonical.name,node.name].includes(title),`${kind} preserves exact canonical or recorded source identity: ${title}`);await text('dialog[open]',evidence[kind]);assert.equal(await at('dialog[open] [data-shelf]').getAttribute("data-shelf"),episode.episode_id);assert.equal(await at('dialog[open] [data-acknowledge]').getAttribute("data-acknowledge"),episode.episode_id);
-      if(kind==="device")await text('dialog[open]',/Lab secondary reading · unavailable in Home Assistant/);assert.equal(await at('dialog[open] [data-disclosure="issue-details"]').count(),0);await details();await fit('dialog[open]');await page.evaluate(()=>new Promise(requestAnimationFrame));const active=at('dialog[open] [data-shelf]'),original=await active.elementHandle(),dialog=await at('dialog[open]').elementHandle(),temperatureBefore=kind==="temperature_limit"?await at('dialog[open] .temperature-issue').textContent():null;await active.focus();const beforeFocus=await active.evaluate(element=>({focused:element.getRootNode().activeElement===element,connected:element.isConnected,target:element.outerHTML}));assert.equal(beforeFocus.focused,true,`${kind} focus precondition`);if(temperatureBefore)await control("advance",{seconds:1});await realState("history",String(++update));if(temperatureBefore)await page.waitForFunction(({dialog,before})=>{const current=dialog.querySelector('.temperature-issue');return current&&current.textContent!==before;},{dialog,before:temperatureBefore});const afterFocus=await active.evaluate((element,previous)=>({focused:element.getRootNode().activeElement===element,connected:element.isConnected,sameDOM:element===previous,previousConnected:previous.isConnected,target:element.outerHTML,actual:element.getRootNode().activeElement?.outerHTML.slice(0,700)}),original);await original.dispose();await dialog.dispose();const result={kind,episode:episode.episode_id,before:beforeFocus,after:afterFocus};focusChecks.push(result);if(!afterFocus.focused)focusFailures.push(result);await writeFile(`${ctx.artifactDir}/issues-popup-focus.json`,JSON.stringify({focusChecks,focusFailures},null,2));await close();}
+    for(const episode of data.episodes){const node=nodes.get(episode.anchor),kind=node?.kind;if(seen.has(kind))continue;seen.add(kind);await openIssue(episode.episode_id);const canonical=["temperature_limit","thermostat"].includes(kind)?[...nodes.values()].find(item=>item.kind==="entity"&&item.entity_id===node.entity_id&&!item.monitoring_policy):nodes.get(node.monitoring_source)||node,title=await read('dialog[open] h2');assert.ok([canonical.name,node.name].includes(title),`${kind} preserves exact canonical or recorded source identity: ${title}`);await text('dialog[open]',evidence[kind]);assert.equal(await at('dialog[open] [data-issue-response]').getAttribute("data-issue-response"),episode.episode_id);assert.equal(await at('dialog[open] [data-issue-response]').getAttribute("data-issue-response"),episode.episode_id);
+      if(kind==="device")await text('dialog[open]',/Lab secondary reading · unavailable in Home Assistant/);assert.equal(await at('dialog[open] [data-disclosure="issue-details"]').count(),0);await details();await fit('dialog[open]');await page.evaluate(()=>new Promise(requestAnimationFrame));const active=at('dialog[open] [data-device-response="pause"]'),original=await active.elementHandle(),dialog=await at('dialog[open]').elementHandle(),temperatureBefore=kind==="temperature_limit"?await at('dialog[open] .temperature-issue').textContent():null;await active.focus();const beforeFocus=await active.evaluate(element=>({focused:element.getRootNode().activeElement===element,connected:element.isConnected,target:element.outerHTML}));assert.equal(beforeFocus.focused,true,`${kind} focus precondition`);if(temperatureBefore)await control("advance",{seconds:1});await realState("history",String(++update));if(temperatureBefore)await page.waitForFunction(({dialog,before})=>{const current=dialog.querySelector('.temperature-issue');return current&&current.textContent!==before;},{dialog,before:temperatureBefore});const afterFocus=await active.evaluate((element,previous)=>({focused:element.getRootNode().activeElement===element,connected:element.isConnected,sameDOM:element===previous,previousConnected:previous.isConnected,target:element.outerHTML,actual:element.getRootNode().activeElement?.outerHTML.slice(0,700)}),original);await original.dispose();await dialog.dispose();const result={kind,episode:episode.episode_id,before:beforeFocus,after:afterFocus};focusChecks.push(result);if(!afterFocus.focused)focusFailures.push(result);await writeFile(`${ctx.artifactDir}/issues-popup-focus.json`,JSON.stringify({focusChecks,focusFailures},null,2));await close();}
     for(const kind of ["device","entity","battery","vacuum","ups","repair","broken_automation","situation","temperature_limit"])assert.ok(seen.has(kind),`Real popup variant ${kind} was exercised`);
     const popupErrors=[];const popup=async(name,body)=>{
       await close();
@@ -447,26 +445,27 @@ export async function runIssueGaps(ctx) {
         await writeFile(dom,text).catch(error=>{failure.dom_error=String(error);});
       }finally{await writeFile(`${ctx.artifactDir}/issues-popup-diagnostics.json`,JSON.stringify({focusChecks,focusFailures,popupErrors},null,2));await close();}
     };
-    await popup("integration",async()=>{await control("integration_failure");await clean();const integration=await episodeFor(null,"integration"),current=await inventory(),source=current.catalog.candidates.find(node=>node.node_id===`entry:${lab.fixture_entry_id}`);assert.ok(source);await openIssue(integration.episode_id);await text('dialog[open]',/Connection is retrying/);assert.equal(await read('dialog[open] h2'),`${source.attributes.domain[0]} · ${source.name}`);assert.equal(await at('dialog[open] [data-acknowledge]').getAttribute("data-acknowledge"),integration.episode_id);await details();await fit('dialog[open]');await noChange(before);});
-    await popup("source-only-canonical",async()=>{await control("integration_failure",{failed:false});await page.goto(`${lab.url}/homeostatic/node/${encodeURIComponent(await sourceId("history"))}`);await at('dialog[open] .issue-policy-links').waitFor();assert.equal(await read('dialog[open] h2'),"Lab previously failed sensor");await text('dialog[open]',/Current condition isn't confirmed/);assert.equal(await at('dialog[open] [data-shelf],dialog[open] [data-acknowledge],dialog[open] .problem-progress').count(),0);await details();await fit('dialog[open]');});
-    await popup("source-only-check",async()=>{await control("integration_failure",{failed:false});const current=await inventory(),source=current.nodes.find(node=>node.entity_id===lab.entities.history&&node.monitoring_policy==="default_entities");assert.ok(source);assert.ok(!current.episodes.some(episode=>episode.anchor===source.node_id));await page.goto(`${lab.url}/homeostatic/node/${encodeURIComponent(source.node_id)}`);await at('dialog[open] .issue-policy-links').waitFor();assert.ok(["Lab previously failed sensor",source.name].includes(await read('dialog[open] h2')),"Source-only check retains its exact canonical or recorded name");await text('dialog[open]',/Sensor available/);assert.equal(await at('dialog[open] [data-shelf],dialog[open] [data-acknowledge],dialog[open] .problem-progress').count(),0);await details();await fit('dialog[open]');});
+    await popup("integration",async()=>{await control("integration_failure");await clean();const integration=await episodeFor(null,"integration"),current=await inventory(),source=current.catalog.candidates.find(node=>node.node_id===`entry:${lab.fixture_entry_id}`);assert.ok(source);await openIssue(integration.episode_id);await text('dialog[open]',/Connection is retrying/);assert.equal(await read('dialog[open] h2'),`${source.attributes.domain[0]} · ${source.name}`);assert.equal(await at('dialog[open] [data-issue-response]').getAttribute("data-issue-response"),integration.episode_id);await details();await fit('dialog[open]');await noChange(before);});
+    await popup("source-only-canonical",async()=>{await control("integration_failure",{failed:false});await page.goto(`${lab.url}/homeostatic/node/${encodeURIComponent(await sourceId("history"))}`);await at('dialog[open] .issue-policy-links').waitFor();assert.equal(await read('dialog[open] h2'),"Lab previously failed sensor");await text('dialog[open]',/Current condition isn't confirmed/);assert.equal(await at('dialog[open] [data-device-response],dialog[open] .problem-progress').count(),0);await details();await fit('dialog[open]');});
+    await popup("source-only-check",async()=>{await control("integration_failure",{failed:false});const current=await inventory(),source=current.nodes.find(node=>node.entity_id===lab.entities.history&&node.monitoring_policy==="default_entities");assert.ok(source);assert.ok(!current.episodes.some(episode=>episode.anchor===source.node_id));await page.goto(`${lab.url}/homeostatic/node/${encodeURIComponent(source.node_id)}`);await at('dialog[open] .issue-policy-links').waitFor();assert.ok(["Lab previously failed sensor",source.name].includes(await read('dialog[open] h2')),"Source-only check retains its exact canonical or recorded name");await text('dialog[open]',/Sensor available/);assert.equal(await at('dialog[open] [data-device-response],dialog[open] .problem-progress').count(),0);await details();await fit('dialog[open]');});
     await popup("grouped",async()=>{const shared=await grouped(),configured=await snapshot(),current=await inventory();await openIssue(shared.episode_id);await flatGroupedEvidence(shared,current,configured);await fit('dialog[open]');await noChange(configured);});
     assert.deepEqual({focusFailures,popupErrors},{focusFailures:[],popupErrors:[]},"All popup variants preserve current evidence, identity and action focus");
   });
   await scenario("issues.controls",async()=>{
-    const before=await snapshot(),episode=await episodeFor("temperature","temperature_limit");await openIssue(episode.episode_id);await click('[data-acknowledge]');await cancelTool();
-    assert.ok(!(await query("policy")).episodes.find(item=>item.episode_id===episode.episode_id)?.acknowledgment);await openIssue(episode.episode_id);await click('[data-acknowledge]');await submit();await text('dialog[open]',/Awareness recorded/);
-    assert.ok((await query("policy")).episodes.find(item=>item.episode_id===episode.episode_id)?.acknowledgment);await openIssue(episode.episode_id);assert.equal(await at('dialog[open] [data-acknowledge]').count(),0);
-    const saved=await pause(episode);await openIssue(episode.episode_id);await click('[data-cancel-control]');await cancelTool();assert.ok((await controls()).some(item=>item.control_id===saved.control_id));
+    const before=await snapshot(),episode=await episodeFor("temperature","temperature_limit"),id=episode.episode_id;
+    await openIssue(id);await respond(id,"pause");await respond(id,"cancel-pause");assert.deepEqual(await controls(),[],"Cancelling the pause choice saves nothing");
+    await respond(id,"acknowledge");await text(response(id),/1 issue acknowledged\./);
+    assert.ok((await query("policy")).episodes.find(item=>item.episode_id===id)?.acknowledgment);await openIssue(id);assert.equal(await at(`${response(id)} [data-device-response="acknowledge"]`).isDisabled(),true);
+    const saved=await pause(episode,4);
     let responses=0;transport.transformResponse=(packet,request)=>{
       if(request?.type==="call_service"&&request.domain==="homeostatic"&&request.service==="cancel_control"&&packet.type==="result"&&packet.success){responses++;return {...packet,success:false,error:{code:"acceptance_response_lost",message:"Control response deliberately lost"}};}return packet;
     };
-    await openIssue(episode.episode_id);await click('[data-cancel-control]');await submit();await text('dialog[open]',/may already have been saved/);assert.equal(responses,1);assert.ok(!(await controls()).some(item=>item.control_id===saved.control_id));
+    await openIssue(id);await respond(id,"resume");await text(response(id),/Check current state before retrying/);assert.equal(responses,1);assert.ok(!(await controls()).some(item=>item.control_id===saved.control_id));
     await realState("history","12");assert.equal(responses,1,"No automatic ambiguous-control retry");await noChange(before);
   });
   await scenario("issues.availability-batch",async()=>{
     const before=await snapshot(),episode=await episodeFor("offline","device"),ids=[await sourceId("offline"),await sourceId("offline_second")];await go("problems");assert.equal(await at('main [data-issue-availability]').count(),0);await expandIssues();assert.equal(await at('main [data-issue-availability]').count(),0);
-    await openIssue(episode.episode_id);const stopMonitoring=at('dialog[open] [data-issue-availability="remove"]');assert.equal(await stopMonitoring.innerText(),"Stop Monitoring");assert.equal(await stopMonitoring.evaluate(button=>button.classList.contains("button")&&!button.classList.contains("link")),true);await stopMonitoring.click();assert.equal(await at('dialog[open] [data-issue-availability="confirm"]').innerText(),"Stop Monitoring");await details();await text('dialog[open]',/Lab offline|Lab secondary/);await click('dialog[open] [data-issue-availability="cancel"]');await noChange(before);assert.ok(await at('dialog[open]').count());
+    await openIssue(episode.episode_id);const stopMonitoring=at('dialog[open] [data-issue-availability="remove"]');assert.equal(await stopMonitoring.innerText(),"Stop monitoring…");assert.equal(await stopMonitoring.evaluate(button=>button.classList.contains("button")&&!button.classList.contains("link")),true);await stopMonitoring.click();assert.equal(await at('dialog[open] [data-issue-availability="confirm"]').innerText(),"Stop monitoring");await details();await text('dialog[open]',/Lab offline|Lab secondary/);await click('dialog[open] [data-issue-availability="cancel"]');await noChange(before);assert.ok(await at('dialog[open]').count());
     await click('dialog[open] [data-issue-availability="remove"]');const count=rejectSave();await click('dialog[open] [data-issue-availability="confirm"]');await text('dialog[open]',/Gap save rejected/);await noChange(before);assert.equal(count(),1);transport.interceptRequest=null;
     await click('dialog[open] [data-issue-availability="confirm"]');await at('dialog[open]').waitFor({state:"hidden"});await expectedExclusions(before,ids);assert.equal(await at('main [data-issue-availability]').count(),0);assert.ok(!(await bodyText()).includes("Changes saved."));
   });
@@ -481,7 +480,7 @@ export async function runIssueGaps(ctx) {
     await text('.history-content:visible',/Recovery was not established/);
     const links=at('.history-content:visible [data-open-episode]');
     assert.deepEqual((await links.evaluateAll(items=>items.map(item=>item.dataset.openEpisode))).sort(),[...split.split_into].sort());
-    const target=await links.first().getAttribute("data-open-episode");await links.first().click();await at(`dialog[open] [data-shelf="${target}"]`).waitFor();await noChange(before);
+    const target=await links.first().getAttribute("data-open-episode");await links.first().click();await at(response(target)).waitFor();await noChange(before);
     return "A real failed integration recovers with device failures remaining; History reports Issues separated, retains exact successor links and opens the selected successor without claiming recovery.";
   });
   await scenario("issues.history",async()=>{
@@ -489,7 +488,7 @@ export async function runIssueGaps(ctx) {
     const all=new Set();for(let index=0;index<10;index++){for(const id of await at('[data-history-toggle]').evaluateAll(items=>items.map(item=>item.dataset.historyToggle)))all.add(id);if(!await at('[data-tool="next"]').count()||await at('[data-tool="next"]').isDisabled())break;await click('[data-tool="next"]');}assert.equal(all.size,history.episodes.length);
     await fill('[data-history-search]',"no-acceptance-match");assert.equal(await at('[data-history-toggle]').count(),0);await fill('[data-history-search]',"");for(const value of await at('[data-history-filter] option').evaluateAll(items=>items.map(item=>item.value))){await choose('[data-history-filter]',value);const visible=await at('[data-history-toggle]').evaluateAll(items=>items.map(item=>item.dataset.historyToggle));assert.ok(visible.every(id=>history.episodes.some(item=>item.episode.episode_id===id&&(!value||item.resolution===value))),`Outcome filter ${value} matches recorded resolutions`);}await choose('[data-history-filter]',"");
     const ordinary=history.episodes.find(item=>item.resolution==="cleared"&&item.source?.kind==="entity"&&item.source.name.includes("standalone")),id=ordinary.episode.episode_id;await page.goto(`${lab.url}/homeostatic/history/${encodeURIComponent(id)}`);const row=at(`[data-history-toggle="${id}"]`);await row.waitFor();assert.equal(await row.getAttribute("aria-expanded"),"true");assert.equal(await at('dialog[open]').count(),0);await text(`[data-history-toggle="${id}"]`,ordinary.source.name);await text('.history-content:visible',/Home Assistant reported this entity as unavailable/);const observed=await read('.history-content:visible .history-times dd'),times=await page.evaluate(({start,end})=>[start,end].map(value=>({day:new Date(value).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}),time:new Date(value).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})})),{start:ordinary.episode.opened_at,end:ordinary.resolved_at});for(const value of times)assert.ok(observed.includes(value.day)&&observed.includes(value.time),"Recorded opened and ended times appear in the observed range");assert.ok(observed.includes("1 min"));await realState("history","13");assert.equal(await row.getAttribute("aria-expanded"),"true");await row.click();
-    const joined=history.episodes.find(item=>item.resolution==="absorbed"&&item.absorbed_into);assert.ok(joined,"A real integration failure absorbs affected issues with a related-issue link");await page.goto(`${lab.url}/homeostatic/history/${encodeURIComponent(joined.episode.episode_id)}`);await at(`[data-history-toggle="${joined.episode.episode_id}"][aria-expanded="true"]`).waitFor();await text('.history-content:visible',/Recovery was not established/);const link=at('.history-content:visible [data-open-episode],.history-content:visible [data-history]').first();await link.click();if(await at('dialog[open]').count())await at('dialog[open] [data-shelf]').waitFor();else await at(`[data-history-toggle="${joined.absorbed_into}"][aria-expanded="true"]`).waitFor();await noChange(before);
+    const joined=history.episodes.find(item=>item.resolution==="absorbed"&&item.absorbed_into);assert.ok(joined,"A real integration failure absorbs affected issues with a related-issue link");await page.goto(`${lab.url}/homeostatic/history/${encodeURIComponent(joined.episode.episode_id)}`);await at(`[data-history-toggle="${joined.episode.episode_id}"][aria-expanded="true"]`).waitFor();await text('.history-content:visible',/Recovery was not established/);const link=at('.history-content:visible [data-open-episode],.history-content:visible [data-history]').first();await link.click();if(await at('dialog[open]').count())await at('dialog[open] [data-issue-response]').waitFor();else await at(`[data-history-toggle="${joined.absorbed_into}"][aria-expanded="true"]`).waitFor();await noChange(before);
   });
 
   await scenario("sources.tree-layout",async()=>{
@@ -513,7 +512,7 @@ export async function runIssueGaps(ctx) {
     const id=await sourceId("offline");await page.goto(`${lab.url}/homeostatic/sources/${encodeURIComponent(`source:${id}`)}/history`);await at('#source-history-title').waitFor();await click('[data-sources-view="source"]');await noChange(before);
   });
   await scenario("sources.compact-inspector-details",async()=>{
-    const before=await snapshot();await source("temperature");await text('.config-detail',/87/);assert.equal(await at('.config-detail [data-shelf],.config-detail [data-acknowledge],.config-detail .source-monitoring-explanation').count(),0);assert.ok(await at('[data-source-policies="open"]').count());
+    const before=await snapshot();await source("temperature");await text('.config-detail',/87/);assert.equal(await at('.config-detail [data-device-response],.config-detail .source-monitoring-explanation').count(),0);assert.ok(await at('[data-source-policies="open"]').count());
     await source("offline","device");assert.equal(await at('.source-monitoring-explanation').count(),0);await at('.source-device-coverage').waitFor();await text('.config-detail',/entity|reading|availability/i);
     const data=await inventory(),battery=data.catalog.candidates.find(item=>item.kind==="battery"&&item.entity_id===lab.entities.battery);assert.ok(battery);await tree();await fill('[data-sources-search]',"Lab battery");await at(`[data-sources-select="source:${battery.node_id}"]`).click();await text('.config-detail',/12|Battery/);await click('.source-monitoring-explanation > summary');
     await click('.source-navigation [data-sources-view="history"]');await at('#source-history-title').waitFor();await click('[data-sources-view="source"]');await at('.config-detail [data-page="policies"]').click();await at('h1').filter({hasText:"Monitoring policies"}).waitFor();await tree();await noChange(before);
@@ -602,8 +601,8 @@ export async function runIssueGaps(ctx) {
     if(await at('[data-availability-action="cancel"]').isVisible())await click('[data-availability-action="cancel"]');await clean();await source("offline");await click('[data-availability-action="stop"]');const count=rejectSave();await click('[data-availability-action="confirm"]');await text('.config-detail',/Gap save rejected/);assert.equal(count(),1);assert.deepEqual(await snapshot(),changed);transport.interceptRequest=null;await click('[data-availability-action="confirm"]');await at('[data-availability-action="resume"]').waitFor({timeout:30000});await expectedExclusions(changed,[await sourceId("offline")]);
   });
   await scenario("sources.contextual-issue-controls",async()=>{
-    const before=await snapshot();await source("offline");assert.equal(await at('.config-detail [data-shelf],.config-detail [data-acknowledge]').count(),0);const link=at('.config-detail [data-episode]').first(),id=await link.getAttribute("data-episode");assert.ok(id);await link.click();await at(`dialog[open] [data-shelf="${id}"]`).waitFor();
-    await click('[data-acknowledge]');await cancelTool();await openIssue(id);await click('[data-shelf]');await cancelTool();assert.deepEqual(await controls(),[]);await noChange(before);
+    const before=await snapshot();await source("offline");assert.equal(await at('.config-detail [data-device-response]').count(),0);const link=at('.config-detail [data-episode]').first(),id=await link.getAttribute("data-episode");assert.ok(id);await link.click();await at(response(id)).waitFor();
+    await respond(id,"pause");await respond(id,"cancel-pause");assert.deepEqual(await controls(),[]);await noChange(before);
   });
   await scenario("sources.compact-layout",async()=>{
     const before=await snapshot();await source("offline");await fit('.config-detail');assert.equal(await at('.config-detail details').count(),0);assert.ok(await at('[data-source-policies="open"]').isVisible());assert.ok(await at('[data-availability-action="stop"]').isVisible());await at('[data-availability-action="stop"]').focus();await realState("history","15");assert.equal(await at('[data-availability-action="stop"]').evaluate(element=>element.getRootNode().activeElement===element),true);await click('[data-source-policies="open"]');await fit('.source-policy-dialog');await click('[data-source-policies="close"]');await noChange(before);

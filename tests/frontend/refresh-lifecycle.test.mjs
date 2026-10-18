@@ -26,7 +26,7 @@ function detailCard(base) {
   const body={innerHTML:"",querySelector:()=>null,querySelectorAll:()=>[]},label={};
   const card=Object.assign(Object.create(prototype),base,{detailSequence:0,dialog:{open:true},
     shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:label},
-    tools:{detailButtons:()=>""},capturePageState:()=>({}),restorePageState(){}});
+    tools:{maintenanceControls:()=>""},capturePageState:()=>({}),restorePageState(){}});
   return {card,body};
 }
 
@@ -226,7 +226,7 @@ test("opening a partial device availability issue loads members before enabling 
   card.current={status:"current",data:full};pending.resolve();
   await card.loadDetail();
   assert.equal(issueAvailabilitySources(card,[episode]).length,2);
-  assert.match(body.innerHTML,/data-issue-availability="remove"[^>]*>Stop Monitoring/);
+  assert.match(body.innerHTML,/data-issue-availability="remove"[^>]*>Stop monitoring…/);
   assert.doesNotMatch(body.innerHTML,/data-issue-availability="remove"[^>]* disabled|Loading monitoring sources|retry-catalog/);
 });
 

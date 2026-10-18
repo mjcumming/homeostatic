@@ -150,7 +150,7 @@ async function initializeBrowserScenario() {
         reset();await settle();const settingsBefore=JSON.stringify(fixture.settings);
         check(root.querySelectorAll('[data-device-issues]').length===1,"Monitoring has one combined View");
         const repeatedAvailability=RELATED_IDS.some(id=>root.querySelector(`.source-body [data-episode="${id}"]`));
-        check(!repeatedAvailability&&!root.querySelector('.source-body [data-acknowledge], .source-body [data-shelf]'),"Monitoring has no repeated availability issue response controls");
+        check(!repeatedAvailability&&!root.querySelector('.source-body [data-device-response]'),"Monitoring has no repeated availability issue response controls");
         for(const source of fixture.entities) {
           const selector=`a[href="/config/entities/entity/${source.entity_id}"]`;
           const link=root.querySelector(selector)||[...root.querySelectorAll('.source-body a[href]')].find(item=>item.getAttribute("href").includes(source.entity_id));
@@ -164,12 +164,12 @@ async function initializeBrowserScenario() {
         check(back,"Policy editor provides Back to issue");back.click();await settle();check(card.dialog.open&&card.detail.deviceId===DEVICE_ID,"Policy return restores combined dialog");
         await select("issue:device",false);await select("issue:player",false);await select("issue:timer",false);
         await click('[data-issue-availability="remove"]',card.dialog);
-        check(card.issueAvailabilityPlan.sourceIds.length===3,"Stop Monitoring uses its full reviewed coverage, independently of issue selection");
+        check(card.issueAvailabilityPlan.sourceIds.length===3,"Stop monitoring uses its full reviewed coverage, independently of issue selection");
         await click('[data-issue-availability="cancel"]',card.dialog);
         check(JSON.stringify(fixture.settings)===settingsBefore&&mutations().length===0&&!calls.some(request=>request.type==="homeostatic/save_settings"),"Navigation and coverage cancellation mutate nothing");
         await close();check(card.page==="sources"&&card.sourcesSelection===`source:${DEVICE_SOURCE}`,"Close restores the originating inspector");
         check(root.querySelector('.shell').scrollWidth<=root.querySelector('.shell').clientWidth+1,"Panel fits the selected width");
-      },"Monitoring offers one combined View and native entity links. Shared dialog has one Open device, policy return preserves device context, and Stop Monitoring reviews its independent coverage without saving on cancellation.");
+      },"Monitoring offers one combined View and native entity links. Shared dialog has one Open device, policy return preserves device context, and Stop monitoring reviews its independent coverage without saving on cancellation.");
       await run("issues.device-entry",async()=>{
         reset(["issue:alarm","issue:timer","issue:battery"]);await settle();
         await click('.nav [data-page="problems"]');
@@ -189,7 +189,7 @@ async function initializeBrowserScenario() {
         await close();check(card.page==="problems","Close returns to Open issues");
         await click('[data-episode="issue:orphan"]');
         check(!card.dialog.querySelector('[data-device-issue-select], [data-device-issues-all]'),"Unattached entity has no selection controls");
-        check(find('[data-acknowledge]',card.dialog).dataset.acknowledge==="issue:orphan","Unattached entity retains its original issue scope");
+        check(find('[data-issue-response]',card.dialog).dataset.issueResponse==="issue:orphan","Unattached entity retains its original issue scope");
         await close();check(card.page==="problems","Singular close preserves the issue list");
       },"The Open issues device heading opens the same device context for entity-only and battery problems. All current device issues initially select, one battery exception can be acknowledged independently, and close returns to the queue. An unattached entity retains its exact singular dialog. Device details omit ambiguous opening chronology and use an outlined native device action.");
       reset();await openCombined();feedback.textContent="PASS: Exact selection, partial outcomes, source navigation and single-issue controls checked.";

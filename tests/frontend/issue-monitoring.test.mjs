@@ -51,14 +51,14 @@ test("an opened standalone issue saves only its entity and closes quietly",async
   const {card,server,calls,episodes}=fixture();
   open(card,episodes[0].episode_id);
   assert.match(card.dialogHtml,/data-issue-availability-owner="issue:check:entity:0"/);
-  assert.match(card.dialogHtml,/class="button" data-issue-availability="remove"[^>]*>Stop Monitoring<\/button>/);
+  assert.match(card.dialogHtml,/class="button" data-issue-availability="remove"[^>]*>Stop monitoring…<\/button>/);
   click(card,"remove");
   assert.deepEqual(card.issueAvailabilityPlan.sourceIds,["entity:0"]);
   assert.equal(card.issueAvailabilityEpisode,episodes[0].episode_id);
   assert.equal(calls.length,0);
   assert.match(card.dialogHtml,/Stop monitoring this entity\?/);
   assert.doesNotMatch(card.dialogHtml,/<details|<summary|<p>Policies/);
-  assert.match(card.dialogHtml,/data-issue-availability="confirm"[^>]*>Stop Monitoring<\/button>/);
+  assert.match(card.dialogHtml,/data-issue-availability="confirm"[^>]*>Stop monitoring<\/button>/);
   assert.doesNotMatch(card.dialogHtml,/data-issue-availability="remove"/);
   click(card,"confirm");await tick();
   assert.equal(saves(calls).length,1);

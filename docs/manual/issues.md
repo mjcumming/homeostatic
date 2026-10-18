@@ -24,7 +24,7 @@ With one issue the first button reads **Acknowledge issue**. Acknowledging or pa
 
 ## Stop watching something
 
-If Home Assistant often reports an entity unavailable and you don't need to know, select **Stop monitoring** in the issue. The confirmation lists the exact entities. Their availability checks stop and the issues end as **Monitoring ended**; other checks on them, such as battery or temperature, continue. [Choose what to watch](policies.md#stop-or-resume-availability-monitoring) explains how to undo it.
+If Home Assistant often reports an entity unavailable and you don't need to know, select **Stop monitoring…** in the issue. The confirmation lists the exact entities. Their availability checks stop and the issues end as **Monitoring ended**; other checks on them, such as battery or temperature, continue. [Choose what to watch](policies.md#stop-or-resume-availability-monitoring) explains how to undo it.
 
 ## From a notification
 

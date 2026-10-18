@@ -53,7 +53,7 @@ export function availabilityConfirmation(plan,action) {
   const count=plan.sources.length,noun=count===1?"entity":"entities",stopping=plan.mode==="stop";
   const heading=stopping?`Stop monitoring ${count===1?"this entity":`these ${count} entities`}?`:`Resume availability monitoring for ${count} ${noun}?`;
   const explanation=stopping?`Stop availability monitoring for ${count===1?"this entity":"these entities"}. Other checks stay enabled.`:"Remove availability exclusions. Existing policy selections still apply.";
-  return `<section class="source-availability-confirm" aria-label="Change availability monitoring"><h3>${heading}</h3><p>${explanation}</p><ul>${plan.sources.map(item=>`<li>${esc(item.name)}${item.entityId?` <span class="small">${esc(item.entityId)}</span>`:""}</li>`).join("")}</ul><div class="actions">${action("confirm",stopping?"Stop Monitoring":"Resume availability monitoring")}${action("cancel","Cancel")}</div></section>`;
+  return `<section class="source-availability-confirm" aria-label="Change availability monitoring"><h3>${heading}</h3><p>${explanation}</p><ul>${plan.sources.map(item=>`<li>${esc(item.name)}${item.entityId?` <span class="small">${esc(item.entityId)}</span>`:""}</li>`).join("")}</ul><div class="actions">${action("confirm",stopping?"Stop monitoring":"Resume availability monitoring")}${action("cancel","Cancel")}</div></section>`;
 }
 
 /** Freeze the exact affected saved policies before displaying confirmation. */

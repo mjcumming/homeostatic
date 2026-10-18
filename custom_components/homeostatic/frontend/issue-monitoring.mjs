@@ -51,7 +51,7 @@ function availabilityControls(card,episode) {
     ||(!current&&plan&&!card.scopedBusy?"This issue is no longer current. Close this dialog to review the updated issue list.":null);
   const action=(mode,label)=>`<button type="button" class="button${mode==="confirm"?" primary":""}" data-issue-availability="${mode}" data-issue-id="${esc(id)}"${(mode==="cancel"?card.scopedBusy||card.settingsBusy:blocked(card)||mode==="confirm"&&!current||card.deviceIssues?.busy)?' disabled':''}>${label}</button>`;
   const content=plan?availabilityConfirmation(plan,(mode,label)=>action(mode,mode==="confirm"&&card.scopedBusy?"Stopping monitoring…":label))
-    :current&&issueAvailabilitySources(card,episodes).length?action("remove","Stop Monitoring"):"";
+    :current&&issueAvailabilitySources(card,episodes).length?action("remove","Stop monitoring…"):"";
   const catalog=episodes.some(item=>issueAvailabilityNeedsCatalog(card,item))?card.current.catalogError
     ?`<p role="alert">${esc(card.current.catalogError)}</p><button type="button" class="button" data-action="retry-catalog">Retry loading monitoring sources</button>`
     :'<p role="status">Loading monitoring sources…</p>':"";

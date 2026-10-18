@@ -86,12 +86,11 @@ card._hass.callWS=async request=>{
 Object.assign(card,{current:fixture.base.current,configuration:copy(fixture.base.configuration),settingsDraft:copy(fixture.base.configuration.settings),page:"problems",sourcesGrouping:"integration",sourcesExpanded:new Set(fixture.base.sourcesExpanded)});
 card.render();
 const close=async()=>{if(card.tools.dialog.open)await click('[data-tool="close"]',card.tools.dialog);if(card.dialog.open)await click('[data-action="close"]',card.dialog);};
+/** Open issues lists this device's issues behind one View, so open the exact issue the way a notification link does. */
 async function open(id=ISSUE_ID) {
   await close();await click('.nav [data-page="problems"]');
-  for(const toggle of [...root.querySelectorAll('[data-issue-group][aria-expanded="false"]')])await click(`[data-issue-group="${toggle.dataset.issueGroup}"]`);
-  await click(`[data-episode="${id}"]`);check(card.dialog.open,"Issue opens from its rendered row");
+  card.openDetail({episodeId:id});await settle();check(card.dialog.open,"The exact issue opens as from a notification link");
 }
-const endTime=()=>{const time=new Date(Date.now()+3600000);time.setMinutes(time.getMinutes()-time.getTimezoneOffset());return time.toISOString().slice(0,16);};
 document.querySelector("#theme").onchange=event=>document.documentElement.dataset.theme=event.target.value;
 document.querySelector("#condition").onchange=event=>condition(event.target.value);
 document.querySelector("#open").onclick=()=>open();
@@ -111,9 +110,9 @@ async function run() {
     check(!body().querySelector('[data-disclosure="issue-details"]'),"Issue evidence has no Details expander");
     check(!body().innerText.includes("View in Monitoring"),"Issue has no circular generic Monitoring destination");
     const entityAction=find('[data-entity]',body()),deviceAction=find('a[href="/config/devices/device/third-floor"]',body());
-    check(entityAction.textContent==="Open Entity"&&entityAction.classList.contains("primary"),"Open Entity is the primary action");
-    check(deviceAction.textContent==="Open Device"&&deviceAction.classList.contains("button")&&!deviceAction.classList.contains("primary")&&entityAction.parentElement===deviceAction.parentElement,"Open Device is an adjacent outlined action");
-    check(!find('[data-acknowledge]').closest("details")&&!find('[data-shelf]').closest("details"),"Acknowledge and Pause are immediately visible");
+    check(entityAction.textContent==="Open entity"&&entityAction.classList.contains("primary"),"Open entity is the primary action");
+    check(deviceAction.textContent==="Open device"&&deviceAction.classList.contains("button")&&!deviceAction.classList.contains("primary")&&entityAction.parentElement===deviceAction.parentElement,"Open device is an adjacent outlined action");
+    check(!find('[data-device-response="acknowledge"]').closest("details")&&!find('[data-device-response="pause"]').closest("details"),"Acknowledge and Pause are immediately visible");
     check(!find('[data-definition-action="open-policy"]').closest("details"),"Editing the policy remains directly available");
     check(mutations().length===0,"Opening the issue never mutates settings or controls");
     check([...body().querySelectorAll('.issue-policy-links [data-definition-action="open-policy"]')].map(button=>button.dataset.definitionId).sort().join(",")==="devices,entities,home-temperature","Policies lists every policy covering the entity, including device availability");
@@ -122,7 +121,7 @@ async function run() {
     check(body().innerText.includes("Policy and notification coverage is unavailable")&&!body().innerText.includes("None assigned"),"Unavailable coverage is distinct from no assignments");
     coverageFailure=false;await click('[data-action="retry-issue-configuration"]',body());
     check(find('.issue-notification-links',body()).innerText.includes("None assigned"),"Retry restores saved coverage without a mutation");
-    evidence.push("Actual source title; flat measured condition; adjacent Open Entity and Open Device; Acknowledge and Pause; all covering policies; no generic Monitoring route or mutation.");
+    evidence.push("Actual source title; flat measured condition; adjacent Open entity and Open device; Acknowledge and Pause; all covering policies; no generic Monitoring route or mutation.");
     check(body().innerText.includes("Required duration")&&body().innerText.includes("1 hour")&&!body().innerText.includes("Alert after"),"Duration describes qualification without promising notification timing");condition("high");await settle();
     check(!body().querySelector('[data-disclosure="issue-details"]'),"Evidence refresh keeps the flat layout");
     check(body().innerText.includes("Temperature above maximum")&&body().innerText.includes("86 °F"),"High reading replaces the previous low condition");
@@ -182,27 +181,27 @@ async function run() {
     check(card.settingsDraft.monitoring_policies.find(policy=>policy.id==="home-temperature").name==="Temperature draft"&&JSON.stringify(card.configuration.settings)===JSON.stringify(savedSettings)&&mutations().length===0,"Policy and notification drafts survive Back without a save");
     const sourceAttributes=copy(fixture.source.attributes),entityAttributes=copy(fixture.entity.attributes);
     delete fixture.source.attributes.device;delete fixture.entity.attributes.device;publish();await settle();
-    check(!body().querySelector('a[href^="/config/devices/device/"]')&&body().querySelector('[data-entity]'),"Entity without a device keeps Open Entity and omits Open Device");
+    check(!body().querySelector('a[href^="/config/devices/device/"]')&&body().querySelector('[data-entity]'),"Entity without a device keeps Open entity and omits Open device");
     fixture.source.attributes=sourceAttributes;fixture.entity.attributes=entityAttributes;publish();await settle();
     evidence.push("All entity policy notification assignments, named-profile deduplication, global-off and no-assignment states, Custom notification policy route, editor Back, independent draft preservation and entity without device verified without saves.");
-    await open();await click('[data-acknowledge]');await click('[data-tool="close"]',card.tools.dialog);
-    check(mutations().length===0,"Cancelling acknowledgment sends no mutation");
-    await open();await click('[data-acknowledge]');await click('[type="submit"]',card.tools.body);
+    await open();check(find('[data-issue-response]',body()).dataset.issueResponse===ISSUE_ID,"Issue response targets the opened issue");
+    await click('[data-device-response="acknowledge"]',body());
     check(mutations().length===1&&mutations()[0].service_data.episode_id===ISSUE_ID,"Acknowledgment targets only the selected issue");
-    await open();check(body().innerText.includes("Acknowledged")&&!body().querySelector('[data-acknowledge]'),"Confirmed acknowledgment is visible on reopening");
-    await click('[data-shelf]');check(find('[type="submit"]',card.tools.body).disabled,"Pause requires an end time");
-    await click('[data-tool="close"]',card.tools.dialog);check(mutations().length===1,"Cancelling Pause changes nothing");
-    await open();await click('[data-shelf]');await input('[name="untilLocal"]',endTime(),card.tools.body);await click('[type="submit"]',card.tools.body);
+    await open();check(body().innerText.includes("Acknowledged")&&find('[data-device-response="acknowledge"]',body()).disabled,"Confirmed acknowledgment is visible on reopening");
+    await click('[data-device-response="pause"]',body());check(find('[data-device-pause-duration]',body()).value==="1","Pause offers one hour first");
+    await click('[data-device-response="cancel-pause"]',body());check(mutations().length===1,"Cancelling Pause changes nothing");
+    await click('[data-device-response="pause"]',body());const duration=find('[data-device-pause-duration]',body());duration.value="4";duration.dispatchEvent(new Event("change",{bubbles:true,composed:true}));await settle();
+    const requested=Date.now();await click('[data-device-response="apply-pause"]',body());
     check(mutations().length===2&&mutations().at(-1).service_data.episode_id===ISSUE_ID,"Saved pause targets only the selected issue");
-    await open();const pause=fixture.base.current.data.inventory.operator_controls[0],expiry=new Date(pause.until).toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});check(find(".problem-controls .active-controls",body()).innerText.includes("Notifications paused")&&body().innerText.includes("Until "+expiry)&&pause.until===mutations().at(-1).service_data.until,"Saved pause expiry remains visible");
-    await click('[data-cancel-control]');await click('[data-tool="close"]',card.tools.dialog);check(mutations().length===2,"Cancelling resume preserves the pause");
-    await open();await click('[data-cancel-control]');await click('[type="submit"]',card.tools.body);
-    check(mutations().length===3&&fixture.base.current.data.inventory.operator_controls.length===0,"Confirming resume ends the selected pause");
-    await open();check(!body().querySelector('[data-cancel-control]'),"Reopened issue confirms notifications are resumed");
+    check(Math.abs(Date.parse(mutations().at(-1).service_data.until)-requested-4*3600000)<60000,"Pause for 4 hours requests a four-hour pause");
+    await open();const pause=fixture.base.current.data.inventory.operator_controls[0],expiry=new Date(pause.until).toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});check(body().innerText.includes("Notifications paused until "+expiry)&&pause.until===mutations().at(-1).service_data.until,"Saved pause expiry remains visible");
+    await click('[data-device-response="resume"]',body());
+    check(mutations().length===3&&mutations().at(-1).service==="cancel_control"&&fixture.base.current.data.inventory.operator_controls.length===0,"Resume ends the selected pause");
+    await open();check(!body().querySelector('[data-device-response="resume"]')&&!body().innerText.includes("Notifications paused"),"Reopened issue confirms notifications are resumed");
     check(fixture.base.current.data.policy.episodes.length===1&&fixture.base.current.data.inventory.episodes.length===2,"Attention changes preserve both issues and affect one acknowledgment");
     check(!calls.some(request=>request.type==="homeostatic/save_settings"),"Attention controls never change monitoring policies");
     const bounds=card.dialog.getBoundingClientRect();check(bounds.left>=0&&bounds.right<=innerWidth+1&&body().scrollWidth<=body().clientWidth+1,"Issue dialog fits the current viewport without horizontal overflow");
-    evidence.push("Acknowledgment cancel/confirm, Pause invalid/cancel/save and Resume cancel/confirm through rendered controls; selected issue only; persisted mocked controls verified on reopening; no policy saves; no horizontal overflow.");
+    evidence.push("Acknowledgment, Pause cancel and four-hour save, and Resume through rendered controls; selected issue only; persisted mocked controls verified on reopening; no policy saves; no horizontal overflow.");
     receipt.status="pass";result.textContent="Individual issue checks passed";
   } catch(error) {receipt.status="fail";receipt.error=error.message;result.textContent="Failed: "+error.message;}
   recordResult(receipt,"issues.individual",receipt.status,receipt.error||evidence.join(" "));

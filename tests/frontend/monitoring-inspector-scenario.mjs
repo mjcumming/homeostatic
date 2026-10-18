@@ -85,7 +85,7 @@ async function inspectFlatDetails() {
     check(name.closest("tr").textContent.includes("Unavailable"),"The entity condition remains beside its name");
     const restored=root.querySelector('[data-source-link="entity:third-floor-humidity"]');
     check(restored?.getClientRects().length&&restored.closest("tr").textContent.includes("Not provided by integration"),"Restored evidence remains visible and distinct");
-    check(root.querySelector('[data-acknowledge="shared-inspector"]')?.getClientRects().length&&visibleDetails().includes("These controls apply to the whole issue"),"Shared issue controls show their complete scope without an extra disclosure");
+    check(root.querySelector('.config-detail [data-episode="shared-inspector"]')?.getClientRects().length&&!root.querySelector('.config-detail [data-device-response]'),"The shared issue opens from a visible View issue link; its response stays in the issue view");
     const policy=root.querySelector('.config-detail [data-definition-id="devices"]');
     check(policy?.getClientRects().length&&!policy.closest("details"),"Contributing device policy editing is visible before Details");
     check(root.querySelectorAll(".config-detail details").length===1,"Device has one supporting Details section");
@@ -113,8 +113,8 @@ async function inspectFlatDetails() {
     data.inventory.episodes=["first","second"].map(id=>({episode_id:id,anchor:"entry:lyric",recorded:["entry:lyric"],reasons:[{node_id:"entry:lyric",message:`Setup failure ${id}`,status:"fail",reason:"setup_error"}],opened_at:"2026-10-15T12:00:00Z"}));
     data.inventory.operator_controls=[{control_id:"integration-maintenance",action:"maintenance",target:"entry:lyric",until:"2026-10-17T00:00:00Z",include_dependents:false,reason:"Inspecting connection"},{control_id:"first-pause",action:"shelve",target:"first",until:"2026-10-17T00:00:00Z",include_dependents:false,reason:"Awaiting service"}];
     card.render();
-    for(const id of ["integration-maintenance","first-pause"])check(root.querySelectorAll(`[data-cancel-control="${id}"]`).length===1&&root.querySelector(`[data-cancel-control="${id}"]`).getClientRects().length,"Each existing maintenance or pause control appears once with its exact target");
-    check(root.querySelector('[data-shelf="first"]')&&root.querySelector('[data-shelf="second"]'),"Independent issue controls remain separate");
+    check(root.querySelectorAll('[data-cancel-control="integration-maintenance"]').length===1&&root.querySelector('[data-cancel-control="integration-maintenance"]').getClientRects().length,"Existing maintenance appears once with its exact target");
+    check(!root.querySelector('[data-cancel-control="first-pause"]')&&root.querySelector('.config-detail [data-episode="first"]')&&root.querySelector('.config-detail [data-episode="second"]'),"Each issue keeps its own View issue link; pauses stay with the issue response");
     data.inventory.episodes=[];data.inventory.operator_controls=original.controls;data.inventory.integration_evidence=original.integrationEvidence;
 
     const automation={node_id:"broken_automation:inspector",name:"Hall lighting",kind:"broken_automation",watched:true,automation_url:"/config/automation/edit/hall",alert_profile:"dashboard"};
@@ -210,7 +210,7 @@ document.querySelector("#run").onclick=async()=>{
     inspectCompact("Paired battery");
     await inspectFlatDetails();
     check(JSON.stringify(card.configuration.settings)===saved&&!calls.some(call=>call.type==="homeostatic/save_settings"),"Compact-detail navigation leaves saved monitoring unchanged");
-    recordResult(receipt,compactId,"pass","Rendered entity-first details, battery and device facts, single and paired readings, same-name affected entity with visible current/restored conditions, visible shared-issue controls and scope, one flat Details, integration connections, concise native navigation and automation reporting. History, Policies/return and source actions preserve saved settings without horizontal overflow.");
+    recordResult(receipt,compactId,"pass","Rendered entity-first details, battery and device facts, single and paired readings, same-name affected entity with visible current/restored conditions, a View issue link for the shared issue, one flat Details, integration connections, concise native navigation and automation reporting. History, Policies/return and source actions preserve saved settings without horizontal overflow.");
     activeId=toolbarId;
     if(root.querySelector('[data-action="back-sources"]').getClientRects().length)await click('[data-action="back-sources"]');
     const selection=card.sourcesSelection,tools=root.querySelector(".sources-tools");

@@ -388,15 +388,15 @@ export async function runLiveCases({page,lab,call,record,artifactDir,group="all"
     await run("live.issues.controls",async()=>{
       await go("problems");for(const button of await at('[data-issue-group]').all())if(await button.getAttribute("aria-expanded")==="false")await button.click();
       const episode=await at('[data-episode]').first().getAttribute("data-episode");assert.ok(episode);
-      await click(`[data-episode="${episode}"]`);await click('[data-acknowledge]');await at('dialog[open] button[type="submit"]').click();
-      await at('dialog[open]').filter({hasText:"Awareness recorded"}).waitFor({timeout:20000});await page.keyboard.press("Escape");
-      await click(`[data-episode="${episode}"]`);await at('dialog[open]').filter({hasText:"Acknowledged"}).waitFor({timeout:20000});
-      await click('[data-shelf]');const end=new Date(Date.now()+3600000);const local=new Date(end.getTime()-end.getTimezoneOffset()*60000).toISOString().slice(0,16);
-      await fill('dialog[open] [name="untilLocal"]',local);await click('dialog[open] button[type="submit"]');
-      await at('dialog[open]').filter({hasText:/Notifications paused|Saved/}).waitFor({timeout:20000});await page.keyboard.press("Escape");
-      await click(`[data-episode="${episode}"]`);await at('dialog[open]').filter({hasText:"Until"}).waitFor({timeout:20000});await click('dialog[open] [data-cancel-control]');await click('dialog[open] button[type="submit"]');
-      await at('dialog[open]').filter({hasText:"selected control has ended"}).waitFor({timeout:20000});await page.keyboard.press("Escape");
-      return `Acknowledged and paused/resumed actual issue ${episode}; unsupported uncertain-response injection remains fixture-only.`;
+      const response=`dialog[open] [data-issue-response="${episode}"]`;
+      await click(`[data-episode="${episode}"]`);await click(`${response} [data-device-response="acknowledge"]`);
+      await at(response).filter({hasText:"1 issue acknowledged."}).waitFor({timeout:20000});await page.keyboard.press("Escape");
+      await click(`[data-episode="${episode}"]`);await at(response).filter({hasText:"Acknowledged"}).waitFor({timeout:20000});
+      await click(`${response} [data-device-response="pause"]`);await choose(`${response} [data-device-pause-duration]`,"4");await click(`${response} [data-device-response="apply-pause"]`);
+      await at(response).filter({hasText:"1 issue paused."}).waitFor({timeout:20000});await page.keyboard.press("Escape");
+      await click(`[data-episode="${episode}"]`);await at(response).filter({hasText:"Notifications paused until"}).waitFor({timeout:20000});await click(`${response} [data-device-response="resume"]`);
+      await at(response).filter({hasText:"1 issue resumed."}).waitFor({timeout:20000});await page.keyboard.press("Escape");
+      return `Acknowledged, paused for 4 hours and resumed actual issue ${episode}; unsupported uncertain-response injection remains fixture-only.`;
     });
     await run("live.sources.browse",async()=>{
       const before=await snapshot();await go("sources");await at('[data-sources-search]').waitFor();
