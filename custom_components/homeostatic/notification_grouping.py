@@ -7,7 +7,7 @@ from typing import Any
 
 from .catalog import Source
 from .config import Settings
-from .notification_definitions import resolve_rows
+from .notification_definitions import ALERT_PROFILES, alert_rows, resolve_rows
 
 
 def subject(source: Source) -> str | None:
@@ -57,8 +57,8 @@ def collection_settings(settings: Settings) -> dict[str, dict[str, Any]]:
     rows.extend(definitions["default"])
     rows.extend(definitions["repairs"])
     rows.extend(definitions["broken_automations"])
-    for items in definitions["automation_profiles"].values():
-        rows.extend(items)
+    for profile in ALERT_PROFILES:
+        rows.extend(alert_rows(definitions, profile))
     for assignment in definitions["assignments"].values():
         rows.extend(assignment.get("default", []))
         for items in assignment.get("checks", {}).values():

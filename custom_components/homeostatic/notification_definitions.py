@@ -315,6 +315,29 @@ def validate(value: object) -> dict[str, Any]:
     return data
 
 
+ALERT_PROFILES = (
+    "immediate",
+    "acknowledge",
+    "morning",
+    "evening",
+    "weekly",
+    "dashboard",
+)
+
+
+def alert_rows(definitions: dict[str, Any], profile: str) -> list[dict[str, Any]]:
+    """Use saved alert rows, or else the named notification sharing the profile's id.
+
+    A named notification without delivery methods adds no route, so older saved
+    default rows keep delivering alerts.
+    """
+    if rows := definitions.get("automation_profiles", {}).get(profile):
+        return list(rows)
+    if definitions["profiles"].get(profile, {}).get("methods"):
+        return [{"id": f"alert_{profile}", "profile": profile}]
+    return []
+
+
 def resolve_rows(
     definitions: dict[str, Any], rows: list[dict[str, Any]] | tuple[dict[str, Any], ...]
 ) -> list[dict[str, Any]]:
@@ -366,7 +389,8 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
             },
             rows,
         )
-        for profile, rows in data["automation_profiles"].items()
+        for profile in ALERT_PROFILES
+        if (rows := alert_rows(data, profile))
     ]
     # Only adjacent assignments can combine without changing first-match precedence.
     for assignment, members in groupby(

@@ -71,6 +71,8 @@ Read actions need a response: use **Developer tools → Actions**, or `response_
 | [`shelve`](#homeostaticshelve) | Change | Pause an issue's notifications |
 | [`start_maintenance`](#homeostaticstart_maintenance) | Change | Hold new issues for equipment during work |
 | [`cancel_control`](#homeostaticcancel_control) | Change | End a pause or maintenance window early |
+| [`report_alert`](#homeostaticreport_alert) | Change | Report a condition from your own automation |
+| [`manage_alert`](#homeostaticmanage_alert) | Change | Retire or resume an automation's alert |
 
 ### `homeostatic.inventory`
 
@@ -279,6 +281,56 @@ action: homeostatic.cancel_control
 data:
   control_id: '<control_id>'
 ```
+
+### `homeostatic.report_alert`
+
+Hands Homeostatic a condition it doesn't check for itself. An `active` report opens an issue, `clear` ends it, and the issue gets the same notifications, acknowledgment and pausing as any other.
+
+| Field | Required | Value |
+| --- | --- | --- |
+| `automation` | Yes | The saved automation that reports the alert. Its ID keeps the alert's identity when you rename it. |
+| `alert_key` | No | A stable key, default `default`. Use different keys when one automation reports several conditions. |
+| `name` | Yes | The issue's title, up to 200 characters |
+| `message` | Yes | What's wrong now, up to 2,000 characters |
+| `profile` | Yes | The named notification that sends it: `immediate`, `acknowledge` (Immediate with acknowledgment), `morning`, `evening` or `weekly`, or `dashboard` to send nothing |
+| `state` | Yes | `active` while the condition holds, `clear` when it ends, or `unknown` when the automation can't tell |
+| `report_timeout` | No | Seconds a report stays current, from 60 to 86,400; default 300. After that the alert counts as unknown until the next report, and an open issue stays open. |
+
+Returns `node_id` and `reporting_status`: `configured`, `missing_destinations` when the named notification has no delivery method, `requests_disabled` when the **Notifications** switch is off, or `dashboard_only`.
+
+This automation reports the garage door left open after dark, and refreshes the report every five minutes:
+
+```yaml
+alias: Garage open after dark
+triggers:
+  - trigger: state
+    entity_id: cover.garage_door
+  - trigger: state
+    entity_id: sun.sun
+  - trigger: time_pattern
+    minutes: /5
+actions:
+  - action: homeostatic.report_alert
+    data:
+      automation: "{{ this.entity_id }}"
+      name: Garage door open after dark
+      message: The garage door is open and the sun has set.
+      profile: immediate
+      report_timeout: 900
+      state: >-
+        {{ 'active' if is_state('cover.garage_door', 'open')
+           and is_state('sun.sun', 'below_horizon') else 'clear' }}
+```
+
+Save it in the automation editor so it has an ID. Deleting the automation ends its alert as **Monitoring ended**.
+
+### `homeostatic.manage_alert`
+
+| Field | Required | Value |
+| --- | --- | --- |
+| `automation` | Yes | The automation that reports the alert |
+| `alert_key` | No | The same key used when reporting, default `default` |
+| `operation` | Yes | `retire` stops watching the alert and ends its issue as **Monitoring ended**; Homeostatic then refuses its reports until you `resume` it |
 
 Change actions save before they report success. If saving fails, the result is uncertain: check the current controls or acknowledgment before trying again.
 

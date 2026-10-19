@@ -12,6 +12,7 @@ from homeassistant.helpers import entity_registry as er
 
 from .catalog import Source
 from .config import Settings
+from .notification_definitions import alert_rows, resolve_rows
 
 LABEL = "homeostatic_alert_profile"
 PROFILES = ("acknowledge", "immediate", "morning", "evening", "weekly", "dashboard")
@@ -172,10 +173,10 @@ class AutomationAlerts:
             return "dashboard_only"
         if not settings.notifications:
             return "requests_disabled"
+        definitions = settings.notification_definitions
+        rows = resolve_rows(definitions, alert_rows(definitions, row["profile"]))
         return (
             "configured"
-            if settings.notification_definitions["automation_profiles"].get(
-                row["profile"]
-            )
+            if any(item["methods"] for item in rows)
             else "missing_destinations"
         )

@@ -8,6 +8,7 @@
 - Link Monitoring entity and device details to their related issues with View issue instead of repeating each issue's acknowledgment and pause controls there.
 - Use sentence case for Open entity, Open device and Stop monitoring…, which ends in an ellipsis because it opens a confirmation.
 - Remove Standard notification batching from Settings. It applied only to retired Custom assignments; the saved value is kept.
+- Send automation alerts from `homeostatic.report_alert` through the named notification matching their profile, such as Immediate or Morning summary, once it has a delivery method. Alert delivery choices saved by earlier versions still apply. Monitoring shows the named notification's current name and says when it has no delivery method.
 
 ### Removed
 
@@ -16,6 +17,7 @@
 ### Documentation
 
 - Rewrite the README and the manual in fewer, shorter pages, and trim the roadmap to open work.
+- Document `homeostatic.report_alert` and `homeostatic.manage_alert` with a worked example.
 
 ## [1.11.0] - 2026-10-18
 

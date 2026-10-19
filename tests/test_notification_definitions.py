@@ -144,6 +144,35 @@ def test_automation_profiles_apply_only_to_automation_reports(
     ] == expected
 
 
+def test_alert_uses_named_notification_with_delivery_methods() -> None:
+    """Without saved alert rows, an alert uses the named notification of its profile."""
+    data = definitions.defaults()
+    data["methods"] = {
+        "phone": {"name": "Phone", "mode": "fixed", "destinations": ["phone:one"]}
+    }
+    now = datetime(2026, 10, 14, 12, tzinfo=UTC)
+    labels = {
+        "homeostatic_alert_profile": "immediate",
+        "homeostatic_source": "situation",
+    }
+
+    def routes(value: dict[str, Any]) -> list[tuple[str, str]]:
+        policy = Policy(build_policy(definitions.generate(value), timedelta(0)))
+        alert = problem(now, node="situation:water", check="condition", labels=labels)
+        return [
+            (item.route, item.recipient)
+            for item in policy.handle(alert, now, PolicyContext())
+        ]
+
+    assert routes(data) == []
+    data["default"] = [
+        {"id": "now", "timing": {"mode": "immediate"}, "methods": ["phone"]}
+    ]
+    assert routes(data) == [("now", "method:phone")]
+    data["profiles"]["immediate"]["methods"] = ["phone"]
+    assert routes(data) == [("alert_immediate", "method:phone")]
+
+
 @pytest.mark.parametrize(
     "check,expected",
     [

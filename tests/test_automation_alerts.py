@@ -154,6 +154,41 @@ async def test_current_default_delivers_dynamic_alert_through_reload(
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
+async def test_alert_profile_reaches_named_notification(
+    hass: HomeAssistant, config_entry: MockConfigEntry, owner: str
+) -> None:
+    """A fresh alert reaches the delivery methods of the named notification it picks."""
+    definitions = config_entry.data["notification_definitions"]
+    assert definitions["automation_profiles"] == {}
+    definitions["profiles"]["immediate"]["methods"] = ["test"]
+    definitions["profiles"]["immediate"]["timing"]["collection_delay_seconds"] = 0
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
+    await start_monitor(hass, config_entry)
+    result = await report(hass, owner, profile="immediate")
+    await hass.async_block_till_done()
+    assert result["reporting_status"] == "configured"
+    assert [event.data["action"] for event in events] == ["open"]
+    assert events[0].data["recipient"] == "method:test"
+    await report(hass, owner, "clear", profile="immediate")
+    await hass.async_block_till_done()
+    assert [event.data["action"] for event in events] == ["open", "resolve"]
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+
+
+async def test_alert_profile_without_delivery_methods_sends_nothing(
+    hass: HomeAssistant, config_entry: MockConfigEntry, owner: str
+) -> None:
+    """A named notification with no delivery method leaves the alert in the panel."""
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
+    runtime = await start_monitor(hass, config_entry)
+    result = await report(hass, owner, profile="immediate")
+    await hass.async_block_till_done()
+    assert result["reporting_status"] == "missing_destinations"
+    assert runtime.episodes
+    assert events == []
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+
+
 async def test_retired_alert_blocks_reports_without_using_active_capacity(
     hass: HomeAssistant,
     config_entry: MockConfigEntry,

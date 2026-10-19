@@ -42,7 +42,7 @@
     },
     "report_alert": {
       "name": "Report alert",
-      "description": "Register or refresh an automation-owned condition. May request notifications using the selected shared profile.",
+      "description": "Report a condition from an automation. Homeostatic opens an issue while it's active and sends it through the selected named notification.",
       "fields": {
         "automation": {
           "name": "Automation",
@@ -62,7 +62,7 @@
         },
         "profile": {
           "name": "Profile",
-          "description": "Existing Homeostatic reporting preference. Does not enable outgoing requests."
+          "description": "The named notification that sends this alert, such as Immediate or Morning summary. Dashboard only sends nothing."
         },
         "state": {
           "name": "State",

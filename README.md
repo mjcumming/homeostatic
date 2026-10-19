@@ -23,6 +23,8 @@ Out of the box:
 
 From the same panel you can add policies for low batteries, vacuum errors, UPS power and battery, temperature limits for a freezer or a room, and thermostats that can't reach their target.
 
+For anything else, such as a garage door left open after dark, an automation can report the condition with the `homeostatic.report_alert` action. Homeostatic opens an issue while the condition lasts and sends it through the named notification you choose, the same way as its own checks. Going the other way, the `homeostatic_episode` event lets your automations react when an issue opens or ends. The [automation reference](docs/reference.md#homeostaticreport_alert) has an example.
+
 Notifications go wherever Home Assistant can send them: the Companion app on your phone, a speaker, email, SMS or another notify service. When one arrives, **Acknowledge** tells everyone you've seen it and stops any reminders, **Pause** silences it for 1, 4 or 24 hours, and **Stop monitoring…** stops watching an entity you don't care about. You can acknowledge straight from the phone notification.
 
 **Open issues** groups what's wrong by integration and device:

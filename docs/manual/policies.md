@@ -55,3 +55,7 @@ To undo it, find the entity in **Monitoring** (**More filters → Availability e
 | Repairs, Broken automations | On from the start, covering everything. | Fix the Repair in Home Assistant, or edit the automation that names a missing entity. |
 
 [Defaults and settings](settings-reference.md#monitoring-types) lists what each type reads and what ends its issues.
+
+## Conditions from your own automations
+
+For a condition no policy covers, such as a garage door left open after dark, write an automation that calls [`homeostatic.report_alert`](../reference.md#homeostaticreport_alert). The automation decides whether the condition is active and picks a named notification; Homeostatic opens the issue, sends it and ends it when the automation reports clear. **Monitoring** lists the alert under **Configured situations**, with its named notification and a link to the automation.
