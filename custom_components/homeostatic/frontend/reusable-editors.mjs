@@ -1,7 +1,7 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=103";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=103";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=103";
-import {entitySelection,entityScopeSummary,editEntitySelection} from "./entity-selection.mjs?v=103";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=104";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=104";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=104";
+import {entitySelection,entityScopeSummary,editEntitySelection} from "./entity-selection.mjs?v=104";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 

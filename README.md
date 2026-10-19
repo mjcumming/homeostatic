@@ -31,7 +31,7 @@ Browse equipment by integration, Home Assistant location, or optional [TopoMatio
 
 ## Install and get started
 
-Upgrading from older notification settings can replace those settings with fresh defaults and sending off. Current-format settings are preserved. Read the [upgrade notes](CHANGELOG.md) before installing.
+Upgrades preserve saved monitoring and notification choices. Read the [upgrade guide](docs/manual/maintain-installation.md) and the target release's [upgrade notes](CHANGELOG.md) before updating an existing installation.
 
 You need Home Assistant 2026.9.3 or newer and an administrator account. The first load needs internet access to install its Python dependency; Homeostatic then runs locally.
 

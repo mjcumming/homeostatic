@@ -115,6 +115,25 @@ test("a shared availability issue hides a member's earlier problem through missi
   assert.deepEqual(visibleEpisodes(data),[],"A loaded integration does not turn a gap-only member into a problem");
 });
 
+test("retained availability without findings follows every contributor's current evidence",()=>{
+  const data=example(),anchor=source("availability:entity",{check_id:"availability"});
+  const episode={episode_id:"retained",anchor:anchor.node_id,status:"unknown",recorded:[],reasons:[]};
+  const status={current:{status:"unknown",reason:"restored_state"},last_failure:{status:"warn",reason:"unavailable"}};
+  data.inventory.nodes=[anchor];data.inventory.episodes=[episode];data.inventory.entity_status={[anchor.node_id]:status};
+  const before=structuredClone(data);
+  assert.deepEqual(visibleEpisodes(data),[],"An unknown hold need not expose an unknown finding yet");
+  assert.deepEqual(data,before,"Hiding a current badge cannot clear the retained issue or failure");
+  episode.recorded.push("missing:contributor");
+  assert.deepEqual(visibleEpisodes(data),[episode],"Missing contributors cannot be assumed to contain only gaps");
+  const member=source("missing:contributor",{check_id:"availability"});data.inventory.nodes.push(member);
+  data.inventory.entity_status[member.node_id]={current:{status:"warn",reason:"unavailable"}};
+  assert.deepEqual(visibleEpisodes(data),[episode],"A warning from any recorded contributor stays visible");
+  data.inventory.entity_status[member.node_id].current={status:"unknown",reason:"source_missing"};
+  assert.deepEqual(visibleEpisodes(data),[],"Complete current gaps suffice without synthetic findings");
+  member.kind="entity_not_provided";member.check_id="entity_not_provided";
+  assert.deepEqual(visibleEpisodes(data),[episode],"Condition-specific evidence never becomes an availability gap");
+});
+
 
 
 

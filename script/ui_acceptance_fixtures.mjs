@@ -55,6 +55,53 @@ async function configure(page, viewport, colorScheme) {
   }
 }
 
+/** Exercise the actual pointer/keyboard scroll path below a wrapping sticky header. */
+async function compactInspectorNavigation(page, artifactDir, colorScheme) {
+  for (const width of [320, 390]) for (const enlarged of [false, true]) {
+    await page.setViewportSize({width, height: 844});
+    await page.goto(new URL("/tests/frontend/monitoring-inspector.html", page.url()).href, {waitUntil: "load"});
+    await page.locator("#width").selectOption(String(width));
+    await page.locator("#theme").selectOption(colorScheme);
+    if (enlarged) await page.locator("homeostatic-panel").evaluate(panel => {
+      const style = panel.shadowRoot.querySelector("style");
+      style.textContent = style.textContent.replace(/font-size:([\d.]+)(px|rem|em)/g,
+        (_, size, unit) => `font-size:${Number(size) * 2}${unit}`);
+    });
+    await page.locator("[data-sources-search]").fill("3rd Floor");
+    for (const keyboard of [false, true]) {
+      const row = page.locator('[data-sources-select="source:entity:third-floor-temperature"]');
+      if (keyboard) {await row.focus(); await page.keyboard.press("Enter");}
+      else await row.click();
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      try {await page.waitForFunction(() => {
+        const root = document.querySelector("homeostatic-panel").shadowRoot;
+        const header = root.querySelector(".shell > .header").getBoundingClientRect();
+        return ["#sources-detail-title", "[data-action=back-sources]"].every(selector => {
+          const element = root.querySelector(selector), rect = element.getBoundingClientRect();
+          const hit = root.elementFromPoint(rect.left + rect.width / 2, (rect.top + Math.min(rect.bottom, innerHeight)) / 2);
+          return rect.top >= header.bottom && rect.top < innerHeight && (hit === element || element.contains(hit));
+        });
+      }, null, {timeout: 3000});} catch (error) {
+        const geometry = await page.locator("homeostatic-panel").evaluate(panel => Object.fromEntries([".shell > .header", "#sources-detail-title", "[data-action=back-sources]"].map(selector => {
+          const element = panel.shadowRoot.querySelector(selector), rect = element.getBoundingClientRect();
+          return [selector, {top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right,
+            headingMargin: getComputedStyle(panel.shadowRoot.querySelector(".source-heading")).scrollMarginTop,
+            scrolling: document.scrollingElement.scrollTop,
+            ancestors: [...panel.shadowRoot.querySelectorAll(".shell,main,.sources-workspace,.config-layout,.config-detail")].map(node => ({name: node.className || node.tagName, top: node.scrollTop, overflow: getComputedStyle(node).overflowY}))}];
+        })));
+        throw Error(`${width}px enlarged=${enlarged} keyboard=${keyboard}: ${error.message}; ${JSON.stringify(geometry)}`);
+      }
+      assert.equal(await page.locator(".config-detail").evaluate(element => element.scrollWidth <= element.clientWidth + 1), true, "Enlarged source details fit their pane");
+      assert.equal(await page.locator("#sources-detail-title").evaluate(title => title.getRootNode().activeElement === title), true, `Title focus at ${width}px, enlarged=${enlarged}, keyboard=${keyboard}`);
+      await page.screenshot({path: join(artifactDir, `inspector-navigation-${width}-${enlarged ? "enlarged" : "normal"}-${keyboard ? "keyboard" : "pointer"}.png`)});
+      const back = page.locator("[data-action=back-sources]");
+      if (keyboard) {await back.focus(); await page.keyboard.press("Enter");}
+      else await back.click();
+      assert.equal(await row.evaluate(element => element.getRootNode().activeElement === element), true, `Return focus at ${width}px, enlarged=${enlarged}, keyboard=${keyboard}`);
+    }
+  }
+}
+
 /** Run every inventory-backed fixture once, preserving its explicit coverage claims. */
 export async function runFixtures({browser, baseURL, artifactDir, record, viewport = {width: 1200, height: 900}, colorScheme = "light", group = "all"}) {
   if (!["all", "issues", "policies", "notifications", "layout"].includes(group)) throw Error(`Unknown fixture group: ${group}`);
@@ -191,6 +238,11 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
           }, null, {timeout});
         } catch (error) {native.status = "fail"; native.evidence = [error.message];}
         result.stages.push({name: "native filter dismissal", receipt: {results: [native]}, messages: [], feedback: `${native.status.toUpperCase()}: ${native.evidence.join(" ")}`});
+        const navigation = {id: "sources.compact-inspector-details", status: "pass", evidence: ["Pointer and Enter open entity details at 320 and 390 pixels with normal and doubled text. The title and Back to Monitoring remain below the wrapped header, receive focus and support return to the selected row."]};
+        try {await compactInspectorNavigation(page, artifactDir, colorScheme);}
+        catch (error) {navigation.status = "fail"; navigation.evidence = [error.message];}
+        result.stages.push({name: "native compact inspector navigation", receipt: {results: [navigation]}, messages: [], feedback: `${navigation.status.toUpperCase()}: ${navigation.evidence.join(" ")}`});
+        await page.setViewportSize(viewport);
       }
       if (fixture === "individual-issue.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
         const native={id:"issues.individual",status:"pass",evidence:["Native Enter opens the named notification and Back restores the device issues; device, policy, notification and response controls fit with doubled text."]};

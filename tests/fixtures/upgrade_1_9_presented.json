@@ -1,0 +1,696 @@
+{
+  "data": {
+    "monitoring_policy_version": 1,
+    "monitoring_policies": [
+      {
+        "id": "observed",
+        "name": "observed",
+        "check": "availability",
+        "match": {
+          "kind": [
+            "entity"
+          ],
+          "entity": [
+            "entity_id:sensor.observed"
+          ]
+        },
+        "parameters": {},
+        "enabled": true,
+        "notifications": [
+          {
+            "id": "now",
+            "profile": "immediate"
+          }
+        ]
+      }
+    ],
+    "notification_definitions": {
+      "timezone": "UTC",
+      "methods": {
+        "test": {
+          "name": "Test consumer",
+          "mode": "fixed",
+          "destinations": [
+            "service:homeostatic_test"
+          ]
+        }
+      },
+      "profiles": {
+        "immediate": {
+          "name": "Immediate",
+          "timing": {
+            "mode": "immediate"
+          },
+          "methods": [
+            "test"
+          ]
+        },
+        "acknowledge": {
+          "name": "Immediate with acknowledgment",
+          "timing": {
+            "mode": "acknowledge",
+            "remind_every": 1800
+          },
+          "methods": []
+        },
+        "urgent": {
+          "name": "Urgent",
+          "timing": {
+            "mode": "window",
+            "start": "08:00",
+            "end": "22:00"
+          },
+          "methods": []
+        },
+        "morning": {
+          "name": "Morning summary",
+          "timing": {
+            "mode": "report",
+            "at": "08:00",
+            "weekdays": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ]
+          },
+          "methods": []
+        },
+        "evening": {
+          "name": "Evening summary",
+          "timing": {
+            "mode": "report",
+            "at": "18:00",
+            "weekdays": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ]
+          },
+          "methods": []
+        },
+        "weekly": {
+          "name": "Weekly summary",
+          "timing": {
+            "mode": "report",
+            "at": "08:00",
+            "weekdays": [
+              6
+            ]
+          },
+          "methods": []
+        }
+      },
+      "default": [],
+      "repairs": [],
+      "broken_automations": [],
+      "assignments": {},
+      "automation_profiles": {}
+    },
+    "notifications": true,
+    "consumer": "automation.homeostatic_test_consumer",
+    "timings": {
+      "settle": 0,
+      "rejoin_grace": 0,
+      "startup_grace": 0,
+      "startup_quiet_max": 600,
+      "coalesce_count": 3,
+      "coalesce_window": 60,
+      "batch": 0,
+      "clear_hold": 0,
+      "unknown_hold": 30,
+      "retry_hold": 20
+    }
+  },
+  "snapshot": {
+    "schema_version": 3,
+    "monitoring_identities": {},
+    "monitoring_scopes": {
+      "observed": []
+    },
+    "temperature_monitors": {},
+    "ups_monitors": {},
+    "automation_alerts": {},
+    "repairs": {},
+    "broken_automations": {},
+    "phone_actions": {},
+    "enrollment": {
+      "entity:entity_id:sensor.observed": {
+        "kind": [
+          "entity"
+        ],
+        "entity": [
+          "entity_id:sensor.observed"
+        ],
+        "domain": [
+          "sensor"
+        ]
+      }
+    },
+    "resolved_history": {
+      "schema_version": 1,
+      "started_at": "2026-10-19T12:00:00+00:00",
+      "episodes": []
+    },
+    "integration_evidence": {},
+    "check_evidence": {
+      "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed": {
+        "current": {
+          "reason": "unavailable",
+          "message": "unavailable",
+          "observed_at": "2026-10-19T12:00:00+00:00",
+          "status": "warn"
+        },
+        "last_failure": {
+          "reason": "unavailable",
+          "message": "unavailable",
+          "observed_at": "2026-10-19T12:00:00+00:00",
+          "status": "warn"
+        },
+        "history_complete": true
+      }
+    },
+    "operator_controls": [],
+    "engine": {
+      "schema_version": 1,
+      "now": "2026-10-19T12:00:00+00:00",
+      "ids": [
+        1792411200000,
+        0
+      ],
+      "windows": [],
+      "checks": [
+        {
+          "node_id": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+          "check_id": "availability",
+          "effective": "warn",
+          "since": "2026-10-19T12:00:00+00:00",
+          "reason": "unavailable",
+          "message": "observed \u00b7 observed: unavailable",
+          "due_at": null,
+          "pending": null,
+          "pending_since": null,
+          "observation": {
+            "node_id": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+            "check_id": "availability",
+            "status": "warn",
+            "reason": "unavailable",
+            "observed_at": "2026-10-19T12:00:00+00:00",
+            "message": "observed \u00b7 observed: unavailable",
+            "evidence": {
+              "entity_id": "sensor.observed",
+              "state": "unavailable",
+              "physical_freshness_verified": false
+            },
+            "due_at": null
+          },
+          "expired": false,
+          "problem_known": true,
+          "stale_at": "2026-10-19T12:00:30+00:00"
+        }
+      ],
+      "nodes": [
+        {
+          "node_id": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+          "onset": "2026-10-19T12:00:00+00:00",
+          "probed": [],
+          "grace_until": null,
+          "dependency_failed": false
+        },
+        {
+          "node_id": "entity:entity_id:sensor.observed",
+          "onset": null,
+          "probed": [],
+          "grace_until": null,
+          "dependency_failed": false
+        }
+      ],
+      "episodes": [
+        {
+          "episode_id": "01a15408-6a00-7000-b821-ddaf41fd5f52",
+          "form": "root",
+          "anchor": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+          "opened_at": "2026-10-19T12:00:00+00:00",
+          "members": {},
+          "members_since": null,
+          "absorbed": [],
+          "holding": [],
+          "holding_until": null,
+          "view": {
+            "episode_id": "01a15408-6a00-7000-b821-ddaf41fd5f52",
+            "form": "root",
+            "anchor": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+            "status": "warn",
+            "reasons": [
+              {
+                "node_id": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+                "check_id": "availability",
+                "status": "warn",
+                "reason": "unavailable",
+                "since": "2026-10-19T12:00:00+00:00",
+                "message": "observed \u00b7 observed: unavailable",
+                "due_at": null,
+                "labels": {
+                  "category": "fault"
+                },
+                "annotations": {}
+              }
+            ],
+            "recorded": [],
+            "impact": [],
+            "importance": "normal",
+            "opened_at": "2026-10-19T12:00:00+00:00",
+            "updated_at": "2026-10-19T12:00:00+00:00",
+            "due_at": null,
+            "absorbed": [],
+            "labels": {
+              "name": "observed \u00b7 observed",
+              "homeostatic_source": "entity",
+              "source": "home_assistant"
+            },
+            "annotations": {}
+          }
+        }
+      ]
+    },
+    "policy": {
+      "schema_version": 4,
+      "routes": {
+        "policy_observed_now": {
+          "schema_version": 3,
+          "now": "2026-10-19T12:00:00+00:00",
+          "next_digest": {},
+          "shelves": {},
+          "tracked": [
+            {
+              "episode": {
+                "episode_id": "01a15408-6a00-7000-b821-ddaf41fd5f52",
+                "form": "root",
+                "anchor": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+                "status": "warn",
+                "reasons": [
+                  {
+                    "node_id": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+                    "check_id": "availability",
+                    "status": "warn",
+                    "reason": "unavailable",
+                    "since": "2026-10-19T12:00:00+00:00",
+                    "message": "observed \u00b7 observed: unavailable",
+                    "due_at": null,
+                    "labels": {
+                      "category": "fault"
+                    },
+                    "annotations": {}
+                  }
+                ],
+                "recorded": [],
+                "impact": [],
+                "importance": "normal",
+                "opened_at": "2026-10-19T12:00:00+00:00",
+                "updated_at": "2026-10-19T12:00:00+00:00",
+                "due_at": null,
+                "absorbed": [],
+                "labels": {
+                  "name": "observed \u00b7 observed",
+                  "homeostatic_source": "entity",
+                  "source": "home_assistant"
+                },
+                "annotations": {}
+              },
+              "sent_to": [
+                "method:test"
+              ],
+              "pending": [],
+              "digested": false,
+              "last_sent": "2026-10-19T12:00:00+00:00",
+              "attention_since": null,
+              "sent_at": {
+                "method:test": "2026-10-19T12:00:00+00:00"
+              },
+              "acknowledgment": null
+            }
+          ]
+        }
+      }
+    },
+    "policy_settings": {
+      "definitions": {
+        "timezone": "UTC",
+        "methods": {
+          "test": {
+            "mode": "fixed",
+            "destinations": [
+              "service:homeostatic_test"
+            ]
+          }
+        },
+        "profiles": {
+          "immediate": {
+            "timing": {
+              "mode": "immediate"
+            },
+            "methods": [
+              "test"
+            ]
+          },
+          "acknowledge": {
+            "timing": {
+              "mode": "acknowledge",
+              "remind_every": 1800
+            },
+            "methods": []
+          },
+          "urgent": {
+            "timing": {
+              "mode": "window",
+              "start": "08:00",
+              "end": "22:00"
+            },
+            "methods": []
+          },
+          "morning": {
+            "timing": {
+              "mode": "report",
+              "at": "08:00",
+              "weekdays": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ]
+            },
+            "methods": []
+          },
+          "evening": {
+            "timing": {
+              "mode": "report",
+              "at": "18:00",
+              "weekdays": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ]
+            },
+            "methods": []
+          },
+          "weekly": {
+            "timing": {
+              "mode": "report",
+              "at": "08:00",
+              "weekdays": [
+                6
+              ]
+            },
+            "methods": []
+          }
+        },
+        "default": [],
+        "repairs": [],
+        "broken_automations": [],
+        "assignments": {},
+        "automation_profiles": {}
+      },
+      "assignments": {
+        "observed": [
+          {
+            "id": "now",
+            "profile": "immediate"
+          }
+        ]
+      },
+      "batch": 0
+    },
+    "attention_routes": {
+      "policy_observed_now": {
+        "rules": [
+          {
+            "match": {
+              "status": [
+                "unknown"
+              ],
+              "importance": null,
+              "reason": null,
+              "category": null,
+              "labels": {},
+              "age": null,
+              "due_within": null,
+              "nodes": null,
+              "checks": [
+                "availability"
+              ],
+              "excluded_checks": []
+            },
+            "loudness": "record",
+            "to": [],
+            "digest": null,
+            "remind_every": null,
+            "escalate_after": null,
+            "require_acknowledgment": false,
+            "route": "policy_observed_now"
+          },
+          {
+            "match": {
+              "status": [
+                "unknown"
+              ],
+              "importance": null,
+              "reason": null,
+              "category": [
+                "temperature"
+              ],
+              "labels": {},
+              "age": null,
+              "due_within": null,
+              "nodes": null,
+              "checks": null,
+              "excluded_checks": []
+            },
+            "loudness": "record",
+            "to": [],
+            "digest": null,
+            "remind_every": null,
+            "escalate_after": null,
+            "require_acknowledgment": false,
+            "route": "policy_observed_now"
+          },
+          {
+            "match": {
+              "status": null,
+              "importance": null,
+              "reason": null,
+              "category": null,
+              "labels": {},
+              "age": null,
+              "due_within": null,
+              "nodes": [
+                "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed"
+              ],
+              "checks": null,
+              "excluded_checks": []
+            },
+            "loudness": "urgent",
+            "to": [
+              "method:test"
+            ],
+            "digest": null,
+            "remind_every": null,
+            "escalate_after": null,
+            "require_acknowledgment": false,
+            "route": "policy_observed_now"
+          },
+          {
+            "match": {
+              "status": null,
+              "importance": null,
+              "reason": null,
+              "category": null,
+              "labels": {
+                "homeostatic_source": "repair"
+              },
+              "age": null,
+              "due_within": null,
+              "nodes": null,
+              "checks": null,
+              "excluded_checks": []
+            },
+            "loudness": "record",
+            "to": [],
+            "digest": null,
+            "remind_every": null,
+            "escalate_after": null,
+            "require_acknowledgment": false,
+            "route": "policy_observed_now"
+          },
+          {
+            "match": {
+              "status": null,
+              "importance": null,
+              "reason": null,
+              "category": null,
+              "labels": {
+                "homeostatic_source": "broken_automation"
+              },
+              "age": null,
+              "due_within": null,
+              "nodes": null,
+              "checks": null,
+              "excluded_checks": []
+            },
+            "loudness": "record",
+            "to": [],
+            "digest": null,
+            "remind_every": null,
+            "escalate_after": null,
+            "require_acknowledgment": false,
+            "route": "policy_observed_now"
+          },
+          {
+            "match": {
+              "status": null,
+              "importance": null,
+              "reason": null,
+              "category": null,
+              "labels": {},
+              "age": null,
+              "due_within": null,
+              "nodes": null,
+              "checks": null,
+              "excluded_checks": []
+            },
+            "loudness": "record",
+            "to": [],
+            "digest": null,
+            "remind_every": null,
+            "escalate_after": null,
+            "require_acknowledgment": false,
+            "route": "policy_observed_now"
+          }
+        ],
+        "digests": {},
+        "methods": {
+          "method:test": {
+            "mode": "fixed",
+            "destinations": [
+              "service:homeostatic_test"
+            ]
+          }
+        },
+        "timezone": "UTC",
+        "batch": 0
+      }
+    },
+    "episodes": {
+      "01a15408-6a00-7000-b821-ddaf41fd5f52": {
+        "episode_id": "01a15408-6a00-7000-b821-ddaf41fd5f52",
+        "form": "root",
+        "anchor": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+        "status": "warn",
+        "reasons": [
+          {
+            "node_id": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+            "check_id": "availability",
+            "status": "warn",
+            "reason": "unavailable",
+            "since": "2026-10-19T12:00:00+00:00",
+            "message": "observed \u00b7 observed: unavailable",
+            "due_at": null,
+            "labels": {
+              "category": "fault"
+            },
+            "annotations": {}
+          }
+        ],
+        "recorded": [],
+        "impact": [],
+        "importance": "normal",
+        "opened_at": "2026-10-19T12:00:00+00:00",
+        "updated_at": "2026-10-19T12:00:00+00:00",
+        "due_at": null,
+        "absorbed": [],
+        "labels": {
+          "name": "observed \u00b7 observed",
+          "homeostatic_source": "entity",
+          "source": "home_assistant"
+        },
+        "annotations": {}
+      }
+    },
+    "notifications": [
+      "01a15408-6a00-7000-b821-ddaf41fd5f52"
+    ],
+    "notifications_enabled": true,
+    "delivery": {
+      "sequence": 1,
+      "messages": {
+        "method:test:01a15408-6a00-7000-b821-ddaf41fd5f52_route_policy_observed_now": {
+          "schema_version": 1,
+          "entry_id": "legacy-upgrade",
+          "episode_id": "01a15408-6a00-7000-b821-ddaf41fd5f52",
+          "tag": "homeostatic_legacy-upgrade_device_c06da733182f00572621eb3e899298277695af840eb4aff6ba434395868412bb",
+          "title": "observed",
+          "notification_subject": "entity:entity_id:sensor.observed",
+          "notification_subject_name": "observed",
+          "age": "0h",
+          "message": "observed \u00b7 observed: unavailable",
+          "functions": [],
+          "cause": "monitoring:observed:8bd1ea7f13ee91ba:entity:entity_id:sensor.observed",
+          "loudness": "urgent",
+          "recipient": "method:test",
+          "route": "policy_observed_now",
+          "channels": [
+            "service:homeostatic_test"
+          ],
+          "_target_channels": [
+            "service:homeostatic_test"
+          ],
+          "silent": false,
+          "action": "open",
+          "digest": null,
+          "previously_reported": false,
+          "group": "device_c06da733182f00572621eb3e899298277695af840eb4aff6ba434395868412bb"
+        }
+      },
+      "outbox": [],
+      "summarized": [],
+      "attempted": [
+        "legacy-upgrade:1:service:homeostatic_test"
+      ],
+      "delivery_groups": {
+        "schema_version": 1,
+        "members": [
+          {
+            "group_id": "entity:entity_id:sensor.observed:a3af1bf293c60d3295ec11b97a4e55e0eef6c8264974ebf0e39f047ebb165e38",
+            "notification": {
+              "episode_id": "01a15408-6a00-7000-b821-ddaf41fd5f52",
+              "recipient": "method:test",
+              "channels": [
+                "service:homeostatic_test"
+              ],
+              "loudness": "urgent",
+              "digest": null,
+              "silent": false,
+              "cause": "open",
+              "previously_reported": false,
+              "route": "policy_observed_now"
+            }
+          }
+        ]
+      }
+    },
+    "retry_since": {}
+  }
+}

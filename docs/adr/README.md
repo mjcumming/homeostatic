@@ -4,6 +4,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0105](0105-preserve-settings-when-adding-collection-delays.md) | Preserve installed settings when adding collection delays | Accepted; supersedes only the release-reset exception in 0102 |
 | [0104](0104-entities-not-provided-policy.md) | Report entities not provided through a separate policy | Accepted; adds a persistent maintenance condition without changing availability or offering entity deletion |
 | [0103](0103-entity-availability-with-grouped-selection.md) | Monitor entity availability with one grouped selection tree | Accepted; retires device policies and inferred device status; preserves saved coverage through entity migration; collapsed integration/device branches |
 | [0102](0102-collect-requests-by-saved-notification.md) | Collect requests by saved notification before delivery | Accepted; extends timing in 0066 and replaces device-based reusable message grouping in 0064; shared issues are not required |

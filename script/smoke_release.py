@@ -11,11 +11,13 @@ from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 from zipfile import ZipFile
 
 from aiohttp import ClientSession
 from homeassistant import bootstrap
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.core import ServiceCall
 from homeassistant.runner import RuntimeConfig, create_event_loop
 from homeassistant.util import dt as dt_util
 
@@ -64,6 +66,18 @@ async def exercise(config: Path, port: int) -> None:
         assert entry.data["monitoring_policy_version"] == 1
         assert len(entry.data["monitoring_policies"]) == 8
         assert {
+            item["id"]: item["enabled"] for item in entry.data["monitoring_policies"]
+        } == {
+            "default_integrations": True,
+            "default_entities": True,
+            "default_important_equipment": True,
+            "default_repairs": True,
+            "default_broken_automations": True,
+            "default_batteries": False,
+            "default_vacuums": False,
+            "default_entities_not_provided": True,
+        }
+        assert {
             item["id"]: item["notifications"]
             for item in entry.data["monitoring_policies"]
         } == {
@@ -108,11 +122,20 @@ async def exercise(config: Path, port: int) -> None:
         assert not entry.runtime_data.query("inventory", {})["notification_requests"]
 
         # Published 1.9 settings used these named timing shapes without a delay.
-        # Exercise the authorized reset through real setup, using only a fake route.
+        # Preserve selected settings through real setup, with a captured-only route.
+        captured_requests: list[dict[str, Any]] = []
+
+        async def capture_notification(call: ServiceCall) -> None:
+            """Capture the isolated destination without contacting a provider."""
+            captured_requests.append(dict(call.data))
+
+        hass.services.async_register(
+            "notify", "homeostatic_smoke", capture_notification
+        )
         fresh = deepcopy(dict(entry.data))
         legacy = deepcopy(fresh)
         legacy["notifications"] = True
-        legacy["consumer"] = "automation.legacy_consumer"
+        legacy["consumer"] = None
         legacy["timings"]["batch"] = 123
         legacy_definitions = legacy["notification_definitions"]
         for profile in legacy_definitions["profiles"].values():
@@ -121,7 +144,7 @@ async def exercise(config: Path, port: int) -> None:
             "legacy": {
                 "name": "Legacy destination",
                 "mode": "fixed",
-                "destinations": ["service:legacy_unused"],
+                "destinations": ["service:homeostatic_smoke"],
             }
         }
         legacy_definitions["profiles"]["immediate"].update(
@@ -133,24 +156,51 @@ async def exercise(config: Path, port: int) -> None:
                 "name": "Legacy entity choice",
                 "check": "availability",
                 "enabled": True,
-                "match": {"kind": ["entity"]},
+                "match": {
+                    "kind": ["entity"],
+                    "entity": ["entity_id:sensor.pilot_source"],
+                },
+                "excluded_sources": ["entity:entity_id:sensor.ignored"],
                 "parameters": {},
                 "notifications": [{"id": "now", "profile": "immediate"}],
-            }
+            },
+            deepcopy(
+                next(
+                    item
+                    for item in fresh["monitoring_policies"]
+                    if item["id"] == "default_batteries"
+                )
+            ),
         ]
+        legacy["monitoring_policies"][1]["enabled"] = False
+        del legacy_definitions["profiles"]["evening"]
+        del legacy_definitions["profiles"]["weekly"]
+        expected = deepcopy(legacy)
+        for profile in expected["notification_definitions"]["profiles"].values():
+            if profile["timing"]["mode"] != "report":
+                profile["timing"]["collection_delay_seconds"] = 0
         hass.config_entries.async_update_entry(entry, options=legacy)
-        assert await hass.config_entries.async_reload(entry.entry_id)
-        await hass.async_block_till_done()
-        assert entry.state is ConfigEntryState.LOADED, entry.state
-        assert dict(entry.data) == fresh, "Legacy settings did not reset to defaults"
-        assert not entry.options, "Legacy options still override the reset settings"
-        assert not entry.runtime_data.settings.notifications
-        assert not entry.runtime_data.query("inventory", {})["notification_requests"]
+        for _ in range(2):
+            assert await hass.config_entries.async_reload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert entry.state is ConfigEntryState.LOADED, entry.state
+            assert dict(entry.data) == expected, "Upgrade changed saved choices"
+            assert not entry.options, "Converted options were not consolidated"
+            assert entry.runtime_data.settings.notifications
+            assert entry.runtime_data.settings.consumer is None
+            assert not entry.runtime_data.query("inventory", {})[
+                "notification_requests"
+            ]
+            assert not captured_requests, (
+                "Upgrade unexpectedly requested a notification"
+            )
 
         hass.config_entries.async_update_entry(
             entry,
             options={
                 **entry.data,
+                "notifications": False,
+                "consumer": None,
                 "timings": {
                     **entry.data["timings"],
                     "startup_grace": 0,
@@ -173,7 +223,7 @@ async def exercise(config: Path, port: int) -> None:
                     },
                     next(
                         item
-                        for item in entry.data["monitoring_policies"]
+                        for item in fresh["monitoring_policies"]
                         if item["id"] == "default_repairs"
                     ),
                 ],
@@ -272,6 +322,7 @@ async def exercise(config: Path, port: int) -> None:
         assert entry.runtime_data.query("resolved_history", {}) == history
         assert entry.runtime_data.query("operator_controls", {}) is not None
         assert not entry.runtime_data.query("inventory", {})["notification_requests"]
+        assert not captured_requests
     finally:
         await hass.async_stop()
 

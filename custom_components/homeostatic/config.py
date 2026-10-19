@@ -159,14 +159,14 @@ class Settings:
         return timedelta(seconds=self.timings[key])
 
 
-def uses_legacy_notification_settings(data: Mapping[str, Any]) -> bool:
-    """Recognize valid saved settings from before named collection delays."""
+def migrate_notification_settings(data: dict[str, Any]) -> dict[str, Any]:
+    """Add zero delay to the older named format before full setup validation."""
     definitions = data.get("notification_definitions")
     if not isinstance(definitions, dict):
-        return False
+        return data
     profiles = definitions.get("profiles")
     if not isinstance(profiles, dict):
-        return False
+        return data
     collecting = [
         identity
         for identity, profile in profiles.items()
@@ -178,27 +178,14 @@ def uses_legacy_notification_settings(data: Mapping[str, Any]) -> bool:
         "collection_delay_seconds" in profiles[identity]["timing"]
         for identity in collecting
     ):
-        return False
-    candidate = deepcopy(dict(data))
+        return data
+    candidate = deepcopy(data)
     for identity in collecting:
         candidate["notification_definitions"]["profiles"][identity]["timing"][
             "collection_delay_seconds"
         ] = 0
-    # Validate the published device-policy shape before the authorized reset.
-    # This copy is discarded; current policies still reject device checks.
-    policies = candidate.get("monitoring_policies")
-    if isinstance(policies, list):
-        for row in policies:
-            if (
-                isinstance(row, dict)
-                and row.get("check") == "availability"
-                and isinstance(row.get("match"), dict)
-                and row["match"].get("kind") in (["device"], "device")
-            ):
-                row["match"]["kind"] = ["entity"]
-    # The old shape alone cannot turn unrelated corruption into a settings reset.
-    Settings.from_data(candidate, functions_enabled=False)
-    return True
+    # Device-policy conversion and complete validation precede any storage write.
+    return candidate
 
 
 def entity_reference(hass: HomeAssistant, entity_id: str) -> str:

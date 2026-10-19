@@ -167,6 +167,11 @@ export class WorkspaceNavigation {
   }
 
   applyPath(path,historyState = null) {
+    if(!historyState && this.enabled && window.location.pathname === `/homeostatic${path.split("?")[0]}`) {
+      const saved=window.history?.state?.homeostatic;
+      // A native HA visit can recreate the panel before its popstate listener exists.
+      if(saved?.route && workspacePath(saved.route) === workspacePath(parseWorkspacePath(path)))historyState=saved;
+    }
     const route = historyState?.route || parseWorkspacePath(path);
     const normalized = workspacePath(route);
     if(normalized === this.lastPath && (!historyState?.id || historyState.id === this.currentId))return;

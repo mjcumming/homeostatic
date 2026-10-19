@@ -32,7 +32,7 @@ You need access to the Home Assistant configuration directory, such as through a
 3. Extract the archive and copy its `custom_components/homeostatic` directory into your Home Assistant configuration directory. The resulting path must be `<config>/custom_components/homeostatic/manifest.json`, with no extra enclosing folder.
 4. Restart Home Assistant, then refresh the browser.
 
-If an older Homeostatic directory is present, follow the [upgrade procedure](manual/maintain-installation.md#upgrade) to replace it completely and retain a rollback copy.
+If an older Homeostatic directory is present, follow the [upgrade procedure](manual/maintain-installation.md#upgrade) to replace it completely while preserving saved settings.
 
 ## Add the integration
 

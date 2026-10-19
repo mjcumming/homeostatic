@@ -31,6 +31,21 @@ export async function runPolicyGaps(ctx) {
     return async()=>{const result=await outcome;if(result.error)throw result.error;return result.request;};
   };
 
+  await test("policies.not-provided",async()=>{
+    const before=await snapshot(),id=await addPolicy("entity_not_provided","Missing diagnostic readings"),duration=field("parameters:duration_seconds");
+    assert.equal(await at(duration).inputValue(),"24");assert.equal(await at(field("enabled")).isChecked(),false);
+    assert.equal(await at(field("entity-choice")).count(),0,"Entity tree starts collapsed");
+    const identity=key=>`entity:registry:${lab.registry_ids[key]}`,choice=key=>`${field("entity-choice")}[data-definition-value="${identity(key)}"]`;
+    await fill(field("entity-search"),lab.entities.diagnostic);await at(choice("diagnostic")).waitFor();assert.equal(await at(choice("diagnostic")).isChecked(),true);assert.equal(await at(choice("diagnostic")).isDisabled(),false,"Enabled diagnostics are eligible");
+    await fill(field("entity-search"),lab.entities.disabled);assert.equal(await at(choice("disabled")).isDisabled(),true,"Disabled registrations cannot be selected");
+    await fill(field("entity-search"),lab.entities.offline);await check(choice("offline"),false);await check(field("enabled"),true);
+    await invalid(before,duration,"-1");await fill(duration,"2");
+    const count=transport.saveRequests;transport.mode="reject";await click(action("save-scoped"));await waitError();assert.equal(transport.saveRequests,count+1);await noChange(before);assert.equal(await at(duration).inputValue(),"2");assert.equal(await at(choice("offline")).isChecked(),false);
+    await save();const saved=await snapshot(),created=policy(saved,id);assert.equal(created.name,"Missing diagnostic readings");assert.equal(created.enabled,true);assert.equal(created.check,"entity_not_provided");assert.deepEqual(created.match,{kind:["entity"]});assert.deepEqual(created.parameters,{duration_seconds:7200});assert.deepEqual(created.excluded_sources,[identity("offline")]);await expectPolicy(before,id,created);
+    await edit("policies",id);assert.equal(await at(duration).inputValue(),"2");await fill(field("entity-search"),lab.entities.offline);assert.equal(await at(choice("offline")).isChecked(),false);await fill(duration,"3");await discard();assert.equal(await at(duration).inputValue(),"2");await noChange(saved);
+    assert.equal(await at('[data-delete-entity],[data-cleanup-entity]').count(),0);return "Added the separate policy through rendered controls, selected enabled diagnostic and excluded exact entity, rejected disabled selection/negative duration, retained failed-save draft, saved 7200 seconds with unrelated settings intact, reopened membership and discarded a later duration edit.";
+  });
+
   await test("policies.lifecycle",async()=>{
     const initial=await snapshot();await companion();
     const custom=await addPolicy("entity","Lifecycle custom");await check(field("enabled"),true);await save();

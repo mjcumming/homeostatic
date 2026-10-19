@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [1.11.5] - 2026-10-19
+
+### Upgrade notes
+
+- Installations with saved notification state from before collection tracking stop setup without changing their settings or history. Keep the matching prior installation or restore its paired Home Assistant backup; see [upgrade guidance](docs/manual/maintain-installation.md#an-upgrade-cannot-start). This prevents previously sent alerts from being sent again during an unsupported upgrade.
+
+### Fixed
+
+- Preserve saved policies, notification destinations, timing and sending choices when adding collection delays to supported older notification settings. Validate settings and restore stored state before saving a conversion.
+- Preserve invalid saved temperature and UPS state through retries and unloads, so a failed restore cannot silently discard it or save a partial upgrade.
+- Keep the selected Monitoring title and Back to Monitoring control visible below the wrapping header on narrow screens, including keyboard navigation and enlarged text.
+- Remove stale availability issue badges when current evidence only reports a restored or missing entity, while retaining qualified problems from other monitoring policies.
+- Restore the selected Monitoring source after opening a device issue, following its policy or Home Assistant link, and returning.
+
+### Documentation
+
+- Correct the first-run policy list and distinguish fresh-install defaults from preserved upgrade settings.
+
+### Development
+
+- Update browser acceptance for entity availability and combined device issue controls, and check narrow-screen navigation with real pointer and keyboard input. Retain the separately attributed Home Assistant reconnect error in browser results.
+
 ## [1.11.4] - 2026-10-19
 
 ### Changed

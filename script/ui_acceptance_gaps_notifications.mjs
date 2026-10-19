@@ -209,7 +209,7 @@ export async function runNotificationGaps(ctx) {
     const initial=await snapshot(),timezone=initial.notification_definitions.timezone;
     for(const mode of ["immediate","acknowledge","window","report"]){
       await edit("profiles","weekly");await choose(field("timing:mode"),mode);const before=await snapshot();
-      let timing={mode};
+      let timing={mode,collection_delay_seconds:0};
       if(mode==="acknowledge"){
         await fill(field("timing:minutes"),"0");const count=transport.saveRequests;await click(action("save-scoped"));assert.equal(transport.saveRequests,count);
         assert.equal(await at(field("timing:minutes")).evaluate(el=>el.validity.valid),false);await noChange(before);await fill(field("timing:minutes"),"45");timing.remind_every=2700;
@@ -217,7 +217,7 @@ export async function runNotificationGaps(ctx) {
       if(mode==="window"){
         assert.ok((await bodyText()).includes(timezone));await fill(field("timing:start"),"");const count=transport.saveRequests;await click(action("save-scoped"));assert.equal(transport.saveRequests,count);await noChange(before);
         await fill(field("timing:start"),"07:15");await fill(field("timing:end"),"07:15");await click(action("save-scoped"));await error(/distinct|different|window|invalid/i);await noChange(before);
-        await fill(field("timing:end"),"21:30");timing={mode,start:"07:15",end:"21:30"};
+        await fill(field("timing:end"),"21:30");timing={mode,start:"07:15",end:"21:30",collection_delay_seconds:0};
       }
       if(mode==="report"){
         assert.ok((await bodyText()).includes(timezone));await fill(field("timing:at"),"");const count=transport.saveRequests;await click(action("save-scoped"));assert.equal(transport.saveRequests,count);await noChange(before);
@@ -345,7 +345,7 @@ export async function runNotificationGaps(ctx) {
     const before=await snapshot();await profileDraft("urgent","Exact rejected profile draft");await fill(field("timing:start"),"06:37");await check(`${field("methods")}[data-definition-value="lab_messages"]`,true);
     const count=transport.saveRequests;transport.mode="reject";await click(action("save-scoped"));await error(/Acceptance transport rejected/);assert.equal(transport.saveRequests,count+1);await noChange(before);
     assert.equal(await name(),"Exact rejected profile draft");assert.equal(await at(field("timing:start")).inputValue(),"06:37");assert.equal(await at(`${field("methods")}[data-definition-value="lab_messages"]`).isChecked(),true);
-    await save();assert.equal(transport.saveRequests,count+2);const after=await snapshot();scopeOnly(before,after,"profiles","urgent");assert.deepEqual(after.notification_definitions.profiles.urgent,{name:"Exact rejected profile draft",timing:{mode:"window",start:"06:37",end:"22:00"},methods:["lab_messages"]});
+    await save();assert.equal(transport.saveRequests,count+2);const after=await snapshot();scopeOnly(before,after,"profiles","urgent");assert.deepEqual(after.notification_definitions.profiles.urgent,{name:"Exact rejected profile draft",timing:{...before.notification_definitions.profiles.urgent.timing,start:"06:37"},methods:["lab_messages"]});
   });
 
   await fresh("save.conflict",async()=>{

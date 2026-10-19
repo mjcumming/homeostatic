@@ -1,6 +1,6 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=103";
-import {prepareAvailabilityChange, applyAvailabilityChange, availabilityConfirmation} from "./source-monitoring.mjs?v=103";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=103";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=104";
+import {prepareAvailabilityChange, applyAvailabilityChange, availabilityConfirmation} from "./source-monitoring.mjs?v=104";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=104";
 
 const identity=source=>source?.monitoring_source||source?.node_id;
 const unavailable=state=>state?.state==="unavailable"&&!state.attributes?.restored;

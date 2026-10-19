@@ -28,6 +28,7 @@ from homeassistant.components import websocket_api
 from homeassistant.components.http.config import async_get_and_load_store
 from homeassistant.components.websocket_api.connection import ActiveConnection
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
@@ -367,6 +368,10 @@ class Lab:
             self.entities["disabled"], disabled_by=er.RegistryEntryDisabler.USER
         )
         entity("unmonitored", "sensor", "Lab unmonitored reading", "10")
+        entity("diagnostic", "sensor", "Lab diagnostic reading", "10")
+        er.async_get(hass).async_update_entity(
+            self.entities["diagnostic"], entity_category=EntityCategory.DIAGNOSTIC
+        )
         entity("messages", "notify", "Lab captured messages", "unknown")
         entity("phone", "notify", "Lab phone", "unknown", platform="mobile_app")
         entity("email", "notify", "Lab email", "unknown", platform="smtp")
@@ -461,9 +466,10 @@ class Lab:
         )
         for policy in data["monitoring_policies"]:
             policy["enabled"] = True
-            if policy["check"] == "availability" and "entity" in policy["match"].get(
-                "kind", []
-            ):
+            if policy["check"] in {
+                "availability",
+                "entity_not_provided",
+            } and "entity" in policy["match"].get("kind", []):
                 policy["excluded_sources"] = [
                     f"entity:registry:{self.registry_ids['unmonitored']}"
                 ]

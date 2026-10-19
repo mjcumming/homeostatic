@@ -169,12 +169,18 @@ class Runtime:
     """Serialize engine calls and publish durable adapter state on the HA loop."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, settings: Settings
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        settings: Settings,
+        *,
+        settings_conversion: dict[str, Any] | None = None,
     ) -> None:
         """Prepare storage and listeners without starting the engine clock."""
         self.hass = hass
         self.entry = entry
         self.settings = settings
+        self._settings_conversion = settings_conversion
         self.store: Store[dict[str, Any]] = Store(
             hass,
             STORE_VERSION,
@@ -365,6 +371,13 @@ class Runtime:
         if type(self.saved.get("notifications_enabled")) is not bool:
             raise ValueError("Invalid notification activation state")
         self.automation_alerts.restore(self.saved.get("automation_alerts", {}))
+        for key in ("temperature_monitors", "ups_monitors"):
+            monitors = self.saved.get(key, {})
+            if not isinstance(monitors, dict) or any(
+                not isinstance(identity, str) or not isinstance(value, dict)
+                for identity, value in monitors.items()
+            ):
+                raise ValueError(f"Invalid stored {key}")
         self._temperature_saved = dict(self.saved.get("temperature_monitors", {}))
         self._ups_saved = dict(self.saved.get("ups_monitors", {}))
         self.repairs.restore(self.saved.get("repairs", {}))
@@ -1230,6 +1243,17 @@ class Runtime:
                 self._save_required = True
             if self.delivery.collections.snapshot() != previous_collection_state:
                 self._save_required = True
+        # A source can reject its stored state after engine/policy restoration.
+        # Keep the original snapshot until the entire first pass has succeeded,
+        # so failed retries and unload cannot save partially restored state.
+        self.saved = None
+        if self._settings_conversion is not None:
+            # Only the actual startup restore/evaluation can accept saved state.
+            # Persist conversion before state or requests, never on a failed pass.
+            self.hass.config_entries.async_update_entry(
+                self.entry, data=self._settings_conversion, options={}
+            )
+            self._settings_conversion = None
         # Facts and error recovery describe saved state, so they save at once.
         if (
             durable
@@ -1945,7 +1969,6 @@ class Runtime:
             }
             self.policy.restore(self.saved["policy"], now)
             events.extend(self.engine.restore(self.saved["engine"], now))
-            self.saved = None
         events.extend(self._bind_maintenance(now))
         observations = []
         for source in sources.values():
@@ -2068,7 +2091,8 @@ class Runtime:
             )
             monitor = UpsMonitor(source=source, parameters=parameters)
             if source.node_id in self._ups_saved:
-                monitor.restore(self._ups_saved.pop(source.node_id))
+                monitor.restore(self._ups_saved[source.node_id])
+                del self._ups_saved[source.node_id]
             self.ups_monitors[source.node_id] = monitor
         monitor.source = source
         states: dict[str, State | None] = {}
@@ -2125,7 +2149,8 @@ class Runtime:
                 parameters=parameters,
             )
             if source.node_id in self._temperature_saved:
-                monitor.restore(self._temperature_saved.pop(source.node_id))
+                monitor.restore(self._temperature_saved[source.node_id])
+                del self._temperature_saved[source.node_id]
             self.temperature_monitors[source.node_id] = monitor
         monitor.name = source.name
         result = monitor.evaluate(

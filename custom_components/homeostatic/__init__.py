@@ -12,10 +12,9 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
 
-from .config import Settings, uses_legacy_notification_settings
+from .config import Settings, migrate_notification_settings
 from .const import DOMAIN, EVENT_NOTIFICATION, STORE_VERSION
 from .dashboard import async_register_dashboard, async_remove_dashboard
-from .policy_defaults import initial_settings
 from .policy_migration import migrate_device_policies
 from .runtime import Runtime
 from .services import async_register_services, async_remove_services
@@ -30,21 +29,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
     """Load presentation now and start monitoring after Home Assistant starts."""
     try:
         data = dict(entry.options or entry.data)
-        if uses_legacy_notification_settings(data):
-            data = initial_settings(hass.config.time_zone)
-            hass.config_entries.async_update_entry(entry, data=data, options={})
-        converted = migrate_device_policies(hass, data)
-        if converted != data:
-            hass.config_entries.async_update_entry(entry, data=converted, options={})
-            data = converted
+        converted = migrate_device_policies(hass, migrate_notification_settings(data))
         runtime = Runtime(
             hass,
             entry,
-            Settings.from_data(data, functions_enabled=False),
+            Settings.from_data(converted, functions_enabled=False),
+            settings_conversion=converted if converted != data else None,
         )
         # A reload while HA is running needs no startup hold.
         runtime.fresh_start = not hass.is_running
         await runtime.async_load()
+        if (
+            runtime.saved is not None
+            and "delivery_collections" not in runtime.saved["delivery"]
+        ):
+            raise ValueError(
+                "Saved notification state predates supported collection tracking; "
+                "settings and history were left unchanged. Keep the previous "
+                "matching Homeostatic version or restore its paired Home Assistant backup"
+            )
     except (ValueError, TypeError, KeyError, vol.Invalid) as err:
         raise ConfigEntryError(
             f"Invalid Homeostatic configuration or snapshot: {err}"

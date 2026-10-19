@@ -13,7 +13,7 @@ These are the six editable choices supplied with a fresh setup. All start withou
 | Immediate | Eligible requests collect for 60 seconds, including overnight | Important equipment availability |
 | Immediate with acknowledgment | Eligible requests collect for 5 seconds, then reminders every 30 minutes until acknowledged or the problem ends | Temperature-limit templates; UPS low reserve on backup power |
 | Urgent | Every day from 08:00 to 22:00, with a 60-second collection delay | Thermostat, UPS backup-power and UPS fault templates |
-| Morning summary | Every day at 08:00, with no extra delay | General entity and integration availability, Repairs, broken automations and batteries; UPS battery replacement and low reserve on mains power |
+| Morning summary | Every day at 08:00, with no extra delay | General entity and integration availability, Entities not provided, Repairs, broken automations and batteries; UPS battery replacement and low reserve on mains power |
 | Evening summary | Every day at 18:00 | Vacuums |
 | Weekly summary | Sunday at 08:00 | Available to select |
 

@@ -1,7 +1,7 @@
-import {notProvidedVisible} from "./entity-not-provided.mjs?v=103";
+import {notProvidedVisible} from "./entity-not-provided.mjs?v=104";
 /** Read-model helpers and a shared, lifecycle-bound HA subscription. */
-import {entityProblem, integrationProblem} from "./problem.mjs?v=103";
-import {waitingOnly} from "./check-presentation.mjs?v=103";
+import {entityProblem, integrationProblem} from "./problem.mjs?v=104";
+import {waitingOnly} from "./check-presentation.mjs?v=104";
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -30,7 +30,9 @@ export function affectedFunctions(data, episode) {
 export function availabilityEvidenceGap(data, episode) {
   const nodes = sourceMap(data), findings = (episode.reasons || []).filter(item=>item.status !== "pass");
   const gaps = new Set(["unknown","stale","source_missing","restored_state","state_unknown","incomplete_evidence"]);
-  const gapOnly = findings.length > 0 && findings.every(finding=>{
+  // Retained unknown episodes can have no findings during the unknown hold.
+  // Their complete current contributor evidence still determines visibility.
+  const gapOnly = (findings.length > 0 || episode.status === "unknown") && findings.every(finding=>{
     const source=nodes.get(finding.node_id), check=finding.check_id || source?.check_id;
     const evidence=data.inventory.entity_status?.[finding.node_id] || data.inventory.integration_evidence?.[finding.node_id];
     const current=evidence?.current;

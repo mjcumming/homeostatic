@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-19",
+  "purpose": "Readiness for introducing Homeostatic to other users",
+  "source_revision": "ad0a60c38c349d4d8f091ab93e9bbfcdfea6ca88",
+  "source_branch": "main",
+  "candidate_was_clean": true,
+  "release": "1.11.4",
+  "component_sha256": "ad9da3e7f0f25cad9ebe6a213992df8a941557d903e99b6a972d8cdd146ab319",
+  "status": "Full product acceptance remains open",
+  "reports": {
+    "summary": "../../build/ui-acceptance/2026-10-19-readiness/review-summary.md",
+    "original_desktop": "../../build/ui-acceptance/2026-10-19-readiness/desktop-runtime/report.md",
+    "combined": "../../build/ui-acceptance/2026-10-19-readiness/combined/report.md",
+    "phone_dark": "../../build/ui-acceptance/2026-10-19-readiness/phone-dark/report.md",
+    "household_browser": "../../build/ui-acceptance/2026-10-19-readiness/live/report.md"
+  },
+  "original_desktop": {
+    "home_assistant": "2026.9.3",
+    "python": "3.14.7",
+    "health_tree": "0.10.0",
+    "browser": "Chromium 143.0.7499.4",
+    "viewport": [1440, 1000],
+    "theme": "light",
+    "fixture_inventory": {"passed": 74, "failed": 0, "untested": 6},
+    "real_ha_inventory": {"passed": 64, "failed": 11, "untested": 5},
+    "additional_real_ha_cases": {"passed": 46, "failed": 0, "untested": 0}
+  },
+  "phone_dark_fixtures": {"passed": 74, "failed": 0, "untested": 6},
+  "bounded_retry": {
+    "runner_only_change": "script/ui_acceptance_gaps_notifications.mjs",
+    "reason": "Exact expected timing objects omitted the existing collection-delay field",
+    "passed": ["profiles.timing", "save.failure"],
+    "original_failures_retained": true,
+    "quick_checks": "Passed, including 868 frontend tests"
+  },
+  "remaining_failed_inventory": {
+    "stale_device_issue_setup": ["issues.notification-membership", "issues.independent-devices", "issues.device-availability-selection", "issues.device-entry", "issues.recovery"],
+    "stale_device_popup_expectation": ["issues.compact-popups"],
+    "stale_unmonitored_fixture_with_not_provided_policy": ["sources.monitoring-inspector"],
+    "unresolved_contextual_control_timeout": ["sources.contextual-issue-controls"],
+    "reconnect": {"id": "updates.retention", "code": "not_found", "message": "Subscription not found."}
+  },
+  "real_ha_untested": ["policies.not-provided", "issues.not-provided", "sources.current-issue-badges", "sources.device-issue-navigation", "layout.safari"],
+  "household_review": {
+    "browser": "Connected Chrome",
+    "version_evidence": "HACS displayed Version downloaded: v1.11.4; maintainer reported installed and running",
+    "viewports": ["default desktop", "390x844", "320x740"],
+    "saved_configuration_mutations": 0,
+    "test_notifications_requested": 0,
+    "draft_created_and_discarded": true,
+    "viewport_restored": true,
+    "confirmed_defect": "At 320px, selecting an entity in Monitoring scrolls its title and Back to Monitoring control under the wrapped sticky header",
+    "defect_screenshot": "../../build/ui-acceptance/2026-10-19-readiness/live/320-entity-heading-obscured.png",
+    "initial_reconnect_observation": "An existing tab showed Reconnecting and recovered on refresh; cause was not established"
+  },
+  "onboarding_findings": [
+    "docs/manual/first-run.md:13 lists retired Devices and omits Entities not provided from fresh defaults",
+    "docs/manual/maintain-installation.md:11 overgeneralizes the reset of older notification settings"
+  ],
+  "limits": [
+    "Stale fixture failures do not establish product failure, but leave the promised paths unaccepted",
+    "A bounded passing retry does not erase the original failed full sweep",
+    "Physical Safari, real provider receipt and a complete fresh-install human walkthrough remain unverified",
+    "No product implementation, publication or household deployment was changed"
+  ]
+}

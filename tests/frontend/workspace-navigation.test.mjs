@@ -133,3 +133,22 @@ test("notification list, exact dialog, reload and browser history retain scope w
   assert.deepEqual(card.notificationIssueIds,["one","two"]);assert.equal(card.settingsDraft,draft);
   delete globalThis.window;
 });
+
+for(const source of ["source:device:deck","source:entity:light.deck"])test(`native Home Assistant return restores device issue source ${source}`,()=>{
+  const draft={name:"Unsaved policy"},route={page:"sources",source,sourcesView:"source",detail:{deviceId:"deck"}},state={id:"view-8",route,context:{sourcesQuery:"deck",sourcesGrouping:"integration"}};
+  globalThis.window={location:{pathname:"/homeostatic/device-issues/deck"},history:{state:{homeostatic:state}}};
+  const card={page:"problems",sourcesSelection:null,current:{status:"current"},configuration:{},settingsDraft:draft,dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
+  const nav=new WorkspaceNavigation(card);nav.enabled=true;nav.applyPath("/device-issues/deck");
+  assert.equal(card.sourcesSelection,source);assert.equal(card.sourcesQuery,"deck");assert.equal(card.sourcesGrouping,"integration");assert.equal(card.detail.deviceId,"deck");assert.equal(card.settingsDraft,draft);
+  card.detail=null;assert.equal(workspacePath(workspaceRoute(card)),`/sources/${encodeURIComponent(source)}`);
+  delete globalThis.window;
+});
+
+test("a stored browser route cannot replace a different direct destination",()=>{
+  globalThis.window={location:{pathname:"/homeostatic/device-issues/other"},history:{state:{homeostatic:{id:"view-8",route:{page:"sources",source:"source:device:deck",detail:{deviceId:"deck"}},context:{sourcesQuery:"deck"}}}}};
+  const card={page:"problems",sourcesSelection:null,current:{status:"current"},configuration:{},dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
+  const nav=new WorkspaceNavigation(card);nav.enabled=true;nav.applyPath("/device-issues/other");
+  assert.equal(card.sourcesSelection,null);assert.equal(card.sourcesQuery,undefined);assert.equal(card.detail.deviceId,"other");
+  nav.applyPath("/policies/battery");assert.equal(card.page,"policies");assert.equal(card.definitionSelection.id,"battery");assert.equal(card.detail,null);
+  delete globalThis.window;
+});

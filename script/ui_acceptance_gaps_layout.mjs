@@ -48,17 +48,57 @@ export async function runLayoutGaps(ctx) {
     await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities.offline,state:"unavailable"});
     assert.equal(await input.evaluate((el,old)=>el===old,handle),true);assert.equal(await focused(input),true);
     assert.deepEqual(await input.evaluate(el=>[el.selectionStart,el.selectionEnd]),selection);
+    const connection=await card.evaluateHandle(el=>el._hass.connection);
+    // Record the originating cleanup stack without changing requests or errors.
+    // Some HA clients reuse old subscription ids before resubscribe completes.
+    const trace=await connection.evaluateHandle(connection=>{
+      const send=connection.sendMessagePromise,calls=[];
+      connection.sendMessagePromise=function(request){
+        if(request.type==="unsubscribe_events")calls.push({request:{...request},stack:new Error().stack});
+        return send.call(this,request);
+      };
+      return {calls,restore:()=>{connection.sendMessagePromise=send;}};
+    });
+    const subscriptionCount=transport.requestCounts["homeostatic/subscribe"]??0,saveCount=transport.saveRequests;
+    try {
     let releaseAuth;const authReady=new Promise(resolve=>{transport.interceptRequest=(request,_route,server)=>{if(request.type!=="auth")return false;releaseAuth=()=>server.send(JSON.stringify(request));resolve();return true;};});
     for(const connection of transport.connections)await connection.route.close({code:1012,reason:"Acceptance reconnect check"});
     await at('.shell').filter({hasText:/Reconnecting|Connection lost/}).waitFor({timeout:20000});
     assert.equal(await input.inputValue(),"Retained acceptance draft");
     assert.ok(await input.evaluate(el=>Boolean(el.closest('[inert]'))||el.disabled),"Stale editor must be read-only");
+    assert.equal(await card.evaluate(el=>el.store.baseline),null,"Disconnect invalidates the available catalog baseline");
     await Promise.race([authReady,new Promise((_,reject)=>setTimeout(()=>reject(Error("No reconnect auth request")),20000))]);
     transport.interceptRequest=null;releaseAuth();await at('[data-notifications-switch]:not(:disabled)').waitFor({timeout:30000});
     assert.equal(await input.inputValue(),"Retained acceptance draft");assert.equal(await input.evaluate((el,old)=>el===old,handle),true);
     assert.equal(await focused(input),true,"Reconnect returns focus to the retained input");assert.deepEqual(await input.evaluate(el=>[el.selectionStart,el.selectionEnd]),selection,"Reconnect preserves the selection");
+    assert.equal(await card.evaluate((el,previous)=>el._hass.connection===previous,connection),true,"Native reconnect retains the shared HA connection");
+    assert.equal(transport.requestCounts["homeostatic/subscribe"],subscriptionCount+1,"Exactly one Homeostatic stream is re-established");
+    const previousUpdate=await card.evaluate(el=>el.current.data.updated_at);
+    let received;
+    const freshEvent=new Promise(resolve=>{received=resolve;});
+    transport.transformResponse=(packet,request)=>{
+      if(request?.type==="homeostatic/subscribe"&&packet.type==="event"&&packet.event.available&&packet.event.updated_at!==previousUpdate)received(packet.event.updated_at);
+      return packet;
+    };
+    await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities.offline,state:"on"});
+    let deadline;
+    const updatedAt=await Promise.race([freshEvent,new Promise((_,reject)=>{deadline=setTimeout(()=>reject(Error("No fresh Homeostatic update after reconnect")),15000);})]).finally(()=>clearTimeout(deadline));
+    await page.waitForFunction(({element,updatedAt})=>element.current.status==="current"&&Date.parse(element.current.data?.updated_at)>=Date.parse(updatedAt),{element:await card.elementHandle(),updatedAt});
+    transport.transformResponse=null;
+    assert.equal(await input.inputValue(),"Retained acceptance draft");assert.equal(await focused(input),true);
+    assert.deepEqual(await input.evaluate(el=>[el.selectionStart,el.selectionEnd]),selection);
     await discard();await noChange(before);
-    return "Native socket close/reconnect retained DOM, typed draft, selection and focus across unchanged updates; disconnected editor was read-only.";
+    assert.equal(transport.saveRequests,saveCount,"Reconnect and draft discard send no configuration save");
+    await writeFile(join(artifactDir,"reconnect-workflow.json"),JSON.stringify({
+      homeostatic_workflow:"pass",whole_browser_result:"See report.json; native HA errors remain failures.",
+      assertions:["same HA connection","one replacement subscription","disconnected baseline invalidated","stale editor read-only","DOM, draft, focus and selection retained","fresh live update after reconnect","saved settings unchanged","zero configuration saves"],
+      unsubscribe_calls:await trace.evaluate(value=>value.calls),
+    },null,2));
+    return "Native reconnect retained DOM, draft, selection and focus, invalidated the old baseline and restored one live stream. A new state change reached the retained editor; configuration stayed unchanged and no save was sent.";
+    } finally {
+      transport.transformResponse=null;
+      await trace.evaluate(value=>value.restore());await trace.dispose();await connection.dispose();
+    }
   });
   await run("layout.menus",async()=>{
     await reset();const before=await snapshot();await listing("profiles");
@@ -90,6 +130,61 @@ export async function runLayoutGaps(ctx) {
     await at('[data-sources-disabled]:checked').waitFor();await waitFocus('[data-sources-disabled]');await page.keyboard.press("Space");
     await at('[data-sources-disabled]:not(:checked)').waitFor();await page.keyboard.press("Escape");await waitFocus('[data-sources-filters]');await noChange(before);
     return "Tab/Shift+Tab/Enter/Space/Escape traversed page navigation, editable policy fields, discard, destination picker, deletion and filter dialogs with focus return.";
+  });
+  await run("live.sources.narrow-header",async()=>{
+    await reset();const before=await snapshot(),saveCount=transport.saveRequests,originalViewport=page.viewportSize(),observations=[];
+    try {
+      for(const width of [320,390])for(const enlarged of [false,true]){
+        await page.setViewportSize({width,height:844});await clean();await go("sources");
+        await at('[data-sources-search]').waitFor();
+        if(enlarged)await card.evaluate(el=>{
+          const style=el.shadowRoot.querySelector("style");
+          style.textContent=style.textContent.replace(/font-size:([\d.]+)(px|rem|em)/g,(_,size,unit)=>`font-size:${Number(size)*2}${unit}`);
+        });
+        await fill('[data-sources-search]',lab.entities.offline);
+        const sourceId=await card.evaluate((el,id)=>el.current.data.inventory.nodes.find(source=>source.entity_id===id&&!source.monitoring_policy)?.node_id,lab.entities.offline);
+        assert.ok(sourceId,"The monitored entity has a canonical source");
+        const selector=`.config-rail [data-sources-select="source:${sourceId}"]`,row=at(selector);
+        for(const keyboard of [false,true]){
+          if(keyboard){await tabTo(selector);await page.keyboard.press("Enter");}else await row.click();
+          await waitFocus('#sources-detail-title');
+          const measure=()=>card.evaluate(el=>{
+            const root=el.shadowRoot,header=root.querySelector('.shell > .header').getBoundingClientRect();
+            const controls=['#sources-detail-title','[data-action="back-sources"]'].map(selector=>{
+              const element=root.querySelector(selector),rect=element.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+              let hit=document.elementFromPoint(x,y);
+              while(hit?.shadowRoot){const inner=hit.shadowRoot.elementFromPoint(x,y);if(!inner||inner===hit)break;hit=inner;}
+              return {selector,top:rect.top,bottom:rect.bottom,left:rect.left,right:rect.right,hit:hit===element||element.contains(hit),focused:root.activeElement===element};
+            });
+            const pane=root.querySelector('.config-detail');
+            const context=['.shell > .header','.sources-workspace','.config-detail','.source-heading'].map(selector=>{
+              const node=root.querySelector(selector),style=getComputedStyle(node),rect=node.getBoundingClientRect();
+              return {selector,top:rect.top,bottom:rect.bottom,height:rect.height,position:style.position,offset:style.top,scrollMarginTop:style.scrollMarginTop,scrollTop:node.scrollTop,overflowY:style.overflowY};
+            });
+            return {headerBottom:header.bottom,viewportHeight:innerHeight,viewportWidth:innerWidth,controls,overflow:pane.scrollWidth>pane.clientWidth+1,context};
+          });
+          // Rendering and native scrolling may finish on the next frame.
+          await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+          const geometry=await measure();observations.push({width,enlarged,input:keyboard?"keyboard":"pointer",geometry});
+          await page.screenshot({path:join(artifactDir,`live-source-header-${width}-${enlarged?"enlarged":"normal"}-${keyboard?"keyboard":"pointer"}.png`)});
+          for(const control of geometry.controls){
+            assert.ok(control.top>=geometry.headerBottom-1&&control.bottom<=geometry.viewportHeight+1,`${width}px enlarged=${enlarged}: ${control.selector} remains below the sticky header and inside the viewport`);
+            assert.ok(control.left>=-1&&control.right<=geometry.viewportWidth+1&&control.hit,`${width}px enlarged=${enlarged}: ${control.selector} is directly reachable`);
+          }
+          assert.equal(geometry.overflow,false,"Source details fit without horizontal scrolling");
+          if(keyboard){await page.keyboard.press("Shift+Tab");await waitFocus('[data-action="back-sources"]');await page.keyboard.press("Enter");}
+          else await click('[data-action="back-sources"]');
+          await waitFocus(`[data-sources-select="source:${sourceId}"]`);
+          assert.equal(await row.getAttribute("aria-current"),"true","Returning preserves the selected source");
+          assert.equal(await at('[data-sources-search]').inputValue(),lab.entities.offline,"Returning preserves the search");
+        }
+      }
+      await noChange(before);assert.equal(transport.saveRequests,saveCount,"Narrow-screen browsing sends no save");
+      return "Pointer and keyboard entity selection and return passed at 320/390 pixels with normal/doubled text. Title and Back stayed below the sticky header, fully in view and hit-test accessible; focus, selected source, search and saved settings were retained.";
+    } finally {
+      await writeFile(join(artifactDir,"live-source-header-matrix.json"),JSON.stringify({observations},null,2));
+      await page.setViewportSize(originalViewport);await clean();
+    }
   });
   await run("layout.themes",async()=>{
     await reset();const observations=[],failures=[],originalViewport=page.viewportSize(),originalScheme=await page.evaluate(()=>matchMedia('(prefers-color-scheme: dark)').matches?"dark":"light");

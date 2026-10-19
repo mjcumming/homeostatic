@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-18
 
+**Partially superseded:** [ADR 0105](0105-preserve-settings-when-adding-collection-delays.md) replaces the release reset below with a preserving conversion. The collection model and fresh-install defaults remain accepted.
+
 **Extends:** [ADR 0066](0066-reusable-notifications-own-timing-and-delivery.md), whose reusable notifications own timing and delivery methods.
 
 **Release transition:** The maintainer's explicit configuration-replacement instruction supersedes [ADR 0058](0058-unified-policy-lifecycle.md) and ADR 0066's preservation/no-reset requirements only for the otherwise-valid earlier named-notification format described below. Current-format settings keep their normal preservation rules.

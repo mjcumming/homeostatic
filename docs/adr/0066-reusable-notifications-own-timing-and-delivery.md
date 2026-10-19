@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-10-14
 
-**Release exception:** [ADR 0102](0102-collect-requests-by-saved-notification.md) authorizes replacing the otherwise-valid earlier named-notification configuration with fresh defaults and sending off. This supersedes preservation for that release transition only.
+**Superseded release exception:** [ADR 0102](0102-collect-requests-by-saved-notification.md) originally authorized replacing the earlier named-notification configuration. [ADR 0105](0105-preserve-settings-when-adding-collection-delays.md) withdraws that exception and preserves supported settings; unsupported stored state stops the upgrade without replacement.
 
 **Later decision:** [ADR 0102](0102-collect-requests-by-saved-notification.md) adds a user-editable collection delay to when-eligible and delivery-hours notifications and groups requests by saved identity, recipient and destination, without requiring a shared issue. Supplied defaults are 5 seconds for Immediate with acknowledgment and 60 seconds for Immediate and Urgent. Scheduled reports have no additional collection delay or delay control.
 

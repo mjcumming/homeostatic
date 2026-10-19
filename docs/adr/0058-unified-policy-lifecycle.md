@@ -3,7 +3,7 @@
 **Status:** Accepted; broad availability eligibility and independent delivery presentation are partially superseded by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md). Independent policy detection, timing and controls remain intact.
 **Date:** 2026-10-13
 
-**Release exception:** [ADR 0102](0102-collect-requests-by-saved-notification.md) records the maintainer-authorized replacement of otherwise-valid settings from before named notification collection delays. Its narrow reset supersedes update preservation and the no-reset rule for that format only; current-format settings remain preserved.
+**Superseded release exception:** [ADR 0102](0102-collect-requests-by-saved-notification.md) originally authorized replacing settings from before named notification collection delays. [ADR 0105](0105-preserve-settings-when-adding-collection-delays.md) withdraws that reset exception and preserves supported settings; unsupported stored state stops the upgrade without replacement.
 
 **Later decision:** [ADR 0099](0099-two-supplied-entity-availability-policies.md) replaces the single fresh-install entity-availability selection with two complementary supplied policies. Independent overlap and the ordinary policy lifecycle remain unchanged.
 

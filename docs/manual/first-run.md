@@ -10,7 +10,7 @@ For the phone steps, have the Home Assistant Companion app connected to this ser
 
 Open **Homeostatic** in the sidebar. **Open issues** shows the current reported problems. Keep the **Notifications** switch off while reviewing the setup.
 
-Open **Policies**. A fresh installation enables **Integrations**, **Devices**, **General entity availability**, **Important equipment availability**, **Repairs** and **Broken automations**. Batteries and vacuums start disabled. The supplied policies already select named notifications, but those notifications have no delivery methods yet.
+Open **Policies**. A fresh installation enables **Integrations**, **General entity availability**, **Important equipment availability**, **Entities not provided**, **Repairs** and **Broken automations**. Batteries and vacuums start disabled. The supplied policies already select named notifications, but those notifications have no delivery methods yet.
 
 If Homeostatic has been configured before, the saved choices may differ. The [monitoring reference](monitoring-reference.md) lists fresh-install defaults; updates preserve your choices.
 
@@ -47,7 +47,7 @@ Read the result, then check the phone. A successful request means Home Assistant
 3. Under **Send using**, select **Household phone**.
 4. Inspect the listed policy uses, then select **Save notification**.
 
-This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes General entity and integration availability, Repairs and broken-automation policies. Important equipment availability uses Immediate, which needs its own delivery method selection. Disabled policies remain disabled.
+This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes General entity availability, Integrations, Entities not provided, Repairs and Broken automations. Important equipment availability uses Immediate, which needs its own delivery method selection. Disabled policies remain disabled.
 
 Open the policy you reviewed earlier and inspect its **Notifications** assignment. It should select **Morning summary**. If you change the assignment, select **Save policy**. Saving a notification does not save a pending policy edit.
 
