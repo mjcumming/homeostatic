@@ -8,7 +8,7 @@
 
 ## Context
 
-A live attribution of a Stop Monitoring action on the household installation found that, after the save, the panel discards its cached catalog and fetches 63 pages with about 11,800 rows through four workers, taking 1.5 to 3 s, and then rebuilds its trees. With the deprecated device property reads removed, the action settles in a median 5.3 s and that reload is the largest remaining share at 1.8 s. The edit itself changed a handful of rows: one watched node, one candidate's enrollment flags, one enrollment change record and one readiness target.
+A live attribution of a Stop monitoring action on the household installation found that, after the save, the panel discards its cached catalog and fetches 63 pages with about 11,800 rows through four workers, taking 1.5 to 3 s, and then rebuilds its trees. With the deprecated device property reads removed, the action settles in a median 5.3 s and that reload is the largest remaining share at 1.8 s. The edit itself changed a handful of rows: one watched node, one candidate's enrollment flags, one enrollment change record and one readiness target.
 
 Two server behaviors cause the reload. The dashboard raises the catalog revision whenever discovery replaces the static inventory object, even when every row is equal, so a discovery that changes nothing can still invalidate every client. Each rule change regenerates every candidate row, so the client has no way to tell which rows moved.
 

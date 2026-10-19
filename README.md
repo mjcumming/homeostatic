@@ -2,7 +2,7 @@
 
 <p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="custom_components/homeostatic/brand/dark_icon.png"><img src="custom_components/homeostatic/brand/icon.png" alt="Homeostatic icon" width="88"></picture></p>
 
-Homeostatic tells you when something in your Home Assistant stops working. It watches your integrations, devices and Home Assistant Repairs from the moment you install it, and once you add your phone it tells you about problems on the schedule you choose. You set it up in its own sidebar panel; there are no automations or YAML to write.
+Homeostatic tells you when something in your Home Assistant stops working. It starts watching your integrations and devices the moment you install it, and once you add your phone it tells you about problems on the schedule you choose. You set it up in its own sidebar panel; there are no automations or YAML to write.
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
 [![GitHub Release](https://img.shields.io/github/v/release/mjcumming/homeostatic?sort=semver)](https://github.com/mjcumming/homeostatic/releases)
@@ -19,7 +19,7 @@ Homeostatic does that work with policies. A policy says what to watch, what coun
 Out of the box:
 
 - A lock, camera, alarm panel, or smoke, carbon monoxide, gas or leak detector that drops off Home Assistant reaches your phone in about a minute, day or night.
-- Everything else arrives in one summary at 08:00: other unavailable entities, integrations that won't load or need you to sign in again, Home Assistant Repairs, entities an integration no longer provides, and automations that name entities that no longer exist. If nothing is open, no summary is sent.
+- Everything else arrives in one summary at 08:00: other unavailable entities, integrations that won't load or need you to sign in again, problems Home Assistant lists under **Settings → System → Repairs**, entities an integration no longer provides, and automations that name entities that no longer exist. If nothing is open, no summary is sent.
 
 From the same panel you can add policies for low batteries, vacuum errors, UPS power and battery, temperature limits for a freezer or a room, and thermostats that can't reach their target.
 
@@ -43,7 +43,7 @@ The [install page](docs/install.md) covers manual installation, updates and remo
 
 The [manual](docs/guide.md) covers responding to issues, choosing what to watch and setting up notifications. [How Homeostatic works](docs/how-it-works.md) explains what counts as a problem and why an outage becomes one issue.
 
-Homeostatic sees only what Home Assistant reports. A sensor stuck on an old reading looks healthy, and Homeostatic can't confirm that anyone read a notification. It runs locally inside Home Assistant, so it can't tell you when Home Assistant itself stops. [Troubleshooting](docs/troubleshooting.md#what-homeostatic-cant-tell-you) lists the rest.
+Homeostatic reports problems; it never fixes, restarts or controls anything. It sees only what Home Assistant reports. A sensor stuck on an old reading looks healthy, and Homeostatic can't confirm that anyone read a notification. It runs locally inside Home Assistant, so it can't tell you when Home Assistant itself stops. [Troubleshooting](docs/troubleshooting.md#what-homeostatic-cant-tell-you) lists the rest.
 
 ## Contribute
 

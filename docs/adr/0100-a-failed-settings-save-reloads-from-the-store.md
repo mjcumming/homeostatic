@@ -8,7 +8,7 @@
 
 ## Context
 
-A settings save begins by taking a checkpoint: the engine and policy snapshots, and a deep copy of every runtime attribute that is neither infrastructure nor a view discovery replaces. On the household installation the copy takes 0.12 s and the two library snapshots build several megabytes of dictionaries, on every Stop Monitoring click, so that the rare failed save can put the runtime back in place. The copy keeps a second object tree alive during the save, part of the allocation behind the generation-2 collections that still land inside about one edit in two, and the rollback code that restores it is a second implementation of what startup already does.
+A settings save begins by taking a checkpoint: the engine and policy snapshots, and a deep copy of every runtime attribute that is neither infrastructure nor a view discovery replaces. On the household installation the copy takes 0.12 s and the two library snapshots build several megabytes of dictionaries, on every Stop monitoring click, so that the rare failed save can put the runtime back in place. The copy keeps a second object tree alive during the save, part of the allocation behind the generation-2 collections that still land inside about one edit in two, and the rollback code that restores it is a second implementation of what startup already does.
 
 What the rollback protects is one rule: the panel never shows settings as saved when the store does not hold them, and the running house follows the stored settings. After ADRs 0096 to 0098 and health-tree 0.9.0, every save is verified, a save that changes nothing writes nothing, and the stored file always holds the last verified durable state, so startup from that file is a complete recovery.
 
