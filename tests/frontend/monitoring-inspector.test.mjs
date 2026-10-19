@@ -17,6 +17,14 @@ function fixture() {
 
 const entityIds=tree=>[...new Set([...sourcePaths(tree).values()].filter(({node})=>node.source?.kind==="entity").map(({node})=>node.source.node_id))].sort();
 
+test("the Monitoring tree omits repeated group types while keeping entity coverage",()=>{
+  const card=fixture(),tree=sourcesBrowser(card).split('<section class="config-detail" aria-label="Selected source">')[0];
+  assert.doesNotMatch(tree,/<small>(?:Integration|Device)<\/small>/);
+  assert.match(tree,/<small>Monitored<\/small>/);
+  assert.match(tree,/data-sources-toggle=/);
+  assert.match(tree,/data-sources-select=/);
+});
+
 test("all monitoring states stay visible by default and filters preserve ancestors",()=>{
   const card=fixture(),data=card.current.data,tree=sourcesTree(data,"integration"),index=sourceCoverageIndex(data);
   assert.equal(filterSourceMonitoring(tree,"all",index),tree);

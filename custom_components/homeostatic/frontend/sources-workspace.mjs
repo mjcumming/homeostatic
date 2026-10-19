@@ -1,15 +1,15 @@
-import {sourceReporting} from "./reporting.mjs?v=102";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=102";
-import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=102";
-import {monitoringTree} from "./configuration.mjs?v=102";
-import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=102";
+import {sourceReporting} from "./reporting.mjs?v=103";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=103";
+import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=103";
+import {monitoringTree} from "./configuration.mjs?v=103";
+import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=103";
 
-import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=102";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=102";
-import {upsSourceSummary} from "./ups.mjs?v=102";
-import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=102";
-import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=102";
-import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=102";
+import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=103";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=103";
+import {upsSourceSummary} from "./ups.mjs?v=103";
+import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=103";
+import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=103";
+import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=103";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -700,7 +700,7 @@ export function sourcesBrowser(card) {
     const shown=expanded?node.children.slice(0,limit):[];
     const linked=expanded&&node.children.find(child=>child.key===selected?.node.key||(child.connection&&child.connection.node_id===selected?.node.source?.node_id)||selected?.parents.some(parent=>parent.key===child.key));
     if(linked&&!shown.includes(linked))shown.push(linked);
-    const extent=node.family?"Integration":node.type==="device"?"Device":node.source?.kind==="integration"?`Integration connection · ${monitoringState(node.source,coverage)}`:node.source?monitoringState(node.source,coverage):"";
+    const extent=node.family||node.type==="device"?"":node.source?.kind==="integration"?`Connection · ${monitoringState(node.source,coverage)}`:node.source?monitoringState(node.source,coverage):"";
     const issue=hasIssues?` <span class="source-issue-count">Issues</span>`:"";
     return `<li class="config-branch"><div class="config-nav-row">${node.children.length?`<button type="button" class="config-toggle tree-toggle" data-sources-toggle="${esc(node.key)}" aria-expanded="${expanded}" aria-label="${expanded?'Collapse':'Expand'} ${esc(node.name)}"><span class="disclosure" aria-hidden="true"></span></button>`:'<span class="config-leaf" aria-hidden="true"></span>'}<button type="button" class="config-pick" data-sources-select="${esc(node.key)}"${selected?.node.key===node.key||(node.connection&&node.connection.node_id===selected?.node.source?.node_id)?' aria-current="true"':''}><span class="source-row-title">${esc(node.name)}${issue}</span>${extent?`<small>${esc(extent)}</small>`:""}</button></div>${expanded?`<ul class="config-nav-children">${shown.map(branch).join("")}${node.children.length>limit?`<li><button type="button" class="link source-more" data-source-more="${esc(node.key)}">Show more sources (${shown.length} of ${node.children.length})</button></li>`:''}</ul>`:''}</li>`;
   };

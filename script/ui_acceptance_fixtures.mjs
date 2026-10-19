@@ -8,7 +8,7 @@ const evidenceKind = "Synthetic backend; existing fixture uses DOM-scripted inte
 const knownIds = new Set(controlPaths.map(row => row.id));
 const localCases = {
   "policy-picker.html": {
-    "policies.entity-selection": ["entity-tree","entity-list","entity-save","entity-missing-loading","entity-household","selection-layout","entity-keyboard","entity-enlarged"],
+    "policies.entity-selection": ["entity-tree","entity-list","entity-branch-selection","entity-save","entity-missing-loading","entity-household","entity-scroll","entity-filter-focus","selection-layout","entity-keyboard","entity-enlarged"],
   },
   "temperature-policy-editor.html": {
     "policies.temperature-detection": ["initial-state", "lower-only", "upper-only", "both-bounds", "missing-bounds", "reversed-bounds", "missing-sensors", "duration-units", "enabled-state"],

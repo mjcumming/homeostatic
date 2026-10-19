@@ -11,6 +11,15 @@ globalThis.document={createElement:()=>inertElement()};
 await import("../../custom_components/homeostatic/frontend/homeostatic.js");
 const Card=elements.get("homeostatic-card");
 
+for(const keyboard of [false,true])test(`Monitoring disclosure restores focus without scrolling after ${keyboard?"ArrowRight":"click"}`,()=>{
+  const card=Object.create(Card.prototype),key="integration:test",options=[];
+  const button={dataset:{sourcesToggle:key},closest:()=>null,matches:()=>true,focus:value=>options.push(value)};
+  Object.assign(card,{sourcesExpanded:new Set(),render(){},shadowRoot:{querySelectorAll:()=>[button]}});
+  if(keyboard)card.keydown({target:button,key:"ArrowRight",preventDefault(){}});
+  else card.handleClick({target:{closest:selector=>selector==="button"?button:null}});
+  assert.ok(card.sourcesExpanded.has(key));assert.deepEqual(options,[{preventScroll:true}]);
+});
+
 for(const retained of [true,false])test(`an ended notification member keeps its scoped dialog with ${retained?"available":"unavailable"} history`,async()=>{
   const body={innerHTML:""},label={},detail={episodeId:"ended"};
   const card=Object.assign(Object.create(Card.prototype),{page:"problems",notificationIssueIds:["ended","other"],detail,detailSequence:0,

@@ -74,6 +74,44 @@ test("filtered group changes affect only matching enabled rows and zero selectio
   assert.doesNotMatch(JSON.stringify(policy),/registry:disabled/);
 });
 
+test("collapsed integration checkboxes show mixed membership and select enabled descendants across devices",()=>{
+  const {card,policy,rows}=fixture();
+  assert.match(entitySelection(card,policy),/data-definition-field="entity-integration"[^>]*data-indeterminate="true"/);
+  assert.match(entitySelection(card,policy),/1 of 3 entities selected/);
+  change(card,"entity-integration",true,"esphome");
+  assert.ok(rows.filter(row=>row.kind==="entity"&&!row.disabled).every(row=>entitySelected(policy,row)));
+  assert.doesNotMatch(JSON.stringify(policy),/registry:disabled/);
+  assert.match(entitySelection(card,policy),/data-definition-field="entity-integration"[^>]* checked/);
+  assert.doesNotMatch(entitySelection(card,policy),/entity-choice/);
+  change(card,"entity-integration",false,"esphome");
+  assert.ok(rows.filter(row=>row.kind==="entity"&&!row.disabled).every(row=>!entitySelected(policy,row)));
+  assert.match(entitySelection(card,policy),/0 of 3 entities selected/);
+  assert.ok(entitySelected(policy,{node_id:"entity:future",attributes:{kind:["entity"],domain:["lock"]}}));
+});
+
+test("device checkboxes sit on collapsed device rows and reflect individual exceptions",()=>{
+  const {card,policy}=fixture();expand(card,"integration:esphome");
+  assert.match(entitySelection(card,policy),/data-definition-field="entity-group"[^>]*data-indeterminate="true"/);
+  assert.match(entitySelection(card,policy),/1 of 2 entities selected/);
+  assert.doesNotMatch(entitySelection(card,policy),/entity-choice|>Monitor entities</);
+  change(card,"entity-group",true,JSON.stringify(["esphome","front"]));
+  assert.match(entitySelection(card,policy),/2 of 2 entities selected/);
+  change(card,"entity-choice",false,"entity:registry:signal");
+  assert.match(entitySelection(card,policy),/1 of 2 entities selected/);
+});
+
+test("integration selection obeys search and monitored-only filters without changing other integrations",()=>{
+  const {card,policy,rows}=fixture();
+  rows.push({...rows[2],node_id:"entity:other",attributes:{...rows[2].attributes,integration_domain:["other"]}});
+  change(card,"entity-search","signal");change(card,"entity-integration",true,"esphome");
+  assert.deepEqual(policy.included_sources,["entity:registry:signal"]);
+  assert.match(entitySelection(card,policy),/1 of 1 matching entities selected/);
+  change(card,"entity-search","");change(card,"entity-selected-only",true);
+  change(card,"entity-integration",false,"esphome");
+  assert.ok(!entitySelected(policy,rows[1]));assert.ok(!entitySelected(policy,rows[2]));
+  assert.equal(policy.included_sources,undefined);
+});
+
 test("a whole-device exclusion can retain siblings while explicitly selecting one member",()=>{
   const {card,policy,rows}=fixture();policy.excluded_sources=["device:front"];
   change(card,"entity-choice",true,"entity:registry:signal");
@@ -84,6 +122,8 @@ for(const state of ["loading","stale"])test(`${state} catalogs disable membershi
   const {card,policy}=fixture();policy.included_sources=["entity:registry:missing"];
   if(state==="loading")card.current.data.catalog_loaded=false;else card.current.data.catalog_stale=true;
   const before=structuredClone(policy);change(card,"entity-choice",true,"entity:registry:signal");
+  change(card,"entity-integration",true,"esphome");
+  change(card,"entity-group",true,JSON.stringify(["esphome","front"]));
   change(card,"entity-search","signal");
   assert.deepEqual(policy,before);assert.match(entitySelection(card,policy),/disabled/);
 });

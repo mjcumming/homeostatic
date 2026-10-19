@@ -1034,7 +1034,7 @@ test("Sources combines registry-owned one-device connections without merging the
     sourcesExpanded:new Set([family.key]),sourcesSelection:family.key,sourcesView:"source"};
   const html=sourcesBrowser(card);
   assert.match(html,/Family Room/);
-  assert.match(html,/Home Theater <span class="source-issue-count">Issues<\/span><\/span><small>Device/);
+  assert.match(html,/Home Theater <span class="source-issue-count">Issues<\/span><\/span><\/button>/);
   assert.equal((html.match(/data-sources-select="source:entry:theater"/g)||[]).length,1);
   assert.ok(sourcePaths(filterSources(tree,"Receiver setup")).has("source:device:family"));
   data.inventory.nodes=data.inventory.nodes.filter(node=>!node.node_id.includes("theater"));
@@ -1149,13 +1149,13 @@ test("Sources starts collapsed with issue indicators and source kinds beside nam
   const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(),sourcesSelection:null,sourcesView:"source",sourcesShowDisabled:true};
   const closed=sourcesBrowser(card);
-  assert.match(closed,/Frigate <span class="source-issue-count">Issues<\/span><\/span><small>Integration/);
+  assert.match(closed,/Frigate <span class="source-issue-count">Issues<\/span><\/span><\/button>/);
   assert.doesNotMatch(closed,/data-sources-select="source:device:camera-0"/);
   assert.match(closed,/data-action="collapse-sources" disabled>Collapse groups/);
   card.sourcesExpanded.add("source:entry:frigate");
   card.sourcesExpanded.add("source:device:camera-0");
   const opened=sourcesBrowser(card);
-  assert.match(opened,/Back Deck <span class="source-issue-count">Issues<\/span><\/span><small>Device/);
+  assert.match(opened,/Back Deck <span class="source-issue-count">Issues<\/span><\/span><\/button>/);
   assert.match(opened,/Back Deck signal 000<\/span><small>Not monitored/);
   assert.match(opened,/Back Deck signal 001<\/span><small>Monitored<\/small>/);
   assert.match(opened,/Back Deck signal 000<\/span><small>Not monitored/);
@@ -1164,7 +1164,7 @@ test("Sources starts collapsed with issue indicators and source kinds beside nam
   assert.match(opened,/Back Deck signal 005<\/span><small>Disabled in Home Assistant<\/small>/);
   assert.match(opened,/data-action="collapse-sources">Collapse groups/);
   card.sourcesQuery="Back Deck signal 003";
-  assert.match(sourcesBrowser(card),/Back Deck <span class="source-issue-count">Issues<\/span><\/span><small>Device/);
+  assert.match(sourcesBrowser(card),/Back Deck <span class="source-issue-count">Issues<\/span><\/span><\/button>/);
 });
 
 test("Sources starts with source selection rather than setup documentation",()=>{

@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=102";
+import {escapeHtml as esc} from "./model.mjs?v=103";
 
 const identity=source=>source.monitoring_source||source.node_id;
 const matches=(match,metadata)=>Object.entries(match||{}).every(([field,values])=>values.some(value=>(metadata[field]||[]).includes(value)));
@@ -54,19 +54,19 @@ export function entitySelection(card,policy) {
     if(!groups.has(row.group))groups.set(row.group,[]);
     groups.get(row.group).push(row);
   }
-  const branch=(key,name,contents)=>{
+  const branch=(key,name,group,field,value,contents)=>{
     const expanded=searching?!(state.searchCollapsed||[]).includes(key):(state.expanded||[]).includes(key);
     const id=`entity-branch-${encodeURIComponent(policy.id)}-${encodeURIComponent(key)}`;
-    return `<li><button type="button" class="entity-selection-toggle tree-toggle" data-definition-action="entity-expand" ${attr("entity-expand")} data-definition-value="${esc(key)}" aria-expanded="${expanded}" aria-controls="${id}" aria-label="${expanded?"Collapse":"Expand"} ${esc(name)}"><span class="disclosure" aria-hidden="true"></span><span>${esc(name)}</span></button><ul id="${id}" class="entity-selection-children"${expanded?"":" hidden"}>${expanded?contents():""}</ul></li>`;
+    const selectable=group.filter(row=>!row.missing&&!row.source.disabled),count=selectable.filter(row=>row.selected).length,mixed=count>0&&count<selectable.length;
+    return `<li><div class="entity-selection-branch"><button type="button" class="entity-selection-toggle tree-toggle" data-definition-action="entity-expand" ${attr("entity-expand")} data-definition-value="${esc(key)}" aria-expanded="${expanded}" aria-controls="${id}" aria-label="${expanded?"Collapse":"Expand"} ${esc(name)}"><span class="disclosure" aria-hidden="true"></span></button>${selectable.length?`<label class="entity-selection-bulk"><input type="checkbox" ${attr(field)} data-definition-value="${esc(value)}" aria-label="Monitor ${searching||state.selectedOnly?"matching ":""}entities under ${esc(name)}"${count===selectable.length?" checked":""}${mixed?' data-indeterminate="true" aria-checked="mixed"':""}${pending||stale?" disabled":""}><span>${esc(name)}<span class="entity-selection-context">${count} of ${selectable.length} ${searching||state.selectedOnly?"matching ":""}entities selected</span></span></label>`:`<span class="entity-selection-branch-name">${esc(name)}</span>`}</div><ul id="${id}" class="entity-selection-children"${expanded?"":" hidden"}>${expanded?contents():""}</ul></li>`;
   };
   const device=group=>{
     const first=group[0];
-    const selectable=group.filter(row=>!row.missing&&!row.source.disabled),count=selectable.filter(row=>row.selected).length,mixed=count>0&&count<selectable.length;
-    return branch(`device:${first.group}`,first.device,()=>`${selectable.length?`<li><label class="entity-selection-bulk"><input type="checkbox" ${attr("entity-group")} data-definition-value="${esc(first.group)}"${count===selectable.length?" checked":""}${mixed?' data-indeterminate="true" aria-checked="mixed"':""}${pending||stale?" disabled":""}>Monitor ${searching?"matching ":""}entities</label></li>`:""}${group.map(row=>`<li>${row.missing?`<div class="entity-selection-row"><span>${esc(row.name)}<span class="entity-selection-context">${esc(row.id)}</span></span><button type="button" class="button" data-definition-action="entity-forget" ${attr("entity-forget")} data-definition-value="${esc(row.id)}"${pending||stale?" disabled":""}>Remove saved choice</button></div>`:`<label class="entity-selection-row"><input type="checkbox" ${attr("entity-choice")} data-definition-value="${esc(row.id)}"${row.selected&&!row.source.disabled?" checked":""}${row.source.disabled||pending||stale?" disabled":""}><span>${esc(row.name)}<span class="entity-selection-context">${esc([row.area,row.entityId,row.source.disabled?"Disabled in Home Assistant":""].filter(Boolean).join(" · "))}</span></span></label>`}</li>`).join("")}`);
+    return branch(`device:${first.group}`,first.device,group,"entity-group",first.group,()=>group.map(row=>`<li>${row.missing?`<div class="entity-selection-row"><span>${esc(row.name)}<span class="entity-selection-context">${esc(row.id)}</span></span><button type="button" class="button" data-definition-action="entity-forget" ${attr("entity-forget")} data-definition-value="${esc(row.id)}"${pending||stale?" disabled":""}>Remove saved choice</button></div>`:`<label class="entity-selection-row"><input type="checkbox" ${attr("entity-choice")} data-definition-value="${esc(row.id)}"${row.selected&&!row.source.disabled?" checked":""}${row.source.disabled||pending||stale?" disabled":""}><span>${esc(row.name)}<span class="entity-selection-context">${esc([row.area,row.entityId,row.source.disabled?"Disabled in Home Assistant":""].filter(Boolean).join(" · "))}</span></span></label>`}</li>`).join(""));
   };
   const content=[...integrations.values()].map(groups=>{
     const first=groups.values().next().value[0];
-    return branch(`integration:${first.integrationKey}`,first.integration,()=>[...groups.values()].map(device).join(""));
+    return branch(`integration:${first.integrationKey}`,first.integration,[...groups.values()].flat(),"entity-integration",first.integrationKey,()=>[...groups.values()].map(device).join(""));
   }).join("");
   return `<section class="entity-selection" aria-label="Entity selection"><p class="small">${entityScopeSummary(policy)}</p><label class="installation-field"><span>Search entities</span><input type="search" ${attr("entity-search")} value="${esc(state.query||"")}" placeholder="Name, integration, device or area"></label><label class="entity-selection-filter"><input type="checkbox" ${attr("entity-selected-only")}${state.selectedOnly?" checked":""}>Monitored only</label>${pending||stale?`<p role="status">${card.current?.catalogError?`Could not load entities: ${esc(card.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry</button>`:pending?"Loading entities…":"Updating entities…"}</p>`:""}${content?`<ul class="entity-selection-tree">${content}</ul>`:!pending?'<p>No entities match your search.</p>':""}<p class="small">Changes apply to this policy when you save. Disabled entities are not monitored.</p></section>`;
 }
@@ -114,7 +114,7 @@ export function editEntitySelection(card,event,element,invalidate,renderAfterEdi
   }else {
     if(event.type!=="change")return true;
     const rows=entitySelectionRows(card,policy).filter(row=>!row.missing&&!row.source.disabled);
-    for(const row of rows)if(field==="entity-group"?row.group===element.dataset.definitionValue:row.id===element.dataset.definitionValue)choose(policy,row,element.checked);
+    for(const row of rows)if(field==="entity-integration"?row.integrationKey===element.dataset.definitionValue:field==="entity-group"?row.group===element.dataset.definitionValue:row.id===element.dataset.definitionValue)choose(policy,row,element.checked);
   }
   invalidate(card);renderAfterEdit(card,element);return true;
 }

@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T09:49:27.96231-05:00",
+  "owner": "Single implementation owner in Homeostatic; health-tree unchanged",
+  "decision": "docs/adr/0103-entity-availability-with-grouped-selection.md",
+  "candidate": {
+    "branch": "main",
+    "revision": "b2cfa6579c954f06b54951803cfe93389a4b9d99",
+    "dirty": true,
+    "component_sha256": "db390b3bfe15b843091d4514a39bde350fd9914cd78274140c9e0516cea5c067"
+  },
+  "status": {
+    "implementation": "complete",
+    "scoped_acceptance": "pass",
+    "committed": false,
+    "released": false,
+    "installed": true
+  },
+  "scope": "Policy integration/device group selection and reading-position retention in Policies and Monitoring",
+  "purpose_review": {
+    "owner": "Policies owns entity membership; Monitoring retains source review and contextual access to its policy editor.",
+    "group_checkbox": "Select or clear matching enabled descendants without opening every device; native mixed state and selected/total count expose individual exceptions.",
+    "disclosure": "Independent 44px arrow reveals individual entities for exceptions; collapsed groups retain actionable membership summaries.",
+    "removed": "The extra Monitor entities child row is replaced by its device-row checkbox.",
+    "scope": "Search and Monitored only constrain current group edits; saved future selectors and unrelated policies remain intact until scoped Save policy.",
+    "rendered_review": "Desktop 1440px and phone 390px, including doubled text: hierarchy, independent controls, wrapping and selected counts inspected. Entity checkboxes indent below the device checkbox.",
+    "events": "Existing scoped configuration save and public notification/event contracts are unchanged; no events.md changes needed."
+  },
+  "checks": [
+    {
+      "command": "uv run --no-sync python script/check.py --quick",
+      "status": "pass",
+      "frontend_tests": 867,
+      "evidence": "build/tree-selection-quick.log"
+    },
+    {
+      "command": "uv run --no-sync pytest -q tests/test_dashboard.py",
+      "status": "pass",
+      "tests": 40,
+      "evidence": "build/tree-selection-dashboard.log"
+    },
+    {
+      "command": "git diff --check",
+      "status": "pass"
+    },
+    {
+      "command": "Impeccable detector on changed UI targets",
+      "status": "reviewed",
+      "evidence": "build/tree-selection-design-detect.json",
+      "notes": "Three warnings refer to existing unrelated accent borders; no new group-selection findings."
+    }
+  ],
+  "runs": {
+    "desktop": {
+      "report": "build/ui-acceptance/tree-selection-final-desktop/report.json",
+      "environment": {
+        "group": "policies",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "browser_channel": null,
+        "headed": false,
+        "mode": "all",
+        "notifications": "captured by synthetic services only",
+        "selected_cases": [
+          "policies.entity-selection"
+        ],
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.10.0",
+        "candidate_unchanged": true
+      },
+      "fixtures": [
+        {
+          "id": "policies.not-provided",
+          "status": "pass"
+        },
+        {
+          "id": "issues.not-provided",
+          "status": "pass"
+        },
+        {
+          "id": "policies.entity-selection",
+          "status": "pass"
+        },
+        {
+          "id": "policies.temperature-detection",
+          "status": "pass"
+        },
+        {
+          "id": "policies.temperature-save",
+          "status": "pass"
+        },
+        {
+          "id": "policies.temperature-picker",
+          "status": "pass"
+        }
+      ],
+      "live": [
+        {
+          "id": "policies.entity-selection",
+          "status": "pass",
+          "evidence": [
+            "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":2306,\"detail\":\"Collapsed branches open without changing saved settings; filtered device and integration checkboxes change the displayed matches. Keyboard bulk selection saves and reopens the complete filtered membership, preserves future selectors and discards only this policy.\"}"
+          ]
+        }
+      ]
+    },
+    "phone": {
+      "report": "build/ui-acceptance/tree-selection-final-phone/report.json",
+      "environment": {
+        "group": "policies",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "browser_channel": null,
+        "headed": false,
+        "mode": "all",
+        "notifications": "captured by synthetic services only",
+        "selected_cases": [
+          "policies.entity-selection"
+        ],
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.10.0",
+        "candidate_unchanged": true
+      },
+      "fixtures": [
+        {
+          "id": "policies.not-provided",
+          "status": "pass"
+        },
+        {
+          "id": "issues.not-provided",
+          "status": "pass"
+        },
+        {
+          "id": "policies.entity-selection",
+          "status": "pass"
+        },
+        {
+          "id": "policies.temperature-detection",
+          "status": "pass"
+        },
+        {
+          "id": "policies.temperature-save",
+          "status": "pass"
+        },
+        {
+          "id": "policies.temperature-picker",
+          "status": "pass"
+        }
+      ],
+      "live": [
+        {
+          "id": "policies.entity-selection",
+          "status": "pass",
+          "evidence": [
+            "policies/390px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":2323,\"detail\":\"Collapsed branches open without changing saved settings; filtered device and integration checkboxes change the displayed matches. Keyboard bulk selection saves and reopens the complete filtered membership, preserves future selectors and discards only this policy.\"}"
+          ]
+        }
+      ]
+    }
+  },
+  "additional_browser_checks": {
+    "results": [
+      {
+        "width": 1440,
+        "fixture": ""
+      },
+      {
+        "width": 1440,
+        "scroll": {
+          "before": {
+            "y": 397.953125,
+            "scroll": 3185
+          },
+          "after": {
+            "y": 397.953125,
+            "scroll": 3185
+          },
+          "expanded": {
+            "y": 397.953125,
+            "scroll": 3185
+          }
+        },
+        "keyboard": "integration checkbox Space and retained focus"
+      },
+      {
+        "width": 1440,
+        "monitoring": {
+          "initial": {
+            "y": 499.578125,
+            "rail": 1227,
+            "page": 211
+          },
+          "changed": {
+            "y": 499.578125,
+            "rail": 1227,
+            "page": 211
+          },
+          "final": {
+            "y": 499.578125,
+            "rail": 1227,
+            "page": 211
+          }
+        }
+      },
+      {
+        "width": 1440,
+        "upgrade": ""
+      },
+      {
+        "width": 390,
+        "fixture": ""
+      },
+      {
+        "width": 390,
+        "scroll": {
+          "before": {
+            "y": 397.875,
+            "scroll": 3443
+          },
+          "after": {
+            "y": 397.875,
+            "scroll": 3443
+          },
+          "expanded": {
+            "y": 397.875,
+            "scroll": 3443
+          }
+        },
+        "keyboard": "integration checkbox Space and retained focus"
+      },
+      {
+        "width": 390,
+        "monitoring": {
+          "initial": {
+            "y": 399.765625,
+            "rail": 0,
+            "page": 1745
+          },
+          "changed": {
+            "y": 399.765625,
+            "rail": 0,
+            "page": 1745
+          },
+          "final": {
+            "y": 399.765625,
+            "rail": 0,
+            "page": 1745
+          }
+        }
+      },
+      {
+        "width": 390,
+        "upgrade": ""
+      }
+    ]
+  },
+  "artifacts": {
+    "runner": "build/tree-selection-review.mjs",
+    "receipt": "build/ui-acceptance/tree-selection/receipt.json",
+    "screenshots": [
+      "build/ui-acceptance/tree-selection/policies-1440.png",
+      "build/ui-acceptance/tree-selection/policies-1440-enlarged.png",
+      "build/ui-acceptance/tree-selection/policies-390.png",
+      "build/ui-acceptance/tree-selection/policies-390-enlarged.png"
+    ]
+  },
+  "regressions": [
+    "Policy row height estimates changed after tree replacement; reproduced reading-position drift, then removed content-visibility estimates. Final expand/collapse coordinates remain unchanged on desktop and phone.",
+    "Monitoring used focus() after pointer/arrow disclosure changes. It now uses preventScroll; rendered tests preserve page and tree-rail scroll.",
+    "Mixed group state was included in focus identity. Stable field identity now restores focus through mixed/all transitions and returns to Monitored only when its filter removes the group."
+  ],
+  "prior_run_diagnostics": [
+    {
+      "reports": [
+        "build/ui-acceptance/tree-selection-live-desktop/report.json",
+        "build/ui-acceptance/tree-selection-live-phone/report.json"
+      ],
+      "reason": "The former single-entity save assertion expected one changed source, while filtered bulk selection correctly changed every displayed match. The scenario now asserts the complete exact group and unrelated saved settings."
+    },
+    {
+      "reason": "Temporary browser runner used inherited computed font sizes while doubling text, then corrected to snapshot all sizes before editing. It also now waits for the upgrade fixture handler before clicking Run."
+    }
+  ],
+  "limits": [
+    "Broader unselected acceptance inventory remains untested in these runs.",
+    "Physical Safari remains untested; the later local installation is recorded separately.",
+    "The isolated runs made no household requests. The later local installation is recorded separately; no test notifications or publication."
+  ],
+  "local_installation_receipt": "docs/performance/local-tree-ui-2026-10-19.json"
+}

@@ -77,11 +77,16 @@ document.querySelector("#run-layout").onclick=async()=>{
   const settle=async()=>{for(let index=0;index<20;index++)await Promise.resolve();};
   const toggle=()=>root.querySelector(`[data-sources-toggle="${device}"]`);
   try {
+    const rail=root.querySelector(".config-rail"),layout=root.querySelector(".config-layout"),tree=root.querySelector(".config-tree");
+    check(getComputedStyle(tree.firstElementChild).borderBottomStyle==="solid","Top-level groups use policy-tree separators");
+    check(getComputedStyle(tree.querySelector(".config-pick")).fontWeight==="600","Top-level group names use policy-tree weight");
+    if(card.getBoundingClientRect().width>760)check(rail.getBoundingClientRect().width/layout.getBoundingClientRect().width>=.37,"Desktop keeps a wider tree beside details");
     for(const row of root.querySelectorAll(".config-nav-row")) {
       const pick=row.querySelector(".config-pick"),title=pick.querySelector(".source-row-title"),button=row.querySelector(".config-toggle"),meta=pick.querySelector("small");
       const range=document.createRange();range.selectNodeContents(title.firstChild);
       const first=range.getClientRects()[0],text=title.getBoundingClientRect(),box=pick.getBoundingClientRect(),secondary=meta?.getBoundingClientRect();
       if(button) {
+        check(button.getBoundingClientRect().width===44,"Disclosure target matches the policy tree");
         const arrow=button.querySelector(".disclosure").getBoundingClientRect();
         check(Math.abs(arrow.top+arrow.height/2-first.top-first.height/2)<=4,`Arrow aligns with first name line: ${title.textContent}`);
         check(button.getBoundingClientRect().height>=row.getBoundingClientRect().height-1,"Disclosure keeps its full row-height target");
@@ -101,7 +106,7 @@ document.querySelector("#run-layout").onclick=async()=>{
     check(toggle().getClientRects().length,"Disclosure remains reachable after returning to the tree");
     toggle().click();await settle();
     check(toggle().getAttribute("aria-expanded")==="false"&&card.sourcesSelection===device,"Collapse preserves selection");
-    recordResult(receipt,"sources.tree-layout","pass","First-line arrow alignment, full-height target, wrapping, no overflow and independent expansion/selection passed.");
+    recordResult(receipt,"sources.tree-layout","pass","Policy-tree typography, separators, 44px disclosure targets, wider desktop rail, first-line alignment, wrapping and independent expansion/selection passed.");
     feedback.textContent=`PASS: tree alignment and controls at ${width.value}px in ${theme.value} theme.`;
   } catch(error) {
     recordResult(receipt,"sources.tree-layout","fail",error.message);feedback.textContent=`FAIL: ${error.message}`;

@@ -9,7 +9,7 @@
 1. Open **Monitoring** and enter a name or entity ID in **Search**.
 2. Leave **Monitoring status** at **All** to search both watched and unwatched sources. Choose **Monitored** or **Not monitored** when that distinction helps.
 3. Use **Group by** to browse by integration or **Home Assistant location**. **TopoMation locations** is also available when TopoMation supplies the location tree.
-4. Expand the relevant branch and select the source. On a narrow screen, **Back to Monitoring** returns to the tree.
+4. Expand the relevant branch and select the source. The tree uses the same group headings, spacing and arrows as the policy editor. On desktop, the tree stays beside the source details; on a narrow screen, **Back to Monitoring** returns to the tree.
 
 The details identify the source, its current condition and its monitoring. Select **Open entity** to open Home Assistant’s entity dialog, including when the entity is no longer provided by its integration. The named Device and Integration links open their respective Home Assistant pages.
 

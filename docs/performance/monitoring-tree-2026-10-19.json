@@ -1,0 +1,493 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T10:02:21.24686-05:00",
+  "scope": "Match Monitoring tree styling to the policy editor and widen the desktop tree while retaining tree-and-details inspection.",
+  "owner": "One implementation owner in Homeostatic; health-tree unchanged",
+  "decisions": [
+    "docs/adr/0071-compact-monitoring-inspector.md",
+    "docs/adr/0073-entity-first-monitoring-details.md",
+    "docs/adr/0103-entity-availability-with-grouped-selection.md"
+  ],
+  "candidate": {
+    "branch": "main",
+    "revision": "b2cfa6579c954f06b54951803cfe93389a4b9d99",
+    "dirty": true,
+    "component_sha256": "a9a75577fe25f14d5d3302de485b2397b5e3b9b0dc5a47c5cb9c0834d899bed7"
+  },
+  "status": {
+    "implementation": "complete",
+    "scoped_visual_acceptance": "pass",
+    "broader_reconnect_acceptance": "fail on candidate and earlier release baseline",
+    "committed": false,
+    "released": false,
+    "installed": true
+  },
+  "purpose_review": {
+    "owner": "Monitoring owns source status and inspection; Policies owns membership editing.",
+    "shared_visuals": "Both trees use common CSS values for 48px minimum rows, 24px indentation and 44px disclosure targets. Monitoring uses bold top-level names and subtle separators.",
+    "layout": "The desktop tree grows from 30% to 38% with a 300px minimum, keeping selected-source details beside it. Phones retain successive tree/detail views and Back to Monitoring.",
+    "content": "Remove repeated Integration/Device type labels from groups; keep Issues badges and meaningful connection/entity coverage below names.",
+    "disclosure": "The independent arrow exposes children without selecting or editing. Selecting a name opens its existing canonical details.",
+    "rendered_review": "Inspected desktop and phone light-theme screenshots plus enlarged phone text; long names wrap, selection and keyboard outlines remain distinct, and controls fit. Dark themes and 320px geometry also pass.",
+    "contracts": "No monitoring, Home Assistant evidence, persistence, event or notification contract changes; docs/events.md is unchanged."
+  },
+  "checks": [
+    {
+      "command": "uv run --no-sync python script/check.py --quick",
+      "status": "pass",
+      "frontend_tests": 868,
+      "evidence": "build/monitoring-tree-quick.log"
+    },
+    {
+      "command": "uv run --no-sync pytest -q tests/test_dashboard.py",
+      "status": "pass",
+      "tests": 40,
+      "evidence": "build/monitoring-tree-dashboard.log"
+    },
+    {
+      "command": "git diff --check",
+      "status": "pass"
+    },
+    {
+      "command": "Impeccable detector",
+      "status": "reviewed",
+      "evidence": "build/monitoring-tree-design-detect.json",
+      "notes": "Three warnings concern existing unrelated accent borders; no new tree findings."
+    }
+  ],
+  "rendered_fixture_matrix": {
+    "results": [
+      {
+        "width": 1440,
+        "theme": "light",
+        "status": "pass",
+        "geometry": {
+          "tree": 399,
+          "total": 1050,
+          "arrow": 44,
+          "rowMinimum": "48px",
+          "indent": "24px"
+        },
+        "receipt": {
+          "schema_version": 1,
+          "started_at": "2026-10-19T14:59:37.049Z",
+          "environment": {
+            "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+            "width": 0,
+            "theme": "light",
+            "grouping": "integration",
+            "data": "synthetic",
+            "fixture": "shared-issue-counts.html"
+          },
+          "results": [
+            {
+              "id": "sources.tree-layout",
+              "page": "Monitoring",
+              "controls": "Policy-tree row styling, wider desktop tree, wrapped names, issue badges, expand and select",
+              "expected": "Group weights, separators, indentation and disclosure targets match Policies; desktop retains tree and details, secondary status stays under its name and expansion remains independent of selection.",
+              "fixture": "shared-issue-counts.html",
+              "requirement": "../../docs/spec.md#completion-criteria",
+              "status": "pass",
+              "evidence": [
+                "Policy-tree typography, separators, 44px disclosure targets, wider desktop rail, first-line alignment, wrapping and independent expansion/selection passed."
+              ]
+            }
+          ]
+        },
+        "checks": [
+          "shared row dimensions",
+          "first-line arrows",
+          "long-name wrapping",
+          "independent native pointer and keyboard expansion",
+          "selection and mobile return",
+          "draft unchanged"
+        ]
+      },
+      {
+        "width": 1440,
+        "theme": "dark",
+        "status": "pass",
+        "geometry": {
+          "tree": 399,
+          "total": 1050,
+          "arrow": 44,
+          "rowMinimum": "48px",
+          "indent": "24px"
+        },
+        "receipt": {
+          "schema_version": 1,
+          "started_at": "2026-10-19T14:59:37.56Z",
+          "environment": {
+            "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+            "width": 0,
+            "theme": "dark",
+            "grouping": "integration",
+            "data": "synthetic",
+            "fixture": "shared-issue-counts.html"
+          },
+          "results": [
+            {
+              "id": "sources.tree-layout",
+              "page": "Monitoring",
+              "controls": "Policy-tree row styling, wider desktop tree, wrapped names, issue badges, expand and select",
+              "expected": "Group weights, separators, indentation and disclosure targets match Policies; desktop retains tree and details, secondary status stays under its name and expansion remains independent of selection.",
+              "fixture": "shared-issue-counts.html",
+              "requirement": "../../docs/spec.md#completion-criteria",
+              "status": "pass",
+              "evidence": [
+                "Policy-tree typography, separators, 44px disclosure targets, wider desktop rail, first-line alignment, wrapping and independent expansion/selection passed."
+              ]
+            }
+          ]
+        },
+        "checks": [
+          "shared row dimensions",
+          "first-line arrows",
+          "long-name wrapping",
+          "independent native pointer and keyboard expansion",
+          "selection and mobile return",
+          "draft unchanged"
+        ]
+      },
+      {
+        "width": 390,
+        "theme": "light",
+        "status": "pass",
+        "geometry": {
+          "tree": 360,
+          "total": 360,
+          "arrow": 44,
+          "rowMinimum": "48px",
+          "indent": "24px"
+        },
+        "receipt": {
+          "schema_version": 1,
+          "started_at": "2026-10-19T14:59:38.043Z",
+          "environment": {
+            "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+            "width": 390,
+            "theme": "light",
+            "grouping": "integration",
+            "data": "synthetic",
+            "fixture": "shared-issue-counts.html"
+          },
+          "results": [
+            {
+              "id": "sources.tree-layout",
+              "page": "Monitoring",
+              "controls": "Policy-tree row styling, wider desktop tree, wrapped names, issue badges, expand and select",
+              "expected": "Group weights, separators, indentation and disclosure targets match Policies; desktop retains tree and details, secondary status stays under its name and expansion remains independent of selection.",
+              "fixture": "shared-issue-counts.html",
+              "requirement": "../../docs/spec.md#completion-criteria",
+              "status": "pass",
+              "evidence": [
+                "Policy-tree typography, separators, 44px disclosure targets, wider desktop rail, first-line alignment, wrapping and independent expansion/selection passed."
+              ]
+            }
+          ]
+        },
+        "checks": [
+          "shared row dimensions",
+          "first-line arrows",
+          "long-name wrapping",
+          "independent native pointer and keyboard expansion",
+          "selection and mobile return",
+          "draft unchanged"
+        ]
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "status": "pass",
+        "geometry": {
+          "tree": 360,
+          "total": 360,
+          "arrow": 44,
+          "rowMinimum": "48px",
+          "indent": "24px"
+        },
+        "receipt": {
+          "schema_version": 1,
+          "started_at": "2026-10-19T14:59:38.66Z",
+          "environment": {
+            "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+            "width": 390,
+            "theme": "dark",
+            "grouping": "integration",
+            "data": "synthetic",
+            "fixture": "shared-issue-counts.html"
+          },
+          "results": [
+            {
+              "id": "sources.tree-layout",
+              "page": "Monitoring",
+              "controls": "Policy-tree row styling, wider desktop tree, wrapped names, issue badges, expand and select",
+              "expected": "Group weights, separators, indentation and disclosure targets match Policies; desktop retains tree and details, secondary status stays under its name and expansion remains independent of selection.",
+              "fixture": "shared-issue-counts.html",
+              "requirement": "../../docs/spec.md#completion-criteria",
+              "status": "pass",
+              "evidence": [
+                "Policy-tree typography, separators, 44px disclosure targets, wider desktop rail, first-line alignment, wrapping and independent expansion/selection passed."
+              ]
+            }
+          ]
+        },
+        "checks": [
+          "shared row dimensions",
+          "first-line arrows",
+          "long-name wrapping",
+          "independent native pointer and keyboard expansion",
+          "selection and mobile return",
+          "draft unchanged"
+        ]
+      },
+      {
+        "width": 320,
+        "theme": "light",
+        "status": "pass",
+        "geometry": {
+          "tree": 290,
+          "total": 290,
+          "arrow": 44,
+          "rowMinimum": "48px",
+          "indent": "24px"
+        },
+        "receipt": {
+          "schema_version": 1,
+          "started_at": "2026-10-19T14:59:39.144Z",
+          "environment": {
+            "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+            "width": 320,
+            "theme": "light",
+            "grouping": "integration",
+            "data": "synthetic",
+            "fixture": "shared-issue-counts.html"
+          },
+          "results": [
+            {
+              "id": "sources.tree-layout",
+              "page": "Monitoring",
+              "controls": "Policy-tree row styling, wider desktop tree, wrapped names, issue badges, expand and select",
+              "expected": "Group weights, separators, indentation and disclosure targets match Policies; desktop retains tree and details, secondary status stays under its name and expansion remains independent of selection.",
+              "fixture": "shared-issue-counts.html",
+              "requirement": "../../docs/spec.md#completion-criteria",
+              "status": "pass",
+              "evidence": [
+                "Policy-tree typography, separators, 44px disclosure targets, wider desktop rail, first-line alignment, wrapping and independent expansion/selection passed."
+              ]
+            }
+          ]
+        },
+        "checks": [
+          "shared row dimensions",
+          "first-line arrows",
+          "long-name wrapping",
+          "independent native pointer and keyboard expansion",
+          "selection and mobile return",
+          "draft unchanged"
+        ]
+      },
+      {
+        "policyRegression": {
+          "fixture": "policy-picker",
+          "synthetic": true,
+          "results": [
+            {
+              "id": "entity-tree",
+              "status": "pass"
+            },
+            {
+              "id": "entity-list",
+              "status": "pass"
+            },
+            {
+              "id": "entity-branch-selection",
+              "status": "pass"
+            },
+            {
+              "id": "entity-save",
+              "status": "pass"
+            },
+            {
+              "id": "entity-missing-loading",
+              "status": "pass"
+            },
+            {
+              "id": "entity-household",
+              "status": "pass"
+            },
+            {
+              "id": "entity-scroll",
+              "status": "pass"
+            },
+            {
+              "id": "entity-filter-focus",
+              "status": "pass"
+            },
+            {
+              "id": "selection-layout",
+              "status": "pass"
+            }
+          ]
+        },
+        "status": "pass"
+      }
+    ]
+  },
+  "scroll_regression": {
+    "status": "pass",
+    "evidence": "build/ui-acceptance/tree-selection/receipt.json",
+    "runner": "build/tree-selection-review.mjs",
+    "checks": "Policy and Monitoring pointer/keyboard expansion preserve reading position at 1440px and 390px; policy selection and prior-element upgrade checks also pass."
+  },
+  "real_home_assistant": {
+    "desktop": {
+      "report": "build/ui-acceptance/monitoring-tree-live-desktop/report.json",
+      "environment": {
+        "group": "all",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "browser_channel": null,
+        "headed": false,
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "selected_cases": [
+          "live.sources.browse",
+          "updates.retention",
+          "layout.themes"
+        ],
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.10.0",
+        "candidate_unchanged": true
+      },
+      "cases": [
+        {
+          "id": "updates.retention",
+          "page": "Live updates",
+          "controls": "Unchanged update, disconnect, reconnect",
+          "expected": "Retain DOM, focus, selection and draft; stale view is visibly read-only.",
+          "fixture": "reusable-editors.html",
+          "requirement": "../../docs/spec.md#component-review-checklist",
+          "status": "fail",
+          "evidence": [
+            "all/1440px/light: {\"environment\":\"isolated Home Assistant\",\"duration_ms\":2028,\"error\":\"AssertionError [ERR_ASSERTION]: Unhandled browser errors occurred during this case\\n+ actual - expected\\n\\n+ [\\n+   'Object'\\n+ ]\\n- []\\n\\n    at run (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:98:14)\\n    at async Module.runLayoutGaps (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_layout.mjs:43:3)\\n    at async runLiveCases (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:476:5)\\n    at async main (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:278:25)\\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:313:79\",\"screenshot\":\"/mnt/c/GitHub/homeostatic/build/ui-acceptance/monitoring-tree-live-desktop/all-updates.retention.png\",\"dom\":\"/mnt/c/GitHub/homeostatic/build/ui-acceptance/monitoring-tree-live-desktop/all-updates.retention.txt\"}"
+          ]
+        },
+        {
+          "id": "layout.themes",
+          "page": "Accessibility",
+          "controls": "Light, dark, enlarged text, 320px and desktop",
+          "expected": "No clipping, required horizontal scroll or unreadable control state.",
+          "fixture": "mobile-layout.html",
+          "requirement": "../../docs/spec.md#component-review-checklist",
+          "status": "pass",
+          "evidence": [
+            "all/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":7888,\"detail\":\"Desktop/390/320, light/dark, all pages and doubled editor text examined for content and control clipping.\"}"
+          ]
+        },
+        {
+          "id": "live.sources.browse",
+          "page": "Additional browser case",
+          "controls": "live.sources.browse",
+          "expected": "See evidence",
+          "status": "pass",
+          "evidence": [
+            "all/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":950,\"detail\":\"Real Monitoring search, filters, grouping, selected source and contextual history checked without configuration writes.\"}"
+          ]
+        }
+      ]
+    },
+    "phone": {
+      "report": "build/ui-acceptance/monitoring-tree-live-phone/report.json",
+      "environment": {
+        "group": "all",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "browser_channel": null,
+        "headed": false,
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "selected_cases": [
+          "live.sources.browse",
+          "updates.retention",
+          "layout.themes"
+        ],
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.10.0",
+        "candidate_unchanged": true
+      },
+      "cases": [
+        {
+          "id": "updates.retention",
+          "page": "Live updates",
+          "controls": "Unchanged update, disconnect, reconnect",
+          "expected": "Retain DOM, focus, selection and draft; stale view is visibly read-only.",
+          "fixture": "reusable-editors.html",
+          "requirement": "../../docs/spec.md#component-review-checklist",
+          "status": "fail",
+          "evidence": [
+            "all/390px/light: {\"environment\":\"isolated Home Assistant\",\"duration_ms\":1812,\"error\":\"AssertionError [ERR_ASSERTION]: Unhandled browser errors occurred during this case\\n+ actual - expected\\n\\n+ [\\n+   'Object'\\n+ ]\\n- []\\n\\n    at run (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:98:14)\\n    at async Module.runLayoutGaps (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_layout.mjs:43:3)\\n    at async runLiveCases (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:476:5)\\n    at async main (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:278:25)\\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:313:79\",\"screenshot\":\"/mnt/c/GitHub/homeostatic/build/ui-acceptance/monitoring-tree-live-phone/all-updates.retention.png\",\"dom\":\"/mnt/c/GitHub/homeostatic/build/ui-acceptance/monitoring-tree-live-phone/all-updates.retention.txt\"}"
+          ]
+        },
+        {
+          "id": "layout.themes",
+          "page": "Accessibility",
+          "controls": "Light, dark, enlarged text, 320px and desktop",
+          "expected": "No clipping, required horizontal scroll or unreadable control state.",
+          "fixture": "mobile-layout.html",
+          "requirement": "../../docs/spec.md#component-review-checklist",
+          "status": "pass",
+          "evidence": [
+            "all/390px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":7994,\"detail\":\"Desktop/390/320, light/dark, all pages and doubled editor text examined for content and control clipping.\"}"
+          ]
+        },
+        {
+          "id": "live.sources.browse",
+          "page": "Additional browser case",
+          "controls": "live.sources.browse",
+          "expected": "See evidence",
+          "status": "pass",
+          "evidence": [
+            "all/390px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":965,\"detail\":\"Real Monitoring search, filters, grouping, selected source and contextual history checked without configuration writes.\"}"
+          ]
+        }
+      ]
+    }
+  },
+  "baseline_reconnect": {
+    "report": "build/ui-acceptance/monitoring-tree-reconnect-baseline/report.json",
+    "candidate": {
+      "branch": "main",
+      "revision": "e3b173e1a057be9de7b88a280501f12c683f331a",
+      "dirty": false,
+      "component_sha256": "65b2ab52375e75be231435c2af6d74a16543ba84f8e589c97ed7fa7e1f1df9ff",
+      "fixture_sha256": "3450ae8158c97adc59de743105fe005a518c9f53a729826301ab29e0af513f9b",
+      "frozen_at": "2026-10-19T06:47:11.336Z"
+    },
+    "error": "not_found: Subscription not found.",
+    "result": "The earlier frozen release candidate reproduces the same unhandled rejection in updates.retention. The broad reconnect test remains failed and is not closed by this visual work."
+  },
+  "artifacts": {
+    "runner": "build/monitoring-tree-review.mjs",
+    "receipt": "build/ui-acceptance/monitoring-tree/receipt.json",
+    "preview": "build/ui-acceptance/monitoring-tree/monitoring-1440-light.png"
+  },
+  "limits": [
+    "Physical Safari remains untested.",
+    "Broader inventory paths remain untested except the named cases.",
+    "The isolated runs used synthetic services; the later authorized local installation is recorded separately. No test notifications, commit or publication."
+  ],
+  "local_installation_receipt": "docs/performance/local-tree-ui-2026-10-19.json"
+}

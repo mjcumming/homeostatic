@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.11.4] - 2026-10-19
+
+### Changed
+
+- Match Monitoring to the policy tree's integration headings, row spacing, separators and disclosure targets. Give the desktop tree more room while retaining its details pane, and remove repeated integration/device type labels.
+- Select or clear matching entities from integration and device rows in policy editors, even with their branches collapsed. Group checkboxes show partial selection and selected/total counts.
+
+### Fixed
+
+- Keep policy-tree expansion and collapse at the current reading position, and prevent Monitoring disclosure controls from scrolling when focus is restored.
+- Retain keyboard focus when a group checkbox changes between partial and complete selection.
+
 ## [1.11.3] - 2026-10-19
 
 ### Fixed

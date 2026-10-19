@@ -1,7 +1,7 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=102";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=102";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=102";
-import {entitySelection,entityScopeSummary,editEntitySelection} from "./entity-selection.mjs?v=102";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=103";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=103";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=103";
+import {entitySelection,entityScopeSummary,editEntitySelection} from "./entity-selection.mjs?v=103";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -569,10 +569,11 @@ function invalidate(card) {
 
 function renderAfterEdit(card,element) {
   const dataset={...element.dataset},start=element.selectionStart,end=element.selectionEnd;
+  delete dataset.indeterminate;
   const options=card.main?.querySelector?.(".policy-picker-options"),scroll=options?{top:options.scrollTop,left:options.scrollLeft}:null;
   card.render();
   const replacement=[...(card.main?.querySelectorAll?.("[data-definition-field],[data-row-field],[data-definition-picker-search],[data-definition-picker-selected],[data-definition-picker-all],[data-definition-delivery-search]")||[])].find(item=>Object.entries(dataset).every(([key,value])=>item.dataset[key]===value));
-  (replacement||(element.closest?.(".policy-picker")?card.main?.querySelector?.("[data-definition-picker-search]"):null))?.focus?.({preventScroll:true});
+  (replacement||(dataset.definitionField?.startsWith("entity-")?card.main?.querySelector?.('[data-definition-field="entity-selected-only"]'):element.closest?.(".policy-picker")?card.main?.querySelector?.("[data-definition-picker-search]"):null))?.focus?.({preventScroll:true});
   if(start!==null&&start!==undefined)replacement?.setSelectionRange?.(start,end);
   const next=card.main?.querySelector?.(".policy-picker-options");
   if(next&&scroll){next.scrollTop=scroll.top;next.scrollLeft=scroll.left;}

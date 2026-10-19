@@ -39,6 +39,18 @@ async function run(){receipt={fixture:"policy-picker",synthetic:true,results:[]}
   check(find('.entity-selection-toggle[aria-label="Expand ESPHome"]'),"Clearing search restores manual branches");
   check(card.settingsDraft.monitoring_policies[0].match_any[0].domain[0]==="lock","Future scope retained");check(calls.length===0,"Changes are drafts");
  });
+ await test("entity-branch-selection",async()=>{
+  const integration=`${field("entity-integration")}[data-definition-value="zwave_js"]`,device=`${field("entity-group")}[data-definition-value='["zwave_js","door"]']`;
+  check(find(integration).indeterminate&&find(device).indeterminate,"Parent checkboxes show individual exceptions");
+  await click('.entity-selection-toggle[aria-label="Collapse Z-Wave JS"]');
+  await click(integration);check(find(integration).checked&&!find(integration).indeterminate,"Mixed integration selects all while collapsed");
+  check(root.activeElement===find(integration),"Mixed-to-checked transition retains group focus");
+  await open("Z-Wave JS");check(find(device).checked&&find(choice("motion")).checked,"All descendants selected");
+  await click(device);check(!find(integration).checked&&!find(integration).indeterminate&&!find(choice("lock")).checked,"Device deselection updates its integration");
+  await click(device);await click(choice("motion"));check(find(device).indeterminate&&find(integration).indeterminate,"One exception updates both ancestors");
+  check(root.activeElement===find(choice("motion")),"Selection retains focus");
+  check(!saved.monitoring_policies[0].included_sources,"Bulk changes remain unsaved");
+ });
  await test("entity-save",async()=>{
   const other=copy(saved.monitoring_policies[1]);await click(action("save-scoped"));
   check(saved.monitoring_policies[0].included_sources.includes("entity:registry:battery"),"Exact override saved");check(JSON.stringify(saved.monitoring_policies[1])===JSON.stringify(other),"Other policy unchanged");
@@ -55,6 +67,23 @@ async function run(){receipt={fixture:"policy-picker",synthetic:true,results:[]}
   show();check(!root.querySelector(field("entity-choice")),"Large inventory starts compact");await open("ESPHome");await open("Living room");check(root.querySelectorAll(field("entity-choice")).length===707,"Complete device branch, no manual pagination");
   await click('.entity-selection-toggle[aria-label="Collapse Living room"]');await fill("sensor.household_703");await click(choice("household-703"));check(find(choice("household-703")).checked,"Selection beyond former page boundary");
   await fill("");check(!root.querySelector(field("entity-choice")),"Search restores collapsed device");rows.splice(9);show();
+ });
+ await test("entity-scroll",async()=>{
+  const end=rows.length;
+  try {
+   for(let n=0;n<60;n++)rows.push({node_id:`entity:scroll-${n}`,kind:"entity",name:`Reading ${n}`,entity_id:`sensor.scroll_${n}`,attributes:{kind:["entity"],domain:["sensor"],integration_domain:[`${n<40?"a":"zz"}_${n}`]}});
+   show();await open("ESPHome");await open("Living room");await open("Z-Wave JS");await open("Front door");
+   const selector=expanded=>`.entity-selection-toggle[aria-label="${expanded?"Collapse":"Expand"} Z-Wave JS"]`,frame=()=>new Promise(requestAnimationFrame);
+   find(selector(true)).scrollIntoView({block:"center"});await frame();await frame();
+   const position=()=>find(selector(Boolean(root.querySelector(selector(true))))).getBoundingClientRect().top,before=position();
+   await click(selector(true));await frame();check(Math.abs(position()-before)<2,"Collapse retains reading position");
+   await click(selector(false));await frame();check(Math.abs(position()-before)<2,"Expand retains reading position");
+   card.render();await frame();check(Math.abs(position()-before)<2,"Unchanged update retains reading position");
+  } finally {rows.splice(end);show();}
+ });
+ await test("entity-filter-focus",async()=>{
+  await click(field("entity-selected-only"));await click(`${field("entity-integration")}[data-definition-value="zwave_js"]`);
+  check(root.activeElement===find(field("entity-selected-only")),"Filtering away a cleared group returns focus to Monitored only");show();
  });
  await test("selection-layout",async()=>{
   await open("ESPHome");await open("Living room");await open("Z-Wave JS");await open("Front door");await open("Unavailable selections");await open("Saved choices");

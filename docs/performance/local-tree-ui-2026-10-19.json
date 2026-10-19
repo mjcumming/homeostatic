@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-19T15:13:47.9066946Z",
+  "scope": "Authorized local trial of policy group selection and consistent Monitoring tree",
+  "source": {
+    "branch": "main",
+    "revision": "b2cfa6579c954f06b54951803cfe93389a4b9d99",
+    "dirty": true,
+    "version": "1.11.3",
+    "published": false
+  },
+  "installation": {
+    "performed": true,
+    "installed_at_utc": "2026-10-19T15:08:14.8996516Z",
+    "verified_component_files": 79,
+    "staged_outside_custom_components": true,
+    "temporary_staging_removed": true,
+    "rollback_copy_created": false,
+    "core_restarted": true,
+    "settings_sha256_before": "5f4d96259052706f185d48a8d19c59155a88a9511478dbf973cd083d12419b00",
+    "settings_sha256_after": "5f4d96259052706f185d48a8d19c59155a88a9511478dbf973cd083d12419b00",
+    "all_saved_settings_unchanged": true,
+    "notifications_enabled_before": true,
+    "notifications_enabled_after": true,
+    "test_notifications_requested": false,
+    "all_installed_files_match_after_restart": true,
+    "module_url": "/homeostatic_static/homeostatic.js?v=103",
+    "served_asset_matches_source": true,
+    "served_asset_sha256": "5f6530bf2696221ad53dc7010f12a351d33bc3051afe809f63446a6d0938aab3",
+    "panel_element": "homeostatic-panel-v55",
+    "library": "health-tree==0.10.0"
+  },
+  "live_review": {
+    "browser": "Chrome on Windows",
+    "monitoring_available": true,
+    "selected_source_details_available": true,
+    "integration_and_device_expansion": "verified through visible controls",
+    "tree_width_px": 612.546875,
+    "workspace_width_px": 1612,
+    "tree_fraction": 0.38,
+    "disclosure_target_px": 44,
+    "row_minimum_px": 48,
+    "policy_group_checkboxes": 42,
+    "mixed_policy_groups": 19,
+    "policy_editor_dirty": false,
+    "homeostatic_system_log_search": "No issues found for search term homeostatic",
+    "homeostatic_browser_errors": [],
+    "screenshot": "build/ui-acceptance/local-tree-ui-2026-10-19.png"
+  },
+  "evidence": {
+    "installation": "build/tree-ui-install.json",
+    "before": "build/tree-ui-before-install.json",
+    "after": "build/tree-ui-after-install.json",
+    "served_asset": "build/tree-ui-served-asset.json",
+    "isolated_monitoring_validation": "docs/performance/monitoring-tree-2026-10-19.json",
+    "isolated_policy_validation": "docs/performance/tree-selection-2026-10-19.json"
+  },
+  "limits": [
+    "Physical Safari remains untested.",
+    "Existing broader reconnect-test failure remains documented in the isolated validation receipt.",
+    "No commit, tag or release was created."
+  ]
+}

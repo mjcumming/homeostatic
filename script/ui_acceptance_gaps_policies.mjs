@@ -53,24 +53,33 @@ export async function runPolicyGaps(ctx) {
 
   await test("policies.entity-selection",async()=>{
     const before=await snapshot(),id="default_entities",original=policy(before,id),source=`entity:registry:${lab.registry_ids.offline}`;
-    await edit("policies",id);await at('.entity-selection-tree > li > .entity-selection-toggle').first().waitFor();
+    await edit("policies",id);await at('.entity-selection-tree > li > .entity-selection-branch > .entity-selection-toggle').first().waitFor();
     assert.equal(await at(field("entity-choice")).count(),0);
-    await at('.entity-selection-tree > li > .entity-selection-toggle').first().click();
+    await at('.entity-selection-tree > li > .entity-selection-branch > .entity-selection-toggle').first().click();
     assert.equal(await at(field("entity-choice")).count(),0);
-    await at('.entity-selection-tree > li > .entity-selection-children > li > .entity-selection-toggle').first().click();
+    await at('.entity-selection-tree > li > .entity-selection-children > li > .entity-selection-branch > .entity-selection-toggle').first().click();
     assert.ok(await at(field("entity-choice")).count()>0);await noChange(before);
     await fill(field("entity-search"),lab.entities.offline);
     const checkbox=`${field("entity-choice")}[data-definition-value="${source}"]`;
     await at(checkbox).waitFor();const wasChecked=await at(checkbox).isChecked();
-    await at(checkbox).focus();await page.keyboard.press("Space");await focus(checkbox);
-    let expected={...original};
-    if(wasChecked)expected.excluded_sources=[...new Set([...(original.excluded_sources||[]),source])];
-    else expected.included_sources=[...new Set([...(original.included_sources||[]),source])];
+    const matching=await at(`${field("entity-choice")}:not(:disabled)`).evaluateAll(elements=>elements.map(element=>element.dataset.definitionValue));
+    const integration=field("entity-integration"),device=field("entity-group");
+    await at(device).click();assert.equal(await at(checkbox).isChecked(),!wasChecked);
+    await at(integration).click();assert.equal(await at(checkbox).isChecked(),wasChecked);
+    await at(integration).focus();await page.keyboard.press("Space");await focus(integration);
+    assert.equal(await at(checkbox).isChecked(),!wasChecked);
+    const expected=structuredClone(original);
+    assert.deepEqual(original.match,{kind:["entity"]});
+    expected.excluded_sources=(original.excluded_sources||[]).filter(id=>!matching.includes(id));
+    if(wasChecked)expected.excluded_sources.push(...matching);
+    if(!expected.excluded_sources.length)delete expected.excluded_sources;
+    expected.included_sources=(original.included_sources||[]).filter(id=>!matching.includes(id));
+    if(!expected.included_sources.length)delete expected.included_sources;
     const saved=await savePolicy(before,id,expected);await edit("policies",id);await fill(field("entity-search"),lab.entities.offline);
     assert.equal(await at(checkbox).isChecked(),!wasChecked);await noChange(saved);
     await page.screenshot({path:`${ctx.artifactDir}/entity-selection.png`,fullPage:false});
     await at(checkbox).click();await discard();assert.equal(await at(checkbox).isChecked(),!wasChecked);
-    return "Collapsed integration and device branches open without changing saved settings; entity selection saves and reopens exact membership, retains keyboard focus, preserves future selectors and discards only this policy.";
+    return "Collapsed branches open without changing saved settings; filtered device and integration checkboxes change the displayed matches. Keyboard bulk selection saves and reopens the complete filtered membership, preserves future selectors and discards only this policy.";
   });
 
   await test("policies.scope",async()=>{
