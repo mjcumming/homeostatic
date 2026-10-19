@@ -1,7 +1,0 @@
-enable_debug_at_utc=2026-10-17T20:16:49Z
-asyncio_debug_sampler_start_utc=2026-10-17T20:34:17Z
-asyncio_debug_enabled_utc=2026-10-17T20:34:17Z
-asyncio_debug_disabled_utc=2026-10-17T20:37:20Z
-profiler_integration_added_utc=2026-10-17T20:3xZ (config flow, before debug window)
-profile1_started_utc=2026-10-17T20:53:53Z (profiler.start seconds=60, blocking call; covers the 20:54:46.7 reconcile tick, no edit)
-log_levels_reset_utc=2026-10-17T21:00:15Z

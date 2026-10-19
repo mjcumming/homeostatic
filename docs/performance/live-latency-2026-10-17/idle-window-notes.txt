@@ -1,5 +1,0 @@
-Idle window: 2026-10-17 15:16:49 to 15:34:16 America/Chicago (20:16:49Z to 20:34:16Z). Debug loggers enabled 20:16:49Z. Nobody used the Homeostatic panel; the maintainer signed in to the HA frontend (Overview) during the window.
-Source: Supervisor journal via /api/hassio/core/logs, Range entries=:-90000:. 90,599 journal lines covered 15:05:11 to 15:34:16; 58,423 were WiiM debug hex-dump continuation lines (custom_components.wiim at debug in configuration.yaml), 2,934 parsed HA log records.
-Non-debug records in the window: 2 ESPHome connection warnings (garageheater 192.168.1.36). No Homeostatic errors.
-Summary (47 saves, 1,019 s window): 2.77 saves/min; 22 of 47 saves fell in the :50-:53 second slot of each minute, matching the 60 s reconcile timer; the rest followed state changes. Median interval 21.2 s, min 0.46 s.
-Phase medians: snapshot 0.149 s (max 1.020, six spikes of ~1.0 s), storage_write 0.068 s (max 0.231), storage_read 0.048 s (max 0.069), storage_compare 0.025 s (max 0.034). Sum of logged save work 19.7 s over 1,019 s (1.9%).
