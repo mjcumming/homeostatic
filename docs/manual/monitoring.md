@@ -11,7 +11,7 @@
 3. Use **Group by** to browse by integration or **Home Assistant location**. **TopoMation locations** is also available when TopoMation supplies the location tree.
 4. Expand the relevant branch and select the source. On a narrow screen, **Back to Monitoring** returns to the tree.
 
-The details identify the source, its current condition and its monitoring. Links beside its name open the named Home Assistant destination, such as the device page or entity state.
+The details identify the source, its current condition and its monitoring. Select **Open entity** to open Home Assistant’s entity dialog, including when the entity is no longer provided by its integration. The named Device and Integration links open their respective Home Assistant pages.
 
 An **Issues** badge marks a source or group with a current reported problem. **Not monitored** is ordinary coverage information. Missing or restored availability readings alone do not create a badge, including after an earlier failure; inspect the source details for those readings. On a device, one **View** opens the same device dialog as **Open issues**, including partial availability and other conditions. Choose which issues to acknowledge or pause there. Entities without a device and wider issues retain their own scope.
 

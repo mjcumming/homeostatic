@@ -1,0 +1,97 @@
+{
+  "recorded_at": "2026-10-19T04:38:39.7669511Z",
+  "scope": "Remove the global Notifications off reminder from shared issue dialogs.",
+  "owner": "Current Codex chat",
+  "branch": "main",
+  "revision": "b86cc3f",
+  "dirty": true,
+  "status": {
+    "scoped_acceptance": "pass",
+    "released": false,
+    "implementation": "complete",
+    "committed": false,
+    "installed": false
+  },
+  "checks": {
+    "quick": "pass; 861 frontend tests using supported Node 24",
+    "design_detector": "pass; no findings",
+    "dashboard": "pass; 43 tests",
+    "diff_check": "pass"
+  },
+  "purpose": {
+    "removed": "Global sending reminder repeats the existing global switch and does not explain the issue.",
+    "retained_links": "Named policy and notification editors own configuration and preserve Back navigation.",
+    "task_owner": "Issue dialogs explain the current problem and offer scoped response actions.",
+    "visual_review": "Desktop light and phone dark screenshots inspected; named links and delivery gaps remain visible without the reminder. Doubled-text and keyboard checks pass."
+  },
+  "rendered": [
+    {
+      "report": "build/ui-acceptance/notification-reminder-desktop-ready/report.json",
+      "browser": "143.0.7499.4",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "path": {
+        "id": "issues.individual",
+        "page": "Open issues",
+        "controls": "Device temperature condition, Open device, Policies, Notifications, Back, subset acknowledgment and pause",
+        "expected": "Current readings and duration stay truthful in the shared device dialog; policy and notification editors preserve drafts through Back; overlapping findings retain independent selection and saved responses.",
+        "fixture": "individual-issue.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "pass",
+        "evidence": [
+          "issues/1440px/light: individual-issue.html (1440px, light): Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance. Native Enter opens the named notification and Back restores the device issues; device, policy, notification and response controls fit with doubled text."
+        ]
+      },
+      "fixture_status": "pass",
+      "diagnostics": [
+        "Fixture device-issues.html failed: FAIL: Filtering preserves the unresolved episode and its earlier report",
+        "Fixture compact-popup.html failed: Failed: device: current condition is visible in the shared device dialog",
+        "Fixture source-actions.html failed: FAIL: issues.availability-batch: Issue action removes both availability contributions in one save",
+        "Fixture source-history.html failed: FAIL: Error: Device summary counts current available readings\n    at expect (http://127.0.0.1:45975/tests/frontend/source-history.html:47:48)\n    at document.querySelector.onclick (http://127.0.0.1:45975/tests/frontend/source-history.html:190:7)",
+        "Fixture monitoring-inspector.html failed: page.waitForFunction: Timeout 30000ms exceeded.; No inventory path was proven by a declared receipt. Fixture feedback alone does not establish inventory coverage.; Cannot set properties of undefined (setting 'availability_entities')",
+        "Fixture temperature-monitoring.html failed: Failed: Loading another availability page preserves both temperature checks",
+        "Fixture device-issue-selection.html failed: FAIL: Error: Stop Monitoring uses its full reviewed coverage, independently of issue selection\n    at check (http://127.0.0.1:45975/tests/frontend/device-issue-selection.mjs:63:49)\n    at http://127.0.0.1:45975/tests/frontend/device-issue-selection.mjs:174:9\n    at async run (http://127.0.0.1:45975/tests/frontend/device-issue-selection.mjs:112:43)\n    at async document.querySelector.onclick (http://127.0.0.1:45975/tests/frontend/device-issue-selection.mjs:156:7)"
+      ]
+    },
+    {
+      "report": "build/ui-acceptance/notification-reminder-phone-ready/report.json",
+      "browser": "143.0.7499.4",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "path": {
+        "id": "issues.individual",
+        "page": "Open issues",
+        "controls": "Device temperature condition, Open device, Policies, Notifications, Back, subset acknowledgment and pause",
+        "expected": "Current readings and duration stay truthful in the shared device dialog; policy and notification editors preserve drafts through Back; overlapping findings retain independent selection and saved responses.",
+        "fixture": "individual-issue.html",
+        "requirement": "../../docs/product-specification.md#review-scenarios-and-completion-criteria",
+        "status": "pass",
+        "evidence": [
+          "issues/390px/dark: individual-issue.html (390px, dark): Synthetic backend; existing fixture uses DOM-scripted interactions. This is not real Home Assistant acceptance. Native Enter opens the named notification and Back restores the device issues; device, policy, notification and response controls fit with doubled text."
+        ]
+      },
+      "fixture_status": "pass",
+      "diagnostics": [
+        "Fixture device-issues.html failed: FAIL: Filtering preserves the unresolved episode and its earlier report",
+        "Fixture compact-popup.html failed: Failed: device: current condition is visible in the shared device dialog",
+        "Fixture source-actions.html failed: FAIL: issues.availability-batch: Issue action removes both availability contributions in one save",
+        "Fixture source-history.html failed: FAIL: Error: Device summary counts current available readings\n    at expect (http://127.0.0.1:45343/tests/frontend/source-history.html:47:48)\n    at document.querySelector.onclick (http://127.0.0.1:45343/tests/frontend/source-history.html:190:7)",
+        "Fixture monitoring-inspector.html failed: page.waitForFunction: Timeout 30000ms exceeded.; No inventory path was proven by a declared receipt. Fixture feedback alone does not establish inventory coverage.; Cannot set properties of undefined (setting 'availability_entities')",
+        "Fixture temperature-monitoring.html failed: Failed: Loading another availability page preserves both temperature checks",
+        "Fixture device-issue-selection.html failed: FAIL: Error: Stop Monitoring uses its full reviewed coverage, independently of issue selection\n    at check (http://127.0.0.1:45343/tests/frontend/device-issue-selection.mjs:63:49)\n    at http://127.0.0.1:45343/tests/frontend/device-issue-selection.mjs:174:9\n    at async run (http://127.0.0.1:45343/tests/frontend/device-issue-selection.mjs:112:43)\n    at async document.querySelector.onclick (http://127.0.0.1:45343/tests/frontend/device-issue-selection.mjs:156:7)"
+      ]
+    }
+  ],
+  "limitations": [
+    "Synthetic browser fixtures; no household installation or real notification requests.",
+    "Broader fixture sweep retains unrelated failures in the linked reports; only issues.individual is claimed passing.",
+    "Initial environment attempts failed on old Node and unavailable browser libraries; rerun with prepared runtime and libraries passed scoped checks.",
+    "Physical Safari untested."
+  ]
+}

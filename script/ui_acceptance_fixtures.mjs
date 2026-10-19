@@ -8,7 +8,7 @@ const evidenceKind = "Synthetic backend; existing fixture uses DOM-scripted inte
 const knownIds = new Set(controlPaths.map(row => row.id));
 const localCases = {
   "policy-picker.html": {
-    "policies.entity-selection": ["entity-list","entity-save","entity-missing-loading","entity-household","selection-layout","entity-keyboard"],
+    "policies.entity-selection": ["entity-tree","entity-list","entity-save","entity-missing-loading","entity-household","selection-layout","entity-keyboard","entity-enlarged"],
   },
   "temperature-policy-editor.html": {
     "policies.temperature-detection": ["initial-state", "lower-only", "upper-only", "both-bounds", "missing-bounds", "reversed-bounds", "missing-sensors", "duration-units", "enabled-state"],
@@ -107,11 +107,26 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
       }
       if (fixture === "policy-picker.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
         await page.locator('#show').click();
+        for(const name of ['Z-Wave JS','Front door']) {
+          const toggle=page.getByRole('button',{name:`Expand ${name}`,exact:true});
+          await toggle.focus();await page.keyboard.press('Enter');
+          assert.equal(await page.getByRole('button',{name:`Collapse ${name}`,exact:true}).evaluate(el=>el.getRootNode().activeElement===el),true);
+        }
+        assert.equal(await page.locator('[data-definition-action="save-scoped"]').count(),0);
         const selected=page.locator('[data-definition-field="entity-choice"]:not(:disabled)').first();
         await selected.focus();const before=await selected.isChecked();await page.keyboard.press("Space");
         await page.waitForFunction(before=>document.querySelector('homeostatic-card').shadowRoot.querySelector('[data-definition-field="entity-choice"]:not(:disabled)').checked!==before,before);
         assert.equal(await selected.evaluate(el=>el.getRootNode().activeElement===el),true);
-        result.stages.push({name:'native entity checkbox',messages:[],receipt:{results:[{id:"entity-keyboard",status:"pass",evidence:["Native Space toggles an enabled entity and preserves focus after rendering."]}]},feedback:'PASS: Space changes entity membership and retains focus.'});
+        result.stages.push({name:'native entity tree and checkbox',messages:[],receipt:{results:[{id:"entity-keyboard",status:"pass",evidence:["Native Enter opens integration and device branches without changing membership; Space toggles an enabled entity. Each control retains focus after rendering."]}]},feedback:'PASS: Keyboard expands branches and changes entity membership with retained focus.'});
+        await page.evaluate(()=>{
+          const root=document.querySelector('homeostatic-card').shadowRoot;
+          const sizes=[...root.querySelectorAll('.entity-selection,.entity-selection *')].map(el=>[el,parseFloat(getComputedStyle(el).fontSize)]);
+          for(const [el,size] of sizes)el.style.fontSize=`${size*2}px`;
+        });
+        assert.equal(await page.locator('.entity-selection').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
+        result.enlarged_screenshot=join(artifactDir,`entity-tree-enlarged-${viewport.width}-${colorScheme}.png`);
+        await page.screenshot({path:result.enlarged_screenshot,fullPage:true});
+        result.stages.push({name:'enlarged entity tree',messages:[],receipt:{results:[{id:"entity-enlarged",status:"pass",evidence:["Collapsed and expanded branch names, search and entity rows fit with doubled text."]}]},feedback:'PASS: The entity tree fits with doubled text.'});
       }
       if (fixture === "mobile-layout.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
         await page.locator("iframe").scrollIntoViewIfNeeded();
@@ -213,7 +228,7 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
       for (const receipt of [...stage.messages, stage.receipt].filter(Boolean)) {
         for (const row of receipt.results || []) {
           const previous = rows.get(row.id);
-          if (!previous || row.status === "fail" || (previous.status !== "fail" && row.status !== "untested")) rows.set(row.id, row);
+          if (!previous || row.status === "fail" || (previous.status !== "fail" && row.status !== "untested")) rows.set(row.id, {...row,evidence:Array.isArray(row.evidence)?row.evidence:row.evidence?[row.evidence]:[]});
         }
       }
     }
@@ -252,6 +267,11 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
       await page.evaluate(() => window.scrollTo(0, 0));
       try {result.screenshot = join(artifactDir, `${stem}.png`); await page.screenshot({path: result.screenshot, fullPage: true});}
       catch (error) {result.diagnostics.push(`Screenshot capture: ${error.message}`);}
+    }
+    if (!failed && fixture === "policy-picker.html") {
+      for(const name of ['Z-Wave JS','Front door'])await page.getByRole('button',{name:`Expand ${name}`,exact:true}).click();
+      result.expanded_screenshot=join(artifactDir,`${stem}-expanded.png`);
+      await page.screenshot({path:result.expanded_screenshot,fullPage:true});
     }
     if (!failed && fixture === "issue-evidence.html") {
       try {

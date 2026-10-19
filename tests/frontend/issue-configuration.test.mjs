@@ -21,12 +21,14 @@ test("issue coverage uses saved names and deduplicates notifications across cont
   assert.deepEqual(card.configuration,before.configuration);
 });
 
-test("an empty assignment and globally disabled sending stay distinct",()=>{
+test("issue coverage keeps empty assignments visible without repeating global sending status",()=>{
   const card=fixture();card.configuration.settings.notifications=false;
   for(const policy of card.configuration.settings.monitoring_policies)policy.notifications=[];
   const html=issueConfiguration(card,coverage);
-  assert.match(html,/None assigned/);assert.match(html,/Notifications off/);
+  assert.match(html,/None assigned/);assert.doesNotMatch(html,/Notifications off/);
   assert.equal((html.match(/data-definition-action="open-policy"/g)||[]).length,2);
+  card.configuration.settings.notifications=true;
+  assert.equal(issueConfiguration(card,coverage),html);
 });
 
 test("custom and missing notifications open their owning policy instead of a nonexistent profile editor",()=>{

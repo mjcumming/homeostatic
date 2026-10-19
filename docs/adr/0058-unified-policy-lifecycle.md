@@ -53,7 +53,7 @@ This waiver concerns the transition from the previous test configuration. Normal
 
 ## Implementation and validation
 
-Implement the [editor design](../policy-editors.md) against this lifecycle and ADR 0057's timing model. The parser and runtime support configurable battery thresholds and independent overlapping policies. These remain required behavior when the editor changes. Verify per-type selection and parameter support before exposing controls.
+Implement the [editor design](../spec.md#policies) against this lifecycle and ADR 0057's timing model. The parser and runtime support configurable battery thresholds and independent overlapping policies. These remain required behavior when the editor changes. Verify per-type selection and parameter support before exposing controls.
 
 Add executable scenarios for immutable type, independent duplication and overlap, supported selectors, configurable detection, deletion, selective restoration, update preservation, first-run silence, and persistence of the new model. Browser tests cover the unified list, read-only type, conditional fields, searchable multiple selection, notification entries, review, keyboard use and narrow screens. No legacy migration scenarios are required for this redesign.
 

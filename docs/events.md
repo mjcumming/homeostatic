@@ -235,6 +235,6 @@ Homeostatic saves the state an event describes before it fires the event. `homeo
 
 Every payload carries `schema_version: 1`. Within a version, fields are only ever added, never renamed or removed, so ignore fields you don't recognize and match `schema_version: 1` in your triggers. Treat IDs and tags as opaque text.
 
-Homeostatic's own Acknowledge button on phones arrives as a `mobile_app_notification_action` event whose `action` starts with `HOMEOSTATIC_ACK_`. Homeostatic handles it, and it isn't meant for your automations. The panel's WebSocket commands aren't an automation interface either; [spec.md](spec.md#live-dashboard) describes them.
+Homeostatic's own Acknowledge button on phones arrives as a `mobile_app_notification_action` event whose `action` starts with `HOMEOSTATIC_ACK_`. Homeostatic handles it, and it isn't meant for your automations. The panel's WebSocket commands aren't an automation interface either; [spec.md](spec.md#live-updates-and-subscriptions) describes them.
 
 Retiring a saved device availability policy converts its coverage to entity checks. Reconciliation ends the old device issues with the existing removed outcome; it does not emit observed recovery. Device notification subjects still organize related entity issues and do not assert device availability.

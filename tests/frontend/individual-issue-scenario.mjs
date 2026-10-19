@@ -126,7 +126,7 @@ async function run() {
     savedSettings.monitoring_policies.find(policy=>policy.id==="entities").notifications=[{id:"morning-entity",profile:"morning"}];
     card.configuration=copy(fixture.base.configuration);card.settingsDraft=copy(savedSettings);publish();await settle();await open();
     check(body().querySelectorAll('[data-definition-action="open-notification"][data-definition-id="morning"]').length===1,"Shared notification links are deduplicated across covering policies");
-    check(body().innerText.includes("No delivery method selected")&&body().innerText.includes("Notifications off"),"Unconfigured delivery and global sending off stay explicit");
+    check(body().innerText.includes("No delivery method selected")&&!body().innerText.includes("Notifications off"),"Issue-specific delivery gaps stay visible without repeating global sending status");
     await click('[data-definition-action="open-notification"][data-definition-id="morning"]',body());
     check(card.page==="notifications"&&card.definitionSelection.id==="morning","Notification link opens its exact saved editor");
     await input('[data-definition-field="name"]',"Morning draft");await click('[data-workspace-return]');

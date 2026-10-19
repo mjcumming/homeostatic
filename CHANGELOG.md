@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-10-19
+
+### Changed
+
+- Remove the repeated Notifications off reminder from issue dialogs; the global notification switch continues to show sending status.
+
+- Add Open entity to Monitoring entity details, opening Home Assistant’s entity dialog even for missing or restored entities.
+
+- Sort Add policy monitoring types alphabetically and use matching left-hand expand controls across Monitoring, policy selection, History and issue groups.
+
+- Entity policy selection now uses an integration → device → entity tree with collapsed branches. Expand to inspect and select entities, or search to reveal matches; opening branches leaves monitoring choices unchanged.
+
 ## [1.11.0] - 2026-10-18
 
 ### Upgrade notes

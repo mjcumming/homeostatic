@@ -267,3 +267,25 @@ test("an issue opened from Monitoring still offers Back to issue after following
   const origin=card.navigation.entries.get(card.workspaceReturn.id);
   assert.equal(origin.route.detail.episodeId,"issue-from-source");
 });
+
+test("History uses the shared left disclosure and starts collapsed",()=>{
+  const {tools,data}=historyTools();
+  const html=tools.historyPanel(data);
+  assert.match(html,/history-toggle tree-toggle/);
+  assert.match(html,/aria-expanded="false"/);
+  assert.match(html,/<span class="disclosure" aria-hidden="true"><\/span><span class="row-main">/);
+  assert.doesNotMatch(html,/history-chevron/);
+});
+
+test("Open entity requests Home Assistant more-info without leaving the source or changing settings",()=>{
+  const card=new Card(),events=[];card.dispatchEvent=event=>events.push(event);
+  card.page="sources";card.sourcesSelection="source:entity:water";
+  card.settingsDraft={monitoring_policies:[]};const before=JSON.stringify(card.settingsDraft);
+  const button={dataset:{sourceOpenEntity:"binary_sensor.water_shortage"},closest:()=>null};
+  card.handleClick({type:"click",target:{dataset:{},closest:selector=>selector==="button"?button:null,matches:()=>false}});
+  assert.equal(events.length,1);assert.equal(events[0].type,"hass-more-info");
+  assert.deepEqual(events[0].detail,{entityId:"binary_sensor.water_shortage"});
+  assert.equal(events[0].bubbles,true);assert.equal(events[0].composed,true);
+  assert.equal(card.sourcesSelection,"source:entity:water");assert.equal(card.page,"sources");
+  assert.equal(JSON.stringify(card.settingsDraft),before);
+});

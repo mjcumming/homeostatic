@@ -40,4 +40,4 @@ Homeostatic owns policy definitions, source selection and check-specific paramet
 
 The specification and executable tests cover stable identity, independent duplication, group membership changes, draft retention, policy reset, shared-issue removal, and notification assignment. Policy changes use the existing removal lifecycle without migrating historical alerts between changed detection rules.
 
-The [editor design](../policy-editors.md) records the screens and implementation boundary. Local editors and runtime support these definitions. Releasing independent notification rows requires publishing the corresponding health-tree route API and updating the integration dependency first; the currently published dependency does not implement that API.
+The [editor design](../spec.md#policies) records the screens and implementation boundary. Local editors and runtime support these definitions. Releasing independent notification rows requires publishing the corresponding health-tree route API and updating the integration dependency first; the currently published dependency does not implement that API.

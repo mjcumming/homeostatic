@@ -1,0 +1,202 @@
+{
+  "recorded_at": "2026-10-19T04:20:29.795502+00:00",
+  "scope": "Alphabetical Add policy monitoring types and shared disclosure controls across Monitoring, policy selection, History and issue groups.",
+  "status": {
+    "implementation": "complete",
+    "scoped_acceptance": "pass",
+    "committed": false,
+    "released": false,
+    "installed": false
+  },
+  "decisions": [
+    "docs/spec.md#interface",
+    "docs/adr/0103-entity-availability-with-grouped-selection.md"
+  ],
+  "checks": {
+    "quick": "pass; 859 frontend tests",
+    "dashboard": "pass; 40 tests",
+    "diff_check": "pass"
+  },
+  "rendered": [
+    {
+      "name": "policies",
+      "width": 1440,
+      "status": "pass",
+      "style": {
+        "width": "8px",
+        "height": "8px",
+        "margin": "0px 12px",
+        "transform": "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)",
+        "border": "0px"
+      },
+      "checks": [
+        "starts collapsed",
+        "shared chevron geometry",
+        "Enter expands",
+        "Space collapses",
+        "monitoring draft unchanged"
+      ]
+    },
+    {
+      "name": "monitoring",
+      "width": 1440,
+      "status": "pass",
+      "style": {
+        "width": "8px",
+        "height": "8px",
+        "margin": "0px 12px",
+        "transform": "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)",
+        "border": "0px"
+      },
+      "checks": [
+        "starts collapsed",
+        "shared chevron geometry",
+        "Enter expands",
+        "Space collapses",
+        "monitoring draft unchanged"
+      ]
+    },
+    {
+      "name": "history",
+      "width": 1440,
+      "status": "pass",
+      "style": {
+        "width": "8px",
+        "height": "8px",
+        "margin": "0px 12px",
+        "transform": "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)",
+        "border": "0px"
+      },
+      "checks": [
+        "starts collapsed",
+        "shared chevron geometry",
+        "Enter expands",
+        "Space collapses",
+        "monitoring draft unchanged"
+      ]
+    },
+    {
+      "name": "issues",
+      "width": 1440,
+      "status": "pass",
+      "style": {
+        "width": "8px",
+        "height": "8px",
+        "margin": "0px 12px",
+        "transform": "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)",
+        "border": "0px"
+      },
+      "checks": [
+        "starts collapsed",
+        "shared chevron geometry",
+        "Enter expands",
+        "Space collapses",
+        "monitoring draft unchanged"
+      ]
+    },
+    {
+      "name": "policies",
+      "width": 390,
+      "status": "pass",
+      "style": {
+        "width": "8px",
+        "height": "8px",
+        "margin": "0px 12px",
+        "transform": "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)",
+        "border": "0px"
+      },
+      "checks": [
+        "starts collapsed",
+        "shared chevron geometry",
+        "Enter expands",
+        "Space collapses",
+        "monitoring draft unchanged"
+      ]
+    },
+    {
+      "name": "monitoring",
+      "width": 390,
+      "status": "pass",
+      "style": {
+        "width": "8px",
+        "height": "8px",
+        "margin": "0px 12px",
+        "transform": "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)",
+        "border": "0px"
+      },
+      "checks": [
+        "starts collapsed",
+        "shared chevron geometry",
+        "Enter expands",
+        "Space collapses",
+        "monitoring draft unchanged"
+      ]
+    },
+    {
+      "name": "history",
+      "width": 390,
+      "status": "pass",
+      "style": {
+        "width": "8px",
+        "height": "8px",
+        "margin": "0px 12px",
+        "transform": "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)",
+        "border": "0px"
+      },
+      "checks": [
+        "starts collapsed",
+        "shared chevron geometry",
+        "Enter expands",
+        "Space collapses",
+        "monitoring draft unchanged"
+      ]
+    },
+    {
+      "name": "issues",
+      "width": 390,
+      "status": "pass",
+      "style": {
+        "width": "8px",
+        "height": "8px",
+        "margin": "0px 12px",
+        "transform": "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)",
+        "border": "0px"
+      },
+      "checks": [
+        "starts collapsed",
+        "shared chevron geometry",
+        "Enter expands",
+        "Space collapses",
+        "monitoring draft unchanged"
+      ]
+    }
+  ],
+  "evidence": {
+    "tree_workflows": "build/ui-acceptance/tree-consistency-review/receipt.json",
+    "reproducer": "build/tree-consistency-review.mjs",
+    "desktop_policies": "build/ui-acceptance/tree-consistency-desktop-final2/report.json",
+    "phone_policies": "build/ui-acceptance/tree-consistency-phone-final/report.json"
+  },
+  "broader_sweep": {
+    "report": "build/ui-acceptance/tree-consistency-desktop-verified/report.json",
+    "status": "unresolved failures outside the bounded acceptance plus corrected policy disclosure alignment failure",
+    "diagnostics": [
+      "Fixture device-issues.html failed: FAIL: Filtering preserves the unresolved episode and its earlier report",
+      "Fixture reusable-editors.html failed: FAIL: Initial group page is bounded",
+      "Fixture compact-popup.html failed: Failed: device: current condition is visible in the shared device dialog",
+      "Fixture source-actions.html failed: FAIL: issues.availability-batch: Issue action removes both availability contributions in one save",
+      "Fixture source-history.html failed: FAIL: Error: Device summary counts current available readings\n    at expect (http://127.0.0.1:45907/tests/frontend/source-history.html:47:48)\n    at document.querySelector.onclick (http://127.0.0.1:45907/tests/frontend/source-history.html:190:7)",
+      "Fixture monitoring-inspector.html failed: page.waitForFunction: Timeout 30000ms exceeded.; No inventory path was proven by a declared receipt. Fixture feedback alone does not establish inventory coverage.; Cannot set properties of undefined (setting 'availability_entities')",
+      "Fixture temperature-monitoring.html failed: Failed: Loading another availability page preserves both temperature checks",
+      "Fixture policy-picker.html failed: Branch disclosures align at the start of each level; FAIL: Branch disclosures align at the start of each level",
+      "Fixture delivery-picker-layout.html failed: FAIL: Current panel uses the updated card despite old registered elements",
+      "Fixture device-issue-selection.html failed: FAIL: Error: Stop Monitoring uses its full reviewed coverage, independently of issue selection\n    at check (http://127.0.0.1:45907/tests/frontend/device-issue-selection.mjs:63:49)\n    at http://127.0.0.1:45907/tests/frontend/device-issue-selection.mjs:174:9\n    at async run (http://127.0.0.1:45907/tests/frontend/device-issue-selection.mjs:112:43)\n    at async document.querySelector.onclick (http://127.0.0.1:45907/tests/frontend/device-issue-selection.mjs:156:7)"
+    ],
+    "note": "The original sweep is retained. Later policy runs and the final four-view keyboard review pass. No claim that the entire browser suite passes."
+  },
+  "limitations": [
+    "Synthetic browser fixtures, not household installation acceptance.",
+    "Physical Safari untested.",
+    "No live notification requests or configuration changes."
+  ]
+}

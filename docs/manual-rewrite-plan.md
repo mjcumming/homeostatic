@@ -163,7 +163,7 @@ Keep the source checklist as a working review artifact rather than another perma
 | `docs/automation-situations.md` | Retain the address as an unfinished-feature notice and remove the blueprint procedure. Preserve useful old anchors or update their callers. |
 | `docs/reference.md` and `docs/events.md` | Keep as advanced interface references; move ordinary settings/defaults into the manual references. Update links and eliminate duplicated ownership. |
 | `docs/how-to-local-health-signals.md` | Replace the recipe with a status notice because it depends on unfinished alerts. |
-| `docs/policy-editors.md`, `docs/product-specification.md`, `docs/ui-standards.md` | Keep as design/contributor material. Review their current purpose separately; they should not be prerequisites for operating the product. |
+| `docs/policy-editors.md`, `docs/product-specification.md`, `docs/ui-standards.md` | Folded into `docs/spec.md`, which owns product scope, interface standards and editor layout. None of it is a prerequisite for operating the product. |
 | Specification, roadmap, ADRs, development and performance records | Keep their established roles and contributor navigation. Do not turn them into manual chapters or delete decision history as part of a user-doc rewrite. |
 
 The release builder currently inserts an `INSTALL.md` link to `docs/install.md` and packages tracked documentation. Verify [the builder](../script/build_release.py), [smoke checks](../script/smoke_release.py), README links, blueprint links, screenshots and old guide anchors during the replacement pass. Updating only the manual's table of contents would leave other entry points stale.

@@ -16,13 +16,37 @@ function change(card,field,value,id="") {
   const element={dataset:{definitionKind:"policies",definitionId:"entities",definitionField:field,definitionValue:id},value,checked:value};
   editReusable(card,{type:"change",target:element});
 }
+function expand(card,key) {
+  const element={dataset:{definitionAction:"entity-expand",definitionKind:"policies",definitionId:"entities",definitionField:"entity-expand",definitionValue:key}};
+  editReusable(card,{type:"click",target:{closest:()=>element}});
+}
 
-test("entity editor is one grouped list with no retired picker or device policy",()=>{
+test("entity editor starts with collapsed integrations and opens devices then entities without editing",()=>{
   const {card,policy}=fixture(),before=structuredClone(policy),html=namedPolicies(card);
-  assert.match(html,/Search entities/);assert.match(html,/Esphome/);assert.match(html,/Front door/);assert.match(html,/Without a device/);assert.match(html,/Hall · lock.lock/);
+  assert.match(html,/Search entities/);assert.match(html,/Expand Esphome/);assert.match(html,/aria-expanded="false"/);
+  assert.doesNotMatch(html,/Front door|Without a device|entity-choice|Hall · lock.lock/);
   assert.doesNotMatch(html,/type="radio"|Change selection|Show 50 more|finish-pick|Ignored entities/);
   assert.equal(MONITORING_TYPES.device,undefined);assert.equal(newMonitoringPolicy([]).match.kind[0],"entity");
+  expand(card,"integration:esphome");
+  assert.match(entitySelection(card,policy),/Expand Front door/);assert.match(entitySelection(card,policy),/Expand Without a device/);
+  assert.doesNotMatch(entitySelection(card,policy),/entity-choice/);
+  expand(card,'device:["esphome","front"]');
+  assert.match(entitySelection(card,policy),/Hall · lock.lock/);
+  expand(card,"integration:esphome");assert.doesNotMatch(entitySelection(card,policy),/entity-choice/);
+  expand(card,"integration:esphome");assert.match(entitySelection(card,policy),/Hall · lock.lock/);
   assert.deepEqual(policy,before);
+});
+
+test("search reveals matching branches and clearing it restores manual expansion",()=>{
+  const {card,policy}=fixture(),before=structuredClone(policy);
+  expand(card,"integration:esphome");
+  change(card,"entity-search","signal");assert.match(entitySelection(card,policy),/sensor.signal/);
+  expand(card,'device:["esphome","front"]');assert.doesNotMatch(entitySelection(card,policy),/sensor.signal/);
+  change(card,"entity-search","lock");assert.match(entitySelection(card,policy),/lock.lock/);
+  change(card,"entity-search","");
+  assert.match(entitySelection(card,policy),/Collapse Esphome/);assert.match(entitySelection(card,policy),/Expand Front door/);
+  assert.doesNotMatch(entitySelection(card,policy),/entity-choice/);assert.deepEqual(policy,before);
+  assert.match(entitySelection(card,{...policy,id:"another"}),/Expand Esphome/);
 });
 
 test("individual overrides preserve a dynamic type scope and survive clear and reselection",()=>{
@@ -60,11 +84,13 @@ for(const state of ["loading","stale"])test(`${state} catalogs disable membershi
   const {card,policy}=fixture();policy.included_sources=["entity:registry:missing"];
   if(state==="loading")card.current.data.catalog_loaded=false;else card.current.data.catalog_stale=true;
   const before=structuredClone(policy);change(card,"entity-choice",true,"entity:registry:signal");
+  change(card,"entity-search","signal");
   assert.deepEqual(policy,before);assert.match(entitySelection(card,policy),/disabled/);
 });
 
 test("missing choices remain visible and removable and selected-only filtering changes no settings",()=>{
   const {card,policy}=fixture();policy.included_sources=["entity:registry:missing"];
+  change(card,"entity-search","missing");
   assert.match(entitySelection(card,policy),/Entity no longer in the list/);
   const before=structuredClone(policy);change(card,"entity-selected-only",true);assert.deepEqual(policy,before);
   const element={dataset:{definitionAction:"entity-forget",definitionKind:"policies",definitionId:"entities",definitionField:"entity-forget",definitionValue:"entity:registry:missing"}};
@@ -75,5 +101,6 @@ test("the list searches beyond the former 50-row page without manual pagination"
   const {card,policy,rows}=fixture();
   for(let n=0;n<704;n++)rows.push({node_id:`entity:registry:row-${n}`,kind:"entity",name:`Reading ${n}`,entity_id:`sensor.reading_${n}`,attributes:{kind:["entity"],entity:[`registry:row-${n}`],domain:["sensor"],integration_domain:["esphome"]}});
   assert.equal(entitySelectionRows(card,policy).length,708);
+  assert.doesNotMatch(entitySelection(card,policy),/entity-choice/);
   change(card,"entity-search","sensor.reading_703");assert.equal(entitySelectionRows(card,policy)[0].id,"entity:registry:row-703");
 });

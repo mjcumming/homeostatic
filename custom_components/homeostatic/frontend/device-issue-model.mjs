@@ -1,4 +1,4 @@
-import {inventoryRows,visibleEpisodes} from "./model.mjs?v=99";
+import {inventoryRows,visibleEpisodes} from "./model.mjs?v=100";
 
 const deviceKinds=new Set(["device","entity","battery","vacuum","ups","temperature_limit","thermostat"]);
 const canonicalSource=(source,sources)=>source?.monitoring_source?sources.get(source.monitoring_source):source;

@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T00:21:22.338756+00:00",
+  "decision": "docs/adr/0103-entity-availability-with-grouped-selection.md",
+  "scope": "Collapsed integration, device and entity selection in Entity availability and Entities not provided policy editors.",
+  "candidate": {
+    "branch": "main",
+    "revision": "b86cc3f8a22b0c5e12596e3efd58e896ac465434",
+    "dirty": true,
+    "component_sha256": "a8e0b888ffcd0edaf654fd568fcf19ddd883f6da370b704104e685961e93feb5",
+    "fixture_sha256": "0b41657e7ab0167c2c2ab2627ceac39653db200479cc79e2362c8a9f5b8f9dfb",
+    "frozen_at": "2026-10-19T00:19:10.146Z"
+  },
+  "status": {
+    "implementation": "complete",
+    "scoped_acceptance": "pass",
+    "committed": false,
+    "released": false,
+    "installed": false
+  },
+  "checks": [
+    {
+      "command": "uv run --no-sync python script/check.py --quick",
+      "status": "pass",
+      "frontend_tests": 857,
+      "evidence": "build/entity-tree-quick-final.log"
+    },
+    {
+      "command": "uv run --no-sync pytest -q tests/test_dashboard.py",
+      "status": "pass",
+      "tests": 40,
+      "evidence": "build/entity-tree-dashboard.log"
+    },
+    {
+      "command": "git diff --check",
+      "status": "pass"
+    }
+  ],
+  "runs": {
+    "desktop": {
+      "report": "build/entity-tree-confirm-desktop/report.json",
+      "environment": {
+        "group": "policies",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "browser_channel": null,
+        "headed": false,
+        "mode": "fixtures",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "passed": [
+        "policies.not-provided",
+        "issues.not-provided",
+        "policies.entity-selection",
+        "policies.temperature-detection",
+        "policies.temperature-save",
+        "policies.temperature-picker"
+      ],
+      "diagnostics": []
+    },
+    "phone": {
+      "report": "build/entity-tree-confirm-phone/report.json",
+      "environment": {
+        "group": "policies",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "browser": "chromium",
+        "browser_channel": null,
+        "headed": false,
+        "mode": "fixtures",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "passed": [
+        "policies.not-provided",
+        "issues.not-provided",
+        "policies.entity-selection",
+        "policies.temperature-detection",
+        "policies.temperature-save",
+        "policies.temperature-picker"
+      ],
+      "diagnostics": []
+    },
+    "ha": {
+      "report": "build/entity-tree-confirm-ha/report.json",
+      "environment": {
+        "group": "policies",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "browser_channel": null,
+        "headed": false,
+        "mode": "live",
+        "notifications": "captured by synthetic services only",
+        "selected_cases": [
+          "policies.entity-selection",
+          "live.policies.selection"
+        ],
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.10.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "passed": [
+        "policies.entity-selection",
+        "live.policies.selection"
+      ],
+      "diagnostics": []
+    }
+  },
+  "ui_review": {
+    "owner": "Policies owns the complete entity monitoring draft. Monitoring supplies the existing disclosure pattern.",
+    "benefit": "Initially collapsed integration and device branches keep large inventories compact. Opening a branch reveals the next level; no setting is changed until a checkbox is edited and the policy is saved.",
+    "search": "Complete-inventory search reveals matching branches. Clearing search restores manual expansion. Filtered group choices leave hidden entities unchanged.",
+    "inspected": [
+      "build/entity-tree-confirm-desktop/policy-picker-1440-light.png",
+      "build/entity-tree-confirm-desktop/policy-picker-1440-light-expanded.png",
+      "build/entity-tree-confirm-phone/policy-picker-390-dark.png",
+      "build/entity-tree-confirm-phone/policy-picker-390-dark-expanded.png",
+      "build/entity-tree-confirm-phone/entity-tree-enlarged-390-dark.png"
+    ],
+    "result": "Pass: left-aligned branch disclosures show the hierarchy, normal and doubled text fit, and disclosure and entity controls retain usable targets and keyboard focus. Only the page scrolls.",
+    "inspection_correction": "The first batched desktop/phone review found centered branch names inherited from a shared button rule. Explicit start alignment and a rendered alignment assertion corrected it; the confirmation review passed."
+  },
+  "cleanup": "Replaced flat headings and fieldsets with nested branch rendering. Removed the obsolete entity-selection-group and heading styles. Existing entity membership and scoped save paths remain authoritative; no duplicate selector was added.",
+  "asset_refresh": "Module imports advance to v=100, panel to homeostatic-panel-v52 and generated card to homeostatic-card-v48. Published previous element names remain compatibility aliases and upgrade tests pass.",
+  "earlier_attempts": [
+    {
+      "reports": [
+        "build/entity-tree-desktop/report.json",
+        "build/entity-tree-phone/report.json",
+        "build/entity-tree-desktop-2/report.json"
+      ],
+      "result": "The runner could not format a string evidence field from an existing fixture. Normalize fixture evidence on ingestion so failures remain reportable."
+    },
+    {
+      "report": "build/entity-tree-desktop-3/report.json",
+      "result": "The entity tree passed. The shared Entities not provided fixture assumed initially visible entity rows; it now opens the integration and device branches before selecting."
+    },
+    {
+      "reports": [
+        "build/entity-tree-final-desktop/report.json",
+        "build/entity-tree-final-phone/report.json",
+        "build/entity-tree-final-ha/report.json"
+      ],
+      "result": "Interaction and save checks passed. These runs precede the alignment correction identified by visual review."
+    }
+  ],
+  "design_scan": {
+    "evidence": "build/entity-tree-design.json",
+    "new_selector_findings": 0,
+    "preexisting_shared_style_warnings": 3
+  },
+  "expected_protocol_results": {
+    "optional_topomation_unknown_command": 4,
+    "unexpected_errors": 0
+  },
+  "limits": [
+    "Phone viewport testing used Chromium, not physical Safari.",
+    "Acceptance covers the changed policy selector and shared policy fixtures; full product and release checks were not run.",
+    "The household installation and saved household settings were not changed."
+  ]
+}

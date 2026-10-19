@@ -8,8 +8,8 @@ For eligible sources, starting settings and the conditions each monitoring type 
 
 ## Add or change a policy
 
-1. Open **Policies**. Select **Edit policy** beside an existing policy, or select **Add policy**, choose a **Monitoring type**, and select **Continue**.
-2. Give the policy a useful name. For **Entity availability**, search the list grouped by integration and device, then check the entities to monitor. A device-group checkbox changes only the displayed matches. **Monitored only** helps review the selection. Other monitoring types offer their supported **Include** choices and source picker.
+1. Open **Policies**. Select **Edit policy** beside an existing policy, or select **Add policy**, choose a **Monitoring type** from the alphabetical list, and select **Continue**.
+2. Give the policy a useful name. For **Entity availability**, expand an integration, then a device, and check the entities to monitor. All branches start collapsed. Search finds entities across the complete tree and opens matching branches; clearing it restores the branches you opened. Expanding a branch leaves monitoring choices unchanged. A device-group checkbox changes only the displayed matches. **Monitored only** helps review the selection. Other monitoring types offer their supported **Include** choices and source picker.
 3. Review the detection settings offered for that type. Repairs and broken automations always cover their complete supported set and have no source selector.
 4. Under **Notifications**, use **Add notification** to choose a saved named notification. To keep issues in the panel without notifications from this policy, remove every assignment so the section reads **No notifications**. [Set up notifications](notifications.md) covers timing and destinations.
 5. Set **Policy enabled** as intended, then select **Save policy**.
@@ -20,7 +20,7 @@ To find the policies watching an entity, select it in **Monitoring**, then open 
 
 ## Watch entities an integration is not providing
 
-Choose **Entities not provided** when registered entities remain in Home Assistant but their integration no longer supplies them. The owning integration must be loaded. Select the entities in the existing grouped list and set **For at least (hours)**; the default is 24 hours. Save the policy and choose its notification assignments as usual.
+Choose **Entities not provided** when registered entities remain in Home Assistant but their integration no longer supplies them. The owning integration must be loaded. Select the entities in the same tree and set **For at least (hours)**; the default is 24 hours. Save the policy and choose its notification assignments as usual.
 
 An enabled registration with a missing state or restored placeholder can qualify. A live entity reporting unavailable is being provided and belongs to availability monitoring. Disabled entities are excluded. Startup and integration reloads interrupt the waiting period.
 

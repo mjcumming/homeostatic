@@ -53,7 +53,13 @@ export async function runPolicyGaps(ctx) {
 
   await test("policies.entity-selection",async()=>{
     const before=await snapshot(),id="default_entities",original=policy(before,id),source=`entity:registry:${lab.registry_ids.offline}`;
-    await edit("policies",id);await fill(field("entity-search"),lab.entities.offline);
+    await edit("policies",id);await at('.entity-selection-tree > li > .entity-selection-toggle').first().waitFor();
+    assert.equal(await at(field("entity-choice")).count(),0);
+    await at('.entity-selection-tree > li > .entity-selection-toggle').first().click();
+    assert.equal(await at(field("entity-choice")).count(),0);
+    await at('.entity-selection-tree > li > .entity-selection-children > li > .entity-selection-toggle').first().click();
+    assert.ok(await at(field("entity-choice")).count()>0);await noChange(before);
+    await fill(field("entity-search"),lab.entities.offline);
     const checkbox=`${field("entity-choice")}[data-definition-value="${source}"]`;
     await at(checkbox).waitFor();const wasChecked=await at(checkbox).isChecked();
     await at(checkbox).focus();await page.keyboard.press("Space");await focus(checkbox);
@@ -64,7 +70,7 @@ export async function runPolicyGaps(ctx) {
     assert.equal(await at(checkbox).isChecked(),!wasChecked);await noChange(saved);
     await page.screenshot({path:`${ctx.artifactDir}/entity-selection.png`,fullPage:false});
     await at(checkbox).click();await discard();assert.equal(await at(checkbox).isChecked(),!wasChecked);
-    return "Entity selection saves and reopens exact membership, retains keyboard focus, preserves future selectors and discards only this policy.";
+    return "Collapsed integration and device branches open without changing saved settings; entity selection saves and reopens exact membership, retains keyboard focus, preserves future selectors and discards only this policy.";
   });
 
   await test("policies.scope",async()=>{

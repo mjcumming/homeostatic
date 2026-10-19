@@ -1,7 +1,7 @@
-import {notProvidedVisible} from "./entity-not-provided.mjs?v=99";
+import {notProvidedVisible} from "./entity-not-provided.mjs?v=100";
 /** Read-model helpers and a shared, lifecycle-bound HA subscription. */
-import {entityProblem, integrationProblem} from "./problem.mjs?v=99";
-import {waitingOnly} from "./check-presentation.mjs?v=99";
+import {entityProblem, integrationProblem} from "./problem.mjs?v=100";
+import {waitingOnly} from "./check-presentation.mjs?v=100";
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",

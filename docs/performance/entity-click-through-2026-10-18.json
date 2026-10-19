@@ -1,0 +1,83 @@
+{
+  "results": [
+    {
+      "state": "restored",
+      "width": 1440,
+      "status": "pass",
+      "checks": [
+        "one visible Open entity",
+        "pointer and Enter request exact entity dialog",
+        "selection and draft preserved"
+      ]
+    },
+    {
+      "state": "unavailable",
+      "width": 1440,
+      "status": "pass",
+      "checks": [
+        "one visible Open entity",
+        "pointer and Enter request exact entity dialog",
+        "selection and draft preserved"
+      ]
+    },
+    {
+      "state": "missing",
+      "width": 1440,
+      "status": "pass",
+      "checks": [
+        "one visible Open entity",
+        "pointer and Enter request exact entity dialog",
+        "selection and draft preserved"
+      ]
+    },
+    {
+      "state": "restored",
+      "width": 390,
+      "status": "pass",
+      "checks": [
+        "one visible Open entity",
+        "pointer and Enter request exact entity dialog",
+        "selection and draft preserved"
+      ]
+    },
+    {
+      "state": "unavailable",
+      "width": 390,
+      "status": "pass",
+      "checks": [
+        "one visible Open entity",
+        "pointer and Enter request exact entity dialog",
+        "selection and draft preserved"
+      ]
+    },
+    {
+      "state": "missing",
+      "width": 390,
+      "status": "pass",
+      "checks": [
+        "one visible Open entity",
+        "pointer and Enter request exact entity dialog",
+        "selection and draft preserved"
+      ]
+    }
+  ],
+  "recorded_at": "2026-10-19T04:25:25.904087+00:00",
+  "scope": "Open entity in Monitoring entity headers, including missing or restored readings and independent of device/integration ownership.",
+  "status": {
+    "implementation": "complete",
+    "committed": false,
+    "installed": false
+  },
+  "checks": {
+    "quick": "pass; 861 frontend tests",
+    "diff": "pass"
+  },
+  "evidence": {
+    "reproducer": "build/entity-link-review.mjs",
+    "screenshots": "build/ui-acceptance/entity-link"
+  },
+  "limitations": [
+    "Synthetic event reception verifies the Home Assistant more-info request; it does not claim a live Home Assistant dialog trial.",
+    "No household installation or notification request."
+  ]
+}

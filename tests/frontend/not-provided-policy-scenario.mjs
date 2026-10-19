@@ -32,9 +32,15 @@ async function run(){const results=[];const record=async(id,body)=>{try{await bo
 try{
   show();const original=copy(saved.monitoring_policies[0]);
   await record("policies.not-provided",async()=>{
-    await click(action("add"));await fill("[data-definition-template]","entity_not_provided");await click(action("create"));
+    await click(action("add"));
+    const typeNames=[...find("[data-definition-template]").options].map(option=>option.textContent);
+    check(JSON.stringify(typeNames)===JSON.stringify([...typeNames].sort((a,b)=>a.localeCompare(b))),"Monitoring types are alphabetical");
+    await fill("[data-definition-template]","entity_not_provided");await click(action("create"));
     check(root.textContent.includes("Entities not provided"),"New monitoring type is named");
     check(find(field("parameters:duration_seconds")).value==="24","24-hour default");
+    check(!root.querySelector(field("entity-choice")),"Entity inventory starts collapsed");
+    await click('.entity-selection-toggle[aria-label="Expand Other entities"]');
+    await click('.entity-selection-toggle[aria-label="Expand Without a device"]');
     check(find(`${field("entity-choice")}[data-definition-value="${entity.node_id}"]`).checked,"Enabled diagnostic is eligible");
     check(find(`${field("entity-choice")}[data-definition-value="${disabled.node_id}"]`).disabled,"Disabled registration cannot be selected");
     await click(`${field("entity-choice")}[data-definition-value="${other.node_id}"]`);

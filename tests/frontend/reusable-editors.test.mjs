@@ -746,3 +746,15 @@ for(const [name,savedEnabled,draftEnabled] of [
   assert.doesNotMatch(html,/Next summary:|No summary is currently scheduled/);
   assert.equal(card.configuration.settings.monitoring_policies[0].enabled,savedEnabled);
 });
+
+test("Add policy lists monitoring types alphabetically and preserves the selected type",()=>{
+  const {card}=fixture();card.policyCreating=true;card.definitionTemplate="entity_not_provided";
+  const html=namedPolicies(card);
+  const choices=[...html.matchAll(/<option value="([^"]+)"( selected)?>([^<]+)<\/option>/g)];
+  const names=choices.map(choice=>choice[3]);
+  assert.ok(names.length>1);
+  assert.deepEqual(names,[...names].sort((a,b)=>a.localeCompare(b)));
+  assert.deepEqual(choices.filter(choice=>choice[2]).map(choice=>choice[1]),["entity_not_provided"]);
+  click(card,"create","policies");
+  assert.equal(card.settingsDraft.monitoring_policies.at(-1).check,"entity_not_provided");
+});

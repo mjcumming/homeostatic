@@ -1,15 +1,15 @@
-import {sourceReporting} from "./reporting.mjs?v=99";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=99";
-import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=99";
-import {monitoringTree} from "./configuration.mjs?v=99";
-import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=99";
+import {sourceReporting} from "./reporting.mjs?v=100";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=100";
+import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=100";
+import {monitoringTree} from "./configuration.mjs?v=100";
+import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=100";
 
-import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=99";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=99";
-import {upsSourceSummary} from "./ups.mjs?v=99";
-import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=99";
-import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=99";
-import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=99";
+import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=100";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=100";
+import {upsSourceSummary} from "./ups.mjs?v=100";
+import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=100";
+import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=100";
+import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=100";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -391,8 +391,7 @@ function sourceHeaderMetadata(card,source) {
     const integration=entry&&integrationProblem(entry,[],key=>card._hass?.localize?.(key),null,false);
     const integrationName=sourceIntegrationName(card,source)||entry?.name;
     const fields=[deviceName?`<div><dt>Device</dt><dd><a href="/config/devices/device/${encodeURIComponent(deviceId)}" aria-label="Open ${esc(deviceName)} device in Home Assistant">${esc(deviceName)}</a></dd></div>`:"",integrationName?`<div><dt>Integration</dt><dd>${entry?.attributes?.domain?.[0]?`<a href="${esc(integration.integrationUrl)}" aria-label="Open ${esc(integrationName)} integration in Home Assistant">${esc(integrationName)}</a>`:esc(integrationName)}</dd></div>`:""].filter(Boolean);
-    const linked=Boolean(deviceName||entry?.attributes?.domain?.[0]);
-    return `${fields.length?`<dl class="source-identity">${fields.join("")}</dl>`:""}${!linked&&source.entity_id?`<a class="link" href="/developer-tools/state?entity_id=${encodeURIComponent(source.entity_id)}">View entity state</a>`:""}`;
+    return `${source.entity_id?`<button type="button" class="link" data-source-open-entity="${esc(source.entity_id)}">Open entity</button>`:""}${fields.length?`<dl class="source-identity">${fields.join("")}</dl>`:""}`;
   }
   const deviceId=source.attributes?.device?.[0];
   const href=deviceId?`/config/devices/device/${encodeURIComponent(deviceId)}`:source.entity_id?`/developer-tools/state?entity_id=${encodeURIComponent(source.entity_id)}`:"";
@@ -703,7 +702,7 @@ export function sourcesBrowser(card) {
     if(linked&&!shown.includes(linked))shown.push(linked);
     const extent=node.family?"Integration":node.type==="device"?"Device":node.source?.kind==="integration"?`Integration connection · ${monitoringState(node.source,coverage)}`:node.source?monitoringState(node.source,coverage):"";
     const issue=hasIssues?` <span class="source-issue-count">Issues</span>`:"";
-    return `<li class="config-branch"><div class="config-nav-row">${node.children.length?`<button type="button" class="config-toggle" data-sources-toggle="${esc(node.key)}" aria-expanded="${expanded}" aria-label="${expanded?'Collapse':'Expand'} ${esc(node.name)}"><span class="disclosure" aria-hidden="true"></span></button>`:'<span class="config-leaf" aria-hidden="true"></span>'}<button type="button" class="config-pick" data-sources-select="${esc(node.key)}"${selected?.node.key===node.key||(node.connection&&node.connection.node_id===selected?.node.source?.node_id)?' aria-current="true"':''}><span class="source-row-title">${esc(node.name)}${issue}</span>${extent?`<small>${esc(extent)}</small>`:""}</button></div>${expanded?`<ul class="config-nav-children">${shown.map(branch).join("")}${node.children.length>limit?`<li><button type="button" class="link source-more" data-source-more="${esc(node.key)}">Show more sources (${shown.length} of ${node.children.length})</button></li>`:''}</ul>`:''}</li>`;
+    return `<li class="config-branch"><div class="config-nav-row">${node.children.length?`<button type="button" class="config-toggle tree-toggle" data-sources-toggle="${esc(node.key)}" aria-expanded="${expanded}" aria-label="${expanded?'Collapse':'Expand'} ${esc(node.name)}"><span class="disclosure" aria-hidden="true"></span></button>`:'<span class="config-leaf" aria-hidden="true"></span>'}<button type="button" class="config-pick" data-sources-select="${esc(node.key)}"${selected?.node.key===node.key||(node.connection&&node.connection.node_id===selected?.node.source?.node_id)?' aria-current="true"':''}><span class="source-row-title">${esc(node.name)}${issue}</span>${extent?`<small>${esc(extent)}</small>`:""}</button></div>${expanded?`<ul class="config-nav-children">${shown.map(branch).join("")}${node.children.length>limit?`<li><button type="button" class="link source-more" data-source-more="${esc(node.key)}">Show more sources (${shown.length} of ${node.children.length})</button></li>`:''}</ul>`:''}</li>`;
   };
   const node=selected?.node;
   const entity=node?.source?.kind==="entity";

@@ -1,8 +1,8 @@
-import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=99";
+import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=100";
 
-import {deviceEntityName} from "./device-entities.mjs?v=99";
-import {waitingOnly} from "./check-presentation.mjs?v=99";
-import {issueDeviceId} from "./device-issue-model.mjs?v=99";
+import {deviceEntityName} from "./device-entities.mjs?v=100";
+import {waitingOnly} from "./check-presentation.mjs?v=100";
+import {issueDeviceId} from "./device-issue-model.mjs?v=100";
 
 const count = (value, singular, plural = `${singular}s`) => `${value} ${value === 1 ? singular : plural}`;
 const sourceId = source => source?.monitoring_source || source?.node_id;
@@ -167,7 +167,7 @@ export function issuesWorkspace(card) {
     const affectedDevices=new Set(),standaloneEntities=new Set();
     for(const episode of episodes)for(const id of episodeSourceIds(episode)){const source=nodes.get(id),canonical=nodes.get(source?.monitoring_source)||source,ids=canonical?.attributes?.device||source?.attributes?.device||[];if(source?.entity_id&&!ids.length)standaloneEntities.add(source.entity_id);for(const device of ids)affectedDevices.add(device);}
     const scope = [affectedDevices.size ? count(affectedDevices.size,"affected device") : "",standaloneEntities.size ? count(standaloneEntities.size,"entity without a device","entities without a device") : ""].filter(Boolean).join(" · ");
-    return `<section class="issue-group panel" data-ui-key="group:${esc(group.key)}"><h2><button type="button" class="issue-group-toggle" data-issue-group="${esc(group.key)}" aria-expanded="${Boolean(open)}"><span>${esc(group.name)}</span><span class="issue-group-meta">${scope ? `<span class="small">${esc(scope)}</span>` : ""}<span class="issue-count">${esc(count(episodes.length,"issue"))}</span></span></button></h2>${open ? `<div class="issue-group-body">${findings}${entryCount > shownCount ? `<div class="body"><button type="button" class="button" data-issue-more="${esc(group.key)}">Show more issues</button><span class="small">Showing ${shownCount} of ${entryCount} entries</span></div>` : ""}</div>` : ""}</section>`;
+    return `<section class="issue-group panel" data-ui-key="group:${esc(group.key)}"><h2><button type="button" class="issue-group-toggle tree-toggle" data-issue-group="${esc(group.key)}" aria-expanded="${Boolean(open)}"><span><span class="disclosure" aria-hidden="true"></span>${esc(group.name)}</span><span class="issue-group-meta">${scope ? `<span class="small">${esc(scope)}</span>` : ""}<span class="issue-count">${esc(count(episodes.length,"issue"))}</span></span></button></h2>${open ? `<div class="issue-group-body">${findings}${entryCount > shownCount ? `<div class="body"><button type="button" class="button" data-issue-more="${esc(group.key)}">Show more issues</button><span class="small">Showing ${shownCount} of ${entryCount} entries</span></div>` : ""}</div>` : ""}</section>`;
   }).join("");
   const visibleIds=new Set(groups.flatMap(group=>group.episodes.map(episode=>episode.episode_id)));
   const hidden = data.inventory.episodes.filter(episode=>!visibleIds.has(episode.episode_id));

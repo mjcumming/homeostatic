@@ -238,6 +238,7 @@ for(const grouping of ["integration","location","topomation"]) {
     for(const source of [...card.current.data.inventory.nodes,...card.current.data.inventory.catalog.candidates])if(source.node_id===ENTITY_ID||source.monitoring_source===ENTITY_ID)source.attributes.area=["landing"];
     card.topomation={locations:[{id:"top-upper",name:"Upper floor"},{id:"top-landing",name:"Landing",parent_id:"top-upper",ha_area_id:"landing"}]};
     const html=detail(card),identity=heading(html);
+    assert.match(identity,/data-source-open-entity="sensor.3rd_floor_sensor_room_temperature"[^>]*>Open entity<\/button>/);
     assert.match(identity,/>Entity<\//);
     assert.match(identity,/id="sources-detail-title"[^>]*>3rd Floor Sensor Room temperature<\/h2>/);
     assert.match(identity,/>Device<\//);
@@ -251,7 +252,7 @@ for(const grouping of ["integration","location","topomation"]) {
   });
 }
 
-test("entity navigation falls back to its state when neither device nor integration can be verified",()=>{
+test("entity opens its own dialog when neither device nor integration can be verified",()=>{
   const card=sourceDetailsFixture("entity");
   for(const source of [...card.current.data.inventory.nodes,...card.current.data.inventory.catalog.candidates]) {
     delete source.owner_id;
@@ -260,8 +261,7 @@ test("entity navigation falls back to its state when neither device nor integrat
   }
   card.current.data.devices=[];
   const html=detail(card);
-  assert.match(heading(html),/href="\/developer-tools\/state\?entity_id=sensor.3rd_floor_sensor_room_temperature"/);
-  assert.match(heading(html),/>View entity state<\/a>/);
+  assert.match(heading(html),/data-source-open-entity="sensor.3rd_floor_sensor_room_temperature"[^>]*>Open entity<\/button>/);
   assert.doesNotMatch(heading(html),/>Device<\/|>Integration<\/|No area assigned|Unknown device|Unknown integration/);
 });
 
@@ -495,4 +495,10 @@ test("independent issues on one entity retain distinct escaped findings and exac
   assert.equal((html.match(/data-episode="availability-issue"/g)||[]).length,1);
   assert.equal((html.match(/data-episode="temperature-issue"/g)||[]).length,1);
   assert.doesNotMatch(rows.join(""),/data-acknowledge|data-shelf|An issue is open for this entity/);
+});
+
+test("entity details omit Open entity when its actual entity id is missing",()=>{
+  const card=sourceDetailsFixture("entity");
+  for(const source of [...card.current.data.inventory.nodes,...card.current.data.inventory.catalog.candidates])delete source.entity_id;
+  assert.doesNotMatch(heading(detail(card)),/data-source-open-entity/);
 });

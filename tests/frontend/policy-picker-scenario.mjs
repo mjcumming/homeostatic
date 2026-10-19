@@ -15,14 +15,54 @@ const find=selector=>{const el=root.querySelector(selector);if(!el)throw Error(`
 const field=name=>`[data-definition-field="${name}"]`,action=name=>`[data-definition-action="${name}"]`,choice=id=>`${field("entity-choice")}[data-definition-value="entity:registry:${id}"]`;
 const click=async selector=>{find(selector).click();await settle();},check=(value,message)=>{if(!value)throw Error(message);};
 const fill=async query=>{const el=find(field("entity-search"));el.focus();el.value=query;el.dispatchEvent(new Event("input",{bubbles:true}));await settle();};
+const open=async name=>click(`.entity-selection-toggle[aria-label="Expand ${name}"]`);
 function show(){card.page="policies";card.current={status:"current",data:{...monitoringExample(),schema_version:3,catalog_loaded:true,inventory:{nodes:[],catalog:{candidates:rows},episodes:[]}}};card.configuration=configuration();card.settingsDraft=copy(saved);card.scopedConfiguration=null;card.definitionSelection={kind:"policies",id:"entities"};card.entitySelection=null;card.render();document.querySelector("#saved-state").textContent=JSON.stringify(saved,null,2);}
-async function run(){receipt={fixture:"policy-picker",synthetic:true,results:[]};const test=async(id,body)=>{try{await body();receipt.results.push({id,status:"pass"});}catch(error){receipt.results.push({id,status:"fail",evidence:error.message});throw error;}finally{document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);}};try{
+async function run(){receipt={fixture:"policy-picker",synthetic:true,results:[]};const test=async(id,body)=>{try{await body();receipt.results.push({id,status:"pass"});}catch(error){receipt.results.push({id,status:"fail",evidence:[error.message]});throw error;}finally{document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);}};try{
  saved=copy(initial);calls=[];show();
- await test("entity-list",async()=>{check(root.textContent.includes("ESPHome")&&root.textContent.includes("Z-Wave JS")&&root.textContent.includes("Front door"),"Integration and device groups");check(!root.querySelector('.entity-selection input[type="radio"],.entity-selection .policy-picker-options'),"No retired picker");check(find(choice("disabled")).disabled,"Disabled HA entities");check(find(choice("lock")).checked&&!find(choice("battery")).checked,"Effective saved scope");await fill("sensor.battery");check(root.querySelectorAll(field("entity-choice")).length===1,"Full identifier search");check(root.activeElement===find(field("entity-search")),"Search focus");await click(field("entity-group"));await fill("");check(find(choice("battery")).checked&&find(choice("lock")).checked&&!find(choice("motion")).checked,"Filtered group changes preserve hidden choices");check(card.settingsDraft.monitoring_policies[0].match_any[0].domain[0]==="lock","Future scope retained");check(calls.length===0,"Changes are drafts");});
- await test("entity-save",async()=>{const other=copy(saved.monitoring_policies[1]);await click(action("save-scoped"));check(saved.monitoring_policies[0].included_sources.includes("entity:registry:battery"),"Exact override saved");check(JSON.stringify(saved.monitoring_policies[1])===JSON.stringify(other),"Other policy unchanged");show();check(find(choice("battery")).checked,"Reopen");await click(choice("lock"));await click(action("discard-scoped"));check(find(choice("lock")).checked,"Discard");reject=true;await click(choice("motion"));await click(action("save-scoped"));check(root.textContent.includes("Synthetic save rejection")&&find(choice("motion")).checked,"Failed save retains draft");await click(action("discard-scoped"));});
- await test("entity-missing-loading",async()=>{check(root.textContent.includes("Entity no longer in the list"),"Missing saved choice remains visible");await click(action("entity-forget"));check(!card.settingsDraft.monitoring_policies[0].excluded_sources,"Remove saved choice");show();card.current.data.catalog_stale=true;card.render();check(find(choice("lock")).disabled,"Stale catalog cannot change membership");card.current.data.catalog_stale=false;card.render();});
- await test("entity-household",async()=>{for(let n=0;n<704;n++)rows.push({node_id:`entity:registry:household-${n}`,kind:"entity",name:`Reading ${n}`,entity_id:`sensor.household_${n}`,attributes:{kind:["entity"],entity:[`registry:household-${n}`],domain:["sensor"],device:["room"],integration_domain:["esphome"]}});show();check(root.querySelectorAll(field("entity-choice")).length===711,"All rows, no manual pagination");await fill("sensor.household_703");await click(choice("household-703"));check(find(choice("household-703")).checked,"Selection beyond former page boundary");rows.splice(9);show();});
- await test("selection-layout",async()=>{const el=find(".entity-selection");check(el.scrollWidth<=el.clientWidth+1,"Fits viewport");check(![...el.querySelectorAll("*")].some(item=>["auto","scroll"].includes(getComputedStyle(item).overflowY)&&item.scrollHeight>item.clientHeight+1),"Only the page scrolls");check([...el.querySelectorAll(".entity-selection-row")].every(item=>item.getBoundingClientRect().height>=44),"Touch targets");});
+ await test("entity-tree",async()=>{
+  const before=JSON.stringify(card.settingsDraft);
+  check(!root.querySelector(field("entity-choice")),"All integrations start collapsed");
+  check([...root.querySelectorAll(".entity-selection-toggle")].every(el=>el.getAttribute("aria-expanded")==="false"),"Collapsed disclosure state");
+  await open("Z-Wave JS");check(root.textContent.includes("Front door")&&!root.querySelector(field("entity-choice")),"Integration reveals collapsed devices");
+  await open("Front door");check(find(choice("lock")),"Device reveals entities");
+  await click('.entity-selection-toggle[aria-label="Collapse Z-Wave JS"]');check(!root.querySelector(field("entity-choice")),"Integration hides descendants");
+  await open("Z-Wave JS");check(find(choice("lock")),"Reopening retains nested expansion");
+  check(JSON.stringify(card.settingsDraft)===before&&calls.length===0&&!root.querySelector(action("save-scoped")),"Expansion cannot edit, save or create a dirty draft");
+ });
+ await test("entity-list",async()=>{
+  check(!root.querySelector('.entity-selection input[type="radio"],.entity-selection .policy-picker-options'),"No retired picker");
+  check(find(choice("lock")).checked&&!find(choice("battery")).checked,"Effective saved scope");
+  await fill("disabled");check(find(choice("disabled")).disabled,"Search reveals disabled HA entities");
+  await fill("sensor.battery");check(root.querySelectorAll(field("entity-choice")).length===1,"Full identifier search");check(root.activeElement===find(field("entity-search")),"Search focus");
+  await click(field("entity-group"));await fill("");
+  check(find(choice("battery")).checked&&find(choice("lock")).checked&&!find(choice("motion")).checked,"Filtered group changes preserve hidden choices");
+  check(find('.entity-selection-toggle[aria-label="Expand ESPHome"]'),"Clearing search restores manual branches");
+  check(card.settingsDraft.monitoring_policies[0].match_any[0].domain[0]==="lock","Future scope retained");check(calls.length===0,"Changes are drafts");
+ });
+ await test("entity-save",async()=>{
+  const other=copy(saved.monitoring_policies[1]);await click(action("save-scoped"));
+  check(saved.monitoring_policies[0].included_sources.includes("entity:registry:battery"),"Exact override saved");check(JSON.stringify(saved.monitoring_policies[1])===JSON.stringify(other),"Other policy unchanged");
+  show();check(!root.querySelector(field("entity-choice")),"Fresh editor starts collapsed after save");await open("Z-Wave JS");await open("Front door");check(find(choice("battery")).checked,"Reopen");
+  await click(choice("lock"));await click(action("discard-scoped"));check(find(choice("lock")).checked,"Discard");
+  reject=true;await click(choice("motion"));await click(action("save-scoped"));check(root.textContent.includes("Synthetic save rejection")&&find(choice("motion")).checked,"Failed save retains draft and branch");await click(action("discard-scoped"));
+ });
+ await test("entity-missing-loading",async()=>{
+  await fill("missing");check(root.textContent.includes("Entity no longer in the list"),"Missing saved choice remains searchable");await click(action("entity-forget"));check(!card.settingsDraft.monitoring_policies[0].excluded_sources,"Remove saved choice");
+  show();await fill("lock");card.current.data.catalog_stale=true;card.render();check(find(choice("lock")).disabled,"Stale catalog cannot change membership");card.current.data.catalog_stale=false;card.render();
+ });
+ await test("entity-household",async()=>{
+  for(let n=0;n<704;n++)rows.push({node_id:`entity:registry:household-${n}`,kind:"entity",name:`Reading ${n}`,entity_id:`sensor.household_${n}`,attributes:{kind:["entity"],entity:[`registry:household-${n}`],domain:["sensor"],device:["room"],integration_domain:["esphome"]}});
+  show();check(!root.querySelector(field("entity-choice")),"Large inventory starts compact");await open("ESPHome");await open("Living room");check(root.querySelectorAll(field("entity-choice")).length===707,"Complete device branch, no manual pagination");
+  await click('.entity-selection-toggle[aria-label="Collapse Living room"]');await fill("sensor.household_703");await click(choice("household-703"));check(find(choice("household-703")).checked,"Selection beyond former page boundary");
+  await fill("");check(!root.querySelector(field("entity-choice")),"Search restores collapsed device");rows.splice(9);show();
+ });
+ await test("selection-layout",async()=>{
+  await open("ESPHome");await open("Living room");await open("Z-Wave JS");await open("Front door");await open("Unavailable selections");await open("Saved choices");
+  const el=find(".entity-selection");check(el.scrollWidth<=el.clientWidth+1,"Fits viewport");check(![...el.querySelectorAll("*")].some(item=>["auto","scroll"].includes(getComputedStyle(item).overflowY)&&item.scrollHeight>item.clientHeight+1),"Only the page scrolls");
+  check([...el.querySelectorAll(".entity-selection-row,.entity-selection-toggle")].every(item=>item.getBoundingClientRect().height>=44),"Disclosure and selection touch targets");
+  check([...el.querySelectorAll(".entity-selection-toggle")].every(item=>getComputedStyle(item).borderTopWidth==="0px"),"Branches use the shared borderless disclosure control");
+  check([...el.querySelectorAll(".entity-selection-toggle")].every(item=>item.querySelector(".disclosure").getBoundingClientRect().left-item.getBoundingClientRect().left<=16),"Branch disclosures align at the start of each level");
+ });
  feedback.textContent=`PASS: ${receipt.results.length} entity-selection paths`;
 }catch(error){feedback.textContent=`FAIL: ${error.message}`;throw error;}}
 document.querySelector("#run").onclick=run;document.querySelector("#show").onclick=show;document.querySelector("#dark").onchange=event=>{document.documentElement.dataset.theme=event.target.checked?"dark":"light";};show();

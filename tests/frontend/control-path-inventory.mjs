@@ -1,6 +1,6 @@
-const spec="../../docs/product-specification.md#review-scenarios-and-completion-criteria";
-const editors="../../docs/policy-editors.md#points-for-ui-review";
-const standards="../../docs/ui-standards.md#component-review-checklist";
+const spec="../../docs/spec.md#completion-criteria";
+const editors="../../docs/spec.md#editor-review-points";
+const standards="../../docs/spec.md#component-review-checklist";
 const path=(id,page,controls,expected,fixture,requirement=spec)=>({id,page,controls,expected,fixture,requirement});
 
 // A path starts untested on every run; a fixture may report only its checked ids.
@@ -38,7 +38,7 @@ export const controlPaths=[
   path("sources.maintenance","Monitoring","Existing maintenance, expiry, End maintenance, cancel confirmation","No new-maintenance entry is offered. Existing windows retain visible expiry; ending one window preserves overlaps and guards failed, pending, disconnected or expired requests.","source-history.html"),
   path("policies.lifecycle","Policies","Add, edit, duplicate, enabled, save, discard, delete","Only the named policy changes; supplied and custom policies share controls.","reusable-editors.html",editors),
   path("policies.picker-context","Policies","Source names and locations, area/label counts, search, selected only, Show all, Done, Save policy","Relevant choices retain identities through filtering and loading; compact accessible rows preserve the policy save scope.","policy-picker.html",editors),
-  path("policies.entity-selection","Policies","Search, grouped entity checkboxes, keyboard, Save, reopen, failed save and discard","Entity membership retains saved future scope and unrelated drafts; loading, missing and disabled sources remain explicit.","policy-picker.html","../../docs/adr/0103-entity-availability-with-grouped-selection.md"),
+  path("policies.entity-selection","Policies","Collapsed integration/device tree, disclosure, search, entity checkboxes, keyboard, Save, reopen, failed save and discard","Expansion never edits membership; search reveals matches and restores branches. Saved future scope, unrelated drafts, loading, missing and disabled sources remain explicit.","policy-picker.html","../../docs/adr/0103-entity-availability-with-grouped-selection.md"),
   path("policies.scope","Policies","All, selected, exclusions, picker search, selected only","Catalog loading/error is distinct from no matches; selection survives search.","reusable-editors.html",editors),
   path("policies.detection","Policies","Each supported policy type and its detection fields","Units, ranges and validation preserve the intended saved detection.","reusable-editors.html",editors),
   path("policies.temperature-detection","Policies","Below, Above, minutes/hours, monitoring switch, missing or reversed bounds","Lower-only, upper-only and paired limits retain exact seconds; invalid input blocks saving and monitoring enablement leaves global sending off.","temperature-policy-editor.html",editors),

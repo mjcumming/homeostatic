@@ -46,4 +46,4 @@ Combined profiles are convenient for a single schedule and destination set, but 
 
 Executable scenarios cover one schedule with several methods, one method with several schedules, immediate plus scheduled reporting of the same issue, shared-definition edits, deletion and replacement, acknowledgment, restart, review invalidation and conversion from existing assignments. Selective withdrawal and reactivation preserve unchanged routes when a shared definition affects only some rows. Deliberately overlapping custom policies remain allowed; ordinary outbox replay preserves request identities.
 
-The [editor design](../policy-editors.md) describes the forms. The runtime contract is maintained in [the specification](../spec.md). Validation uses isolated Home Assistant instances and mocked delivery actions; no live destination trial is claimed.
+The [editor design](../spec.md#policies) describes the forms. The runtime contract is maintained in [the specification](../spec.md). Validation uses isolated Home Assistant instances and mocked delivery actions; no live destination trial is claimed.

@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=99";
+import {escapeHtml as esc} from "./model.mjs?v=100";
 
 const identity=source=>source.monitoring_source||source.node_id;
 const matches=(match,metadata)=>Object.entries(match||{}).every(([field,values])=>values.some(value=>(metadata[field]||[]).includes(value)));
@@ -30,12 +30,12 @@ export function entitySelectionRows(card,policy) {
     const domain=source.attributes?.integration_domain?.[0]||"",deviceId=source.attributes?.device?.[0]||"";
     const integration=domain?(card._hass?.localize?.(`component.${domain}.title`)||domain.replaceAll("_"," ").replace(/^./,letter=>letter.toUpperCase())):"Other entities";
     const device=devices.get(deviceId)||(deviceId?`Device ${deviceId}`:"Without a device");
-    return {source,id:identity(source),name:source.name,entityId:source.entity_id||"",area:(source.attributes?.area||[]).map(id=>areas.get(id)||id).join(" · "),integration,device,group:JSON.stringify([domain,deviceId]),selected:entitySelected(policy,source)};
+    return {source,id:identity(source),name:source.name,entityId:source.entity_id||"",area:(source.attributes?.area||[]).map(id=>areas.get(id)||id).join(" · "),integration,integrationKey:domain,device,group:JSON.stringify([domain,deviceId]),selected:entitySelected(policy,source)};
   });
   const known=new Set(rows.map(row=>row.id));
   for(const id of new Set([...(policy.included_sources||[]),...(policy.excluded_sources||[]),...(policy.match?.entity||[]).map(ref=>`entity:${ref}`)])) {
     if(known.has(id))continue;
-    rows.push({id,name:id.startsWith("device:")?(devices.has(id.slice(7))?`Excluded device: ${devices.get(id.slice(7))}`:"Excluded device no longer in the list"):"Entity no longer in the list",entityId:id,area:"",integration:"Unavailable selections",device:"Saved choices",group:"unavailable",missing:true,selected:!(policy.excluded_sources||[]).includes(id)});
+    rows.push({id,name:id.startsWith("device:")?(devices.has(id.slice(7))?`Excluded device: ${devices.get(id.slice(7))}`:"Excluded device no longer in the list"):"Entity no longer in the list",entityId:id,area:"",integration:"Unavailable selections",integrationKey:"unavailable",device:"Saved choices",group:"unavailable",missing:true,selected:!(policy.excluded_sources||[]).includes(id)});
   }
   const state=card.entitySelection?.id===policy.id?card.entitySelection:{query:"",selectedOnly:false};
   const query=(state.query||"").trim().toLocaleLowerCase();
@@ -47,15 +47,28 @@ export function entitySelection(card,policy) {
   const data=card.current?.data,pending=!data?.inventory?.catalog||data.schema_version===3&&!data.catalog_loaded,stale=data?.catalog_stale;
   const state=card.entitySelection?.id===policy.id?card.entitySelection:{query:"",selectedOnly:false},rows=entitySelectionRows(card,policy);
   const attr=field=>`data-definition-kind="policies" data-definition-id="${esc(policy.id)}" data-definition-field="${field}"`;
-  const groups=new Map();
-  for(const row of rows){if(!groups.has(row.group))groups.set(row.group,[]);groups.get(row.group).push(row);}
-  let integration="";
-  const content=[...groups.values()].map(group=>{
-    const first=group[0],header=integration!==first.integration?`<h4>${esc(first.integration)}</h4>`:"";integration=first.integration;
+  const integrations=new Map(),searching=Boolean(state.query?.trim());
+  for(const row of rows) {
+    if(!integrations.has(row.integrationKey))integrations.set(row.integrationKey,new Map());
+    const groups=integrations.get(row.integrationKey);
+    if(!groups.has(row.group))groups.set(row.group,[]);
+    groups.get(row.group).push(row);
+  }
+  const branch=(key,name,contents)=>{
+    const expanded=searching?!(state.searchCollapsed||[]).includes(key):(state.expanded||[]).includes(key);
+    const id=`entity-branch-${encodeURIComponent(policy.id)}-${encodeURIComponent(key)}`;
+    return `<li><button type="button" class="entity-selection-toggle tree-toggle" data-definition-action="entity-expand" ${attr("entity-expand")} data-definition-value="${esc(key)}" aria-expanded="${expanded}" aria-controls="${id}" aria-label="${expanded?"Collapse":"Expand"} ${esc(name)}"><span class="disclosure" aria-hidden="true"></span><span>${esc(name)}</span></button><ul id="${id}" class="entity-selection-children"${expanded?"":" hidden"}>${expanded?contents():""}</ul></li>`;
+  };
+  const device=group=>{
+    const first=group[0];
     const selectable=group.filter(row=>!row.missing&&!row.source.disabled),count=selectable.filter(row=>row.selected).length,mixed=count>0&&count<selectable.length;
-    return `${header}<fieldset class="entity-selection-group"><legend>${esc(first.device)}</legend>${selectable.length?`<label class="entity-selection-bulk"><input type="checkbox" ${attr("entity-group")} data-definition-value="${esc(first.group)}"${count===selectable.length?" checked":""}${mixed?' data-indeterminate="true" aria-checked="mixed"':""}${pending||stale?" disabled":""}>Monitor ${state.query?"matching ":""}entities</label>`:""}${group.map(row=>row.missing?`<div class="entity-selection-row"><span>${esc(row.name)}<span class="entity-selection-context">${esc(row.id)}</span></span><button type="button" class="button" data-definition-action="entity-forget" ${attr("entity-forget")} data-definition-value="${esc(row.id)}"${pending||stale?" disabled":""}>Remove saved choice</button></div>`:`<label class="entity-selection-row"><input type="checkbox" ${attr("entity-choice")} data-definition-value="${esc(row.id)}"${row.selected&&!row.source.disabled?" checked":""}${row.source.disabled||pending||stale?" disabled":""}><span>${esc(row.name)}<span class="entity-selection-context">${esc([row.area,row.entityId,row.source.disabled?"Disabled in Home Assistant":""].filter(Boolean).join(" · "))}</span></span></label>`).join("")}</fieldset>`;
+    return branch(`device:${first.group}`,first.device,()=>`${selectable.length?`<li><label class="entity-selection-bulk"><input type="checkbox" ${attr("entity-group")} data-definition-value="${esc(first.group)}"${count===selectable.length?" checked":""}${mixed?' data-indeterminate="true" aria-checked="mixed"':""}${pending||stale?" disabled":""}>Monitor ${searching?"matching ":""}entities</label></li>`:""}${group.map(row=>`<li>${row.missing?`<div class="entity-selection-row"><span>${esc(row.name)}<span class="entity-selection-context">${esc(row.id)}</span></span><button type="button" class="button" data-definition-action="entity-forget" ${attr("entity-forget")} data-definition-value="${esc(row.id)}"${pending||stale?" disabled":""}>Remove saved choice</button></div>`:`<label class="entity-selection-row"><input type="checkbox" ${attr("entity-choice")} data-definition-value="${esc(row.id)}"${row.selected&&!row.source.disabled?" checked":""}${row.source.disabled||pending||stale?" disabled":""}><span>${esc(row.name)}<span class="entity-selection-context">${esc([row.area,row.entityId,row.source.disabled?"Disabled in Home Assistant":""].filter(Boolean).join(" · "))}</span></span></label>`}</li>`).join("")}`);
+  };
+  const content=[...integrations.values()].map(groups=>{
+    const first=groups.values().next().value[0];
+    return branch(`integration:${first.integrationKey}`,first.integration,()=>[...groups.values()].map(device).join(""));
   }).join("");
-  return `<section class="entity-selection" aria-label="Entity availability selection"><p class="small">${entityScopeSummary(policy)}</p><label class="installation-field"><span>Search entities</span><input type="search" ${attr("entity-search")} value="${esc(state.query||"")}" placeholder="Name, integration, device or area"></label><label class="entity-selection-filter"><input type="checkbox" ${attr("entity-selected-only")}${state.selectedOnly?" checked":""}>Monitored only</label>${pending||stale?`<p role="status">${card.current?.catalogError?`Could not load entities: ${esc(card.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry</button>`:pending?"Loading entities…":"Updating entities…"}</p>`:""}${content||(!pending?'<p>No entities match your search.</p>':"")}<p class="small">Changes apply to this policy when you save. Disabled entities are not monitored.</p></section>`;
+  return `<section class="entity-selection" aria-label="Entity selection"><p class="small">${entityScopeSummary(policy)}</p><label class="installation-field"><span>Search entities</span><input type="search" ${attr("entity-search")} value="${esc(state.query||"")}" placeholder="Name, integration, device or area"></label><label class="entity-selection-filter"><input type="checkbox" ${attr("entity-selected-only")}${state.selectedOnly?" checked":""}>Monitored only</label>${pending||stale?`<p role="status">${card.current?.catalogError?`Could not load entities: ${esc(card.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry</button>`:pending?"Loading entities…":"Updating entities…"}</p>`:""}${content?`<ul class="entity-selection-tree">${content}</ul>`:!pending?'<p>No entities match your search.</p>':""}<p class="small">Changes apply to this policy when you save. Disabled entities are not monitored.</p></section>`;
 }
 
 function choose(policy,row,selected) {
@@ -69,16 +82,25 @@ function choose(policy,row,selected) {
   if(!policy.excluded_sources.length)delete policy.excluded_sources;
 }
 
-/** Edit only policy membership, retaining other drafts and the complete saved scope. */
+/** Keep browsing independent of membership and retain the complete saved scope. */
 export function editEntitySelection(card,event,element,invalidate,renderAfterEdit) {
   const field=element.dataset.definitionField;
   if(!field?.startsWith("entity-"))return false;
   const policy=card.settingsDraft.monitoring_policies.find(policy=>policy.id===element.dataset.definitionId);
   if(!policy||!["availability","entity_not_provided"].includes(policy.check)||policy.match?.kind?.[0]!=="entity")return true;
   card.entitySelection=card.entitySelection?.id===policy.id?card.entitySelection:{id:policy.id,query:"",selectedOnly:false};
+  if(field==="entity-expand") {
+    if(event.type!=="click")return true;
+    const key=element.dataset.definitionValue,searching=Boolean(card.entitySelection.query.trim()),property=searching?"searchCollapsed":"expanded";
+    const expanded=new Set(card.entitySelection[property]||[]);
+    if(expanded.has(key))expanded.delete(key);else expanded.add(key);
+    card.entitySelection[property]=[...expanded];
+    renderAfterEdit(card,element);return true;
+  }
   if(field==="entity-search"||field==="entity-selected-only") {
     if(event.type==="click")return true;
     card.entitySelection[field==="entity-search"?"query":"selectedOnly"]=field==="entity-search"?element.value:element.checked;
+    card.entitySelection.searchCollapsed=[];
     renderAfterEdit(card,element);return true;
   }
   if(card.current?.data?.catalog_stale||card.current?.data?.catalog_loaded===false)return true;

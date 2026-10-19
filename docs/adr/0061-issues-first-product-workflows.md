@@ -59,7 +59,7 @@ Tests remain explicit actions on saved unchanged methods, independently availabl
 
 ## Consequences and implementation boundary
 
-The [product specification](../product-specification.md) owns user goals, workflow requirements, page alternatives and acceptance journeys. [UI standards](../ui-standards.md) owns shared patterns. [Policy and notification editors](../policy-editors.md) owns form layout. The [roadmap](../roadmap.md#coherent-product-specification-and-uiux-redesign) orders the refactor.
+The [product specification](../spec.md#product-purpose-and-scope) owns user goals, workflow requirements, page alternatives and acceptance journeys. [UI standards](../spec.md#interface) owns shared patterns. [Policy and notification editors](../spec.md#policies) owns form layout. The [roadmap](../roadmap.md#coherent-product-specification-and-uiux-redesign) orders the refactor.
 
 Scoped actions require adapter support and tests before the interface can claim independent persistence. Retain administrator authorization, exact submitted payload validation, stale-revision rejection, serialized application, rollback and newer-draft preservation. Translate an explicitly scoped edit through the existing configuration owner without applying unrelated drafts. No new configuration store is approved.
 

@@ -1,4 +1,4 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=99";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=100";
 
 
 const date = (value) => value ? new Date(value).toLocaleString(undefined, {year:"numeric", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : "Unknown";
@@ -66,7 +66,7 @@ const historyRows = (rows, data, selected) => rows.map(item => {
   const id = item.episode.episode_id, expanded = selected === id;
   const contentId = `history-${encodeURIComponent(id)}`;
   const outcome = RESOLUTIONS[item.resolution]?.[0] ?? "Problem ended";
-  return `<section class="history-entry"><button type="button" class="row history-toggle" data-history-toggle="${esc(id)}" aria-expanded="${expanded}" aria-controls="${esc(contentId)}"><span class="row-main">${esc(historyName(item))}<small>${esc(outcome)}${expanded ? "" : ` · ${esc(date(item.resolved_at))}`}</small></span><svg class="history-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button><div class="history-content" id="${esc(contentId)}"${expanded ? "" : " hidden"}>${expanded ? historyDetails(item, data) : ""}</div></section>`;
+  return `<section class="history-entry"><button type="button" class="row history-toggle tree-toggle" data-history-toggle="${esc(id)}" aria-expanded="${expanded}" aria-controls="${esc(contentId)}"><span class="disclosure" aria-hidden="true"></span><span class="row-main">${esc(historyName(item))}<small>${esc(outcome)}${expanded ? "" : ` · ${esc(date(item.resolved_at))}`}</small></span></button><div class="history-content" id="${esc(contentId)}"${expanded ? "" : " hidden"}>${expanded ? historyDetails(item, data) : ""}</div></section>`;
 }).join("");
 
 function historyFinding(item, finding) {
