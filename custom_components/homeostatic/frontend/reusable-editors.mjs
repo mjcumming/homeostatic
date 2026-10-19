@@ -1,14 +1,8 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=100";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=100";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=100";
-import {entitySelection,entityScopeSummary,editEntitySelection} from "./entity-selection.mjs?v=100";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=101";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=101";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=101";
+import {entitySelection,entityScopeSummary,editEntitySelection} from "./entity-selection.mjs?v=101";
 
-export const POLICY_CHECKS = {
-  availability: "HA availability", battery: "Battery condition", vacuum: "Vacuum error",
-  repair: "Repairs", broken_automation: "Broken automations", thermostat: "Thermostat progress",
-  temperature_limit: "Temperature limits", entity_not_provided: "Entities not provided",
-  ups_power:"UPS backup power", ups_reserve:"UPS low reserve", ups_battery_replacement:"UPS battery replacement", ups_fault:"UPS faults",
-};
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 const METHOD_MODES = {fixed:"Fixed destinations", home_away:"Home or away", home_people:"People currently home"};

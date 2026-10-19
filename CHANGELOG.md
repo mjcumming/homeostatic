@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.11.2] - 2026-10-19
+
+### Documentation
+
+- Use plain navigation wording in the README and clarify entity availability monitoring and which upgrades replace older notification settings.
+- Remove obsolete planning material and raw diagnostic captures while retaining their measurement receipts.
+
+### Changed
+
+- Consolidate shared state-reading and configuration-digest helpers and remove unused frontend styles and policy labels. Monitoring and saved settings are unchanged.
+
 ## [1.11.1] - 2026-10-19
 
 ### Changed

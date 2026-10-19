@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-19",
+  "version": "1.11.2",
+  "scope": "README corrections and behavior-preserving cleanup; published health-tree 0.10.0 unchanged",
+  "readme": {
+    "local_and_remote_bytes_identical_before_edit": true,
+    "valid_utf8_before_edit": true,
+    "non_ascii_before_edit": "Two navigation arrows; replaced with plain wording",
+    "ascii_after_edit": true,
+    "content_corrections": [
+      "Entity availability with device grouping",
+      "Current-format settings preserved on upgrade"
+    ]
+  },
+  "checks": {
+    "quick": "passed; lint, formatting and 861 frontend tests on Node 24.22.0",
+    "focused_python": "88 passed across battery, vacuum, dashboard, runtime updates, serialization and availability collection routes",
+    "lockfile": "uv lock --check passed"
+  },
+  "browser": {
+    "baseline_revision": "e01fa633bef2d864ea59eadaa3326c9fd4e16675",
+    "baseline_report": "build/ui-acceptance/release-1.11.2-baseline-report/report.json",
+    "candidate_desktop_report": "build/ui-acceptance/release-1.11.2-final-desktop/report.json",
+    "candidate_phone_report": "build/ui-acceptance/release-1.11.2-final-phone/report.json",
+    "desktop_comparison": "Identical inventory statuses and all nine normalized diagnostics; no new failures",
+    "inventory": {
+      "passed": 55,
+      "failed": 8,
+      "untested": 17
+    },
+    "visual_review": "Desktop issue dialog and phone delivery editor remain legible with visible actions and unchanged task ownership. No added controls, disclosures or navigation. Retained active pause-form grid and label spacing after checking removed selectors against current renderers.",
+    "first_attempts": "Initial WSL checks used Node 18; rerun on documented Node 24 passes. Initial browser launches lacked libasound; rerun with existing isolated browser libraries. Earlier desktop run changed during execution and was replaced by the stable final run.",
+    "limits": [
+      "Broad browser suite remains failed with existing retired-device and stale-fixture assumptions; this receipt establishes no cleanup regression, not complete product acceptance.",
+      "Physical Safari and real provider delivery untested.",
+      "No household installation or live notification requests."
+    ]
+  },
+  "frontend_upgrade": "Versioned module URLs, current panel and generated-card identities; previous identities remain supported and existing upgrade scenarios pass",
+  "cleanup": "Shared state and digest helpers preserve previous implementations; removed obsolete captures retain summary receipts and timing helper",
+  "release": "Exact-candidate CI and archive verification required before publication"
+}

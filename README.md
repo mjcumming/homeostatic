@@ -25,17 +25,17 @@ Example equipment in Open issues. Expand a group, then open a finding to inspect
 
 ## What it watches
 
-A new installation watches integration, device and entity availability, Home Assistant Repairs, and automations that name missing entities. You can also configure battery checks, vacuum errors, UPS conditions, temperature limits and thermostat progress.
+A new installation watches integration and entity availability, Home Assistant Repairs, and automations that name missing entities. Devices group their entities and related issues. You can also configure battery checks, vacuum errors, UPS conditions, temperature limits and thermostat progress.
 
 Browse equipment by integration, Home Assistant location, or optional [TopoMation](https://github.com/mjcumming/topomation) locations. Each source shows its current evidence and the checks that watch it. [The manual](docs/guide.md) explains the available monitoring and how to tailor it to your installation.
 
 ## Install and get started
 
-Upgrading an existing installation replaces its earlier notification configuration with fresh defaults and sending off. Read the [upgrade notes](CHANGELOG.md) before installing.
+Upgrading from older notification settings can replace those settings with fresh defaults and sending off. Current-format settings are preserved. Read the [upgrade notes](CHANGELOG.md) before installing.
 
 You need Home Assistant 2026.9.3 or newer and an administrator account. The first load needs internet access to install its Python dependency; Homeostatic then runs locally.
 
-In HACS, add `https://github.com/mjcumming/homeostatic` as a custom repository with type **Integration**, download Homeostatic and restart Home Assistant. Then use **Settings → Devices & services → Add integration** to add **Homeostatic**.
+In HACS, add `https://github.com/mjcumming/homeostatic` as a custom repository with type **Integration**, download Homeostatic and restart Home Assistant. Then open **Settings**, choose **Devices & services**, and use **Add integration** to add **Homeostatic**.
 
 Common checks start enabled, with notification sending off. Review what Homeostatic finds, choose what matters to you, then decide who should hear about it.
 

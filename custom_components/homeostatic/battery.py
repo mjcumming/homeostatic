@@ -4,11 +4,11 @@ import math
 from datetime import datetime
 
 from health_tree.types import Observation, Status
-from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import device_registry as dr
 
-from .catalog import Source
+from .catalog import Source, live_state
 
 LOW_PERCENT = 20.0
 
@@ -88,18 +88,8 @@ def candidates(hass: HomeAssistant, entities: dict[str, Source]) -> dict[str, So
     return result
 
 
-def _current(state: State | None) -> str | None:
-    if (
-        state is None
-        or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
-        or state.attributes.get("restored")
-    ):
-        return None
-    return state.state
-
-
 def _percent(state: State | None) -> float | None:
-    value = _current(state)
+    value = live_state(state)
     if value is None or (
         state is not None
         and state.attributes.get("unit_of_measurement") not in (None, "%")
@@ -146,8 +136,8 @@ def observe(
         else None
     )
     percent = _percent(level_state) if source.battery_level_entity else None
-    warning = _current(warning_state) if source.battery_warning_entity else None
-    charging = _current(charging_state) if source.battery_charging_entity else None
+    warning = live_state(warning_state) if source.battery_warning_entity else None
+    charging = live_state(charging_state) if source.battery_charging_entity else None
     warning_valid = warning in {STATE_ON, STATE_OFF}
     low = (percent is not None and percent <= threshold) or warning == STATE_ON
     missing = (source.battery_level_entity is not None and percent is None) or (

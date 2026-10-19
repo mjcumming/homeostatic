@@ -1,11 +1,19 @@
 """JSON presentation of public library records."""
 
+import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import fields, is_dataclass
 from datetime import datetime, time, timedelta
 from enum import Enum
 
 from health_tree.types import JSONValue
+
+
+def json_digest(value: object) -> str:
+    """Stable digest of JSON-compatible data, for equality comparison only."""
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode()).hexdigest()
 
 
 def to_json(value: object) -> JSONValue:

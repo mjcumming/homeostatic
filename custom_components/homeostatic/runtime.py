@@ -3,7 +3,6 @@
 import asyncio
 import gc
 import hashlib
-import json
 import logging
 from collections import Counter, deque
 from collections.abc import Callable
@@ -127,7 +126,7 @@ from .notification_routes import async_send, notification_url, unavailable_desti
 from .phone_actions import PhoneActions
 from .repairs import Repairs
 from .rules import Attributes
-from .serialization import json_object, to_json
+from .serialization import json_digest, json_object, to_json
 from .situation_reports import report_observation
 from .temperature import (
     TemperatureLimitParameters,
@@ -140,12 +139,6 @@ from .vacuum import observe as vacuum_observation
 
 _LOGGER = logging.getLogger(__name__)
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
-
-
-def _digest(value: Any) -> str:
-    """Stable digest of JSON-compatible data, for equality comparison only."""
-    canonical = json.dumps(value, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _event_summary(counts: Counter[str]) -> str:
@@ -1934,7 +1927,7 @@ class Runtime:
             ):
                 stored_routes = self.saved["attention_routes"]
                 previous_routes = {
-                    route: value if isinstance(value, str) else _digest(value)
+                    route: value if isinstance(value, str) else json_digest(value)
                     for route, value in (
                         stored_routes.items() if isinstance(stored_routes, dict) else ()
                     )
@@ -2992,7 +2985,7 @@ class Runtime:
     ) -> dict[str, str]:
         """Digest each route signature; equality is the only use of the stored value."""
         return {
-            route: _digest(signature)
+            route: json_digest(signature)
             for route, signature in self._route_signatures(
                 settings, sources=sources
             ).items()

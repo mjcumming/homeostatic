@@ -1,8 +1,6 @@
 """Authenticated dashboard presentation using public health-tree queries."""
 
 import asyncio
-import hashlib
-import json
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -45,7 +43,7 @@ from .notification_people import available_people
 from .notification_routes import async_send, delivery_targets, destinations
 from .policy_defaults import policy_templates
 from .runtime import Runtime
-from .serialization import json_object
+from .serialization import json_digest, json_object
 from .vacuum import observe as vacuum_observation
 
 DATA_DASHBOARD: HassKey[Dashboard] = HassKey("homeostatic_dashboard")
@@ -108,21 +106,15 @@ def _change_rows(changes: dict[str, JSONValue]) -> int:
     )
 
 
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=100"
-PANEL_ELEMENT = "homeostatic-panel-v52"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=101"
+PANEL_ELEMENT = "homeostatic-panel-v53"
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
-
-
-def _digest(value: dict[str, Any]) -> str:
-    """Identify one exact saved configuration or proposed rule list."""
-    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(encoded.encode()).hexdigest()
 
 
 def _configuration(runtime: Runtime) -> tuple[dict[str, Any], str]:
     """Read the effective options and their concurrency revision."""
     current = dict(runtime.entry.options or runtime.entry.data)
-    return current, _digest(current)
+    return current, json_digest(current)
 
 
 def _settings_review_token(
@@ -135,7 +127,7 @@ def _settings_review_token(
             inventory_revision=runtime.inventory_revision,
             episodes=sorted(runtime.episodes),
         )
-    return _digest(reviewed)
+    return json_digest(reviewed)
 
 
 def snapshot(
@@ -1037,7 +1029,9 @@ def _delivery_method_test_preview(
     }
     return {
         **preview,
-        "preview_token": _digest({"revision": revision, "method": method, **preview}),
+        "preview_token": json_digest(
+            {"revision": revision, "method": method, **preview}
+        ),
     }
 
 

@@ -8,7 +8,7 @@ from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import area_registry as ar
 
-from .catalog import Source
+from .catalog import Source, live_state
 
 _WORKING = frozenset(
     {
@@ -51,16 +51,6 @@ def _area_name(hass: HomeAssistant, source: Source) -> str | None:
     return area.name if area is not None else None
 
 
-def _current(state: State | None) -> str | None:
-    if (
-        state is None
-        or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
-        or state.attributes.get("restored")
-    ):
-        return None
-    return state.state
-
-
 def observe(
     hass: HomeAssistant,
     source: Source,
@@ -78,7 +68,7 @@ def observe(
         if entity_id is not None
         else None
     )
-    activity = _current(state)
+    activity = live_state(state)
     area = _area_name(hass, source)
     place = f" in {area}" if area else ""
     if source.disabled:

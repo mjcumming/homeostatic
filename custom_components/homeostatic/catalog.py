@@ -218,6 +218,17 @@ def entity_observation(
     )
 
 
+def live_state(state: State | None) -> str | None:
+    """Return a live entity state, ignoring unknown, unavailable, and restored values."""
+    if (
+        state is None
+        or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}
+        or state.attributes.get("restored")
+    ):
+        return None
+    return state.state
+
+
 def entity_state_signature(state: State | None) -> tuple[Status, str]:
     """Compare health evidence independently of a sensor's ordinary value changes."""
     if state is None:

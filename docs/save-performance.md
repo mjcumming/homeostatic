@@ -160,7 +160,7 @@ These measurements establish reduced work in the tested cases, not a household l
 
 ## Live attribution of a Stop Monitoring action
 
-On 2026-10-17 the household installation was measured directly: a Raspberry Pi 5 running Home Assistant 2026.10.0 with 4,977 registry entities, 702 devices, 3,507 catalog nodes and 5,785 candidates, and the installed component identical to this working tree. No code changed. The debug loggers were switched on through the logger service and returned to warning afterwards; the Profiler integration was added for one asyncio debug window and two cProfile captures. The [receipt](performance/live-latency-2026-10-17.json) records the method, and [its directory](performance/live-latency-2026-10-17/) keeps the raw captures.
+On 2026-10-17 the household installation was measured directly: a Raspberry Pi 5 running Home Assistant 2026.10.0 with 4,977 registry entities, 702 devices, 3,507 catalog nodes and 5,785 candidates, and the installed component identical to this working tree. No code changed. The debug loggers were switched on through the logger service and returned to warning afterwards; the Profiler integration was added for one asyncio debug window and two cProfile captures. The [receipt](performance/live-latency-2026-10-17.json) records the method, and [its directory](performance/live-latency-2026-10-17/) keeps the browser timing helper. Raw diagnostic captures were removed after their results were recorded in the receipt.
 
 ### Background duty cycle with nobody using the panel
 
