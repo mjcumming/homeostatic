@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-19",
+  "version": "1.11.1",
+  "commit": "e3b173e1a057be9de7b88a280501f12c683f331a",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.11.1",
+  "published_at": "2026-10-19T06:50:28Z",
+  "candidate": {
+    "version": "1.11.1",
+    "commit": "e3b173e1a057be9de7b88a280501f12c683f331a",
+    "requirements": [
+      "health-tree==0.10.0"
+    ],
+    "archive_sha256": "8d39732e665aaafe57d836051423b2b6cf7039906eab60c3a2c5810e409e6070",
+    "verified_packaged_files": 451,
+    "component_files": 79,
+    "all_packaged_sources_match_commit": true
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/39211871440",
+    "conclusion": "success",
+    "python_tests_passed": 1301,
+    "python_tests_skipped": 15,
+    "frontend_tests_passed": 861,
+    "aggregate_coverage_percent": 95.76,
+    "strict_types_lint_and_coverage_floors_passed": true,
+    "official_hassfest_and_hacs_passed": true,
+    "fresh_package_installation_passed": true
+  },
+  "dependency": {
+    "name": "health-tree",
+    "version": "0.10.0",
+    "published_noneditable_verified": true,
+    "library_changes": false
+  },
+  "acceptance": {
+    "receipt": "ui-release-1.11.1.json",
+    "scope": "Collapsed entity selection, shared tree disclosures and alphabetical types, Open entity, and removal of repeated issue notification reminder",
+    "exact_candidate_real_ha_cases_passed": 8,
+    "desktop_phone_tree_cases_passed": 8,
+    "desktop_phone_entity_link_cases_passed": 6,
+    "visual_inspection": "Desktop and phone fixtures, enlarged text, entity tree, issue dialog, retained notification links and assignment warnings",
+    "broader_failures_preserved": true
+  },
+  "installation": {
+    "performed": true,
+    "verified_at": "2026-10-19T06:56:03.828397+00:00",
+    "ha_version": "2026.10.0",
+    "ha_state": "RUNNING",
+    "entry_states": [
+      "loaded"
+    ],
+    "installed_version": "1.11.1",
+    "verified_component_files": 79,
+    "published_asset_digest_matches": true,
+    "all_saved_settings_unchanged": true,
+    "notifications_before_and_after": false,
+    "policy_count": 8,
+    "delivery_method_count": 1,
+    "notification_request_count": 0,
+    "monitoring_available": true,
+    "monitoring_error": null,
+    "panel_element": "homeostatic-panel-v52",
+    "module_url": "/homeostatic_static/homeostatic.js?v=100",
+    "served_asset_matches_installed": true,
+    "served_asset_sha256": "60432cb2b73218d23bcd18fcdd77a43953d2649a4e50d3a21f9ec4521e6e547f",
+    "homeostatic_log_records": 0,
+    "test_notifications_sent": false,
+    "temporary_staging_removed": true,
+    "rollback_copy_created": false,
+    "live_ui": "Chrome reviewed the collapsed policy tree, integration and device expansion, search, preserved choices, Monitoring entity details, the exact native Home Assistant entity dialog and its return, shared issue groups and the simplified device issue dialog. Screenshots inspected. No settings or equipment controls changed.",
+    "restart_observation": "Restart disconnected its request; initial postcheck caught startup before RUNNING. Final postchecks confirmed RUNNING, loaded monitoring and unchanged settings."
+  },
+  "limits": [
+    "Physical Safari and notification-provider receipt were not tested.",
+    "The scoped acceptance does not close broader existing fixture and isolated-HA failures retained in the UI receipt.",
+    "Live review was read-only; save and failure scenarios ran against isolated Home Assistant."
+  ]
+}

@@ -1,0 +1,162 @@
+{
+  "limitations": [
+    "Physical Safari untested.",
+    "No household installation or notification request performed by acceptance worker.",
+    "Broader fixture and real-HA failures are not closed by this bounded verdict.",
+    "The exact scoped run retains untested inventory rows outside its declared case selection."
+  ],
+  "scope": "Release 1.11.1: collapsed entity policy selection, shared disclosures, Monitoring Open entity, removal of repeated global issue reminder",
+  "real_ha": {
+    "report": "build/ui-acceptance/release-1.11.1-scoped-ha/report.json",
+    "passed": [
+      "navigation.history",
+      "issues.individual",
+      "policies.entity-selection",
+      "layout.menus",
+      "layout.keyboard",
+      "layout.themes",
+      "live.policies.selection",
+      "issues.entity-navigation"
+    ],
+    "diagnostics": [],
+    "environment": {
+      "group": "all",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "browser": "chromium",
+      "browser_channel": null,
+      "headed": false,
+      "mode": "live",
+      "notifications": "captured by synthetic services only",
+      "selected_cases": [
+        "policies.entity-selection",
+        "live.policies.selection",
+        "issues.individual",
+        "issues.entity-navigation",
+        "navigation.history",
+        "layout.menus",
+        "layout.keyboard",
+        "layout.themes"
+      ],
+      "browser_version": "143.0.7499.4",
+      "ha": "2026.9.3",
+      "python": "3.14.7",
+      "library": "0.10.0",
+      "candidate_unchanged": true,
+      "checkout_matches_snapshot": true
+    }
+  },
+  "broader_runs": [
+    {
+      "report": "build/ui-acceptance/release-2026-10-19-desktop-ready/report.json",
+      "fixture_failures": [
+        "issues.device-hierarchy",
+        "issues.filter",
+        "issues.compact-popups",
+        "issues.availability-batch",
+        "sources.temperature-monitoring",
+        "sources.details",
+        "methods.picker-layout",
+        "sources.device-issue-navigation"
+      ],
+      "live_failures": [],
+      "diagnostics": [
+        "Fixture device-issues.html failed: FAIL: Filtering preserves the unresolved episode and its earlier report",
+        "Fixture reusable-editors.html failed: FAIL: Initial group page is bounded",
+        "Fixture compact-popup.html failed: Failed: device: current condition is visible in the shared device dialog",
+        "Fixture source-actions.html failed: FAIL: issues.availability-batch: Issue action removes both availability contributions in one save",
+        "Fixture source-history.html failed: FAIL: Error: Device summary counts current available readings\n    at expect (http://127.0.0.1:44847/tests/frontend/source-history.html:47:48)\n    at document.querySelector.onclick (http://127.0.0.1:44847/tests/frontend/source-history.html:190:7)",
+        "Fixture monitoring-inspector.html failed: page.waitForFunction: Timeout 30000ms exceeded.; No inventory path was proven by a declared receipt. Fixture feedback alone does not establish inventory coverage.; Cannot set properties of undefined (setting 'availability_entities')",
+        "Fixture temperature-monitoring.html failed: Failed: Loading another availability page preserves both temperature checks",
+        "Fixture delivery-picker-layout.html failed: FAIL: Current panel uses the updated card despite old registered elements",
+        "Fixture device-issue-selection.html failed: FAIL: Error: Stop Monitoring uses its full reviewed coverage, independently of issue selection\n    at check (http://127.0.0.1:44847/tests/frontend/device-issue-selection.mjs:63:49)\n    at http://127.0.0.1:44847/tests/frontend/device-issue-selection.mjs:174:9\n    at async run (http://127.0.0.1:44847/tests/frontend/device-issue-selection.mjs:112:43)\n    at async document.querySelector.onclick (http://127.0.0.1:44847/tests/frontend/device-issue-selection.mjs:156:7)"
+      ]
+    },
+    {
+      "report": "build/ui-acceptance/release-2026-10-19-phone/report.json",
+      "fixture_failures": [
+        "issues.device-hierarchy",
+        "issues.filter",
+        "issues.compact-popups",
+        "issues.availability-batch",
+        "sources.temperature-monitoring",
+        "sources.details",
+        "methods.picker-layout",
+        "sources.device-issue-navigation"
+      ],
+      "live_failures": [],
+      "diagnostics": [
+        "Fixture device-issues.html failed: FAIL: Filtering preserves the unresolved episode and its earlier report",
+        "Fixture reusable-editors.html failed: FAIL: Initial group page is bounded",
+        "Fixture compact-popup.html failed: Failed: device: current condition is visible in the shared device dialog",
+        "Fixture source-actions.html failed: FAIL: issues.availability-batch: Issue action removes both availability contributions in one save",
+        "Fixture source-history.html failed: FAIL: Error: Device summary counts current available readings\n    at expect (http://127.0.0.1:44721/tests/frontend/source-history.html:47:48)\n    at document.querySelector.onclick (http://127.0.0.1:44721/tests/frontend/source-history.html:190:7)",
+        "Fixture monitoring-inspector.html failed: page.waitForFunction: Timeout 30000ms exceeded.; No inventory path was proven by a declared receipt. Fixture feedback alone does not establish inventory coverage.; Cannot set properties of undefined (setting 'availability_entities')",
+        "Fixture temperature-monitoring.html failed: Failed: Loading another availability page preserves both temperature checks",
+        "Fixture delivery-picker-layout.html failed: FAIL: Current panel uses the updated card despite old registered elements",
+        "Fixture device-issue-selection.html failed: FAIL: Error: Stop Monitoring uses its full reviewed coverage, independently of issue selection\n    at check (http://127.0.0.1:44721/tests/frontend/device-issue-selection.mjs:63:49)\n    at http://127.0.0.1:44721/tests/frontend/device-issue-selection.mjs:174:9\n    at async run (http://127.0.0.1:44721/tests/frontend/device-issue-selection.mjs:112:43)\n    at async document.querySelector.onclick (http://127.0.0.1:44721/tests/frontend/device-issue-selection.mjs:156:7)",
+        "Fixture mobile-layout.html failed: No inventory path was proven by a declared receipt. Fixture feedback alone does not establish inventory coverage.; FAIL: policies: entire menu fits near the bottom of the phone viewport"
+      ]
+    },
+    {
+      "report": "build/ui-acceptance/release-2026-10-19-policies-ha-ready/report.json",
+      "fixture_failures": [],
+      "live_failures": [],
+      "diagnostics": []
+    },
+    {
+      "report": "build/ui-acceptance/release-2026-10-19-layout-ha-ready/report.json",
+      "fixture_failures": [],
+      "live_failures": [
+        "updates.retention"
+      ],
+      "diagnostics": [
+        "Unhandled rejection (updates.retention): not_found Subscription not found.",
+        "Browser: Object"
+      ]
+    }
+  ],
+  "verdict": "pass within bounded four-change scope; broader product sweep remains failed and untested",
+  "known_diagnostics": {
+    "reconnect": "Forced reconnect finishes retained-draft assertions but global error gate records HA frontend/get_translations unsubscribe_events not_found. The same diagnostic predates this release in docs/performance/ui-fixes-1.8.0-2026-10-15/report.json and docs/performance/ui-acceptance-expanded-2026-10-15/report.json.",
+    "retired_device_fixture": "Several broad real-HA cases require a retired kind=device issue and stop in episodeFor before exercising controls. Other broad source assumptions remain unresolved and are retained in original reports."
+  },
+  "standalone": {
+    "tree": "build/ui-acceptance/release-1.11.1-tree/receipt.json",
+    "entity_link": "build/ui-acceptance/release-1.11.1-entity-link/receipt.json"
+  },
+  "candidate": {
+    "branch": "main",
+    "revision": "e3b173e1a057be9de7b88a280501f12c683f331a",
+    "dirty": false,
+    "component_sha256": "65b2ab52375e75be231435c2af6d74a16543ba84f8e589c97ed7fa7e1f1df9ff",
+    "fixture_sha256": "3450ae8158c97adc59de743105fe005a518c9f53a729826301ab29e0af513f9b",
+    "frozen_at": "2026-10-19T06:47:11.336Z"
+  },
+  "ui_review": {
+    "benefits": "Collapsed branches keep entity lists compact without changing choices; shared disclosures reveal hierarchy; Open entity reaches the exact native entity; removing repeated global status keeps issue context concise.",
+    "inspected": [
+      "build/ui-acceptance/release-2026-10-19-desktop-ready/policy-picker-1440-light-expanded.png",
+      "build/ui-acceptance/release-2026-10-19-phone/policy-picker-390-dark-expanded.png",
+      "build/ui-acceptance/release-2026-10-19-phone/entity-tree-enlarged-390-dark.png",
+      "build/ui-acceptance/release-2026-10-19-phone/individual-issue-390-dark.png",
+      "build/ui-acceptance/release-2026-10-19-desktop-ready/individual-issue-notifications-1440-light.png",
+      "build/ui-acceptance/release-1.11.1-entity-link/restored-390.png",
+      "build/ui-acceptance/release-1.11.1-tree/history-1440-expanded.png",
+      "build/ui-acceptance/release-1.11.1-tree/monitoring-390-expanded.png",
+      "build/ui-acceptance/release-1.11.1-tree/issues-390-expanded.png",
+      "build/ui-acceptance/release-1.11.1-scoped-ha/entity-selection.png",
+      "build/ui-acceptance/release-1.11.1-scoped-ha/unavailable-entity-issue.png",
+      "build/ui-acceptance/release-1.11.1-scoped-ha/text-320-dark.png"
+    ],
+    "visual_result": "Desktop light and 390 dark review pass; doubled entity text wraps and retains controls; exact real-HA 320 dark doubled text remains usable.",
+    "task_ownership": "Policies owns saved entity membership; Monitoring owns source navigation; issue dialogs explain current conditions and response actions; existing notification editors own configuration.",
+    "preserved": "Issue policy and notification links and assignment-specific delivery gaps remain visible; draft, membership and unrelated saved settings are preserved in executed paths."
+  },
+  "broader_issues": "build/ui-acceptance/release-2026-10-19-issues-ha-ready/report.json",
+  "candidate_equivalence": "Byte comparison found manifest.json as the sole component difference between dirty sweep and exact committed candidate; frozen fixture hashes are equal.",
+  "recorded_at": "2026-10-19T06:49:42.1556017Z"
+}

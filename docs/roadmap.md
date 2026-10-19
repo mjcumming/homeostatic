@@ -28,7 +28,7 @@ The [Homeostatic manual](guide.md) covers supported setup and operation. What Ho
 
 ## Current work
 
-The four interface refinements below are included in the 1.11.1 release candidate. Publication and installation verification are in progress; their dated acceptance receipts preserve the original local validation results.
+Homeostatic [1.11.1](https://github.com/mjcumming/homeostatic/releases/tag/v1.11.1) is published and installed on the local Home Assistant. The [release and installation receipt](performance/release-1.11.1.json) records passing exact-candidate CI, archive verification, unchanged saved settings and notification choices, and live browser review. The [scoped UI receipt](performance/ui-release-1.11.1.json) covers the four refinements below and retains broader acceptance failures separately. Their earlier dated receipts preserve the original local validation results.
 
 Issue dialogs omit the repeated global Notifications off reminder; the existing global switch owns sending status. Named notification links and assignment-specific delivery warnings remain visible. The [scoped acceptance receipt](performance/issue-notification-reminder-2026-10-18.json) records passing desktop/phone, keyboard and enlarged-text issue checks, quick checks and focused dashboard tests. Broader fixture failures remain recorded separately.
 
