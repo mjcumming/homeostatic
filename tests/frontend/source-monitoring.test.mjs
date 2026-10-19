@@ -12,10 +12,10 @@ const draftPolicy=(card,id)=>card.settingsDraft.monitoring_policies.find(item=>i
 
 function fixture() {
   const sources=[entity(A,"one"),entity(B,"two")];
-  const settings={notifications:false,timings:{settle:30},consumer:null,monitoring_policies:[policy("entities"),policy("devices","device",{excluded_sources:[C]}),policy("temperature","entity",{check:"temperature_limit"}),policy("other","integration")],notification_definitions:{methods:{phone:{name:"Phone"}}}};
+  const settings={notifications:false,timings:{settle:30},consumer:null,monitoring_policies:[policy("entities"),policy("devices","entity",{excluded_sources:[C]}),policy("temperature","entity",{check:"temperature_limit"}),policy("other","integration")],notification_definitions:{methods:{phone:{name:"Phone"}}}};
   const server={value:{revision:"r1",settings:clone(settings)}},calls=[];
   let version=1;
-  const card={configuration:clone(server.value),settingsDraft:clone(settings),current:{status:"current",data:{inventory:{catalog:{candidates:sources},nodes:[...sources,...sources.map(source=>({...source,node_id:`monitoring:entities:${source.node_id}`,monitoring_source:source.node_id,monitoring_policy:"entities",watched:true})),{node_id:"monitoring:devices:unit",monitoring_source:"device:unit",monitoring_policy:"devices",kind:"device",watched:true,availability_entities:sources.map(source=>source.entity_id)}]}}},render(){},_hass:{async callWS(request){
+  const card={configuration:clone(server.value),settingsDraft:clone(settings),current:{status:"current",data:{inventory:{catalog:{candidates:sources},nodes:[...sources,...sources.map(source=>({...source,node_id:`monitoring:entities:${source.node_id}`,monitoring_source:source.node_id,monitoring_policy:"entities",watched:true})),...sources.map(source=>({...source,node_id:`monitoring:devices:${source.node_id}`,monitoring_source:source.node_id,monitoring_policy:"devices",watched:true}))]}}},render(){},_hass:{async callWS(request){
     calls.push(clone(request));
     if(request.type==="homeostatic/configuration")return clone(server.value);
     assert.equal(request.type,"homeostatic/save_settings");
@@ -44,6 +44,33 @@ test("entity stop reviews and atomically excludes its individual and device role
   assert.equal(card.availabilityUndo,undefined);
 });
 
+test("server key ordering after a compound-policy save does not create a conflict or dirty draft",async()=>{
+  const {card,server}=fixture();
+  for(const settings of [card.configuration.settings,card.settingsDraft,server.value.settings])settings.monitoring_policies[0].match_none=[{domain:["camera"]}];
+  card.scopedConfiguration=null;initializeScopedConfiguration(card);
+  const normal=card._hass.callWS;
+  card._hass.callWS=async request=>{
+    const response=await normal(request);
+    if(request.type==="homeostatic/configuration")return JSON.parse(JSON.stringify(response,(_key,value)=>value&&typeof value==="object"&&!Array.isArray(value)?Object.fromEntries(Object.entries(value).sort(([a],[b])=>a.localeCompare(b))):value));
+    return response;
+  };
+  assert.equal(await applyAvailabilityChange(card,prepareAvailabilityChange(card,[A])),true);
+  assert.equal(card.availabilityError,null);
+  assert.deepEqual(draftPolicy(card,"entities"),savedPolicy(card.configuration,"entities"));
+  assert.equal(await applyAvailabilityChange(card,prepareAvailabilityChange(card,[B])),true,"A second change must not be blocked by an invented dirty draft");
+});
+
+test("a real policy change during readback still prevents a success claim",async()=>{
+  const {card}=fixture(),normal=card._hass.callWS;
+  card._hass.callWS=async request=>{
+    const response=await normal(request);
+    if(request.type==="homeostatic/configuration")response.settings.monitoring_policies[0].excluded_sources=[];
+    return response;
+  };
+  assert.equal(await applyAvailabilityChange(card,prepareAvailabilityChange(card,[A])),false);
+  assert.match(card.availabilityError,/Saved monitoring changed again/);
+});
+
 test("selected-member batch deduplicates entities and preserves existing exclusions",async()=>{
   const {card,server,calls}=fixture();
   const plan=prepareAvailabilityChange(card,[A,B,A]);
@@ -55,15 +82,11 @@ test("selected-member batch deduplicates entities and preserves existing exclusi
   assert.equal(card.scopedNotice,null);
 });
 
-test("a large batch indexes device members once and retains every canonical entity",()=>{
+test("a large entity batch retains every canonical source and overlapping policy",()=>{
   const {card}=fixture(),sources=Array.from({length:10000},(_,index)=>entity(`entity:registry:bulk-${index}`,`bulk_${index}`));
-  const memberIds=sources.map(source=>source.entity_id);
-  let memberReads=0;
-  const device={node_id:"monitoring:devices:unit",monitoring_source:"device:unit",monitoring_policy:"devices",kind:"device",watched:true,get availability_entities(){memberReads++;return memberIds;}};
   card.current.data.inventory.catalog.candidates=sources;
-  card.current.data.inventory.nodes=[device,...sources.map(source=>({...source,node_id:`monitoring:entities:${source.node_id}`,monitoring_source:source.node_id,monitoring_policy:"entities",watched:true}))];
+  card.current.data.inventory.nodes=["entities","devices"].flatMap(policy=>sources.map(source=>({...source,node_id:`monitoring:${policy}:${source.node_id}`,monitoring_source:source.node_id,monitoring_policy:policy,watched:true})));
   const plan=prepareAvailabilityChange(card,[...sources.map(source=>source.node_id),card.current.data.inventory.nodes[1]]);
-  assert.equal(memberReads,1);
   assert.equal(plan.sources.length,10000);
   assert.equal(plan.changes.find(change=>change.id==="entities").sourceIds.length,10000);
   assert.equal(plan.changes.find(change=>change.id==="devices").sourceIds.length,10000);

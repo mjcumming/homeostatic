@@ -37,7 +37,6 @@ from .battery import observe as battery_observation
 from .catalog import Source
 from .config import Settings, normalize_requirement
 from .const import DEFAULTS, DOMAIN, NAME
-from .device_availability import device_availability
 from .monitoring import TEMPERATURE_CHECKS
 from .monitoring_runtime import (
     contributing_policies,
@@ -109,8 +108,8 @@ def _change_rows(changes: dict[str, JSONValue]) -> int:
     )
 
 
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=97"
-PANEL_ELEMENT = "homeostatic-panel-v49"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=99"
+PANEL_ELEMENT = "homeostatic-panel-v51"
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 
@@ -610,13 +609,6 @@ def websocket_node(
         )
         return
     source = runtime.sources[node_id]
-    try:
-        members = runtime.device_evidence(
-            node_id, offset=msg["offset"], limit=msg["limit"]
-        )
-    except ValueError as err:
-        connection.send_error(msg["id"], "invalid_offset", str(err))
-        return
     connection.send_result(
         msg["id"],
         {
@@ -631,12 +623,6 @@ def websocket_node(
             "entity_status": runtime.entity_status(node_id),
             "temperature_status": runtime.temperature_status(node_id)
             if source.kind in TEMPERATURE_CHECKS
-            else None,
-            "device_evidence": members,
-            "device_availability": device_availability(
-                hass, source.attributes["device"][0]
-            )
-            if source.kind == "device"
             else None,
             "explanation": runtime.query("explain", {"node_id": node_id}),
             "impact": runtime.query("impact", {"node_id": node_id}),
@@ -726,30 +712,8 @@ def websocket_source(
             msg["id"], "not_found", "This source is no longer discovered"
         )
         return
-    device_checks = [
-        item
-        for item in (
-            [monitored]
-            if monitored is not None and monitored.monitoring_policy is not None
-            else related
-        )
-        if item.kind == "device" and item.watched and not item.disabled
-    ]
-    device_entities = (
-        tuple(
-            sorted(
-                {
-                    entity_id
-                    for item in device_checks
-                    for entity_id in item.availability_entities
-                }
-            )
-        )
-        if source.watched or device_checks
-        else source.availability_entities
-    )
     entity_ids = (
-        device_entities
+        source.availability_entities
         if source.kind == "device"
         else tuple(
             dict.fromkeys(
@@ -810,9 +774,19 @@ def websocket_source(
             source.node_id,
         )
     )
+    coverage_sources = [source, *related]
+    if source.kind == "device":
+        device_ids = set(source.attributes.get("device", ()))
+        coverage_sources.extend(
+            item
+            for item in runtime.sources.values()
+            if item.watched
+            and not item.disabled
+            and device_ids.intersection(item.attributes.get("device", ()))
+        )
     policy_ids = {
         policy.id
-        for item in [source, *related]
+        for item in coverage_sources
         for policy in contributing_policies(
             runtime.settings.monitoring_policies, item, runtime.sources
         )
@@ -855,11 +829,6 @@ def websocket_source(
                 vacuum_observation(hass, source, dt_util.utcnow())
             )
             if source.kind == "vacuum"
-            else None,
-            "device_availability": device_availability(
-                hass, source.attributes["device"][0]
-            )
-            if source.kind == "device"
             else None,
             "members": members[offset:end],
             "offset": offset,

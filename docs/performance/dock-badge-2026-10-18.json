@@ -1,0 +1,203 @@
+{
+  "scope": "Dock badge current evidence",
+  "reproduced": {
+    "commit": "f0c1759",
+    "released_hides_restored_dock": false,
+    "current_hides_restored_dock": true
+  },
+  "runs": [
+    {
+      "width": 1200,
+      "grouping": "integration",
+      "theme": "light",
+      "feedback": "PASS: Issues; affected branches are marked without numerical tree totals; no horizontal overflow.",
+      "receipt": {
+        "schema_version": 1,
+        "started_at": "2026-10-18T22:08:44.784Z",
+        "environment": {
+          "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+          "width": 1200,
+          "theme": "light",
+          "data": "synthetic",
+          "fixture": "shared-issue-counts.html"
+        },
+        "results": [
+          {
+            "id": "sources.current-issue-badges",
+            "page": "Monitoring",
+            "controls": "Current restored, unmonitored, unavailable and error evidence in the source tree",
+            "expected": "Missing current evidence and unmonitored sources have no fault badge, including a retained earlier device failure. Current unavailable entities and integration errors retain their badges without changing monitoring or issue lifecycle.",
+            "fixture": "shared-issue-counts.html",
+            "requirement": "../../docs/ui-standards.md#component-review-checklist",
+            "status": "pass",
+            "evidence": [
+              "Retained unavailable-then-restored device issue and unmonitored entities have no fault badge; current unavailable entity and integration error retain exact badges; no horizontal overflow."
+            ]
+          }
+        ]
+      },
+      "errors": []
+    },
+    {
+      "width": 1200,
+      "grouping": "location",
+      "theme": "light",
+      "feedback": "PASS: Issues; affected branches are marked without numerical tree totals; no horizontal overflow.",
+      "receipt": {
+        "schema_version": 1,
+        "started_at": "2026-10-18T22:08:45.082Z",
+        "environment": {
+          "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+          "width": 1200,
+          "theme": "light",
+          "data": "synthetic",
+          "fixture": "shared-issue-counts.html"
+        },
+        "results": [
+          {
+            "id": "sources.current-issue-badges",
+            "page": "Monitoring",
+            "controls": "Current restored, unmonitored, unavailable and error evidence in the source tree",
+            "expected": "Missing current evidence and unmonitored sources have no fault badge, including a retained earlier device failure. Current unavailable entities and integration errors retain their badges without changing monitoring or issue lifecycle.",
+            "fixture": "shared-issue-counts.html",
+            "requirement": "../../docs/ui-standards.md#component-review-checklist",
+            "status": "pass",
+            "evidence": [
+              "Retained unavailable-then-restored device issue and unmonitored entities have no fault badge; current unavailable entity and integration error retain exact badges; no horizontal overflow."
+            ]
+          }
+        ]
+      },
+      "errors": []
+    },
+    {
+      "width": 390,
+      "grouping": "integration",
+      "theme": "dark",
+      "feedback": "PASS: Issues; affected branches are marked without numerical tree totals; no horizontal overflow.",
+      "receipt": {
+        "schema_version": 1,
+        "started_at": "2026-10-18T22:08:45.365Z",
+        "environment": {
+          "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+          "width": 390,
+          "theme": "dark",
+          "data": "synthetic",
+          "fixture": "shared-issue-counts.html"
+        },
+        "results": [
+          {
+            "id": "sources.current-issue-badges",
+            "page": "Monitoring",
+            "controls": "Current restored, unmonitored, unavailable and error evidence in the source tree",
+            "expected": "Missing current evidence and unmonitored sources have no fault badge, including a retained earlier device failure. Current unavailable entities and integration errors retain their badges without changing monitoring or issue lifecycle.",
+            "fixture": "shared-issue-counts.html",
+            "requirement": "../../docs/ui-standards.md#component-review-checklist",
+            "status": "pass",
+            "evidence": [
+              "Retained unavailable-then-restored device issue and unmonitored entities have no fault badge; current unavailable entity and integration error retain exact badges; no horizontal overflow."
+            ]
+          }
+        ]
+      },
+      "errors": []
+    },
+    {
+      "width": 390,
+      "grouping": "location",
+      "theme": "dark",
+      "feedback": "PASS: Issues; affected branches are marked without numerical tree totals; no horizontal overflow.",
+      "receipt": {
+        "schema_version": 1,
+        "started_at": "2026-10-18T22:08:45.632Z",
+        "environment": {
+          "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/143.0.7499.4 Safari/537.36",
+          "width": 390,
+          "theme": "dark",
+          "data": "synthetic",
+          "fixture": "shared-issue-counts.html"
+        },
+        "results": [
+          {
+            "id": "sources.current-issue-badges",
+            "page": "Monitoring",
+            "controls": "Current restored, unmonitored, unavailable and error evidence in the source tree",
+            "expected": "Missing current evidence and unmonitored sources have no fault badge, including a retained earlier device failure. Current unavailable entities and integration errors retain their badges without changing monitoring or issue lifecycle.",
+            "fixture": "shared-issue-counts.html",
+            "requirement": "../../docs/ui-standards.md#component-review-checklist",
+            "status": "pass",
+            "evidence": [
+              "Retained unavailable-then-restored device issue and unmonitored entities have no fault badge; current unavailable entity and integration error retain exact badges; no horizontal overflow."
+            ]
+          }
+        ]
+      },
+      "errors": []
+    }
+  ],
+  "recorded_date": "2026-10-18",
+  "owner": "Trace not monitored history chat",
+  "governing_decisions": [
+    "0065",
+    "0071"
+  ],
+  "implementation": "Uses the existing uncommitted availabilityEvidenceGap correction from the completed missing-readings work; this task adds the exact dock regression, rendered coverage and documentation. No health-tree change.",
+  "live_read_only_evidence": {
+    "panel": "HOMEOSTATIC-PANEL-V49",
+    "updated_at": "2026-10-18T22:02:14.814296+00:00",
+    "device_id": "218b5e0423a332ce0f720f636206d966",
+    "policy": "default_devices",
+    "issue_id": "01a14e76-611d-7000-b2ba-a000b3a7d20b",
+    "opened_at": "2026-10-18T10:02:23.389254+00:00",
+    "last_failure": {
+      "status": "warn",
+      "reason": "all_unavailable",
+      "observed_at": "2026-10-18T13:36:20.215525+00:00"
+    },
+    "current": {
+      "status": "unknown",
+      "reason": "incomplete_evidence"
+    },
+    "entity_id": "switch.chloe_bedroom_second_floor_dock_dust_emptying",
+    "ha_state": {
+      "state": "unavailable",
+      "restored": true,
+      "last_changed": "2026-10-18T20:46:30.702Z"
+    },
+    "other_entities": "Child lock, Dock error, Empty mode and Status indicator light are unmonitored and do not generate the badge.",
+    "judgment": "Prior recorded unavailability explains the retained issue. Current restored evidence does not establish a current fault and must not generate a current-issue badge."
+  },
+  "verification": {
+    "dock_unit_scenarios": {
+      "passed": 8,
+      "failed": 0
+    },
+    "rendered_scenarios": "Four passes: desktop light and phone dark, integration and location grouping; restored, unmonitored, unavailable and error cases in each run.",
+    "visual_review": {
+      "status": "pass",
+      "inspected": [
+        "output/dock-badge-review/integration-1200-restored.png",
+        "output/dock-badge-review/location-390-unavailable.png"
+      ],
+      "purpose": "Monitoring owns current source status. Existing badges communicate established current problems; coverage labels remain neutral. No product controls or navigation added."
+    },
+    "required_quick": "Attempted; stopped at two unused imports in tests/test_source_monitoring_scope.py belonging to the active entity-only availability refactor.",
+    "broader_model_tests": {
+      "passed": 114,
+      "failed": 7,
+      "detail": "Seven failures concern retired device recovery, coverage or device-detail presentation during the active ADR 0103 refactor. All eight dock scenarios pass."
+    },
+    "diff_check": "pass",
+    "events": "No event, notification, persistence or lifecycle contracts changed."
+  },
+  "status": {
+    "committed": false,
+    "released": false,
+    "installed": false,
+    "household_notifications_requested": false
+  },
+  "remaining": [
+    "Whole-checkout acceptance after the active entity-only refactor completes.",
+    "Live verification requires an authorized installation; the household remains on the earlier code."
+  ]
+}

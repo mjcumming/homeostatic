@@ -1,22 +1,22 @@
 # Roadmap
 
-What Homeostatic does today, what's being worked on next, and what's further out. Last updated October 18, 2026.
+What Homeostatic does today, what's being worked on next, and what's further out. Last updated October 19, 2026.
 
 ## What works now
 
 - One list of supplied and user-created policies. Each has a fixed monitoring type, a source selection, optional overlaps with other policies, and its own notifications. Policies can be duplicated, disabled, deleted and restored.
-- Fresh setup watches integration and device availability, Home Assistant Repairs and automations that name missing entities. Entity availability is split in two: **Important equipment availability** (cameras, locks, alarm panels, and smoke, carbon monoxide, gas and leak detectors) uses Immediate, and **General entity availability** covers everything else in the morning summary. Notifications start off and have no destinations.
+- Fresh setup watches integration availability, Home Assistant Repairs, automations that name missing entities, and entities an integration has stopped providing. Entity availability is split in two: **Important equipment availability** (cameras, locks, alarm panels, and smoke, carbon monoxide, gas and leak detectors) uses Immediate, and **General entity availability** covers everything else in the morning summary. Notifications start off and have no destinations.
 - A failed integration becomes one issue that lists the equipment it affects, and each affected source keeps its own notifications. Failures under a working integration stay separate issues.
 - Batteries (a 20% threshold, low warnings and charging), UPS conditions from NUT and APC UPS Daemon, vacuum errors, temperature limits and thermostat progress. These start off or need configuring.
 - Six editable named notifications: Immediate, Immediate with acknowledgment, Urgent, and Morning, Evening and Weekly summaries. Each has its timing, a collection delay that bundles requests arriving together, and delivery methods for phones, speakers, email, SMS and other Home Assistant notify routes, with optional presence-based choices and an explicit test.
-- Open issues and Monitoring share one device dialog for acknowledging, pausing notifications and stopping monitoring. History keeps the last 100 ended issues from the past 30 days.
+- Open issues and Monitoring group issues by device and share one device dialog for acknowledging, pausing notifications and stopping monitoring. History keeps the last 100 ended issues from the past 30 days.
 - Events for your own automations, a card for each panel page, a ready-made dashboard, and optional TopoMation grouping in Monitoring.
 
 The [manual](guide.md) covers setup and everyday use, and [Troubleshooting](troubleshooting.md#what-homeostatic-cant-tell-you) lists what Homeostatic can't tell you.
 
 ## Current work
 
-- Remove the configuration reset added in 1.10.0, with its upgrade notes, once it has run on the household installation.
+- Remove the 1.10.0 configuration reset and the 1.11.0 device-policy conversion, with their upgrade notes. Both have run on the household installation.
 - Jammed locks are the next policy addition, specified in [proposed ADR 0075](adr/0075-report-jammed-locks.md). Implementation hasn't started.
 
 ## Next

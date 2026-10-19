@@ -1,14 +1,15 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=97";
-import {callAction} from "./history-controls.mjs?v=97";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=97";
-import {deviceAvailabilitySummary} from "./device-availability.mjs?v=97";
-import {sourceCoverageIndex,sourceCoverage} from "./source-coverage.mjs?v=97";
-import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=97";
-import {issueAvailabilityAction, issueAvailabilityNeedsCatalog, renderIssueAvailability} from "./issue-monitoring.mjs?v=97";
-import {batteryProblem,deviceProblem,entityProblem,vacuumProblem} from "./problem.mjs?v=97";
-import {temperatureProblem} from "./source-temperature.mjs?v=97";
-import {upsProblem} from "./ups.mjs?v=97";
-import {retainedProblem} from "./check-presentation.mjs?v=97";
+import {notProvidedProblem} from "./entity-not-provided.mjs?v=99";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=99";
+import {callAction} from "./history-controls.mjs?v=99";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=99";
+import {deviceEntitySummary} from "./device-entities.mjs?v=99";
+import {sourceCoverageIndex,sourceCoverage} from "./source-coverage.mjs?v=99";
+import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=99";
+import {issueAvailabilityAction, issueAvailabilityNeedsCatalog, renderIssueAvailability} from "./issue-monitoring.mjs?v=99";
+import {batteryProblem,entityProblem,vacuumProblem} from "./problem.mjs?v=99";
+import {temperatureProblem} from "./source-temperature.mjs?v=99";
+import {upsProblem} from "./ups.mjs?v=99";
+import {retainedProblem} from "./check-presentation.mjs?v=99";
 
 const date=value=>new Date(value).toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const issueId=item=>item.episode.episode_id;
@@ -38,16 +39,15 @@ export function selectedDeviceIssueIds(card,entries=currentEntries(card)) {
 }
 
 function issueName(item) {
-  if(item.source?.kind==="device"&&item.source.check_id==="availability")return "Device availability";
   return item.canonicalSource?.name||item.source?.name||"This issue";
 }
 
 function issueProblem(card,item) {
   const data=card.current.data,source=item.source;
   const status=data.inventory.entity_status?.[source.node_id]||{current:item.episode.reasons?.find(finding=>finding.node_id===source.node_id)};
-  const problem=temperatureProblem(source,status)??upsProblem(source,data.inventory.ups_status?.[source.node_id]||status)??
+  const problem=notProvidedProblem(source,status)??temperatureProblem(source,status)??upsProblem(source,data.inventory.ups_status?.[source.node_id]||status)??
     batteryProblem(source,status)??vacuumProblem(source,status,data.areas||[]);
-  const current=problem??deviceProblem(source,status)??entityProblem(source,status,null,data.areas||[],key=>card._hass?.localize?.(key));
+  const current=problem??entityProblem(source,status,null,data.areas||[],key=>card._hass?.localize?.(key));
   const retained=retainedProblem(current,status,item.episode.reasons);
   return retained?{...retained,currentDetail:retained!==current?current.headline:null}:{headline:status.current?.message||"Current evidence missing"};
 }
@@ -76,8 +76,8 @@ function actionArea(card,entries,state) {
     return `<form class="device-issue-pause" aria-label="Pause notifications"><h3>Pause notifications</h3><p>For ${count===1?"this issue":`${count} selected issues`} and every recipient, including urgent notifications. Issues stay open.</p><label>Pause for<select data-device-pause-duration${locked?" disabled":""}><option value="1"${state.form.hours===1?" selected":""}>1 hour</option><option value="4"${state.form.hours===4?" selected":""}>4 hours</option><option value="24"${state.form.hours===24?" selected":""}>24 hours</option></select></label><p class="small">Existing pauses can only be extended.</p><div class="actions"><button type="button" class="button primary" data-device-response="apply-pause"${locked?" disabled":""}>${state.busy?"Pausing…":"Apply pause"}</button><button type="button" class="button" data-device-response="cancel-pause"${state.busy?" disabled":""}>Cancel</button></div></form>`;
   }
   const allAcknowledged=ids.length&&ids.every(id=>localResult(card,state,id)?.acknowledged||card.current.data.policy?.episodes?.find(row=>row.episode_id===id)?.acknowledgment);
-  const resume=pausedIds(card,state,ids).length?`<button type="button" class="button" data-device-response="resume"${locked?" disabled":""}>Resume notifications</button>`:"";
-  return `<div class="actions device-issue-actions"><button type="button" class="button" data-device-response="acknowledge"${locked||!ids.length||allAcknowledged?" disabled":""}>${state.busy?"Saving…":allAcknowledged?"Acknowledged":entries.length===1?"Acknowledge issue":"Acknowledge selected"}</button><button type="button" class="button" data-device-response="pause"${locked||!ids.length?" disabled":""}>Pause notifications…</button>${resume}</div>${!ids.length&&entries.length?'<p class="small">Select an issue to acknowledge or pause.</p>':""}`;
+  const resume=pausedIds(card,state,ids).length?`<button type="button" class="button" data-device-response="resume"${locked?" disabled":""}>Resume</button>`:"";
+  return `<div class="actions device-issue-actions"><button type="button" class="button" data-device-response="acknowledge"${locked||!ids.length||allAcknowledged?" disabled":""}>${state.busy?"Saving…":allAcknowledged?"Acknowledged":"Acknowledge"}</button><button type="button" class="button" data-device-response="pause"${locked||!ids.length?" disabled":""}>Pause</button>${resume}</div>${!ids.length&&entries.length?'<p class="small">Select an issue to acknowledge or pause.</p>':""}`;
 }
 
 /** Render the shared response area for one exact issue outside the device dialog. */
@@ -108,8 +108,8 @@ export function renderDeviceIssues(card,result=card.deviceIssueContext) {
   const body=card.dialog.querySelector(".dialog-body"),label=card.shadowRoot.querySelector("#detail-label");
   card.shadowRoot.querySelector("#detail-title").textContent=result.source.name;
   label.textContent="Device";label.hidden=false;
-  const monitored=sourceCoverage(result.source,sourceCoverageIndex(card.current.data)).labels.includes("Device availability");
-  const summary=deviceAvailabilitySummary(result,{monitored});
+  const monitored=(result.members||[]).some(member=>sourceCoverage({node_id:member.node_id,entity_id:member.entity_id,kind:"entity"},sourceCoverageIndex(card.current.data)).monitored);
+  const summary=deviceEntitySummary(result,{monitored});
   const selected=selectedDeviceIssueIds(card,entries);
   const uniformUnavailable=summary.total>0&&summary.unavailable===summary.total&&entries.every(item=>item.source.check_id==="availability"&&["unavailable","all_unavailable"].includes(issueProblem(card,item).currentReason));
   const evidence=item=>{
@@ -129,7 +129,14 @@ export function renderDeviceIssues(card,result=card.deviceIssueContext) {
   const devices=entries.filter(deviceLevel),entities=entries.filter(item=>!deviceLevel(item));
   const selection=multiple?`<fieldset class="device-issue-selection"><legend class="sr-only">Device issues</legend><div class="device-issue-select-all"><label><input type="checkbox" data-device-issues-all${selected.length===entries.length?" checked":""}${state.busy||state.form?" disabled":""}>All issues</label><span class="small" role="status">${selected.length} of ${entries.length} selected</span></div>${devices.map(row).join("")}${entities.length?`<div class="device-issue-entities"><p class="small">Entities on this device</p>${entities.map(row).join("")}</div>`:""}</fieldset>`:entries.length?`<div class="device-issue-single">${entries[0].source.kind!=="device"?`<h3>${esc(issueName(entries[0]))}</h3>`:""}${evidence(entries[0])}${issueState(card,entries[0],state)}</div>`:'<p role="status">No related issues remain open.</p>';
   const coverage=issuePolicyChoices(card,[result.source,...entries.map(item=>item.source)],result.monitoring_policies||[]);
-  const content=`<section class="detail problem-brief"><h3>${esc(summary.label)}</h3><div class="actions"><a class="button" href="/config/devices/device/${encodeURIComponent(card.detail.deviceId)}">Open device</a></div></section><section class="device-issues" aria-label="Device issues">${selection}${entries.length||state.form?actionArea(card,entries,state):""}${state.message?`<p role="status">${esc(state.message)}</p>`:""}</section>${issueAvailabilityAction(card,null)}${issueConfiguration(card,coverage)}`;
+  const namedUnavailable=new Set(entries.filter(item=>item.source.kind==="entity"&&item.source.check_id==="availability"&&issueProblem(card,item).currentReason==="unavailable").map(item=>item.canonicalSource.entity_id));
+  const gaps=(result.members||[]).filter(member=>member.restored||member.state==="missing"||member.state==="unavailable"&&!namedUnavailable.has(member.entity_id));
+  const readings=gaps.length?`<ul class="source-device-members device-availability-readings">${gaps.map(member=>{
+    const reason=member.restored?"Not currently provided by its integration":member.state==="missing"?"No current state from Home Assistant":"Home Assistant reports this entity as unavailable";
+    const name=member.entity_id?`<a href="/developer-tools/state?entity_id=${encodeURIComponent(member.entity_id)}">${esc(member.name)}</a>`:esc(member.name);
+    return `<li class="source-device-member"><span>${name}</span><span class="source-device-member-state">${esc(reason)}</span></li>`;
+  }).join("")}</ul>`:"";
+  const content=`<section class="detail problem-brief"><h3>${esc(summary.label)}</h3>${readings}<div class="actions"><a class="button" href="/config/devices/device/${encodeURIComponent(card.detail.deviceId)}">Open device</a></div></section><section class="device-issues" aria-label="Device issues">${selection}${entries.length||state.form?actionArea(card,entries,state):""}${state.message?`<p role="status">${esc(state.message)}</p>`:""}</section>${issueAvailabilityAction(card,null)}${issueConfiguration(card,coverage)}`;
   const pageState=card.capturePageState(body);
   body.innerHTML=content;card.restorePageState(pageState,body);
   const master=body.querySelector("[data-device-issues-all]");
@@ -148,6 +155,15 @@ export async function readDeviceIssues(card,current) {
   }
   if(!source)throw Error("Device details are not currently available. Reopen the view after monitoring refreshes.");
   const context=await card._hass.callWS({type:"homeostatic/source",node_id:source.node_id});
+  if(!current())return;
+  // The summary counts all members; its explanation must reach beyond page one too.
+  let offset=context.next_offset;
+  while(offset!==null&&offset!==undefined) {
+    const page=await card._hass.callWS({type:"homeostatic/source",node_id:source.node_id,offset});
+    if(!current())return;
+    context.members.push(...page.members);
+    offset=page.next_offset;
+  }
   if(!current())return;
   if(currentEntries(card).some(item=>issueAvailabilityNeedsCatalog(card,item.episode)))card.store?.ensureCatalog();
   renderDeviceIssues(card,{...context,source});

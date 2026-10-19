@@ -32,11 +32,11 @@ async def test_user_flow(hass: HomeAssistant) -> None:
         item["id"] for item in result["data"]["monitoring_policies"] if item["enabled"]
     } == {
         "default_integrations",
-        "default_devices",
         "default_entities",
         "default_important_equipment",
         "default_repairs",
         "default_broken_automations",
+        "default_entities_not_provided",
     }
     profiles = result["data"]["notification_definitions"]["profiles"]
     assert all(

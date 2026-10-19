@@ -55,13 +55,13 @@ def test_supplied_profiles_are_unconfigured_and_sending_stays_off() -> None:
         for row in data["monitoring_policies"]
     } == {
         "default_integrations": "morning",
-        "default_devices": "morning",
         "default_entities": "morning",
         "default_important_equipment": "immediate",
         "default_repairs": "morning",
         "default_broken_automations": "morning",
         "default_batteries": "morning",
         "default_vacuums": "evening",
+        "default_entities_not_provided": "morning",
     }
     assert settings.notification_definitions["profiles"]["weekly"]["timing"] == {
         "mode": "report",

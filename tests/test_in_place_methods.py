@@ -325,7 +325,12 @@ async def test_method_changes_cannot_bypass_other_reload_boundaries(
     variants = {
         "scope": {
             **changed,
-            "monitoring_policies": [{**policy, "match": {"kind": ["device"]}}],
+            "monitoring_policies": [
+                {
+                    **policy,
+                    "match": {"kind": ["entity"], "entity": ["entity_id:sensor.other"]},
+                }
+            ],
         },
         "add_policy": {
             **changed,

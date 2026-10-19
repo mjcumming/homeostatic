@@ -31,7 +31,7 @@ def entity_defaults() -> list[dict[str, Any]]:
     return [
         row
         for row in initial_settings("UTC")["monitoring_policies"]
-        if row["match"] == {"kind": ["entity"]}
+        if row["check"] == "availability" and row["match"] == {"kind": ["entity"]}
     ]
 
 
@@ -93,7 +93,7 @@ def test_metadata_alternatives_have_one_editable_entity_availability_mode() -> N
     general, important = entity_defaults()
     with pytest.raises(ValueError, match="matching entity types or excluded"):
         parse_policies([{**general, "match_any": important["match_any"]}])
-    with pytest.raises(ValueError, match="entity availability"):
+    with pytest.raises(ValueError, match="integrations or entities"):
         parse_policies([{**important, "match": {"kind": ["device"]}}])
 
 

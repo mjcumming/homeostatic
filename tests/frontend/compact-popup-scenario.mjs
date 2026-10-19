@@ -24,7 +24,7 @@ card._hass={user:{id:"fixture",is_admin:true},config:{time_zone:"America/Chicago
       return copy(fixture.result);
     }
     if(request.type==="homeostatic/configuration")return copy(configuration);
-    if(request.type==="homeostatic/source")return {node_id:request.node_id,monitoring_policies:copy(fixture.result.monitoring_policies||[])};
+    if(request.type==="homeostatic/source")return {node_id:request.node_id,...copy(fixture.result.device_evidence||{members:[],total:0}),monitoring_policies:copy(fixture.result.monitoring_policies||[])};
     throw Error("Unexpected isolated request "+request.type);
   },
 };
@@ -44,9 +44,8 @@ async function openCase(id) {
   document.querySelector("#example").value=id;
   if(fixture.episode) {
     for(const toggle of [...root.querySelectorAll('[data-issue-group][aria-expanded="false"]')])await click('[data-issue-group="'+toggle.dataset.issueGroup+'"]');
-    // Device-owned issues sit behind the device's View in Open issues; open those as a notification link would.
-    if(root.querySelector('[data-episode="'+fixture.episode.episode_id+'"]'))await click('[data-episode="'+fixture.episode.episode_id+'"]');
-    else{card.openDetail({episodeId:fixture.episode.episode_id});await settle();}
+    const device=fixture.definition.device;
+    await click(device?'[data-device-issues="'+device+'"]':'[data-episode="'+fixture.episode.episode_id+'"]');
   } else {
     card.openDetail({nodeId:fixture.source.node_id});await settle();
   }
@@ -73,6 +72,13 @@ async function run() {
       await openCase(definition.id);
       const prefix=definition.id+": ";
       check(find("#detail-title").textContent===fixture.title,prefix+"source title excludes the policy suffix");
+      if(card.detail?.deviceId) {
+        check(body().innerText.includes(definition.id==="device"?"0 of 1 monitored entity available":definition.headline),prefix+"current condition is visible in the shared device dialog");
+        check(body().querySelector('[data-device-response="acknowledge"]')&&body().querySelector('[data-device-response="pause"]'),prefix+"direct response actions are visible");
+        check(!body().querySelector('[data-device-issue-select]'),prefix+"single issue needs no selector");
+        check(fixture.policyIds.every(id=>body().querySelector('[data-definition-id="'+id+'"]')),prefix+"responsible policy is reachable");
+        checkFit(definition.id);evidence.push(definition.id+": device identity, current condition, direct responses, policy and viewport fit.");continue;
+      }
       if(fixture.episode)check(!body().querySelector('[data-disclosure="issue-details"]'),prefix+"supporting evidence appears without a Details expander");
       else check(!find('[data-disclosure="issue-details"]',body()).open,prefix+"source-only diagnostic details stay optional");
       check(!body().innerText.includes("View in Monitoring"),prefix+"generic Monitoring detour is absent");
@@ -97,11 +103,6 @@ async function run() {
       if(definition.grouped)check(body().querySelectorAll('[data-check-source]').length===10,prefix+"complete grouped membership remains inspectable without a second recorded-source list");
       evidence.push(definition.id+": identity, flat current evidence, policy/actions, retained findings and viewport fit.");
     }
-    await openCase("device");
-    fixture.result.device_evidence.total=25;publish();await settle();
-    const deviceRoute=fixture.source.monitoring_source;
-    check(body().querySelectorAll('[data-source-link="'+deviceRoute+'"]').length===1,"Partial device evidence offers one route to the complete readings");
-    check(!find('[data-source-link="'+deviceRoute+'"]',body()).closest('details'),"Complete-reading navigation stays with the partial evidence");
     await openCase("battery");
     find('[data-device-response="pause"]',body()).focus();
     fixture.result.entity_status.current.reason="charging";

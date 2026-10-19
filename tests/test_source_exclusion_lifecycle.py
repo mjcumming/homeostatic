@@ -1,5 +1,7 @@
 """Contextual availability edits retain unrelated monitoring and persisted identities."""
 
+import hashlib
+import json
 from copy import deepcopy
 from typing import Any
 from unittest.mock import patch
@@ -7,7 +9,6 @@ from unittest.mock import patch
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
@@ -19,14 +20,19 @@ from tests.test_controls import action, end
 from tests.test_lifecycle import start_monitor
 from tests.test_monitoring_policies import advance, reload_policies
 
-_DETECTION_KEY = MonitoringPolicy.detection_key
-
 
 def _legacy_detection_key(
     policy: MonitoringPolicy, *, member_exclusions: tuple[str, ...] = ()
 ) -> str:
     """Reproduce the persisted detector identities before source-scoped exclusions."""
-    return _DETECTION_KEY(policy, member_exclusions=policy.excluded_sources)
+    payload = {
+        "check": policy.check,
+        "match": dict(policy.match),
+        "parameters": dict(policy.parameters),
+    }
+    if policy.excluded_sources:
+        payload["excluded_sources"] = policy.excluded_sources
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
 
 async def test_source_exclusion_preserves_sibling_attention_and_history(
@@ -141,84 +147,6 @@ async def test_source_exclusion_preserves_sibling_attention_and_history(
     await client.close()
 
 
-async def test_member_exclusion_replaces_only_affected_device_check(
-    hass: HomeAssistant, config_data: dict[str, Any]
-) -> None:
-    """Changing one device's selected evidence leaves sibling device issues intact."""
-    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
-    owner.add_to_hass(hass)
-    devices = {
-        name: dr.async_get(hass).async_get_or_create(
-            config_entry_id=owner.entry_id, identifiers={("test", name)}
-        )
-        for name in ("changed", "retained")
-    }
-    members = {
-        name: [
-            er.async_get(hass).async_get_or_create(
-                "sensor",
-                "test",
-                f"{name}_{number}",
-                config_entry=owner,
-                device_id=device.id,
-            )
-            for number in range(2)
-        ]
-        for name, device in devices.items()
-    }
-    for entity in (*members["changed"], *members["retained"]):
-        hass.states.async_set(entity.entity_id, "unavailable")
-    policy = monitoring_policy("devices", {"kind": ["device"]})
-    config_data.update(notifications=False, monitoring_policies=[policy])
-    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    runtime = await start_monitor(hass, entry)
-    original_id = bound_identity(policy, f"device:{devices['changed'].id}")
-    retained_id, retained = next(
-        (episode_id, deepcopy(episode))
-        for episode_id, episode in runtime.episodes.items()
-        if episode["anchor"] != original_id
-    )
-    exclusion = f"entity:registry:{members['changed'][0].id}"
-    narrowed = {**policy, "excluded_sources": [exclusion, "entity:registry:absent"]}
-    await reload_policies(hass, entry, [narrowed])
-    runtime = entry.runtime_data
-    changed_id = bound_identity(
-        narrowed,
-        f"device:{devices['changed'].id}",
-        member_exclusions=(exclusion,),
-    )
-    assert original_id not in runtime.sources
-    assert runtime.sources[changed_id].availability_entities == (
-        members["changed"][1].entity_id,
-    )
-    assert len(runtime.episodes) == 2
-    assert runtime.episodes[retained_id] == retained
-    assert [
-        (row["episode"]["anchor"], row["resolution"])
-        for row in runtime.history.snapshot()["episodes"]
-    ] == [(original_id, "removed")]
-    await reload_policies(
-        hass,
-        entry,
-        [
-            {
-                **policy,
-                "excluded_sources": [
-                    f"entity:registry:{entity.id}" for entity in members["changed"]
-                ],
-            }
-        ],
-    )
-    runtime = entry.runtime_data
-    assert runtime.episodes == {retained_id: retained}
-    assert not runtime.sources[f"device:{devices['changed'].id}"].watched
-    assert {
-        (row["episode"]["anchor"], row["resolution"])
-        for row in runtime.history.snapshot()["episodes"]
-    } == {(original_id, "removed"), (changed_id, "removed")}
-    assert await hass.config_entries.async_unload(entry.entry_id)
-
-
 async def test_legacy_exclusions_preserve_issues_and_unknown_holds_on_upgrade(
     hass: HomeAssistant,
     config_data: dict[str, Any],
@@ -268,7 +196,7 @@ async def test_legacy_exclusions_preserve_issues_and_unknown_holds_on_upgrade(
     envelope = hass_storage[f"{DOMAIN}.{entry.entry_id}"]["data"]
     envelope["schema_version"] = 2
     envelope.pop("monitoring_identities")
-    envelope.pop("monitoring_scopes")
+    envelope.pop("monitoring_scopes", None)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data

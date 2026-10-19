@@ -93,7 +93,7 @@ async def test_panel_summary_keeps_grouped_checks_and_control_only_source(
         areas.append(area)
     policies = [
         monitoring_policy("integrations", {"kind": ["integration"]}),
-        monitoring_policy("devices", {"kind": ["device"]}),
+        monitoring_policy("device_entities", {"kind": ["entity"]}),
         monitoring_policy("entities", {"kind": ["entity"], "domain": ["sensor"]}),
     ]
     config_data.update(notifications=False, monitoring_policies=policies)
@@ -101,7 +101,10 @@ async def test_panel_summary_keeps_grouped_checks_and_control_only_source(
     runtime = await start_monitor(hass, entry)
     [episode] = runtime.episodes.values()
     recorded = {
-        *(bound_identity(policies[1], f"device:{device.id}") for device in devices[:2]),
+        *(
+            bound_identity(policies[1], f"entity:registry:{entity.id}")
+            for entity in entities[:2]
+        ),
         *(
             bound_identity(policies[2], f"entity:registry:{entity.id}")
             for entity in entities[:2]

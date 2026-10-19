@@ -1,12 +1,12 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=97";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=97";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=97";
-import {metadataSelectionField,selectedEntityTypes,entityTypeMatches,entityTypeChoices} from "./entity-types.mjs?v=97";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=99";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=99";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=99";
+import {entitySelection,entityScopeSummary,editEntitySelection} from "./entity-selection.mjs?v=99";
 
 export const POLICY_CHECKS = {
   availability: "HA availability", battery: "Battery condition", vacuum: "Vacuum error",
   repair: "Repairs", broken_automation: "Broken automations", thermostat: "Thermostat progress",
-  temperature_limit: "Temperature limits",
+  temperature_limit: "Temperature limits", entity_not_provided: "Entities not provided",
   ups_power:"UPS backup power", ups_reserve:"UPS low reserve", ups_battery_replacement:"UPS battery replacement", ups_fault:"UPS faults",
 };
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -37,24 +37,22 @@ const compactNames=names=>names.slice(0,2).join(", ")+(names.length>2?` +${names
 const useCount=uses=>uses.length?`${uses.length} ${uses.length===1?"use":"uses"}`:"Not used yet";
 function policyScopeSummary(card,policy) {
   const mode=watchMode(policy);
-  if(mode==="types"||mode==="types_except") {
-    const values=selectedEntityTypes(policy,mode),choices=entityTypeChoices([],values);
-    return `${mode==="types_except"?"All entities except":"Entity types"}: ${values.map(id=>choices.find(item=>item.id===id).name).join(", ")||"None selected"}`;
-  }
-  if(mode==="all")return watchChoices(policy).all+(devicePolicy(policy)&&memberExclusions(policy).length?`; ${memberExclusions(policy).length} ignored entities`:"");
+  if(policyType(policy)==="entity")return entityScopeSummary(policy);
+  if(mode==="all")return watchChoices(policy).all;
   const field=mode==="selected"?sourceField(policy):mode;
-  const values=mode==="all_except"?(devicePolicy(policy)?deviceExclusions(policy):policy.excluded_sources||[]):policy.match[field]||[];
+  const values=mode==="all_except"?(policy.excluded_sources||[]):policy.match[field]||[];
   const choices=policySelectionChoices(card,policy,mode,values);
   const names=values.map(id=>choiceSummary(choices.find(item=>item.id===id),mode==="all_except"?"Unavailable excluded source":"Unavailable selection"));
   const unavailable=values.filter(id=>!choices.some(item=>item.id===id)).length;
   const selection=compactNames(names)+(unavailable&&names.length>2?` · ${unavailable} unavailable`:"");
-  if(mode==="all_except")return names.length?`All ${sourceNoun(policy)} except: ${selection}${devicePolicy(policy)&&memberExclusions(policy).length?`; ${memberExclusions(policy).length} ignored entities`:""}`:`All ${sourceNoun(policy)}; no exclusions`;
+  if(mode==="all_except")return names.length?`All ${sourceNoun(policy)} except: ${selection}`:`All ${sourceNoun(policy)}; no exclusions`;
   const summary=names.length?`${mode==="selected"?"Selected "+sourceNoun(policy):mode==="area"?"Areas":"Labels"}: ${selection}`:"No sources selected";
-  return `${summary}${devicePolicy(policy)?`${deviceExclusions(policy).length?`; ${deviceExclusions(policy).length} excluded devices`:""}${memberExclusions(policy).length?`; ${memberExclusions(policy).length} ignored entities`:""}`:policy.excluded_sources?.length?`; ${policy.excluded_sources.length} excluded`:""}`;
+  return `${summary}${policy.excluded_sources?.length?`; ${policy.excluded_sources.length} excluded`:""}`;
 }
 function policyDetectionSummary(policy) {
   const p=policy.parameters||{};
   if(policy.check==="battery")return `Battery at or below ${p.threshold??20}%`;
+  if(policy.check==="entity_not_provided")return `Not provided for at least ${formatPolicyDuration(p.duration_seconds??86400)}`;
   if(policy.check==="temperature_limit")return [p.minimum!=null?`Below ${p.minimum}${p.unit}`:"",p.maximum!=null?`Above ${p.maximum}${p.unit}`:"",p.duration_seconds?`for ${formatPolicyDuration(p.duration_seconds)}`:""].filter(Boolean).join(" · ")||"Temperature bounds need configuration";
   if(policy.check==="thermostat")return `${p.margin}${p.unit} deviation · ${p.progress_seconds/60} minute progress window`;
   if(policy.check==="ups_reserve")return [p.charge_low!==undefined?`Charge at or below ${p.charge_low}%`:"",p.runtime_low_minutes!==undefined?`Runtime at or below ${p.runtime_low_minutes} minutes`:""].filter(Boolean).join(" · ");
@@ -113,20 +111,20 @@ export function nextDefinitionId(existing,prefix) {
 }
 
 export const MONITORING_TYPES = {
-  integration: "Integration availability", device: "Device availability", entity: "Entity availability",
+  integration: "Integration availability", entity: "Entity availability",
   battery: "Low battery", vacuum: "Vacuum error", repair: "Repairs", broken_automation: "Broken automations",
-  thermostat: "Thermostat progress", temperature_limit: "Temperature limits",
+  thermostat: "Thermostat progress", temperature_limit: "Temperature limits", entity_not_provided: "Entities not provided",
   ups_power: "UPS backup power", ups_reserve: "UPS low reserve", ups_battery_replacement: "UPS battery replacement", ups_fault: "UPS faults",
 };
 export function policyType(policy) {
-  return policy.check === "availability" ? policy.match?.kind?.[0]||"device" : policy.check;
+  return policy.check === "availability" ? policy.match?.kind?.[0]||"entity" : policy.check;
 }
-export function newMonitoringPolicy(existing,type="device",profiles=null) {
-  if(type==="availability")type="device";
-  const check=["integration","device","entity"].includes(type)?"availability":type;
+export function newMonitoringPolicy(existing,type="entity",profiles=null) {
+  if(type==="availability")type="entity";
+  const check=["integration","entity"].includes(type)?"availability":type;
   const parameters = check === "thermostat" ? {unit:"°F",margin:2,progress:2,worsening:2,progress_seconds:3600}
-    : check === "temperature_limit" ? {unit:"°F",duration_seconds:0} : check === "battery" ? {threshold:20} : {};
-  const kind = check.startsWith("ups_")?"ups":["thermostat","temperature_limit"].includes(check)?"entity":type;
+    : check === "temperature_limit" ? {unit:"°F",duration_seconds:0} : check === "battery" ? {threshold:20} : check === "entity_not_provided" ? {duration_seconds:86400} : {};
+  const kind = check.startsWith("ups_")?"ups":["thermostat","temperature_limit","entity_not_provided"].includes(check)?"entity":type;
   const choices=check==="ups_reserve"?[["morning","mains"],["acknowledge","backup"]]:[[{thermostat:"urgent",temperature_limit:"acknowledge",vacuum:"evening",ups_power:"urgent",ups_fault:"urgent"}[check]||"morning"]];
   const notifications=choices.filter(([profile])=>profiles?.[profile]).map(([profile,when],index)=>({id:`notification-${index+1}`,profile,...(when?{when}:{})}));
   return {id:nextDefinitionId(existing,"policy"),name:MONITORING_TYPES[type],check,match:{kind:[kind]},parameters,enabled:false,notifications};
@@ -217,7 +215,7 @@ function methodSummary(card,method) {
 
 function sourceNoun(policy) {
   const type=policyType(policy);
-  return {integration:"integrations",device:"devices",entity:"entities",battery:"batteries",vacuum:"vacuums",thermostat:"thermostats",temperature_limit:"temperature sensors"}[type]||(type.startsWith("ups_")?"UPS devices":"sources");
+  return {integration:"integrations",entity:"entities",entity_not_provided:"entities",battery:"batteries",vacuum:"vacuums",thermostat:"thermostats",temperature_limit:"temperature sensors"}[type]||(type.startsWith("ups_")?"UPS devices":"sources");
 }
 function sourceKind(policy) {
   const type=policyType(policy);
@@ -226,21 +224,16 @@ function sourceKind(policy) {
 export function watchChoices(policy) {
   const type=policyType(policy),noun=sourceNoun(policy);
   if(["repair","broken_automation"].includes(type))return {all:type==="repair"?"All Repairs":"All automations"};
-  return {all:`All ${noun}`,all_except:"All except selected",selected:`Selected ${noun}`,...(type==="integration"?{}:{area:"In selected areas",label:"With selected labels"}),...(type==="entity"?{types:"Matching entity types",types_except:"All except selected entity types"}:{})};
+  return {all:`All ${noun}`,all_except:"All except selected",selected:`Selected ${noun}`,...(type==="integration"?{}:{area:"In selected areas",label:"With selected labels"})};
 }
 function sourceField(policy) {
-  return {integration:"integration_domain",device:"device",ups:"device"}[sourceKind(policy)]||"entity";
+  return {integration:"integration_domain",ups:"device"}[sourceKind(policy)]||"entity";
 }
-const devicePolicy=policy=>sourceKind(policy)==="device";
-const memberExclusions=policy=>(policy.excluded_sources||[]).filter(id=>id.startsWith("entity:"));
-const deviceExclusions=policy=>(policy.excluded_sources||[]).filter(id=>!id.startsWith("entity:"));
 const selectionIndexes=new WeakMap();
 const PICKER_PAGE_SIZE=50;
 
 export function watchMode(policy) {
-  if(policy.match_any)return "types";
-  if(policy.match_none)return "types_except";
-  return policy.match.area?"area":policy.match.label?"label":policy.match[sourceField(policy)]||policy.match.integration?"selected":(devicePolicy(policy)?(deviceExclusions(policy).length>0||policy.excluded_sources?.length===0):Object.hasOwn(policy,"excluded_sources"))?"all_except":"all";
+  return policy.match.area?"area":policy.match.label?"label":policy.match[sourceField(policy)]||policy.match.integration?"selected":Object.hasOwn(policy,"excluded_sources")?"all_except":"all";
 }
 function completeSelectionCatalog(card) {
   const data=card.current?.data;
@@ -316,11 +309,10 @@ function sourceCount(policy,count) {
 export function policySelectionChoices(card,policy,mode,selectedIds=null) {
   if(selectedIds?.length===0)return [];
   const index=selectionIndex(card);
-  if(mode==="types"||mode==="types_except")return entityTypeChoices(policySources(card,policy,index),selectedEntityTypes(policy,mode)).filter(item=>!selectedIds||selectedIds.includes(item.id));
   if(mode==="area"||mode==="label") {
     const complete=completeSelectionCatalog(card),stale=complete&&card.current.data.catalog_stale;
     const counts=new Map(),field=sourceField(policy);
-    const sources=policySources(card,policy,index).filter(source=>!source.disabled&&(policy.check!=="availability"||(source.kind!=="entity"||!source.attributes?.entity_category?.length)&&(source.kind!=="device"||source.availability_entities?.length)));
+    const sources=policySources(card,policy,index).filter(source=>!source.disabled&&(policy.check!=="availability"||(source.kind!=="entity"||!source.attributes?.entity_category?.length)));
     for(const source of sources)for(const id of source.attributes?.[mode]||[]) {
       const identities=counts.get(id)||new Set();
       identities.add(source.attributes?.[field]?.[0]||source.monitoring_source||source.node_id);counts.set(id,identities);
@@ -334,7 +326,7 @@ export function policySelectionChoices(card,policy,mode,selectedIds=null) {
   const inventory=index?.rows||[],key=`${sourceKind(policy)}:${policy.check}:${mode}`;
   if(mode==="all_except") {
     const kind=sourceKind(policy);
-    return contextualChoices(card,index,key,()=>inventory.filter(source=>(source.kind===kind||kind==="device"&&source.kind==="entity"&&source.attributes?.device?.length)&&suitableSource(source,policy)),source=>source.monitoring_source||source.node_id,source=>kind==="device"?(source.kind==="device"?"Whole devices":deviceGroup(card,index,source)):kind==="integration"?"Integration connections":"Sources",selectedIds);
+    return contextualChoices(card,index,key,()=>inventory.filter(source=>source.kind===kind&&suitableSource(source,policy)),source=>source.monitoring_source||source.node_id,source=>kind==="integration"?"Integration connections":"Sources",selectedIds);
   }
   if(policyType(policy)==="integration") {
     const domains=[...new Set(inventory.filter(source=>source.kind==="integration").flatMap(source=>source.attributes?.integration_domain||source.attributes?.domain||[]))];
@@ -343,23 +335,17 @@ export function policySelectionChoices(card,policy,mode,selectedIds=null) {
   const field=sourceField(policy),noun=sourceNoun(policy),group=noun[0].toUpperCase()+noun.slice(1);
   return contextualChoices(card,index,key,()=>policySources(card,policy,index),source=>source.attributes?.[field]?.[0],()=>group,selectedIds);
 }
-function deviceGroup(card,index,source) {
-  const id=source.attributes.device[0];
-  const device=index.devices.get(id);
-  if(!device)return `Device unavailable (${id})`;
-  return index.deviceNames.get(device.name).size>1?`${device.name} · ${sourceContext(card,device,index)} · ${id}`:device.name;
-}
-function watchEditor(card,policy,ignored=false) {
+function watchEditor(card,policy) {
+  if(["entity","entity_not_provided"].includes(policyType(policy)))return entitySelection(card,policy);
   if(policy.check==="repair")return '<p>Watches all Home Assistant Repairs.</p>';
   if(policy.check==="broken_automation")return '<p>Checks all automations for references to entities that no longer exist.</p>';
-  const mode=ignored?"all_except":card.policyScopeChoice?.policy===policy?card.policyScopeChoice.mode:watchMode(policy),choices=watchChoices(policy),field=mode==="selected"?sourceField(policy):mode,excluding=mode==="all_except",grouped=["area","label"].includes(mode);
-  const metadataMode=mode==="types"||mode==="types_except";
-  const noun=ignored?"entities":metadataMode?"entity types":mode==="area"?"areas":mode==="label"?"labels":excluding&&sourceKind(policy)==="integration"?"integration connections":sourceNoun(policy);
+  const mode=card.policyScopeChoice?.policy===policy?card.policyScopeChoice.mode:watchMode(policy),choices=watchChoices(policy),field=mode==="selected"?sourceField(policy):mode,excluding=mode==="all_except",grouped=["area","label"].includes(mode);
+  const noun=mode==="area"?"areas":mode==="label"?"labels":excluding&&sourceKind(policy)==="integration"?"integration connections":sourceNoun(policy);
   const data=card.current?.data,catalogPending=mode!=="all"&&!completeSelectionCatalog(card),catalogStale=mode!=="all"&&data?.catalog_stale;
   const catalogStatus=catalogPending||catalogStale?`<p class="note" role="status">${card.current?.catalogError?`Could not ${catalogPending?"load":"update"} available sources: ${esc(card.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry loading sources</button>`:catalogPending?"Loading available sources…":"Updating available sources. You can keep using the previous complete list until the update finishes."}</p>`:"";
-  const values=metadataMode?selectedEntityTypes(policy,mode):excluding?(devicePolicy(policy)?ignored?memberExclusions(policy):deviceExclusions(policy):policy.excluded_sources||[]):policy.match[field]||[];
-  const picker=card.policyPicker?.id===policy.id&&Boolean(card.policyPicker.ignored)===ignored?card.policyPicker:null;
-  const items=policySelectionChoices(card,policy,mode,picker?null:values).filter(item=>!devicePolicy(policy)||!excluding||item.id.startsWith("entity:")===ignored);
+  const values=excluding?(policy.excluded_sources||[]):policy.match[field]||[];
+  const picker=card.policyPicker?.id===policy.id?card.policyPicker:null;
+  const items=policySelectionChoices(card,policy,mode,picker?null:values);
   const fallback=catalogPending?excluding?"Saved exclusion":"Saved selection":excluding?"Unavailable excluded source":"Unavailable selection";
   const selectedItems=values.map(id=>items.find(item=>item.id===id)||{id,name:fallback,detail:id});
   const oldConnections=policyType(policy)==="integration"&&policy.match.integration;
@@ -369,25 +355,20 @@ function watchEditor(card,policy,ignored=false) {
   for(const item of filtered){if(!groupedItems.has(item.group))groupedItems.set(item.group,[]);groupedItems.get(item.group).push(item);}
   const ordered=[...groupedItems.values()].flatMap(items=>items.sort((a,b)=>a.name.localeCompare(b.name)||(a.context||"").localeCompare(b.context||"")||a.id.localeCompare(b.id)));
   const shown=ordered.slice(0,picker?.limit||PICKER_PAGE_SIZE),groups=[...new Set(shown.map(item=>item.group))];
-  const verb=ignored?"ignored":excluding?"excluded":"selected",choose=ignored?"Choose ignored entities":excluding?`Exclude ${noun}`:`Choose ${noun}`;
-  const description=metadataMode?`Includes current and future operational entities ${mode==="types_except"?"except those matching":"matching"} any selected type. This policy's choices are independent of other policies.`:excluding?`Includes current and future ${sourceNoun(policy)}, except the sources chosen here. Exclusions apply only to this policy.`:mode==="selected"?policyType(policy)==="integration"?"Includes all current and future connections for each selected integration.":`Only the selected ${sourceNoun(policy)} are included.`:`Includes current and future matching ${sourceNoun(policy)} in any selected ${mode==="area"?"area":"label"}.`;
-  const excludedChoices=!devicePolicy(policy)&&!excluding&&policy.excluded_sources?.length?policySelectionChoices(card,policy,"all_except",policy.excluded_sources):[];
-  const additionalExclusions=!devicePolicy(policy)&&!excluding&&policy.excluded_sources?.length?`<p class="small">This scope also excludes: ${policy.excluded_sources.map(id=>esc(choiceSummary(excludedChoices.find(item=>item.id===id),"Unavailable excluded source"))).join(", ")}. Saved exclusions remain in effect.</p>`:"";
-  const availabilityNote=policy.check==="availability"&&["entity","device"].includes(sourceKind(policy))?devicePolicy(policy)?'<p class="small">Device availability uses enabled operational entities. Diagnostic and configuration entities are excluded.</p>':'<p class="small">Diagnostic and configuration entities are excluded unless individually selected. Disabled sources are not monitored.</p>':"";
-  const row=item=>`<label class="policy-picker-choice"><input type="checkbox" ${attrs("policies",policy.id,ignored?"ignored-selection":"selection")} data-definition-value="${esc(item.id)}"${checked(values.includes(item.id))}><span class="policy-picker-copy"><span>${esc(item.name)}</span>${!grouped&&item.context?`<span class="policy-picker-context">${esc(item.context)}</span>`:""}${item.detail?`<span class="policy-picker-detail">${esc(item.detail)}</span>`:""}</span></label>`;
-  const results=groups.map(group=>`<fieldset>${ignored||grouped&&mode==="area"||groups.length>1?`<legend>${esc(group)}</legend>`:`<legend class="sr-only">${esc(group)}</legend>`}${shown.filter(item=>item.group===group).map(row).join("")}</fieldset>`).join("");
+  const verb=excluding?"excluded":"selected",choose=excluding?`Exclude ${noun}`:`Choose ${noun}`;
+  const description=excluding?`Includes current and future ${sourceNoun(policy)}, except the sources chosen here. Exclusions apply only to this policy.`:mode==="selected"?policyType(policy)==="integration"?"Includes all current and future connections for each selected integration.":`Only the selected ${sourceNoun(policy)} are included.`:`Includes current and future matching ${sourceNoun(policy)} in any selected ${mode==="area"?"area":"label"}.`;
+  const excludedChoices=!excluding&&policy.excluded_sources?.length?policySelectionChoices(card,policy,"all_except",policy.excluded_sources):[];
+  const additionalExclusions=!excluding&&policy.excluded_sources?.length?`<p class="small">This scope also excludes: ${policy.excluded_sources.map(id=>esc(choiceSummary(excludedChoices.find(item=>item.id===id),"Unavailable excluded source"))).join(", ")}. Saved exclusions remain in effect.</p>`:"";
+  const row=item=>`<label class="policy-picker-choice"><input type="checkbox" ${attrs("policies",policy.id,"selection")} data-definition-value="${esc(item.id)}"${checked(values.includes(item.id))}><span class="policy-picker-copy"><span>${esc(item.name)}</span>${!grouped&&item.context?`<span class="policy-picker-context">${esc(item.context)}</span>`:""}${item.detail?`<span class="policy-picker-detail">${esc(item.detail)}</span>`:""}</span></label>`;
+  const results=groups.map(group=>`<fieldset>${grouped&&mode==="area"||groups.length>1?`<legend>${esc(group)}</legend>`:`<legend class="sr-only">${esc(group)}</legend>`}${shown.filter(item=>item.group===group).map(row).join("")}</fieldset>`).join("");
   const more=shown.length<ordered.length?`<div class="actions"><span class="small">Showing ${shown.length} of ${ordered.length}. Search includes all ${noun}.</span>${button("more-choices",`Show ${Math.min(PICKER_PAGE_SIZE,ordered.length-shown.length)} more`,"policies",policy.id)}</div>`:"";
   const empty=picker?.query.trim()?`No ${noun} match your search.`:picker?.selectedOnly?`No ${noun} ${verb}.`:grouped?`No ${noun} with matching ${sourceNoun(policy)}. Use Show all ${noun} to choose for future sources.`:`No ${noun} available to choose.`;
   const searchLabel=grouped||sourceKind(policy)==="integration"?`Search ${noun}`:"Search by name or area";
-  const pickerBody=picker?`<section class="policy-picker" aria-label="${choose}">${ignored?'<p>Choose the entities to ignore when assessing their device.</p>':excluding?'<p>Check sources to exclude them from this policy.</p>':""}<label class="policy-picker-search"><span>${searchLabel}</span><input type="search" data-definition-picker-search value="${esc(picker.query)}"></label><div class="policy-picker-tools"><label><input type="checkbox" data-definition-picker-selected${checked(picker.selectedOnly)}>Show ${verb} only</label>${grouped?`<label><input type="checkbox" data-definition-picker-all${checked(picker.showAll)}>Show all ${noun}</label>`:""}</div><div class="policy-picker-options">${results||(catalogPending?"":`<p>${esc(empty)}</p>`)}</div>${more}<footer class="policy-picker-footer"><span role="status">${values.length} ${verb}</span>${button("finish-pick","Done","policies",policy.id)}</footer></section>`:"";
+  const pickerBody=picker?`<section class="policy-picker" aria-label="${choose}">${excluding?'<p>Check sources to exclude them from this policy.</p>':""}<label class="policy-picker-search"><span>${searchLabel}</span><input type="search" data-definition-picker-search value="${esc(picker.query)}"></label><div class="policy-picker-tools"><label><input type="checkbox" data-definition-picker-selected${checked(picker.selectedOnly)}>Show ${verb} only</label>${grouped?`<label><input type="checkbox" data-definition-picker-all${checked(picker.showAll)}>Show all ${noun}</label>`:""}</div><div class="policy-picker-options">${results||(catalogPending?"":`<p>${esc(empty)}</p>`)}</div>${more}<footer class="policy-picker-footer"><span role="status">${values.length} ${verb}</span>${button("finish-pick","Done","policies",policy.id)}</footer></section>`:"";
   const summary=oldConnections?'<p>Saved individual connections. Choose integrations to replace this selection.</p>':selectedItems.length?`<ul class="policy-selected-sources" aria-label="${excluding?"Excluded":"Selected"} ${esc(noun)}">${selectedItems.map(item=>`<li><span>${esc(item.name)}</span>${item.context?`<span class="small">${esc(item.context)}</span>`:""}${item.detail?`<span class="small">${esc(item.detail)}</span>`:""}</li>`).join("")}</ul>`:`<p>${excluding?"No exclusions":"None selected"}</p>`;
-  const selectionAction=mode!=="all"&&!picker?button(ignored?"pick-ignored":"pick",values.length?"Change selection":choose,"policies",policy.id,`aria-label="${esc(choose)}"`):"";
+  const selectionAction=mode!=="all"&&!picker?button("pick",values.length?"Change selection":choose,"policies",policy.id,`aria-label="${esc(choose)}"`):"";
   const scopeChoices=`<fieldset class="policy-scope"><legend>Include</legend>${Object.entries(choices).map(([value,label])=>`<div class="policy-scope-option"><label class="policy-scope-choice"><input type="radio" name="policy-scope-${esc(policy.id)}" ${attrs("policies",policy.id,"watch")} data-watch-mode="${value}" value="${value}"${checked(mode===value)}><span>${esc(label)}</span></label>${mode===value?selectionAction:""}</div>`).join("")}</fieldset>`;
-  if(ignored) {
-    const groupedSummary=[...new Set(selectedItems.map(item=>item.group||"Device unavailable"))].map(group=>`<section><h4>${esc(group)}</h4><ul class="policy-selected-sources">${selectedItems.filter(item=>(item.group||"Device unavailable")===group).map(item=>`<li><span>${esc(item.name)}</span>${item.context?`<span class="small">${esc(item.context)}</span>`:""}${item.detail?`<span class="small">${esc(item.detail)}</span>`:""}</li>`).join("")}</ul></section>`).join("");
-    return `<section class="policy-ignored-entities"><h3>Ignored entities</h3><p class="small">These entities do not contribute to this policy's device availability checks. Other policies keep their own choices.</p>${selectionAction}${catalogStatus}${picker?pickerBody:groupedSummary||"<p>No ignored entities.</p>"}</section>`;
-  }
-  return `<div class="policy-watch-controls">${scopeChoices}</div>${catalogStatus}${mode!=="all"?`<div class="policy-selection">${picker?pickerBody:`<div class="policy-selection-summary">${devicePolicy(policy)&&excluding?"<h4>Excluded devices</h4>":""}${summary}</div>`}<p class="small">${description}</p></div>`:`<p class="small">Includes current and future ${sourceNoun(policy)}.</p>`}${additionalExclusions}${availabilityNote}${devicePolicy(policy)?watchEditor(card,policy,true):""}`;
+  return `<div class="policy-watch-controls">${scopeChoices}</div>${catalogStatus}${mode!=="all"?`<div class="policy-selection">${picker?pickerBody:`<div class="policy-selection-summary">${summary}</div>`}<p class="small">${description}</p></div>`:`<p class="small">Includes current and future ${sourceNoun(policy)}.</p>`}${additionalExclusions}`;
 }
 
 const DURATION_UNITS={minutes:60,hours:3600,seconds:1};
@@ -431,6 +412,7 @@ function policyFields(card,policy) {
     const fields=[...(hasRole("charge")||parameters.charge_low!==undefined?[["charge_low","Raise at or below (%)"],["charge_clear","Clear at or above (%)"]]:[]),...(hasRole("runtime")||parameters.runtime_low_minutes!==undefined?[["runtime_low_minutes","Raise at or below (minutes)"],["runtime_clear_minutes","Clear at or above (minutes)"]]:[])];
     parameterFields=fields.length?fields.map(([field,label])=>input("policies",id,`parameters:${field}`,label,parameters[field],"number",'min="0" step="any"')).join("")+`<p class="small">Optional thresholds supplement the UPS warning. Set both raise and clear values. Leave them blank to use the device’s low setpoint when available. Charging alone does not clear low reserve.</p>`:"";
   }
+  if(check==="entity_not_provided")parameterFields=input("policies",id,"parameters:duration_seconds","For at least (hours)",(parameters.duration_seconds??86400)/3600,"number",'data-duration-unit="hours" min="0" max="8760" step="any" required')+'<p class="small policy-help">The owning integration must be loaded. Startup and reload gaps restart the wait. Open the entity in Home Assistant to inspect it. Use 0 for no waiting period.</p>';
   if(check==="temperature_limit")parameterFields=temperatureFields(card,policy);
   if(check==="thermostat") {
     parameterFields=select("policies",id,"parameters:unit","Temperature unit",parameters.unit,{"°F":"°F","°C":"°C",K:"K"});
@@ -448,7 +430,7 @@ export function namedPolicies(card) {
   const active=policies.find(item=>card.definitionSelection?.kind==="policies"&&item.id===card.definitionSelection.id);
   const templates=card.configuration.monitoring_policy_templates||[];
   const missing=templates.filter(template=>!policies.some(policy=>policy.id===template.id));
-  if(card.policyCreating)return `<section class="definition-editor installation-editor"><h2>Add policy</h2><p>Choose the monitoring type. It stays fixed after creation.</p><label class="installation-field"><span>Monitoring type</span><select data-definition-template>${Object.entries(MONITORING_TYPES).map(([id,name])=>option(id,name,card.definitionTemplate||"device")).join("")}</select></label>${button("create","Continue","policies")}${button("close","Cancel","policies")}</section>`;
+  if(card.policyCreating)return `<section class="definition-editor installation-editor"><h2>Add policy</h2><p>Choose the monitoring type. It stays fixed after creation.</p><label class="installation-field"><span>Monitoring type</span><select data-definition-template>${Object.entries(MONITORING_TYPES).map(([id,name])=>option(id,name,card.definitionTemplate||"entity")).join("")}</select></label>${button("create","Continue","policies")}${button("close","Cancel","policies")}</section>`;
   if(active) {
     return `<section class="definition-editor installation-editor unified-policy-editor" aria-label="Edit monitoring policy"><header><div><h1>${esc(active.name)}</h1><p class="small">Changes take effect when you save.</p></div><label class="method-switch policy-enabled"><input type="checkbox" role="switch" aria-label="Policy enabled" ${attrs("policies",active.id,"enabled")}${checked(active.enabled)}><span>Policy ${active.enabled?"enabled":"disabled"}</span></label>${button("close","Back to policies","policies",active.id,"","editor-back")}</header>${policyFields(card,active)}${deletePrompt(card)}${scopedEditorFooter(card,{kind:"policy",id:active.id},"Save policy")}</section>`;
   }
@@ -571,6 +553,7 @@ export function namedNotifications(card) {
 
 /** Restore destination selection after a dashboard render. */
 export function restoreMethodDialogs(card) {
+  for(const input of card.main.querySelectorAll?.("[data-indeterminate]")||[])input.indeterminate=true;
   for(const dialog of card.main.querySelectorAll?.("dialog.delivery-picker")||[]) {
     dialog.showModal();
     dialog.oncancel=event=>{
@@ -633,6 +616,7 @@ export function editReusable(card,event) {
   const kind=d.definitionKind,id=d.definitionId,action=d.definitionAction;
   let notificationFocus;
   if(editDestinationPicker(card,event,element,invalidate,renderAfterEdit))return true;
+  if(editEntitySelection(card,event,element,invalidate,renderAfterEdit))return true;
   if(event.type==="click") {
     if(action==="save-scoped"||action==="discard-scoped") {
       const scope={kind:{policies:"policy",methods:"method",profiles:"profile",settings:"settings"}[kind],...(id?{id}:{})};
@@ -645,7 +629,7 @@ export function editReusable(card,event) {
           card.main.querySelector?.(`[data-definition-field="parameters:${validation.field}"]`)?.focus?.();return true;
         }
         if([...(card.main.querySelectorAll?.(".installation-editor input, .installation-editor select")||[])].some(input=>!input.reportValidity()))return true;
-        if(policy&&(Object.values(policy.match||{}).some(values=>Array.isArray(values)&&!values.length)||[policy.match_any,policy.match_none].some(values=>Array.isArray(values)&&!values.length))) {
+        if(policy&&!["entity","entity_not_provided"].includes(policyType(policy))&&(Object.values(policy.match||{}).some(values=>Array.isArray(values)&&!values.length)||[policy.match_any,policy.match_none].some(values=>Array.isArray(values)&&!values.length))) {
           card.scopedStatusScope=`policy:${id}`;card.scopedError="Choose at least one source, area, label, or entity type, or choose All.";card.scopedNotice=null;card.render();return true;
         }
         void saveEditor(card,scope);
@@ -694,9 +678,9 @@ export function editReusable(card,event) {
     if(action==="open-notification"){card.detailSequence=(card.detailSequence||0)+1;card.detail=null;card.dialog?.close();card.definitionSelection={kind:"profiles",id};card.notificationSection="profiles";card.deliveryPicker=null;card.methodCancel=null;card.page="notifications";card.render();return true;}
     if(action==="close"){card.definitionSelection=null;card.policyCreating=false;card.policyPicker=null;card.render();return true;}
     if(action==="add"&&kind==="policies"){card.policyCreating=true;card.definitionSelection=null;card.render();return true;}
-    if(action==="pick"||action==="pick-ignored"){const policy=policies.find(item=>item.id===id);if(policyType(policy)==="integration"&&policy.match.integration){policy.match={kind:["integration"],integration_domain:[]};}card.policyPicker={id,...(action==="pick-ignored"?{ignored:true}:{}),query:"",selectedOnly:false,showAll:false};card.render();card.main?.querySelector?.("[data-definition-picker-search]")?.focus({preventScroll:true});return true;}
+    if(action==="pick"){const policy=policies.find(item=>item.id===id);if(policyType(policy)==="integration"&&policy.match.integration){policy.match={kind:["integration"],integration_domain:[]};}card.policyPicker={id,query:"",selectedOnly:false,showAll:false};card.render();card.main?.querySelector?.("[data-definition-picker-search]")?.focus({preventScroll:true});return true;}
     if(action==="more-choices"&&card.policyPicker?.id===id){const previous=card.policyPicker.limit||PICKER_PAGE_SIZE;card.policyPicker.limit=previous+PICKER_PAGE_SIZE;card.render();card.main?.querySelectorAll?.('.policy-picker [data-definition-value]')?.[previous]?.focus();return true;}
-    if(action==="finish-pick"){const ignored=card.policyPicker?.ignored;card.policyPicker=null;card.render();card.main?.querySelector?.(`[data-definition-action="${ignored?"pick-ignored":"pick"}"]`)?.focus({preventScroll:true});return true;}
+    if(action==="finish-pick"){card.policyPicker=null;card.render();card.main?.querySelector?.(`[data-definition-action="pick"]`)?.focus({preventScroll:true});return true;}
     if(action==="restore"){card.policyRestoring=true;card.policyRestoreIds=[];card.render();return true;}
     if(action==="cancel-restore"){card.policyRestoring=false;card.render();return true;}
     if(action==="delete"){card.definitionDelete={kind,id,resolution:"",before:kind==="policies"?structuredClone(policies.find(item=>item.id===id)):null};card.render();return true;}
@@ -705,7 +689,7 @@ export function editReusable(card,event) {
       if(kind==="policies") {
         draft.monitoring_policies??=[];
         const original=policies.find(item=>item.id===id);
-        const policy=action==="duplicate"?{...structuredClone(original),id:nextDefinitionId(policies,"policy"),name:`${original.name} copy`,enabled:false}:newMonitoringPolicy(policies,card.definitionTemplate||"device",definitions.profiles);
+        const policy=action==="duplicate"?{...structuredClone(original),id:nextDefinitionId(policies,"policy"),name:`${original.name} copy`,enabled:false}:newMonitoringPolicy(policies,card.definitionTemplate||"entity",definitions.profiles);
         card.policyCreating=false;
         draft.monitoring_policies.push(policy);card.definitionSelection={kind,id:policy.id};
       }else {
@@ -790,24 +774,15 @@ export function editReusable(card,event) {
         }
       }else if(field==="watch") {
         card.policyScopeChoice={policy:item,mode:element.value};
-        const metadataMode=element.value==="types"||element.value==="types_except";
-        const selector=element.value==="selected"?sourceField(item):element.value==="all_except"||metadataMode?"all":element.value;
-        const members=devicePolicy(item)?memberExclusions(item):[];
+        const selector=element.value==="selected"?sourceField(item):element.value==="all_except"?"all":element.value;
         delete item.excluded_sources;
-        delete item.match_any;delete item.match_none;
-        if(metadataMode)item[metadataSelectionField(element.value)]=[];
-        if(element.value==="all_except"||members.length)item.excluded_sources=members;
+        if(element.value==="all_except")item.excluded_sources=[];
         item.match={kind:[sourceKind(item)],...(selector==="all"?{}:{[selector]:[]})};card.policyPicker=null;
-      }else if(field==="ignored-selection") {
-        const values=item.excluded_sources||[];
-        item.excluded_sources=element.checked?[...new Set([...values,d.definitionValue])]:values.filter(value=>value!==d.definitionValue);
-        if(!item.excluded_sources.length)delete item.excluded_sources;
       }else if(field==="selection") {
         const mode=card.policyScopeChoice?.policy===item?card.policyScopeChoice.mode:watchMode(item),selector=mode==="selected"?sourceField(item):mode;
-        const metadataMode=mode==="types"||mode==="types_except";
-        const values=metadataMode?selectedEntityTypes(item,mode):mode==="all_except"?item.excluded_sources||[]:item.match[selector]||[];
+        const values=mode==="all_except"?item.excluded_sources||[]:item.match[selector]||[];
         const next=element.checked?[...new Set([...values,d.definitionValue])]:values.filter(value=>value!==d.definitionValue);
-        if(metadataMode)item[metadataSelectionField(mode)]=entityTypeMatches(next);else if(mode==="all_except")item.excluded_sources=next;else item.match[selector]=next;
+        if(mode==="all_except")item.excluded_sources=next;else item.match[selector]=next;
       }else if(field.startsWith("match:")) {
         const key=field.slice(6),values=element.value.split(",").map(value=>value.trim()).filter(Boolean);
         if(values.length)item.match[key]=values;else delete item.match[key];

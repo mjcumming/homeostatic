@@ -23,7 +23,7 @@ test("device has one collective issue action and native entity links for three m
   const card=availabilityIssueFixture();
   card.tools={maintenanceControls:(...args)=>DashboardTools.prototype.maintenanceControls.call({},...args)};
   const html=detail(card);
-  assert.match(html,/0 of 3 monitored entities available/);
+  assert.match(html,/0 of 3 entities available/);
   assert.equal((html.match(/data-device-issues="third-floor"/g)||[]).length,1);
   assert.match(html,/data-device-issues="third-floor"[^>]*>View<\/button>/);
   assert.equal((html.match(/href="\/developer-tools\/state\?entity_id=/g)||[]).length,3);
@@ -35,14 +35,14 @@ test("device keeps its single View after the aggregate clears and only one entit
   const card=availabilityIssueFixture(["unavailable","72","49"]);
   card.current.data.inventory.episodes=card.current.data.inventory.episodes.filter(episode=>episode.anchor===ENTITY_ID);
   const html=detail(card);
-  assert.match(html,/2 of 3 monitored entities available/);
+  assert.match(html,/2 of 3 entities available/);
   assert.equal((html.match(/data-device-issues="third-floor"/g)||[]).length,1);
   assert.doesNotMatch(html,/data-episode=|data-device-response/);
 });
 
 test("device preserves unavailable evidence when no issue exists and offers no empty issue dialog",()=>{
   const html=detail(sourceDetailsFixture("device",["unavailable","missing","off"]));
-  assert.match(html,/1 of 3 monitored entities available/);
+  assert.match(html,/1 of 3 entities available/);
   assert.match(html,/>Unavailable<\/span>/);
   assert.match(html,/>No current state<\/span>/);
   assert.doesNotMatch(html,/data-device-issues=|data-episode=/);
@@ -50,9 +50,9 @@ test("device preserves unavailable evidence when no issue exists and offers no e
 
 test("device summary describes selected policy members without a separate inventory assessment",()=>{
   const card=sourceDetailsFixture("device",["unavailable","unavailable","unavailable"]);
-  card.sourceDetail.device_availability.status="available";
+
   const html=detail(card);
-  assert.match(html,/0 of 3 monitored entities available/);
+  assert.match(html,/0 of 3 entities available/);
   assert.doesNotMatch(html,/source-entity-condition|source-device-member-state|>Unavailable</);
 });
 
@@ -112,7 +112,7 @@ test("device names and mixed current conditions stay visible before monitoring c
   assert.doesNotMatch(html,/Selected entity/);
   assert.doesNotMatch(html,/<details\b|source-technical/);
   assert.match(visible,/>3rd Floor Sensor Room average temperature<\/a>[\s\S]*?Available · 72 °F<\/span>/);
-  assert.ok(html.indexOf("1 of 3 monitored entities available")<html.indexOf("source-device-entities"));
+  assert.ok(html.indexOf("1 of 3 entities available")<html.indexOf("source-device-entities"));
   assert.ok(html.indexOf("source-device-entities")<html.indexOf("source-device-coverage"));
 });
 
@@ -280,7 +280,7 @@ test("restored entity names its absent provider without registration machinery",
 
 test("restored device members do not masquerade as current unavailable reports",()=>{
   const html=detail(sourceDetailsFixture());
-  assert.match(condition(html),/0 of 3 monitored entities available/);
+  assert.match(condition(html),/0 of 3 entities available/);
   assert.match(body(html),/Not provided by integration/);
   assert.doesNotMatch(condition(html),/3 of 3 monitored entities are unavailable/);
   assert.doesNotMatch(body(html),/Restored state|Waiting for a current/);
@@ -290,7 +290,7 @@ test("restored device members do not masquerade as current unavailable reports",
 
 test("mixed current unavailability and restored placeholders stay separate",()=>{
   const html=detail(sourceDetailsFixture("device",["unavailable","restored","72"]));
-  assert.match(condition(html),/1 of 3 monitored entities available/);
+  assert.match(condition(html),/1 of 3 entities available/);
   assert.match(body(html),/>Unavailable<\/span>/);
   assert.doesNotMatch(condition(html),/2 of 3 monitored entities are unavailable/);
   assert.match(body(html),/Not provided by integration/);
@@ -299,7 +299,7 @@ test("mixed current unavailability and restored placeholders stay separate",()=>
 
 test("HA unknown is an available entity with no value, not a review finding",()=>{
   const html=detail(sourceDetailsFixture("device",["unknown","72","49"]));
-  assert.match(condition(html),/3 of 3 monitored entities available/);
+  assert.match(condition(html),/3 of 3 entities available/);
   assert.doesNotMatch(body(html),/Entities needing review|needs-attention/);
   assert.match(body(html),/Available[^<]*no value/i);
 });
@@ -319,59 +319,12 @@ test("a current entity displays its value and unit without a freshness claim",()
   assert.doesNotMatch(condition(html),/last report|last seen|just updated/i);
 });
 
-test("one entity policy action opens distinct individual and device roles without changing settings",()=>{
-  const card=sourceDetailsFixture("entity"),saved=structuredClone(card.configuration.settings);
-  const closed=detail(card);
-  assert.equal((closed.match(/data-source-policies="open"/g)||[]).length,1);
-  assert.match(closed,/Monitored for availability/);
-  assert.doesNotMatch(closed,/data-definition-id=|Checks this entity.s availability individually|Uses this entity to assess/);
-  card.sourcePoliciesSelection=ENTITY_ID;
-  const html=sourcesBrowser(card),dialog=html.match(/<dialog class="source-policy-dialog"[\s\S]*?<\/dialog>/)?.[0]||"";
-  assert.match(dialog,/Monitoring policies/);
-  assert.match(dialog,/3rd Floor Sensor Room temperature/);
-  assert.match(dialog,/data-definition-id="entities"[^>]*>Edit policy/);
-  assert.match(dialog,/data-definition-id="devices"[^>]*>Edit policy/);
-  assert.match(dialog,/Checks this entity&#39;s availability individually/);
-  assert.match(dialog,/Uses this entity to assess 3rd Floor Sensor/);
-  assert.match(dialog,/data-source-policies="close"/);
-  assert.deepEqual(card.configuration.settings,saved);
-  card.sourcesSelection=`source:${DEVICE_ID}`;
-  assert.doesNotMatch(sourcesBrowser(card),/source-policy-dialog/);
-});
-
-test("an entity used only by a device policy states its role and keeps that policy contextual",()=>{
-  const card=sourceDetailsFixture("entity");
-  card.current.data.inventory.nodes=card.current.data.inventory.nodes.filter(source=>source.monitoring_policy!=="entities");
-  const html=detail(card);
-  assert.match(html,/Used to assess device availability/);
-  assert.match(html,/data-source-policies="open"/);
-  assert.doesNotMatch(html,/data-definition-id=/);
-  card.sourcePoliciesSelection=ENTITY_ID;
-  assert.match(sourcesBrowser(card),/data-definition-id="devices"/);
-  assert.doesNotMatch(sourcesBrowser(card),/data-definition-id="entities"/);
-});
-
 test("an unmonitored entity has concise coverage and no empty policy dialog",()=>{
   const card=sourceDetailsFixture("entity");
   card.current.data.inventory.nodes=card.current.data.inventory.nodes.filter(source=>!source.monitoring_policy);
   const html=detail(card);
   assert.match(html,/Not monitored/);
   assert.doesNotMatch(html,/data-source-policies=|source-policy-dialog/);
-});
-
-test("device monitoring states what the selected entities assess",()=>{
-  const html=monitoring(detail(sourceDetailsFixture("device")));
-  assert.match(html,/(selected|monitored) entities/i);
-  assert.match(html,/(assess|availability)/i);
-});
-
-test("device policy editing and scoped coverage actions remain together after evidence",()=>{
-  const html=detail(sourceDetailsFixture("device"));
-  const [evidence,coverage]=html.split('<section class="source-section source-device-coverage"');
-  assert.doesNotMatch(evidence,/data-definition-id=|data-availability-action=/);
-  assert.match(coverage,/data-definition-id="devices"[^>]*>Edit “Devices” policy/);
-  assert.match(coverage,/data-availability-action="select"/);
-  assert.doesNotMatch(coverage,/<details\b/);
 });
 
 test("temperature and availability retain their evidence with one entity destination",()=>{
@@ -425,12 +378,12 @@ for(const view of ["entity","device"]) {
 
 test("no selected device entities is not a healthy or failed assessment",()=>{
   const card=sourceDetailsFixture("device",[]);
-  assert.match(condition(detail(card)),/No entities selected for device availability/);
+  assert.match(condition(detail(card)),/No operational entities available to inspect/);
 });
 
 test("unmonitored device labels raw inspection without claiming monitoring",()=>{
   const card=sourceDetailsFixture("device",["unavailable","missing","off"]);
-  card.current.data.inventory.nodes=card.current.data.inventory.nodes.filter(item=>item.monitoring_policy!=="devices");
+  card.current.data.inventory.nodes=card.current.data.inventory.nodes.filter(item=>!["devices","entities"].includes(item.monitoring_policy));
   const html=detail(card);
   assert.match(condition(html),/1 of 3 entities available/);
   assert.match(body(html),/source-monitoring-status"><strong>Not monitored<\/strong>/);
@@ -447,7 +400,7 @@ test("complete source counts are retained when only the first page of readings i
   card.sourceDetail.unknown_count=80;
   card.sourceDetail.next_offset=1;
   const html=detail(card);
-  assert.match(condition(html),/0 of 80 monitored entities available/);
+  assert.match(condition(html),/0 of 80 entities available/);
   assert.match(body(html),/1 of 80 entity readings loaded/);
   assert.match(body(html),/data-action="more-source-evidence"/);
 });
@@ -476,7 +429,7 @@ test("connectivity off remains an available value without a review finding",()=>
   const card=sourceDetailsFixture("device",["off","72"]);
   card.sourceDetail.members[0].connectivity=true;
   const html=detail(card);
-  assert.match(condition(html),/2 of 2 monitored entities available/);
+  assert.match(condition(html),/2 of 2 entities available/);
   assert.match(body(html),/>Available · off °F<\/span>/);
   assert.doesNotMatch(body(html),/Disconnected|Entities needing review|needs-attention/);
 });

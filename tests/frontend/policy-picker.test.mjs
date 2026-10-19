@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {editReusable,namedPolicies,newMonitoringPolicy,policySelectionChoices,watchMode} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
-import {selectedEntityTypes} from "../../custom_components/homeostatic/frontend/entity-types.mjs";
 import {notificationSettings} from "./notification-profiles-fixture.mjs";
 
 const areas=[{id:"kitchen",name:"Kitchen",floor_id:"ground"},{id:"garage",name:"Garage",floor_id:"ground"},{id:"office",name:"Office",floor_id:"upper"},{id:"empty",name:"Spare room",floor_id:"upper"}];
@@ -34,90 +33,7 @@ function fixture(type="battery",mode="selected",values=[]) {
 const choiceIds=html=>[...html.matchAll(/data-definition-value="([^"]+)"/g)].map(match=>match[1]);
 const contextFor=(card,policy,id)=>policySelectionChoices(card,policy,"selected").find(item=>item.id===id)?.context;
 
-for(const mode of ["types","types_except"])test(`${mode} keeps editable domain and device-class rules for future entities`,()=>{
-  const {card,policy}=fixture("entity","all");
-  policy.match={kind:["entity"]};
-  policy[mode==="types"?"match_any":"match_none"]=[{domain:["camera","lock","alarm_control_panel"]},{domain:["binary_sensor"],device_class:["smoke","carbon_monoxide","gas","moisture"]}];
-  card.policyPicker=null;
-  assert.equal(watchMode(policy),mode);
-  const before=structuredClone(policy),html=namedPolicies(card);
-  assert.match(html,/Matching entity types/);
-  assert.match(html,/All except selected entity types/);
-  assert.match(html,/All cameras/);
-  assert.match(html,/Moisture · Binary sensors/);
-  assert.match(html,/current and future operational entities/);
-  assert.deepEqual(policy,before,"Rendering preserves the saved expression");
-  const element={dataset:{definitionField:"selection",definitionKind:"policies",definitionId:policy.id,definitionValue:"binary_sensor:door"},checked:true};
-  editReusable(card,{type:"change",target:element});
-  assert.ok(selectedEntityTypes(policy,mode).includes("binary_sensor:door"));
-  assert.ok(selectedEntityTypes(policy,mode).includes("camera"));
-  assert.ok(!JSON.stringify(policy).includes("registry:"));
-  editReusable(card,{type:"change",target:{dataset:{definitionField:"watch",definitionKind:"policies",definitionId:policy.id},value:"all"}});
-  assert.deepEqual(policy.match,{kind:["entity"]});
-  assert.equal(policy.match_any,undefined);assert.equal(policy.match_none,undefined);
-});
-
-function householdFixture() {
-  const {card,policy}=fixture("device","all");
-  const rows=[];let kindReads=0;
-  for(let device=0;device<600;device++) {
-    const id=`household-${String(device).padStart(3,"0")}`,name=`Equipment ${String(device).padStart(3,"0")}`;
-    rows.push(source("device",id,name,{area:["kitchen"]}));
-    for(let member=0;member<10;member++)rows.push(source("entity",`${id}-${member}`,`Reading ${member}`,{device:[id],area:["kitchen"]},{entity_id:`sensor.${id}_${member}`}));
-  }
-  for(const row of rows){const kind=row.kind;Object.defineProperty(row,"kind",{enumerable:true,get(){kindReads++;return kind;}});}
-  card.current.data.inventory={nodes:[],catalog:{candidates:rows}};card.policyPicker=null;
-  return {card,policy,rows,reads:()=>kindReads,resetReads:()=>{kindReads=0;}};
-}
-
-test("closed household device editors resolve only selected choices and reuse linear catalog indexing",()=>{
-  const {card,policy,rows,reads,resetReads}=householdFixture();
-  namedPolicies(card);
-  assert.equal(reads(),0,"An editor with no selected or ignored sources needs no choice inventory");
-  policy.excluded_sources=["entity:household-599-9"];
-  const html=namedPolicies(card);
-  assert.match(html,/Equipment 599/);
-  assert.match(html,/Reading 9/);
-  assert.ok(reads()<rows.length*20,`Cold source indexing must remain linear; read kind ${reads()} times for ${rows.length} rows`);
-  resetReads();
-  for(let update=0;update<5;update++) {
-    card.current.data={...card.current.data,updated_at:String(update)};
-    policy.name=`Device policy ${update}`;
-    namedPolicies(card);
-  }
-  assert.ok(reads()<20,"Evidence updates and typing must reuse the source index");
-  const replacement=rows.map(row=>({...row,name:row.node_id==="device:household-599"?"Renamed equipment":row.name}));
-  card.current.data.inventory={nodes:[],catalog:{candidates:replacement}};
-  assert.match(namedPolicies(card),/Renamed equipment/);
-  card.configuration.areas=areas.map(area=>({...area,name:area.id==="kitchen"?"New kitchen":area.name}));
-  assert.match(namedPolicies(card),/New kitchen/);
-});
-
-test("household source pickers bound rows while searching all sources and retaining unavailable selections",()=>{
-  const {card,policy}=householdFixture();
-  const selected="entity:household-599-9",missing="entity:removed-member";
-  policy.excluded_sources=[selected,missing];
-  card.policyPicker={id:policy.id,ignored:true,query:"",selectedOnly:false,showAll:false};
-  let html=namedPolicies(card);
-  assert.equal(choiceIds(html).length,50);
-  assert.ok(choiceIds(html).includes(missing),"Unavailable saved selections stay visible for repair");
-  assert.match(html,/Showing 50 of 6001/);
-  const action={dataset:{definitionAction:"more-choices",definitionKind:"policies",definitionId:policy.id},closest(){return this;}};
-  editReusable(card,{type:"click",target:action});
-  assert.equal(choiceIds(namedPolicies(card)).length,100);
-  const search={dataset:{definitionPickerSearch:""},value:"sensor.household-599_9"};
-  editReusable(card,{type:"input",target:search});
-  html=namedPolicies(card);
-  assert.deepEqual(choiceIds(html).sort(),[missing,selected].sort());
-  assert.match(html,/data-definition-value="entity:household-599-9" checked/);
-  assert.equal(card.policyPicker.limit,50,"Changing search starts with a bounded result set");
-  editReusable(card,{type:"input",target:{...search,value:""}});
-  editReusable(card,{type:"change",target:{dataset:{definitionPickerSelected:""},checked:true}});
-  assert.deepEqual(choiceIds(namedPolicies(card)).sort(),[missing,selected].sort());
-  assert.deepEqual(policy.excluded_sources,[selected,missing],"Searching and paging never change selections");
-});
-
-for(const [type,id] of [["battery","registry:kitchen-motion"],["device","kitchen-device"],["vacuum","registry:robot"],["ups_power","backup"],["thermostat","registry:thermostat"],["temperature_limit","registry:temperature"]])test(`${type} choices identify their effective area`,()=>{
+for(const [type,id] of [["battery","registry:kitchen-motion"],["vacuum","registry:robot"],["ups_power","backup"],["thermostat","registry:thermostat"],["temperature_limit","registry:temperature"]])test(`${type} choices identify their effective area`,()=>{
   const {card,policy}=fixture(type),choice=policySelectionChoices(card,policy,"selected").find(item=>item.id===id);
   assert.ok(choice);
   assert.match(choice.context,/Kitchen|Garage|Office/);
@@ -235,18 +151,6 @@ test("exclusion choices retain area context and exact source identity",()=>{
   const choices=policySelectionChoices(card,policy,"all_except");
   assert.ok(choices.some(item=>item.id==="device:kitchen-device"&&item.context==="Kitchen · Ground floor"));
   assert.ok(choices.some(item=>item.id==="device:garage-device"&&item.context==="Garage · Ground floor"));
-});
-
-test("device area counts require operational members but exact device choices remain available",()=>{
-  const {card,policy}=fixture("device");
-  card.current.data.inventory.catalog={candidates:[
-    source("device","working","Kitchen equipment",{area:["kitchen"],label:["safety"]},{availability_entities:["switch.kitchen"]}),
-    source("device","no-members","Empty equipment",{area:["empty"],label:["future"]},{availability_entities:[]}),
-    source("device","disabled","Disabled equipment",{area:["office"],label:["climate"]},{disabled:true,availability_entities:["switch.office"]}),
-  ]};
-  assert.deepEqual(policySelectionChoices(card,policy,"area").filter(item=>item.count>0).map(item=>item.id),["kitchen"]);
-  assert.deepEqual(policySelectionChoices(card,policy,"label").filter(item=>item.count>0).map(item=>item.id),["safety"]);
-  assert.ok(policySelectionChoices(card,policy,"selected").some(item=>item.id==="no-members"));
 });
 
 test("duplicate entity IDs fall back to distinct registry identities",()=>{

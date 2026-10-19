@@ -57,10 +57,14 @@ def device_sources(
     hass.states.async_set(switch.entity_id, "off")
     config_data["monitoring_policies"] = [
         monitoring_policy(
-            "devices", {"kind": ["device"]}, notifications=immediate_notification()
+            "temperature",
+            {"kind": ["entity"], "entity": [f"registry:{temperature.id}"]},
+            notifications=immediate_notification(),
         ),
         monitoring_policy(
-            "entities", {"kind": ["entity"]}, notifications=immediate_notification()
+            "switch",
+            {"kind": ["entity"], "entity": [f"registry:{switch.id}"]},
+            notifications=immediate_notification(),
         ),
     ]
     return device, temperature, switch
@@ -78,12 +82,12 @@ async def test_outage_partial_recovery_absence_and_reload_keep_one_device_messag
     hass.states.async_set(temperature.entity_id, "unavailable")
     hass.states.async_set(switch.entity_id, "unavailable")
     await hass.async_block_till_done()
-    assert len(runtime.episodes) == 3
+    assert len(runtime.episodes) == 2
     assert len(events) == 1
     first = events[0].data
     assert first["notification_subject"] == f"device:{device.id}"
     assert first["title"] == "Hall controller"
-    assert len(first["episodes"]) == 3
+    assert len(first["episodes"]) == 2
     assert not first["silent"]
     tag = first["tag"]
     remaining_id = next(
@@ -147,10 +151,10 @@ async def test_distinct_delivery_instructions_do_not_combine(
     hass.states.async_set(temperature.entity_id, "unavailable")
     hass.states.async_set(switch.entity_id, "unavailable")
     await hass.async_block_till_done()
-    assert len(runtime.episodes) == 3
+    assert len(runtime.episodes) == 2
     assert len(events) == 2
     assert len({event.data["tag"] for event in events}) == 2
-    assert sorted(len(event.data["episodes"]) for event in events) == [1, 2]
+    assert sorted(len(event.data["episodes"]) for event in events) == [1, 1]
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -173,8 +177,8 @@ async def test_compatible_route_removal_keeps_other_device_findings(
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data
-    assert len(runtime.episodes) == 3
-    assert len(runtime.delivery.messages) == 2
+    assert len(runtime.episodes) == 2
+    assert len(runtime.delivery.messages) == 1
     assert {message["tag"] for message in runtime.delivery.messages.values()} == {tag}
     assert all(event.data["action"] != "resolve" for event in events)
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -281,7 +285,9 @@ async def test_presence_change_keeps_new_findings_away_from_previous_destination
     assert home_updates[0]["action"] == "resolve"
     assert home_updates[0]["episodes"] == []
     assert home_updates[0]["tag"] == home_tag
-    assert away_updates[-1]["action"] == "update"
-    assert len(away_updates[-1]["episodes"]) == 1
-    assert away_updates[-1]["tag"] == away_tag
+    assert away_updates == []
+    assert {
+        message["tag"] for message in entry.runtime_data.delivery.messages.values()
+    } == {away_tag}
+    assert len(entry.runtime_data.episodes) == 1
     assert await hass.config_entries.async_unload(entry.entry_id)

@@ -144,33 +144,42 @@ export async function runLiveCases({page,lab,call,record,artifactDir,group="all"
       await fill(field("name"),`${supplied.name} edited`);await save();await fill(field("name"),supplied.name);await save();
       await noChange(before);
     });
-    for(const type of ["integration","device","entity","battery","vacuum","repair","broken_automation","thermostat","temperature_limit","ups_power","ups_reserve","ups_battery_replacement","ups_fault"]) {
+    for(const type of ["integration","entity","entity_not_provided","battery","vacuum","repair","broken_automation","thermostat","temperature_limit","ups_power","ups_reserve","ups_battery_replacement","ups_fault"]) {
       await run(`live.policies.type.${type}`,async()=>{
         const id=await addPolicy(type,`Acceptance ${type}`);
         if(type==="temperature_limit")await fill(field("parameters:minimum"),"40");
         if(type==="battery")await fill(field("parameters:threshold"),"25");
+        if(type==="entity_not_provided") {
+          assert.equal(await at(field("parameters:duration_seconds")).inputValue(),"24");
+          await fill(field("parameters:duration_seconds"),"2");
+          await fill(field("entity-search"),lab.entities?.offline||"sensor.ui_lab_offline");
+          await at(`${field("entity-choice")}:not(:disabled)`).first().uncheck();
+        }
         await save();const saved=(await snapshot()).monitoring_policies.find(p=>p.id===id);
         assert.ok(saved);assert.equal(saved.enabled,false);
         await edit("policies",id);assert.equal(await savedName(),`Acceptance ${type}`);
         if(type==="battery")assert.equal(await at(field("parameters:threshold")).inputValue(),"25");
         if(type==="temperature_limit")assert.equal(await at(field("parameters:minimum")).inputValue(),"40");
+        if(type==="entity_not_provided") {
+          assert.equal(saved.parameters.duration_seconds,7200);
+          assert.equal(await at(field("parameters:duration_seconds")).inputValue(),"2");
+          assert.ok(saved.excluded_sources.length);
+          assert.equal((await snapshot()).notifications,false);
+        }
         await menu("policies",id,"delete");await deleteConfirm();
         return `Created, saved, reopened and deleted ${type}; initial/default detection plus explicit temperature/battery values. Boundary validation belongs to fixture coverage.`;
       });
     }
     await run("live.policies.selection",async()=>{
       const id=await addPolicy("entity","Acceptance selection");
-      await choose(field("watch"),"selected");await click(action("pick"));
-      await fill('[data-definition-picker-search]',lab.entities?.offline||"sensor.ui_lab_offline");
-      const choice=at(`${field("selection")}`).first(),value=await choice.getAttribute("data-definition-value");
-      await choice.check();await check('[data-definition-picker-selected]',true);await selected(`${field("selection")}[data-definition-value="${value}"]`);
-      await fill('[data-definition-picker-search]',"no-acceptance-source-matches");assert.equal(await at(field("selection")).count(),0);
-      await fill('[data-definition-picker-search]',"");await selected(`${field("selection")}[data-definition-value="${value}"]`);
-      await click(action("finish-pick"));await save();
-      assert.ok(JSON.stringify((await snapshot()).monitoring_policies.find(p=>p.id===id).match).includes(value));
-      await edit("policies",id);await choose(field("watch"),"all_except");await click(action("pick"));
-      await fill('[data-definition-picker-search]',lab.entities?.offline||"sensor.ui_lab_offline");await at(field("selection")).first().check();await click(action("finish-pick"));await save();
-      assert.ok((await snapshot()).monitoring_policies.find(p=>p.id===id).excluded_sources.length);
+      await fill(field("entity-search"),lab.entities?.offline||"sensor.ui_lab_offline");
+      const choice=at(field("entity-choice")).first();await choice.waitFor();
+      const value=await choice.getAttribute("data-definition-value");await choice.uncheck();
+      await fill(field("entity-search"),"no-acceptance-source-matches");assert.equal(await at(field("entity-choice")).count(),0);
+      await fill(field("entity-search"),lab.entities?.offline||"sensor.ui_lab_offline");assert.equal(await choice.isChecked(),false);
+      await save();assert.ok((await snapshot()).monitoring_policies.find(p=>p.id===id).excluded_sources.includes(value));
+      await edit("policies",id);await fill(field("entity-search"),lab.entities?.offline||"sensor.ui_lab_offline");await at(field("entity-choice")).first().check();await save();
+      assert.equal((await snapshot()).monitoring_policies.find(p=>p.id===id).excluded_sources,undefined);
       await menu("policies",id,"delete");await deleteConfirm();
     });
     await run("live.policies.notification-empty",async()=>{

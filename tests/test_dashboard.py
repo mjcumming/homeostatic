@@ -1,6 +1,5 @@
 """Dashboard scenarios through real Home Assistant WebSocket connections."""
 
-from collections.abc import Callable
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -427,7 +426,7 @@ async def test_grouped_inventory_keeps_current_status_for_recorded_checks(
     hass_ws_client: WebSocketGenerator,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """One integration issue carries each device and entity check's own evidence."""
+    """One integration issue carries each independent entity check's own evidence."""
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.SETUP_ERROR)
     owner.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(
@@ -441,7 +440,9 @@ async def test_grouped_inventory_keeps_current_status_for_recorded_checks(
     ]
     policies = [
         monitoring_policy("integration", {"kind": ["integration"]}),
-        monitoring_policy("devices", {"kind": ["device"]}),
+        monitoring_policy(
+            "devices", {"kind": ["entity"], "entity": [f"registry:{children[0].id}"]}
+        ),
         monitoring_policy("entities", {"kind": ["entity"], "domain": ["sensor"]}),
     ]
     config_data.update(monitoring_policies=policies, notifications=False)
@@ -451,7 +452,7 @@ async def test_grouped_inventory_keeps_current_status_for_recorded_checks(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     [episode_id] = runtime.episodes
-    device_check = bound_identity(policies[1], f"device:{device.id}")
+    device_check = bound_identity(policies[1], f"entity:registry:{children[0].id}")
     first, second = (
         bound_identity(policies[2], f"entity:registry:{child.id}") for child in children
     )
@@ -462,7 +463,7 @@ async def test_grouped_inventory_keeps_current_status_for_recorded_checks(
     assert (await client.receive_json())["success"]
     initial = (await client.receive_json())["event"]["inventory"]["entity_status"]
     assert set(initial) == expected
-    assert initial[device_check]["current"]["reason"] == "all_unavailable"
+    assert initial[device_check]["current"]["reason"] == "unavailable"
     assert all(
         initial[node]["current"]["reason"] == "unavailable" for node in (first, second)
     )
@@ -487,7 +488,7 @@ async def test_grouped_inventory_keeps_current_status_for_recorded_checks(
     runtime = entry.runtime_data
     reloaded = runtime.inventory_updates()["entity_status"]
     assert set(reloaded) == expected
-    assert reloaded[device_check]["current"]["reason"] == "all_unavailable"
+    assert reloaded[device_check]["current"]["reason"] == "unavailable"
     assert reloaded[first]["last_failure"]["reason"] == "unavailable"
     assert reloaded[second]["last_failure"]["reason"] == "unavailable"
     owner._async_set_state(hass, ConfigEntryState.LOADED, None)
@@ -696,23 +697,61 @@ async def test_unmonitored_sources_show_observations_without_enrollment(
     await client.close()
 
 
-@pytest.mark.parametrize(
-    ("command", "page_from_result"),
-    [
-        pytest.param("source", lambda result: result, id="discovered-source"),
-        pytest.param(
-            "node", lambda result: result["device_evidence"], id="monitored-device"
-        ),
-    ],
-)
+async def test_device_source_coverage_includes_healthy_entity_policies(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    hass_ws_client: WebSocketGenerator,
+) -> None:
+    """Device coverage includes actual child checks without requiring open issues."""
+    owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
+    owner.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=owner.entry_id, identifiers={("test", "coverage")}
+    )
+    registry = er.async_get(hass)
+    entity = registry.async_get_or_create(
+        "sensor", "test", "covered", config_entry=owner, device_id=device.id
+    )
+    other = registry.async_get_or_create("sensor", "test", "other", config_entry=owner)
+    hass.states.async_set(entity.entity_id, "42")
+    hass.states.async_set(other.entity_id, "42")
+    config_data.update(
+        notifications=False,
+        monitoring_policies=[
+            monitoring_policy("devices", {"kind": ["entity"], "device": [device.id]}),
+            monitoring_policy("general", {"kind": ["entity"]}),
+            monitoring_policy("overlap", {"entity": [f"registry:{entity.id}"]}),
+            monitoring_policy("elsewhere", {"entity": [f"registry:{other.id}"]}),
+            monitoring_policy("disabled", {"kind": ["entity"]}, enabled=False),
+        ],
+    )
+    entry = MockConfigEntry(domain=DOMAIN, data=config_data)
+    runtime = await start_monitor(hass, entry)
+    before = deepcopy(runtime.snapshot())
+    client = await hass_ws_client(hass)
+    await client.send_json(
+        {"id": 1, "type": "homeostatic/source", "node_id": f"device:{device.id}"}
+    )
+    response = await client.receive_json()
+    assert "result" in response, response
+    assert {item["id"] for item in response["result"]["monitoring_policies"]} == {
+        "devices",
+        "general",
+        "overlap",
+    }
+    assert runtime.snapshot() == before
+    assert not runtime.episodes
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await client.close()
+
+
 async def test_member_evidence_pages_are_complete_stable_and_read_only(
     hass: HomeAssistant,
     config_data: dict[str, Any],
     hass_ws_client: WebSocketGenerator,
-    command: str,
-    page_from_result: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> None:
     """Every member is reachable once, including equal-name rows past page one."""
+    command = "source"
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     owner.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(
@@ -734,22 +773,19 @@ async def test_member_evidence_pages_are_complete_stable_and_read_only(
         by_state[state].append(entity.entity_id)
     config_data.update(
         notifications=False,
-        monitoring_policies=[monitoring_policy("devices", {"kind": ["device"]})],
+        monitoring_policies=[
+            monitoring_policy("devices", {"kind": ["entity"], "device": [device.id]})
+        ],
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     client = await hass_ws_client(hass)
-    node_id = {
-        "source": f"device:{device.id}",
-        "node": bound_identity(
-            config_data["monitoring_policies"][0], f"device:{device.id}"
-        ),
-    }[command]
+    node_id = f"device:{device.id}"
     request = {"type": f"homeostatic/{command}", "node_id": node_id}
     before = deepcopy(runtime.snapshot())
 
     await client.send_json({"id": 1, **request})
-    first = page_from_result((await client.receive_json())["result"])
+    first = (await client.receive_json())["result"]
     assert len(first["members"]) == 50
     assert first["offset"] == 0
     assert first["next_offset"] == 50
@@ -757,7 +793,7 @@ async def test_member_evidence_pages_are_complete_stable_and_read_only(
     assert first["unavailable_count"] == 60
 
     await client.send_json({"id": 2, **request, "offset": 50, "limit": 20})
-    second = page_from_result((await client.receive_json())["result"])
+    second = (await client.receive_json())["result"]
     assert len(second["members"]) == 20
     assert second["offset"] == 50
     assert second["next_offset"] == 70
@@ -765,7 +801,7 @@ async def test_member_evidence_pages_are_complete_stable_and_read_only(
     assert second["unavailable_count"] == 60
 
     await client.send_json({"id": 3, **request, "offset": 70, "limit": 20})
-    last = page_from_result((await client.receive_json())["result"])
+    last = (await client.receive_json())["result"]
     assert len(last["members"]) == 5
     assert last["next_offset"] is None
     assert last["total"] == 75
@@ -777,21 +813,22 @@ async def test_member_evidence_pages_are_complete_stable_and_read_only(
     ]
 
     await client.send_json({"id": 4, **request, "limit": 200})
-    complete = page_from_result((await client.receive_json())["result"])
+    complete = (await client.receive_json())["result"]
     assert complete["members"] == combined
     assert complete["next_offset"] is None
     await client.send_json({"id": 5, **request, "offset": 75})
-    empty = page_from_result((await client.receive_json())["result"])
+    empty = (await client.receive_json())["result"]
     assert empty["members"] == []
     assert empty["next_offset"] is None
     await client.send_json({"id": 6, **request, "offset": 76})
     assert (await client.receive_json())["error"]["code"] == "invalid_offset"
-    with pytest.raises(ValueError, match="nonnegative offset"):
-        runtime.device_evidence(node_id, offset=-1)
-    with pytest.raises(ValueError, match="limit from 1 to 200"):
-        runtime.device_evidence(node_id, limit=0)
-    with pytest.raises(ValueError, match="limit from 1 to 200"):
-        runtime.device_evidence(node_id, limit=201)
+    for message_id, field, value in (
+        (5, "offset", -1),
+        (6, "limit", 0),
+        (7, "limit", 201),
+    ):
+        await client.send_json({"id": message_id, **request, field: value})
+        assert not (await client.receive_json())["success"]
     assert runtime.snapshot() == before
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()

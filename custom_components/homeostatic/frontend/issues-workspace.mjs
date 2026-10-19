@@ -1,8 +1,8 @@
-import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=97";
+import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=99";
 
-import {deviceEntityName} from "./device-availability.mjs?v=97";
-import {waitingOnly} from "./check-presentation.mjs?v=97";
-import {issueDeviceId} from "./device-issue-model.mjs?v=97";
+import {deviceEntityName} from "./device-entities.mjs?v=99";
+import {waitingOnly} from "./check-presentation.mjs?v=99";
+import {issueDeviceId} from "./device-issue-model.mjs?v=99";
 
 const count = (value, singular, plural = `${singular}s`) => `${value} ${value === 1 ? singular : plural}`;
 const sourceId = source => source?.monitoring_source || source?.node_id;
@@ -162,7 +162,7 @@ export function issuesWorkspace(card) {
       const rows = shown.map(episode=>`<div data-ui-key="issue:${esc(episode.episode_id)}">${card.issueRow(data,episode,nodes,subject.deviceId ? subject : null,{interactive:!combined || owners.get(episode.episode_id)!==subject.deviceId})}</div>`).join("");
       if (!subject.deviceId) return rows;
       const view = combined ? `<button type="button" class="button" data-device-issues="${esc(subject.deviceId)}" aria-label="View issues for ${esc(subject.name)}">View</button>` : "";
-      return `<section class="issue-device" data-ui-key="${esc(subject.key)}" data-issue-device="${esc(subject.deviceId)}"><div class="issue-device-heading"><h3 class="issue-device-title">${esc(subject.name)}</h3><span class="small">${esc(count(subject.episodes.length,"issue"))}</span>${view}</div><div class="issue-device-findings">${rows}${waitingChecks(data,subject,nodes,devices)}</div>${shown.length < subject.episodes.length ? `<p class="small issue-device-partial">Showing ${shown.length} of ${subject.episodes.length} issues for this device</p>` : ""}</section>`;
+      return `<section class="issue-device${combined ? " issue-device-compact" : ""}" data-ui-key="${esc(subject.key)}" data-issue-device="${esc(subject.deviceId)}"><div class="issue-device-heading"><h3 class="issue-device-title">${esc(subject.name)}</h3>${subject.episodes.length > 1 ? `<span class="small">${esc(count(subject.episodes.length,"issue"))}</span>` : ""}</div><div class="issue-device-findings">${rows}${waitingChecks(data,subject,nodes,devices)}</div>${view}${shown.length < subject.episodes.length ? `<p class="small issue-device-partial">Showing ${shown.length} of ${subject.episodes.length} issues for this device</p>` : ""}</section>`;
     }).join("");
     const affectedDevices=new Set(),standaloneEntities=new Set();
     for(const episode of episodes)for(const id of episodeSourceIds(episode)){const source=nodes.get(id),canonical=nodes.get(source?.monitoring_source)||source,ids=canonical?.attributes?.device||source?.attributes?.device||[];if(source?.entity_id&&!ids.length)standaloneEntities.add(source.entity_id);for(const device of ids)affectedDevices.add(device);}

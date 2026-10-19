@@ -19,6 +19,10 @@ card._hass={user:{id:"fixture",is_admin:true},config:{time_zone:"America/Chicago
   calls.push(copy(request));
   if(request.type==="homeostatic/configuration")return configuration();
   if(request.type==="homeostatic/node")return independentDeviceReply(fixture,request.node_id);
+  if(request.type==="homeostatic/source") {
+    const reply=independentDeviceReply(fixture,request.node_id);
+    return {...reply,...reply.device_evidence};
+  }
   if(request.type!=="call_service")throw Error("Unexpected isolated request: "+request.type);
   const id=request.service_data.episode_id;
   check(fixture.data.inventory.episodes.some(episode=>episode.episode_id===id),"Action targets an open issue");
@@ -42,9 +46,13 @@ function reset(integrationFailed=false) {
 async function openIssue(id="issue:devices:deck") {
   await close();await click('[data-page="problems"]');
   if(find('[data-issue-group="integration:matter"]').getAttribute("aria-expanded")==="false")await click('[data-issue-group="integration:matter"]');
-  // Device-owned issues sit behind the device's View in Open issues; open those as a notification link would.
-  if(root.querySelector(`[data-episode="${id}"]`))await click(`[data-episode="${id}"]`);else{card.openDetail({episodeId:id});await settle();}
-  check(card.dialog.open,"Selected issue opens");
+  const episode=fixture.data.inventory.episodes.find(item=>item.episode_id===id);
+  const source=fixture.data.inventory.nodes.find(item=>item.node_id===episode.anchor);
+  const device=source.attributes?.device?.[0];
+  await click(device?`[data-device-issues="${device}"]`:`[data-episode="${id}"]`);check(card.dialog.open,"Selected issue opens");
+  for(const choice of card.dialog.querySelectorAll('[data-device-issue-select]')) {
+    if(choice.checked!==(choice.dataset.deviceIssueSelect===id)){choice.checked=choice.dataset.deviceIssueSelect===id;choice.dispatchEvent(new Event('change',{bubbles:true}));await settle();}
+  }
 }
 const noOverflow=()=>check(find(".shell").scrollWidth<=find(".shell").clientWidth+1,"Panel fits viewport");
 async function showHistory() {await close();await click('[data-page="history"]');await click('[data-history-toggle="former-matter-group"]');}
@@ -63,20 +71,19 @@ document.querySelector("#run").onclick=async()=>{
   try {
     await path("issues.independent-devices",async()=>{
       reset();await settle();
-      const issueIds=[...Object.keys(deviceNames).map(id=>`issue:devices:${id}`),"issue:deck-extra:deck"];
-      check(root.querySelectorAll("[data-device-issues]").length===4&&issueIds.every(id=>root.querySelector(`[data-ui-key="issue:${id}"]`)),"Four device issues plus a separate overlapping policy remain reachable");
+      check(root.querySelectorAll("[data-device-issues]").length===4,"Four device entries remain reachable, with the overlapping policy inside its owner");
       await openIssue();const text=card.dialog.innerText;
       check(text.includes(deviceNames.deck),"Light's name is visible");
       for(const name of [deviceNames.hallway,deviceNames.mudroom,deviceNames.plug])check(!text.includes(name),"Unrelated device stays out: "+name);
-      check(find("[data-issue-response]",card.dialog).dataset.issueResponse==="issue:devices:deck","Both actions target the light issue");
+      check(card.dialog.querySelectorAll('[data-device-issue-select]').length===2,"Overlapping policy keeps its separate selectable issue");
       await click('[data-device-response="acknowledge"]',card.dialog);
-      await openIssue();await click('[data-device-response="pause"]',card.dialog);await click('[data-device-response="apply-pause"]',card.dialog);
-      check(mutations().length===2&&mutations().every(request=>request.service_data.episode_id==="issue:devices:deck"),"Only the selected light received mock acknowledgment and pause");
+      await click('[data-device-response="pause"]',card.dialog);await click('[data-device-response="apply-pause"]',card.dialog);
+      check(mutations().length===2&&mutations().every(request=>request.service_data.episode_id==="issue:devices:deck"),"Only the selected light issue received mock acknowledgment and pause");
       for(const id of ["issue:devices:hallway","issue:devices:mudroom","issue:devices:plug","issue:deck-extra:deck"]) {
-        await openIssue(id);check(find('[data-issue-response]',card.dialog).dataset.issueResponse===id&&!find('[data-device-response="acknowledge"]',card.dialog).disabled,"Other issue remains unacknowledged");
-        check(!card.dialog.querySelector('[data-device-response="resume"]'),"Other issue has no inherited pause");
+        await openIssue(id);check(!find('[data-device-response="acknowledge"]',card.dialog).disabled,"Other issue remains actionable");
+        check(!fixture.data.policy.episodes.some(item=>item.episode_id===id)&&!fixture.data.inventory.operator_controls.some(item=>item.target===id),"Other issue has no inherited acknowledgment or pause");
       }
-      check(find('[data-definition-action="open-policy"]',card.dialog).dataset.definitionId==="deck-extra","Overlapping check retains its own policy");
+      check(card.dialog.querySelector('[data-definition-id="deck-extra"]'),"Overlapping check retains its own policy");
       reset(true);await openIssue("matter-outage");for(const name of Object.values(deviceNames))check(card.dialog.innerText.includes(name),"Actual integration failure retains "+name);
       check(find('[data-issue-response]',card.dialog).dataset.issueResponse==="matter-outage","Integration action retains complete issue identity");noOverflow();
     },"Clicked independent light, acknowledgment and pause through mocked services; all other device and overlapping-policy issues remain unacknowledged and unpaused. Actual failed Matter issue retains all four devices. No live services.");

@@ -96,7 +96,7 @@ test("canonical source rows preserve check aliases and all policy contributions"
   assert.match(html,/id="sources-detail-title"[^>]*>Back Deck Table Light<\/h2>/);
   assert.doesNotMatch(html,/Entity ID: light.table/);
   assert.match(html,/Home Assistant reports this entity as unavailable/);
-  assert.match(html,/data-definition-id="devices"/);
+  assert.doesNotMatch(html,/data-definition-id="devices"/);
   assert.match(html,/data-definition-id="entities"/);
   assert.match(html,/data-definition-id="extra"/);
   assert.match(html,/Monitored for availability/);

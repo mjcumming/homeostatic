@@ -145,11 +145,11 @@ Counts name their unit and scope: investigation groups, unique issues, devices, 
 | Separate check | Checked by [policy name], with the check type and its purpose. |
 | Included with device | Used by this device's availability check, with the responsible policy. |
 | Not selected | Not included in this check; show any other checks separately. |
-| Problem actions | Direct actions such as View issue, Acknowledge issue or Pause notifications. |
+| Problem actions | Direct actions such as View issue, Acknowledge or Pause. |
 | Change monitoring leading to a generic policy list | Edit policy beside its name, or a choice among the applicable policies. Follow the [policy editor layout](policy-editors.md#policies). |
 | Delivered | Notification requested, Request failed or another outcome supported by the provider evidence. |
 
-Use notification consistently for outgoing messages and their controls. Use Acknowledge issue for one issue and Acknowledge selected for a collective selection; show the count with the issue selection. Use Pause notifications with the same explicit selected scope. Use Stop monitoring for contextual stopping actions and confirmations, separately from issue selection. A button that opens a confirmation or a choice ends in an ellipsis, such as Pause notifications…, Stop monitoring… or End maintenance…; the button that completes it does not. Explain its exact availability scope and continuing independent checks in the confirmation. Resume availability monitoring retains its existing label. Reserve Remove and Delete for actual removal of an assignment or definition. Use sentence case, plain verbs and one consistent term for each concept. Explain technical distinctions at the point they affect a decision. Avoid generic Next step paragraphs when a named action is available. Help and optional integration promotion must not occupy the main path through every task.
+Use notification consistently for outgoing messages and their controls. Issue responses use the short labels Acknowledge, Pause and Resume for one issue or a selection; show the count with the issue selection. Use Stop monitoring for contextual stopping actions and confirmations, separately from issue selection. A button that opens a confirmation ends in an ellipsis, such as Stop monitoring… or End maintenance…; the button that completes it does not. Explain its exact availability scope and continuing independent checks in the confirmation. Resume availability monitoring retains its existing label. Reserve Remove and Delete for actual removal of an assignment or definition. Use sentence case, plain verbs and one consistent term for each concept. Explain technical distinctions at the point they affect a decision. Avoid generic Next step paragraphs when a named action is available. Help and optional integration promotion must not occupy the main path through every task.
 
 ## Issue and history presentation
 
@@ -175,9 +175,9 @@ For a source, explain configured behavior per check. For an open issue, list the
 
 | Action | Required explanation |
 | --- | --- |
-| Acknowledge issue / Acknowledge selected | Records awareness for the selected issue identities and stops their acknowledgment-dependent repeats; issues remain open and other applicable notification behavior can continue. |
-| Pause notifications | Applies only to the selected issue identities and their recipients for the chosen 1, 4 or 24 hours; issues remain open and later issues inherit no pause. |
-| Resume notifications | Ends this named pause; other overlapping controls can remain effective. |
+| Acknowledge | Records awareness for the selected issue identities and stops their acknowledgment-dependent repeats; issues remain open and other applicable notification behavior can continue. |
+| Pause | Applies only to the selected issue identities and their recipients for the chosen 1, 4 or 24 hours; issues remain open and later issues inherit no pause. |
+| Resume | Ends the selected issues' pauses; other overlapping controls can remain effective. |
 | End maintenance | Ends this named maintenance period; problems still present may open immediately, and other overlapping periods can remain effective. |
 | Send test | Uses this saved unchanged method and current presence. It can request a test while ordinary issue notifications are off. |
 

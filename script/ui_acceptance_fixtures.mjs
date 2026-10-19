@@ -1,4 +1,5 @@
 import {mkdir, writeFile} from "node:fs/promises";
+import assert from "node:assert/strict";
 import {join} from "node:path";
 import {controlPaths} from "../tests/frontend/control-path-inventory.mjs";
 
@@ -7,9 +8,7 @@ const evidenceKind = "Synthetic backend; existing fixture uses DOM-scripted inte
 const knownIds = new Set(controlPaths.map(row => row.id));
 const localCases = {
   "policy-picker.html": {
-    "policies.entity-types": ["entity-types"],
-    "policies.device-exclusions": ["device-exclusions"],
-    "policies.picker-context": ["keyboard-escape", "source-context", "area-relevance", "label-relevance", "catalog-loading", "scoped-save", "save-rejection", "selection-layout"],
+    "policies.entity-selection": ["entity-list","entity-save","entity-missing-loading","entity-household","selection-layout","entity-keyboard"],
   },
   "temperature-policy-editor.html": {
     "policies.temperature-detection": ["initial-state", "lower-only", "upper-only", "both-bounds", "missing-bounds", "reversed-bounds", "missing-sensors", "duration-units", "enabled-state"],
@@ -108,20 +107,11 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
       }
       if (fixture === "policy-picker.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
         await page.locator('#show').click();
-        await page.waitForFunction(()=>document.querySelector('#feedback')?.textContent.startsWith('Battery choices with'));
-        const selected = page.locator('.policy-scope input:checked');
-        await selected.focus();
-        await page.keyboard.press('ArrowDown');
-        await page.waitForFunction(() => {
-          const root = document.querySelector('homeostatic-card').shadowRoot;
-          return root.activeElement?.dataset.watchMode === 'area' && root.activeElement.checked;
-        }, null, {timeout});
-        await page.keyboard.press('ArrowUp');
-        await page.waitForFunction(() => {
-          const root = document.querySelector('homeostatic-card').shadowRoot;
-          return root.activeElement?.dataset.watchMode === 'selected' && root.activeElement.checked;
-        }, null, {timeout});
-        result.stages.push({name:'native scope arrow keys',messages:[],receipt:null,feedback:'PASS: Arrow keys change scope and retain focus after rendering.'});
+        const selected=page.locator('[data-definition-field="entity-choice"]:not(:disabled)').first();
+        await selected.focus();const before=await selected.isChecked();await page.keyboard.press("Space");
+        await page.waitForFunction(before=>document.querySelector('homeostatic-card').shadowRoot.querySelector('[data-definition-field="entity-choice"]:not(:disabled)').checked!==before,before);
+        assert.equal(await selected.evaluate(el=>el.getRootNode().activeElement===el),true);
+        result.stages.push({name:'native entity checkbox',messages:[],receipt:{results:[{id:"entity-keyboard",status:"pass",evidence:["Native Space toggles an enabled entity and preserves focus after rendering."]}]},feedback:'PASS: Space changes entity membership and retains focus.'});
       }
       if (fixture === "mobile-layout.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
         await page.locator("iframe").scrollIntoViewIfNeeded();
@@ -188,13 +178,13 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
         result.stages.push({name: "native filter dismissal", receipt: {results: [native]}, messages: [], feedback: `${native.status.toUpperCase()}: ${native.evidence.join(" ")}`});
       }
       if (fixture === "individual-issue.html" && !result.stages.some(stage => /^FAIL/i.test(stage.feedback))) {
-        const native={id:"issues.individual",status:"pass",evidence:["Native Enter opens the named notification and Back restores the issue; entity, device, policy and notification controls fit with doubled text."]};
+        const native={id:"issues.individual",status:"pass",evidence:["Native Enter opens the named notification and Back restores the device issues; device, policy, notification and response controls fit with doubled text."]};
         try {
           const notification=page.locator('dialog[open] [data-definition-action="open-notification"][data-definition-id="morning"]');
           await notification.focus();await page.keyboard.press("Enter");
           await page.locator('.notification-profile-editor').waitFor({state:"visible"});
           await page.locator('[data-workspace-return]').click();
-          await page.locator('dialog[open] [data-entity]').waitFor({state:"visible"});
+          await page.locator('dialog[open] [data-device-response="pause"]').waitFor({state:"visible"});
           await page.locator('dialog[open]').evaluate(dialog=>{dialog.scrollTop=0;});
           result.screenshot=join(artifactDir,`individual-issue-${viewport.width}-${colorScheme}.png`);
           await page.screenshot({path:result.screenshot,fullPage:true});
@@ -242,18 +232,23 @@ export async function runFixtures({browser, baseURL, artifactDir, record, viewpo
     result.status = failed ? "fail" : result.stages.length ? "pass" : "untested";
     if (!result.paths.length) result.diagnostics.push("No inventory path was proven by a declared receipt. Fixture feedback alone does not establish inventory coverage.");
     const stem = `${fixture.replace(/\.html$/, "")}-${viewport.width}-${colorScheme}`;
-    if (!failed && fixture === "policy-picker.html") await page.locator("#show-device").click();
+    if (!failed && fixture === "policy-picker.html") await page.locator("#show").click();
     if (!failed && fixture === "monitoring-inspector.html") {
       await page.locator("[data-sources-search]").fill("3rd Floor");
       await page.locator('[data-sources-select="source:device:third-floor"]').click();
-      await page.locator(".source-monitoring-explanation > summary").click();
+      await page.locator(".source-device-members").waitFor({state:"visible"});
     }
     if (!failed && fixture === "issue-evidence.html") {
       const preview=await page.locator("iframe").getAttribute("src");
       await page.goto(new URL(preview,page.url()).href);
       await page.locator("dialog[open]").waitFor({state:"visible"});
     }
-    if (failed || ["policy-picker.html", "device-issues.html", "issue-evidence.html", "monitoring-inspector.html"].includes(fixture)) {
+    if (!failed && fixture === "device-issue-selection.html") {
+      await page.locator('dialog[open] [data-action="close"]').click();
+      await page.locator("#gaps").click();
+      await page.locator("dialog[open]").filter({hasText:"No current state from Home Assistant"}).waitFor();
+    }
+    if (failed || ["policy-picker.html", "device-issues.html", "device-issue-selection.html", "issue-evidence.html", "monitoring-inspector.html"].includes(fixture)) {
       await page.evaluate(() => window.scrollTo(0, 0));
       try {result.screenshot = join(artifactDir, `${stem}.png`); await page.screenshot({path: result.screenshot, fullPage: true});}
       catch (error) {result.diagnostics.push(`Screenshot capture: ${error.message}`);}

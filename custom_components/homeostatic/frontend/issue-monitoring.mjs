@@ -1,6 +1,6 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=97";
-import {prepareAvailabilityChange, applyAvailabilityChange, availabilityConfirmation} from "./source-monitoring.mjs?v=97";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=97";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=99";
+import {prepareAvailabilityChange, applyAvailabilityChange, availabilityConfirmation} from "./source-monitoring.mjs?v=99";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=99";
 
 const identity=source=>source?.monitoring_source||source?.node_id;
 const unavailable=state=>state?.state==="unavailable"&&!state.attributes?.restored;
@@ -11,7 +11,7 @@ export function issueAvailabilityNeedsCatalog(card,episode) {
   const data=card.current.data;
   if(!episode||data.schema_version!==3||data.catalog_loaded&&!data.catalog_stale)return false;
   const findings=episode.reasons||[],ids=new Set([episode.anchor,...findings.map(finding=>finding.node_id)]);
-  return inventoryRows(data).some(source=>ids.has(source.node_id)&&source.watched&&["entity","device"].includes(source.kind)
+  return inventoryRows(data).some(source=>ids.has(source.node_id)&&source.watched&&source.kind==="entity"
     &&(source.check_id==="availability"||findings.some(finding=>finding.node_id===source.node_id&&finding.check_id==="availability")));
 }
 
@@ -23,10 +23,10 @@ export function issueAvailabilitySources(card,episodes) {
   const ids=new Set(episodes.flatMap(episode=>[episode.anchor,...(episode.reasons||[]).map(finding=>finding.node_id)])),selected=new Map();
   for(const id of ids) {
     const check=nodes.get(id),policy=policies.get(typeof check?.monitoring_policy==="string"?check.monitoring_policy:check?.monitoring_policy?.id);
-    if(!policy||!check.watched||!["entity","device"].includes(check.kind))continue;
+    if(!policy||!check.watched||check.kind!=="entity")continue;
     const current=card.current.data.inventory.entity_status?.[id]?.current;
-    const captured=["warn","fail"].includes(current?.status)&&current.reason===(check.kind==="device"?"all_unavailable":"unavailable");
-    const members=check.kind==="device"?check.availability_entities||[]:[check.entity_id];
+    const captured=["warn","fail"].includes(current?.status)&&current.reason==="unavailable";
+    const members=[check.entity_id];
     for(const entityId of members) {
       const source=entities.get(entityId),state=card._hass?.states?.[entityId];
       if(!source||source.disabled||policy.has(identity(source))||!(state?unavailable(state):captured))continue;

@@ -1,6 +1,7 @@
+import {notProvidedVisible} from "./entity-not-provided.mjs?v=99";
 /** Read-model helpers and a shared, lifecycle-bound HA subscription. */
-import {deviceProblem, entityProblem, integrationProblem} from "./problem.mjs?v=97";
-import {waitingOnly} from "./check-presentation.mjs?v=97";
+import {entityProblem, integrationProblem} from "./problem.mjs?v=99";
+import {waitingOnly} from "./check-presentation.mjs?v=99";
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -29,13 +30,20 @@ export function affectedFunctions(data, episode) {
 export function availabilityEvidenceGap(data, episode) {
   const nodes = sourceMap(data), findings = (episode.reasons || []).filter(item=>item.status !== "pass");
   const gaps = new Set(["unknown","stale","source_missing","restored_state","state_unknown","incomplete_evidence"]);
-  return findings.length > 0 && findings.every(finding=>{
+  const gapOnly = findings.length > 0 && findings.every(finding=>{
     const source=nodes.get(finding.node_id), check=finding.check_id || source?.check_id;
     const evidence=data.inventory.entity_status?.[finding.node_id] || data.inventory.integration_evidence?.[finding.node_id];
     const current=evidence?.current;
     return source && ["entity","device","integration"].includes(source.kind) && check === "availability" &&
-      (!evidence || Object.hasOwn(evidence,"last_failure") && !evidence.last_failure) &&
-      finding.status === "unknown" && gaps.has(finding.reason) && (!current || gaps.has(current.reason));
+      finding.status === "unknown" && gaps.has(finding.reason) &&
+      (!current || current.status !== "warn" && current.status !== "fail" && gaps.has(current.reason));
+  });
+  if (!gapOnly) return false;
+  const contributors = new Set([episode.anchor,...episode.recorded || [],...findings.map(item=>item.node_id)]);
+  return [...contributors].every(id=>{
+    const source=nodes.get(id), current=(data.inventory.entity_status?.[id] || data.inventory.integration_evidence?.[id])?.current;
+    return source && ["entity","device","integration"].includes(source.kind) && source.check_id === "availability" &&
+      (current ? current.status === "pass" || current.status === "unknown" && gaps.has(current.reason) : findings.some(item=>item.node_id === id));
   });
 }
 
@@ -44,12 +52,12 @@ export function visibleEpisodes(data) {
   return data.inventory.episodes.filter(episode => {
     const source = nodes.get(episode.anchor);
     if (!source) return true;
+    if(source.kind==="entity_not_provided")return notProvidedVisible(episode,data.inventory.entity_status?.[episode.anchor]);
     if (waitingOnly(data, episode)) return false;
     if (availabilityEvidenceGap(data, episode)) return false;
     const findings = episode.reasons ?? [];
     if (findings.some(item => item.node_id && item.node_id !== episode.anchor && item.status !== "pass")) return true;
     const problem = integrationProblem(source, findings, () => null, data.inventory.integration_evidence?.[episode.anchor]) ??
-      deviceProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       entityProblem(source, data.inventory.entity_status?.[episode.anchor], nodes.get(`entry:${source.owner_id}`), data.areas ?? []);
     return problem?.tone !== "recovering" && !(source.kind === "entity" && problem?.currentReason === "value_unknown");
   });

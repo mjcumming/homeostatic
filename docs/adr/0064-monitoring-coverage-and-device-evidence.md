@@ -1,5 +1,7 @@
 # ADR 0064: Monitor operational entities and consolidate device notifications
 
+**Later decision:** [ADR 0103](0103-entity-availability-with-grouped-selection.md) retires device availability policies and inferred device assessments. Historical device rules below no longer define current behavior.
+
 **Status:** Accepted
 **Date:** 2026-10-14
 

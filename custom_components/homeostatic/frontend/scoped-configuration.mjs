@@ -1,6 +1,12 @@
 /** Scope edits over confirmed settings while retaining the existing server save guards. */
 const copy=value=>value===undefined?undefined:structuredClone(value);
-const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+/** Compare JSON settings by value; server serialization can reorder object keys. */
+export function sameConfiguration(a,b) {
+  const ordered=(_key,value)=>value&&typeof value==="object"&&!Array.isArray(value)
+    ?Object.fromEntries(Object.keys(value).sort().map(key=>[key,value[key]])):value;
+  return JSON.stringify(a,ordered)===JSON.stringify(b,ordered);
+}
+const same=sameConfiguration;
 const generalKeys=["timings","consumer"];
 const keyOf=scope=>scope.id?`${scope.kind}:${scope.id}`:scope.kind;
 const methods=settings=>settings?.notification_definitions?.methods||{};

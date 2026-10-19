@@ -1,9 +1,8 @@
 /** Contextual availability changes use the same saved policy exclusions as Policies. */
-import {saveScopedConfiguration} from "./scoped-configuration.mjs?v=97";
-import {escapeHtml as esc} from "./model.mjs?v=97";
+import {saveScopedConfiguration,sameConfiguration as same} from "./scoped-configuration.mjs?v=99";
+import {escapeHtml as esc} from "./model.mjs?v=99";
 
 const copy=value=>structuredClone(value);
-const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const scope={kind:"source-availability"};
 const policies=card=>card.configuration?.settings?.monitoring_policies||[];
 const identity=source=>source?.monitoring_source||source?.node_id;
@@ -22,7 +21,6 @@ function monitoringIndex(card,values=[]) {
     const id=typeof check.monitoring_policy==="string"?check.monitoring_policy:check.monitoring_policy?.id;
     if(!check.watched||!id)continue;
     if(check.kind==="entity")add(direct,identity(check),id);
-    if(check.kind==="device")for(const entityId of check.availability_entities||[])add(members,entityId,id);
   }
   const available=policies(card).filter(policy=>policy.check==="availability").map(policy=>({...policy,excluded:new Set(policy.excluded_sources||[]),label:{id:policy.id,name:policy.name,enabled:policy.enabled}}));
   return {byId,canonical,direct,members,available};

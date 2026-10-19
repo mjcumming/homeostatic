@@ -1,5 +1,7 @@
 # ADR 0009: Use eligible HA entity evidence for one device availability summary
 
+**Later decision:** [ADR 0103](0103-entity-availability-with-grouped-selection.md) retires device availability policies and inferred device assessments. Historical device rules below no longer define current behavior.
+
 **Status:** Partially superseded by [ADR 0011](0011-device-availability-requires-meaningful-evidence.md) for evidence selection and partial-unavailability semantics. The remaining decisions are accepted. Evidence eligibility is further superseded by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md), which removes diagnostic fallback.
 
 **Date:** 2026-09-26

@@ -49,18 +49,14 @@ test("device rows omit grouping labels while preserving the original issue and c
   }
 });
 
-test("grouped production rows name the device assessment and media-player capability",()=>{
+test("grouped production rows name the media-player capability",()=>{
   const data=fixture(),nodes=new Map(data.inventory.nodes.map(source=>[source.node_id,source]));
   data.inventory.nodes.filter(source=>source.kind==="entity").forEach(source=>{source.name="Xiaozhi Ball";});
   data.inventory.entity_status={"check:device:ball":{current:{reason:"all_unavailable"}},"check:entity:player":{current:{reason:"unavailable"}}};
   const card={current:{data},displaySourceName:cardPrototype.displaySourceName,_hass:{}};
   const subject=issueDeviceGroups(data,data.inventory.episodes)[0];
   data.inventory.episodes[0].importance="critical";
-  const device=cardPrototype.issueRow.call(card,data,data.inventory.episodes[0],nodes,subject);
   const player=cardPrototype.issueRow.call(card,data,data.inventory.episodes[1],nodes,subject);
-  assert.match(device,/<strong class="issue-title">Device availability<\/strong>/);
-  assert.match(device,/All monitored entities are unavailable/);
-  assert.match(device,/aria-label="[^"]*Critical\. Since [^"]*\. Open issue"/);
   assert.match(player,/<strong class="issue-title">Media player<\/strong>/);
   assert.match(player,/aria-label="Xiaozhi Ball: Media player\./);
   assert.doesNotMatch(player,/<strong class="issue-title">Xiaozhi Ball<\/strong>/);

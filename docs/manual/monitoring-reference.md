@@ -11,7 +11,7 @@ The named notifications below initially have no delivery methods, and global sen
 | Monitoring type | Eligible source or required evidence | Starting setup | Initial notification |
 | --- | --- | --- | --- |
 | Integration availability | Eligible Home Assistant integration connections. | **Integrations** is enabled. | Morning summary |
-| Device availability | Enabled devices with at least one eligible operational entity. | **Devices** is enabled. | Morning summary |
+| Entities not provided | Enabled registered entities whose owning integration is loaded but has no live entity, including diagnostic and configuration entities. | **Entities not provided** is enabled, with a 24-hour wait. Existing installations can add or explicitly restore the policy. | Morning summary |
 | Entity availability | Enabled operational entities outside the Important equipment selection, including entities without a device. | **General entity availability** is enabled. | Morning summary |
 | Entity availability | Enabled operational cameras, locks, alarm panels and smoke, carbon monoxide, gas and moisture binary sensors. | **Important equipment availability** is enabled. | Immediate |
 | Low battery | Battery percentage sensors or numbers, or battery-class low-warning binary sensors. An associated charging report supplies context. | **Batteries** is disabled; threshold 20%. | Morning summary |
@@ -29,14 +29,13 @@ New policy assignments use these named notifications only while the definitions 
 
 ## Availability evidence
 
-Broad availability policies exclude diagnostic and configuration entities. An explicit individual entity selection can opt one into entity availability monitoring. Device availability always uses eligible operational members and respects that device policy's member exclusions. A device with no eligible members has no availability check.
+Broad availability policies exclude diagnostic and configuration entities. An explicit individual entity selection can opt one into entity availability monitoring. A device with no eligible members has no availability check.
 
 Disabled integrations, devices and entities do not acquire availability issues solely because they are disabled. Their saved monitoring choices apply again when they are enabled. Monitoring can reveal disabled sources for inspection. Homeostatic's own sources and the **Change device type of a switch** helper integration are excluded; the helper's converted entity remains eligible.
 
 | Type | Reported problem | Evidence that ends the condition |
 | --- | --- | --- |
 | Integration availability | Setup retry, setup or migration error, failed unload, or a request to sign in again. | The connection is loaded without pending reauthentication, followed by the recovery wait. |
-| Device availability | Every entity selected for that device check is unavailable. | At least one selected entity supplies a current available state, followed by the recovery wait. Other entity issues remain independent. |
 | Entity availability | Home Assistant reports unavailable. | A current state other than unavailable, followed by the recovery wait. |
 
 A current **unknown** value, **off** or **idle** still establishes HA availability. Missing states and restored startup values are evidence gaps. They cannot establish recovery. Gap-only availability findings and findings awaiting recovery confirmation stay out of Open issues; their evidence remains in **Monitoring**. See [How issues and notifications work](../how-it-works.md).

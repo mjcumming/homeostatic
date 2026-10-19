@@ -19,11 +19,13 @@ One source can have several checks. A smart plug can be reachable while its powe
 
 Availability is about Home Assistant's connection. A reachable sensor can still report an old reading, and a reachable lock might not have locked.
 
+Homeostatic checks each entity on its own. A device groups its entities and their issues but has no availability of its own. If an entity stays missing or restored while its integration is loaded, the **Entities not provided** policy opens an issue after its wait, 24 hours by default.
+
 ## When several things fail together
 
-When an integration fails, Homeostatic opens one issue for it that lists the equipment it took down, rather than an issue per device. Each affected source keeps its own notifications. If the Zigbee integration uses the morning summary and a leak detector on it uses Immediate, the outage still sends the leak detector's Immediate notification.
+When an integration fails, Homeostatic opens one issue for it that lists the equipment it took down, rather than an issue for every entity. Each affected source keeps its own notifications. If the Zigbee integration uses the morning summary and a leak detector on it uses Immediate, the outage still sends the leak detector's Immediate notification.
 
-While an integration is working, each unavailable device gets its own issue, even when several drop off at once. After a failed integration recovers, Homeostatic gives its devices a minute to reconnect, then splits anything still unavailable into separate issues. History records that as **Issues separated**.
+While an integration is working, each unavailable entity gets its own issue, even when several drop off at once. After a failed integration recovers, Homeostatic gives its devices a minute to reconnect, then splits anything still unavailable into separate issues. History records that as **Issues separated**.
 
 ## From an issue to a person
 

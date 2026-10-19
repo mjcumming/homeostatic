@@ -24,7 +24,7 @@ test("scoped controls list maintenance only and leave issue pauses to the issue 
   assert.match(html,/Working on equipment/);
   assert.match(html,/data-cancel-control="maintenance:one">End maintenance…<\/button>/);
   assert.match(html,/Replacing the sensor/);
-  assert.doesNotMatch(html,/pause:one|Notifications paused|Resume notifications|Hall thermostat/);
+  assert.doesNotMatch(html,/pause:one|Notifications paused|>Resume<|Hall thermostat/);
 });
 
 test("unscoped controls name equipment and retain dependent maintenance scope",()=>{

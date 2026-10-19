@@ -11,7 +11,7 @@ export async function runPolicyGaps(ctx) {
   const reset=async()=>{await page.goto("about:blank");Object.assign(lab,await call("homeostatic_ui_lab/control",{action:"reset"}));await clean();};
   const setup=async mutate=>{await page.goto("about:blank");const config=await call("homeostatic/configuration");const settings=structuredClone(config.settings);mutate(settings);await call("homeostatic/save_settings",{revision:config.revision,settings});await noChange(settings);await clean();return settings;};
   const test=async(id,body)=>run(id,async()=>{await reset();return body();});
-  const expectPolicy=async(before,id,expected)=>{const next=structuredClone(before),index=next.monitoring_policies.findIndex(p=>p.id===id);if(expected!==null){expected=structuredClone(expected);for(const values of Object.values(expected.match))values.sort();}if(expected===null)next.monitoring_policies.splice(index,1);else if(index<0)next.monitoring_policies.push(expected);else next.monitoring_policies[index]=expected;await noChange(next);return next;};
+  const expectPolicy=async(before,id,expected)=>{const next=structuredClone(before),index=next.monitoring_policies.findIndex(p=>p.id===id);if(expected!==null){expected=structuredClone(expected);for(const values of Object.values(expected.match))values.sort();for(const key of ["included_sources","excluded_sources"])expected[key]?.sort();}if(expected===null)next.monitoring_policies.splice(index,1);else if(index<0)next.monitoring_policies.push(expected);else next.monitoring_policies[index]=expected;await noChange(next);return next;};
   const savePolicy=async(before,id,expected)=>{const requests=transport.saveRequests;await save();assert.equal(transport.saveRequests,requests+1);return expectPolicy(before,id,expected);};
   const removeRows=async()=>{while(await at(action("remove-row")).count())await click(action("remove-row"));};
   const rows=()=>at('.policy-notification-row [data-row-field="profile"]').evaluateAll(els=>els.map(el=>({id:el.dataset.rowId,profile:el.value})));
@@ -51,48 +51,20 @@ export async function runPolicyGaps(ctx) {
     return "Custom and supplied policies: exact add/edit/enable/disable/duplicate/discard/delete/cancel effects; full installation snapshots and independent notification draft checked.";
   });
 
-  await test("policies.entity-types",async()=>{
-    const before=await snapshot(),id="default_entities",original=policy(before,id);
-    await edit("policies",id);await choose(field("watch"),"types");
-    const requests=transport.saveRequests;await click(action("save-scoped"));assert.equal(transport.saveRequests,requests);assert.match(await bodyText(),/Choose at least one/);await noChange(before);
-    await click(action("pick"));await focus('[data-definition-picker-search]');await fill('[data-definition-picker-search]',"camera");
-    await at(selection("camera")).focus();await page.keyboard.press("Space");await focus(selection("camera"));
-    await fill('[data-definition-picker-search]',"moisture");await at(selection("binary_sensor:moisture")).check();
-    await click(action("finish-pick"));await focus(action("pick"));assert.match(await bodyText(),/All cameras/);assert.match(await bodyText(),/Moisture · Binary sensors/);assert.match(await bodyText(),/current and future/);
-    const expected={...original,match_any:[{domain:["camera"]},{domain:["binary_sensor"],device_class:["moisture"]}]};delete expected.match_none;delete expected.excluded_sources;
-    let saved=await savePolicy(before,id,expected);await edit("policies",id);assert.equal(await at('[data-watch-mode="types"]').isChecked(),true);
-    await page.screenshot({path:`${ctx.artifactDir}/policies-entity-types.png`,fullPage:false});
-    for(const box of await at('.policy-scope-choice').evaluateAll(rows=>rows.map(row=>({height:row.getBoundingClientRect().height,scroll:row.scrollWidth,width:row.clientWidth}))))assert.ok(box.height>=44&&box.scroll<=box.width+1,"Metadata scope controls fit and retain touch targets");
-    await choose(field("watch"),"types_except");await click(action("pick"));await fill('[data-definition-picker-search]',"lock");await at(selection("lock")).check();await click(action("finish-pick"));
-    transport.mode="reject";await click(action("save-scoped"));await waitError();assert.equal(await at('[data-watch-mode="types_except"]').isChecked(),true);await noChange(saved);
-    transport.mode=null;await discard();assert.equal(await at('[data-watch-mode="types"]').isChecked(),true);await noChange(saved);
-    await choose(field("watch"),"types_except");await click(action("pick"));await fill('[data-definition-picker-search]',"lock");await at(selection("lock")).check();await click(action("finish-pick"));
-    const complement={...expected,match_none:[{domain:["lock"]}]};delete complement.match_any;
-    saved=await savePolicy(saved,id,complement);await clean();await edit("policies",id);assert.equal(await at('[data-watch-mode="types_except"]').isChecked(),true);assert.match(await bodyText(),/All locks/);await noChange(saved);
-    return "Policy editor owns reusable entity-type rules: union/complement save/reopen, empty rejection, keyboard selection and focus return, failed save/discard, exact single-policy persistence, future-entity explanation and narrow touch targets passed.";
-  });
-
-  await test("policies.device-exclusions",async()=>{
-    const before=await snapshot(),original=before.monitoring_policies.find(p=>p.check==="availability"&&p.match.kind.includes("device")),id=original.id;
-    const member=`entity:registry:${lab.registry_ids.offline}`,device=`device:${lab.devices.offline}`;
-    await edit("policies",id);await click(action("pick-ignored"));
-    const ignored=`${field("ignored-selection")}[data-definition-value="${member}"]`;
-    await at(ignored).check();await click(action("finish-pick"));
-    assert.equal(await at('[data-watch-mode="all"]').isChecked(),true);
-    assert.ok((await at('.policy-ignored-entities h4').allTextContents()).length>0);
-    await choose(field("watch"),"all_except");await click(action("pick"));
-    assert.equal(await at(`${field("selection")}[data-definition-value^="entity:"]`).count(),0);
-    await at(selection(device)).check();await click(action("finish-pick"));
-    let expected={...original,excluded_sources:[device,member].sort()};
-    let saved=await savePolicy(before,id,expected);await clean();await edit("policies",id);
-    assert.match(await at('.policy-selection-summary').innerText(),/Excluded devices/);
-    assert.ok((await at('.policy-ignored-entities h4').allTextContents()).length>0);
-    await choose(field("watch"),"all");expected={...original,excluded_sources:[member]};
-    saved=await savePolicy(saved,id,expected);await clean();await edit("policies",id);
-    await click(action("pick-ignored"));await at(ignored).uncheck();await click(action("finish-pick"));
-    await discard();await noChange(saved);
-    await click(action("pick-ignored"));assert.equal(await at(ignored).isChecked(),true);await click(action("finish-pick"));
-    return "Whole-device and member exclusions save independently, reopen grouped, retain members across scope changes, and discard without changing saved choices.";
+  await test("policies.entity-selection",async()=>{
+    const before=await snapshot(),id="default_entities",original=policy(before,id),source=`entity:registry:${lab.registry_ids.offline}`;
+    await edit("policies",id);await fill(field("entity-search"),lab.entities.offline);
+    const checkbox=`${field("entity-choice")}[data-definition-value="${source}"]`;
+    await at(checkbox).waitFor();const wasChecked=await at(checkbox).isChecked();
+    await at(checkbox).focus();await page.keyboard.press("Space");await focus(checkbox);
+    let expected={...original};
+    if(wasChecked)expected.excluded_sources=[...new Set([...(original.excluded_sources||[]),source])];
+    else expected.included_sources=[...new Set([...(original.included_sources||[]),source])];
+    const saved=await savePolicy(before,id,expected);await edit("policies",id);await fill(field("entity-search"),lab.entities.offline);
+    assert.equal(await at(checkbox).isChecked(),!wasChecked);await noChange(saved);
+    await page.screenshot({path:`${ctx.artifactDir}/entity-selection.png`,fullPage:false});
+    await at(checkbox).click();await discard();assert.equal(await at(checkbox).isChecked(),!wasChecked);
+    return "Entity selection saves and reopens exact membership, retains keyboard focus, preserves future selectors and discards only this policy.";
   });
 
   await test("policies.scope",async()=>{
@@ -134,8 +106,8 @@ export async function runPolicyGaps(ctx) {
 
   await test("policies.detection",async()=>{
     let saved=await snapshot();
-    for(const type of ["integration","device","entity","battery","vacuum","repair","broken_automation","thermostat","temperature_limit","ups_power","ups_reserve","ups_battery_replacement","ups_fault"]){
-      const id=await addPolicy(type,`Detection ${type}`);const expected={id,name:`Detection ${type}`,check:["integration","device","entity"].includes(type)?"availability":type,match:{kind:[["integration","device","entity"].includes(type)?type:type.startsWith("ups_")?"ups":["thermostat","temperature_limit"].includes(type)?"entity":type]},parameters:{},enabled:false};
+    for(const type of ["integration","entity","battery","vacuum","repair","broken_automation","thermostat","temperature_limit","ups_power","ups_reserve","ups_battery_replacement","ups_fault"]){
+      const id=await addPolicy(type,`Detection ${type}`);const expected={id,name:`Detection ${type}`,check:["integration","entity"].includes(type)?"availability":type,match:{kind:[["integration","entity"].includes(type)?type:type.startsWith("ups_")?"ups":["thermostat","temperature_limit"].includes(type)?"entity":type]},parameters:{},enabled:false};
       if(type==="battery"){for(const bad of ["-1","101","25.5"])await invalid(saved,field("parameters:threshold"),bad);await fill(field("parameters:threshold"),"25");expected.parameters={threshold:25};}
       if(type==="thermostat"){
         for(const key of ["margin","progress","worsening","progress_seconds"])await invalid(saved,field(`parameters:${key}`),"-1").then(()=>fill(field(`parameters:${key}`),key==="progress_seconds"?"120":"9"));

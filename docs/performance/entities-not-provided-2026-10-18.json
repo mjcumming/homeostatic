@@ -1,0 +1,159 @@
+{
+  "date": "2026-10-18",
+  "scope": "ADR 0104 Entities not provided policy",
+  "owner": "Trace not monitored history chat",
+  "decision": "docs/adr/0104-entities-not-provided-policy.md",
+  "implementation": {
+    "check": "entity_not_provided",
+    "default_duration_seconds": 86400,
+    "severity": "maintenance warning",
+    "fresh_setup_enabled": true,
+    "default_notification": "morning",
+    "existing_saved_policy_lists": "preserved; explicit addition/restoration",
+    "entity_deletion_controls": false,
+    "library_change": false
+  },
+  "candidate": {
+    "branch": "main",
+    "revision": "119af51e73405303b955025e62df44fa098308d6",
+    "dirty": true,
+    "component_sha256": "e69e612e7c282b13dee2e28479c5287fdc5429bfaea5a06f5118aa8114ec1b17",
+    "fixture_sha256": "a54bbb27f3075b9b41a138f34e00bd194f5eec11bfd89c91a7add3755ec35712",
+    "frozen_at": "2026-10-18T22:30:16.950Z"
+  },
+  "verification": {
+    "quick": {
+      "status": "pass",
+      "frontend_passed": 856
+    },
+    "strict_production_types": "pass",
+    "focused_new_policy_ha_tests": 28,
+    "combined_handoff_tests": {
+      "passed": 241,
+      "failed": 0,
+      "log": "/tmp/not-provided-handoff-final.log"
+    },
+    "additional_notification_and_disabled_scope_run": {
+      "passed": 242,
+      "failed": 0,
+      "log": "/tmp/not-provided-combined.log"
+    },
+    "synthetic_browser": [
+      {
+        "width": 1200,
+        "theme": "light",
+        "errors": [],
+        "receipt": {
+          "fixture": "not-provided-policy",
+          "synthetic": true,
+          "results": [
+            {
+              "id": "policies.not-provided",
+              "status": "pass"
+            },
+            {
+              "id": "issues.not-provided",
+              "status": "pass"
+            }
+          ]
+        },
+        "keyboard": "pass: native duration input, Tab and Discard restore saved value",
+        "overflow": false,
+        "screenshots": [
+          "issue-1200.png",
+          "editor-1200.png"
+        ]
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "errors": [],
+        "receipt": {
+          "fixture": "not-provided-policy",
+          "synthetic": true,
+          "results": [
+            {
+              "id": "policies.not-provided",
+              "status": "pass"
+            },
+            {
+              "id": "issues.not-provided",
+              "status": "pass"
+            }
+          ]
+        },
+        "keyboard": "pass: native duration input, Tab and Discard restore saved value",
+        "overflow": false,
+        "screenshots": [
+          "issue-390.png",
+          "editor-390.png"
+        ]
+      }
+    ],
+    "isolated_ha_browser": {
+      "cases": [
+        {
+          "id": "live.policies.type.entity_not_provided",
+          "status": "pass",
+          "environment": "isolated Home Assistant",
+          "interaction": "Playwright pointer and keyboard",
+          "duration_ms": 2198,
+          "detail": "Created, saved, reopened and deleted entity_not_provided; initial/default detection plus explicit temperature/battery values. Boundary validation belongs to fixture coverage."
+        }
+      ],
+      "candidate_unchanged": true,
+      "diagnostics": [],
+      "browser_errors": [],
+      "console_errors": [],
+      "websocket_errors": [
+        {
+          "connection": 1,
+          "request_id": 39,
+          "command": "topomation/locations/list",
+          "code": "unknown_command",
+          "message": "Unknown command."
+        },
+        {
+          "connection": 2,
+          "request_id": 39,
+          "command": "topomation/locations/list",
+          "code": "unknown_command",
+          "message": "Unknown command."
+        },
+        {
+          "connection": 3,
+          "request_id": 39,
+          "command": "topomation/locations/list",
+          "code": "unknown_command",
+          "message": "Unknown command."
+        }
+      ],
+      "review": "All three unknown_command replies are the expected optional absent TopoMation command. The selected new-policy case passed. Other inventory paths were deliberately untested in this focused run.",
+      "report": "build/not-provided-live-final/report.json"
+    },
+    "visual_review": {
+      "status": "pass",
+      "inspected": [
+        "build/not-provided-policy-acceptance/issue-1200.png",
+        "build/not-provided-policy-acceptance/editor-390.png"
+      ],
+      "ownership": "Policies owns selection, duration and notification assignments. Existing issue dialog owns acknowledgment, pause and Open Entity. No registry mutation or extra disclosure was added."
+    },
+    "initial_attempts": [
+      "Synthetic selection test found that the grouped-list handler still accepted availability only; expanded it to include the independent new check.",
+      "The isolated live runner first used system Node 18 without WebSocket; reran using prepared Node 24.",
+      "The local screenshot runner initially tried to close a dialog that Open Entity had already closed; corrected the fixture return path and reran."
+    ],
+    "diff_check": "pass"
+  },
+  "status": {
+    "committed": false,
+    "released": false,
+    "installed": false,
+    "household_notifications_requested": false
+  },
+  "remaining": [
+    "Physical Safari and household installation remain untested. No installation was requested.",
+    "Other application workflows retain their own scoped acceptance records; this receipt does not claim full release acceptance."
+  ]
+}

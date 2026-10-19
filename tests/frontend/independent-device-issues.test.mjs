@@ -26,15 +26,15 @@ async function detail(fixture,id) {
 /** The exact issue view offers the shared direct response for its own issue only. */
 function assertExactResponse({html,card},id) {
   assert.ok(html.includes(`data-issue-response="${id}"`));
-  assert.match(html,/data-device-response="acknowledge"[^>]*>Acknowledge issue</);
-  assert.match(html,/data-device-response="pause"[^>]*>Pause notifications…</);
+  assert.match(html,/data-device-response="acknowledge"[^>]*>Acknowledge</);
+  assert.match(html,/data-device-response="pause"[^>]*>Pause</);
   assert.doesNotMatch(html,/data-device-issue-select/);
   assert.deepEqual(selectedDeviceIssueIds(card),[id]);
 }
 
 test("a light's independent issue shows only that device and targets only that issue",async()=>{
   const fixture=independentDeviceIssuesFixture(),opened=await detail(fixture,"issue:devices:deck"),{html}=opened;
-  assert.match(html,/Back Deck Table Light/);
+  assert.match(html,/href="\/config\/devices\/device\/deck"/);
   for(const name of [deviceNames.hallway,deviceNames.mudroom,deviceNames.plug])assert.equal(html.includes(name),false);
   assertExactResponse(opened,"issue:devices:deck");
   assert.doesNotMatch(html,/4 devices|entire issue/);

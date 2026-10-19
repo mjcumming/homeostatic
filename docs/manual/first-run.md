@@ -13,9 +13,9 @@ Open **Policies**. A new installation starts with these policies on:
 | Policy | Reports | Notification |
 | --- | --- | --- |
 | Integrations | An integration that fails to load or asks you to sign in again | Morning summary |
-| Devices | A device whose monitored entities are all unavailable | Morning summary |
 | Important equipment availability | An unavailable camera, lock, alarm panel, or smoke, carbon monoxide, gas or leak detector | Immediate |
 | General entity availability | Any other unavailable entity | Morning summary |
+| Entities not provided | An entity its integration has stopped providing for 24 hours | Morning summary |
 | Repairs | A Home Assistant Repair | Morning summary |
 | Broken automations | An automation that names an entity that no longer exists | Morning summary |
 

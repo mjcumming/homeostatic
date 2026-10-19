@@ -1,5 +1,7 @@
 # ADR 0035: Align device availability with the Home Assistant proposal
 
+**Later decision:** [ADR 0103](0103-entity-availability-with-grouped-selection.md) retires device availability policies and inferred device assessments. Historical device rules below no longer define current behavior.
+
 **Status:** Accepted; entity-fallback eligibility and connectivity interpretation superseded by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md).
 **Implementation status:** See the [roadmap](../roadmap.md#current-work).
 **Date:** 2026-09-29

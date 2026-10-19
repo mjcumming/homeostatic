@@ -14,14 +14,14 @@ test("direct availability checks cover canonical entity identity without changin
   assert.deepEqual(input,before);
 });
 
-test("device-only coverage names selected evidence without covering unrelated siblings",()=>{
+test("retired device checks cannot create entity coverage",()=>{
   const selected=entity("selected",{attributes:{device:["room"]}}),sibling=entity("sibling",{attributes:{device:["room"]}});
   const device={node_id:"device:room",kind:"device",check_id:"availability",monitoring_policy:"devices",watched:true,availability_entities:[selected.entity_id]};
   const index=sourceCoverageIndex(data([selected,sibling,device]));
-  assert.deepEqual(sourceCoverage(selected,index),{monitored:true,direct:false,device:true,labels:["Device availability"]});
+  assert.deepEqual(sourceCoverage(selected,index),none);
   assert.deepEqual(sourceCoverage(sibling,index),none);
-  assert.deepEqual(sourceCoverage(device,index),{monitored:true,direct:true,device:false,labels:["Device availability"]});
-  assert.deepEqual(sourceCoveragePolicies(selected,index),["devices"]);
+  assert.deepEqual(sourceCoverage(device,index),none);
+  assert.deepEqual(sourceCoveragePolicies(selected,index),[]);
   assert.deepEqual(sourceCoveragePolicies(sibling,index),[]);
 });
 
@@ -85,9 +85,9 @@ test("overlapping and nested checks produce one stable set of coverage labels",(
   const device={node_id:"device:room",kind:"device",monitoring_policy:"devices",watched:true,availability_entities:[source.entity_id]};
   const nested={...source,watched:true,monitoring_checks:[temperature,availability]};
   const index=sourceCoverageIndex(data([nested,device,temperature,availability]));
-  assert.deepEqual(sourceCoverage(source,index),{monitored:true,direct:true,device:true,labels:["Availability","Device availability","Temperature"]});
-  assert.deepEqual(sourceCoveragePolicies(source,index),["devices","entities","temperature"]);
-  assert.deepEqual(sourceCoveragePolicies({...source,node_id:"alias:mixed",source_aliases:[source.node_id]},index),["devices","entities","temperature"]);
+  assert.deepEqual(sourceCoverage(source,index),{monitored:true,direct:true,device:false,labels:["Availability","Temperature"]});
+  assert.deepEqual(sourceCoveragePolicies(source,index),["entities","temperature"]);
+  assert.deepEqual(sourceCoveragePolicies({...source,node_id:"alias:mixed",source_aliases:[source.node_id]},index),["entities","temperature"]);
 });
 
 test("disabled auxiliary inputs do not acquire battery or UPS policy coverage",()=>{

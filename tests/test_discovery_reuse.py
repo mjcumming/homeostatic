@@ -84,18 +84,21 @@ async def test_selection_changes_and_registry_changes_still_scan(
     async_fire_time_changed(hass, dt_util.utcnow() + SWEEP_INTERVAL)
     await hass.async_block_till_done()
     calls: list[str] = []
-    widened = deepcopy(config_data)
-    widened["monitoring_policies"][0]["match"] = {"kind": ["entity", "device"]}
+    selected = deepcopy(config_data)
+    selected["monitoring_policies"][0]["match"] = {
+        "kind": ["entity"],
+        "domain": ["sensor"],
+    }
     with patch(
         "custom_components.homeostatic.runtime.inventory", side_effect=_counting(calls)
     ):
-        await runtime.async_apply_settings(Settings.from_data(widened))
+        await runtime.async_apply_settings(Settings.from_data(selected))
     assert calls == ["scan"]
 
     ar.async_get(hass).async_create("Workshop")
     await hass.async_block_till_done()
     calls.clear()
-    excluded = deepcopy(widened)
+    excluded = deepcopy(selected)
     excluded["monitoring_policies"][0]["excluded_sources"] = [
         "entity:entity_id:sensor.candidate_1"
     ]
@@ -154,9 +157,12 @@ async def test_exclusion_edit_decides_only_the_named_candidates(
     assert decided == [target]
     assert runtime.candidates[target].watched is False
     decided.clear()
-    widened = deepcopy(changed)
-    widened["monitoring_policies"][0]["match"] = {"kind": ["entity", "device"]}
+    selected = deepcopy(changed)
+    selected["monitoring_policies"][0]["match"] = {
+        "kind": ["entity"],
+        "domain": ["sensor"],
+    }
     with patch.object(enrollment, "decide", side_effect=counting):
-        await runtime.async_apply_settings(Settings.from_data(widened))
+        await runtime.async_apply_settings(Settings.from_data(selected))
     assert len(decided) == len(runtime.candidates)
     assert await hass.config_entries.async_unload(entry.entry_id)

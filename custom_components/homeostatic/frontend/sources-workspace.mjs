@@ -1,15 +1,15 @@
-import {sourceReporting} from "./reporting.mjs?v=97";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=97";
-import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=97";
-import {monitoringTree} from "./configuration.mjs?v=97";
-import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=97";
+import {sourceReporting} from "./reporting.mjs?v=99";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=99";
+import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=99";
+import {monitoringTree} from "./configuration.mjs?v=99";
+import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=99";
 
-import {deviceAvailabilitySummary, deviceEntityName} from "./device-availability.mjs?v=97";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=97";
-import {upsSourceSummary} from "./ups.mjs?v=97";
-import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=97";
-import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=97";
-import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=97";
+import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=99";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=99";
+import {upsSourceSummary} from "./ups.mjs?v=99";
+import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=99";
+import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=99";
+import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=99";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -311,17 +311,16 @@ function contributingPolicies(card,source) {
   const policies=new Map((detail?.monitoring_policies||[]).map(policy=>[policy.id,{...policy,contexts:new Set()}]));
   const saved=card.configuration?.settings?.monitoring_policies||[];
   const ids=new Set(source.source_aliases||[source.node_id]);
-  const sources=canonicalSources(card.current.data),names=new Map(sources.map(item=>[item.node_id,item.name]));
+  const sources=canonicalSources(card.current.data);
   const entityNames=new Map(sources.filter(item=>item.kind==="entity").map(item=>[item.entity_id,item.name]));
   for(const check of inventoryRows(card.current.data)) {
     const temperature=isTemperatureCheck(check)&&check.watched&&!check.disabled;
-    const memberTemperature=temperature&&source.kind==="device"&&source.attributes?.device?.some(id=>check.attributes?.device?.includes(id));
+    const memberCheck=check.watched&&source.kind==="device"&&source.attributes?.device?.some(id=>check.attributes?.device?.includes(id));
     const direct=ids.has(check.node_id)||check.monitoring_source===source.node_id||temperature&&source.kind==="entity"&&source.entity_id===check.entity_id;
-    const device=source.kind==="entity"&&check.kind==="device"&&check.watched&&check.availability_entities?.includes(source.entity_id);
-    if((!direct&&!device&&!memberTemperature)||!check.monitoring_policy)continue;
+    if((!direct&&!memberCheck)||!check.monitoring_policy)continue;
     const id=check.monitoring_policy,policy=saved.find(item=>item.id===id);
     if(!policies.has(id))policies.set(id,{id,name:policy?.name||id,contexts:new Set()});
-    policies.get(id).contexts.add(memberTemperature?`Monitors ${deviceEntityName(entityNames.get(check.entity_id)||check.name,source.name)}.`:temperature?"Monitors this entity's temperature.":device?`Uses this entity to assess ${names.get(check.monitoring_source||check.node_id)||"its device"}.`:check.kind==="entity"?"Checks this entity's availability individually.":check.kind==="device"?"Assesses this device using its selected entities.":check.kind==="integration"?"Checks whether this integration is loaded.":"Monitors this check.");
+    policies.get(id).contexts.add(memberCheck?`Monitors ${deviceEntityName(entityNames.get(check.entity_id)||check.name,source.name)}.`:temperature?"Monitors this entity's temperature.":check.kind==="entity"?"Checks this entity's availability individually.":check.kind==="integration"?"Checks whether this integration is loaded.":"Monitors this check.");
   }
   return [...policies.values()];
 }
@@ -511,9 +510,9 @@ function deviceInspection(card,node,coverage) {
   else if(!evidence||evidence.loading)summary=`<div class="source-device-summary"><p role="status">Reading current Home Assistant values…</p>${view}</div>`;
   else if(evidence.error)summary=`<div class="source-device-summary"><p role="alert">${esc(evidence.error)}</p>${view}</div><button type="button" class="button" data-action="refresh-source">Retry reading</button>`;
   else {
-    const members=evidence.members||[],counts=deviceAvailabilitySummary(evidence,{monitored:source.watched});
+    const members=evidence.members||[],counts=deviceEntitySummary(evidence,{monitored:source.watched});
     const uniformUnavailable=counts.total>0&&counts.unavailable===counts.total;
-    summary=`<div class="source-device-summary"><p>${esc(counts.label)}</p>${view}</div>${!counts.total?`<p>${source.watched?"No entities selected for device availability":"No operational entities available to inspect"}</p>`:""}`;
+    summary=`<div class="source-device-summary"><p>${esc(counts.label)}</p>${view}</div>${!counts.total?`<p>No operational entities available to inspect</p>`:""}`;
     const reading=member=>member.restored?"Not provided by integration":member.state==="missing"?"No current state":member.state==="unknown"?"Available · no value":member.state==="unavailable"?uniformUnavailable?"":"Unavailable":`Available · ${sourceReading(member)}`;
     if(members.length)body=`<section class="source-section source-device-entities"><h3>${source.watched?"Monitored entities":"Entities"}</h3><ul class="source-device-members">${members.map(member=>`<li class="source-device-member"><span>${checkbox(member)}${memberName(member)}</span>${reading(member)?`<span class="source-device-member-state">${esc(reading(member))}</span>`:""}</li>`).join("")}</ul></section>`;
     if(counts.total>members.length)body+=`<p class="small">${members.length} of ${counts.total} entity readings loaded.</p><button type="button" class="button" data-action="more-source-evidence"${evidence.moreLoading?' disabled':''}>${evidence.moreLoading?'Loading entities…':'Load more entities'}</button>${evidence.moreError?`<p role="alert">${esc(evidence.moreError)}</p>`:""}`;

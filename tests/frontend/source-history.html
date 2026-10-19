@@ -187,16 +187,14 @@ document.querySelector('#run').onclick=async()=>{
     }catch(error){recordResult(receipt,'sources.tree','fail',error.message);throw error;}finally{report();}
     try{
       await change('[data-sources-search]','3rd Floor Sensor');await click(`[data-sources-select="source:${DEVICE_ID}"]`);
-      expect(root.querySelector('.source-body').textContent.includes('1 of 3 monitored entities are unavailable'),'Device summary identifies confirmed unavailable membership');
-      expect(root.querySelector('.source-readings').textContent.includes('Unavailable'),'Current unavailable member is visible');
-      await openDisclosure(`[data-ui-key="source-details:source:${DEVICE_ID}"]`);
-      const other=[...root.querySelectorAll('.source-section h3')].find(item=>item.textContent.includes('other monitored entities'));
-      expect(other,'Other member readings are available inside the shared Details disclosure');
-      expect(root.querySelector('.source-body').textContent.includes('Available · no value')&&root.querySelector('.source-body').textContent.includes('72'),'Member readings distinguish no-value and current numeric state');
-      await openDisclosure(`[data-ui-key="source-details:source:${DEVICE_ID}"]`);
-      expect(root.querySelector('.source-policy').textContent.includes('Assesses this device using its selected entities'),'Device policy contribution is explicit');
-      expect(root.querySelector('.source-technical .source-updated').textContent.includes('Homeostatic updated'),'Device Details retains the named reconciliation timestamp');
-      await click(`[data-source-link="${ENTITY_ID}"]`);
+      expect(root.querySelector('.source-device-summary').textContent.includes('2 of 3 monitored entities available'),'Device summary counts current available readings');
+      const members=root.querySelector('.source-device-members');
+      expect(members.textContent.includes('Unavailable'),'Current unavailable member is visible');
+      expect(members.textContent.includes('Available · no value')&&members.textContent.includes('72'),'Member readings distinguish no-value and current numeric state');
+      expect(!root.querySelector('.source-monitoring-explanation,.source-technical'),'Device keeps useful readings inline without a timestamp disclosure');
+      const memberLink=root.querySelector('.source-device-members a[href*="/developer-tools/state"]');
+      expect(memberLink?.getClientRects().length,'Device member links to its Home Assistant state');
+      await showTree();await change('[data-sources-search]','sensor.3rd_floor_sensor_room_temperature');await click(`[data-sources-select="source:${ENTITY_ID}"]`);
       expect(root.querySelector('.source-identity').textContent.includes('3rd Floor Sensor'),'Member navigation retains parent device context');
       expect(root.querySelector('[data-source-policies="open"]')?.getClientRects().length&&!root.querySelector('.source-policy-links [data-definition-id]'),'Entity offers one contextual policy action');
       const native=root.querySelector('.source-native-navigation a[href*="/integrations/"]');expect(native?.getAttribute('href')==='/config/integrations/integration/lyric#config_entry=lyric','Named integration link uses its verified integration entry');

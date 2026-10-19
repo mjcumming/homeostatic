@@ -5,8 +5,8 @@
 | Type | Watches | Problem | Ends when | New installation |
 | --- | --- | --- | --- | --- |
 | Integration availability | Integration connections | Setup keeps failing or retrying, or Home Assistant asks you to sign in again | It loads normally for the recovery wait | **Integrations**: on, Morning summary |
-| Device availability | Devices with at least one enabled, non-diagnostic entity | All of its monitored entities are unavailable | One is available for the recovery wait | **Devices**: on, Morning summary |
 | Entity availability | Enabled entities; diagnostic and configuration entities only when picked individually | Home Assistant reports it unavailable | Any other state lasts for the recovery wait | **Important equipment availability**: on, Immediate. **General entity availability**: on, Morning summary |
+| Entities not provided | Enabled registered entities, including diagnostic and configuration ones | Its integration is loaded but hasn't provided it for the wait | Home Assistant reports a live state | **Entities not provided**: on, 24-hour wait, Morning summary |
 | Low battery | Battery level sensors and low-battery warnings | Level at or below the threshold, or a low warning | Every reading is normal, or the battery reports charging | **Batteries**: off, 20%, Morning summary |
 | Vacuum error | Vacuums | Error activity | Cleaning, docked, idle, paused or returning | **Vacuums**: off, Evening summary |
 | Repairs | Home Assistant Repairs other than Homeostatic's own | An active Repair | The Repair is fixed or ignored | **Repairs**: on, Morning summary |
@@ -27,7 +27,7 @@ For availability, a current `unknown`, `off` or `idle` state counts as available
 | Immediate | Immediately, day or night | 60 seconds | Important equipment availability |
 | Immediate with acknowledgment | Immediately, then every 30 minutes until acknowledged | 5 seconds | Temperature limits; UPS low reserve on backup |
 | Urgent | Daily from 08:00 to 22:00 | 60 seconds | Thermostat progress; UPS backup power and faults |
-| Morning summary | Daily at 08:00 | None | Integrations, devices, general entities, Repairs, broken automations and batteries; UPS battery replacement, and low reserve on mains |
+| Morning summary | Daily at 08:00 | None | Integrations, general entities, entities not provided, Repairs, broken automations and batteries; UPS battery replacement, and low reserve on mains |
 | Evening summary | Daily at 18:00 | None | Vacuums |
 | Weekly summary | Sundays at 08:00 | None | Nothing at first |
 
@@ -48,8 +48,8 @@ They all start without a delivery method, and the **Notifications** switch start
 | Control | Effect |
 | --- | --- |
 | Acknowledge | Records that someone has seen the issue. Stops reminders that wait for acknowledgment; summaries still include it. |
-| Pause notifications | Holds every notification about the issue, for everyone, for 1, 4 or 24 hours. Pausing again extends it. |
-| Resume notifications | Ends a pause early. |
+| Pause | Holds every notification about the issue, for everyone, for 1, 4 or 24 hours. Pausing again extends it. |
+| Resume | Ends a pause early. |
 | Stop monitoring | Excludes the entity from its availability policies. Other checks continue. |
 | End maintenance | Ends a maintenance window early. |
 | Notifications switch | Turns sending on or off for the whole installation. Monitoring continues. |

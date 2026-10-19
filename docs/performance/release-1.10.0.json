@@ -93,8 +93,35 @@
     "recovery": "Use matching Home Assistant backup and component version for rollback."
   },
   "installation": {
-    "performed": false,
-    "live_notifications_sent": false
+    "performed": true,
+    "installed_at": "2026-10-18T20:44:36.5654815Z",
+    "verified_at": "2026-10-18T20:47:07.484276+00:00",
+    "home_assistant_version": "2026.10.0",
+    "home_assistant_state": "RUNNING",
+    "installed_from": "Published release archive; all 77 component files matched verified package hashes",
+    "full_backup_completed_before_reset": true,
+    "same_config_entry": true,
+    "stored_data_matches_release_defaults": true,
+    "stored_options_empty": true,
+    "notifications_enabled": false,
+    "delivery_methods": 0,
+    "current_notification_requests": 0,
+    "monitoring_available": true,
+    "monitoring_error": null,
+    "homeostatic_system_log_entries": 0,
+    "panel_registered": true,
+    "served_frontend_matches_installed": true,
+    "rendered_review": "Chrome Policies page shows all eight defaults, six enabled and Batteries/Vacuums off; global sending off.",
+    "history": {
+      "retained_records": 100,
+      "previous_records_remaining": 45,
+      "new_outcomes": {
+        "removed": 55
+      },
+      "limit": "Normal 100-record/30-day retention applies. New reset/startup records displaced older records; pre-reset full backup retains the earlier state."
+    },
+    "test_notifications_sent": false,
+    "temporary_remote_staging_removed": true
   },
   "limits": [
     "Physical Safari and live notification-provider delivery were not tested.",

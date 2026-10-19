@@ -11,7 +11,7 @@ Select a source to see its state and coverage. A device shows how many of its mo
 ## Add or change a policy
 
 1. Open **Policies**. Select **Edit policy**, or select **Add policy**, choose a **Monitoring type** and select **Continue**.
-2. Under **Include**, choose the scope, then pick sources with the button beside it, such as **Choose batteries**.
+2. Choose what it covers. For entity availability and **Entities not provided**, search the entity list, which is grouped by integration and device, and check the entities to watch. For other types, choose the scope under **Include**, then pick sources with the button beside it, such as **Choose batteries**.
 3. Fill in **When it becomes a problem**, if the type has settings.
 4. Under **Notifications**, select **Add notification** for each named notification this policy should use. A policy with none still shows its issues in the panel.
 5. Turn on **Policy enabled** and select **Save policy**.
@@ -22,7 +22,6 @@ Select a source to see its state and coverage. A device shows how many of its mo
 | All except selected | Everything except the sources you pick, including ones added later |
 | Selected *sources* | Only the sources you pick |
 | In selected areas, With selected labels | Sources in those areas or with those labels, including ones added later |
-| Matching entity types, All except selected entity types | For entity availability: entities of the domains and device classes you pick, or every other entity |
 
 A policy's type can't change, so add a new policy for a different type. **More actions** offers **Duplicate**, whose copy starts disabled, and **Delete**. **Restore defaults** brings back supplied policies you've deleted.
 
@@ -33,8 +32,8 @@ Policies can overlap. Two battery policies can watch the same battery at differe
 Availability checks ask whether Home Assistant can reach something. They go by the state Home Assistant reports.
 
 - **Integrations** reports an integration that fails to load or asks you to sign in again.
-- **Devices** reports a device when all of its monitored entities are unavailable. Its **Ignored entities** section lists entities left out of that check; change them with **Choose ignored entities**.
-- **Important equipment availability** and **General entity availability** report single entities. Important equipment starts with cameras, locks, alarm panels, and smoke, carbon monoxide, gas and leak detectors, and uses Immediate. General covers every other entity and uses Morning summary. Change either one's **Include** to move entity types between them. They're independent, so editing one never changes the other.
+- **Important equipment availability** and **General entity availability** report single entities. Important equipment starts with cameras, locks, alarm panels, and smoke, carbon monoxide, gas and leak detectors, and uses Immediate. General covers every other entity and uses Morning summary. Both start from entity types, so new entities of those types are included. Checking or clearing an entity in one policy doesn't change the other.
+- **Entities not provided** reports an entity that Home Assistant still has registered but its integration, while loaded, hasn't provided for **For at least (hours)**, 24 by default. An entity that's live but unavailable belongs to the availability policies instead. **Open entity** in the issue takes you to it in Home Assistant; Homeostatic never deletes registrations.
 
 Availability policies skip entities disabled in Home Assistant, and skip diagnostic and configuration entities unless you pick them individually.
 

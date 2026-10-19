@@ -39,7 +39,7 @@ The `change` field says what happened:
 | `device_id`, `area_id`, `floor_id` | The source's Home Assistant device, area and floor IDs, or `null` |
 | `status` | `warn`, `fail` or `unknown` |
 | `importance` | `low`, `normal`, `high` or `critical`. |
-| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `battery`, `vacuum`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
+| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `entity_not_provided`, `battery`, `vacuum`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
 | `opened_at` | When the issue opened, as an ISO 8601 timestamp |
 | `shelved` | Whether Pause notifications was on for the issue |
 | `maintenance` | Whether the source was covered by an equipment maintenance window |
@@ -50,6 +50,8 @@ The `change` field says what happened:
 | `split_from` | On successor `opened` events: the predecessor issue ID whose controls and attention state were retained |
 
 Vacuum evidence gaps use `vacuum_unavailable`, `vacuum_unknown`, `vacuum_missing`, `vacuum_restored` or `vacuum_unrecognized`, each with status `unknown`. Device grouping in the panel does not change event issue identities or recorded membership.
+
+Entities not provided findings use check `entity_not_provided`, with reason `entity_not_provided` for a qualified warning and `entity_provided` for a live entity. While the owning integration is starting or unloaded the reason is `provider_not_loaded`, and when ownership can't be confirmed it's `provider_not_confirmed`; both have status `unknown` and request no notifications.
 
 ### `homeostatic_control`
 
