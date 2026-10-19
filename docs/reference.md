@@ -226,7 +226,7 @@ data:
 
 ### `homeostatic.shelve`
 
-The action behind **Pause notifications**.
+The action behind **Pause**.
 
 | Field | Required | Value |
 | --- | --- | --- |

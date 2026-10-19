@@ -6,7 +6,7 @@
 
 Expand an integration and select **View** beside a device. The dialog shows every current issue on that device, whatever the check: availability, battery, temperature or anything else. **Open device** opens the device in Home Assistant. **Policies:** and **Notifications:** list what covers these issues; select a name to open that editor, and **Back to issue** to return.
 
-![A device dialog with three issues selected](../images/manual-issue-detail.png)
+![A device dialog with two issues selected](../images/device-dialog.png)
 
 **View** on a device in **Monitoring** opens the same dialog.
 
@@ -16,11 +16,11 @@ Issues that don't belong to a single device open on their own: an entity without
 
 When a device has several issues, they all start selected. Clear any you want to leave alone, then choose:
 
-- **Acknowledge selected** to record that someone has seen them. Reminders that wait for acknowledgment stop, and summaries still include them.
-- **Pause notifications…** to hold every notification about them, for everyone, for 1, 4 or 24 hours. Pausing again extends a pause.
-- **Resume notifications** to end their pauses early.
+- **Acknowledge** to record that someone has seen them. Reminders that wait for acknowledgment stop, and summaries still include them.
+- **Pause** to hold every notification about them, for everyone, for 1, 4 or 24 hours. Pausing again extends a pause.
+- **Resume** to end their pauses early.
 
-With one issue the first button reads **Acknowledge issue**. Acknowledging or pausing doesn't change monitoring, and the issues stay open until their checks see recovery. New issues don't inherit an acknowledgment or a pause. If an action fails for one issue, the dialog says which.
+An issue that opens on its own has the same buttons. Acknowledging or pausing doesn't change monitoring, and the issues stay open until their checks see recovery. New issues don't inherit an acknowledgment or a pause. If an action fails for one issue, the dialog says which.
 
 ## Stop watching something
 
@@ -32,7 +32,7 @@ Tapping a notification about one issue opens that issue. A notification about se
 
 ## When an issue ends
 
-An issue ends when its check sees recovery. Availability issues wait a little first, so a device that flickers back and drops off again stays one issue; [Defaults and settings](settings-reference.md#installation-timing) lists the wait. An availability issue whose current state is unknown, or that is waiting out that confirmation, leaves **Open issues** but stays visible on its source in **Monitoring**.
+An issue ends when its check sees recovery. Availability issues wait a little first, so a device that flickers back and drops off again stays one issue; [Defaults and settings](settings-reference.md#installation-timing) lists the wait. An availability issue with no current reading, or one waiting out that confirmation, leaves **Open issues** but stays visible on its source in **Monitoring**.
 
 **History** keeps the last 100 ended issues from the past 30 days. Search with **Find a past issue**, and select a row to see what was recorded and when.
 

@@ -8,12 +8,11 @@ Homeostatic fires events on Home Assistant's event bus so you can build your own
 | `homeostatic_control` | An issue notification pause or equipment maintenance window starts or ends, or an issue is acknowledged for the first time | No |
 | `homeostatic_notification` | Homeostatic requests a notification for one recipient | Yes |
 
-
 The payloads call an issue an *episode*: one occurrence of a problem, from the moment it opens until it ends. If the same leak sensor goes offline on Monday and again on Friday, that's two episodes with different `episode_id` values. An issue keeps its `episode_id` in detected facts and `homeostatic.resolved_history`. Individual notification requests use it too. A grouped notification has its own presentation ID and lists the exact issue IDs in `episodes`.
 
 ## Detected facts for owner automations
 
-`homeostatic_episode` and `homeostatic_control` report what Homeostatic detected and what people did about it. They fire whether notifications are on or off, and whatever the reporting choices, quiet hours, summaries, Pause notifications or Acknowledge say. Those appear as fields in the payload and never stop an event. What your automation does with an event is up to you, including things Homeostatic's own notifications wouldn't do.
+`homeostatic_episode` and `homeostatic_control` report what Homeostatic detected and what people did about it. They fire whether notifications are on or off, and whatever the reporting choices, quiet hours, summaries, pauses or acknowledgments say. Those appear as fields in the payload and never stop an event. What your automation does with an event is up to you, including things Homeostatic's own notifications wouldn't do.
 
 An issue reports what Home Assistant told Homeostatic, which isn't always a physical fault (see [what Homeostatic can't tell you](troubleshooting.md#what-homeostatic-cant-tell-you)). If an automation restarts an integration or power-cycles a device when an issue opens, give it a limit, such as `mode: single` and a delay, so it can't loop.
 
@@ -41,7 +40,7 @@ The `change` field says what happened:
 | `importance` | `low`, `normal`, `high` or `critical`. |
 | `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `entity_not_provided`, `battery`, `vacuum`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
 | `opened_at` | When the issue opened, as an ISO 8601 timestamp |
-| `shelved` | Whether Pause notifications was on for the issue |
+| `shelved` | Whether the issue's notifications were paused |
 | `maintenance` | Whether the source was covered by an equipment maintenance window |
 | `acknowledged` | Whether someone had acknowledged the issue |
 | `resolution` | Only on `resolved`. `cleared` means the problem ended. `removed` means Homeostatic stopped watching the source or changed what it checks, which says nothing about the problem. `absorbed` means the issue became part of another issue. `split` means the problems continue as separate issues, without established recovery. History shows **Cleared**, **Monitoring ended**, **Joined another problem** or **Issues separated**. |
@@ -49,7 +48,7 @@ The `change` field says what happened:
 | `split_into` | On `resolved`: the exact continuing issue IDs for `split`, otherwise an empty list |
 | `split_from` | On successor `opened` events: the predecessor issue ID whose controls and attention state were retained |
 
-Vacuum evidence gaps use `vacuum_unavailable`, `vacuum_unknown`, `vacuum_missing`, `vacuum_restored` or `vacuum_unrecognized`, each with status `unknown`. Device grouping in the panel does not change event issue identities or recorded membership.
+Vacuum evidence gaps use `vacuum_unavailable`, `vacuum_unknown`, `vacuum_missing`, `vacuum_restored` or `vacuum_unrecognized`, each with status `unknown`.
 
 Entities not provided findings use check `entity_not_provided`, with reason `entity_not_provided` for a qualified warning and `entity_provided` for a live entity. While the owning integration is starting or unloaded the reason is `provider_not_loaded`, and when ownership can't be confirmed it's `provider_not_confirmed`; both have status `unknown` and request no notifications.
 
@@ -61,7 +60,7 @@ Entities not provided findings use check `entity_not_provided`, with reason `ent
 | --- | --- |
 | `schema_version`, `entry_id` | As for `homeostatic_episode` |
 | `change` | `started` or `ended` |
-| `kind` | `shelve` (Pause notifications), `maintenance` (equipment maintenance through a Home Assistant action) or `acknowledge` |
+| `kind` | `shelve` (**Pause**), `maintenance` (equipment maintenance through a Home Assistant action) or `acknowledge` |
 | `control_id` | The control's ID, for `homeostatic.cancel_control`. `null` for `acknowledge`. |
 | `episode_id` | The issue, for `shelve` and `acknowledge`. `null` for `maintenance`. |
 | `node_id` | The source, for `maintenance`. `null` otherwise. |
@@ -69,8 +68,6 @@ Entities not provided findings use check `entity_not_provided`, with reason `ent
 | `until` | When the control ends, as an ISO 8601 timestamp. `null` for `acknowledge`. |
 | `reason` | The reason entered, or an empty string |
 | `ended_reason` | Only on `ended`. `cancelled` means someone ended it early. `expired` means its end time passed. `replaced` means a pause was extended, and a new `started` follows. `target_removed` means the issue ended or the source is no longer watched. |
-
-The reasons for publishing these events are in [ADR 0014](adr/0014-publish-detected-facts-for-owner-automations.md).
 
 ### Example: critical issues in the notification list
 
@@ -120,13 +117,11 @@ It catches issues that are critical when they open. An issue whose importance ri
 
 ### `homeostatic_notification`
 
-Homeostatic fires `homeostatic_notification` once for each notification it requests for one recipient, after configured notification timing, delivery windows, Pause notifications and Acknowledge have had their say. It fires only while notifications are on, apart from the withdrawals sent when you turn notifications off (see [Restart and activation](#restart-and-activation)) or remove Homeostatic.
+Homeostatic fires `homeostatic_notification` once for each notification it requests for one recipient, after notification timing, delivery windows, pauses and acknowledgments have had their say. It fires only while notifications are on, apart from the withdrawals sent when you turn notifications off (see [Restart and activation](#restart-and-activation)) or remove Homeostatic.
 
-Homeostatic's built-in sender listens for this event too. It handles `phone:` Companion app targets, `notify:` notification entities, `satellite:` announcements, `tts:` provider/player pairs, and `sms:` notification actions with recipient targets. Other channels are for your own automation. Installations set up with the Companion notifications blueprint use a channel called `event`. An event records a delivery request; it doesn't establish receipt, reading or speech heard.
+Homeostatic's built-in sender listens for this event too. It handles `phone:` Companion app targets, `notify:` notification entities, `satellite:` announcements, `tts:` provider/player pairs, and `sms:` notification actions with recipient targets. Other channels are for your own automation; the Companion notifications blueprint uses a channel called `event`. An event records a request; it doesn't show that anyone received it.
 
-Method tests are explicit administrator requests from a saved method's editor. They resolve only that method's destinations and current presence rules, work while normal notifications are off, and create no issue or issue-outbox entry. Saving a method does not request a test.
-
-Each policy notification assignment is evaluated independently using its named notification's timing and methods. One issue can produce immediate requests and a later report for the same delivery method. Presence is resolved when a new request or reminder is prepared, before requests are collected into one message. A presence change alone creates no request. Non-Companion transports ignore silent updates and withdrawals, so cleanup never generates speech, email or SMS.
+Each notification a policy uses is handled on its own, so one issue can produce an immediate request and later appear in a summary for the same delivery method. Presence decides the destinations when a request is prepared; a presence change alone sends nothing. Destinations other than Companion phones ignore silent updates and withdrawals, so cleanup never speaks or sends an email or text.
 
 | Field | Meaning |
 | --- | --- |
@@ -177,11 +172,11 @@ Each policy notification assignment is evaluated independently using its named n
 
 ### Collected notification messages
 
-Requests selecting the same saved notification identity, recipient and resolved destination can share one message during a fixed collection window, with compatible accepted instructions. Issues may have unrelated causes. The payload includes `notification_id`, exact `episodes` and `routes`, and a message-specific `tag`; its synthetic `episode_id` identifies the message rather than an individual issue. Different saved notifications and destinations remain separate. A later window receives its own message identity. Scheduled reports retain their scheduled selection and do not wait for collection.
+Requests for the same named notification, recipient and destination that arrive within its collection delay share one message, whatever their causes. The payload carries `notification_id`, the exact `episodes` and `routes`, and its own `tag`; its `episode_id` identifies the message, not an issue. A later window gets a new message. Scheduled summaries don't wait for collection.
 
-Silent updates keep the collection's tag and exact remaining members. Partial recovery does not resolve other issues. Pending deadlines, accepted targets and membership survive restart; outbox replay retains the same `delivery_id`. A shared integration issue preserves applicable monitored availability assignments, including independently timed Immediate and Morning requests. No message creates a shared cause or proves delivery.
+When one of its issues ends, a silent update keeps the tag and lists the issues still open. Pending collections survive a restart.
 
-The built-in phone Acknowledge action freezes the issue IDs shown by that request. Later arrivals do not inherit its acknowledgment. The built-in sender and Companion blueprint link to the exact included issue IDs. A message with several issues opens the existing Issues view restricted to those IDs; ended issues are counted, and Show all open issues explicitly leaves that scope. Tapping acknowledges nothing.
+The phone **Acknowledge** button acknowledges exactly the issues that message showed. Tapping a message with several issues opens **Issues in this notification**, limited to those issues; tapping acknowledges nothing.
 
 ### Summaries and digests
 
@@ -207,13 +202,13 @@ The built-in sender records each `delivery_id` and channel before it sends, so a
 
 When Home Assistant starts, Homeostatic holds notification requests while your integrations load. The hold lasts at least **Wait after startup** (120 seconds by default). After that it ends as soon as no watched integration is still loading, or at **Maximum startup wait** (600 seconds by default). Integrations that are retrying or failed to set up count as finished, and disabled ones are ignored. Both timings are in **Settings**.
 
-Named notifications begin their collection window after the startup hold and any issue notification pause end. A collection window already started before a pause keeps its original deadline and waits until sending is permitted. An overdue reminder updates its previous message once. When an individual message moves into a non-device summary, its old message gets a `resolve` with `replaced`. Silent updates and resolutions keep their normal form and go out when the hold ends. Reloading Homeostatic while Home Assistant is running has no hold.
+Collection windows start after the startup hold and any pause end. An overdue reminder updates its previous message once. Silent updates and withdrawals go out when the hold ends. Reloading Homeostatic while Home Assistant is running has no hold.
 
 `homeostatic_episode` and `homeostatic_control` aren't held. They fire as Homeostatic detects things, during startup too. They're never replayed after a restart or reload, so an automation that was off misses them. To get the current state after a restart, read the readiness sensors, or call `homeostatic.inventory`, `homeostatic.explain` or `homeostatic.resolved_history` (see the [reference](reference.md#actions)).
 
 When you turn notifications on, Homeostatic looks at the issues already open. Immediate entries begin their configured collection window when eligible; daily-hours entries also wait for their delivery hours. Scheduled entries wait for their next occurrence. Dashboard-only monitoring sends nothing. Escalation timing starts when notifications were turned on, and reminders start from the first request on each entry. Issue history and ages don't change.
 
-Changing reporting behavior while notifications are on activates the changed entries and withdraws outstanding replaceable messages with `resolve` and `notifications_disabled`. Accepted pending collections retain their original instructions, destinations and deadline while their assignments remain eligible; removed assignments leave the collection. Other superseded pending requests are cancelled. Renaming a policy or method alone doesn't restart reporting. Internal rule grouping preserves notification-entry identities, acknowledgment, report clocks and queued delivery IDs across reloads and upgrades. Editing timing affects its owning entry; editing a shared method can affect several policies. Acknowledgment stops acknowledgment-based reminders across the issue's entries; scheduled reports continue to include eligible open problems, including those already reported immediately or acknowledged. Recovered problems and empty reports are omitted.
+Changing a policy's notifications, a named notification or a delivery method while notifications are on withdraws the affected messages with `resolve` and `notifications_disabled`, and the changed entries start afresh. A collection already waiting keeps its deadline. Renaming alone changes nothing.
 
 Turning notifications off withdraws every outstanding message with `resolve` and `notifications_disabled`. The problems may still be open.
 

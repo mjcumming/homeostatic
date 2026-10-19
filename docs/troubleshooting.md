@@ -27,15 +27,15 @@ Follow the chain from the issue to your phone:
 
 ## Too many issues or notifications
 
-If an entity is often unavailable and you don't care, **Stop monitoring** it from its issue. If the issues are useful but the notifications aren't, change the policy's notifications, or move the entity from Important equipment availability to General entity availability so it waits for the morning summary. A longer collection delay bundles more of a burst into one message.
+If an entity is often unavailable and you don't care, use **Stop monitoring…** in its issue. If the issues are useful but the notifications aren't, change the policy's notifications, or move the entity from Important equipment availability to General entity availability so it waits for the morning summary. A longer collection delay bundles more of a burst into one message.
 
 Policies can overlap on purpose, so look at every policy watching something before you delete one that seems to be a duplicate.
 
 ## Something isn't monitored
 
-Clear the search and filters in **Monitoring**, and turn on **More filters → Include disabled sources** if you need to. Then check the policy: it must be enabled, its **Include** must cover the source, and the source mustn't be excluded. Availability policies skip anything disabled in Home Assistant, and skip diagnostic and configuration entities unless you pick them individually.
+Clear the search and filters in **Monitoring**, and turn on **More filters → Include disabled sources** if you need to. Then check the policy: it must be enabled, its selection must include the source, and the source mustn't be excluded. Availability policies skip anything disabled in Home Assistant, and skip diagnostic and configuration entities unless you pick them individually.
 
-## A device shows unavailable but works
+## An entity shows unavailable but the device works
 
 Some devices make a feature unavailable while it isn't in use, for example in standby. Compare the device's entities in Home Assistant with the ones Homeostatic monitors, and stop monitoring the ones you don't expect to stay available.
 
