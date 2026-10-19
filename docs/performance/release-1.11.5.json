@@ -1,0 +1,192 @@
+{
+  "date": "2026-10-19",
+  "recorded_at_utc": "2026-10-19T19:21:32.310595+00:00",
+  "version": "1.11.5",
+  "commit": "eb62a764dffb5923a9a9c5ef582c0d1b2e1b1687",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.11.5",
+  "published_at": "2026-10-19T19:19:45Z",
+  "candidate": {
+    "branch": "main",
+    "revision": "eb62a764dffb5923a9a9c5ef582c0d1b2e1b1687",
+    "dirty": false,
+    "component_sha256": "4d711768db27c3b985f0ec3caa2a4f1ba1e422b3100b660df0354918f308f9e7",
+    "fixture_sha256": "760d3d9fbf1b47c9b3958cf4158e90546c6216cd077887a92c761c8b305b2082",
+    "frozen_at": "2026-10-19T19:07:17.740Z",
+    "archive_sha256": "66586ef7b2051d64c72772227acc9f4412a10bc21ceba5d16c0339f979457c3d",
+    "verified_packaged_sources": 441,
+    "embedded_hashes_verified": 442,
+    "archive_entries": 443,
+    "component_files": 79,
+    "all_packaged_sources_match_commit": true,
+    "frozen_component_comparison": "75 byte-identical files and four CRLF-only working-checkout differences; both frozen fingerprints verified.",
+    "requirements": [
+      "health-tree==0.10.0"
+    ]
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/39308280083",
+    "head_sha": "eb62a764dffb5923a9a9c5ef582c0d1b2e1b1687",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Home Assistant metadata",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python 3.14 / HA 2026.9.3",
+        "conclusion": "success"
+      },
+      {
+        "name": "HACS validation",
+        "conclusion": "success"
+      }
+    ],
+    "python_tests_passed": 1355,
+    "python_tests_skipped": 15,
+    "skip_reason": "Optional performance profiling scenarios",
+    "frontend_tests_passed": 872,
+    "aggregate_coverage_percent": 95.8124910676004,
+    "statement_coverage_percent": 96.8297998811175,
+    "branch_coverage_percent": 93.17948717948718,
+    "strict_types_lint_and_coverage_floors_passed": true,
+    "official_hassfest_and_hacs_passed": true,
+    "fresh_package_installation_passed": true
+  },
+  "published_assets": [
+    {
+      "name": "homeostatic-1.11.5.zip",
+      "sha256": "sha256:66586ef7b2051d64c72772227acc9f4412a10bc21ceba5d16c0339f979457c3d",
+      "size": 6545151,
+      "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.11.5/homeostatic-1.11.5.zip"
+    },
+    {
+      "name": "homeostatic-1.11.5.zip.sha256",
+      "sha256": "sha256:a1879601913455838f17e6a0bffd111f7787cd9d607615906b0bedf8372edcd7",
+      "size": 89,
+      "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.11.5/homeostatic-1.11.5.zip.sha256"
+    }
+  ],
+  "defaults": {
+    "decision": "../adr/0106-enable-supplied-battery-and-vacuum-policies.md",
+    "fresh_setup": "All eight supplied policies enabled, including Batteries and Vacuums; six named notifications, no delivery methods or destinations; sending off.",
+    "setup_required": "Temperature, thermostat and UPS templates still need sources and detection settings. Owners select delivery methods in named notifications and explicitly enable sending.",
+    "existing_installations": "Preserve enabled, disabled and deleted policies, edits, notification assignments, destinations and sending; checked through setup and two reloads in both storage locations with sending on and off."
+  },
+  "upgrade_protection": {
+    "decision": "../adr/0105-preserve-settings-when-adding-collection-delays.md",
+    "supported_conversion": "Recognized older named-notification settings gain zero collection delay, preserving timing and other saved choices. Conversion is written only after successful restoration and evaluation.",
+    "unsupported_state": "Actual synthetic presented and queued snapshots from published Homeostatic 1.9.0 / health-tree 0.8.0 predate collection tracking and are rejected before writes or sends. Original settings and history remain intact; recovery requires the matching prior installation or paired backup.",
+    "failed_restore": "Invalid engine, policy, temperature and UPS state remains intact through retries, unload and another setup, with no partial conversion or notification requests. Malformed monitor maps fail before startup.",
+    "retained_delivery": "Supported current state retains history, acknowledgment, pauses, stable pending delivery identities and resolved destinations through reload.",
+    "packaged_rehearsal": "Fresh packaged HA setup verifies defaults, then converts customized earlier settings with a disabled Battery policy, deleted notification presets and a captured-only destination; repeated reloads preserve the expected settings.",
+    "future_release_rule": "AGENTS.md and development-workflows.md require preserving migrations, published-format scenarios, repeated reload and failed-restore protection; no reset to make an upgrade load."
+  },
+  "acceptance": {
+    "desktop": {
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "fixture_inventory": {
+        "passed": 74,
+        "failed": 0,
+        "untested": 6
+      },
+      "fixture_files_passed": 19,
+      "real_ha_inventory": {
+        "passed": 78,
+        "failed": 1,
+        "untested": 1
+      },
+      "additional_real_ha": {
+        "passed": 47,
+        "failed": 0,
+        "untested": 0
+      },
+      "candidate_unchanged": true,
+      "checkout_matches_snapshot": true,
+      "report": "../../build/ui-acceptance/release-1.11.5-final/desktop/report.json",
+      "homeostatic_reconnect_assertions": [
+        "same HA connection",
+        "one replacement subscription",
+        "disconnected baseline invalidated",
+        "stale editor read-only",
+        "DOM, draft, focus and selection retained",
+        "fresh live update after reconnect",
+        "saved settings unchanged",
+        "zero configuration saves"
+      ],
+      "narrow_matrix": "Eight combinations passed: 320/390 pixels, normal/doubled text, pointer/keyboard; title, Back, hit testing, focus, return context and unchanged saved settings.",
+      "popup_focus": "All eight issue types passed with the current connected control focused."
+    },
+    "phone-dark": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "fixture_inventory": {
+        "passed": 74,
+        "failed": 0,
+        "untested": 6
+      },
+      "fixture_files_passed": 19,
+      "real_ha_inventory": {
+        "passed": 78,
+        "failed": 1,
+        "untested": 1
+      },
+      "additional_real_ha": {
+        "passed": 47,
+        "failed": 0,
+        "untested": 0
+      },
+      "candidate_unchanged": true,
+      "checkout_matches_snapshot": true,
+      "report": "../../build/ui-acceptance/release-1.11.5-final/phone-dark/report.json",
+      "homeostatic_reconnect_assertions": [
+        "same HA connection",
+        "one replacement subscription",
+        "disconnected baseline invalidated",
+        "stale editor read-only",
+        "DOM, draft, focus and selection retained",
+        "fresh live update after reconnect",
+        "saved settings unchanged",
+        "zero configuration saves"
+      ],
+      "narrow_matrix": "Eight combinations passed: 320/390 pixels, normal/doubled text, pointer/keyboard; title, Back, hit testing, focus, return context and unchanged saved settings.",
+      "popup_focus": "All eight issue types passed with the current connected control focused."
+    }
+  },
+  "visual_review": {
+    "receipt": "../../build/ui-acceptance/release-1.11.5-final/desktop/visual-review.json",
+    "review": "Desktop and phone dialogs retain clear scoped actions and visible controls; narrow Monitoring keeps its title and Back control reachable at enlarged text.",
+    "suspected_clipping": "Resolved as a viewport-boundary false alarm. Both pointer and keyboard probes show the full integration name wrapping inside its value column, visible and hit-test accessible after scrolling; no CSS change was needed.",
+    "reachability": "../../build/ui-acceptance/release-1.11.5-final/relationship-reachability/report.json"
+  },
+  "evidence_accounting": {
+    "prior_receipt": "ui-protection-2026-10-19.json",
+    "earlier_candidate": "f97dece66a8302ba33247235060670e0704913b9",
+    "retained_prior_runs": "../../build/ui-acceptance/release-1.11.5/",
+    "sampler_correction": "The earlier desktop popup failure sampled a detached replaced element after an asynchronous locator boundary. The committed sampler finds and reads the current control atomically. Positive focused-replacement and negative connected-unfocused controls passed; all eight popup types passed in both final full runs. Original failure reports remain intact.",
+    "sampler_controls": "../../build/ui-acceptance/release-1.11.5/focus-sampler-controls.json",
+    "native_reconnect": "Both final reports retain updates.retention as failed due to native HA persistent-notification cleanup reusing an old subscription ID on the new connection. This reproduces in plain HA with no Homeostatic mounts; all eight Homeostatic reconnect assertions pass. No shared-connection patch or error suppression.",
+    "reconnect_diagnosis": "../../build/ui-acceptance/2026-10-19-reconnect-confirmation-2/reconnect-diagnosis.md"
+  },
+  "installation": {
+    "household_changed_during_release": false,
+    "live_notifications_requested": false,
+    "test_delivery": "Isolated synthetic capture-only services"
+  },
+  "dependency": {
+    "health_tree": "0.10.0",
+    "library_changes": false
+  },
+  "limits": [
+    "The complete browser suite retains the attributed native Home Assistant reconnect error; this is not an all-green browser result.",
+    "Physical Safari and real-provider receipt remain untested.",
+    "Older pre-collection runtime state is blocked intact, not migrated; not every older installation can upgrade successfully.",
+    "No household installation was performed during this release."
+  ]
+}
