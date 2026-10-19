@@ -35,7 +35,7 @@
   "checks": {
     "quick": "Passed: lint, format and 862 frontend tests.",
     "focused_python": "49 passed in tests/test_source_queries.py and tests/test_dashboard.py.",
-    "full_release_ci": "Not run; no commit or release requested for this follow-up."
+    "full_release_ci": "Passed for release 1.11.3; see the release receipt for the exact candidate and archive."
   },
   "runs": [
     {
@@ -465,10 +465,12 @@
     "The invalid-time fixture intentionally records a browser validation warning for the value later."
   ],
   "delivery": {
-    "committed": false,
-    "pushed": false,
-    "released": false,
-    "household_installed": false,
-    "household_notifications_requested": false
+    "committed": true,
+    "pushed": true,
+    "released": true,
+    "household_installed": true,
+    "household_notifications_requested": false,
+    "release": "1.11.3",
+    "receipt": "release-1.11.3.json"
   }
 }

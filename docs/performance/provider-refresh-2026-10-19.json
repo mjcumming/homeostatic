@@ -50,7 +50,10 @@
     "devices": 300,
     "owners": 10,
     "provider_checks_per_case": 6000,
-    "availability_scopes": ["device_group", "all_entities"],
+    "availability_scopes": [
+      "device_group",
+      "all_entities"
+    ],
     "device_group_meaning": "Availability watches 60 entities on three devices; provider monitoring still covers all 6000 registered entities.",
     "ordinary_updates_per_case": 300,
     "zero_work_counters_in_both_cases": [
@@ -77,9 +80,11 @@
     "log_directory": "build/sluggish-2026-10-19"
   },
   "status": {
-    "committed": false,
-    "published": false,
-    "installed": false,
-    "remaining": "An authorized installation and bounded household comparison of refresh counts, event-loop delays and API responsiveness are needed to measure the live benefit. Actual transition and reconciliation costs remain outside this correction."
+    "committed": true,
+    "published": true,
+    "installed": true,
+    "release": "1.11.3",
+    "receipt": "release-1.11.3.json",
+    "remaining": "Actual transition and reconciliation costs remain separate follow-up work; the bounded household comparison is recorded in the release receipt."
   }
 }

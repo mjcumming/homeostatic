@@ -1,0 +1,283 @@
+{
+  "date": "2026-10-19",
+  "version": "1.11.3",
+  "commit": "f2f2ba70d4ff020886a6b4da9d2f434dcd37c53f",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.11.3",
+  "published_at": "2026-10-19T14:10:36Z",
+  "candidate": {
+    "version": "1.11.3",
+    "commit": "f2f2ba70d4ff020886a6b4da9d2f434dcd37c53f",
+    "requirements": [
+      "health-tree==0.10.0"
+    ],
+    "archive_sha256": "345273cd43fad6b37090672d3ef8d9d5fbd4a8c98f40af06bce46d0e4da07246",
+    "verified_packaged_files": 433,
+    "component_files": 79,
+    "all_packaged_sources_match_commit": true
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/39265920413",
+    "conclusion": "success",
+    "python_tests_passed": 1308,
+    "python_tests_skipped": 15,
+    "frontend_tests_passed": 862,
+    "aggregate_coverage_percent": 95.75714285714285,
+    "statement_coverage_percent": 96.81061806656102,
+    "branch_coverage_percent": 93.0327868852459,
+    "strict_types_lint_and_coverage_floors_passed": true,
+    "official_hassfest_and_hacs_passed": true,
+    "fresh_package_installation_passed": true
+  },
+  "dependency": {
+    "health_tree": "0.10.0",
+    "library_changes": false,
+    "storage_or_settings_migration": false
+  },
+  "acceptance": {
+    "receipts": [
+      "provider-refresh-2026-10-19.json",
+      "browser-acceptance-fixes-2026-10-19.json"
+    ],
+    "focused_python_tests_passed": 164,
+    "browser_fixture_paths_passed_per_viewport": 74,
+    "real_ha_paths_passed_per_viewport": 5,
+    "viewports": [
+      "desktop light",
+      "phone dark"
+    ],
+    "release_matches_browser_candidate_except_manifest_version": true,
+    "browser_fixtures_identical": true
+  },
+  "installation": {
+    "commit": "f2f2ba70d4ff020886a6b4da9d2f434dcd37c53f",
+    "temporary_staging_removed": true,
+    "archive_sha256": "345273cd43fad6b37090672d3ef8d9d5fbd4a8c98f40af06bce46d0e4da07246",
+    "version": "1.11.3",
+    "rollback_copy_created": false,
+    "verified_component_files": 79,
+    "installed_at": "2026-10-19T14:11:27.1953760Z",
+    "staged_outside_custom_components": true,
+    "performed": true,
+    "ha_version": "2026.10.0",
+    "ha_state": "RUNNING",
+    "entry_states": [
+      "loaded"
+    ],
+    "installed_version": "1.11.3",
+    "all_saved_settings_unchanged": true,
+    "notifications": false,
+    "policy_count": 8,
+    "method_count": 1,
+    "monitoring_available": true,
+    "monitoring_error": null,
+    "notification_request_count": 0,
+    "served_asset_matches_installed": true,
+    "served_asset_sha256": "2e2e973e4c4874a04cba180ad3d6d7163b53f0021900988ac73aeaef005219c1",
+    "test_notifications_sent": false,
+    "published_asset_digest_matches": true,
+    "panel_element": "homeostatic-panel-v54",
+    "module_url": "/homeostatic_static/homeostatic.js?v=102",
+    "homeostatic_system_log_records": 0,
+    "live_ui": "Chrome review of Monitoring search, expansion and device readings, saved policy list and Open issues. Reading layout inspected visually. No saved choices or equipment controls changed. No browser errors after the post-startup reload; earlier disconnect errors occurred during Core restart.",
+    "restart": "Expected disconnect followed by RUNNING, loaded integration and a fresh post-startup check."
+  },
+  "performance": {
+    "comparison": {
+      "generated_at_utc": "2026-10-19T14:19:13.269837+00:00",
+      "baseline_boundary_basis": "First retained timing record plus 90 seconds; exact original logger-enabled boundaries were not retained.",
+      "before": {
+        "input": "unprofiled-core-logs.txt",
+        "start_utc": "2026-10-19T13:26:16.216000+00:00",
+        "end_utc_exclusive": "2026-10-19T13:27:46.216000+00:00",
+        "window_seconds": 90.0,
+        "timing_record_count": 242,
+        "all_input_timing_first_utc": "2026-10-19T13:26:16.216000+00:00",
+        "all_input_timing_last_utc": "2026-10-19T13:27:48.376000+00:00",
+        "phase_counts": {
+          "evaluate": 70,
+          "gc": 17,
+          "refresh": 70,
+          "save_deferred": 69,
+          "snapshot": 5,
+          "storage_serialize": 5,
+          "storage_skip": 4,
+          "storage_verify": 1,
+          "storage_write": 1
+        },
+        "refresh_completed_count": 70,
+        "refreshes_per_minute": 46.666666666666664,
+        "refresh_events_none_count": 69,
+        "refresh_events_none_fraction": 0.9857142857142858,
+        "refresh_events_present_count": 1,
+        "refresh_discovery_count": 1,
+        "refresh_reconciliation_count": 0,
+        "refresh_duration": {
+          "count": 70,
+          "median_seconds": 0.2388235,
+          "p95_seconds": 2.551197,
+          "max_seconds": 6.188337,
+          "total_seconds": 47.090559
+        },
+        "refresh_evaluation_duration": {
+          "count": 70,
+          "median_seconds": 0.09119,
+          "p95_seconds": 0.098916,
+          "max_seconds": 1.052693,
+          "total_seconds": 8.058885
+        },
+        "refresh_fully_inside_window_count": 69,
+        "refresh_fully_inside_window_duration": {
+          "count": 69,
+          "median_seconds": 0.238476,
+          "p95_seconds": 2.551197,
+          "max_seconds": 6.188337,
+          "total_seconds": 46.126635
+        },
+        "gc_logged_by_generation": {
+          "0": {
+            "count": 0,
+            "median_seconds": null,
+            "p95_seconds": null,
+            "max_seconds": null,
+            "total_seconds": 0
+          },
+          "1": {
+            "count": 0,
+            "median_seconds": null,
+            "p95_seconds": null,
+            "max_seconds": null,
+            "total_seconds": 0
+          },
+          "2": {
+            "count": 17,
+            "median_seconds": 0.963546,
+            "p95_seconds": 0.9893,
+            "max_seconds": 0.9893,
+            "total_seconds": 16.472015
+          }
+        },
+        "gc_gen2_seconds_per_minute": 10.981343333333333,
+        "warnings": []
+      },
+      "before_api_separate_earlier_capture": {
+        "input": "latency-only.json",
+        "capture_started": "2026-10-19T13:17:05.332118+00:00",
+        "capture_ended": "2026-10-19T13:17:30.534364+00:00",
+        "count": 24,
+        "median_seconds": 0.308,
+        "p95_seconds": 1.072,
+        "max_seconds": 1.232,
+        "total_seconds": 11.193999999999999,
+        "over_500ms": 7,
+        "over_1s": 2,
+        "warning": "This older receipt has no per-request timestamps; it cannot be aligned to or filtered by the timing-log window."
+      },
+      "caveats": [
+        "Refresh counts use completion timestamps; a refresh can begin before the window. Fully-contained refresh metrics exclude those boundary overlaps.",
+        "Refresh duration includes waits, yielded work and I/O; it is not contiguous event-loop blocking or CPU time.",
+        "GC is process-wide. The callback measures collection duration, not which allocation triggered it; generation 0/1 logs include only collections lasting at least 0.1 seconds.",
+        "API latency includes network and client overhead. The baseline API run precedes the timing-log capture and is not a controlled paired sample.",
+        "Debug logging adds overhead. Verify logging was enabled for both bounded windows and restore its prior level outside this helper.",
+        "Exclude restart, setup, startup grace and initial catch-up before the after window. Zero refresh records alone cannot verify logging or quietness.",
+        "Household traffic and unrelated integrations vary. These samples support a bounded before/after comparison, not unique causal attribution."
+      ],
+      "after": {
+        "input": "after-core-logs.txt",
+        "start_utc": "2026-10-19T14:16:24.257193+00:00",
+        "end_utc_exclusive": "2026-10-19T14:17:54.574675+00:00",
+        "window_seconds": 90.317482,
+        "timing_record_count": 19,
+        "all_input_timing_first_utc": "2026-10-19T14:16:26.777000+00:00",
+        "all_input_timing_last_utc": "2026-10-19T14:16:35.096000+00:00",
+        "phase_counts": {
+          "evaluate": 3,
+          "gc": 1,
+          "refresh": 3,
+          "snapshot": 3,
+          "storage_serialize": 3,
+          "storage_verify": 3,
+          "storage_write": 3
+        },
+        "refresh_completed_count": 3,
+        "refreshes_per_minute": 1.9929696445700291,
+        "refresh_events_none_count": 0,
+        "refresh_events_none_fraction": 0.0,
+        "refresh_events_present_count": 3,
+        "refresh_discovery_count": 0,
+        "refresh_reconciliation_count": 0,
+        "refresh_duration": {
+          "count": 3,
+          "median_seconds": 0.700582,
+          "p95_seconds": 1.701924,
+          "max_seconds": 1.701924,
+          "total_seconds": 3.1023870000000002
+        },
+        "refresh_evaluation_duration": {
+          "count": 3,
+          "median_seconds": 0.09563,
+          "p95_seconds": 0.997571,
+          "max_seconds": 0.997571,
+          "total_seconds": 1.17622
+        },
+        "refresh_fully_inside_window_count": 3,
+        "refresh_fully_inside_window_duration": {
+          "count": 3,
+          "median_seconds": 0.700582,
+          "p95_seconds": 1.701924,
+          "max_seconds": 1.701924,
+          "total_seconds": 3.1023870000000002
+        },
+        "gc_logged_by_generation": {
+          "0": {
+            "count": 0,
+            "median_seconds": null,
+            "p95_seconds": null,
+            "max_seconds": null,
+            "total_seconds": 0
+          },
+          "1": {
+            "count": 0,
+            "median_seconds": null,
+            "p95_seconds": null,
+            "max_seconds": null,
+            "total_seconds": 0
+          },
+          "2": {
+            "count": 1,
+            "median_seconds": 0.907404,
+            "p95_seconds": 0.907404,
+            "max_seconds": 0.907404,
+            "total_seconds": 0.907404
+          }
+        },
+        "gc_gen2_seconds_per_minute": 0.6028095424538076,
+        "warnings": []
+      },
+      "after_api": {
+        "input": "after-timings.json",
+        "capture_started": "2026-10-19T14:16:24.257193+00:00",
+        "capture_ended": "2026-10-19T14:17:54.574675+00:00",
+        "count": 86,
+        "median_seconds": 0.011279550002655014,
+        "p95_seconds": 0.08848279999801889,
+        "max_seconds": 1.0105635999934748,
+        "total_seconds": 3.46069320004608,
+        "over_500ms": 2,
+        "over_1s": 1,
+        "warning": null
+      }
+    },
+    "external_state_events_after": 379,
+    "external_events_with_unchanged_provided_classification_after": 379,
+    "logger_restored": "NOTSET",
+    "profiler_enabled": false,
+    "settings_unchanged": true,
+    "capture_start_utc": "2026-10-19T14:16:24.257193+00:00",
+    "capture_end_utc": "2026-10-19T14:17:54.574675+00:00"
+  },
+  "limits": [
+    "The before/after household samples are bounded observations, not a controlled benchmark or a guarantee of all dashboard latency.",
+    "Physical Safari, real notification-provider receipt and broader untested browser inventory remain outside this release acceptance.",
+    "Actual health transitions, full reconciliation and unrelated integration costs remain separate follow-up work."
+  ]
+}
