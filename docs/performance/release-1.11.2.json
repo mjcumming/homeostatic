@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-19",
+  "version": "1.11.2",
+  "commit": "4bf53f0510dcd6d73e05f47a25c849aa28982b66",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.11.2",
+  "published_at": "2026-10-19T13:25:13Z",
+  "candidate": {
+    "version": "1.11.2",
+    "commit": "4bf53f0510dcd6d73e05f47a25c849aa28982b66",
+    "requirements": [
+      "health-tree==0.10.0"
+    ],
+    "archive_sha256": "8b0ad8f21a63cf51c2120c9eb39bede1af467b71bfd3ff6e5658d7127be94c3b",
+    "verified_packaged_files": 430,
+    "all_packaged_sources_match_commit": true,
+    "published_asset_digest_matches": true
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/39259351661",
+    "conclusion": "success",
+    "python_tests_passed": 1301,
+    "python_tests_skipped": 15,
+    "frontend_tests_passed": 861,
+    "aggregate_coverage_percent": 95.75350300257364,
+    "statement_coverage_percent": 96.80682268940896,
+    "branch_coverage_percent": 93.0327868852459,
+    "strict_types_lint_and_coverage_floors_passed": true,
+    "official_hassfest_and_hacs_passed": true,
+    "fresh_package_installation_passed": true
+  },
+  "dependency": {
+    "name": "health-tree",
+    "version": "0.10.0",
+    "library_changes": false
+  },
+  "acceptance": {
+    "receipt": "release-1.11.2-validation.json",
+    "scope": "README corrections and behavior-preserving implementation cleanup",
+    "desktop_and_phone_inventory": {
+      "passed": 55,
+      "failed": 8,
+      "untested": 17
+    },
+    "desktop_baseline_comparison": "All statuses and nine normalized diagnostics match previous committed build; no new failures. Phone statuses match desktop.",
+    "broader_browser_failures_remain_open": true,
+    "visual_inspection": "Desktop and phone issue dialogs, policy selector and phone delivery editor; active pause-form spacing retained. No controls or disclosures added.",
+    "physical_safari": "untested"
+  },
+  "installation": {
+    "performed": false,
+    "live_notifications_requested": false
+  },
+  "tag": {
+    "name": "v1.11.2",
+    "annotated_tag_object": "244dd0849e81e56d1a4eb494467097c3ffeb966d",
+    "target_commit": "4bf53f0510dcd6d73e05f47a25c849aa28982b66"
+  },
+  "release_type": "stable; latest; published"
+}
