@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-19",
+  "recorded_at_utc": "2026-10-19T15:25:43.199752+00:00",
+  "version": "1.11.4",
+  "commit": "8406659e47c3eeea82ccd79d0198a4b531dae0b9",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.11.4",
+  "published_at": "2026-10-19T15:24:19Z",
+  "candidate": {
+    "version": "1.11.4",
+    "commit": "8406659e47c3eeea82ccd79d0198a4b531dae0b9",
+    "archive_sha256": "4c0f14b857bb6c9f8b142182762be910403b92063d7ece1b8a145a01f70f8ad9",
+    "verified_packaged_files": 437,
+    "component_files": 79,
+    "all_packaged_sources_match_commit": true,
+    "requirements": [
+      "health-tree==0.10.0"
+    ]
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/39276939281",
+    "head_sha": "8406659e47c3eeea82ccd79d0198a4b531dae0b9",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "HACS validation",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python 3.14 / HA 2026.9.3",
+        "conclusion": "success"
+      },
+      {
+        "name": "Home Assistant metadata",
+        "conclusion": "success"
+      }
+    ],
+    "python_tests_passed": 1308,
+    "python_tests_skipped": 15,
+    "frontend_tests_passed": 868,
+    "aggregate_coverage_percent": 95.75714285714285,
+    "statement_coverage_percent": 96.81061806656102,
+    "branch_coverage_percent": 93.0327868852459,
+    "strict_types_lint_and_coverage_floors_passed": true,
+    "official_hassfest_and_hacs_passed": true,
+    "fresh_package_installation_passed": true
+  },
+  "published_assets": [
+    {
+      "name": "homeostatic-1.11.4.zip",
+      "sha256": "sha256:4c0f14b857bb6c9f8b142182762be910403b92063d7ece1b8a145a01f70f8ad9",
+      "size": 6531610
+    },
+    {
+      "name": "homeostatic-1.11.4.zip.sha256",
+      "sha256": "sha256:9b3e73189df5b927415d92af0a6bfd3ea985aae0b37ae9176fb0d5d7c15aee2e",
+      "size": 89
+    }
+  ],
+  "dependency": {
+    "health_tree": "0.10.0",
+    "library_changes": false,
+    "storage_or_settings_migration": false
+  },
+  "acceptance": {
+    "receipts": [
+      "tree-selection-2026-10-19.json",
+      "monitoring-tree-2026-10-19.json",
+      "local-tree-ui-2026-10-19.json"
+    ],
+    "focused_dashboard_tests_passed": 40,
+    "candidate_browser_receipt": "build/ui-acceptance/release-1.11.4-trees/receipt.json",
+    "checks": "Collapsed integration/device group selection, mixed membership, filters, saved future scope, Save/reopen/discard, scroll and keyboard focus, matching Monitoring rows, tree/details inspection, light/dark, 320px/390px/desktop and enlarged text.",
+    "physical_safari": "untested"
+  },
+  "installation": {
+    "changed_during_release": false,
+    "earlier_local_trial_remains_installed": true,
+    "local_trial_version_label": "1.11.3",
+    "local_trial_receipt": "local-tree-ui-2026-10-19.json",
+    "published_frontend_module_matches_verified_local_trial": true,
+    "frontend_module_sha256": "5f6530bf2696221ad53dc7010f12a351d33bc3051afe809f63446a6d0938aab3",
+    "test_notifications_requested": false
+  },
+  "limits": [
+    "The isolated updates.retention reconnect test still reports Subscription not found and reproduces against the saved earlier release candidate; this release does not claim to fix it.",
+    "Broader unselected browser inventory, physical Safari and real-provider delivery remain outside the scoped acceptance."
+  ]
+}
