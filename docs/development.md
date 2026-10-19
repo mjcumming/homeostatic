@@ -61,7 +61,7 @@ uv sync --locked
 uv run --locked python script/build_release.py
 ```
 
-The ZIP holds the integration, frontend assets, automation blueprints, documentation and exact build identity. CI installs that archive into a fresh Home Assistant environment.
+The ZIP holds the integration, frontend assets, documentation and exact build identity. CI installs that archive into a fresh Home Assistant environment.
 
 Commit from WSL after installing the hook there. In CI, the pinned official hassfest action validates Home Assistant metadata. With Docker available, run hassfest locally from the repository:
 

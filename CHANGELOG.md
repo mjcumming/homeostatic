@@ -9,9 +9,13 @@
 - Use sentence case for Open entity, Open device and Stop monitoring…, which ends in an ellipsis because it opens a confirmation.
 - Remove Standard notification batching from Settings. It applied only to retired Custom assignments; the saved value is kept.
 
+### Removed
+
+- Remove the automation and template blueprints: Companion notifications, problem logbook, alert, situation report and diagnostic state. Automations can still use Homeostatic's events and actions directly.
+
 ### Documentation
 
-- Rewrite the manual in fewer, shorter pages, and trim the roadmap to open work.
+- Rewrite the README and the manual in fewer, shorter pages, and trim the roadmap to open work.
 
 ## [1.11.0] - 2026-10-18
 

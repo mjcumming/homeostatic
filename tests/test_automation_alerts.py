@@ -16,7 +16,6 @@ from homeassistant.exceptions import (
     Unauthorized,
 )
 from homeassistant.helpers import entity_registry as er
-from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -39,7 +38,6 @@ from tests.policy_helpers import (
     immediate_notification,
     notification_definitions_data,
 )
-from tests.test_blueprint import load_example
 from tests.test_lifecycle import start_monitor
 
 
@@ -449,51 +447,6 @@ async def test_phone_rejects_forged_callbacks(
     )
     assert runtime.policy.acknowledgment(next(iter(runtime.episodes))) is None
     assert await hass.config_entries.async_unload(entry.entry_id)
-
-
-async def test_blueprint_registers_without_yaml(
-    hass: HomeAssistant, config_entry: MockConfigEntry
-) -> None:
-    """Run the actual HA blueprint across observed active, missing, and clear evidence."""
-    hass.states.async_set("sensor.observed", "42")
-    hass.states.async_set("binary_sensor.leak", "off")
-    runtime = await start_monitor(hass, config_entry)
-    automation = await load_example(
-        hass,
-        "alert.yaml",
-        {
-            "alert_name": "Water alert",
-            "message": "Wet near heater",
-            "profile": "dashboard",
-            "evidence_entities": ["binary_sensor.leak"],
-            "active_conditions": [
-                {"condition": "state", "entity_id": "binary_sensor.leak", "state": "on"}
-            ],
-            "report_timeout": 300,
-            "extra_triggers": [{"trigger": "event", "event_type": "evaluate_alert"}],
-        },
-    )
-    automation.update(id="stable-blueprint-id", alias="New alert")
-    assert await async_setup_component(hass, "automation", {"automation": [automation]})
-    await hass.async_block_till_done()
-    hass.bus.async_fire("evaluate_alert")
-    await hass.async_block_till_done()
-    assert len(runtime.automation_alerts.records) == 1
-    assert not runtime.episodes
-    hass.states.async_set("binary_sensor.leak", "on")
-    await hass.async_block_till_done()
-    episode = next(iter(runtime.episodes))
-    assert runtime.episodes[episode]["reasons"][0]["message"] == "Wet near heater"
-    hass.states.async_set("binary_sensor.leak", "unavailable")
-    await hass.async_block_till_done()
-    assert list(runtime.episodes) == [episode]
-    hass.states.async_set("binary_sensor.leak", "off")
-    await hass.async_block_till_done()
-    assert not runtime.episodes
-    await hass.services.async_call(
-        "automation", "turn_off", {"entity_id": "automation.new_alert"}, blocking=True
-    )
-    assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
 async def test_registration_storage_failure_and_authorization(

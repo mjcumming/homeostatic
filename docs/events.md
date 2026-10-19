@@ -119,7 +119,7 @@ It catches issues that are critical when they open. An issue whose importance ri
 
 Homeostatic fires `homeostatic_notification` once for each notification it requests for one recipient, after notification timing, delivery windows, pauses and acknowledgments have had their say. It fires only while notifications are on, apart from the withdrawals sent when you turn notifications off (see [Restart and activation](#restart-and-activation)) or remove Homeostatic.
 
-Homeostatic's built-in sender listens for this event too. It handles `phone:` Companion app targets, `notify:` notification entities, `satellite:` announcements, `tts:` provider/player pairs, and `sms:` notification actions with recipient targets. Other channels are for your own automation; the Companion notifications blueprint uses a channel called `event`. An event records a request; it doesn't show that anyone received it.
+Homeostatic's built-in sender listens for this event too. It handles `phone:` Companion app targets, `notify:` notification entities, `satellite:` announcements, `tts:` provider/player pairs, and `sms:` notification actions with recipient targets. Other channels, such as `event`, are for your own automations. An event records a request; it doesn't show that anyone received it.
 
 Each notification a policy uses is handled on its own, so one issue can produce an immediate request and later appear in a summary for the same delivery method. Presence decides the destinations when a request is prepared; a presence change alone sends nothing. Destinations other than Companion phones ignore silent updates and withdrawals, so cleanup never speaks or sends an email or text.
 
@@ -186,7 +186,7 @@ When an issue in a summary ends, Homeostatic sends a silent `update` with the re
 
 ## Delivery replay and deduplication
 
-Homeostatic saves each request before it fires the event, then saves again to mark it as sent. If Home Assistant stops between those two saves, the request fires again after the restart with the same `delivery_id`. Your automation can therefore see the same request twice. Either skip a `delivery_id` you've already handled, or send with `tag` so the repeat replaces the first message on the phone. The Companion notifications blueprint uses the tag.
+Homeostatic saves each request before it fires the event, then saves again to mark it as sent. If Home Assistant stops between those two saves, the request fires again after the restart with the same `delivery_id`. Your automation can therefore see the same request twice. Either skip a `delivery_id` you've already handled, or send with `tag` so the repeat replaces the first message on the phone.
 
 Resolved targets are saved with the request. Replay keeps them even if someone has arrived home or left since the request was prepared. Silent updates and cleanup use the destinations of previous requests. A later presence change cannot introduce unseen findings into a silent update sent to an earlier destination. Fields beginning with `_` are internal delivery bookkeeping; consumers must ignore them.
 

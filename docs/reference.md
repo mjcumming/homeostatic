@@ -329,11 +329,3 @@ The panel lives at `/homeostatic`. Links grant no extra access and don't acknowl
 | `/homeostatic/settings` | Settings |
 
 Encode each ID as its own path segment. Unknown addresses open Open issues.
-
-## Blueprints
-
-These optional blueprints consume Homeostatic's [events](events.md). The built-in delivery methods don't need them.
-
-[`companion_notification.yaml`](../blueprints/automation/homeostatic/companion_notification.yaml) sends `homeostatic_notification` requests for one recipient and channel to a Companion app notify action. Its inputs are **Recipient id** (default `owner`), **Channel id** (default `event`) and the **Companion app notification action**. It reuses tags, sends silent updates and handles withdrawals, but doesn't add the **Acknowledge** button. Don't route the same requests through it and a built-in delivery method.
-
-[`problem_logbook.yaml`](../blueprints/automation/homeostatic/problem_logbook.yaml) writes a logbook entry when an issue opens, changes or ends, whether or not sending is on. **Changes to record** chooses which of `opened`, `updated` and `resolved` to log.

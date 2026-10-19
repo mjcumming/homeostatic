@@ -13,7 +13,6 @@ from homeassistant.exceptions import (
     ServiceValidationError,
     Unauthorized,
 )
-from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -24,7 +23,6 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.homeostatic.config import Settings, normalize_definitions
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from tests.policy_helpers import current_config, immediate_notification
-from tests.test_blueprint import load_example
 from tests.test_lifecycle import start_monitor
 
 NODE = "situation:basement_water"
@@ -234,157 +232,3 @@ async def test_reporter_definition_normalization(hass: HomeAssistant) -> None:
     situation = Settings.from_data({**current_config(), **(data)}).situations[0]
     assert situation.entity is None
     assert situation.report_timeout == 300
-
-
-async def setup_blueprint(
-    hass: HomeAssistant, conditions: list[dict[str, Any]], evidence: list[str]
-) -> None:
-    """Run the shipped blueprint with HA's real condition/trigger machinery."""
-    automation = await load_example(
-        hass,
-        "report_situation.yaml",
-        {
-            "situation_id": "basement_water",
-            "evidence_entities": evidence,
-            "active_conditions": conditions,
-            "extra_triggers": [
-                {"trigger": "event", "event_type": "reevaluate_situation"}
-            ],
-        },
-    )
-    automation["alias"] = "Situation reporter"
-    assert await async_setup_component(hass, "automation", {"automation": [automation]})
-    await hass.async_block_till_done()
-    hass.bus.async_fire("reevaluate_situation")
-    await hass.async_block_till_done()
-
-
-async def test_blueprint_water_clear_and_disabled_expiry(
-    hass: HomeAssistant, report_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
-) -> None:
-    """An owner blueprint drives open/unknown/clear and expires when disabled."""
-    hass.states.async_set("sensor.observed", "42")
-    hass.states.async_set("binary_sensor.bound", "off")
-    hass.states.async_set("binary_sensor.leak", "off")
-    runtime = await start_monitor(hass, report_entry)
-    await setup_blueprint(
-        hass,
-        [{"condition": "state", "entity_id": "binary_sensor.leak", "state": "on"}],
-        ["binary_sensor.leak"],
-    )
-    assert runtime.engine.readiness([NODE]).answer == "ready"
-    events = async_capture_events(hass, EVENT_NOTIFICATION)
-    hass.states.async_set("binary_sensor.leak", "on")
-    await hass.async_block_till_done()
-    episode_id = next(iter(runtime.episodes))
-    assert events[0].data["action"] == "open"
-    hass.states.async_set("binary_sensor.leak", "unavailable")
-    await hass.async_block_till_done()
-    assert list(runtime.episodes) == [episode_id]
-    assert runtime.engine.readiness([NODE]).answer == "unknown"
-    hass.states.async_set("binary_sensor.leak", "off")
-    await hass.async_block_till_done()
-    assert not runtime.episodes
-    assert events[-1].data["action"] == "resolve"
-    hass.states.async_set("binary_sensor.leak", "on")
-    await hass.async_block_till_done()
-    await hass.services.async_call(
-        "automation",
-        "turn_off",
-        {"entity_id": "automation.situation_reporter"},
-        blocking=True,
-    )
-    freezer.tick(timedelta(seconds=301))
-    async_fire_time_changed(hass, dt_util.utcnow())
-    await hass.async_block_till_done()
-    assert runtime.engine.readiness([NODE]).answer == "unknown"
-    assert len(runtime.episodes) == 1
-    assert await hass.config_entries.async_unload(report_entry.entry_id)
-
-
-async def test_blueprint_motion_time_and_moon(
-    hass: HomeAssistant, report_entry: MockConfigEntry, freezer: FrozenDateTimeFactory
-) -> None:
-    """HA owns combined conditions and clears when a time-only boundary passes."""
-    freezer.move_to("2026-09-29T01:15:00+00:00")
-    await hass.config.async_set_time_zone("UTC")
-    hass.states.async_set("sensor.observed", "42")
-    hass.states.async_set("binary_sensor.bound", "off")
-    hass.states.async_set("binary_sensor.motion", "on")
-    hass.states.async_set("sensor.moon", "new_moon")
-    runtime = await start_monitor(hass, report_entry)
-    await setup_blueprint(
-        hass,
-        [
-            {"condition": "state", "entity_id": "binary_sensor.motion", "state": "on"},
-            {"condition": "time", "after": "01:00:00", "before": "02:00:00"},
-            {"condition": "state", "entity_id": "sensor.moon", "state": "full_moon"},
-        ],
-        ["binary_sensor.motion", "sensor.moon"],
-    )
-    assert not runtime.episodes
-    hass.states.async_set("sensor.moon", "full_moon")
-    await hass.async_block_till_done()
-    assert len(runtime.episodes) == 1
-    freezer.tick(timedelta(minutes=1))
-    async_fire_time_changed(hass, dt_util.utcnow())
-    await hass.async_block_till_done()
-    assert runtime.engine.readiness([NODE]).answer == "blocked"
-    freezer.move_to("2026-09-29T02:00:01+00:00")
-    async_fire_time_changed(hass, dt_util.utcnow())
-    await hass.async_block_till_done()
-    assert not runtime.episodes
-    await hass.services.async_call(
-        "automation",
-        "turn_off",
-        {"entity_id": "automation.situation_reporter"},
-        blocking=True,
-    )
-    assert await hass.config_entries.async_unload(report_entry.entry_id)
-
-
-@pytest.mark.parametrize(
-    "value,attributes",
-    [
-        pytest.param("not-a-number", {}, id="condition-evaluation-error"),
-        pytest.param("unknown", {}, id="unknown-evidence"),
-        pytest.param("5", {"restored": True}, id="restored-evidence"),
-    ],
-)
-async def test_blueprint_uncertain_evidence_never_clears(
-    hass: HomeAssistant,
-    report_entry: MockConfigEntry,
-    value: str,
-    attributes: dict[str, Any],
-) -> None:
-    """An invalid numeric value or uncertain evidence cannot prove recovery."""
-    hass.states.async_set("sensor.temperature", "20")
-    hass.states.async_set("sensor.observed", "42")
-    hass.states.async_set("binary_sensor.bound", "off")
-    runtime = await start_monitor(hass, report_entry)
-    await setup_blueprint(
-        hass,
-        [
-            {
-                "condition": "numeric_state",
-                "entity_id": "sensor.temperature",
-                "above": 10,
-            }
-        ],
-        ["sensor.temperature"],
-    )
-    episode_id = next(iter(runtime.episodes))
-    hass.states.async_set("sensor.temperature", value, attributes)
-    await hass.async_block_till_done()
-    assert list(runtime.episodes) == [episode_id]
-    assert runtime.engine.readiness([NODE]).answer == "unknown"
-    hass.states.async_set("sensor.temperature", "5")
-    await hass.async_block_till_done()
-    assert not runtime.episodes
-    await hass.services.async_call(
-        "automation",
-        "turn_off",
-        {"entity_id": "automation.situation_reporter"},
-        blocking=True,
-    )
-    assert await hass.config_entries.async_unload(report_entry.entry_id)

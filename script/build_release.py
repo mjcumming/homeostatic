@@ -39,7 +39,6 @@ def main() -> None:
             "--name-only",
             "HEAD",
             "custom_components/homeostatic",
-            "blueprints/automation/homeostatic",
             "docs",
             "LICENSE",
             "README.md",
