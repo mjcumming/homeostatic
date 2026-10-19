@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-19",
+  "outcome": "Ordinary entity reports do not trigger runtime evaluation for an unchanged provided condition.",
+  "source": {
+    "branch": "main",
+    "base_revision": "7a385f063e8f01a324ecac34e9cea7a22f45bba6",
+    "working_tree": "uncommitted; unrelated frontend work also present",
+    "regression_revision": "542a2885aafa4d2638990b40ff4f79f54ab71ff7",
+    "regression_release": "1.11.0",
+    "cause": "entity_not_provided joined the unconditional value-update branch, bypassing availability filtering and observing every colocated check.",
+    "prior_guard_gap": "Availability-only scenarios asserted no disk writes; provider scenarios asserted semantic outcomes without ordinary-traffic work counts. Coalesced or skipped writes concealed repeated evaluation.",
+    "correction": "Filter each source independently using captured event states. Provider checks use live versus absent/restored classification; availability uses its existing signature; value-based checks retain their existing updates."
+  },
+  "environment": {
+    "platform": "Ubuntu on WSL, Windows checkout",
+    "python": "3.14.7",
+    "home_assistant": "2026.9.3",
+    "health_tree": "0.10.0 published package",
+    "node": "24.22.0",
+    "storage": "Home Assistant test helpers; not household disk I/O",
+    "notifications": "disabled or mocked in isolated Home Assistant"
+  },
+  "always_on_regressions": {
+    "test_module": "tests/test_entity_not_provided_refresh_work.py",
+    "initial_cases_failed_before_and_passed_after": 6,
+    "final_cases": 7,
+    "ordinary_traffic": {
+      "registered_entities": 12,
+      "value_and_attribute_events": 36,
+      "before_runtime_evaluations": 3,
+      "after_runtime_evaluations": 0,
+      "after_engine_ingestions": 0,
+      "after_engine_advances": 0,
+      "after_policy_advances": 0,
+      "after_discoveries": 0,
+      "after_saves": 0,
+      "after_publications": 0
+    },
+    "preserved": [
+      "Missing and restored evidence, owner retry and loaded lifecycle",
+      "Independent availability failures and any live state establishing provided",
+      "Battery, vacuum and temperature failures and recovery without unrelated observations",
+      "Rapid restored-live-restored transitions, causal contexts and distinct episodes",
+      "Source rename discovery and current catalog names"
+    ]
+  },
+  "large_inventory": {
+    "test_module": "tests/test_runtime_scaling.py::test_registered_inventory_runtime_load",
+    "entities": 6000,
+    "devices": 300,
+    "owners": 10,
+    "provider_checks_per_case": 6000,
+    "availability_scopes": ["device_group", "all_entities"],
+    "device_group_meaning": "Availability watches 60 entities on three devices; provider monitoring still covers all 6000 registered entities.",
+    "ordinary_updates_per_case": 300,
+    "zero_work_counters_in_both_cases": [
+      "evaluation_calls",
+      "engine_ingestion_calls",
+      "engine_advance_calls",
+      "policy_advance_calls",
+      "inventory_scans",
+      "save_calls",
+      "dashboard_publications"
+    ],
+    "other_assertions": "60 independent outages and recoveries, owner failure absorption, unchanged reconciliation and restart persistence passed.",
+    "generated_receipts": "build/sluggish-2026-10-19/provider-work-counts/runtime-{device_group,all_entities}.json"
+  },
+  "validation": {
+    "quick_check": "passed: lint, format, frontend syntax and 862 frontend tests",
+    "strict_types": "passed: 40 source files",
+    "provider_tests": "35 passed",
+    "related_runtime_lifecycle_temperature_ups_situation_regressions": "88 passed",
+    "consumer_fallback": "1 passed",
+    "large_inventory_cases": "2 passed",
+    "review": "Independent runtime review found no blockers; lifecycle, deadlines, current readings and queue ordering preserved.",
+    "full_release_suite": "not run; focused local workflow used, no release requested",
+    "log_directory": "build/sluggish-2026-10-19"
+  },
+  "status": {
+    "committed": false,
+    "published": false,
+    "installed": false,
+    "remaining": "An authorized installation and bounded household comparison of refresh counts, event-loop delays and API responsiveness are needed to measure the live benefit. Actual transition and reconciliation costs remain outside this correction."
+  }
+}

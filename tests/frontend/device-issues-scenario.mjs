@@ -94,7 +94,7 @@ document.querySelector("#run").onclick=async()=>{
     card.render();await settle();
     await click('[data-issue-group="integration:esphome"]');
     check(!root.querySelector('[data-ui-key="issue:ball-device"]')&&root.querySelector('[data-ui-key="issue:ball-player"]'),"Restored device evidence hides the historical failure while a current entity failure stays visible");
-    check(restoredStatus.last_failure.reason==="all_unavailable"&&data.inventory.episodes.includes(restored),"Filtering preserves the unresolved episode and its earlier report");
+    check(JSON.stringify(restoredStatus.last_failure)===JSON.stringify(restoredBaseline.current)&&data.inventory.episodes.includes(restored),"Filtering preserves the unresolved episode and its earlier report");
     Object.assign(restoredStatus,restoredBaseline);delete restoredStatus.last_failure;restored.reasons=restoredReasons;
     reset(false);await settle();
     check(root.querySelectorAll(".issue-group").length===3&&!root.querySelector("[data-episode]"),"Integration groups start collapsed");

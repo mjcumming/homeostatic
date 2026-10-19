@@ -10,7 +10,8 @@ const sources=data.inventory.nodes.filter(source=>source.kind==="entity"&&!sourc
 for(const source of [sources[3],...data.inventory.catalog.candidates.filter(source=>source.node_id===unmonitored)])source.name="3rd Floor Sensor Display backlight";
 base.sourceDetail.members[3].name="3rd Floor Sensor Display backlight";
 base.sourceDetail.members[3].unit="%";
-data.inventory.nodes.find(source=>source.kind==="device"&&source.watched).availability_entities=sources.slice(0,2).map(source=>source.entity_id);
+data.inventory.nodes=data.inventory.nodes.filter(source=>!source.monitoring_policy||!["devices","entities"].includes(source.monitoring_policy)||sources.slice(0,2).some(entity=>entity.node_id===source.monitoring_source));
+data.inventory.nodes.find(source=>source.node_id===DEVICE_ID).availability_entities=sources.slice(0,2).map(source=>source.entity_id);
 data.inventory.nodes.push({...sources[2],kind:"temperature_limit",node_id:"temperature:average",name:"Average temperature limits",watched:true,monitoring_policy:"temperature",check_id:"temperature_limit"});
 data.inventory.attention_controls_supported=true;
 base.configuration.settings.notification_definitions={profiles:{},methods:{}};
@@ -180,6 +181,7 @@ document.querySelector("#run").onclick=async()=>{
     await click('[data-sources-select="source:'+DEVICE_ID+'"]');
     check(root.querySelector('.source-device-summary')?.getClientRects().length,"Device availability summary is visible");
     check(root.querySelector('.source-device-members')?.getClientRects().length,"Device member readings are visible");
+    for(const row of root.querySelectorAll('.source-device-member')){const name=row.querySelector('a'),state=row.querySelector('.source-device-member-state');if(name&&state)check(state.getBoundingClientRect().top>=name.getBoundingClientRect().bottom-1,"Each member reading starts below its linked name");}
     check(!root.querySelector('.source-facts,.source-monitoring-explanation,.source-technical'),"Device omits redundant facts and disclosures");
     check(root.querySelector('[data-availability-action="select"]')?.getClientRects().length,"Device member selection remains available");
     if(root.querySelector('[data-action="back-sources"]').getClientRects().length)await click('[data-action="back-sources"]');

@@ -51,7 +51,7 @@ The `change` field says what happened:
 
 Vacuum evidence gaps use `vacuum_unavailable`, `vacuum_unknown`, `vacuum_missing`, `vacuum_restored` or `vacuum_unrecognized`, each with status `unknown`. Device grouping in the panel does not change event issue identities or recorded membership.
 
-The Entities not provided policy uses check `entity_not_provided`. Qualified warnings have reason `entity_not_provided`; a live entity reports `entity_provided`. Startup or unloaded owners use unknown reason `provider_not_loaded`; missing or mismatched ownership uses `provider_not_confirmed`. Unknown findings request no notifications and do not claim recovery. The ordinary issue lifecycle and notification event schemas are unchanged.
+The Entities not provided policy uses check `entity_not_provided`. Qualified warnings have reason `entity_not_provided`; a live entity reports `entity_provided`. Changing a live entity's value, including to `unknown` or `unavailable`, leaves this condition provided and creates no provider issue event. Startup or unloaded owners use unknown reason `provider_not_loaded`; missing or mismatched ownership uses `provider_not_confirmed`. Unknown findings request no notifications and do not claim recovery. The ordinary issue lifecycle and notification event schemas are unchanged.
 
 ### `homeostatic_control`
 

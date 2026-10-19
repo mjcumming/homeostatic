@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [1.11.3] - 2026-10-19
+
+### Fixed
+
+- Keep loaded entity evidence pages and independent temperature checks visible after Load more entities, instead of returning to the first page on the next render.
+- Place each device member's reading below its linked name so the name and state remain distinct on desktop and phone layouts.
+- Avoid repeated health and notification evaluation on ordinary entity readings when an Entities not provided policy is enabled. Each check now receives only the state changes it uses, including when availability and value-based checks watch the same entity.
+
+### Development
+
+- Update browser acceptance fixtures for entity-only availability, shared device issue actions and the current frontend identities. Keep overlapping-policy exclusions, cancellation, conflict and retry checks intact.
+
 ## [1.11.2] - 2026-10-19
 
 ### Documentation

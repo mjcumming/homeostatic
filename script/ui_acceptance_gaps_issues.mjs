@@ -7,12 +7,13 @@ export async function runIssueGaps(ctx) {
   // Escape in a focused search input clears it natively; navigation must not do that.
   const go=async destination=>{await at(`.header [data-page="${destination}"]`).focus();await ctx.go(destination);};
   let clockActive=false;
+  let availabilityBefore=new Map();
   const control=async(action,fields={})=>{const status=await call("homeostatic_ui_lab/control",{action,...fields});Object.assign(lab,status);if(action==="advance")clockActive=true;if(action==="reset")clockActive=false;return status;};
   const query=async service=>(await call("call_service",{domain:"homeostatic",service,service_data:{},return_response:true})).response;
   const inventory=()=>query("inventory");
   const controls=async()=>(await query("operator_controls")).controls;
   const close=async()=>{await page.keyboard.press("Escape");};
-  const reset=async()=>{transport.interceptRequest=null;transport.transformResponse=null;transport.commandModes?.clear();await page.context().setOffline(false);await page.goto("about:blank");await control("reset");await clean();};
+  const reset=async()=>{transport.interceptRequest=null;transport.transformResponse=null;transport.commandModes?.clear();await page.context().setOffline(false);await page.goto("about:blank");await control("reset");await clean();availabilityBefore=new Map();for(const node of (await inventory()).nodes)if(node.watched&&node.kind==="entity"&&node.check_id==="availability"&&node.monitoring_policy){const ids=availabilityBefore.get(node.monitoring_policy)||new Set();ids.add(node.monitoring_source||node.node_id);availabilityBefore.set(node.monitoring_policy,ids);}};
   const scenario=async(id,body)=>run(id,async()=>{await reset();try{return await body();}finally{transport.interceptRequest=null;transport.transformResponse=null;transport.commandModes?.clear();await page.context().setOffline(false);}});
   const text=async(selector,expression)=>at(selector).filter({hasText:expression}).first().waitFor({timeout:20000});
   const read=async selector=>(await at(selector).innerText()).trim();
@@ -118,7 +119,7 @@ export async function runIssueGaps(ctx) {
       const additions=(actual.excluded_sources||[]).filter(id=>!(policy.excluded_sources||[]).includes(id));
       const removals=(policy.excluded_sources||[]).filter(id=>!(actual.excluded_sources||[]).includes(id));
       assert.ok(additions.every(id=>wanted.has(id))&&removals.every(id=>wanted.has(id)),"Only selected canonical entities change exclusions");
-      const intended=new Set(policy.excluded_sources||[]);for(const id of ids)remove?intended.add(id):intended.delete(id);
+      const intended=new Set(policy.excluded_sources||[]);for(const id of ids)if(remove?availabilityBefore.get(policy.id)?.has(id):intended.has(id))remove?intended.add(id):intended.delete(id);
       assert.deepEqual([...(actual.excluded_sources||[])].sort(),[...intended].sort(),`Every selected entity changes in applicable policy ${policy.id}`);
       if(Object.hasOwn(actual,"excluded_sources"))policy.excluded_sources=actual.excluded_sources;else delete policy.excluded_sources;
     }
@@ -208,7 +209,7 @@ export async function runIssueGaps(ctx) {
     const expected=[device,first,second].map(issue=>issue.episode_id).sort(),policyBefore=await query("policy");
     assert.equal(new Set(expected).size,3,"The device and its two unavailable entities keep independent issues");
     const deviceSource=await source("offline","device");
-    await text('.source-device-summary',/0 of 2 monitored entities available/);
+    await text('.source-device-summary',/0 of 2 entities available/);
     assert.equal(await at('.config-detail [data-device-issues]').count(),1,"Monitoring has one combined availability View");
     assert.equal(await at('.source-device-members [data-episode],.source-device-members [data-device-issues]').count(),0,"Entity rows have no issue popups");
     const links=await at('.source-device-members a').evaluateAll(items=>items.map(item=>({name:item.textContent.trim(),href:item.getAttribute("href")})));
@@ -465,8 +466,8 @@ export async function runIssueGaps(ctx) {
     await realState("history","12");assert.equal(responses,1,"No automatic ambiguous-control retry");await noChange(before);
   });
   await scenario("issues.availability-batch",async()=>{
-    const before=await snapshot(),episode=await episodeFor("offline","device"),ids=[await sourceId("offline"),await sourceId("offline_second")];await go("problems");assert.equal(await at('main [data-issue-availability]').count(),0);await expandIssues();assert.equal(await at('main [data-issue-availability]').count(),0);
-    await openIssue(episode.episode_id);const stopMonitoring=at('dialog[open] [data-issue-availability="remove"]');assert.equal(await stopMonitoring.innerText(),"Stop Monitoring");assert.equal(await stopMonitoring.evaluate(button=>button.classList.contains("button")&&!button.classList.contains("link")),true);await stopMonitoring.click();assert.equal(await at('dialog[open] [data-issue-availability="confirm"]').innerText(),"Stop Monitoring");await details();await text('dialog[open]',/Lab offline|Lab secondary/);await click('dialog[open] [data-issue-availability="cancel"]');await noChange(before);assert.ok(await at('dialog[open]').count());
+    const before=await snapshot(),ids=[await sourceId("offline"),await sourceId("offline_second")];await go("problems");assert.equal(await at('main [data-issue-availability]').count(),0);await expandIssues();assert.equal(await at('main [data-issue-availability]').count(),0);
+    await click(`[data-device-issues="${lab.devices.offline}"]`);await at('dialog[open] [data-device-response="pause"]').waitFor();await at('dialog[open] [data-device-issue-select]').first().uncheck();const stopMonitoring=at('dialog[open] [data-issue-availability="remove"]');assert.equal(await stopMonitoring.innerText(),"Stop Monitoring");assert.equal(await stopMonitoring.evaluate(button=>button.classList.contains("button")&&!button.classList.contains("link")),true);await stopMonitoring.click();assert.equal(await at('dialog[open] [data-issue-availability="confirm"]').innerText(),"Stop Monitoring");await details();await text('dialog[open]',/Lab offline|Lab secondary/);await click('dialog[open] [data-issue-availability="cancel"]');await noChange(before);assert.ok(await at('dialog[open]').count());
     await click('dialog[open] [data-issue-availability="remove"]');const count=rejectSave();await click('dialog[open] [data-issue-availability="confirm"]');await text('dialog[open]',/Gap save rejected/);await noChange(before);assert.equal(count(),1);transport.interceptRequest=null;
     await click('dialog[open] [data-issue-availability="confirm"]');await at('dialog[open]').waitFor({state:"hidden"});await expectedExclusions(before,ids);assert.equal(await at('main [data-issue-availability]').count(),0);assert.ok(!(await bodyText()).includes("Changes saved."));
   });
@@ -538,9 +539,19 @@ export async function runIssueGaps(ctx) {
     const data=await inventory(),old=data.nodes.find(node=>node.monitoring_policy==="lab_temperature");assert.ok(old);await page.goto(`${lab.url}/homeostatic/sources/${encodeURIComponent(`source:${old.node_id}`)}`);await at('#sources-detail-title').waitFor();await text('.config-detail',/Lab room temperature/);
     await source("thermostat");await text('.config-detail',/Lab thermostat comfort/);await noChange(before);
     await source("temperature");await click('[data-availability-action="stop"]');await click('[data-availability-action="confirm"]');await at('[data-availability-action="resume"]').waitFor();await expectedExclusions(before,[canonical]);assert.equal(await at('[data-temperature-check]').count(),2);await text('.source-monitoring-status',/temperature/i);
-    await source("temperature","device");assert.equal(await at('[data-temperature-check]').count(),2);await at('.source-device-coverage').waitFor();await at('[data-action="more-source-evidence"]').waitFor();await click('[data-action="more-source-evidence"]');await at('[data-action="more-source-evidence"]').waitFor({state:"hidden"});assert.equal(await at('[data-temperature-check]').count(),2);await at(`.source-temperature [data-source-link="${canonical}"]`).first().click();await text('#sources-detail-title',/Lab room temperature/);await fit('.config-detail');
+    await source("temperature","device");assert.equal(await at('[data-temperature-check]').count(),2);await at('.source-device-coverage').waitFor();await at('[data-action="more-source-evidence"]').waitFor();const firstPage=await at('.source-device-member').count();await click('[data-action="more-source-evidence"]');await at('[data-action="more-source-evidence"]').waitFor({state:"hidden"});assert.equal(await at('[data-temperature-check]').count(),2);
+    const loaded=await at('.source-device-member').count();assert.ok(loaded>firstPage,"Load more retains the earlier evidence page");
+    await at('.source-device-summary [data-device-issues]').click();await at('dialog[open]').waitFor();await close();await at('dialog[open]').waitFor({state:"hidden"});
+    assert.equal(await at('.source-device-member').count(),loaded,"Closing the device issue dialog retains the loaded evidence pages");assert.equal(await at('[data-action="more-source-evidence"]').count(),0);
+    assert.equal(await at('.source-device-members').evaluate(list=>[...list.querySelectorAll('li')].every(row=>{const name=row.querySelector('a'),state=row.querySelector('.source-device-member-state');return !name||!state||state.getBoundingClientRect().top>=name.getBoundingClientRect().bottom-1;})),true,"Each reading is visually separated from its linked entity name");
+    await page.screenshot({path:`${ctx.artifactDir}/temperature-evidence-pages.png`,fullPage:true});await at(`.source-temperature [data-source-link="${canonical}"]`).first().click();await text('#sources-detail-title',/Lab room temperature/);await fit('.config-detail');
   });
   await scenario("sources.monitoring-policies",async()=>{
+    const setup=await call("homeostatic/configuration"),initial=await inventory();
+    const check=initial.nodes.find(node=>node.entity_id===lab.entities.offline&&node.check_id==="availability"&&node.monitoring_policy);
+    const original=setup.settings.monitoring_policies.find(policy=>policy.id===check?.monitoring_policy);assert.ok(original,"An active availability policy supplies the overlap fixture");
+    const settings=structuredClone(setup.settings);settings.monitoring_policies.push({...structuredClone(original),id:"acceptance_overlap",name:"Overlapping entity availability"});
+    await call("homeostatic/save_settings",{revision:setup.revision,settings});await clean();
     const before=await snapshot();
     await edit("policies","lab_temperature");await fill(field("name"),"Preserved temperature draft");
     await edit("methods","lab_messages");await fill(field("name"),"Preserved method draft");
@@ -558,9 +569,10 @@ export async function runIssueGaps(ctx) {
     assert.equal(await at('.source-policy-links [data-source-policies="open"]').count(),1);
     assert.equal(await at('.config-detail [data-definition-id]').count(),0,"The entity pane has no individual policy edit controls");
     await at('[data-source-policies="open"]').focus();await page.keyboard.press("Enter");await at('.source-policy-dialog[open]').waitFor();
-    await text('.source-policy-dialog',/Lab offline sensor/);await text('.source-policy-dialog',/Checks this entity.s availability individually/);await text('.source-policy-dialog',/Uses this entity to assess/);
+    await text('.source-policy-dialog',/Lab offline sensor/);await text('.source-policy-dialog',/Checks this entity.s availability individually/);assert.ok(await at('.source-policy-dialog .source-policy').count()>=2,"Both overlapping entity availability policies remain visible");
     const ids=await at('.source-policy-dialog [data-definition-id]').evaluateAll(items=>items.map(item=>item.dataset.definitionId));
-    const availability=before.monitoring_policies.filter(policy=>policy.check==="availability"&&policy.enabled&&policy.match?.kind?.some(kind=>["entity","device"].includes(kind)));
+    const contributing=new Set(data.nodes.filter(node=>node.watched&&node.kind==="entity"&&node.check_id==="availability"&&node.monitoring_source===selected).map(node=>node.monitoring_policy));
+    const availability=before.monitoring_policies.filter(policy=>policy.enabled&&contributing.has(policy.id));
     assert.ok(availability.length>=2&&availability.every(policy=>ids.includes(policy.id)),"Each real contributing availability policy remains reachable");
     const editPolicy=at(`.source-policy-dialog [data-definition-id="${availability[0].id}"]`);await editPolicy.focus();await realState("history","15");
     await at('.source-policy-dialog[open]').waitFor();assert.equal(await editPolicy.evaluate(element=>element.getRootNode().activeElement===element),true,"Live monitoring preserves dialog focus");
@@ -580,7 +592,7 @@ export async function runIssueGaps(ctx) {
     return "Actual registry ownership stays linked across integration/location grouping. Keyboard Enter opens Monitoring policies; real Escape and pointer Close restore focus, live evidence updates preserve the dialog and focused policy, and each contributing availability policy opens its exact editor. Back to source retains the entity and independent policy/method drafts; saved settings are unchanged.";
   });
   await scenario("sources.details",async()=>{
-    const before=await snapshot();await source("offline","device");await text('.source-device-summary',/0 of 2 monitored entities available/);assert.equal(await at('.source-monitoring-explanation').count(),0);await at('.source-device-coverage').waitFor();assert.ok(await at('.source-device-members a[href^="/developer-tools/state?entity_id="]').count());
+    const before=await snapshot();await source("offline","device");await text('.source-device-summary',/0 of 2 entities available/);assert.equal(await at('.source-monitoring-explanation').count(),0);await at('.source-device-coverage').waitFor();assert.ok(await at('.source-device-members a[href^="/developer-tools/state?entity_id="]').count());
     await source("offline");await text('.config-detail',/Home Assistant reports this entity as unavailable/);await click('[data-source-policies="open"]');assert.ok(await at('.source-policy-dialog [data-definition-id]').count());await click('[data-source-policies="close"]');
     for(const [value,expected] of [["unknown",/Home Assistant reports no value/],["0",/0/],["unavailable",/Home Assistant reports this entity as unavailable/]]){await realState("offline",value);await text('.config-detail',expected);}
     await control("remove_state",{entity_id:lab.entities.offline});await text('.config-detail',/No current Home Assistant state|No current state|not provided|unavailable/i);await noChange(before);

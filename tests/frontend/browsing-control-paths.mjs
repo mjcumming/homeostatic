@@ -38,9 +38,9 @@ export async function runBrowsingControlPaths(context) {
   const previous=card.current.data;
   await runPath("issues.filter",async()=>{
     const data=monitoringExample();data.inventory.episodes=Array.from({length:45},(_,index)=>({episode_id:`issue-${index}`,anchor:`device:camera-${index%26}`,opened_at:`2026-10-14T12:${String(index).padStart(2,"0")}:00Z`,status:"warn",importance:index===0?"high":"normal",recorded:[],impact:[],reasons:[{node_id:`device:camera-${index%26}`,check_id:"availability",status:"fail",reason:"unavailable",message:`Unavailable reading ${index}`}]}));
-    card.current={status:"current",data};card.issueGroupsExpanded.clear();await go("problems");await click('[data-issue-group]');check(root.querySelectorAll('[data-episode]').length===40,"Initial group page is bounded");await click('[data-issue-more]');check(root.querySelectorAll('[data-episode]').length===45,"Show more reaches every issue");
+    card.current={status:"current",data};card.issueGroupsExpanded.clear();await go("problems");await click('[data-issue-group]');check(root.querySelectorAll('.issue-row[data-ui-key^="issue:"]').length===40,"Initial group page is bounded");await click('[data-issue-more]');check(root.querySelectorAll('.issue-row[data-ui-key^="issue:"]').length===45,"Show more reaches every issue");
     for(const sort of ["oldest","newest","name","importance"]) {await change('[data-issue-sort]',sort);check(card.issueSort===sort,`${sort} ordering selected`);}
-    await change('[data-issue-search]',"Unavailable reading 44");check(root.querySelectorAll('[data-episode]').length===1,"Search reaches exact condition");
+    await change('[data-issue-search]',"Unavailable reading 44");check(root.querySelectorAll('.issue-row[data-ui-key^="issue:"]').length===1,"Search reaches exact condition");
     await change('[data-issue-search]',"does-not-exist");check(root.textContent.includes("No matching issues"),"No match is explicit");await click('[data-action="clear-issue-search"]');check(card.issueQuery==="","Clear search restores queue");
   });
   await runPath("issues.empty",async()=>{

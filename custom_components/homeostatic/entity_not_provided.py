@@ -93,6 +93,11 @@ def node(source: Source, settings: Settings) -> Node:
     )
 
 
+def state_provided(state: State | None) -> bool:
+    """Return whether HA has a live state, regardless of its reported value."""
+    return state is not None and not state.attributes.get("restored")
+
+
 def observe(
     hass: HomeAssistant,
     source: Source,
@@ -148,7 +153,7 @@ def observe(
             "provider_not_loaded",
             "Waiting for Home Assistant and the owning integration to finish loading.",
         )
-    elif state is None or state.attributes.get("restored"):
+    elif not state_provided(state):
         status, reason, message = (
             Status.WARN,
             CHECK,

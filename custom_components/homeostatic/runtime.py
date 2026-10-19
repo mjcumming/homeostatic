@@ -100,6 +100,7 @@ from .enrollment import (
 )
 from .entity_not_provided import observe as not_provided_observation
 from .entity_not_provided import sources as not_provided_sources
+from .entity_not_provided import state_provided
 from .evidence import ReportedEvidence
 from .facts import (
     FACT_SCHEMA_VERSION,
@@ -488,26 +489,26 @@ class Runtime:
         ):
             self._inventory_dirty = True
             self._request_refresh()
-        if sources and (
-            any(source.kind == "situation" for source in sources)
-            or any(
-                source.kind
-                in {
-                    "battery",
-                    "vacuum",
-                    "ups",
-                    "entity_not_provided",
-                    *TEMPERATURE_CHECKS,
-                }
-                for source in sources
+        availability_changed = entity_state_signature(old) != entity_state_signature(
+            new
+        )
+        provided_changed = state_provided(old) != state_provided(new)
+        observed_sources = [
+            source
+            for source in sources
+            if (
+                provided_changed
+                if source.kind == "entity_not_provided"
+                else source.kind
+                in {"situation", "battery", "vacuum", "ups", *TEMPERATURE_CHECKS}
+                or availability_changed
             )
-            or entity_state_signature(event.data["old_state"])
-            != entity_state_signature(event.data["new_state"])
-        ):
+        ]
+        if observed_sources:
             now = dt_util.utcnow()
             observations = []
             temperature_states: list[tuple[str, State | None]] = []
-            for source in sources:
+            for source in observed_sources:
                 if source.kind in TEMPERATURE_CHECKS:
                     temperature_states.append((source.node_id, new))
                     continue

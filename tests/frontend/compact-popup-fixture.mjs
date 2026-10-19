@@ -3,7 +3,7 @@ import {issueEvidenceFixture,issueEvidenceReply} from "./issue-evidence-fixture.
 
 export const popupCases=[
   {id:"battery",kind:"battery",name:"Front Hallway battery",reason:"battery_low",headline:"Battery low",entity:"sensor.hallway_battery",check:"battery",device:"hallway"},
-  {id:"device",kind:"device",name:"Front Hallway sensor",reason:"all_unavailable",headline:"Temperature unavailable",device:"hallway",members:true},
+  {id:"device",kind:"entity",name:"Front Hallway sensor",reason:"unavailable",headline:"Temperature unavailable",entity:"sensor.hallway_temperature",domain:"sensor",device:"hallway",members:true},
   {id:"entity",kind:"entity",name:"Front Hallway occupancy",reason:"unavailable",headline:"Occupancy sensor unavailable",entity:"binary_sensor.hallway_occupancy",domain:"binary_sensor",deviceClass:"occupancy",device:"hallway"},
   {id:"integration",kind:"integration",name:"Lyric",reason:"setup_error",headline:"Connection couldn't start",entry:"lyric",domain:"lyric"},
   {id:"vacuum",kind:"vacuum",name:"Upstairs vacuum",reason:"vacuum_error",headline:"Vacuum error",entity:"vacuum.upstairs",message:"Brush is blocked.",check:"vacuum",device:"vacuum"},
@@ -56,8 +56,8 @@ export function compactPopupFixture(id="battery") {
     data.inventory.integration_evidence[source.node_id]=result.integration_evidence;
   }
   if(definition.members) {
-    const member=baseSource("entity:hallway_temperature","Front Hallway sensor Temperature","entity",{entity_id:"sensor.hallway_temperature",attributes:{device:["hallway"],domain:["sensor"]}});
-    nodes.push(member);data.inventory.catalog.candidates.push(member);
+    const member=definition.id==="device"?canonical:baseSource("entity:hallway_temperature","Front Hallway sensor Temperature","entity",{entity_id:"sensor.hallway_temperature",attributes:{device:["hallway"],domain:["sensor"]}});
+    if(member!==canonical){nodes.push(member);data.inventory.catalog.candidates.push(member);}
     source.availability_entities=[member.entity_id];
     result.device_evidence={total:1,members:[{node_id:member.node_id,entity_id:member.entity_id,name:member.name,state:"unavailable",restored:false}],unknown_count:0,unavailable_count:1};
     result.device_availability={status:"available",basis:"entities",reason:"available"};

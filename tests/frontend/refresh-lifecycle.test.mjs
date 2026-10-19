@@ -122,6 +122,24 @@ test("paging and refresh share one source request and discard a superseded page"
   assert.deepEqual(card.sourceDetail.members,[{entity_id:"sensor.current",state:"new"}]);
 });
 
+test("a completed evidence page survives the following render without reloading page one",async()=>{
+  const requests=[],card=Object.create(prototype),data=dataFixture();
+  const checks=[{node_id:"temperature:first"},{node_id:"temperature:second"}];
+  Object.assign(card,{page:"sources",current:{status:"current",data},sourcesSelection:"source:device:camera-0",sourceSequence:0,render(){},
+    _hass:{connection:{},states:{},async callWS(request){
+      requests.push(request);
+      return {updated_at:data.updated_at,total:2,next_offset:request.offset?null:1,
+        members:[{entity_id:request.offset?"sensor.second":"sensor.first",state:"72"}],temperature_checks:checks};
+    }}});
+  await card.loadSource();
+  await card.loadSourceMore();
+  await card.loadSource();
+  assert.equal(requests.length,2,"an unchanged render must retain the loaded evidence pages");
+  assert.deepEqual(card.sourceDetail.members.map(member=>member.entity_id),["sensor.first","sensor.second"]);
+  assert.deepEqual(card.sourceDetail.temperature_checks,checks);
+  assert.equal(card.sourceDetail.next_offset,null);
+});
+
 test("issue detail requests coalesce changing evidence and reject an old navigation result",async()=>{
   const pending=[],body={innerHTML:"new dialog"},label={},card=Object.create(prototype);
   Object.assign(card,{current:{status:"current",data:dataFixture()},detail:{nodeId:"one"},detailSequence:0,

@@ -22,7 +22,7 @@ To find the policies watching an entity, select it in **Monitoring**, then open 
 
 Choose **Entities not provided** when registered entities remain in Home Assistant but their integration no longer supplies them. The owning integration must be loaded. Select the entities in the same tree and set **For at least (hours)**; the default is 24 hours. Save the policy and choose its notification assignments as usual.
 
-An enabled registration with a missing state or restored placeholder can qualify. A live entity reporting unavailable is being provided and belongs to availability monitoring. Disabled entities are excluded. Startup and integration reloads interrupt the waiting period.
+An enabled registration with a missing state or restored placeholder can qualify. Any live state means the entity is being provided, including unknown or unavailable; ordinary changes to its value do not affect this condition. Use Entity availability to watch live unavailable states. Disabled entities are excluded. Startup and integration reloads interrupt the waiting period.
 
 The issue identifies the entity and its loaded integration. Use **Open Entity** to inspect it in Home Assistant. Homeostatic does not delete registrations or determine whether they are obsolete.
 

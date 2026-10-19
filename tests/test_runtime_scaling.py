@@ -101,11 +101,27 @@ async def measure(
 
     cancel = async_dispatcher_connect(hass, SIGNAL_DASHBOARD, dashboard_client)
     handle = loop.call_soon(probe)
+    engine, policy = runtime.engine, runtime.policy
+    assert engine is not None
+    assert policy is not None
     started = perf_counter()
     try:
         with (
             patch.object(runtime, "_save", wraps=runtime._save) as saves,
             patch.object(runtime, "_discover", wraps=runtime._discover) as discoveries,
+            patch.object(runtime, "_evaluate", wraps=runtime._evaluate) as evaluations,
+            patch.object(
+                type(engine),
+                "ingest_many",
+                autospec=True,
+                side_effect=type(engine).ingest_many,
+            ) as ingestions,
+            patch.object(
+                type(engine), "advance", autospec=True, side_effect=type(engine).advance
+            ) as engine_advances,
+            patch.object(
+                type(policy), "advance", autospec=True, side_effect=type(policy).advance
+            ) as policy_advances,
         ):
             await operation()
             await hass.async_block_till_done()
@@ -115,6 +131,10 @@ async def measure(
                 "max_loop_gap_seconds": round(max(gaps, default=0), 6),
                 "save_calls": saves.call_count,
                 "inventory_scans": discoveries.call_count,
+                "evaluation_calls": evaluations.call_count,
+                "engine_ingestion_calls": ingestions.call_count,
+                "engine_advance_calls": engine_advances.call_count,
+                "policy_advance_calls": policy_advances.call_count,
                 "dashboard_publications": len(payload_sizes),
                 "dashboard_bytes": sum(payload_sizes),
                 "max_dashboard_bytes": max(payload_sizes, default=0),
@@ -153,6 +173,9 @@ async def test_registered_inventory_runtime_load(
         monitoring_policies=[
             monitoring_policy("controllers", {"kind": ["integration"]}),
             monitoring_policy("capabilities", matches[scope]),
+            monitoring_policy(
+                "providers", {"kind": ["entity"]}, check="entity_not_provided"
+            ),
         ],
         notifications=False,
     )
@@ -162,9 +185,15 @@ async def test_registered_inventory_runtime_load(
     runtime = await start_monitor(hass, entry)
     results: dict[str, Any] = {
         "scope": scope,
+        "availability_scope": scope,
+        "provider_scope": "all_registered_entities",
         "setup_seconds": perf_counter() - started,
     }
     results["watched_sources"] = len(runtime.sources)
+    results["provider_sources"] = sum(
+        source.kind == "entity_not_provided" for source in runtime.sources.values()
+    )
+    assert results["provider_sources"] == len(shape.entities)
     results["initial_payload_bytes"] = len(
         json.dumps(hass.data[DATA_DASHBOARD].value).encode()
     )
@@ -174,7 +203,16 @@ async def test_registered_inventory_runtime_load(
         runtime,
         lambda: changes(hass, shape.entities[:300], "1"),
     )
-    assert results["ordinary_300_updates"]["save_calls"] == 0
+    for counter in (
+        "save_calls",
+        "inventory_scans",
+        "evaluation_calls",
+        "engine_ingestion_calls",
+        "engine_advance_calls",
+        "policy_advance_calls",
+        "dashboard_publications",
+    ):
+        assert results["ordinary_300_updates"][counter] == 0, counter
     results["outage_60_updates"] = await measure(
         hass,
         runtime,

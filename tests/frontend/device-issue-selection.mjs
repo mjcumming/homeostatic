@@ -29,8 +29,7 @@ export function deviceIssueFixture() {
     checks.push(check);statuses[check.node_id]={current:finding,findings:[finding],last_failure:finding};
     episodes.push({episode_id:`issue:${key}`,anchor:check.node_id,recorded:[check.node_id],form:"single",importance:"normal",impact:[],opened_at:FIXTURE_TIME,reasons:[finding]});
   };
-  const connection=baseSource("entity:connection","Connection","entity",{entity_id:"sensor.audi_connection",owner_id:"alexa",attributes:{device:[DEVICE_ID],integration:["alexa"],domain:["sensor"]}});
-  canonical.push(connection);add(connection,"device","devices");
+  add(entities[0],"device","devices");
   for(const source of entities)add(source,source.node_id.split(":")[1],"entities");
   add(stranger,"other","entities");add(orphan,"orphan","entities");add(entities[0],"battery","batteries","battery","battery_low");
   const members=entities.map(source=>({node_id:source.node_id,entity_id:source.entity_id,name:source.name,state:"unavailable",restored:false}));

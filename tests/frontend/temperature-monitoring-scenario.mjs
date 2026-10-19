@@ -28,8 +28,7 @@ function inventory() {
   data.inventory.resolved_history={episodes:[],retention:{max_age_days:30,max_episodes:100},started_at:"2026-10-15T12:00:00Z"};
   if(overlap)data.inventory.nodes.push({...copy(data.inventory.nodes.at(-1)),node_id:"temperature:second",monitoring_policy:secondPolicy.id,name:sensor.name+" · "+secondPolicy.name});
   if(excluded) {
-    data.inventory.nodes=data.inventory.nodes.filter(source=>source.monitoring_policy!=="entities");
-    data.inventory.nodes.find(source=>source.monitoring_policy==="devices").availability_entities=base.sourceDetail.members.filter(member=>member.node_id!==ENTITY_ID).map(member=>member.entity_id);
+    data.inventory.nodes=data.inventory.nodes.filter(source=>!(source.monitoring_source===ENTITY_ID&&["entities","devices"].includes(source.monitoring_policy)));
   }
   return data;
 }

@@ -15,12 +15,12 @@ const policy=id=>saved.monitoring_policies.find(item=>item.id===id);
 const exclusion=(id,source)=>policy(id).excluded_sources?.includes(source);
 const saves=()=>calls.filter(item=>item.type==="homeostatic/save_settings");
 function inventory() {
-  const data=copy(base.current.data),device=candidates.find(item=>item.node_id===DEVICE_ID);
+  const data=copy(base.current.data);
   const selected=entities.filter(item=>!exclusion("devices",item.node_id));
   data.catalog_revision=String(revision);data.updated_at=UPDATED_AT;
   data.inventory.attention_controls_supported=true;
   data.inventory.nodes=[...copy(candidates),...entities.filter(item=>!exclusion("entities",item.node_id)).map(item=>({...item,node_id:`monitoring:entities:${item.node_id}`,monitoring_source:item.node_id,monitoring_policy:"entities",watched:true})),
-    ...(selected.length?[{...device,node_id:`monitoring:devices:${DEVICE_ID}`,monitoring_source:DEVICE_ID,monitoring_policy:"devices",watched:true,availability_entities:selected.map(item=>item.entity_id)}]:[])];
+    ...selected.map(item=>({...item,node_id:`monitoring:devices:${item.node_id}`,monitoring_source:item.node_id,monitoring_policy:"devices",check_id:"availability",watched:true}))];
   data.inventory.episodes=exclusion("entities",ENTITY_ID)?[]:[{episode_id:"shared",anchor:"entry:lyric",recorded:["entry:lyric",`monitoring:entities:${ENTITY_ID}`],reasons:[{node_id:`monitoring:entities:${ENTITY_ID}`,message:"Room temperature is unavailable",status:"warn",reason:"unavailable"}],opened_at:UPDATED_AT}];
   if(withSibling) {
     const source={...copy(entities[0]),node_id:"entity:unrelated",entity_id:"sensor.unrelated_reading",name:"Other unavailable reading",attributes:{...entities[0].attributes,device:[]}};
@@ -235,7 +235,7 @@ document.querySelector("#run").onclick=async()=>{
     check(root.querySelector('.source-policy-dialog')?.open,"Monitoring policies opens a native dialog");
     check(root.querySelector('.source-policy-dialog .source-policy-entity')?.textContent===entities[0].name,"Policy context names the exact selected entity");
     const policyRows=[...root.querySelectorAll('.source-policy-dialog .source-policy')];
-    check(policyRows.length===2&&policyRows.some(row=>row.textContent.includes("Checks this entity's availability individually"))&&policyRows.some(row=>row.textContent.includes("Uses this entity to assess 3rd Floor Sensor")),"Individual monitoring and device evidence roles remain distinct");
+    check(policyRows.length===2&&policyRows.every(row=>row.textContent.includes("Checks this entity's availability individually"))&&new Set(policyRows.map(row=>row.querySelector("h3").textContent)).size===2,"Overlapping entity policies retain their distinct names and individual availability roles");
     const deviceEdit=root.querySelector('.source-policy-dialog [data-definition-id="devices"]');deviceEdit.focus();
     card.render();await settle();
     check(root.querySelector('.source-policy-dialog')?.open&&root.activeElement?.dataset.definitionId==="devices","Live updates preserve the open dialog and focused contributing policy");

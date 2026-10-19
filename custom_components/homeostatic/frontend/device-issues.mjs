@@ -1,15 +1,15 @@
-import {notProvidedProblem} from "./entity-not-provided.mjs?v=101";
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=101";
-import {callAction} from "./history-controls.mjs?v=101";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=101";
-import {deviceEntitySummary} from "./device-entities.mjs?v=101";
-import {sourceCoverageIndex,sourceCoverage} from "./source-coverage.mjs?v=101";
-import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=101";
-import {issueAvailabilityAction, issueAvailabilityNeedsCatalog, renderIssueAvailability} from "./issue-monitoring.mjs?v=101";
-import {batteryProblem,entityProblem,vacuumProblem} from "./problem.mjs?v=101";
-import {temperatureProblem} from "./source-temperature.mjs?v=101";
-import {upsProblem} from "./ups.mjs?v=101";
-import {retainedProblem} from "./check-presentation.mjs?v=101";
+import {notProvidedProblem} from "./entity-not-provided.mjs?v=102";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=102";
+import {callAction} from "./history-controls.mjs?v=102";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=102";
+import {deviceEntitySummary} from "./device-entities.mjs?v=102";
+import {sourceCoverageIndex,sourceCoverage} from "./source-coverage.mjs?v=102";
+import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=102";
+import {issueAvailabilityAction, issueAvailabilityNeedsCatalog, renderIssueAvailability} from "./issue-monitoring.mjs?v=102";
+import {batteryProblem,entityProblem,vacuumProblem} from "./problem.mjs?v=102";
+import {temperatureProblem} from "./source-temperature.mjs?v=102";
+import {upsProblem} from "./ups.mjs?v=102";
+import {retainedProblem} from "./check-presentation.mjs?v=102";
 
 const date=value=>new Date(value).toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const issueId=item=>item.episode.episode_id;

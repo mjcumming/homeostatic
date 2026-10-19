@@ -187,7 +187,7 @@ document.querySelector('#run').onclick=async()=>{
     }catch(error){recordResult(receipt,'sources.tree','fail',error.message);throw error;}finally{report();}
     try{
       await change('[data-sources-search]','3rd Floor Sensor');await click(`[data-sources-select="source:${DEVICE_ID}"]`);
-      expect(root.querySelector('.source-device-summary').textContent.includes('2 of 3 monitored entities available'),'Device summary counts current available readings');
+      expect(root.querySelector('.source-device-summary').textContent.includes('2 of 3 entities available'),'Device summary counts current available readings');
       const members=root.querySelector('.source-device-members');
       expect(members.textContent.includes('Unavailable'),'Current unavailable member is visible');
       expect(members.textContent.includes('Available · no value')&&members.textContent.includes('72'),'Member readings distinguish no-value and current numeric state');
