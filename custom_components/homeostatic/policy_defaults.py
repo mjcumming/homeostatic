@@ -57,8 +57,8 @@ def policy_templates() -> list[dict[str, Any]]:
                 None,
                 True,
             ),
-            ("default_batteries", "Batteries", "battery", None, False),
-            ("default_vacuums", "Vacuums", "vacuum", None, False),
+            ("default_batteries", "Batteries", "battery", None, True),
+            ("default_vacuums", "Vacuums", "vacuum", None, True),
             (
                 "default_entities_not_provided",
                 "Entities not provided",

@@ -2,7 +2,7 @@
 
 [Homeostatic manual](../guide.md)
 
-Use a **Low battery** policy to report a low percentage or a low-battery warning supplied by Home Assistant. The supplied **Batteries** policy starts off and uses a 20% threshold.
+Use a **Low battery** policy to report a low percentage or a low-battery warning supplied by Home Assistant. The supplied **Batteries** policy starts enabled on a fresh installation and uses a 20% threshold. Existing saved choices stay unchanged during updates.
 
 Before starting, find the battery in **Monitoring** and inspect its readings. Homeostatic recognizes battery percentages and low-battery warnings from Home Assistant's entity metadata. When a device has one of each, they can appear as one battery. Check that the displayed readings belong together before including it.
 
@@ -12,7 +12,7 @@ Before starting, find the battery in **Monitoring** and inspect its readings. Ho
 2. Give the policy a useful name. Under **Include**, choose the batteries to watch. **Selected batteries…** lets you choose individual batteries; **All batteries** also includes eligible batteries discovered later. See [Choose what to monitor](policies.md) for areas, labels and exclusions.
 3. Set **Battery level at or below (%)**. A reported percentage equal to this value is low. An explicit low-battery warning also opens a problem, even when the percentage is higher.
 4. Review **Notifications**. The supplied policy selects **Morning summary**. Configure its delivery method through [Set up and change notifications](notifications.md), or remove its assignments to keep the policy's issues in the panel only.
-5. Turn **Policy enabled** on and select **Save policy**.
+5. Confirm **Policy enabled** is on and select **Save policy**.
 6. Return to the battery in **Monitoring**. Confirm that the policy is listed and inspect the current percentage, warning and any charging evidence. A current low report can now appear in **Open issues**.
 
 ## Read the result

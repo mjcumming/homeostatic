@@ -36,15 +36,26 @@ async def test_user_flow(hass: HomeAssistant) -> None:
         "default_important_equipment",
         "default_repairs",
         "default_broken_automations",
+        "default_batteries",
+        "default_vacuums",
         "default_entities_not_provided",
     }
     profiles = result["data"]["notification_definitions"]["profiles"]
+    assert set(profiles) == {
+        "immediate",
+        "acknowledge",
+        "urgent",
+        "morning",
+        "evening",
+        "weekly",
+    }
     assert all(
         row["profile"] in profiles
         for item in result["data"]["monitoring_policies"]
         for row in item["notifications"]
     )
     assert not any(profile["methods"] for profile in profiles.values())
+    assert result["data"]["notification_definitions"]["methods"] == {}
     assert result["data"]["notifications"] is False
 
 

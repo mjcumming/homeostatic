@@ -3,6 +3,8 @@
 **Status:** Accepted; evidence-gap wording and retained-problem presentation extended by [ADR 0085](0085-device-centered-issue-context.md)
 **Date:** 2026-10-03
 
+**Later decisions:** Policy ownership follows [ADR 0058](0058-unified-policy-lifecycle.md), with its fresh-install battery and vacuum defaults amended by [ADR 0106](0106-enable-supplied-battery-and-vacuum-policies.md). Notification assignments follow [ADR 0066](0066-reusable-notifications-own-timing-and-delivery.md). The activity and recovery semantics below remain unchanged.
+
 ## Context
 
 Home Assistant's vacuum entity reports one of six activities: cleaning, docked, idle, paused, returning, and error. Error means the vacuum encountered an error while cleaning. Integrations that follow the vacuum model map their own status codes onto that activity. A fault left on some other sensor never becomes this state.

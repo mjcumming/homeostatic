@@ -298,7 +298,7 @@ Policies owns equipment monitoring scope, problem criteria and notification assi
 
 ### Supplied policies and defaults
 
-Fresh setup uses `monitoring_policy_version: 1` and one list of ordinary policies. Each has a stable id, name, immutable monitoring type, supported source selection and detection parameters, enabled state and zero or more notification entries. Supplied policies have the same lifecycle as user-created policies ([ADR 0058](adr/0058-unified-policy-lifecycle.md)): the same list, editor and actions, deletion without special protection, and duplication that gives the copy a new id and starts it disabled. Only explicit selective restoration recreates a missing supplied policy. Software updates and normal reloads preserve edits and deletions and never recreate removed defaults automatically.
+Fresh setup uses `monitoring_policy_version: 1` and one list of ordinary policies. All eight supplied policies start enabled ([ADR 0106](adr/0106-enable-supplied-battery-and-vacuum-policies.md)). Each has a stable id, name, immutable monitoring type, supported source selection and detection parameters, enabled state and zero or more notification entries. Supplied policies have the same lifecycle as user-created policies ([ADR 0058](adr/0058-unified-policy-lifecycle.md)): the same list, editor and actions, deletion without special protection, and duplication that gives the copy a new id and starts it disabled. Only explicit selective restoration recreates a missing supplied policy. Software updates and normal reloads preserve edits, disabled choices and deletions and never recreate removed defaults automatically.
 
 | Supplied policy | Starts | Notification |
 | --- | --- | --- |
@@ -308,8 +308,8 @@ Fresh setup uses `monitoring_policy_version: 1` and one list of ordinary policie
 | Repairs | Enabled | Morning summary |
 | Broken automations | Enabled | Morning summary |
 | Entities not provided | Enabled, selecting all eligible registered entities | Morning summary |
-| Battery | Disabled | Morning summary |
-| Vacuum | Disabled | Evening summary |
+| Batteries | Enabled, threshold 20% | Morning summary |
+| Vacuums | Enabled | Evening summary |
 | Temperature limit templates | Require source and settings | Immediate with acknowledgment |
 | Thermostat templates | Require source and settings | Urgent |
 | UPS reserve templates | Require source and settings | Morning summary on mains, Immediate with acknowledgment on backup |

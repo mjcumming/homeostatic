@@ -27,8 +27,56 @@ def test_defaults_are_independent_and_dashboard_only(hass: HomeAssistant) -> Non
     assert not settings.notifications
     assert settings.notification_definitions["methods"] == {}
     assert settings.notification_definitions["timezone"] == "America/Chicago"
+    assert {policy.id: policy.enabled for policy in settings.monitoring_policies} == {
+        "default_integrations": True,
+        "default_entities": True,
+        "default_important_equipment": True,
+        "default_repairs": True,
+        "default_broken_automations": True,
+        "default_batteries": True,
+        "default_vacuums": True,
+        "default_entities_not_provided": True,
+    }
     data["monitoring_policies"][0]["name"] = "Changed"
     assert policy_templates()[0]["name"] == "Integrations"
+
+
+async def test_fresh_setup_reports_batteries_and_vacuums_without_sending(
+    hass: HomeAssistant, config_data: dict[str, Any]
+) -> None:
+    """Fresh defaults detect both equipment problems without a delivery request."""
+    from unittest.mock import AsyncMock, patch
+
+    from pytest_homeassistant_custom_component.common import (
+        MockConfigEntry,
+        async_capture_events,
+    )
+
+    from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
+    from tests.test_battery import battery_device
+    from tests.test_lifecycle import start_monitor
+
+    level, warning, charging, _ = await battery_device(hass)
+    hass.states.async_set(level, "12", {"unit_of_measurement": "%"})
+    hass.states.async_set(warning, "off")
+    hass.states.async_set(charging, "off")
+    hass.states.async_set("vacuum.robot", "error")
+    data = initial_settings("UTC")
+    data["timings"] = config_data["timings"]
+    entry = MockConfigEntry(domain=DOMAIN, data=data)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
+    with patch(
+        "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+    ) as send:
+        runtime = await start_monitor(hass, entry)
+        assert {
+            runtime.sources[str(episode["anchor"])].monitoring_policy
+            for episode in runtime.episodes.values()
+        } >= {"default_batteries", "default_vacuums"}
+        assert not runtime.settings.notifications
+        assert not events
+        send.assert_not_awaited()
+        assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_delete_all_defaults_and_restore_one(hass: HomeAssistant) -> None:

@@ -25,7 +25,7 @@ Example equipment in Open issues. Expand a group, then open a finding to inspect
 
 ## What it watches
 
-A new installation watches integration and entity availability, Home Assistant Repairs, and automations that name missing entities. Devices group their entities and related issues. You can also configure battery checks, vacuum errors, UPS conditions, temperature limits and thermostat progress.
+A new installation watches integration and entity availability, persistently missing registered entities, low batteries, vacuum errors, Home Assistant Repairs, and automations that name missing entities. Devices group their entities and related issues. You can also configure UPS conditions, temperature limits and thermostat progress.
 
 Browse equipment by integration, Home Assistant location, or optional [TopoMation](https://github.com/mjcumming/topomation) locations. Each source shows its current evidence and the checks that watch it. [The manual](docs/guide.md) explains the available monitoring and how to tailor it to your installation.
 

@@ -4,6 +4,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0106](0106-enable-supplied-battery-and-vacuum-policies.md) | Enable supplied battery and vacuum policies on fresh setup | Accepted; supersedes only the disabled battery/vacuum defaults in 0058; preserves existing choices and sending safeguards |
 | [0105](0105-preserve-settings-when-adding-collection-delays.md) | Preserve installed settings when adding collection delays | Accepted; supersedes only the release-reset exception in 0102 |
 | [0104](0104-entities-not-provided-policy.md) | Report entities not provided through a separate policy | Accepted; adds a persistent maintenance condition without changing availability or offering entity deletion |
 | [0103](0103-entity-availability-with-grouped-selection.md) | Monitor entity availability with one grouped selection tree | Accepted; retires device policies and inferred device status; preserves saved coverage through entity migration; collapsed integration/device branches |
@@ -81,7 +82,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0055](0055-separate-notification-schedules-and-methods.md) | Pair reusable notification schedules and delivery methods on policies | Accepted; schedule library superseded by 0057; test-setting migration by 0058 |
 | [0056](0056-ha-delivery-methods-and-presence.md) | Deliver through Home Assistant methods with optional presence selection | Accepted; UI simplification by 0059 |
 | [0057](0057-policy-owned-notification-timing.md) | Configure notification timing inside each policy | Accepted; test-setting migration superseded by 0058; UI simplification by 0059; notification ownership/defaults partially superseded by 0066 |
-| [0058](0058-unified-policy-lifecycle.md) | Use one editable policy lifecycle | Accepted; UI simplification by 0059; eligibility and delivery presentation by 0064; notification ownership/defaults partially superseded by 0066; fresh-install entity selections by 0099 |
+| [0058](0058-unified-policy-lifecycle.md) | Use one editable policy lifecycle | Accepted; UI simplification by 0059; eligibility and delivery presentation by 0064; notification ownership/defaults partially superseded by 0066; fresh-install entity selections by 0099; battery/vacuum enabled defaults by 0106 |
 | [0059](0059-save-directly-and-test-configured-methods.md) | Save directly and test configured delivery methods | Accepted; UI workflow and scope partially superseded by 0061; compound inline-method drafts by 0066 |
 | [0060](0060-hide-recovery-confirmation-from-issue-lists.md) | Keep recovery confirmation out of issue lists and explain related-source findings | Accepted; evidence-gap list visibility partially superseded by 0065 |
 | [0061](0061-issues-first-product-workflows.md) | Use Issues-first product workflows and scoped editing | Accepted; notification ownership/defaults partially superseded by 0066; detail presentation by 0086; maintenance creation UI superseded by 0087 |

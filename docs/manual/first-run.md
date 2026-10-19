@@ -10,7 +10,7 @@ For the phone steps, have the Home Assistant Companion app connected to this ser
 
 Open **Homeostatic** in the sidebar. **Open issues** shows the current reported problems. Keep the **Notifications** switch off while reviewing the setup.
 
-Open **Policies**. A fresh installation enables **Integrations**, **General entity availability**, **Important equipment availability**, **Entities not provided**, **Repairs** and **Broken automations**. Batteries and vacuums start disabled. The supplied policies already select named notifications, but those notifications have no delivery methods yet.
+Open **Policies**. A fresh installation enables all eight supplied policies: **Integrations**, **General entity availability**, **Important equipment availability**, **Entities not provided**, **Repairs**, **Broken automations**, **Batteries** and **Vacuums**. The supplied policies already select named notifications, but those notifications have no delivery methods yet. Temperature, thermostat and UPS policies need their sources and settings configured before enabling.
 
 If Homeostatic has been configured before, the saved choices may differ. The [monitoring reference](monitoring-reference.md) lists fresh-install defaults; updates preserve your choices.
 
@@ -47,7 +47,7 @@ Read the result, then check the phone. A successful request means Home Assistant
 3. Under **Send using**, select **Household phone**.
 4. Inspect the listed policy uses, then select **Save notification**.
 
-This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes General entity availability, Integrations, Entities not provided, Repairs and Broken automations. Important equipment availability uses Immediate, which needs its own delivery method selection. Disabled policies remain disabled.
+This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes General entity availability, Integrations, Entities not provided, Repairs, Broken automations and Batteries. Important equipment availability uses Immediate, and Vacuums uses Evening summary. To receive those reports too, repeat these steps for **Immediate** or **Evening summary** and select **Household phone**. Creating a delivery method does not select it for any notification. Disabled policies remain disabled.
 
 Open the policy you reviewed earlier and inspect its **Notifications** assignment. It should select **Morning summary**. If you change the assignment, select **Save policy**. Saving a notification does not save a pending policy edit.
 
@@ -68,6 +68,6 @@ Existing open problems become eligible under their saved notification choices. M
 
 ## Keep using it
 
-Use **Open issues** for reported problems, **Monitoring** for equipment and its current evidence, and **History** for ended issues. You can leave this setup running and add [battery checks](batteries.md), [temperature limits](temperature.md) or other monitoring when needed.
+Use **Open issues** for reported problems, **Monitoring** for equipment and its current evidence, and **History** for ended issues. You can leave this setup running, adjust [battery checks](batteries.md), and add [temperature limits](temperature.md) or other monitoring when needed.
 
 For different timing, more destinations or presence choices, continue with [Set up and change notifications](notifications.md).

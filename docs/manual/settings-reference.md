@@ -17,7 +17,7 @@ These are the six editable choices supplied with a fresh setup. All start withou
 | Evening summary | Every day at 18:00 | Vacuums |
 | Weekly summary | Sunday at 08:00 | Available to select |
 
-An assignment does not enable a disabled policy or complete its required source and detection setup. Restoring a supplied policy uses its default notification only if that notification still exists. It does not recreate a deleted notification or select destinations.
+All eight supplied policies, including Batteries and Vacuums, are enabled on fresh setup. Temperature, thermostat and UPS templates still require configuration. An assignment does not enable a disabled policy or complete its required source and detection setup. Restoring a supplied policy uses its default notification only if that notification still exists. It does not recreate a deleted notification or select destinations.
 
 The notification editor provides these settings:
 

@@ -14,8 +14,8 @@ The named notifications below initially have no delivery methods, and global sen
 | Entities not provided | Enabled registered entities whose owning integration is loaded but has no live entity, including diagnostic and configuration entities. | **Entities not provided** is enabled, with a 24-hour wait. Existing installations can add or explicitly restore the policy. | Morning summary |
 | Entity availability | Enabled operational entities outside the Important equipment selection, including entities without a device. | **General entity availability** is enabled. | Morning summary |
 | Entity availability | Enabled operational cameras, locks, alarm panels and smoke, carbon monoxide, gas and moisture binary sensors. | **Important equipment availability** is enabled. | Immediate |
-| Low battery | Battery percentage sensors or numbers, or battery-class low-warning binary sensors. An associated charging report supplies context. | **Batteries** is disabled; threshold 20%. | Morning summary |
-| Vacuum error | Vacuum entities with a reported activity. | **Vacuums** is disabled. | Evening summary |
+| Low battery | Battery percentage sensors or numbers, or battery-class low-warning binary sensors. An associated charging report supplies context. | **Batteries** is enabled; threshold 20%. | Morning summary |
+| Vacuum error | Vacuum entities with a reported activity. | **Vacuums** is enabled. | Evening summary |
 | Repairs | Active Home Assistant Repairs, excluding Homeostatic's own Repairs. | **Repairs** is enabled and covers all eligible Repairs. | Morning summary |
 | Broken automations | Loaded automations that explicitly name entity IDs. | **Broken automations** is enabled and checks all automations in scope. | Morning summary |
 | Temperature limits | Temperature sensors with a usable numeric value and °C, °F or K unit. | Add a policy; starts disabled, with °F and duration 0. Select sources, enter at least one bound and choose the duration deliberately. | Immediate with acknowledgment |

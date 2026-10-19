@@ -73,8 +73,8 @@ async def exercise(config: Path, port: int) -> None:
             "default_important_equipment": True,
             "default_repairs": True,
             "default_broken_automations": True,
-            "default_batteries": False,
-            "default_vacuums": False,
+            "default_batteries": True,
+            "default_vacuums": True,
             "default_entities_not_provided": True,
         }
         assert {

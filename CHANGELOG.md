@@ -4,6 +4,10 @@
 
 ## [1.11.5] - 2026-10-19
 
+### Changed
+
+- Enable Batteries and Vacuums alongside the other six supplied policies on fresh installations. Notification sending stays off and destinations remain unconfigured. Updates preserve existing enabled, disabled and deleted policies.
+
 ### Upgrade notes
 
 - Installations with saved notification state from before collection tracking stop setup without changing their settings or history. Keep the matching prior installation or restore its paired Home Assistant backup; see [upgrade guidance](docs/manual/maintain-installation.md#an-upgrade-cannot-start). This prevents previously sent alerts from being sent again during an unsupported upgrade.

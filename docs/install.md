@@ -40,7 +40,7 @@ If an older Homeostatic directory is present, follow the [upgrade procedure](man
 2. Search for **Homeostatic** and add it.
 3. Open **Homeostatic** in the sidebar. The **Open issues** page should load.
 
-The supplied availability, Repairs and broken-automation policies start enabled. Normal notification sending starts off. Batteries and vacuums need enabling; temperature, thermostat and UPS checks need configuration.
+All eight supplied monitoring policies start enabled, including Batteries and Vacuums. Normal notification sending starts off, and supplied notifications have no delivery methods. Temperature, thermostat and UPS checks need configuration.
 
 If setup or the panel fails, use [Setup fails or the panel says unavailable](troubleshooting.md#setup-fails-or-the-panel-says-unavailable).
 

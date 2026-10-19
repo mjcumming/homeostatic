@@ -156,6 +156,65 @@ async def test_corrupt_source_restore_survives_retry_and_unload(
 
 
 @pytest.mark.parametrize("location", ["data", "options"])
+@pytest.mark.parametrize("choice", ["disabled", "deleted"])
+@pytest.mark.parametrize("sending", [False, True])
+async def test_new_defaults_preserve_battery_and_vacuum_choices(
+    hass: HomeAssistant,
+    config_data: dict[str, Any],
+    location: str,
+    choice: str,
+    sending: bool,
+) -> None:
+    """An upgrade never enables disabled checks or recreates deleted policies."""
+    from tests.test_battery import battery_device
+
+    level, warning, charging, _ = await battery_device(hass)
+    hass.states.async_set(level, "12", {"unit_of_measurement": "%"})
+    hass.states.async_set(warning, "off")
+    hass.states.async_set(charging, "off")
+    hass.states.async_set("vacuum.robot", "error")
+    data = initial_settings("UTC")
+    data["timings"] = config_data["timings"]
+    data["notifications"] = sending
+    identities = {"default_batteries", "default_vacuums"}
+    for policy in data["monitoring_policies"]:
+        if policy["id"] in identities:
+            policy["enabled"] = False
+    if choice == "deleted":
+        data["monitoring_policies"] = [
+            policy
+            for policy in data["monitoring_policies"]
+            if policy["id"] not in identities
+        ]
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=data if location == "data" else initial_settings("UTC"),
+        options=data if location == "options" else {},
+    )
+    before = deepcopy((dict(entry.data), dict(entry.options)))
+    expected = Settings.from_data(data, functions_enabled=False)
+    events = async_capture_events(hass, EVENT_NOTIFICATION)
+    with patch(
+        "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+    ) as send:
+        runtime = await start_monitor(hass, entry)
+        for reload in range(3):
+            if reload:
+                assert await hass.config_entries.async_reload(entry.entry_id)
+                await hass.async_block_till_done()
+                runtime = entry.runtime_data
+            assert runtime.settings == expected
+            assert (dict(entry.data), dict(entry.options)) == before
+            assert not any(
+                source.watched and source.monitoring_policy in identities
+                for source in runtime.sources.values()
+            )
+            assert not events
+            send.assert_not_awaited()
+        assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.parametrize("location", ["data", "options"])
 @pytest.mark.parametrize("sending", [False, True])
 async def test_current_setup_and_reload_preserve_every_saved_choice(
     hass: HomeAssistant,

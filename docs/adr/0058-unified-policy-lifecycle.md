@@ -3,6 +3,8 @@
 **Status:** Accepted; broad availability eligibility and independent delivery presentation are partially superseded by [ADR 0064](0064-monitoring-coverage-and-device-evidence.md). Independent policy detection, timing and controls remain intact.
 **Date:** 2026-10-13
 
+**Later decision:** [ADR 0106](0106-enable-supplied-battery-and-vacuum-policies.md) supersedes only the disabled fresh-install defaults for Batteries and Vacuums. All eight supplied policies now start enabled; existing choices and the sending safeguards remain unchanged.
+
 **Superseded release exception:** [ADR 0102](0102-collect-requests-by-saved-notification.md) originally authorized replacing settings from before named notification collection delays. [ADR 0105](0105-preserve-settings-when-adding-collection-delays.md) withdraws that reset exception and preserves supported settings; unsupported stored state stops the upgrade without replacement.
 
 **Later decision:** [ADR 0099](0099-two-supplied-entity-availability-policies.md) replaces the single fresh-install entity-availability selection with two complementary supplied policies. Independent overlap and the ordinary policy lifecycle remain unchanged.
