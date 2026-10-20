@@ -1,0 +1,139 @@
+{
+  "recorded_at_utc": "2026-10-20T06:57:38.598156+00:00",
+  "candidate": {
+    "branch": "main",
+    "revision": "e94247f8471ab0ce87515a13e1ba9de887ea8d45",
+    "dirty": true,
+    "component_sha256": "f22eb44783c27a483f6752ce8fb09b10882af8acb974686873d44a53b38633f5",
+    "fixture_sha256": "b9ece5966e6c41c9f9191a8bf41bda9549916f4afff878f279ad765953da8155",
+    "frozen_at": "2026-10-20T06:54:38.419Z"
+  },
+  "status": {
+    "implementation": "complete",
+    "scoped_rendered_acceptance": "passed",
+    "released": false,
+    "installed": false
+  },
+  "purpose": {
+    "owner": "Existing Policies Add form and policy editor",
+    "benefit": "Labels stay with their controls and the outer panel follows its content width; policy list space, task flow, save semantics and phone reflow stay intact.",
+    "new_controls_or_navigation": false
+  },
+  "change": "Bound editor panels to 812px; Add labels sit 8px above left-aligned dropdowns up to 360px. The list keeps its available width. Saved source and notification behavior is unchanged.",
+  "checks": {
+    "quick_frontend_tests": 893,
+    "focused_dashboard_tests": 40,
+    "logs": [
+      "build/release-1.12.1/quick.log",
+      "build/release-1.12.1/focused.log"
+    ]
+  },
+  "fixture_runs": [
+    {
+      "report": "build/release-1.12.1/fixtures-desktop-final/report.json",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "theme": "light",
+      "passed": 8,
+      "failed": 0
+    },
+    {
+      "report": "build/release-1.12.1/fixtures-phone-final/report.json",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "passed": 8,
+      "failed": 0
+    }
+  ],
+  "rendered_review": {
+    "status": "pass",
+    "receipt": "build/release-1.12.1/visual-review-final/receipt.json",
+    "results": [
+      {
+        "id": "battery-loading-inline",
+        "width": 1440,
+        "theme": "light",
+        "status": "pass"
+      },
+      {
+        "id": "category-form-and-camera-list",
+        "width": 1440,
+        "theme": "light",
+        "status": "pass",
+        "screenshots": [
+          "/mnt/c/GitHub/homeostatic/build/release-1.12.1/visual-review-final/add-policy-1440-light.png",
+          "/mnt/c/GitHub/homeostatic/build/release-1.12.1/visual-review-final/camera-policy-1440-light.png"
+        ],
+        "list_width": 1052,
+        "add_geometry": {
+          "panel_width": 812,
+          "fields": [
+            {
+              "left_gap": 0,
+              "vertical_gap": 8,
+              "select_width": 360
+            },
+            {
+              "left_gap": 0,
+              "vertical_gap": 8,
+              "select_width": 360
+            }
+          ],
+          "horizontal_overflow": false
+        },
+        "editor_geometry": {
+          "panel_width": 812,
+          "horizontal": false,
+          "nested": false
+        }
+      },
+      {
+        "id": "battery-loading-inline",
+        "width": 390,
+        "theme": "dark",
+        "status": "pass"
+      },
+      {
+        "id": "category-form-and-camera-list",
+        "width": 390,
+        "theme": "dark",
+        "status": "pass",
+        "screenshots": [
+          "/mnt/c/GitHub/homeostatic/build/release-1.12.1/visual-review-final/add-policy-390-dark.png",
+          "/mnt/c/GitHub/homeostatic/build/release-1.12.1/visual-review-final/camera-policy-390-dark.png"
+        ],
+        "list_width": 362,
+        "add_geometry": {
+          "panel_width": 362,
+          "fields": [
+            {
+              "left_gap": 0,
+              "vertical_gap": 8,
+              "select_width": 336
+            },
+            {
+              "left_gap": 0,
+              "vertical_gap": 8,
+              "select_width": 336
+            }
+          ],
+          "horizontal_overflow": false
+        },
+        "editor_geometry": {
+          "panel_width": 362,
+          "horizontal": false,
+          "nested": false
+        }
+      }
+    ],
+    "review": "Desktop labels and controls read together, card boundaries follow the editor, and phone controls remain readable without horizontal or nested source-list scrolling."
+  },
+  "earlier_diagnostic": "The first geometry capture found the existing phone select margin combined with the new grid gap. A scoped margin reset restored the 8px gap. Earlier captures remain in build/release-1.12.1/visual-review; the final snapshot and both fixture runs include the correction.",
+  "household_notifications_requested": false,
+  "limits": "Presentation-only acceptance uses existing rendered policy fixtures. The 1.12.0 receipt owns the preceding real-HA interaction coverage. CI and installation checks remain for this candidate."
+}

@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-20T06:53:41.546943+00:00",
+  "version": "1.12.0",
+  "commit": "e94247f8471ab0ce87515a13e1ba9de887ea8d45",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.12.0",
+  "published_at": "2026-10-20T06:40:34Z",
+  "candidate": {
+    "branch": "main",
+    "dirty": false,
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "archive_sha256": "571b8a4a093a373f2b6cc205f71106ed608df925c568a96d2a4698c767b59594",
+    "archive_entries": 451,
+    "verified_packaged_sources": 449,
+    "embedded_hashes_verified": 450,
+    "component_files": 80,
+    "all_packaged_sources_match_commit": true,
+    "rendered_candidate_comparison": {
+      "same_inventory": true,
+      "exact_files": 53,
+      "line_endings_only": [
+        "dashboard.py",
+        "monitoring.py",
+        "runtime.py",
+        "frontend/configuration.mjs",
+        "frontend/delivery-picker.mjs",
+        "frontend/device-issue-model.mjs",
+        "frontend/device-issues.mjs",
+        "frontend/entity-selection.mjs",
+        "frontend/history-controls.mjs",
+        "frontend/homeostatic.js",
+        "frontend/installation-settings.mjs",
+        "frontend/issue-configuration.mjs",
+        "frontend/issue-monitoring.mjs",
+        "frontend/issues-workspace.mjs",
+        "frontend/model.mjs",
+        "frontend/problem.mjs",
+        "frontend/reporting.mjs",
+        "frontend/reusable-editors.mjs",
+        "frontend/source-coverage.mjs",
+        "frontend/source-history.mjs",
+        "frontend/source-monitoring.mjs",
+        "frontend/source-selection.mjs",
+        "frontend/source-temperature.mjs",
+        "frontend/sources-workspace.mjs",
+        "frontend/styles.mjs",
+        "frontend/ups.mjs"
+      ],
+      "manifest_version_only": [
+        "manifest.json"
+      ],
+      "unexpected_changes": []
+    }
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/39381313841",
+    "head_sha": "e94247f8471ab0ce87515a13e1ba9de887ea8d45",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Home Assistant metadata",
+        "conclusion": "success"
+      },
+      {
+        "name": "HACS validation",
+        "conclusion": "success"
+      },
+      {
+        "name": "Python 3.14 / HA 2026.9.3",
+        "conclusion": "success"
+      }
+    ],
+    "python_tests_passed": 1399,
+    "python_tests_skipped": 15,
+    "skip_reason": "Optional performance profiling scenarios",
+    "frontend_tests_passed": 893,
+    "strict_type_source_files": 40,
+    "aggregate_coverage_percent": 95.88226970425923,
+    "statement_coverage_percent": 96.88051795173631,
+    "branch_coverage_percent": 93.2994923857868,
+    "both_93_percent_floors_passed": true,
+    "official_hassfest_and_hacs_passed": true,
+    "fresh_package_installation_passed": true,
+    "archive": "../../build/release-1.12.0/homeostatic-release/homeostatic-1.12.0.zip",
+    "log": "../../build/release-1.12.0/ci.log"
+  },
+  "published_assets": [
+    {
+      "name": "homeostatic-1.12.0.zip",
+      "sha256": "sha256:571b8a4a093a373f2b6cc205f71106ed608df925c568a96d2a4698c767b59594",
+      "size": 6586678,
+      "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.12.0/homeostatic-1.12.0.zip"
+    },
+    {
+      "name": "homeostatic-1.12.0.zip.sha256",
+      "sha256": "sha256:fcdb5f0d090aa64712b04c49b262c1c7121af049b28fbb63ce3065c6827c82b3",
+      "size": 89,
+      "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.12.0/homeostatic-1.12.0.zip.sha256"
+    }
+  ],
+  "upgrade_protection": {
+    "decisions": [
+      "../adr/0107-add-new-supplied-policies-disabled-on-upgrade.md",
+      "../adr/0108-category-availability-policies-and-policy-waits.md"
+    ],
+    "new_supplied_policies": "Existing installations receive genuinely new categories once, disabled; introduction tracking preserves later deletion. Edits, deletions, destinations, sending choices and pending delivery identities remain intact.",
+    "isolated_checks": "The complete CI suite and packaged rehearsal cover fresh setup, published earlier settings, edited/deleted defaults, sending on/off, repeated reload and failed restoration without writes or test requests.",
+    "household_boundary": "The installed category pilot already uses the same settings, history, migration and runtime code and published health-tree 0.11.0. This replacement adds no stored-data or dependency boundary relative to that pilot; the workflow requires no new backup for this code-only installation."
+  },
+  "scoped_acceptance": {
+    "policy_selection": "policy-selection-2026-10-20.json",
+    "category_lifecycle": "category-availability-2026-10-19.json",
+    "earlier_category_installation": "category-availability-installation-2026-10-19.json",
+    "phone_deletion": "policy-delete-visibility-2026-10-19.json",
+    "scope": "Desktop/light and phone/dark isolated Home Assistant policy workflows, focused and shared rendered fixtures; earlier diagnostics and their corrected fixture assumptions remain in the linked receipts.",
+    "candidate_match": "The published component has the same inventory and behavior as the final rendered candidate; only manifest version and CRLF normalization differ."
+  },
+  "installation": {
+    "household_changed_during_release": true,
+    "installed_at_utc": "2026-10-20T06:42:29.5967201Z",
+    "checked_at_utc": "2026-10-20T06:53:24.931312+00:00",
+    "home_assistant": "2026.10.0",
+    "ha_state": "RUNNING",
+    "entry_states": [
+      "loaded"
+    ],
+    "previous_version": "1.11.5",
+    "installed_version": "1.12.0",
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "installed_component_files": 80,
+    "all_installed_hashes_match_archive": true,
+    "temporary_paths_removed": true,
+    "core_restart": {
+      "restart_requested_at_utc": "2026-10-20T06:42:39.182553+00:00",
+      "request_result": "ServerDisconnectedError",
+      "running_at_utc": "2026-10-20T06:44:46.300196+00:00",
+      "wait_seconds": 104.39,
+      "ha_version": "2026.10.0",
+      "ha_state": "RUNNING",
+      "entry_states": [
+        "loaded"
+      ],
+      "panel": {
+        "name": "homeostatic-panel-v59",
+        "embed_iframe": false,
+        "trust_external": false,
+        "module_url": "/homeostatic_static/homeostatic.js?v=107"
+      },
+      "test_notifications_requested": false
+    },
+    "panel": {
+      "name": "homeostatic-panel-v59",
+      "embed_iframe": false,
+      "trust_external": false,
+      "module_url": "/homeostatic_static/homeostatic.js?v=107"
+    },
+    "served_module": {
+      "status": 200,
+      "sha256": "79e3dcffa33a203cf450f0a77390d742def1bc60fba6ddd537235b1b96a9b715",
+      "matches_installed": true
+    },
+    "saved_settings_before_sha256": "76fd71bd09212c627254586f2e698e862f22cd473833604456ce388322612a71",
+    "saved_settings_after_sha256": "76fd71bd09212c627254586f2e698e862f22cd473833604456ce388322612a71",
+    "all_saved_settings_unchanged": true,
+    "raw_config_entry_data_options_unchanged": true,
+    "supplied_introduction_tracking_unchanged": true,
+    "policy_count": 13,
+    "policy_digests_unchanged": true,
+    "notification_definitions_unchanged": true,
+    "sending_before": true,
+    "sending_after": true,
+    "homeostatic_log_errors": 0,
+    "test_notifications_requested": false,
+    "live_browser_report": "../../build/release-1.12.0/household-readonly-verified/report.json",
+    "earlier_browser_diagnostic": {
+      "report": "../../build/release-1.12.0/household-readonly/report.json",
+      "diagnosis": "The helper targeted the duplicate editor Back button, which CSS hides while the shared workspace return is visible. The corrected helper uses the visible existing return control. The earlier report remains intact; no application code changed."
+    },
+    "live_browser_results": [
+      {
+        "id": "category-form-and-existing-camera-policy",
+        "width": 1440,
+        "theme": "light",
+        "status": "pass",
+        "choices": 48,
+        "geometry": {
+          "horizontal_overflow": false,
+          "nested_scroll": false
+        },
+        "save_actions_seen": 0
+      },
+      {
+        "id": "category-form-and-existing-camera-policy",
+        "width": 390,
+        "theme": "dark",
+        "status": "pass",
+        "choices": 48,
+        "geometry": {
+          "horizontal_overflow": false,
+          "nested_scroll": false
+        },
+        "save_actions_seen": 0
+      }
+    ],
+    "live_browser_blocked_writes": [],
+    "live_browser_errors": [],
+    "browser_settings_unchanged": true,
+    "rendered_review": {
+      "status": "phone layout passed; desktop spacing follow-up requested",
+      "screenshots": [
+        "add-policy-1440-light.png",
+        "camera-policy-1440-light.png",
+        "add-policy-390-dark.png",
+        "camera-policy-390-dark.png"
+      ],
+      "owner": "Existing Add policy form and policy editor",
+      "benefit": "Source category is a choice in the existing form. The focused camera editor presents a flat source list with the existing wait and Save/Cancel workflow.",
+      "layout": "Controls fit without horizontal or nested source-list scrolling. The maintainer identified excessive desktop space between Add policy labels and controls and unused space inside the outer editor panel; the focused 1.12.1 follow-up addresses that feedback. Phone layout remains readable."
+    }
+  },
+  "remaining": [
+    "Constrain desktop policy form widths and bring Add policy labels next to their controls in the 1.12.1 follow-up.",
+    "Maintainer household trial of the published policy UI.",
+    "Actual configured delivery-provider receipt remains untested; no live test notification was requested.",
+    "Large issue event payloads can exceed Home Assistant Recorder's limit; this existing roadmap item is unchanged.",
+    "Physical Safari and representative sustained household load remain outside this bounded acceptance."
+  ]
+}

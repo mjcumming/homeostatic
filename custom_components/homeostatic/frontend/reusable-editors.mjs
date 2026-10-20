@@ -1,9 +1,9 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=107";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=107";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=107";
-import {entitySelection,entityScopeSummary,entitySelected,editEntitySelection} from "./entity-selection.mjs?v=107";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=108";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=108";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=108";
+import {entitySelection,entityScopeSummary,entitySelected,editEntitySelection} from "./entity-selection.mjs?v=108";
 
-import {SOURCE_CATEGORIES,sourceCategory,sourceNoun,sourceScopeSummary,flatSourceSelection,editSourceSelection} from "./source-selection.mjs?v=107";
+import {SOURCE_CATEGORIES,sourceCategory,sourceNoun,sourceScopeSummary,flatSourceSelection,editSourceSelection} from "./source-selection.mjs?v=108";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -290,7 +290,7 @@ export function namedPolicies(card) {
   const active=policies.find(item=>card.definitionSelection?.kind==="policies"&&item.id===card.definitionSelection.id);
   const templates=card.configuration.monitoring_policy_templates||[];
   const missing=templates.filter(template=>!policies.some(policy=>policy.id===template.id));
-  if(card.policyCreating)return `<section class="definition-editor installation-editor"><h2>Add policy</h2><p>Choose what to watch. The monitoring type stays fixed after creation.</p><label class="installation-field"><span>Monitoring type</span><select data-definition-template>${Object.entries(MONITORING_TYPES).sort(([,a],[,b])=>a.localeCompare(b)).map(([id,name])=>option(id,name,card.definitionTemplate||"entity")).join("")}</select></label>${(card.definitionTemplate||"entity")==="entity"?`<label class="installation-field"><span>Source category</span><select data-definition-category>${Object.entries(SOURCE_CATEGORIES).map(([id,value])=>option(id,value.name,card.definitionCategory||"any")).join("")}</select></label><p class="small">Reports when Home Assistant marks a selected entity as unavailable.</p>`:""}${button("create","Continue","policies")}${button("close","Cancel","policies")}</section>`;
+  if(card.policyCreating)return `<section class="definition-editor installation-editor policy-create"><h2>Add policy</h2><p>Choose what to watch. The monitoring type stays fixed after creation.</p><label class="installation-field"><span>Monitoring type</span><select data-definition-template>${Object.entries(MONITORING_TYPES).sort(([,a],[,b])=>a.localeCompare(b)).map(([id,name])=>option(id,name,card.definitionTemplate||"entity")).join("")}</select></label>${(card.definitionTemplate||"entity")==="entity"?`<label class="installation-field"><span>Source category</span><select data-definition-category>${Object.entries(SOURCE_CATEGORIES).map(([id,value])=>option(id,value.name,card.definitionCategory||"any")).join("")}</select></label><p class="small">Reports when Home Assistant marks a selected entity as unavailable.</p>`:""}${button("create","Continue","policies")}${button("close","Cancel","policies")}</section>`;
   if(active) {
     return `<section class="definition-editor installation-editor unified-policy-editor" aria-label="Edit monitoring policy"><header><div><h1>${esc(active.name)}</h1><p class="small">Changes take effect when you save.</p></div><label class="method-switch policy-enabled"><input type="checkbox" role="switch" aria-label="Policy enabled" ${attrs("policies",active.id,"enabled")}${checked(active.enabled)}><span>Policy ${active.enabled?"enabled":"disabled"}</span></label>${button("close","Back to policies","policies",active.id,"","editor-back")}</header>${policyFields(card,active)}${deletePrompt(card)}${scopedEditorFooter(card,{kind:"policy",id:active.id},"Save policy")}</section>`;
   }

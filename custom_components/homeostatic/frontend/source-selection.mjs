@@ -1,5 +1,5 @@
-import {escapeHtml as esc,inventoryRows} from "./model.mjs?v=107";
-import {chooseEntitySource,entitySelected,entitySelectionRows} from "./entity-selection.mjs?v=107";
+import {escapeHtml as esc,inventoryRows} from "./model.mjs?v=108";
+import {chooseEntitySource,entitySelected,entitySelectionRows} from "./entity-selection.mjs?v=108";
 
 export const SOURCE_CATEGORIES={
   any:{name:"Any entity type"},

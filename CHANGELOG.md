@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-10-20
+
+### Fixed
+
+- Keep desktop policy forms within a readable panel width and place Add policy labels above their controls. Phone layouts keep their existing flow.
+
 ## [1.12.0] - 2026-10-20
 
 ### Fixed
