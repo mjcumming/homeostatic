@@ -1,0 +1,237 @@
+{
+  "recorded_at_utc": "2026-10-20T07:07:42.601638+00:00",
+  "version": "1.12.1",
+  "commit": "3c669c85628209d1b1ed0a1e319237509af38b8f",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.12.1",
+  "published_at": "2026-10-20T07:03:07Z",
+  "change": "Keep desktop Add policy labels above bounded controls and constrain the outer policy editor panel to its content width. Policy lists retain their width; phone reflow and all monitoring/settings behavior remain unchanged.",
+  "candidate": {
+    "branch": "main",
+    "dirty": false,
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "archive_sha256": "99880b4a478d75f169e6291b50e638be8d178adeb896a9f97c7b1f0eec4a2367",
+    "archive_entries": 453,
+    "verified_packaged_sources": 451,
+    "embedded_hashes_verified": 452,
+    "component_files": 80,
+    "all_packaged_sources_match_commit": true,
+    "rendered_candidate_comparison": {
+      "same_inventory": true,
+      "exact_files": 53,
+      "line_endings_only": [
+        "dashboard.py",
+        "manifest.json",
+        "monitoring.py",
+        "runtime.py",
+        "frontend/configuration.mjs",
+        "frontend/delivery-picker.mjs",
+        "frontend/device-issue-model.mjs",
+        "frontend/device-issues.mjs",
+        "frontend/entity-selection.mjs",
+        "frontend/history-controls.mjs",
+        "frontend/homeostatic.js",
+        "frontend/installation-settings.mjs",
+        "frontend/issue-configuration.mjs",
+        "frontend/issue-monitoring.mjs",
+        "frontend/issues-workspace.mjs",
+        "frontend/model.mjs",
+        "frontend/problem.mjs",
+        "frontend/reporting.mjs",
+        "frontend/reusable-editors.mjs",
+        "frontend/source-coverage.mjs",
+        "frontend/source-history.mjs",
+        "frontend/source-monitoring.mjs",
+        "frontend/source-selection.mjs",
+        "frontend/source-temperature.mjs",
+        "frontend/sources-workspace.mjs",
+        "frontend/styles.mjs",
+        "frontend/ups.mjs"
+      ],
+      "unexpected_changes": []
+    }
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/39383552660",
+    "head_sha": "3c669c85628209d1b1ed0a1e319237509af38b8f",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "Python 3.14 / HA 2026.9.3",
+        "conclusion": "success"
+      },
+      {
+        "name": "HACS validation",
+        "conclusion": "success"
+      },
+      {
+        "name": "Home Assistant metadata",
+        "conclusion": "success"
+      }
+    ],
+    "python_tests_passed": 1399,
+    "python_tests_skipped": 15,
+    "skip_reason": "Optional performance profiling scenarios",
+    "frontend_tests_passed": 893,
+    "strict_type_source_files": 40,
+    "aggregate_coverage_percent": 95.88226970425923,
+    "statement_coverage_percent": 96.88051795173631,
+    "branch_coverage_percent": 93.2994923857868,
+    "strict_types_lint_and_coverage_floors_passed": true,
+    "official_hassfest_and_hacs_passed": true,
+    "fresh_package_installation_passed": true,
+    "log": "../../build/release-1.12.1/ci.log"
+  },
+  "published_assets": [
+    {
+      "name": "homeostatic-1.12.1.zip",
+      "sha256": "sha256:99880b4a478d75f169e6291b50e638be8d178adeb896a9f97c7b1f0eec4a2367",
+      "size": 6591426,
+      "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.12.1/homeostatic-1.12.1.zip"
+    },
+    {
+      "name": "homeostatic-1.12.1.zip.sha256",
+      "sha256": "sha256:3dafdf00833a0671b3fed665eefe955f8f5547c8bf0fefcbfaca9f8b86ee6de1",
+      "size": 89,
+      "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.12.1/homeostatic-1.12.1.zip.sha256"
+    }
+  ],
+  "scoped_acceptance": {
+    "receipt": "policy-form-width-2026-10-20.json",
+    "source": "Frozen final candidate; 8 existing policy fixture paths pass on both desktop/light and phone/dark, with visual inspection and measured label/control proximity and card width.",
+    "prior_behavior_release": "release-1.12.0.json",
+    "scope": "Presentation-only change. Full Python/frontend and package checks pass in exact-candidate CI; real-HA policy interaction coverage from 1.12.0 remains applicable."
+  },
+  "installation": {
+    "installed_at_utc": "2026-10-20T07:03:49.4188401Z",
+    "checked_at_utc": "2026-10-20T07:07:33.029848+00:00",
+    "home_assistant": "2026.10.0",
+    "ha_state": "RUNNING",
+    "entry_states": [
+      "loaded"
+    ],
+    "previous_version": "1.12.0",
+    "installed_version": "1.12.1",
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "all_installed_hashes_match_archive": true,
+    "component_files": 80,
+    "temporary_paths_removed": true,
+    "core_restart": {
+      "restart_requested_at_utc": "2026-10-20T07:04:14.103320+00:00",
+      "request_result": "ServerDisconnectedError",
+      "running_at_utc": "2026-10-20T07:06:26.745384+00:00",
+      "wait_seconds": 108.85,
+      "ha_version": "2026.10.0",
+      "ha_state": "RUNNING",
+      "entry_states": [
+        "loaded"
+      ],
+      "panel": {
+        "name": "homeostatic-panel-v60",
+        "embed_iframe": false,
+        "trust_external": false,
+        "module_url": "/homeostatic_static/homeostatic.js?v=108"
+      },
+      "test_notifications_requested": false
+    },
+    "panel": {
+      "name": "homeostatic-panel-v60",
+      "embed_iframe": false,
+      "trust_external": false,
+      "module_url": "/homeostatic_static/homeostatic.js?v=108"
+    },
+    "served_module": {
+      "status": 200,
+      "sha256": "4bcb03ae263fd9e3224a27058b358a0cc0110d6c51e39c866f2dca1aeac8ceea",
+      "matches_installed": true
+    },
+    "saved_settings_before_sha256": "76fd71bd09212c627254586f2e698e862f22cd473833604456ce388322612a71",
+    "saved_settings_after_sha256": "76fd71bd09212c627254586f2e698e862f22cd473833604456ce388322612a71",
+    "all_saved_settings_unchanged": true,
+    "raw_entry_data_options_unchanged": true,
+    "policy_count": 13,
+    "policy_digests_and_introduction_tracking_unchanged": true,
+    "notification_definitions_unchanged": true,
+    "sending_before": true,
+    "sending_after": true,
+    "homeostatic_log_errors": 0,
+    "test_notifications_requested": false,
+    "live_browser_report": "../../build/release-1.12.1/household-readonly/report.json",
+    "live_browser_results": [
+      {
+        "id": "category-form-and-existing-camera-policy",
+        "width": 1440,
+        "theme": "light",
+        "status": "pass",
+        "choices": 48,
+        "geometry": {
+          "horizontal_overflow": false,
+          "nested_scroll": false
+        },
+        "add_geometry": {
+          "width": 812,
+          "fields": [
+            {
+              "left_gap": 0,
+              "vertical_gap": 8,
+              "control_width": 360
+            },
+            {
+              "left_gap": 0,
+              "vertical_gap": 8,
+              "control_width": 360
+            }
+          ]
+        },
+        "editor_width": 812,
+        "save_actions_seen": 0
+      },
+      {
+        "id": "category-form-and-existing-camera-policy",
+        "width": 390,
+        "theme": "dark",
+        "status": "pass",
+        "choices": 48,
+        "geometry": {
+          "horizontal_overflow": false,
+          "nested_scroll": false
+        },
+        "add_geometry": {
+          "width": 362,
+          "fields": [
+            {
+              "left_gap": 0,
+              "vertical_gap": 8,
+              "control_width": 336
+            },
+            {
+              "left_gap": 0,
+              "vertical_gap": 8,
+              "control_width": 336
+            }
+          ]
+        },
+        "editor_width": 362,
+        "save_actions_seen": 0
+      }
+    ],
+    "browser_errors": [],
+    "blocked_writes": [],
+    "browser_settings_unchanged": true,
+    "rendered_review": {
+      "status": "pass",
+      "owner": "Existing Add policy and policy editor",
+      "benefit": "Labels and controls stay together, and the outer card follows the editor content without changing list width or introducing navigation.",
+      "evidence": "Desktop and phone Add/editor viewport screenshots in the live browser report directory; card width and label proximity are checked against the installed artifact."
+    },
+    "migration": "Code and presentation only; no settings, stored-state or dependency boundary changed."
+  },
+  "remaining": [
+    "Maintainer household review.",
+    "Configured delivery-provider receipt and representative sustained household load remain outside this bounded acceptance.",
+    "The existing large issue-event Recorder limit remains open in the roadmap."
+  ]
+}
