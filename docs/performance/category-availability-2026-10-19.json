@@ -1,0 +1,293 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T21:05:50.143132-05:00",
+  "owner": "One implementation owner across Homeostatic and health-tree",
+  "decisions": [
+    "docs/adr/0107-add-new-supplied-policies-disabled-on-upgrade.md",
+    "docs/adr/0108-category-availability-policies-and-policy-waits.md",
+    "../health-tree/docs/adr/0043-continuous-qualification-and-qualified-affected-scope.md"
+  ],
+  "candidate": {
+    "branch": "main",
+    "revision": "5405387d487bf9385538598769bc7a5465296e5d",
+    "dirty": true,
+    "component_sha256": "7f5860dea7f2092b02771ab4a028deac3420e808fe7c4bbe7402a703f9a9f53f",
+    "fixture_sha256": "e736c7033560583ebb09f7bc360e6f7354cd2737f5e5f2c76791052111cadabd",
+    "frozen_at": "2026-10-20T02:03:15.079Z",
+    "revisions": [
+      "5405387d487bf9385538598769bc7a5465296e5d"
+    ]
+  },
+  "library": {
+    "version": "0.11.0",
+    "revision": "308b75b86e2477bd756dd2500f137f2e494fb162",
+    "dirty": false,
+    "published_pin": "health-tree==0.11.0",
+    "release_url": "https://github.com/mjcumming/health-tree/releases/tag/v0.11.0",
+    "pypi_url": "https://pypi.org/project/health-tree/0.11.0/",
+    "adoption": "Registry pin adopted in manifest, project and lockfile; local install and household acceptance recorded separately."
+  },
+  "status": {
+    "implementation": "complete",
+    "scoped_acceptance": "pass",
+    "committed": false,
+    "released": false,
+    "installed_live": true,
+    "library_released": true
+  },
+  "defaults_seconds": {
+    "Cameras": 300,
+    "Locks": 0,
+    "Alarm panels": 0,
+    "Safety sensors": 0,
+    "General entity availability": 0
+  },
+  "purpose_review": {
+    "task_owner": "Policies owns entity selection, unavailability qualification and the scoped policy save.",
+    "user_benefit": "Each category has a useful outage tolerance; empty custom creation makes selection deliberate; existing overlap links identify another policy that can report sooner.",
+    "controls": "Reuse the duration field, unit selector, entity tree and existing Edit policy links. Existing tree disclosures retain their inventory-browsing purpose.",
+    "rendered_evidence": [
+      "build/ui-acceptance/availability-verified-desktop-20261019/policy-picker-1440-light-expanded.png",
+      "build/ui-acceptance/availability-verified-phone-20261019/policy-picker-390-dark-expanded.png"
+    ],
+    "visual_review": "Inspected desktop/light and phone/dark screenshots: labels, duration inputs, summaries and overlap link fit. Existing keyboard and enlarged-text fixture checks pass; CSS unchanged."
+  },
+  "checks": {
+    "quick": {
+      "status": "pass",
+      "frontend_tests": 892,
+      "log": "build/availability-quick.log"
+    },
+    "strict_types": {
+      "status": "pass",
+      "source_files": 40,
+      "log": "build/availability-types.log"
+    },
+    "availability_and_routes": {
+      "status": "pass",
+      "tests": 88,
+      "log": "build/availability-focused.log"
+    },
+    "history_dashboard_attention_settings": {
+      "status": "pass",
+      "tests": 116
+    },
+    "defaults_and_upgrades": {
+      "status": "pass",
+      "tests": 146
+    },
+    "historical_route_digests": {
+      "status": "pass",
+      "tests": 2,
+      "evidence": "Presented/outbox prior-format signatures failed before normalization and pass after; pending IDs and sent history survive upgrade and two reloads."
+    },
+    "health_tree": {
+      "status": "pass",
+      "full_tests": 497,
+      "coverage_percent": 98.09,
+      "hooks": "pass",
+      "wheel_and_sdist": "Published on GitHub and PyPI; exact checksums and successful workflows are recorded in the installation receipt."
+    }
+  },
+  "browser": {
+    "report": "build/ui-acceptance/availability-verified-combined-20261019/report.json",
+    "environment": {
+      "runs": [
+        {
+          "group": "policies",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "theme": "light",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "all",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "policies.availability-create",
+            "policies.availability-wait",
+            "policies.entity-selection",
+            "policies.lifecycle",
+            "policies.detection",
+            "policies.temperature-detection",
+            "policies.temperature-save",
+            "live.policies.selection"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.10.0",
+          "candidate_unchanged": true,
+          "checkout_matches_snapshot": true
+        },
+        {
+          "group": "policies",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "theme": "dark",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "all",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "policies.availability-create",
+            "policies.availability-wait",
+            "policies.entity-selection",
+            "policies.lifecycle",
+            "policies.detection",
+            "policies.temperature-detection",
+            "policies.temperature-save",
+            "live.policies.selection"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.10.0",
+          "candidate_unchanged": true,
+          "checkout_matches_snapshot": true
+        }
+      ]
+    },
+    "live_in_scope": [
+      {
+        "id": "policies.availability-create",
+        "page": "Policies",
+        "controls": "Add Entity availability, empty source selection, zero-selection save, explicit selection, overlap links and Duplicate",
+        "expected": "Custom policies start disabled with no entities or future enrollment; exact selection and waits survive saving and reopening. Other enabled coverage is understandable through existing policy links, and a disabled duplicate retains its independent scope and wait.",
+        "fixture": "policy-picker.html",
+        "requirement": "../../docs/adr/0108-category-availability-policies-and-policy-waits.md",
+        "status": "pass",
+        "evidence": [
+          "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3606,\"detail\":\"Rendered Add creates a disabled explicit empty policy; zero selection saves and reopens. Keyboard selects one registry entity, an existing overlap link preserves its unsaved selection and five-minute wait, and exact saved state plus a disabled independent duplicate survive reload while unrelated settings and a notification draft stay intact.\"}",
+          "policies/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3649,\"detail\":\"Rendered Add creates a disabled explicit empty policy; zero selection saves and reopens. Keyboard selects one registry entity, an existing overlap link preserves its unsaved selection and five-minute wait, and exact saved state plus a disabled independent duplicate survive reload while unrelated settings and a notification draft stay intact.\"}"
+        ]
+      },
+      {
+        "id": "policies.availability-wait",
+        "page": "Policies",
+        "controls": "Report unavailable after, duration units, Save, reopen, invalid input, failed save, retry and Discard",
+        "expected": "The policy owns its exact whole-second wait. Existing absent waits stay zero without rewriting settings; display units remain clean, invalid input sends no save, and failed saves or discard preserve the intended policy and unrelated settings.",
+        "fixture": "policy-picker.html",
+        "requirement": "../../docs/adr/0108-category-availability-policies-and-policy-waits.md",
+        "status": "pass",
+        "evidence": [
+          "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":5451,\"detail\":\"Legacy absent duration remains effective zero and is not inserted on a rename. Minutes save exactly 90 seconds and reopen with a truthful list summary; units alone do not dirty settings. Blank, negative, fractional and excessive seconds never submit. Rejected saves retain the draft, discard restores it, explicit retry saves once and zero remains immediate after reload; complete unrelated settings and another editor's draft remain intact.\"}",
+          "policies/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":5370,\"detail\":\"Legacy absent duration remains effective zero and is not inserted on a rename. Minutes save exactly 90 seconds and reopen with a truthful list summary; units alone do not dirty settings. Blank, negative, fractional and excessive seconds never submit. Rejected saves retain the draft, discard restores it, explicit retry saves once and zero remains immediate after reload; complete unrelated settings and another editor's draft remain intact.\"}"
+        ]
+      },
+      {
+        "id": "policies.entity-selection",
+        "page": "Policies",
+        "controls": "Collapsed integration/device tree, tri-state branch checkboxes, disclosure, search, entity checkboxes, keyboard, scroll, Save, reopen, failed save and discard",
+        "expected": "Branch selection affects matching enabled descendants; mixed selection is visible while collapsed. Expansion preserves membership and reading position; search reveals matches and restores branches. Saved future scope, unrelated drafts, loading, missing and disabled sources remain explicit.",
+        "fixture": "policy-picker.html",
+        "requirement": "../../docs/adr/0103-entity-availability-with-grouped-selection.md",
+        "status": "pass",
+        "evidence": [
+          "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":2156,\"detail\":\"Collapsed branches open without changing saved settings; filtered device and integration checkboxes change the displayed matches. Keyboard bulk selection saves and reopens the complete filtered membership, preserves future selectors and discards only this policy.\"}",
+          "policies/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":2157,\"detail\":\"Collapsed branches open without changing saved settings; filtered device and integration checkboxes change the displayed matches. Keyboard bulk selection saves and reopens the complete filtered membership, preserves future selectors and discards only this policy.\"}"
+        ]
+      },
+      {
+        "id": "policies.lifecycle",
+        "page": "Policies",
+        "controls": "Add, edit, duplicate, enabled, save, discard, delete",
+        "expected": "Only the named policy changes; supplied and custom policies share controls.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/spec.md#editor-review-points",
+        "status": "pass",
+        "evidence": [
+          "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":6092,\"detail\":\"Custom and supplied policies: exact add/edit/enable/disable/duplicate/discard/delete/cancel effects; full installation snapshots and independent notification draft checked.\"}",
+          "policies/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":6058,\"detail\":\"Custom and supplied policies: exact add/edit/enable/disable/duplicate/discard/delete/cancel effects; full installation snapshots and independent notification draft checked.\"}"
+        ]
+      },
+      {
+        "id": "policies.detection",
+        "page": "Policies",
+        "controls": "Each supported policy type and its detection fields",
+        "expected": "Units, ranges and validation preserve the intended saved detection.",
+        "fixture": "reusable-editors.html",
+        "requirement": "../../docs/spec.md#editor-review-points",
+        "status": "pass",
+        "evidence": [
+          "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":12404,\"detail\":\"All 13 policy types created/reopened/deleted with exact check, scope, parameters and notifications; every detection numeric field boundary blocked before submission; absolute and difference temperature units converted.\"}",
+          "policies/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":12369,\"detail\":\"All 13 policy types created/reopened/deleted with exact check, scope, parameters and notifications; every detection numeric field boundary blocked before submission; absolute and difference temperature units converted.\"}"
+        ]
+      },
+      {
+        "id": "policies.temperature-detection",
+        "page": "Policies",
+        "controls": "Below, Above, minutes/hours, monitoring switch, missing or reversed bounds",
+        "expected": "Lower-only, upper-only and paired limits retain exact seconds; invalid input blocks saving and monitoring enablement leaves global sending off.",
+        "fixture": "temperature-policy-editor.html",
+        "requirement": "../../docs/spec.md#editor-review-points",
+        "status": "pass",
+        "evidence": [
+          "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3694,\"detail\":\"Lower-only, upper-only and paired limits persist; 1.25 hours equals exactly 4500 seconds; display-only unit change stays clean; absent/reversed bounds and invalid durations blocked; monitoring toggle leaves sending off.\"}",
+          "policies/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3708,\"detail\":\"Lower-only, upper-only and paired limits persist; 1.25 hours equals exactly 4500 seconds; display-only unit change stays clean; absent/reversed bounds and invalid durations blocked; monitoring toggle leaves sending off.\"}"
+        ]
+      },
+      {
+        "id": "policies.temperature-save",
+        "page": "Policies",
+        "controls": "Save policy, reopen, failed save, discard, retry, unrelated notification draft",
+        "expected": "Confirmed settings reopen accurately; failures preserve edits, discard restores saved settings and another editor's draft stays unsaved.",
+        "fixture": "temperature-policy-editor.html",
+        "requirement": "../../docs/spec.md#editor-review-points",
+        "status": "pass",
+        "evidence": [
+          "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3336,\"detail\":\"Exact temperature fields reopen after save and full reload; rejected save retains all edited values, discard restores saved values, explicit retry submits once; independent notification draft was preserved unsaved through save/failure/discard.\"}",
+          "policies/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3434,\"detail\":\"Exact temperature fields reopen after save and full reload; rejected save retains all edited values, discard restores saved values, explicit retry submits once; independent notification draft was preserved unsaved through save/failure/discard.\"}"
+        ]
+      },
+      {
+        "id": "live.policies.selection",
+        "page": "Additional browser case",
+        "controls": "live.policies.selection",
+        "expected": "See evidence",
+        "status": "pass",
+        "evidence": [
+          "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":1510,\"detail\":\"Rendered actions and real saved-state assertions passed.\"}",
+          "policies/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":1634,\"detail\":\"Rendered actions and real saved-state assertions passed.\"}"
+        ]
+      }
+    ],
+    "fixture_passed": [
+      "policies.not-provided",
+      "issues.not-provided",
+      "policies.entity-selection",
+      "policies.availability-wait",
+      "policies.availability-create",
+      "policies.temperature-detection",
+      "policies.temperature-save",
+      "policies.temperature-picker"
+    ],
+    "diagnostics": [],
+    "runner_exit": 2,
+    "runner_exit_reason": "Unrelated inventory rows remain untested; every selected path passes."
+  },
+  "earlier_evidence": {
+    "desktop": "build/ui-acceptance/availability-final-desktop-20261019/report.json",
+    "phone": "build/ui-acceptance/availability-final-phone-20261019/report.json",
+    "diagnosis": "The older live.policies.selection test checked an already-selected entity again and attempted an unchanged save. Corrected its cleanup to uncheck the explicitly selected entity; product UI unchanged for this retry.",
+    "fixture_diagnostics": "Earlier dependency and remembered-unit fixture diagnostics remain in build/ui-acceptance/availability-policy-desktop-20261019 and availability-policy-desktop-20261019-deps."
+  },
+  "remaining": [
+    "Homeostatic exact-candidate CI and packaged release remain for a separately authorized publication.",
+    "Unrelated browser inventory and real-provider receipt remain outside the completed scoped acceptance."
+  ],
+  "library_at_isolated_ui_validation": {
+    "revision": "a675de9ca6587dcd3c8ef2291c9ab4a80c219377",
+    "dirty": true,
+    "source_sha256": "a0ab0d0b4dcad8bcc5b9d57744730ddef88f06efa39951a4bd524d169c85e229",
+    "development_import": "/mnt/c/GitHub/health-tree/src/health_tree/__init__.py",
+    "published_pin": "health-tree==0.10.0",
+    "adoption": "Editable sibling checkout with unpublished qualification API; manifest, project pin and lockfile remain unchanged"
+  },
+  "installation_receipt": "docs/performance/category-availability-installation-2026-10-19.json"
+}

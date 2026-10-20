@@ -1,5 +1,5 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=104";
-import {sourceCoverageIndex, sourceCoveragePolicies} from "./source-coverage.mjs?v=104";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=107";
+import {sourceCoverageIndex, sourceCoveragePolicies} from "./source-coverage.mjs?v=107";
 
 const button=(action,kind,id,name)=>`<button type="button" class="button" data-definition-action="${action}" data-definition-kind="${kind}" data-definition-id="${esc(id)}">${esc(name)}</button>`;
 

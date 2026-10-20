@@ -15,7 +15,7 @@ from homeassistant.helpers.storage import Store
 from .config import Settings, migrate_notification_settings
 from .const import DOMAIN, EVENT_NOTIFICATION, STORE_VERSION
 from .dashboard import async_register_dashboard, async_remove_dashboard
-from .policy_migration import migrate_device_policies
+from .policy_migration import introduce_supplied_policies, migrate_device_policies
 from .runtime import Runtime
 from .services import async_register_services, async_remove_services
 
@@ -29,7 +29,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
     """Load presentation now and start monitoring after Home Assistant starts."""
     try:
         data = dict(entry.options or entry.data)
-        converted = migrate_device_policies(hass, migrate_notification_settings(data))
+        converted = introduce_supplied_policies(
+            migrate_device_policies(hass, migrate_notification_settings(data))
+        )
         runtime = Runtime(
             hass,
             entry,

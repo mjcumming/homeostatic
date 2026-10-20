@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-19
 
+**Later decisions:** [ADR 0108](0108-category-availability-policies-and-policy-waits.md) supersedes the fresh-install availability policy list below while retaining enabled Batteries and Vacuums. [ADR 0107](0107-add-new-supplied-policies-disabled-on-upgrade.md) adds genuinely new supplied policies once, disabled, to existing installations; historical edits and deletions remain unchanged.
+
 **Supersedes in part:** Only the disabled fresh-install defaults for Batteries and Vacuums in [ADR 0058](0058-unified-policy-lifecycle.md). The policy lifecycle, existing-installation preservation and notification safeguards remain in force.
 
 ## Context

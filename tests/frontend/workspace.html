@@ -87,7 +87,7 @@ if(new URLSearchParams(location.search).has("battery-picker")) {
   saved.monitoring_policies=[{...newMonitoringPolicy([],"battery"),enabled:true,excluded_sources:[]}];
   card.configuration=configuration();card.settingsDraft=structuredClone(saved);
   card.scopedConfiguration=null;card.page="policies";card.definitionSelection={kind:"policies",id:"policy-1"};
-  card.policyPicker={id:"policy-1",query:"Batt",selectedOnly:false};
+  card.sourceSelection={id:"policy-1",query:"Batt",selectedOnly:false};
   let requested=false;
   card.store={ensureCatalog(){requested=true;return Promise.resolve();}};
   const finish=document.createElement("button");
@@ -97,7 +97,7 @@ if(new URLSearchParams(location.search).has("battery-picker")) {
     card.render();
   };
   finish.onclick=()=>show(true);
-  document.querySelector("#run").textContent="Run battery picker checks";
+  document.querySelector("#run").textContent="Run battery selection checks";
   document.querySelector("#run").onclick=()=>{
     try {
       show(false);
@@ -106,10 +106,10 @@ if(new URLSearchParams(location.search).has("battery-picker")) {
       check(root.textContent.includes("Loading available sources"),"Loading is explicit");
       check(!root.textContent.includes("No matching choices"),"Loading is not an empty search");
       finish.click();
-      const choice=root.querySelector('[data-definition-value="battery:registry:owner-phone"]');
+      const choice=root.querySelector('[data-definition-field="source-choice"][data-definition-value="battery:registry:owner-phone"]');
       check(choice,"Batt finds sensor.owner_phone_battery when its name is Owner phone");
-      check(card.policyPicker.query==="Batt","The search survives arrival");
-      choice.checked=true;choice.dispatchEvent(new Event("change",{bubbles:true,composed:true}));
+      check(card.sourceSelection.query==="Batt","The search survives arrival");
+      check(choice.checked,"An included battery starts checked");choice.checked=false;choice.dispatchEvent(new Event("change",{bubbles:true,composed:true}));
       check(card.settingsDraft.monitoring_policies[0].excluded_sources.includes("battery:registry:owner-phone"),"Exclusion stays a local draft");
       check(JSON.stringify(saved)===before,"Saved policy unchanged");
       check(!calls.some(call=>call.type==="homeostatic/save_settings"||call.type==="homeostatic/test_delivery_method"),"No save or service request");

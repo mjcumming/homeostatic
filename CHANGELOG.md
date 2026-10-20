@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-10-20
+
+### Fixed
+
+- Bring deletion confirmations into view on phones and return to the selected row on Cancel. The shared fix covers policies, notifications and delivery methods.
+
+### Added
+
+- Supply Cameras, Locks, Alarm panels and Safety sensors availability policies alongside General availability. Fresh setup enables them; upgrades add the new categories disabled and preserve existing policies, including Important equipment.
+- Configure **Report unavailable after** separately in each entity availability policy. Cameras starts at five minutes; other supplied categories start at zero. Brief outages, missing evidence and restarts cannot complete a pending wait, including when an integration failure groups affected equipment.
+
+### Changed
+
+- Call the monitoring types **Unavailable entities** and **Missing entities**. Existing saved policy names and coverage stay unchanged.
+- Choose a source category when adding an Unavailable entities policy. Cameras, locks, alarm panels and safety sensors use flat checkbox lists, alongside the other focused equipment policies; general entity selection and Missing entities keep the tree. Checked means monitored, and future inclusion remains explicit. Remove the old inclusion radios and separate source pickers.
+- New custom entity availability policies start disabled with no selected entities. Duplicate retains the copied scope and wait. The existing editor shows the wait and any overlapping enabled coverage.
+- Remember newly supplied policy introductions so deletion survives later upgrades. Historical deleted policies and notifications stay deleted; failed upgrades preserve settings, history and pending requests.
+- Pin health-tree to published version 0.11.0 for availability qualification and affected equipment notification assignments.
+
+### Development
+
+- Remove physical Safari testing from planned acceptance and release gates. Desktop, phone-sized, keyboard and enlarged-text checks remain in scope.
+
 ## [1.11.5] - 2026-10-19
 
 ### Changed

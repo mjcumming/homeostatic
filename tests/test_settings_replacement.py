@@ -22,6 +22,7 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.policy_defaults import initial_settings
+from custom_components.homeostatic.policy_migration import introduce_supplied_policies
 from tests.test_lifecycle import start_monitor
 
 
@@ -90,6 +91,7 @@ async def test_old_settings_are_converted_once_without_replacing_choices(
             "kind": ["entity"],
             "device": ["missing"] if customized else [],
         }
+        expected = introduce_supplied_policies(expected)
         assert dict(entry.data) == expected
         assert not entry.options
         assert runtime.settings == Settings.from_data(expected, functions_enabled=False)

@@ -82,7 +82,7 @@ document.querySelector("#dark").onchange=event=>{document.documentElement.datase
 document.querySelector("#reset").onclick=()=>{reset();document.querySelector("#feedback").textContent="Synthetic examples restored. No saved settings changed.";};
 document.querySelector("#run").onclick=async()=>{
   const button=document.querySelector("#run"),feedback=document.querySelector("#feedback"),evidence=[];button.disabled=true;
-  const receipt={...emptyReceipt({fixture:"device-issues.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",build:"working tree",transport:"synthetic inventory; no live services",physical_safari:"untested"}),status:"running",evidence};
+  const receipt={...emptyReceipt({fixture:"device-issues.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",build:"working tree",transport:"synthetic inventory; no live services"}),status:"running",evidence};
   try {
     reset(false);await settle();
     const restored=data.inventory.episodes.find(item=>item.episode_id==="ball-device");

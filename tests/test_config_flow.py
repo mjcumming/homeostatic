@@ -33,7 +33,10 @@ async def test_user_flow(hass: HomeAssistant) -> None:
     } == {
         "default_integrations",
         "default_entities",
-        "default_important_equipment",
+        "default_cameras",
+        "default_locks",
+        "default_alarm_panels",
+        "default_safety_sensors",
         "default_repairs",
         "default_broken_automations",
         "default_batteries",

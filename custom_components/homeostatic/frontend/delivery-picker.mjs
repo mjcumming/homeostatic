@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=104";
+import {escapeHtml as esc} from "./model.mjs?v=107";
 
 const TYPES={app:"App notification",voice:"Speaker announcement",email:"Email",sms:"SMS",notification:"Other notification"};
 const targetsFor=card=>card.configuration.delivery_targets||card.configuration.notification_destinations||[];

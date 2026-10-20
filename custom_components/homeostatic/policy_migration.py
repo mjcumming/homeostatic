@@ -7,7 +7,47 @@ from homeassistant.core import HomeAssistant
 
 from .config import Settings
 from .enrollment import inventory
+from .policy_defaults import (
+    LEGACY_POLICY_INTRODUCTIONS,
+    SUPPLIED_POLICY_INTRODUCTIONS,
+    policy_templates,
+)
 from .rules import CatalogRule, attributes
+
+
+def introduce_supplied_policies(data: dict[str, Any]) -> dict[str, Any]:
+    """Add newly offered policies disabled without restoring past deletions."""
+    settings = Settings.from_data(data, functions_enabled=False)
+    offered = list(settings.supplied_policy_introductions)
+    for identity in LEGACY_POLICY_INTRODUCTIONS:
+        if identity not in offered:
+            offered.append(identity)
+    templates = {row["id"]: row for row in policy_templates()}
+    existing = {row.id for row in settings.monitoring_policies}
+    profiles = settings.notification_definitions["profiles"]
+    additions = []
+    for identity in SUPPLIED_POLICY_INTRODUCTIONS:
+        if identity in offered:
+            continue
+        offered.append(identity)
+        if identity in existing or identity not in templates:
+            continue
+        policy = templates[identity]
+        policy["enabled"] = False
+        policy["notifications"] = [
+            row for row in policy["notifications"] if row["profile"] in profiles
+        ]
+        additions.append(policy)
+    if data.get("supplied_policy_introductions") == offered and not additions:
+        return data
+    candidate = deepcopy(data)
+    candidate["monitoring_policies"] = [
+        *candidate.get("monitoring_policies", []),
+        *additions,
+    ]
+    candidate["supplied_policy_introductions"] = offered
+    Settings.from_data(candidate, functions_enabled=False)
+    return candidate
 
 
 def migrate_device_policies(

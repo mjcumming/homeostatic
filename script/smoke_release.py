@@ -64,13 +64,16 @@ async def exercise(config: Path, port: int) -> None:
         entry = result["result"]
         assert entry.state is ConfigEntryState.LOADED, entry.state
         assert entry.data["monitoring_policy_version"] == 1
-        assert len(entry.data["monitoring_policies"]) == 8
+        assert len(entry.data["monitoring_policies"]) == 11
         assert {
             item["id"]: item["enabled"] for item in entry.data["monitoring_policies"]
         } == {
             "default_integrations": True,
             "default_entities": True,
-            "default_important_equipment": True,
+            "default_cameras": True,
+            "default_locks": True,
+            "default_alarm_panels": True,
+            "default_safety_sensors": True,
             "default_repairs": True,
             "default_broken_automations": True,
             "default_batteries": True,
@@ -85,7 +88,10 @@ async def exercise(config: Path, port: int) -> None:
             for identity, profile in (
                 ("default_integrations", "morning"),
                 ("default_entities", "morning"),
-                ("default_important_equipment", "immediate"),
+                ("default_cameras", "immediate"),
+                ("default_locks", "immediate"),
+                ("default_alarm_panels", "immediate"),
+                ("default_safety_sensors", "immediate"),
                 ("default_repairs", "morning"),
                 ("default_broken_automations", "morning"),
                 ("default_batteries", "morning"),
@@ -133,7 +139,58 @@ async def exercise(config: Path, port: int) -> None:
             "notify", "homeostatic_smoke", capture_notification
         )
         fresh = deepcopy(dict(entry.data))
+        category_ids = {
+            "default_cameras",
+            "default_locks",
+            "default_alarm_panels",
+            "default_safety_sensors",
+        }
+        assert {"default_devices", "default_important_equipment"} <= set(
+            fresh["supplied_policy_introductions"]
+        )
+        category_additions = [
+            {**deepcopy(row), "enabled": False}
+            for row in fresh["monitoring_policies"]
+            if row["id"] in category_ids
+        ]
+        # Use the exact published settings as well as the customized shape below.
+        fixture_path = Path(__file__).parents[1] / "tests/fixtures/settings_1_9.json"
+        published = json.loads(
+            await hass.async_add_executor_job(fixture_path.read_text)
+        )
+        published_expected = deepcopy(published)
+        for profile in published_expected["notification_definitions"][
+            "profiles"
+        ].values():
+            if profile["timing"]["mode"] != "report":
+                profile["timing"]["collection_delay_seconds"] = 0
+        published_expected["monitoring_policies"][1]["match"] = {
+            "kind": ["entity"],
+            "device": sorted(
+                source.node_id.removeprefix("device:")
+                for source in entry.runtime_data.candidates.values()
+                if source.kind == "device"
+            ),
+        }
+        published_expected["monitoring_policies"].extend(deepcopy(category_additions))
+        published_expected["supplied_policy_introductions"] = fresh[
+            "supplied_policy_introductions"
+        ]
+        for location in ("data", "options"):
+            hass.config_entries.async_update_entry(
+                entry,
+                data=published if location == "data" else fresh,
+                options=published if location == "options" else {},
+            )
+            for _ in range(2):
+                assert await hass.config_entries.async_reload(entry.entry_id)
+                await hass.async_block_till_done()
+                assert entry.runtime_data.available
+                assert dict(entry.data) == published_expected
+                assert not entry.options
+                assert not captured_requests
         legacy = deepcopy(fresh)
+        legacy.pop("supplied_policy_introductions")
         legacy["notifications"] = True
         legacy["consumer"] = None
         legacy["timings"]["batch"] = 123
@@ -179,6 +236,10 @@ async def exercise(config: Path, port: int) -> None:
         for profile in expected["notification_definitions"]["profiles"].values():
             if profile["timing"]["mode"] != "report":
                 profile["timing"]["collection_delay_seconds"] = 0
+        expected["monitoring_policies"].extend(deepcopy(category_additions))
+        expected["supplied_policy_introductions"] = fresh[
+            "supplied_policy_introductions"
+        ]
         hass.config_entries.async_update_entry(entry, options=legacy)
         for _ in range(2):
             assert await hass.config_entries.async_reload(entry.entry_id)
@@ -194,6 +255,27 @@ async def exercise(config: Path, port: int) -> None:
             assert not captured_requests, (
                 "Upgrade unexpectedly requested a notification"
             )
+
+        # An ordinary save can edit or remove an introduced policy permanently.
+        adopted = deepcopy(expected)
+        adopted["monitoring_policies"] = [
+            row
+            for row in adopted["monitoring_policies"]
+            if row["id"] != "default_cameras"
+        ]
+        locks = next(
+            row
+            for row in adopted["monitoring_policies"]
+            if row["id"] == "default_locks"
+        )
+        locks.update(name="Selected locks", parameters={"duration_seconds": 23})
+        hass.config_entries.async_update_entry(entry, options=adopted)
+        for _ in range(2):
+            assert await hass.config_entries.async_reload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert entry.runtime_data.available
+            assert dict(entry.options) == adopted
+            assert not captured_requests
 
         hass.config_entries.async_update_entry(
             entry,

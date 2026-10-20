@@ -122,7 +122,7 @@ async function initializeBrowserScenario() {
   };
   document.querySelector("#run").onclick=async()=>{
     const button=document.querySelector("#run"),feedback=document.querySelector("#feedback");button.disabled=true;feedback.textContent="Running exact issue-selection checks…";
-    receipt=emptyReceipt({fixture:"device-issue-selection.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",transport:"synthetic data and mocked services",physical_safari:"untested"});
+    receipt=emptyReceipt({fixture:"device-issue-selection.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",transport:"synthetic data and mocked services"});
     try {
       await run("issues.device-availability-selection",async()=>{
         reset();await settle();await openCombined();

@@ -233,11 +233,10 @@ for(const [page,kind,id,path] of [
   ["notifications","methods","phone","/notifications/methods"],
 ])test(`primary ${page} navigation returns from ${kind} editor to its list and preserves all drafts`,()=>{
   const card=navigationCard(),draft=card.settingsDraft,before=structuredClone(draft);
-  Object.assign(card,{page,definitionSelection:{kind,id},notificationSection:kind,policyCreating:true,policyPicker:{kind:"source"}});
+  Object.assign(card,{page,definitionSelection:{kind,id},notificationSection:kind,policyCreating:true});
   card.clicked(buttonClick({page},true));
   assert.equal(card.definitionSelection,null);
   assert.equal(card.policyCreating,false);
-  assert.equal(card.policyPicker,null);
   assert.equal(workspacePath(workspaceRoute(card)),path);
   assert.equal(card.workspaceReturn,null);
   assert.equal(card.settingsDraft,draft);

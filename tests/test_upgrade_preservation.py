@@ -226,11 +226,12 @@ async def test_current_setup_and_reload_preserve_every_saved_choice(
     data = initial_settings("America/New_York")
     data["timings"] = config_data["timings"]
     data["notifications"] = sending
-    important = next(
-        row
-        for row in data["monitoring_policies"]
-        if row["id"] == "default_important_equipment"
+    important = monitoring_policy(
+        "default_important_equipment",
+        {"kind": ["entity"]},
+        notifications=[{"id": "default", "profile": "immediate"}],
     )
+    important["match_any"] = deepcopy(data["monitoring_policies"][1]["match_none"])
     important["name"] = "Owner's chosen equipment"
     important["enabled"] = False
     important["excluded_sources"] = ["device:ignored", "entity:registry:ignored"]

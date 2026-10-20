@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-18
 
+**Later decision:** [ADR 0108](0108-category-availability-policies-and-policy-waits.md) starts new custom entity-availability policies empty and reserves this tree for general entity selection and Missing entities. Focused availability categories use flat lists. Saved selectors, future scope, duplication and the tree's group-selection behavior remain supported.
+
 **Supersedes in part:** Device availability policies, inferred device status and speculative integration-report support in ADRs 0009, 0025, 0035, 0045 and 0064; entity source-selection controls in ADR 0061 and the policy editor specification. Device organization and independent issue response in ADR 0094 remain applicable.
 
 ## Decision

@@ -4,6 +4,7 @@ from typing import Any
 
 from custom_components.homeostatic.monitoring import parse_policies
 from custom_components.homeostatic.notification_definitions import defaults
+from custom_components.homeostatic.policy_defaults import SUPPLIED_POLICY_INTRODUCTIONS
 
 
 def monitoring_policy(
@@ -33,6 +34,7 @@ def current_config(
     """Build a complete current-schema configuration with explicit policy scope."""
     return {
         "monitoring_policy_version": 1,
+        "supplied_policy_introductions": list(SUPPLIED_POLICY_INTRODUCTIONS),
         "monitoring_policies": policies or [],
         "notification_definitions": defaults(),
         **settings,

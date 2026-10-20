@@ -2,7 +2,7 @@
 
 [Homeostatic manual](../guide.md)
 
-A monitoring policy selects sources, defines a condition and assigns notifications. Each policy has a fixed **Monitoring type**. These tables describe fresh setup and newly added policies. Saved edits, deleted policies and existing notification choices survive updates.
+A monitoring policy selects sources, defines a condition and assigns notifications. Each policy has a fixed **Monitoring type**. These tables describe fresh setup. Updates add newly supplied policies disabled and preserve existing settings and deletions. Custom policies start disabled.
 
 The named notifications below initially have no delivery methods, and global sending starts off. Their timing and delivery settings are in [Notification and control settings](settings-reference.md). Use [Choose what to monitor](policies.md) to change scope and [Set up and change notifications](notifications.md) to arrange delivery.
 
@@ -11,9 +11,12 @@ The named notifications below initially have no delivery methods, and global sen
 | Monitoring type | Eligible source or required evidence | Starting setup | Initial notification |
 | --- | --- | --- | --- |
 | Integration availability | Eligible Home Assistant integration connections. | **Integrations** is enabled. | Morning summary |
-| Entities not provided | Enabled registered entities whose owning integration is loaded but has no live entity, including diagnostic and configuration entities. | **Entities not provided** is enabled, with a 24-hour wait. Existing installations can add or explicitly restore the policy. | Morning summary |
-| Entity availability | Enabled operational entities outside the Important equipment selection, including entities without a device. | **General entity availability** is enabled. | Morning summary |
-| Entity availability | Enabled operational cameras, locks, alarm panels and smoke, carbon monoxide, gas and moisture binary sensors. | **Important equipment availability** is enabled. | Immediate |
+| Missing entities | Enabled registered entities whose owning integration is loaded but has no live entity, including diagnostic and configuration entities. | **Missing entities** is enabled, with a 24-hour wait. Existing installations can add or explicitly restore the policy. | Morning summary |
+| Unavailable entities | Enabled operational entities outside the supplied categories, including entities without a device. | **General entity availability** is enabled, with no unavailability wait. | Morning summary |
+| Unavailable entities | Enabled operational camera entities. | **Cameras** is enabled, with a five-minute unavailability wait. | Immediate |
+| Unavailable entities | Enabled operational lock entities. | **Locks** is enabled, with no unavailability wait. | Immediate |
+| Unavailable entities | Enabled operational alarm panel entities. | **Alarm panels** is enabled, with no unavailability wait. | Immediate |
+| Unavailable entities | Enabled operational smoke, carbon monoxide, gas and moisture binary sensors. | **Safety sensors** is enabled, with no unavailability wait. | Immediate |
 | Low battery | Battery percentage sensors or numbers, or battery-class low-warning binary sensors. An associated charging report supplies context. | **Batteries** is enabled; threshold 20%. | Morning summary |
 | Vacuum error | Vacuum entities with a reported activity. | **Vacuums** is enabled. | Evening summary |
 | Repairs | Active Home Assistant Repairs, excluding Homeostatic's own Repairs. | **Repairs** is enabled and covers all eligible Repairs. | Morning summary |
@@ -36,7 +39,7 @@ Disabled integrations, devices and entities do not acquire availability issues s
 | Type | Reported problem | Evidence that ends the condition |
 | --- | --- | --- |
 | Integration availability | Setup retry, setup or migration error, failed unload, or a request to sign in again. | The connection is loaded without pending reauthentication, followed by the recovery wait. |
-| Entity availability | Home Assistant reports unavailable. | A current state other than unavailable, followed by the recovery wait. |
+| Unavailable entities | Home Assistant continuously reports unavailable for the policy's **Report unavailable after** duration. | A current state other than unavailable, followed by the recovery wait. |
 
 A current **unknown** value, **off** or **idle** still establishes HA availability. Missing states and restored startup values are evidence gaps. They cannot establish recovery. Gap-only availability findings and findings awaiting recovery confirmation stay out of Open issues; their evidence remains in **Monitoring**. See [How issues and notifications work](../how-it-works.md).
 

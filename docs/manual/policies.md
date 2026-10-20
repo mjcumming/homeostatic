@@ -8,9 +8,9 @@ For eligible sources, starting settings and the conditions each monitoring type 
 
 ## Add or change a policy
 
-1. Open **Policies**. Select **Edit policy** beside an existing policy, or select **Add policy**, choose a **Monitoring type** from the alphabetical list, and select **Continue**.
-2. Give the policy a useful name. For **Entity availability**, use the checkbox beside an integration or device to select or clear its listed entities, or expand the arrows to choose individual entities. All branches start collapsed. A dash means some entities are selected; selecting it checks the rest. The count beside each group shows how many eligible entities are selected. Search finds entities across the complete tree and opens matching branches; clearing it restores the branches you opened. **Monitored only** helps review the selection. With either filter active, group checkboxes change only matching entities. Expanding a branch leaves monitoring choices and your reading position unchanged. Other monitoring types offer their supported **Include** choices and source picker.
-3. Review the detection settings offered for that type. Repairs and broken automations always cover their complete supported set and have no source selector.
+1. Open **Policies**. Select **Edit policy** beside an existing policy, or select **Add policy** and choose a **Monitoring type** from the alphabetical list. For **Unavailable entities**, also choose a **Source category**: **Any entity type**, **Cameras**, **Locks**, **Alarm panels** or **Safety sensors**. Select **Continue**.
+2. Give the policy a useful name and check the sources to monitor. Focused categories and equipment types use a flat list. **Any entity type** and **Missing entities** use a tree: select a group checkbox or expand its arrow to choose individual entities. A dash means some entities are selected; selecting it checks the rest. Search and **Monitored only** help review a longer list. Filtered group checkboxes affect only matching entities. Expanding a branch leaves your choices unchanged.
+3. Review the detection settings offered for that type. For **Unavailable entities**, set **Report unavailable after** to the time a continuous outage should last before opening an issue. Zero reports immediately. Repairs and broken automations always cover their complete supported set and have no source selector.
 4. Under **Notifications**, use **Add notification** to choose a saved named notification. To keep issues in the panel without notifications from this policy, remove every assignment so the section reads **No notifications**. [Set up notifications](notifications.md) covers timing and destinations.
 5. Set **Policy enabled** as intended, then select **Save policy**.
 
@@ -20,28 +20,34 @@ To find the policies watching an entity, select it in **Monitoring**, then open 
 
 ## Watch entities an integration is not providing
 
-Choose **Entities not provided** when registered entities remain in Home Assistant but their integration no longer supplies them. The owning integration must be loaded. Select the entities in the same tree and set **For at least (hours)**; the default is 24 hours. Save the policy and choose its notification assignments as usual.
+Choose **Missing entities** when registered entities remain in Home Assistant but their integration no longer supplies them. The owning integration must be loaded. Select the entities in the tree and set **For at least (hours)**; the default is 24 hours. Save the policy and choose its notification assignments as usual.
 
-An enabled registration with a missing state or restored placeholder can qualify. Any live state means the entity is being provided, including unknown or unavailable; ordinary changes to its value do not affect this condition. Use Entity availability to watch live unavailable states. Disabled entities are excluded. Startup and integration reloads interrupt the waiting period.
+An enabled registration with a missing state or restored placeholder can qualify. Any live state means the entity is being provided, including unknown or unavailable; ordinary changes to its value do not affect this condition. Use **Unavailable entities** to watch live unavailable states. Disabled entities are excluded. Startup and integration reloads interrupt the waiting period.
 
 The issue identifies the entity and its loaded integration. Use **Open Entity** to inspect it in Home Assistant. Homeostatic does not delete registrations or determine whether they are obsolete.
 
 ## Choose a scope that will stay useful
 
-| Selection | Use it when |
+| Future sources | Use it when |
 | --- | --- |
-| All sources of the selected type | Every eligible source of that type should be watched, including sources added later. |
-| All except selected | Most sources should be watched, with specific exceptions. Newly added eligible sources are included. |
-| Selected sources | Only the named equipment should be watched. |
-| Sources in areas or with labels | Home Assistant location or labels define the equipment you want. New matching sources join the selection. |
+| Do not include automatically | Only the equipment you choose should be watched. |
+| Include automatically | All current and future eligible sources should be watched. Uncheck individual sources to exclude them. |
+| In selected areas | Home Assistant areas define the equipment you want, including new matching sources. |
+| With selected labels | Home Assistant labels define the equipment you want, including new matching sources. |
 
-The editor offers only the choices supported by the monitoring type. Integration selection uses the integration name and includes its current and future configured connections; area and label choices are not offered for integrations. An integration exclusion can identify one configured connection.
+Flat lists offer the supported **Future sources** choices above, with area or label choices in the same editor. Checked always means monitored. Checking every current source does not automatically include future sources. Integration lists show each configured connection. Selecting one keeps that exact connection; existing saved rules for an integration family still include its future connections. Area and label choices are not offered for integrations.
 
-Availability policies automatically select enabled operational entities. To watch a diagnostic or configuration entity individually, choose it explicitly in an entity availability policy. Disabled sources remain outside availability monitoring.
+For battery, vacuum, temperature, thermostat and UPS policies, area and label scopes show matching sources and saved exceptions. Change the area or label selection to broaden that scope. You can exclude individual matching sources.
 
-Fresh setup supplies **General entity availability** using Morning summary and **Important equipment availability** using Immediate. Important equipment initially includes cameras, locks, alarm panels and binary sensors reporting smoke, carbon monoxide, gas or moisture. General initially includes the other eligible operational entities. These selections follow entity type and device class, so future matching entities are included. Availability watches whether Home Assistant can provide a state; selecting a smoke or leak detector here does not configure smoke or leak detection.
+New custom **Unavailable entities** policies start disabled with no entities selected, including when you choose a category. Choose the entities to include; newly added entities stay outside that exact selection. Supplied availability policies follow their saved category scopes. To watch a diagnostic or configuration entity individually, choose it explicitly. Disabled sources remain outside availability monitoring.
 
-Both policies use the same entity list. Their starting selections follow entity types, including future matching entities. Individual checkboxes override those selections without changing the other policy. The short explanation above the list describes how new entities are included. Clearing every checkbox is allowed. Changes apply when you select **Save policy**.
+Fresh setup enables **Cameras**, **Locks**, **Alarm panels**, **Safety sensors** and **General entity availability**. Safety sensors includes smoke, carbon monoxide, gas and moisture binary sensors; General includes the other eligible operational entities. The categories use Immediate, while General uses Morning summary. Cameras starts with a five-minute unavailability wait; the others start at zero. Availability watches whether Home Assistant can provide a state; selecting a smoke or leak detector here does not configure smoke or leak detection.
+
+The category stays fixed after creation and appears beside the monitoring type; renaming or duplicating a policy keeps it. Cameras, locks, alarm panels and safety sensors use flat lists. Other saved entity scopes use the general tree. Saved choices outside a category remain visible and removable. Individual checkboxes override the saved scope without changing another policy. The explanation above the list describes how new entities are included. Clearing every checkbox is allowed. Changes apply when you select **Save policy**.
+
+A return to availability before the configured wait ends cancels the pending issue. Missing readings, restored startup values and restarts interrupt an unfinished wait. Recovery uses the separate installation recovery setting. The editor identifies overlapping enabled availability policies; a shorter wait on another policy can still produce an earlier issue or notification.
+
+Updates add newly supplied policies disabled and leave existing policies, including Important equipment, unchanged. Enable a category when its sources, wait and notifications suit the household, then adjust any overlapping old coverage deliberately. Deleting a supplied policy keeps it deleted across later updates; **Restore defaults** can restore a chosen missing policy.
 
 Exclusions belong to their policy and remain saved if a source disappears. Missing saved choices appear in the list with **Remove saved choice**. Devices organize the list and related issues; Homeostatic does not assign a device availability status.
 
@@ -78,7 +84,7 @@ This removes the reviewed explicit exclusions. The policy must still be enabled 
 
 The monitoring type stays fixed after creation. To configure a different type, add another policy. To reuse existing settings, open **More actions** beside the policy and select **Duplicate**. The copy is independent and starts disabled; review its name, selection, settings and notifications before enabling and saving it.
 
-To stop a policy temporarily, open it, turn **Policy enabled** off, then select **Save policy**. To remove it, choose **More actions → Delete** and review the deletion confirmation. Disabling or deleting ends that policy's monitoring. Other policies watching the same equipment continue.
+To stop a policy temporarily, open it, turn **Policy enabled** off, then select **Save policy**. To remove it, choose **More actions → Delete** and review the deletion confirmation. Select **Delete policy** to confirm, or **Cancel** to keep it and return to the policy. Disabling or deleting ends that policy's monitoring. Other policies watching the same equipment continue.
 
 To restore a deleted supplied policy:
 

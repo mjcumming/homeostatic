@@ -46,7 +46,9 @@ async def test_restore_defaults_save_without_simulating_policy(
             }
         )
         assert (await client.receive_json())["success"]
-    assert len(entry.runtime_data.settings.monitoring_policies) == 8
+    assert [
+        policy.id for policy in entry.runtime_data.settings.monitoring_policies
+    ] == [policy["id"] for policy in draft["monitoring_policies"]]
     assert not entry.runtime_data.settings.notifications
     assert not entry.runtime_data.delivery.messages
     assert await hass.config_entries.async_unload(entry.entry_id)

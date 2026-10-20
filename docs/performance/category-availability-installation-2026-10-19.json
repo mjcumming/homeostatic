@@ -1,0 +1,418 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-20T03:04:33.459283+00:00",
+  "health_tree_release": {
+    "version": "0.11.0",
+    "commit": "308b75b86e2477bd756dd2500f137f2e494fb162",
+    "tag": "v0.11.0",
+    "ci_url": "https://github.com/mjcumming/health-tree/actions/runs/39360569425",
+    "release_workflow_url": "https://github.com/mjcumming/health-tree/actions/runs/39360707167",
+    "release_url": "https://github.com/mjcumming/health-tree/releases/tag/v0.11.0",
+    "pypi_url": "https://pypi.org/project/health-tree/0.11.0/",
+    "files": [
+      {
+        "filename": "health_tree-0.11.0-py3-none-any.whl",
+        "sha256": "5b5a4a2f0a47dc6e445f816589433507ab22ac0f44806fdbcab551627107bf31",
+        "bytes": 47821,
+        "github_url": "https://github.com/mjcumming/health-tree/releases/download/v0.11.0/health_tree-0.11.0-py3-none-any.whl",
+        "pypi_url": "https://files.pythonhosted.org/packages/1a/6e/f286bacdaddd35fd5167b63af919ee655d034ac9ce1d781ff1d80e4b93ec/health_tree-0.11.0-py3-none-any.whl"
+      },
+      {
+        "filename": "health_tree-0.11.0.tar.gz",
+        "sha256": "1815b94d79477e0dcd8eed3b424dc0ef43125adff85320b543a44f244ec80d9c",
+        "bytes": 272557,
+        "github_url": "https://github.com/mjcumming/health-tree/releases/download/v0.11.0/health_tree-0.11.0.tar.gz",
+        "pypi_url": "https://files.pythonhosted.org/packages/7f/b4/7cbe4ee907dee586e2dd587c624e63d12a428f46511f069418441434277e/health_tree-0.11.0.tar.gz"
+      }
+    ],
+    "ci_conclusion": "success",
+    "release_conclusion": "success",
+    "published_install_smoke": "Passed in a fresh temporary Python 3.14.7 environment from PyPI: version, public API, and continuous qualification across an unknown interruption"
+  },
+  "homeostatic_candidate": {
+    "version": "1.11.5",
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "source": "C:\\GitHub\\homeostatic\\custom_components\\homeostatic",
+    "branch": "main",
+    "revision": "5405387d487bf9385538598769bc7a5465296e5d",
+    "dirty": true,
+    "source_file_count": 79,
+    "installed_hashes_match": true,
+    "staging_removed": true,
+    "public_homeostatic_release": false
+  },
+  "component_sha256": "a99c25e2587a5428ce60fe8d62f46c1188eb0e86a0e45ca46c52ee29abc7328e",
+  "copied_source_files": {
+    "monitoring.py": "a737a2218f755021674b215390e3419872b4e9e8ee114d9947f8f281c68153f8",
+    "frontend\\workspace-navigation.mjs": "8c3314b6d811a23c82ca53f2d4b73a31bd66de58f95d9b76567305626bdc0769",
+    "frontend\\history-controls.mjs": "ac0c0503d1a1f96811c3efb549c3d014e6e5d03f4bbbe535da51d82025419e2d",
+    "entity_not_provided.py": "6a6e4a67eee370842201080444acbca49f1f7dc7230f59dce91384fc1d14543b",
+    "frontend\\issue-configuration.mjs": "1b997c2cf3e59b5b9dff2419193b67c78cea345c4072803c43f7c2ea775a83d5",
+    "notification_definitions.py": "b4b2f285246d1b2facf62131476db072186558a6e25f3340c5def6f56c90523f",
+    "serialization.py": "d3977f5bfb0ba9d4ae3f1689bea3348693ebfd8a63a5b67a157355d51ab86039",
+    "definitions.py": "ee68cd193a23c9b56ad85c6c49d5c969aa747ea7e7269a6f988b15299e7782f1",
+    "notification_people.py": "18e96aa686cc8e15b356d0239bd7b96c1258d20276a70df3aa90b2438cfa04a6",
+    "monitoring_runtime.py": "efa389a5c27bbcb32e9cbfe4f5c4cb076f6028315c5cad91778a61e9f8b39218",
+    "frontend\\delivery-picker.mjs": "7e3424fe73e0cb3b46da242a793e9e1689dd2bde0e19e172d53b5a443fe783d9",
+    "frontend\\styles.mjs": "82d14828e087c19528ecc3df40989cd633908685cddd126c8ed47f1bdcfc075e",
+    "attention.py": "5122c6dfe24701355e308c47f67c3381365cf7696a2bcd71a5e8d2b275796f1e",
+    "frontend\\evidence.mjs": "5515955c9e75d824db33ad38cadbdd1e786d306929adbd334a6730d766df6c0b",
+    "frontend\\configuration.mjs": "b355f41871a24a8bd809858fb21f74a6ee631aca9c79d5f1eb700a8db2f81041",
+    "const.py": "eb13bc293db38472f94150a15d3108e9b5e537646650536f522af157d26b60ce",
+    "notification_grouping.py": "f41fc882260c781d38402164c5605d4d03fdeec0fffb966a144d78c186ce6ce5",
+    "brand\\dark_icon.png": "cafc59ad017206e00d12914c8337cad8138e2934ff6fca3ca596bba9d295b377",
+    "frontend\\installation-settings.mjs": "3f34e8e7561323928130cac731d9ee9c75ee12e1e8a6fafe2b21f90f5bf72c33",
+    "facts.py": "ad5c7eaa79bea36b4edca8f8dc88da5395e6232ac33856d23cd629df8bc8a102",
+    "frontend\\scoped-configuration.mjs": "78546c6544960a3b2750772cc6d6863c46501868ac78da6c66f5fc6c8f554c6c",
+    "ups.py": "669f9f9af8b4b4bb11d5d94e0c0f3648a0629bebdca31c780f9ec9d59530ac53",
+    "vacuum.py": "85e407d382c7c0759890576571e347f321e3eee3220828694785f4c0d89f3bc7",
+    "frontend\\panel-drafts.mjs": "5c705c5ba9280fcdacad9a53e04aa3c55716c7e4791fd508c9ab33472c5e97f7",
+    "frontend\\device-issue-model.mjs": "772c538ca0b9a887afa658bacccc0c54aa47ab3f46df817d2c0e4a1709aa2eef",
+    "rules.py": "bbe4fce0d132c31655902c7d7c8814898a4790cde731a11a81d351d6ac44e820",
+    "situation_reports.py": "2e9025a4074c46cbc92a99c53dd32c2f6f8013b116e177a670e2af0327545a5d",
+    "__init__.py": "7489d9c4999625fc197538664f2147963f1c7713f217d4cdef07d20d740d42bf",
+    "broken_automations.py": "76fdc711676054ccfc7a3422f547508685b9800b51f14bcfafeb7ac8a382b1f0",
+    "delivery.py": "2e854c9174bbd15da908fda539bc5ae47fb0a07a22932ef724939af64b1e4190",
+    "frontend\\issue-monitoring.mjs": "2cd04b4ffdc24c54602ff76ad1d511ae4123568f6090d622b8f4f7c155481055",
+    "frontend\\check-presentation.mjs": "e515489be9eff4e36d73a1950d96e03b52e6ed651ff0a2c229ba21236642c4ce",
+    "controls.py": "d3c24fb1efbc3a41abdc99bcefcbaed1956bcdb1de729a2aa310c255099506b4",
+    "event.py": "0a3310309d2c13fbfa2abd4cf1e68814aff16f03be8e1f03578fd592422ce0fd",
+    "frontend\\device-entities.mjs": "a4594c95fb3dc2c90254eae17ea2e75fcdeab286ea6aebd7fab8f6d9af797b48",
+    "frontend\\notification-navigation.mjs": "8509db1036d9a37184015d9c2d1849fcac1a95f6a4b1a7e15badc14198e19c9a",
+    "frontend\\entity-not-provided.mjs": "a6e375ad9956509f32b1ce8d1f4db22257850b65ad14fdbbe0ace1f55262a40f",
+    "frontend\\package.json": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8",
+    "frontend\\issues-workspace.mjs": "175a35f79b9cd88d90856cfe151b903a1da655444d9c6e2aa452b7aa339d00b2",
+    "policy_defaults.py": "8f9f04038ff202a5c6118d50d673e1cd3063d390279d9c6b067c97b1dff40c15",
+    "config_flow.py": "e5f69e5f789b56252c3eaac842ad98d69c51f3c9919bc0bac6d660bd05e14026",
+    "catalog.py": "ee5affb13ac8a4eaec69071718cdf325e91cd4e0a5f6b89e60ee13a5dd29dc45",
+    "frontend\\sources-workspace.mjs": "f7264db1fbb8c131c8ce72885fdd5800f0330233bb1cdd6ed565f0f726dad4e3",
+    "repairs.py": "e469fe798ea6d7445663ea1731e1339215f084599ee067bfae2da0595c0a8e2d",
+    "config.py": "f0b68a050c884c6ed0af0ec7add60c31dbe61884aa4a247a94ca7c68563c3283",
+    "translations\\en.json": "c1ff05a44c8b51a0ba7e9381876ed4ea711b2aaa40d9fba929bbbc17f22014a3",
+    "temperature.py": "5b5e543082086fd714074f2cf2381139daaf945eceb0e45dbf2d5c5315ee9ae9",
+    "frontend\\source-temperature.mjs": "9d51263daab854aeace480e56463e9a58570de07baa66e1d7f44f0f28570a3ea",
+    "function_model.py": "f6689b86391cec96b28317ca876a1120e188dff19cb85bfb33735e0a07635342",
+    "frontend\\problem.mjs": "e9d76bc97c40c99795616879a9b51b7496e2fdb4b307cdaac22f614083bf820b",
+    "frontend\\homeostatic.js": "8a46730eb47bf3a2fb8f8746d64b6fd0d4217048c38902ff57361139eb79d6b8",
+    "dashboard.py": "266869bb24220792b697668499201a19cf32eaf47be999f3c3ebfcb65d9ef6b6",
+    "frontend\\entity-selection.mjs": "21f148938562219d1cafc52dcaa36bd66fd7f7e047bdabb6f7a98915f3dd4949",
+    "automation_alerts.py": "036e20e5c4cc97979e922a30c4984b4f5cad94e6ee5048741fdd695f5a23e651",
+    "battery.py": "2fdc8c07b4468a506815d4de25592f9f17ebf21742d760317801c616a8b351d0",
+    "frontend\\source-monitoring.mjs": "59e8e30764a3baa492363e0f290e15c54d88cb9c8b85b1707203113a677a847b",
+    "frontend\\device-issues.mjs": "67f323864c24c7cf85a1ab8271fad7f45b7474d5153b7baf46e56e99e6763f05",
+    "manifest.json": "f8a9fcfb242e728ff5f18340018bcb3bfe5c7afe678171cea484655ef525d24e",
+    "brand\\dark_icon@2x.png": "1a3309f8c526a09252e5ff656445e4425ec89b59f4514e5b956dbd86bf4306d9",
+    "frontend\\model.mjs": "1d355114c2f07ba5de8ba3d4528f2301f1e8707faa6f44ecd730f3cf2b741995",
+    "ups_parameters.py": "e348553ea19d0af80de6f8b4ecf4ca856fd3472fa2996e6c94415006c06b03fb",
+    "policy_migration.py": "a967f700309f3927491759856116b310af3d85f0f314a2c6deec7fba72c20c45",
+    "runtime.py": "e5f2c8b982972b4afd9afe0068dfc77b71b71f539ccf1eea272602c3806f8b45",
+    "frontend\\reusable-editors.mjs": "969defd2c657a55bc30779b2868fbfbb735afb48534f41e1603494266812fb78",
+    "frontend\\ups.mjs": "8d2ea040f6b2c9bc13eebad76e257220f7fd5204fbf354274819a734afeeb8cd",
+    "phone_actions.py": "7acdfd14a3bbd0fae4df2bf14a64128d4882c895171f244350140ec39b487d33",
+    "notification_routes.py": "b4e3c08d81480b698721d7c2883daf9027d54e76f26ac67a19cbbadb1b86a9db",
+    "brand\\icon@2x.png": "ac577f00ee3c2e98505c9cdcf3eb5af4eb60ff8d63a6afb97481b049259b5139",
+    "strings.json": "c1ff05a44c8b51a0ba7e9381876ed4ea711b2aaa40d9fba929bbbc17f22014a3",
+    "evidence.py": "cb9defe16151907926af5b305c8cb9364cf312ae6c5b5ad68d5c9566da3bfa3a",
+    "frontend\\reporting.mjs": "fcd13d65718f7273178aff325a9fa43b62b23a6c15959287ca3685381c5b5348",
+    "frontend\\source-history.mjs": "aa8b92b4be8f8448947ca8c41bcaf02a12fe4cfb7efe31d1a6fecd48699a0ef9",
+    "brand\\icon.png": "d4740e57a8d672e1c76c19eb551ab06a0003fd87d5099e67d996375769c8d957",
+    "sensor.py": "cf6c1fb2efd4bb9e64255090e9bdce7bfbeccf72a174269e2ec161a0a20a9944",
+    "services.yaml": "39661562affacadc90c714cad1ab5ddec80c3ba1474617c4cb651da6fb34060c",
+    "frontend\\source-coverage.mjs": "b3b7599fae58cc4fbea14dd6b64c185e6e6d86a16392a3407555b4e3bc42e9c0",
+    "enrollment.py": "11ced9a77a477112f8cd6c96dec4bb908c457102e4cd8abf541b6e95ff3faaec",
+    "history.py": "946e611547f266d97244e8a2af22083e3013469135e02d985e6506b86cb1b750",
+    "services.py": "6eb0e2b687c72a8aac81b9cdcf2d7401f40fcb24608663f48bd1bb356131fc81"
+  },
+  "prior_isolated_ui_component_sha256": "7f5860dea7f2092b02771ab4a028deac3420e808fe7c4bbe7402a703f9a9f53f",
+  "candidate_comparison": "All 79 component files match the prior isolated UI candidate except manifest.json, whose only change is the published dependency pin from 0.10.0 to 0.11.0. Installed files were verified again after household browser acceptance.",
+  "checks": {
+    "published_dependency": "Manifest, project and uv.lock pin registry health-tree==0.11.0. The noneditable installed package source matches the released source.",
+    "python_suite": {
+      "passed": 1390,
+      "skipped": 15,
+      "initial_failures": 2,
+      "correction": "Updated two stale expected defaults in tests only; four focused tests then pass, including both original failures. No production code changed.",
+      "log": "build/published-availability-full-check.log"
+    },
+    "coverage": {
+      "combined_percent": 95.88226970425923,
+      "statement_percent": 96.88051795173631,
+      "branch_percent": 93.2994923857868,
+      "both_93_percent_floors": "pass"
+    },
+    "strict_types": {
+      "status": "pass",
+      "source_files": 40
+    },
+    "quick": {
+      "status": "pass",
+      "frontend_tests": 892,
+      "log": "build/published-availability-quick.log"
+    },
+    "clean_actual_ha_install_upgrade": {
+      "status": "pass",
+      "ha": "2026.10.0",
+      "library": "0.11.0",
+      "editable": false,
+      "log": "build/availability-live-ha-smoke-retry.log",
+      "scope": "Fresh setup, exact published settings, edited and deleted defaults, both settings locations, repeated reloads and no synthetic notification requests.",
+      "earlier_diagnostic": "build/availability-live-ha-smoke.log",
+      "diagnosis": "Expected migrated device IDs now come from the actual pre-upgrade catalog; HA 2026.10 creates an eligible bootstrap device. Only the test expectation changed."
+    },
+    "official_hassfest": {
+      "status": "pass",
+      "command": "docker run --rm --mount type=bind,source=C:\\GitHub\\homeostatic,target=/github/workspace,readonly ghcr.io/home-assistant/hassfest",
+      "integrations": 1,
+      "invalid_integrations": 0
+    }
+  },
+  "recovery": {
+    "full_backup_slug": "9cd6b6d9",
+    "backup_completed_at_utc": "2026-10-20T02:47:57.119192+00:00",
+    "backup_size_bytes": 958638080,
+    "matching_prior_component_preserved": "1.11.4 with health-tree==0.10.0",
+    "boundary": "Recovery requires the paired full backup and matching component/library. Older code alone cannot read newly written qualified history."
+  },
+  "household_installation": {
+    "checked_at_utc": "2026-10-20T02:57:46.827553+00:00",
+    "ha_version": "2026.10.0",
+    "ha_state": "RUNNING",
+    "installed_version": "1.11.5",
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "entry_states": [
+      "loaded"
+    ],
+    "policy_count": 14,
+    "notifications_enabled": true,
+    "existing_policies_unchanged": true,
+    "other_settings_unchanged": true,
+    "disabled_added_policies": [
+      "default_cameras",
+      "default_locks",
+      "default_alarm_panels",
+      "default_safety_sensors"
+    ],
+    "served_asset_status": 200,
+    "served_asset_matches_installed": true,
+    "homeostatic_error_count": 0
+  },
+  "later_household_change": {
+    "observation": "The original browser run ended with all original settings unchanged. A subsequent read found the prior custom Cameras policy removed, with surviving policies and other settings unchanged. The extra selection check stopped before browser launch or writes, then used a fresh current baseline and preserved that deletion. After the selection run completed and preserved its baseline, a later read found the supplied Cameras enabled and its parameters edited. The browser guard permits edits only to its own temporary disabled policy. These later Cameras changes were left intact; their actor is not established by the available audit evidence.",
+    "preflight_diagnostic": "build/household-availability-selection-20261019/preflight-blocked.json",
+    "final_policy_count": 13,
+    "fresh_baseline_preserved_by_final_test": true,
+    "policies_changed_after_completed_browser_run": [
+      "default_cameras"
+    ],
+    "final_homeostatic_error_count": 0
+  },
+  "household_browser": [
+    {
+      "report": "build/household-availability-acceptance-20261019/report.json",
+      "status": "pass",
+      "results": [
+        {
+          "id": "upgrade-preserves-existing",
+          "status": "pass",
+          "baseline_sha256": "f871a1b9f35974be4002854c89c005cdf0f00733fe70bfcbb83472e1e51d5e76",
+          "disabled_additions": [
+            "default_cameras",
+            "default_locks",
+            "default_alarm_panels",
+            "default_safety_sensors"
+          ]
+        },
+        {
+          "id": "category-list-1440-light",
+          "status": "pass",
+          "rendered_categories": [
+            "default_cameras",
+            "default_locks",
+            "default_alarm_panels",
+            "default_safety_sensors"
+          ]
+        },
+        {
+          "id": "disabled-policy-workflow-1440-light",
+          "status": "pass",
+          "checks": [
+            "disabled empty creation",
+            "scoped five-minute save and reopen",
+            "display units preserve seconds",
+            "invalid input cannot save",
+            "discard and navigation retain intended draft",
+            "keyboard focus and viewport fit",
+            "temporary policy deleted; original settings unchanged"
+          ]
+        },
+        {
+          "id": "category-list-390-dark",
+          "status": "pass",
+          "rendered_categories": [
+            "default_cameras",
+            "default_locks",
+            "default_alarm_panels",
+            "default_safety_sensors"
+          ]
+        },
+        {
+          "id": "disabled-policy-workflow-390-dark",
+          "status": "pass",
+          "checks": [
+            "disabled empty creation",
+            "scoped five-minute save and reopen",
+            "display units preserve seconds",
+            "invalid input cannot save",
+            "discard and navigation retain intended draft",
+            "keyboard focus and viewport fit",
+            "temporary policy deleted; original settings unchanged"
+          ]
+        }
+      ],
+      "browser_errors": [],
+      "environment": {
+        "browser": "Chrome",
+        "browser_version": "155.0.8059.80",
+        "viewports": [
+          "1440x1000 light",
+          "390x844 dark"
+        ]
+      },
+      "asset_count": 60,
+      "all_assets_status_200": true,
+      "all_assets_version_105": true,
+      "settings_before_sha256": "e2f9fb648aa31ff21dcdb0c809f57d224105df71709912353366a002dfe8f419",
+      "settings_after_sha256": "e2f9fb648aa31ff21dcdb0c809f57d224105df71709912353366a002dfe8f419",
+      "temporary_policies_remaining": false,
+      "rendered_review": {
+        "status": "pass",
+        "inspected": [
+          "categories-1440-light.png",
+          "temporary-policy-1440-light.png",
+          "categories-390-dark.png",
+          "temporary-policy-390-dark.png"
+        ],
+        "owner": "Existing policy editor",
+        "benefit": "Qualification wait remains beside its entity scope and uses the existing duration and Save/Discard workflow.",
+        "layout": "Desktop and phone controls fit; disabled state, zero selection and saved wait remain readable. No new dialog or navigation step.",
+        "preservation": "Existing custom Cameras policy remains alongside the new disabled supplied Cameras policy."
+      }
+    },
+    {
+      "report": "build/household-availability-selection-20261019/report.json",
+      "status": "pass",
+      "results": [
+        {
+          "id": "baseline-preserves-current",
+          "status": "pass",
+          "baseline_sha256": "9a78416cd152d73467e15a8b8075d42c5a9dcdd6b49b910cfd8ad9809cd19dce",
+          "disabled_additions": []
+        },
+        {
+          "id": "category-list-1440-light",
+          "status": "pass",
+          "rendered_categories": [
+            "default_cameras",
+            "default_locks",
+            "default_alarm_panels",
+            "default_safety_sensors"
+          ]
+        },
+        {
+          "id": "disabled-policy-workflow-1440-light",
+          "status": "pass",
+          "selected_source_sha256": "68acbaee49c1566f1f2088b17e1c795add530c71581fb932e973984c073e1c22",
+          "checks": [
+            "disabled empty creation",
+            "one rendered entity selected through tree disclosures; exact identity saved and reopened checked",
+            "scoped five-minute save and reopen",
+            "display units preserve seconds",
+            "invalid input cannot save",
+            "discard and navigation retain intended draft",
+            "keyboard focus and viewport fit",
+            "temporary policy deleted; original settings unchanged"
+          ]
+        },
+        {
+          "id": "category-list-390-dark",
+          "status": "pass",
+          "rendered_categories": [
+            "default_cameras",
+            "default_locks",
+            "default_alarm_panels",
+            "default_safety_sensors"
+          ]
+        },
+        {
+          "id": "disabled-policy-workflow-390-dark",
+          "status": "pass",
+          "selected_source_sha256": "68acbaee49c1566f1f2088b17e1c795add530c71581fb932e973984c073e1c22",
+          "checks": [
+            "disabled empty creation",
+            "one rendered entity selected through tree disclosures; exact identity saved and reopened checked",
+            "scoped five-minute save and reopen",
+            "display units preserve seconds",
+            "invalid input cannot save",
+            "discard and navigation retain intended draft",
+            "keyboard focus and viewport fit",
+            "temporary policy deleted; original settings unchanged"
+          ]
+        }
+      ],
+      "browser_errors": [],
+      "environment": {
+        "browser": "Chrome",
+        "browser_version": "155.0.8059.80",
+        "viewports": [
+          "1440x1000 light",
+          "390x844 dark"
+        ]
+      },
+      "asset_count": 60,
+      "all_assets_status_200": true,
+      "all_assets_version_105": true,
+      "settings_before_sha256": "9a78416cd152d73467e15a8b8075d42c5a9dcdd6b49b910cfd8ad9809cd19dce",
+      "settings_after_sha256": "9a78416cd152d73467e15a8b8075d42c5a9dcdd6b49b910cfd8ad9809cd19dce",
+      "temporary_policies_remaining": false,
+      "rendered_review": {
+        "status": "pass",
+        "inspected": [
+          "selected-source-1440-light.png",
+          "selected-source-390-dark.png",
+          "temporary-policy-390-dark.png"
+        ],
+        "owner": "Existing policy editor",
+        "benefit": "Existing integration and device disclosures reach a real entity; a single checked source remains readable and the branch checkbox shows partial selection after save/reopen.",
+        "layout": "Long source names wrap within desktop and phone widths. Qualification controls retain their existing layout and viewport bounds.",
+        "preservation": "Current baseline follows the independently observed prior custom-policy deletion; this run neither attributes nor restores that deletion."
+      }
+    }
+  ],
+  "notifications": {
+    "test_requests": false,
+    "browser_service_actions": false,
+    "existing_sending_choice_preserved": true,
+    "before_outbox_count": 0,
+    "before_sequence": 206,
+    "after_sequence": 207,
+    "after_outbox_actions": [
+      "resolve"
+    ],
+    "observation": "The household kept its enabled sending choice. Adapter-owned delivery state changed during ordinary monitoring; snapshots include an ordinary resolution request, not a browser test alert. No pending outbox request existed in the captured pre-install state. Pending identity preservation is verified by the isolated regression cases.",
+    "real_provider_receipt": "untested"
+  },
+  "status": {
+    "health_tree_released": true,
+    "homeostatic_committed": false,
+    "homeostatic_released": false,
+    "homeostatic_local_candidate_installed": true,
+    "scoped_household_acceptance": "pass"
+  },
+  "remaining_for_homeostatic_publication": [
+    "Commit and push the authorized candidate, pass exact-candidate CI, verify its packaged archive and publish only when requested."
+  ]
+}

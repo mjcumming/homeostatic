@@ -10,14 +10,14 @@ These are the six editable choices supplied with a fresh setup. All start withou
 
 | Supplied name | Starting timing | Supplied policy assignments |
 | --- | --- | --- |
-| Immediate | Eligible requests collect for 60 seconds, including overnight | Important equipment availability |
+| Immediate | Eligible requests collect for 60 seconds, including overnight | Cameras, Locks, Alarm panels and Safety sensors |
 | Immediate with acknowledgment | Eligible requests collect for 5 seconds, then reminders every 30 minutes until acknowledged or the problem ends | Temperature-limit templates; UPS low reserve on backup power |
 | Urgent | Every day from 08:00 to 22:00, with a 60-second collection delay | Thermostat, UPS backup-power and UPS fault templates |
-| Morning summary | Every day at 08:00, with no extra delay | General entity and integration availability, Entities not provided, Repairs, broken automations and batteries; UPS battery replacement and low reserve on mains power |
+| Morning summary | Every day at 08:00, with no extra delay | General entity and integration availability, Missing entities, Repairs, broken automations and batteries; UPS battery replacement and low reserve on mains power |
 | Evening summary | Every day at 18:00 | Vacuums |
 | Weekly summary | Sunday at 08:00 | Available to select |
 
-All eight supplied policies, including Batteries and Vacuums, are enabled on fresh setup. Temperature, thermostat and UPS templates still require configuration. An assignment does not enable a disabled policy or complete its required source and detection setup. Restoring a supplied policy uses its default notification only if that notification still exists. It does not recreate a deleted notification or select destinations.
+Complete supplied policies, including Batteries and Vacuums, are enabled on fresh setup. Temperature, thermostat and UPS templates still require configuration. An assignment does not enable a disabled policy or complete its required source and detection setup. Restoring a supplied policy uses its default notification only if that notification still exists. It does not recreate a deleted notification or select destinations.
 
 The notification editor provides these settings:
 

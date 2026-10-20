@@ -56,7 +56,10 @@ def test_supplied_profiles_are_unconfigured_and_sending_stays_off() -> None:
     } == {
         "default_integrations": "morning",
         "default_entities": "morning",
-        "default_important_equipment": "immediate",
+        "default_cameras": "immediate",
+        "default_locks": "immediate",
+        "default_alarm_panels": "immediate",
+        "default_safety_sensors": "immediate",
         "default_repairs": "morning",
         "default_broken_automations": "morning",
         "default_batteries": "morning",

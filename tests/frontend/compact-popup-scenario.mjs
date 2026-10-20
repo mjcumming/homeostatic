@@ -66,7 +66,7 @@ card.render();
 async function run() {
   const button=document.querySelector("#run"),result=document.querySelector("#result"),evidence=[];
   button.disabled=true;calls.length=0;
-  const receipt={...emptyReceipt({fixture:"compact-popup.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",build:"working tree",transport:"synthetic inventory, no mutation service",physical_safari:"untested"}),status:"running",evidence};
+  const receipt={...emptyReceipt({fixture:"compact-popup.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",build:"working tree",transport:"synthetic inventory, no mutation service"}),status:"running",evidence};
   try {
     for(const definition of popupCases) {
       await openCase(definition.id);

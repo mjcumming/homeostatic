@@ -61,7 +61,7 @@ document.querySelector("#reset").onclick=()=>{reset();feedback.textContent="Synt
 document.querySelector("#confirm").onclick=async()=>{reset();await openReview();feedback.textContent="Review the simulated policy change for this issue’s one unavailable entity.";};
 document.querySelector("#run").onclick=async()=>{
   const evidence=[];feedback.textContent="Running isolated Issues checks…";
-  const receipt={fixture:"issues-layout.html",viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",browser:navigator.userAgent,data:"synthetic",services:"forbidden",physical_safari:"untested",status:"running",evidence};
+  const receipt={fixture:"issues-layout.html",viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",browser:navigator.userAgent,data:"synthetic",services:"forbidden",status:"running",evidence};
   try {
     reset();await tick();
     check(root.querySelectorAll('.header .nav [data-page="history"]').length===1&&!root.querySelector('main [data-page="history"]'),"History occurs once in primary navigation");

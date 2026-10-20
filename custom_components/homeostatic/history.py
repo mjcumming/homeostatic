@@ -50,6 +50,7 @@ _EPISODE = vol.Schema(
         vol.Required("reasons"): [_FINDING],
         vol.Required("recorded"): [str],
         vol.Required("impact"): [str],
+        vol.Optional("qualified_nodes"): [str],
         vol.Required("importance"): vol.In(
             [importance.value for importance in Importance]
         ),

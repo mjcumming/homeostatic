@@ -36,41 +36,41 @@ def entity_defaults() -> list[dict[str, Any]]:
 
 
 @pytest.mark.parametrize(
-    ("domain", "device_class", "important"),
+    ("domain", "device_class", "owner"),
     [
-        ("camera", "", True),
-        ("lock", "", True),
-        ("alarm_control_panel", "", True),
-        ("binary_sensor", "smoke", True),
-        ("binary_sensor", "carbon_monoxide", True),
-        ("binary_sensor", "gas", True),
-        ("binary_sensor", "moisture", True),
-        ("binary_sensor", "door", False),
-        ("binary_sensor", "window", False),
-        ("binary_sensor", "motion", False),
-        ("binary_sensor", "occupancy", False),
-        ("sensor", "temperature", False),
-        ("sensor", "gas", False),
-        ("light", "", False),
+        ("camera", "", "default_cameras"),
+        ("lock", "", "default_locks"),
+        ("alarm_control_panel", "", "default_alarm_panels"),
+        ("binary_sensor", "smoke", "default_safety_sensors"),
+        ("binary_sensor", "carbon_monoxide", "default_safety_sensors"),
+        ("binary_sensor", "gas", "default_safety_sensors"),
+        ("binary_sensor", "moisture", "default_safety_sensors"),
+        ("binary_sensor", "door", "default_entities"),
+        ("binary_sensor", "window", "default_entities"),
+        ("binary_sensor", "motion", "default_entities"),
+        ("binary_sensor", "occupancy", "default_entities"),
+        ("sensor", "temperature", "default_entities"),
+        ("sensor", "gas", "default_entities"),
+        ("light", "", "default_entities"),
     ],
 )
 def test_initial_metadata_union_and_complement(
-    domain: str, device_class: str, important: bool
+    domain: str, device_class: str, owner: str
 ) -> None:
     """Every operational entity belongs to exactly one editable starting scope."""
-    general, equipment = parse_policies(entity_defaults())
+    policies = parse_policies(entity_defaults())
     metadata = {"kind": ("entity",), "domain": (domain,)}
     if device_class:
         metadata["device_class"] = (device_class,)
-    assert equipment.matches(metadata) is important
-    assert general.matches(metadata) is not important
-    assert general.notifications[0]["profile"] == "morning"
-    assert equipment.notifications[0]["profile"] == "immediate"
+    assert [policy.id for policy in policies if policy.matches(metadata)] == [owner]
+    for policy in policies:
+        assert policy.notifications[0]["profile"] == (
+            "morning" if policy.id == "default_entities" else "immediate"
+        )
     for category in ("diagnostic", "config"):
         categorized = {**metadata, "entity_category": (category,)}
-        assert not general.matches(categorized)
-        assert not equipment.matches(categorized)
-    assert parse_policies([general.data(), equipment.data()]) == (general, equipment)
+        assert not any(policy.matches(categorized) for policy in policies)
+    assert parse_policies([policy.data() for policy in policies]) == policies
 
 
 @pytest.mark.parametrize("field", ["match_any", "match_none"])
@@ -90,18 +90,18 @@ def test_invalid_metadata_alternatives_cannot_broaden_scope(
 
 def test_metadata_alternatives_have_one_editable_entity_availability_mode() -> None:
     """The public model accepts exactly the metadata scopes the entity editor owns."""
-    general, important = entity_defaults()
+    general, camera, *_ = entity_defaults()
     with pytest.raises(ValueError, match="matching entity types or excluded"):
-        parse_policies([{**general, "match_any": important["match_any"]}])
+        parse_policies([{**general, "match_any": camera["match_any"]}])
     with pytest.raises(ValueError, match="integrations or entities"):
-        parse_policies([{**important, "match": {"kind": ["device"]}}])
+        parse_policies([{**camera, "match": {"kind": ["device"]}}])
 
 
 def test_selection_edits_invalidate_cached_enrollment_and_detection() -> None:
     """Metadata selector edits re-evaluate scopes while simple exclusions stay local."""
     before = parse_policies(entity_defaults())
     draft = deepcopy([row.data() for row in before])
-    draft[1]["match_any"] = [{"domain": ["camera"]}]
+    draft[1]["match_any"] = [{"domain": ["lock"]}]
     after = parse_policies(draft)
     assert before[1].detection_key() != after[1].detection_key()
     assert before[0] == after[0]
@@ -135,7 +135,7 @@ async def test_future_metadata_changes_and_editable_gaps_survive_reload(
             if source.entity_id == entity.entity_id and source.watched
         }
 
-    assert owners(camera) == {"default_important_equipment"}
+    assert owners(camera) == {"default_cameras"}
     assert owners(diagnostic) == owners(disabled) == set()
     added = registry.async_get_or_create(
         "binary_sensor", "test", "new", original_device_class="door"
@@ -145,11 +145,11 @@ async def test_future_metadata_changes_and_editable_gaps_survive_reload(
     assert owners(added) == {"default_entities"}
     registry.async_update_entity(added.entity_id, device_class="moisture")
     await hass.async_block_till_done()
-    assert owners(added) == {"default_important_equipment"}
+    assert owners(added) == {"default_safety_sensors"}
     hass.states.async_set(added.entity_id, "unavailable")
     await hass.async_block_till_done()
     assert len(runtime.episodes) == 1
-    rows[1]["match_any"] = [{"domain": ["camera"]}]
+    rows[4]["match_any"] = [{"domain": ["binary_sensor"], "device_class": ["gas"]}]
     await reload_policies(hass, entry, rows)
     runtime = entry.runtime_data
     assert not owners(added)
@@ -163,7 +163,7 @@ async def test_future_metadata_changes_and_editable_gaps_survive_reload(
     rows[0].pop("match_none")
     await reload_policies(hass, entry, rows)
     runtime = entry.runtime_data
-    assert owners(camera) == {"default_entities", "default_important_equipment"}
+    assert owners(camera) == {"default_entities", "default_cameras"}
     assert owners(added) == {"default_entities"}
     assert bound_identity(rows[0], f"entity:registry:{added.id}") in runtime.sources
     assert await hass.config_entries.async_unload(entry.entry_id)

@@ -5,7 +5,7 @@ import {editReusable,namedPolicies,MONITORING_TYPES,newMonitoringPolicy} from ".
 import {notificationSettings} from "./notification-profiles-fixture.mjs";
 
 function fixture() {
-  const policy={...newMonitoringPolicy([],"entity"),id:"entities",enabled:true,match_any:[{domain:["lock"]}]};
+  const policy={...newMonitoringPolicy([],"entity"),id:"entities",enabled:true,match:{kind:["entity"]},match_any:[{domain:["lock","camera"]}]};
   const source=(id,name,domain,device="front",extra={})=>({node_id:`entity:registry:${id}`,name,kind:"entity",entity_id:`${domain}.${id}`,attributes:{kind:["entity"],entity:[`registry:${id}`],domain:[domain],integration_domain:["esphome"],...(device?{device:[device]}:{}),area:["hall"]},...extra});
   const rows=[{node_id:"device:front",name:"Front door",kind:"device",attributes:{device:["front"]}},source("lock","Lock","lock"),source("signal","Signal strength","sensor"),source("disabled","Disabled reading","sensor","front",{disabled:true}),source("loose","Loose sensor","sensor",null)];
   const settings=notificationSettings();settings.monitoring_policies=[policy];

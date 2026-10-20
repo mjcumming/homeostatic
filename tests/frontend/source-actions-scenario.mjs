@@ -290,7 +290,7 @@ document.querySelector("#run").onclick=async()=>{
       check(root.activeElement?.dataset.sourcePolicies==="open","Dialog closing restores focus at each width");
     }
     card.style.width=`${document.querySelector("#width").value}px`;document.documentElement.dataset.theme=document.querySelector("#theme").value;reset();await settle();
-    pass(activePath,"Visible entity actions retain focus through rerender without Details; Stop review/Cancel and Monitoring policies open/close work at 320, 390 and 1200 CSS pixels in light and dark. Dialog closing restores trigger focus; no required horizontal scrolling; primary action meets 44px touch target. Physical Safari untested.");
+    pass(activePath,"Visible entity actions retain focus through rerender without Details; Stop review/Cancel and Monitoring policies open/close work at 320, 390 and 1200 CSS pixels in light and dark. Dialog closing restores trigger focus; no required horizontal scrolling; primary action meets 44px touch target.");
     result.textContent=`PASS: ${receiptSummary(receipt).pass} source action paths; other inventory paths remain untested by this fixture.`;
   }catch(error){recordResult(receipt,activePath,"fail",error.message);document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);result.textContent=`FAIL: ${activePath}: ${error.message}`;}
   finally{button.disabled=false;report();}

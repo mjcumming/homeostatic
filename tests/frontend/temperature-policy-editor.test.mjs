@@ -148,22 +148,18 @@ test("temperature enabled switch is in the header and changes only the draft unt
   assert.equal(card.configuration.settings.notifications,false);
 });
 
-test("temperature source selection keeps picker scroll and focuses the replacement control",()=>{
+test("temperature source selection remains in the editor and focuses its replacement control",()=>{
   const {card,policy}=fixture();
   policy.match={kind:["entity"],entity:[]};
-  card.policyPicker={id:policy.id,query:"",selectedOnly:false,showAll:false};
-  const dataset={definitionKind:"policies",definitionId:policy.id,definitionField:"selection",definitionValue:"registry:hall"},focus=[];
-  let options={scrollTop:176,scrollLeft:0};
-  const picker={querySelector(){return options;}};
+  card.current.data.inventory.catalog.candidates.push({node_id:"entity:registry:hall",name:"Hall temperature",kind:"entity",entity_id:"sensor.hall",attributes:{kind:["entity"],entity:["registry:hall"],device_class:["temperature"]}});
+  const dataset={definitionKind:"policies",definitionId:policy.id,definitionField:"source-choice",definitionValue:"entity:registry:hall"},focus=[];
   const replacement={dataset,focus(value){focus.push(value);}};
-  card.main.querySelector=selector=>selector.includes("policy-picker-options")?options:selector.includes("policy-picker")?picker:null;
   card.main.querySelectorAll=()=>[replacement];
-  card.render=()=>{options={scrollTop:0,scrollLeft:0};};
-  const target={dataset,type:"checkbox",checked:true,closest:()=>picker};
+  const target={dataset,type:"checkbox",checked:true};
   assert.equal(editReusable(card,{type:"change",target}),true);
   assert.deepEqual(policy.match.entity,["registry:hall"]);
-  assert.equal(options.scrollTop,176);
   assert.deepEqual(focus,[{preventScroll:true}]);
+  assert.doesNotMatch(namedPolicies(card),/policy-picker|>Done<|Change selection/);
 });
 
 for(const [from,to,minimum,maximum,expectedMinimum,expectedMaximum] of [

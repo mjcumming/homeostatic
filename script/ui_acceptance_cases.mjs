@@ -174,11 +174,12 @@ export async function runLiveCases({page,lab,call,record,artifactDir,group="all"
       const id=await addPolicy("entity","Acceptance selection");
       await fill(field("entity-search"),lab.entities?.offline||"sensor.ui_lab_offline");
       const choice=at(field("entity-choice")).first();await choice.waitFor();
-      const value=await choice.getAttribute("data-definition-value");await choice.uncheck();
+      const value=await choice.getAttribute("data-definition-value");await choice.check();
       await fill(field("entity-search"),"no-acceptance-source-matches");assert.equal(await at(field("entity-choice")).count(),0);
-      await fill(field("entity-search"),lab.entities?.offline||"sensor.ui_lab_offline");assert.equal(await choice.isChecked(),false);
-      await save();assert.ok((await snapshot()).monitoring_policies.find(p=>p.id===id).excluded_sources.includes(value));
-      await edit("policies",id);await fill(field("entity-search"),lab.entities?.offline||"sensor.ui_lab_offline");await at(field("entity-choice")).first().check();await save();
+      await fill(field("entity-search"),lab.entities?.offline||"sensor.ui_lab_offline");assert.equal(await choice.isChecked(),true);
+      await save();assert.ok((await snapshot()).monitoring_policies.find(p=>p.id===id).included_sources.includes(value));
+      await edit("policies",id);await fill(field("entity-search"),lab.entities?.offline||"sensor.ui_lab_offline");await at(field("entity-choice")).first().uncheck();await save();
+      assert.equal((await snapshot()).monitoring_policies.find(p=>p.id===id).included_sources,undefined);
       assert.equal((await snapshot()).monitoring_policies.find(p=>p.id===id).excluded_sources,undefined);
       await menu("policies",id,"delete");await deleteConfirm();
     });

@@ -1246,7 +1246,6 @@ class Runtime:
         # A source can reject its stored state after engine/policy restoration.
         # Keep the original snapshot until the entire first pass has succeeded,
         # so failed retries and unload cannot save partially restored state.
-        self.saved = None
         if self._settings_conversion is not None:
             # Only the actual startup restore/evaluation can accept saved state.
             # Persist conversion before state or requests, never on a failed pass.
@@ -1254,6 +1253,7 @@ class Runtime:
                 self.entry, data=self._settings_conversion, options={}
             )
             self._settings_conversion = None
+        self.saved = None
         # Facts and error recovery describe saved state, so they save at once.
         if (
             durable
@@ -1629,8 +1629,33 @@ class Runtime:
                 **assignments(settings.monitoring_policies, sources),
             },
         )
-        return build_policy(
+        config = build_policy(
             notification_definitions.generate(definitions), settings.duration("batch")
+        )
+        delayed_policies = {
+            item.id
+            for item in settings.monitoring_policies
+            if item.check == "availability"
+            and item.match.get("kind") == ("entity",)
+            and item.parameters.get("duration_seconds", 0) > 0
+        }
+        delayed_nodes = frozenset(
+            identity
+            for identity, source in sources.items()
+            if source.monitoring_policy in delayed_policies
+        )
+        # A failed integration's impact can include equipment still qualifying.
+        return replace(
+            config,
+            rules=tuple(
+                replace(
+                    rule,
+                    match=replace(rule.match, qualified_nodes=rule.match.nodes),
+                )
+                if rule.match.nodes and rule.match.nodes <= delayed_nodes
+                else rule
+                for rule in config.rules
+            ),
         )
 
     async def async_phone_action(self, event: Event[Any]) -> None:
@@ -3038,7 +3063,15 @@ class Runtime:
                     "batch": settings.timings["batch"],
                 },
             )
-            item["rules"].append(json_object(rule))
+            encoded_rule = json_object(rule)
+            if rule.match.qualified_nodes is None:
+                # Preserve published route digests for unchanged legacy rules.
+                encoded_rule["match"] = {
+                    key: value
+                    for key, value in json_object(rule.match).items()
+                    if key != "qualified_nodes"
+                }
+            item["rules"].append(encoded_rule)
             recipients = rule.to
             if rule.digest is not None:
                 item["digests"][rule.digest] = json_object(config.digests[rule.digest])
@@ -3337,6 +3370,7 @@ class Runtime:
                 self.engine is not None
                 and self.policy is not None
                 and self.saved is None
+                and self._settings_conversion is None
             ):
                 try:
                     await self._drain_pending()

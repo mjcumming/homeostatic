@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-18
 
+**Partially superseded:** [ADR 0108](0108-category-availability-policies-and-policy-waits.md) replaces the supplied Important equipment offering with category availability policies and adds per-policy qualification waits. Existing saved policies remain unchanged. Independent scopes, evidence interpretation and affected-equipment assignments on shared issues remain binding; [ADR 0107](0107-add-new-supplied-policies-disabled-on-upgrade.md) governs adding the new categories disabled on existing installations.
+
 **Supersedes in part:** [ADR 0058](0058-unified-policy-lifecycle.md) and [ADR 0066](0066-reusable-notifications-own-timing-and-delivery.md) for fresh-install entity-availability selections and notification assignments. Their ordinary editable policy lifecycle, independent overlap, preservation and notification activation rules remain in force. [ADR 0064](0064-monitoring-coverage-and-device-evidence.md) continues to govern entity eligibility and independent issue controls; reusable message collection follows ADR 0102.
 
 **Related decision:** [ADR 0102](0102-collect-requests-by-saved-notification.md) owns collection delay and message grouping by saved notification, recipient and destination, without requiring a shared issue. [ADR 0090](0090-independent-issues-under-healthy-integrations.md) continues to govern causal issue grouping; a shared integration issue retains applicable availability notification assignments from affected equipment.

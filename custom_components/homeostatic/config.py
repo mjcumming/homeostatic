@@ -32,6 +32,7 @@ from .monitoring import MonitoringPolicy, parse_policies
 from .notification_definitions import defaults as notification_defaults
 from .notification_definitions import generate as notification_policy
 from .notification_definitions import validate as validate_notification_definitions
+from .policy_defaults import LEGACY_POLICY_INTRODUCTIONS
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -47,6 +48,7 @@ class Settings:
     external_capabilities: tuple[ExternalCapability, ...] = ()
     monitoring_policy_version: int = 1
     monitoring_policies: tuple[MonitoringPolicy, ...] = ()
+    supplied_policy_introductions: tuple[str, ...] = LEGACY_POLICY_INTRODUCTIONS
     notification_definitions: dict[str, Any] = dataclass_field(
         default_factory=notification_defaults
     )
@@ -81,6 +83,18 @@ class Settings:
         notification_definitions = validate_notification_definitions(
             data["notification_definitions"]
         )
+        introductions = data.get(
+            "supplied_policy_introductions", list(LEGACY_POLICY_INTRODUCTIONS)
+        )
+        if (
+            not isinstance(introductions, list)
+            or any(
+                not isinstance(identity, str) or not identity
+                for identity in introductions
+            )
+            or len(set(introductions)) != len(introductions)
+        ):
+            raise ValueError("Invalid supplied policy introductions")
         settings = cls(
             monitoring_policy_version=version,
             policy=notification_policy(notification_definitions),
@@ -90,6 +104,7 @@ class Settings:
             situations=situations,
             consumer=consumer,
             monitoring_policies=parse_policies(data.get("monitoring_policies", [])),
+            supplied_policy_introductions=tuple(introductions),
             notification_definitions=notification_definitions,
             external_capabilities=external_capabilities(
                 data if functions_enabled else {**data, "external_capabilities": []}

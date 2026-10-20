@@ -7,21 +7,21 @@ export async function runBrowsingControlPaths(context) {
     const battery=baseSource("battery:phone","Owner phone","battery",{entity_id:"sensor.owner_phone_battery",attributes:{kind:["battery"],entity:["registry:phone"],area:["kitchen"],label:["phones"]}});
     card.current.data.inventory.catalog.candidates.push(battery);card.current.data.inventory.nodes.push(battery);
     await go("policies");await click('[data-definition-action="edit"][data-definition-id="policy-1"]');
-    await change('[data-definition-field="watch"]',"all_except");await click('[data-definition-action="pick"]');
-    await change('[data-definition-picker-search]',"Batt");await change('[data-definition-field="selection"][data-definition-value="battery:phone"]',true);
-    await change('[data-definition-picker-search]',"no result");check(root.textContent.includes("No batteries match your search."),"Empty search is explicit");
-    await change('[data-definition-picker-search]',"");await change('[data-definition-picker-selected]',true);check(find('[data-definition-field="selection"]').checked,"Selected-only preserves exclusion");
-    await click('[data-definition-action="finish-pick"]');await save();check(getSaved().monitoring_policies[0].excluded_sources.includes("battery:phone"),"Exclusion saves canonical source identity");
+    await change('[data-definition-field="source-future"]',"all");
+    await change('[data-definition-field="source-search"]',"Batt");await change('[data-definition-field="source-choice"][data-definition-value="battery:phone"]',false);
+    await change('[data-definition-field="source-search"]',"no result");check(root.textContent.includes("No batteries match your selection or search."),"Empty search is explicit");
+    await change('[data-definition-field="source-search"]',"");await change('[data-definition-field="source-selected-only"]',true);check(!root.querySelector('[data-definition-field="source-choice"][data-definition-value="battery:phone"]'),"Monitored only hides an excluded battery");
+    await change('[data-definition-field="source-selected-only"]',false);check(!find('[data-definition-field="source-choice"][data-definition-value="battery:phone"]').checked,"Unchecked means unmonitored");await save();check(getSaved().monitoring_policies[0].excluded_sources.includes("battery:phone"),"Exclusion saves canonical source identity");
     for(const [mode,id] of [["selected","registry:phone"],["area","kitchen"],["label","phones"]]) {
-      await change('[data-definition-field="watch"]',mode);await click('[data-definition-action="pick"]');await change(`[data-definition-field="selection"][data-definition-value="${id}"]`,true);await click('[data-definition-action="finish-pick"]');await save();
+      await change('[data-definition-field="source-future"]',mode);await change(`[data-definition-field="${mode==="selected"?"source-choice":"source-group"}"][data-definition-value="${mode==="selected"?"battery:phone":id}"]`,true);await save();
       const field={selected:"entity",area:"area",label:"label"}[mode];check(getSaved().monitoring_policies[0].match[field][0]===id,`${mode} saves its explicit selection`);
     }
-    await change('[data-definition-field="watch"]',"all_except");
+    await change('[data-definition-field="source-future"]',"all");
     const data=card.current.data,previous=structuredClone(data);data.schema_version=3;data.catalog_loaded=false;card.render();check(root.textContent.includes("Loading available sources"),"Unloaded catalog is not no matches");
     card.current.catalogError="Synthetic catalog read failed";card.render();check(root.textContent.includes("Could not load available sources"),"Catalog failure is explicit");
     let retried=false;card.store={ensureCatalog(force){if(force){retried=true;card.current={status:"current",data:previous};card.render();}return Promise.resolve();}};
     await click('[data-action="retry-catalog"]');check(retried&&!root.textContent.includes("Synthetic catalog read failed"),"Retry reloads available choices");card.store=null;
-    await change('[data-definition-field="watch"]',"all");await save();check(!getSaved().monitoring_policies[0].excluded_sources&&Object.keys(getSaved().monitoring_policies[0].match).length===1,"All clears only this policy scope restrictions");
+    await save();check(!getSaved().monitoring_policies[0].excluded_sources&&Object.keys(getSaved().monitoring_policies[0].match).length===1,"Future inclusion removes only this policy's positive group restriction");
   });
   await runPath("policies.legacy",async()=>{
     const policy=getSaved().monitoring_policies.find(item=>item.id==="legacy"),before=JSON.stringify(policy.notifications[0]);

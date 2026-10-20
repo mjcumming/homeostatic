@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=104";
+import {escapeHtml as esc} from "./model.mjs?v=107";
 
 const identity=source=>source.monitoring_source||source.node_id;
 const matches=(match,metadata)=>Object.entries(match||{}).every(([field,values])=>values.some(value=>(metadata[field]||[]).includes(value)));
@@ -71,7 +71,7 @@ export function entitySelection(card,policy) {
   return `<section class="entity-selection" aria-label="Entity selection"><p class="small">${entityScopeSummary(policy)}</p><label class="installation-field"><span>Search entities</span><input type="search" ${attr("entity-search")} value="${esc(state.query||"")}" placeholder="Name, integration, device or area"></label><label class="entity-selection-filter"><input type="checkbox" ${attr("entity-selected-only")}${state.selectedOnly?" checked":""}>Monitored only</label>${pending||stale?`<p role="status">${card.current?.catalogError?`Could not load entities: ${esc(card.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry</button>`:pending?"Loading entities…":"Updating entities…"}</p>`:""}${content?`<ul class="entity-selection-tree">${content}</ul>`:!pending?'<p>No entities match your search.</p>':""}<p class="small">Changes apply to this policy when you save. Disabled entities are not monitored.</p></section>`;
 }
 
-function choose(policy,row,selected) {
+export function chooseEntitySource(policy,row,selected) {
   const id=row.id;
   policy.included_sources=(policy.included_sources||[]).filter(value=>value!==id);
   policy.excluded_sources=(policy.excluded_sources||[]).filter(value=>value!==id);
@@ -114,7 +114,7 @@ export function editEntitySelection(card,event,element,invalidate,renderAfterEdi
   }else {
     if(event.type!=="change")return true;
     const rows=entitySelectionRows(card,policy).filter(row=>!row.missing&&!row.source.disabled);
-    for(const row of rows)if(field==="entity-integration"?row.integrationKey===element.dataset.definitionValue:field==="entity-group"?row.group===element.dataset.definitionValue:row.id===element.dataset.definitionValue)choose(policy,row,element.checked);
+    for(const row of rows)if(field==="entity-integration"?row.integrationKey===element.dataset.definitionValue:field==="entity-group"?row.group===element.dataset.definitionValue:row.id===element.dataset.definitionValue)chooseEntitySource(policy,row,element.checked);
   }
   invalidate(card);renderAfterEdit(card,element);return true;
 }

@@ -36,7 +36,7 @@ try{
     const typeNames=[...find("[data-definition-template]").options].map(option=>option.textContent);
     check(JSON.stringify(typeNames)===JSON.stringify([...typeNames].sort((a,b)=>a.localeCompare(b))),"Monitoring types are alphabetical");
     await fill("[data-definition-template]","entity_not_provided");await click(action("create"));
-    check(root.textContent.includes("Entities not provided"),"New monitoring type is named");
+    check(root.textContent.includes("Missing entities"),"New monitoring type is named");
     check(find(field("parameters:duration_seconds")).value==="24","24-hour default");
     check(!root.querySelector(field("entity-choice")),"Entity inventory starts collapsed");
     await click('.entity-selection-toggle[aria-label="Expand Other entities"]');
@@ -58,7 +58,7 @@ try{
     episode={episode_id:"not-provided-issue",anchor:checkSource.node_id,status:"warn",recorded:[],impact:[],importance:"normal",opened_at:"2026-10-18T12:00:00Z",reasons:[{node_id:checkSource.node_id,check_id:"entity_not_provided",...current}]};evidence={current,last_failure:current};
     data.inventory.nodes=[entry,entity,other,disabled,checkSource];data.inventory.catalog.candidates=data.inventory.nodes;data.inventory.episodes=[episode];data.inventory.entity_status={[checkSource.node_id]:evidence};
     card.current={status:"current",data};card.page="problems";card.definitionSelection=null;card.render();await fill("[data-issue-search]","Old integration reading");await click('[data-episode="not-provided-issue"]');
-    check(card.dialog.open&&root.querySelector(".dialog-body").textContent.includes("Entity not provided"),"Issue uses the condition's actual name");
+    check(card.dialog.open&&root.querySelector(".dialog-body").textContent.includes("Entity missing"),"Issue uses the condition's actual name");
     const entityButton=root.querySelector(`[data-entity="${entity.entity_id}"]`);check(Boolean(entityButton),"Open entity is available");entityButton.click();await settle();check(opened===entity.entity_id,"Entity link targets the real entity");await click('[data-episode="not-provided-issue"]');
     check(!root.querySelector('[data-delete-entity],[data-cleanup-entity]'),"No entity mutation controls");check(!calls.some(request=>request.type==="call_service"),"Inspection requests no services");
   });

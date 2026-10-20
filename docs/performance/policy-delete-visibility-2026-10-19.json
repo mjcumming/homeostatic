@@ -1,0 +1,658 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-20T03:19:00.962457+00:00",
+  "problem": "Delete confirmation was appended after a long list without revealing it. A browser click on the hidden confirmation auto-scrolled and masked the regression.",
+  "change": "After rendering, reveal the existing confirmation and focus Cancel. Cancel reveals and focuses the original Edit control. The same handler serves policies, notifications and delivery methods.",
+  "purpose_review": {
+    "owner": "The existing Policies or Notifications workflow owns its definition deletion.",
+    "benefit": "The named consequence and both existing actions are visible when deletion is requested; Cancel preserves settings and returns to the selected definition.",
+    "new_controls_or_navigation": false,
+    "rendered_review": "Desktop/light and phone/dark isolated screenshots plus household before/after phone captures inspected. The existing confirmation layout is retained; no CSS change."
+  },
+  "checks": {
+    "quick": {
+      "status": "pass",
+      "frontend_tests": 892,
+      "log": "build/delete-visible-quick.log"
+    },
+    "dashboard": {
+      "status": "pass",
+      "tests": 40,
+      "log": "build/delete-visible-dashboard.log"
+    },
+    "browser": [
+      {
+        "report": "build/ui-acceptance/delete-visible-phone-20261019/report.json",
+        "candidate": {
+          "branch": "main",
+          "revision": "5405387d487bf9385538598769bc7a5465296e5d",
+          "dirty": true,
+          "component_sha256": "de56f8d8fa63eae91d5e2f4601d5e2621e2249e2d0546995715f1f63a19e9927",
+          "fixture_sha256": "e742e81cdf6ec00915e0f77dae6f1eeffcd93d59f9c495bdb0e0ccc79ccdc933",
+          "frozen_at": "2026-10-20T03:12:57.534Z"
+        },
+        "environment": {
+          "group": "policies",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "theme": "dark",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "policies.delete-visible",
+            "policies.lifecycle"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true,
+          "checkout_matches_snapshot": true
+        },
+        "passed": [
+          {
+            "id": "policies.lifecycle",
+            "page": "Policies",
+            "controls": "Add, edit, duplicate, enabled, save, discard, delete",
+            "expected": "Only the named policy changes; supplied and custom policies share controls.",
+            "fixture": "reusable-editors.html",
+            "requirement": "../../docs/spec.md#editor-review-points",
+            "status": "pass",
+            "evidence": [
+              "policies/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":6196,\"detail\":\"Custom and supplied policies: exact add/edit/enable/disable/duplicate/discard/delete/cancel effects; full installation snapshots and independent notification draft checked.\"}"
+            ]
+          },
+          {
+            "id": "policies.delete-visible",
+            "page": "Policies",
+            "controls": "Delete an early policy in a long list, visible confirmation, Cancel, focus return and confirmed deletion",
+            "expected": "The confirmation heading, Delete policy and Cancel are visible immediately after Delete without a later control scrolling them into view. Cancel is focused, saves nothing and returns to the visible original Edit policy control; confirmation deletes only the intended policy.",
+            "fixture": null,
+            "requirement": "../../docs/spec.md#editor-review-points",
+            "status": "pass",
+            "evidence": [
+              "policies/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":2518,\"detail\":\"From an early row in a long policy list, the confirmation heading and both buttons are immediately visible and unobscured at 390\u00d7844, before any locator could auto-scroll them. Cancel has focus, Enter saves nothing and returns to the visible original Edit policy control. Reopened confirmation deletes only that disabled target; complete unrelated settings are preserved.\"}"
+            ]
+          }
+        ],
+        "runner_exit": 2,
+        "runner_exit_reason": "Selected paths pass; unrelated inventory remains untested.",
+        "websocket_diagnostics": [
+          {
+            "connection": 1,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 2,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 3,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 4,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 5,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 6,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          }
+        ],
+        "websocket_diagnostic_context": "Optional TopoMation is absent in the isolated HA instance; its location probe returns unknown_command. Homeostatic handles that response and continues. No Homeostatic command failed."
+      },
+      {
+        "report": "build/ui-acceptance/delete-visible-desktop-20261019/report.json",
+        "candidate": {
+          "branch": "main",
+          "revision": "5405387d487bf9385538598769bc7a5465296e5d",
+          "dirty": true,
+          "component_sha256": "de56f8d8fa63eae91d5e2f4601d5e2621e2249e2d0546995715f1f63a19e9927",
+          "fixture_sha256": "e742e81cdf6ec00915e0f77dae6f1eeffcd93d59f9c495bdb0e0ccc79ccdc933",
+          "frozen_at": "2026-10-20T03:12:57.534Z"
+        },
+        "environment": {
+          "group": "policies",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "theme": "light",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "policies.delete-visible",
+            "policies.lifecycle"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true,
+          "checkout_matches_snapshot": true
+        },
+        "passed": [
+          {
+            "id": "policies.lifecycle",
+            "page": "Policies",
+            "controls": "Add, edit, duplicate, enabled, save, discard, delete",
+            "expected": "Only the named policy changes; supplied and custom policies share controls.",
+            "fixture": "reusable-editors.html",
+            "requirement": "../../docs/spec.md#editor-review-points",
+            "status": "pass",
+            "evidence": [
+              "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":6230,\"detail\":\"Custom and supplied policies: exact add/edit/enable/disable/duplicate/discard/delete/cancel effects; full installation snapshots and independent notification draft checked.\"}"
+            ]
+          },
+          {
+            "id": "policies.delete-visible",
+            "page": "Policies",
+            "controls": "Delete an early policy in a long list, visible confirmation, Cancel, focus return and confirmed deletion",
+            "expected": "The confirmation heading, Delete policy and Cancel are visible immediately after Delete without a later control scrolling them into view. Cancel is focused, saves nothing and returns to the visible original Edit policy control; confirmation deletes only the intended policy.",
+            "fixture": null,
+            "requirement": "../../docs/spec.md#editor-review-points",
+            "status": "pass",
+            "evidence": [
+              "policies/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":2474,\"detail\":\"From an early row in a long policy list, the confirmation heading and both buttons are immediately visible and unobscured at 1440\u00d71000, before any locator could auto-scroll them. Cancel has focus, Enter saves nothing and returns to the visible original Edit policy control. Reopened confirmation deletes only that disabled target; complete unrelated settings are preserved.\"}"
+            ]
+          }
+        ],
+        "runner_exit": 2,
+        "runner_exit_reason": "Selected paths pass; unrelated inventory remains untested.",
+        "websocket_diagnostics": [
+          {
+            "connection": 1,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 2,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 3,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 4,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 5,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 6,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          }
+        ],
+        "websocket_diagnostic_context": "Optional TopoMation is absent in the isolated HA instance; its location probe returns unknown_command. Homeostatic handles that response and continues. No Homeostatic command failed."
+      },
+      {
+        "report": "build/ui-acceptance/delete-visible-shared-20261019/report.json",
+        "candidate": {
+          "branch": "main",
+          "revision": "5405387d487bf9385538598769bc7a5465296e5d",
+          "dirty": true,
+          "component_sha256": "de56f8d8fa63eae91d5e2f4601d5e2621e2249e2d0546995715f1f63a19e9927",
+          "fixture_sha256": "e742e81cdf6ec00915e0f77dae6f1eeffcd93d59f9c495bdb0e0ccc79ccdc933",
+          "frozen_at": "2026-10-20T03:12:57.534Z"
+        },
+        "environment": {
+          "group": "notifications",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "theme": "dark",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "profiles.delete-replace",
+            "profiles.delete-remove",
+            "methods.lifecycle"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true,
+          "checkout_matches_snapshot": true
+        },
+        "passed": [
+          {
+            "id": "profiles.delete-replace",
+            "page": "Notifications",
+            "controls": "Delete, replacement, confirm",
+            "expected": "One save removes the definition and redirects uses without changing row ids.",
+            "fixture": "reusable-editors.html",
+            "requirement": "../../docs/spec.md#editor-review-points",
+            "status": "pass",
+            "evidence": [
+              "notifications/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":2342,\"detail\":\"Single atomic save covers several uses, stable row IDs and UPS mains/backup conditions; exact full-settings comparison preserves every unrelated field.\"}"
+            ]
+          },
+          {
+            "id": "profiles.delete-remove",
+            "page": "Notifications",
+            "controls": "Delete, remove assignments, confirm",
+            "expected": "Explicit removal preserves unrelated definitions and leaves Dashboard only.",
+            "fixture": "reusable-editors.html",
+            "requirement": "../../docs/spec.md#editor-review-points",
+            "status": "pass",
+            "evidence": [
+              "notifications/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":2461,\"detail\":\"Single atomic save covers several uses, stable row IDs and UPS mains/backup conditions; exact full-settings comparison preserves every unrelated field.\"}"
+            ]
+          },
+          {
+            "id": "methods.lifecycle",
+            "page": "Delivery methods",
+            "controls": "Add, edit, duplicate, save, discard, delete",
+            "expected": "Saved shared uses and independent drafts remain correct.",
+            "fixture": "reusable-editors.html",
+            "requirement": "../../docs/spec.md#editor-review-points",
+            "status": "pass",
+            "evidence": [
+              "notifications/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":6452,\"detail\":\"Add/discard, shared rename with two independent drafts, blocked deletion, duplicate/reopen/discard, cancellation, replacement and explicit removal preserve profile uses and inline row identity; no delivery requests.\"}"
+            ]
+          }
+        ],
+        "runner_exit": 2,
+        "runner_exit_reason": "Selected paths pass; unrelated inventory remains untested.",
+        "websocket_diagnostics": [
+          {
+            "connection": 1,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 2,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 3,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 4,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 5,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 6,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 7,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 8,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 9,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          },
+          {
+            "connection": 10,
+            "request_id": 39,
+            "command": "topomation/locations/list",
+            "code": "unknown_command",
+            "message": "Unknown command."
+          }
+        ],
+        "websocket_diagnostic_context": "Optional TopoMation is absent in the isolated HA instance; its location probe returns unknown_command. Homeostatic handles that response and continues. No Homeostatic command failed."
+      }
+    ]
+  },
+  "household": {
+    "before_report": "build/household-delete-visibility-before-20261019/report.json",
+    "after_report": "build/household-delete-visibility-after-20261019/report.json",
+    "browser_version": "155.0.8059.80",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "before_confirmation": {
+      "heading": {
+        "rect": {
+          "top": 2699.1875,
+          "bottom": 2720.9375,
+          "left": 46,
+          "right": 344
+        },
+        "viewport": {
+          "top": 142.84375,
+          "bottom": 844,
+          "left": 0,
+          "right": 390
+        },
+        "inside": false,
+        "uncovered": false,
+        "focused": false
+      },
+      "confirm": {
+        "rect": {
+          "top": 2781.828125,
+          "bottom": 2821.828125,
+          "left": 46,
+          "right": 151.46875
+        },
+        "viewport": {
+          "top": 142.84375,
+          "bottom": 844,
+          "left": 0,
+          "right": 390
+        },
+        "inside": false,
+        "uncovered": false,
+        "focused": false
+      },
+      "cancel": {
+        "rect": {
+          "top": 2781.828125,
+          "bottom": 2821.828125,
+          "left": 151.46875,
+          "right": 220.078125
+        },
+        "viewport": {
+          "top": 142.84375,
+          "bottom": 844,
+          "left": 0,
+          "right": 390
+        },
+        "inside": false,
+        "uncovered": false,
+        "focused": false
+      }
+    },
+    "after_confirmation": {
+      "heading": {
+        "rect": {
+          "top": 665.1875,
+          "bottom": 686.9375,
+          "left": 46,
+          "right": 344
+        },
+        "viewport": {
+          "top": 142.84375,
+          "bottom": 844,
+          "left": 0,
+          "right": 390
+        },
+        "inside": true,
+        "uncovered": true,
+        "focused": false
+      },
+      "confirm": {
+        "rect": {
+          "top": 747.828125,
+          "bottom": 787.828125,
+          "left": 46,
+          "right": 151.46875
+        },
+        "viewport": {
+          "top": 142.84375,
+          "bottom": 844,
+          "left": 0,
+          "right": 390
+        },
+        "inside": true,
+        "uncovered": true,
+        "focused": false
+      },
+      "cancel": {
+        "rect": {
+          "top": 747.828125,
+          "bottom": 787.828125,
+          "left": 151.46875,
+          "right": 220.078125
+        },
+        "viewport": {
+          "top": 142.84375,
+          "bottom": 844,
+          "left": 0,
+          "right": 390
+        },
+        "inside": true,
+        "uncovered": true,
+        "focused": true
+      }
+    },
+    "after_cancel_return": {
+      "rect": {
+        "top": 389.171875,
+        "bottom": 429.171875,
+        "left": 27,
+        "right": 116.75
+      },
+      "viewport": {
+        "top": 142.84375,
+        "bottom": 844,
+        "left": 0,
+        "right": 390
+      },
+      "inside": true,
+      "uncovered": true,
+      "focused": true
+    },
+    "settings_unchanged": true,
+    "settings_before_sha256": "aac508014364723b24d3edef954a4d217a0a9aea12d9c1034b8a316ff8ff6250",
+    "settings_after_sha256": "aac508014364723b24d3edef954a4d217a0a9aea12d9c1034b8a316ff8ff6250",
+    "writes_attempted": 0,
+    "tests_confirmed_a_household_deletion": false,
+    "test_notifications_requested": false,
+    "screenshots": [
+      "build/household-delete-visibility-before-20261019/confirmation-before-any-autoscroll.png",
+      "build/household-delete-visibility-after-20261019/confirmation-before-any-autoscroll.png",
+      "build/household-delete-visibility-after-20261019/after-cancel.png"
+    ]
+  },
+  "installation": {
+    "installed_at_utc": "2026-10-20T03:15:31.9900721Z",
+    "version": "1.11.5",
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "branch": "main",
+    "revision": "5405387d487bf9385538598769bc7a5465296e5d",
+    "dirty": true,
+    "source_file_count": 79,
+    "source_files": {
+      "evidence.py": "cb9defe16151907926af5b305c8cb9364cf312ae6c5b5ad68d5c9566da3bfa3a",
+      "services.py": "6eb0e2b687c72a8aac81b9cdcf2d7401f40fcb24608663f48bd1bb356131fc81",
+      "strings.json": "c1ff05a44c8b51a0ba7e9381876ed4ea711b2aaa40d9fba929bbbc17f22014a3",
+      "policy_defaults.py": "8f9f04038ff202a5c6118d50d673e1cd3063d390279d9c6b067c97b1dff40c15",
+      "facts.py": "ad5c7eaa79bea36b4edca8f8dc88da5395e6232ac33856d23cd629df8bc8a102",
+      "frontend\\device-issue-model.mjs": "e40a8158a413cddeb58a44020af48a8af2079c6267feff9d25072d4fb02f785a",
+      "services.yaml": "39661562affacadc90c714cad1ab5ddec80c3ba1474617c4cb651da6fb34060c",
+      "monitoring_runtime.py": "efa389a5c27bbcb32e9cbfe4f5c4cb076f6028315c5cad91778a61e9f8b39218",
+      "frontend\\notification-navigation.mjs": "8509db1036d9a37184015d9c2d1849fcac1a95f6a4b1a7e15badc14198e19c9a",
+      "runtime.py": "e5f2c8b982972b4afd9afe0068dfc77b71b71f539ccf1eea272602c3806f8b45",
+      "function_model.py": "f6689b86391cec96b28317ca876a1120e188dff19cb85bfb33735e0a07635342",
+      "frontend\\panel-drafts.mjs": "5c705c5ba9280fcdacad9a53e04aa3c55716c7e4791fd508c9ab33472c5e97f7",
+      "battery.py": "2fdc8c07b4468a506815d4de25592f9f17ebf21742d760317801c616a8b351d0",
+      "catalog.py": "ee5affb13ac8a4eaec69071718cdf325e91cd4e0a5f6b89e60ee13a5dd29dc45",
+      "notification_routes.py": "b4e3c08d81480b698721d7c2883daf9027d54e76f26ac67a19cbbadb1b86a9db",
+      "manifest.json": "f8a9fcfb242e728ff5f18340018bcb3bfe5c7afe678171cea484655ef525d24e",
+      "automation_alerts.py": "036e20e5c4cc97979e922a30c4984b4f5cad94e6ee5048741fdd695f5a23e651",
+      "sensor.py": "cf6c1fb2efd4bb9e64255090e9bdce7bfbeccf72a174269e2ec161a0a20a9944",
+      "frontend\\issue-configuration.mjs": "e5bcc0d049377cf0f46a5f4f9b932f64817102b11fbd0014c3cec67b0dfe4627",
+      "frontend\\issues-workspace.mjs": "73f3b8d96474f5ae0b31c4a19adf9f1e693997fa02ee05e20ed72726e0de61c1",
+      "__init__.py": "7489d9c4999625fc197538664f2147963f1c7713f217d4cdef07d20d740d42bf",
+      "broken_automations.py": "76fdc711676054ccfc7a3422f547508685b9800b51f14bcfafeb7ac8a382b1f0",
+      "frontend\\configuration.mjs": "7932b608a7fa7144c00907d8b4461412d28594bf989ff5450029e3736e1d0132",
+      "config.py": "f0b68a050c884c6ed0af0ec7add60c31dbe61884aa4a247a94ca7c68563c3283",
+      "monitoring.py": "a737a2218f755021674b215390e3419872b4e9e8ee114d9947f8f281c68153f8",
+      "controls.py": "d3c24fb1efbc3a41abdc99bcefcbaed1956bcdb1de729a2aa310c255099506b4",
+      "frontend\\device-entities.mjs": "a4594c95fb3dc2c90254eae17ea2e75fcdeab286ea6aebd7fab8f6d9af797b48",
+      "frontend\\sources-workspace.mjs": "40bffe4a4e9cb052ad2f209d968ff4e58a56ddf386b235d80483a5e00b401346",
+      "frontend\\source-coverage.mjs": "b3b7599fae58cc4fbea14dd6b64c185e6e6d86a16392a3407555b4e3bc42e9c0",
+      "brand\\icon@2x.png": "ac577f00ee3c2e98505c9cdcf3eb5af4eb60ff8d63a6afb97481b049259b5139",
+      "frontend\\check-presentation.mjs": "e515489be9eff4e36d73a1950d96e03b52e6ed651ff0a2c229ba21236642c4ce",
+      "notification_grouping.py": "f41fc882260c781d38402164c5605d4d03fdeec0fffb966a144d78c186ce6ce5",
+      "frontend\\workspace-navigation.mjs": "8c3314b6d811a23c82ca53f2d4b73a31bd66de58f95d9b76567305626bdc0769",
+      "frontend\\history-controls.mjs": "084a84c22983a67bfa507b083e3bc0009f0b5b06d145f9d9b30f3bb811c0be3f",
+      "phone_actions.py": "7acdfd14a3bbd0fae4df2bf14a64128d4882c895171f244350140ec39b487d33",
+      "frontend\\reusable-editors.mjs": "ae4418a4635e74446e07b8bef5b94bd1f3a15d47a940df35f60ea9e4152a41fa",
+      "enrollment.py": "11ced9a77a477112f8cd6c96dec4bb908c457102e4cd8abf541b6e95ff3faaec",
+      "frontend\\problem.mjs": "e9d76bc97c40c99795616879a9b51b7496e2fdb4b307cdaac22f614083bf820b",
+      "frontend\\entity-selection.mjs": "d070fe9b1b51ca40d58fd54bbc6455076e42340b11a9b5028d922746eeaa331b",
+      "repairs.py": "e469fe798ea6d7445663ea1731e1339215f084599ee067bfae2da0595c0a8e2d",
+      "dashboard.py": "4a6484856c77bfb8487db17e385737aad06815f43acc8411980e130bf281ed5a",
+      "frontend\\delivery-picker.mjs": "532fd496bd9a24b7fda7b214812c5dbd31ccf4895396e8b1a43e36ea3266fa21",
+      "frontend\\model.mjs": "ed9fa2348059ade954d134cb6a2f247926102e6b52376d1ff5883b088137f10b",
+      "frontend\\installation-settings.mjs": "53e88f0eab85059270325d17f80bfd8d79b9f46f861479eb7ca63c74f08ecee8",
+      "const.py": "eb13bc293db38472f94150a15d3108e9b5e537646650536f522af157d26b60ce",
+      "frontend\\entity-not-provided.mjs": "a6e375ad9956509f32b1ce8d1f4db22257850b65ad14fdbbe0ace1f55262a40f",
+      "translations\\en.json": "c1ff05a44c8b51a0ba7e9381876ed4ea711b2aaa40d9fba929bbbc17f22014a3",
+      "policy_migration.py": "a967f700309f3927491759856116b310af3d85f0f314a2c6deec7fba72c20c45",
+      "frontend\\scoped-configuration.mjs": "78546c6544960a3b2750772cc6d6863c46501868ac78da6c66f5fc6c8f554c6c",
+      "notification_definitions.py": "b4b2f285246d1b2facf62131476db072186558a6e25f3340c5def6f56c90523f",
+      "vacuum.py": "85e407d382c7c0759890576571e347f321e3eee3220828694785f4c0d89f3bc7",
+      "notification_people.py": "18e96aa686cc8e15b356d0239bd7b96c1258d20276a70df3aa90b2438cfa04a6",
+      "attention.py": "5122c6dfe24701355e308c47f67c3381365cf7696a2bcd71a5e8d2b275796f1e",
+      "event.py": "0a3310309d2c13fbfa2abd4cf1e68814aff16f03be8e1f03578fd592422ce0fd",
+      "frontend\\issue-monitoring.mjs": "08834b0d59285a871290e22801494016bd6db0ba106b3c72be12b4f10043e0a6",
+      "history.py": "946e611547f266d97244e8a2af22083e3013469135e02d985e6506b86cb1b750",
+      "brand\\dark_icon@2x.png": "1a3309f8c526a09252e5ff656445e4425ec89b59f4514e5b956dbd86bf4306d9",
+      "brand\\dark_icon.png": "cafc59ad017206e00d12914c8337cad8138e2934ff6fca3ca596bba9d295b377",
+      "frontend\\package.json": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8",
+      "brand\\icon.png": "d4740e57a8d672e1c76c19eb551ab06a0003fd87d5099e67d996375769c8d957",
+      "situation_reports.py": "2e9025a4074c46cbc92a99c53dd32c2f6f8013b116e177a670e2af0327545a5d",
+      "frontend\\ups.mjs": "81c8afea7e27b9d547ed7bdc03bd391ef0ac45a60e4a315572140ef5bc269e16",
+      "ups.py": "669f9f9af8b4b4bb11d5d94e0c0f3648a0629bebdca31c780f9ec9d59530ac53",
+      "frontend\\reporting.mjs": "a6fcb8201a993c051e20fb85ea812fbc2c1e3b61d99dc6e6a2ac67074e7be517",
+      "frontend\\homeostatic.js": "5ca46ccaa9571fda8d47cf72d3c776a83e68f654174aae4330838cbabde40c16",
+      "entity_not_provided.py": "6a6e4a67eee370842201080444acbca49f1f7dc7230f59dce91384fc1d14543b",
+      "frontend\\source-history.mjs": "a1acc67c15931311870e8c38322b3e7aff7eef3e68c0b124164e1074015e1506",
+      "frontend\\device-issues.mjs": "80f7180bb3df380c927394f752dc41253bd2a1df9aa76fe344ad896fd370f2ec",
+      "frontend\\source-monitoring.mjs": "6a157512b33703c56b6d4c8b0c9fe5c9549f7f386a8606da5b8455142688715b",
+      "definitions.py": "ee68cd193a23c9b56ad85c6c49d5c969aa747ea7e7269a6f988b15299e7782f1",
+      "delivery.py": "2e854c9174bbd15da908fda539bc5ae47fb0a07a22932ef724939af64b1e4190",
+      "config_flow.py": "e5f69e5f789b56252c3eaac842ad98d69c51f3c9919bc0bac6d660bd05e14026",
+      "frontend\\source-temperature.mjs": "a0adff3d90ee06e0b138135b208a3a6400087c313938789eb5f6269a05660845",
+      "frontend\\evidence.mjs": "5515955c9e75d824db33ad38cadbdd1e786d306929adbd334a6730d766df6c0b",
+      "rules.py": "bbe4fce0d132c31655902c7d7c8814898a4790cde731a11a81d351d6ac44e820",
+      "serialization.py": "d3977f5bfb0ba9d4ae3f1689bea3348693ebfd8a63a5b67a157355d51ab86039",
+      "frontend\\styles.mjs": "82d14828e087c19528ecc3df40989cd633908685cddd126c8ed47f1bdcfc075e",
+      "ups_parameters.py": "e348553ea19d0af80de6f8b4ecf4ca856fd3472fa2996e6c94415006c06b03fb",
+      "temperature.py": "5b5e543082086fd714074f2cf2381139daaf945eceb0e45dbf2d5c5315ee9ae9"
+    },
+    "installed_hashes_match": true,
+    "staging_removed": true,
+    "public_release": false,
+    "verification": {
+      "checked_at_utc": "2026-10-20T03:17:27.428898+00:00",
+      "ha_version": "2026.10.0",
+      "ha_state": "RUNNING",
+      "entry_states": [
+        "loaded"
+      ],
+      "policy_count": 13,
+      "notifications_enabled": true,
+      "panel": {
+        "name": "homeostatic-panel-v58",
+        "embed_iframe": false,
+        "trust_external": false,
+        "module_url": "/homeostatic_static/homeostatic.js?v=106"
+      },
+      "test_notifications_requested": false,
+      "settings_unchanged": true,
+      "served_module_matches_installed": true,
+      "homeostatic_error_count": 0
+    },
+    "component_sha256": "de56f8d8fa63eae91d5e2f4601d5e2621e2249e2d0546995715f1f63a19e9927"
+  },
+  "status": {
+    "implementation": "complete",
+    "scoped_acceptance": "pass",
+    "installed_local": true,
+    "committed": false,
+    "released": false
+  },
+  "limits": [
+    "Phone-sized Chrome acceptance does not establish physical Companion app coverage.",
+    "Unrelated browser inventory and real notification receipt remain outside this fix."
+  ]
+}

@@ -66,7 +66,7 @@ root.addEventListener("click",event=>{if(event.target.closest("a[href]"))event.p
 
 document.querySelector("#run").onclick=async()=>{
   const button=document.querySelector("#run"),feedback=document.querySelector("#feedback");button.disabled=true;
-  const receipt=emptyReceipt({fixture:"independent-device-issues.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",transport:"synthetic inventory and mocked actions",physical_safari:"untested"});
+  const receipt=emptyReceipt({fixture:"independent-device-issues.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",transport:"synthetic inventory and mocked actions"});
   const report=()=>{document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);parent.postMessage({type:"homeostatic-acceptance",fixture:"independent-device-issues.html",receipt},location.origin);};
   const path=async(id,run,evidence)=>{try{await run();recordResult(receipt,id,"pass",evidence);}catch(error){recordResult(receipt,id,"fail",error.message);throw error;}finally{report();}};
   try {

@@ -38,4 +38,4 @@ Homeostatic does not repair equipment, retry integrations or operate devices to 
 
 ## Scale and platform qualification
 
-Whole-installation monitoring on very large systems still needs qualification under representative household load. Select useful coverage and review the installation's responsiveness rather than assuming a universal capacity guarantee. Physical Safari behavior and actual delivery-provider results also remain areas of ongoing acceptance work; a browser preview or successful request alone does not settle them.
+Whole-installation monitoring on very large systems still needs qualification under representative household load. Select useful coverage and review the installation's responsiveness rather than assuming a universal capacity guarantee. Actual delivery-provider results also require verification; a successful request alone does not confirm receipt.

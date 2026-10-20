@@ -1,0 +1,335 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-20T06:06:09.052663+00:00",
+  "decision": "docs/adr/0108-category-availability-policies-and-policy-waits.md",
+  "candidate": {
+    "branch": "main",
+    "revision": "5405387d487bf9385538598769bc7a5465296e5d",
+    "dirty": true,
+    "component_sha256": "fdd808db193074d694a17f12e8095665163a6600ec664cd669af8bc3957ac7f8",
+    "fixture_sha256": "a4e892338eea0cc6db9fdbede9658b58ead024e7a77a0cadf56224592a2119cf",
+    "frozen_at": "2026-10-20T06:04:20.100Z"
+  },
+  "status": {
+    "implementation": "complete",
+    "scoped_acceptance": "passed",
+    "committed": false,
+    "released": false,
+    "installed": false,
+    "household_notifications_requested": false
+  },
+  "checks": {
+    "quick": {
+      "status": "pass",
+      "frontend_tests": 893,
+      "log": "build/policy-selection-quick.log"
+    },
+    "focused_python": {
+      "status": "pass",
+      "tests": 227,
+      "log": "build/policy-selection-python.log"
+    },
+    "strict_types": {
+      "status": "pass",
+      "source_files": 40,
+      "log": "build/policy-selection-types.log"
+    },
+    "configuration": "Existing saved matcher metadata supports the categories; no new field, stored schema or library behavior was added.",
+    "library": {
+      "version": "0.11.0",
+      "source": "/home/mike/.cache/homeostatic/venv/lib/python3.14/site-packages/health_tree/__init__.py"
+    }
+  },
+  "browser": {
+    "home_assistant": "2026.9.3",
+    "python": "3.14.7",
+    "browser": "Chromium 143.0.7499.4",
+    "runs": [
+      {
+        "report": "build/policy-selection-2026-10-20/desktop-final/report.json",
+        "layer": "live",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "passed": 39,
+        "failed": 0,
+        "component_sha256": "fdd808db193074d694a17f12e8095665163a6600ec664cd669af8bc3957ac7f8",
+        "diagnostics": [
+          "Fixture not-provided-policy.html failed: Issue uses the condition's actual name; FAIL: Issue uses the condition's actual name"
+        ],
+        "passed_paths": [
+          "policies.not-provided",
+          "navigation.pages",
+          "policies.lifecycle",
+          "policies.delete-visible",
+          "policies.picker-context",
+          "policies.entity-selection",
+          "policies.availability-wait",
+          "policies.availability-create",
+          "policies.scope",
+          "policies.detection",
+          "policies.temperature-detection",
+          "policies.temperature-save",
+          "policies.temperature-picker",
+          "policies.restore",
+          "policies.notification",
+          "policies.legacy",
+          "policies.ups",
+          "settings.timing-only",
+          "settings.edit",
+          "sending.switch",
+          "live.policies.lifecycle",
+          "live.policies.type.integration",
+          "live.policies.type.entity",
+          "live.policies.type.entity_not_provided",
+          "live.policies.type.battery",
+          "live.policies.type.vacuum",
+          "live.policies.type.repair",
+          "live.policies.type.broken_automation",
+          "live.policies.type.thermostat",
+          "live.policies.type.temperature_limit",
+          "live.policies.type.ups_power",
+          "live.policies.type.ups_reserve",
+          "live.policies.type.ups_battery_replacement",
+          "live.policies.type.ups_fault",
+          "live.policies.selection",
+          "live.policies.notification-empty",
+          "live.policies.restore",
+          "live.settings.edit",
+          "live.sending.switch"
+        ]
+      },
+      {
+        "report": "build/policy-selection-2026-10-20/phone-final/report.json",
+        "layer": "live",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "passed": 39,
+        "failed": 0,
+        "component_sha256": "fdd808db193074d694a17f12e8095665163a6600ec664cd669af8bc3957ac7f8",
+        "diagnostics": [
+          "Fixture not-provided-policy.html failed: Issue uses the condition's actual name; FAIL: Issue uses the condition's actual name"
+        ],
+        "passed_paths": [
+          "policies.not-provided",
+          "navigation.pages",
+          "policies.lifecycle",
+          "policies.delete-visible",
+          "policies.picker-context",
+          "policies.entity-selection",
+          "policies.availability-wait",
+          "policies.availability-create",
+          "policies.scope",
+          "policies.detection",
+          "policies.temperature-detection",
+          "policies.temperature-save",
+          "policies.temperature-picker",
+          "policies.restore",
+          "policies.notification",
+          "policies.legacy",
+          "policies.ups",
+          "settings.timing-only",
+          "settings.edit",
+          "sending.switch",
+          "live.policies.lifecycle",
+          "live.policies.type.integration",
+          "live.policies.type.entity",
+          "live.policies.type.entity_not_provided",
+          "live.policies.type.battery",
+          "live.policies.type.vacuum",
+          "live.policies.type.repair",
+          "live.policies.type.broken_automation",
+          "live.policies.type.thermostat",
+          "live.policies.type.temperature_limit",
+          "live.policies.type.ups_power",
+          "live.policies.type.ups_reserve",
+          "live.policies.type.ups_battery_replacement",
+          "live.policies.type.ups_fault",
+          "live.policies.selection",
+          "live.policies.notification-empty",
+          "live.policies.restore",
+          "live.settings.edit",
+          "live.sending.switch"
+        ]
+      },
+      {
+        "report": "build/policy-selection-2026-10-20/desktop-fixtures-verified/report.json",
+        "layer": "fixtures",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "passed": 8,
+        "failed": 0,
+        "component_sha256": "fdd808db193074d694a17f12e8095665163a6600ec664cd669af8bc3957ac7f8",
+        "diagnostics": [],
+        "passed_paths": [
+          "policies.not-provided",
+          "issues.not-provided",
+          "policies.entity-selection",
+          "policies.availability-wait",
+          "policies.availability-create",
+          "policies.temperature-detection",
+          "policies.temperature-save",
+          "policies.temperature-picker"
+        ]
+      },
+      {
+        "report": "build/policy-selection-2026-10-20/phone-fixtures-verified/report.json",
+        "layer": "fixtures",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "passed": 8,
+        "failed": 0,
+        "component_sha256": "fdd808db193074d694a17f12e8095665163a6600ec664cd669af8bc3957ac7f8",
+        "diagnostics": [],
+        "passed_paths": [
+          "policies.not-provided",
+          "issues.not-provided",
+          "policies.entity-selection",
+          "policies.availability-wait",
+          "policies.availability-create",
+          "policies.temperature-detection",
+          "policies.temperature-save",
+          "policies.temperature-picker"
+        ]
+      },
+      {
+        "report": "build/policy-selection-2026-10-20/shared-desktop-verified/report.json",
+        "layer": "fixtures",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "passed": 38,
+        "failed": 0,
+        "component_sha256": "fdd808db193074d694a17f12e8095665163a6600ec664cd669af8bc3957ac7f8",
+        "diagnostics": [],
+        "passed_paths": [
+          "navigation.pages",
+          "issues.filter",
+          "issues.empty",
+          "policies.lifecycle",
+          "policies.scope",
+          "policies.detection",
+          "policies.restore",
+          "policies.notification",
+          "policies.legacy",
+          "policies.ups",
+          "profiles.list",
+          "profiles.ordering",
+          "profiles.create",
+          "profiles.invalid",
+          "profiles.collection-delay",
+          "profiles.save",
+          "profiles.discard",
+          "profiles.duplicate",
+          "profiles.delete-cancel",
+          "profiles.delete-replace",
+          "profiles.delete-remove",
+          "profiles.delete-draft",
+          "profiles.timing",
+          "methods.lifecycle",
+          "methods.completion",
+          "methods.destinations",
+          "methods.picker-layout",
+          "methods.presence",
+          "methods.test",
+          "settings.edit",
+          "sending.switch",
+          "save.failure",
+          "save.conflict",
+          "save.refresh-failure",
+          "save.pending",
+          "save.uncertain",
+          "updates.retention",
+          "layout.menus"
+        ]
+      },
+      {
+        "report": "build/policy-selection-2026-10-20/shared-phone-verified/report.json",
+        "layer": "fixtures",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "passed": 38,
+        "failed": 0,
+        "component_sha256": "fdd808db193074d694a17f12e8095665163a6600ec664cd669af8bc3957ac7f8",
+        "diagnostics": [],
+        "passed_paths": [
+          "navigation.pages",
+          "issues.filter",
+          "issues.empty",
+          "policies.lifecycle",
+          "policies.scope",
+          "policies.detection",
+          "policies.restore",
+          "policies.notification",
+          "policies.legacy",
+          "policies.ups",
+          "profiles.list",
+          "profiles.ordering",
+          "profiles.create",
+          "profiles.invalid",
+          "profiles.collection-delay",
+          "profiles.save",
+          "profiles.discard",
+          "profiles.duplicate",
+          "profiles.delete-cancel",
+          "profiles.delete-replace",
+          "profiles.delete-remove",
+          "profiles.delete-draft",
+          "profiles.timing",
+          "methods.lifecycle",
+          "methods.completion",
+          "methods.destinations",
+          "methods.picker-layout",
+          "methods.presence",
+          "methods.test",
+          "settings.edit",
+          "sending.switch",
+          "save.failure",
+          "save.conflict",
+          "save.refresh-failure",
+          "save.pending",
+          "save.uncertain",
+          "updates.retention",
+          "layout.menus"
+        ]
+      }
+    ],
+    "corrections": [
+      "Initial browser startup needed the existing prepared Linux library path; no product change was made for that environment failure.",
+      "Restored the existing non-entity required-source validation after an empty-temperature-selection scenario exposed its removal.",
+      "Updated stale monitoring-type, issue-headline, sorted device-class and custom-element-version fixture assertions. The earlier reports remain in build/policy-selection-2026-10-20.",
+      "The two live reports retain a failed stale issue-headline fixture diagnostic. Their 39 live paths passed; both final fixture-only reruns verify the corrected assertion with the identical component hash."
+    ],
+    "scope": "Affected policies and shared editor controls only. Other inventory rows remain explicitly untested in the generated reports. No household Home Assistant was used."
+  },
+  "rendered_review": {
+    "owner": "Policies owns category creation, source membership, detection settings and Save policy.",
+    "benefit": "The category field limits eligible choices on the same Add policy form. Focused lists put equipment directly in the editor; the tree organizes the broad entity inventory.",
+    "retained_controls": "Future sources keeps future enrollment deliberate. Inline area/label choices retain saved rules; tree disclosure is independent of membership. Existing Save/Discard and contextual return routes are reused.",
+    "removed": "Inclusion radios, reversed exclusion checkboxes, nested source picker, Done action, pagination, picker-only scroll/Escape state and unused handlers/styles.",
+    "inspection": "Desktop/light and phone/dark Add policy and camera editors fit without clipping or nested source scrolling. Names, area context, effective membership, disabled/stale state and saved-policy overlap remain visible.",
+    "screenshots": [
+      "build/policy-selection-2026-10-20/visual-review/add-policy-1440-light.png",
+      "build/policy-selection-2026-10-20/visual-review/add-policy-390-dark.png",
+      "build/policy-selection-2026-10-20/visual-review/camera-policy-1440-light.png",
+      "build/policy-selection-2026-10-20/visual-review/camera-policy-390-dark.png"
+    ],
+    "visual_receipt": "build/policy-selection-2026-10-20/visual-review/receipt.json"
+  }
+}

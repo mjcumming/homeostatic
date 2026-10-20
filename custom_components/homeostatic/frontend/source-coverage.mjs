@@ -1,8 +1,8 @@
 const emptyCoverage = () => ({monitored:false,direct:false,device:false,labels:[]});
-const labelOrder = ["Availability","Entities not provided","Temperature","Thermostat","Battery","Vacuum","UPS","Repairs","Automation","Reported condition","Monitoring"];
+const labelOrder = ["Availability","Missing entities","Temperature","Thermostat","Battery","Vacuum","UPS","Repairs","Automation","Reported condition","Monitoring"];
 
 function checkLabel(check) {
-  if(check.kind==="entity_not_provided")return "Entities not provided";
+  if(check.kind==="entity_not_provided")return "Missing entities";
   if(check.kind==="situation")return "Reported condition";
   return ({availability:"Availability",temperature_limit:"Temperature",thermostat:"Thermostat",battery:"Battery",vacuum:"Vacuum",repair:"Repairs",broken_automation:"Automation",situation:"Reported condition",ups:"UPS"})[check.kind==="ups"?"ups":check.check_id] || ({entity:"Availability",integration:"Availability",temperature_limit:"Temperature",thermostat:"Thermostat",battery:"Battery",vacuum:"Vacuum",repair:"Repairs",broken_automation:"Automation",situation:"Reported condition"})[check.kind] || "Monitoring";
 }

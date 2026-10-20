@@ -143,6 +143,16 @@ class Source:
                 depends_on=tuple(Edge(to=target) for target in self.requirements),
             )
         situation = self.kind == "situation"
+        availability_wait = next(
+            (
+                policy.parameters.get("duration_seconds", 0)
+                for policy in settings.monitoring_policies
+                if self.kind == "entity"
+                and policy.id == self.monitoring_policy
+                and policy.check == "availability"
+            ),
+            0,
+        )
         return Node(
             node_id=self.node_id,
             kind=self.kind,
@@ -169,7 +179,8 @@ class Source:
             checks=(
                 Check(
                     check_id="condition" if situation else "availability",
-                    raise_hold=timedelta(0),
+                    raise_hold=timedelta(seconds=availability_wait),
+                    continuous=availability_wait > 0,
                     clear_hold=timedelta(0)
                     if situation
                     else settings.duration("clear_hold"),

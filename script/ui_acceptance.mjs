@@ -71,7 +71,7 @@ function candidateInfo(componentHash) {
 function safeText(value){return String(value??"").replaceAll("|","\\|").replaceAll("\n"," ");}
 
 export function markdownReport(report) {
-  const lines=["# Homeostatic automated UI sweep","",`Source revisions: ${(report.candidate.revisions??[report.candidate.revision]).join(", ")} (${report.candidate.branch}; ${report.candidate.dirty?"uncommitted changes included":"clean"}). Component SHA-256: ${report.candidate.component_sha256}.`,"", "Synthetic fixture checks and real Home Assistant browser checks are reported separately. A fixture pass does not establish real-backend acceptance. Physical Safari and real notification receipt are outside this isolated run.","", "| Layer | Passed | Failed | Untested |","| --- | ---: | ---: | ---: |"];
+  const lines=["# Homeostatic automated UI sweep","",`Source revisions: ${(report.candidate.revisions??[report.candidate.revision]).join(", ")} (${report.candidate.branch}; ${report.candidate.dirty?"uncommitted changes included":"clean"}). Component SHA-256: ${report.candidate.component_sha256}.`,"", "Synthetic fixture checks and real Home Assistant browser checks are reported separately. A fixture pass does not establish real-backend acceptance. Real notification receipt is outside this isolated run.","", "| Layer | Passed | Failed | Untested |","| --- | ---: | ---: | ---: |"];
   for(const layer of ["fixtures","live"]){
     const counts=receiptSummary({results:report[layer].results.filter(row=>inventoryIds.has(row.id))});
     lines.push(`| ${layer}: inventory | ${counts.pass} | ${counts.fail} | ${counts.untested} |`);
@@ -302,7 +302,7 @@ async function main() {
       if(args.snapshot)report.environment.checkout_matches_snapshot=await fingerprint(join(root,"custom_components/homeostatic"))===candidate.component_sha256;
     });
     report.artifacts=[...new Set([...report.artifacts,...(await readdir(output)).filter(name=>!name.startsWith("report.")&&/\.(json|png|txt|zip|log)$/.test(name))])];
-    for(const layer of ["fixtures","live"])for(const row of report[layer].results)if(row.status==="untested"&&!row.evidence.length)row.evidence.push(row.id==="layout.safari"?"Requires a physical iOS device; emulation is not physical Safari coverage.":"No complete assertion for this path was executed in this shard/layer.");
+    for(const layer of ["fixtures","live"])for(const row of report[layer].results)if(row.status==="untested"&&!row.evidence.length)row.evidence.push("No complete assertion for this path was executed in this shard/layer.");
     await saveReport(report,output);
     process.off("SIGINT",interrupt);process.off("SIGTERM",interrupt);
   }

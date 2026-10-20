@@ -60,10 +60,13 @@ class MonitoringPolicy:
 
     def detection_key(self) -> str:
         """Identify detection edits affecting this check's selected evidence."""
+        parameters = dict(self.parameters)
+        if self.check == "availability" and parameters.get("duration_seconds") == 0:
+            parameters.pop("duration_seconds")
         payload: dict[str, Any] = {
             "check": self.check,
             "match": dict(self.match),
-            "parameters": dict(self.parameters),
+            "parameters": parameters,
         }
         if self.match_any:
             payload["match_any"] = self.match_any
@@ -158,6 +161,10 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
         if check == "entity_not_provided":
             if match.get("kind") != ("entity",):
                 raise ValueError("Entities not provided policies select entities")
+            parameters = not_provided_parameters(parameters)
+        elif (
+            check == "availability" and match.get("kind") == ("entity",) and parameters
+        ):
             parameters = not_provided_parameters(parameters)
         elif check == "temperature_limit":
             parameters = asdict(TemperatureLimitParameters.from_data(parameters))

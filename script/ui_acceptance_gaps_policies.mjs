@@ -6,7 +6,8 @@ export async function runPolicyGaps(ctx) {
   const policy=(settings,id)=>settings.monitoring_policies.find(p=>p.id===id);
   const currentId=()=>at(field("name")).getAttribute("data-definition-id");
   const name=()=>at(field("name")).inputValue();
-  const selection=id=>`${field("selection")}[data-definition-value="${id}"]`;
+  const selection=id=>`${field("source-choice")}[data-definition-value="${id}"]`;
+  const groupChoice=id=>`${field("source-group")}[data-definition-value="${id}"]`;
   const focus=async selector=>assert.equal(await at(selector).first().evaluate(el=>el.getRootNode().activeElement===el),true,`${selector} should retain focus`);
   const reset=async()=>{await page.goto("about:blank");Object.assign(lab,await call("homeostatic_ui_lab/control",{action:"reset"}));await clean();};
   const setup=async mutate=>{await page.goto("about:blank");const config=await call("homeostatic/configuration");const settings=structuredClone(config.settings);mutate(settings);await call("homeostatic/save_settings",{revision:config.revision,settings});await noChange(settings);await clean();return settings;};
@@ -18,7 +19,7 @@ export async function runPolicyGaps(ctx) {
   const waitError=()=>at(".config-error").filter({hasText:"Acceptance transport rejected"}).waitFor();
   const companion=async()=>{await edit("profiles","morning");await fill(field("name"),"Unrelated notification draft");};
   const checkCompanion=async()=>{await edit("profiles","morning");assert.equal(await name(),"Unrelated notification draft");};
-  const waitCatalog=()=>at(`${field("selection")}`).first().waitFor();
+  const waitCatalog=()=>at(`${field("source-choice")}`).first().waitFor();
   const invalid=async(before,selector,value)=>{const requests=transport.saveRequests;await fill(selector,value);await click(action("save-scoped"));assert.equal(transport.saveRequests,requests,"Invalid form must not submit");assert.equal(await at(selector).inputValue(),String(value));assert.ok(!await at(selector).evaluate(el=>el.validity.valid)||await at('[aria-invalid="true"]').count()>0);await noChange(before);};
   const observeRequest=type=>{
     let resolve,settled=false;const outcome=new Promise(done=>{resolve=done;});
@@ -46,11 +47,57 @@ export async function runPolicyGaps(ctx) {
     assert.equal(await at('[data-delete-entity],[data-cleanup-entity]').count(),0);return "Added the separate policy through rendered controls, selected enabled diagnostic and excluded exact entity, rejected disabled selection/negative duration, retained failed-save draft, saved 7200 seconds with unrelated settings intact, reopened membership and discarded a later duration edit.";
   });
 
+  await test("policies.availability-create",async()=>{
+    const initial=await snapshot();await companion();
+    const id=await addPolicy("entity","Focused availability"),duration=field("parameters:duration_seconds"),identity=`entity:registry:${lab.registry_ids.offline}`,choice=`${field("entity-choice")}[data-definition-value="${identity}"]`;
+    assert.equal(await at(field("enabled")).isChecked(),false);assert.equal(await at(duration).inputValue(),"0");
+    await at(field("entity-integration")).first().waitFor();assert.equal(await at(`${field("entity-integration")}:checked`).count(),0);assert.equal(await at(`${field("entity-integration")}[aria-checked="mixed"]`).count(),0);
+    assert.match(await bodyText(),/New entities start unchecked/);await fill(field("entity-search"),lab.entities.offline);await at(choice).waitFor();assert.equal(await at(choice).isChecked(),false);await noChange(initial);
+    await save();let saved=await snapshot(),created=policy(saved,id);assert.equal(created.enabled,false);assert.deepEqual(created.match,{kind:["entity"],entity:[]});assert.deepEqual(created.parameters,{});assert.equal(created.included_sources,undefined);await expectPolicy(initial,id,created);
+    await edit("policies",id);await fill(field("entity-search"),lab.entities.offline);assert.equal(await at(choice).isChecked(),false);
+    await at(choice).focus();await page.keyboard.press("Space");await focus(choice);assert.equal(await at(choice).isChecked(),true);await fill(duration,"5");
+    const overlap=`${action("open-policy")}[data-definition-id="default_entities"]`;await at(overlap).waitFor();assert.match(await bodyText(),/Other enabled policies also monitor selected entities/);
+    await click(overlap);assert.equal(await currentId(),"default_entities");await noChange(saved);
+    await edit("policies",id);assert.equal(await at(duration).inputValue(),"5");await fill(field("entity-search"),lab.entities.offline);assert.equal(await at(choice).isChecked(),true);
+    saved=await savePolicy(saved,id,{...created,parameters:{duration_seconds:300},included_sources:[identity]});
+    await menu("policies",id,"duplicate");const copy=await currentId();assert.notEqual(copy,id);assert.equal(await at(field("enabled")).isChecked(),false);assert.equal(await at(duration).inputValue(),"5");await fill(field("entity-search"),lab.entities.offline);assert.equal(await at(choice).isChecked(),true);
+    saved=await savePolicy(saved,copy,{...policy(saved,id),id:copy,name:"Focused availability copy",enabled:false});await checkCompanion();await noChange(saved);
+    await clean();await edit("policies",id);assert.equal(await at(duration).inputValue(),"5");await fill(field("entity-search"),lab.entities.offline);assert.equal(await at(choice).isChecked(),true);await noChange(saved);
+    for(const [category,label,scope] of [["cameras","Cameras",{domain:["camera"]}],["locks","Locks",{domain:["lock"]}],["alarm_panels","Alarm panels",{domain:["alarm_control_panel"]}],["safety_sensors","Safety sensors",{domain:["binary_sensor"],device_class:["smoke","carbon_monoxide","gas","moisture"]}]]){
+      await listing("policies");await click(`${action("add")}[data-definition-kind="policies"]`);await choose('[data-definition-template]',"entity");await choose('[data-definition-category]',category);await click(action("create"));
+      const focused=await currentId();assert.equal(await at(field("enabled")).isChecked(),false);assert.equal(await at(field("source-future")).inputValue(),"selected");assert.equal(await at(`${field("source-choice")}:checked`).count(),0);assert.equal(await at('.entity-selection-tree').count(),0);assert.ok((await bodyText()).includes(label));
+      await fill(field("name"),`Renamed ${category}`);await save();const created=policy(await snapshot(),focused);assert.deepEqual(created.match,{kind:["entity"],...Object.fromEntries(Object.entries(scope).map(([field,values])=>[field,[...values].sort()])),entity:[]});assert.equal(created.enabled,false);await expectPolicy(saved,focused,created);saved=await snapshot();
+      await edit("policies",focused);assert.equal(await at(field("source-future")).inputValue(),"selected");assert.equal(await at('.entity-selection-tree').count(),0);assert.ok((await bodyText()).includes(label));
+      await menu("policies",focused,"duplicate");const duplicate=await currentId();await save();const copied=policy(await snapshot(),duplicate);assert.deepEqual(copied.match,created.match);assert.equal(copied.enabled,false);await expectPolicy(saved,duplicate,copied);saved=await snapshot();
+    }
+    await clean();await edit("policies",saved.monitoring_policies.find(item=>item.name==="Renamed safety_sensors").id);assert.ok((await bodyText()).includes("Safety sensors"));assert.equal(await at('.entity-selection-tree').count(),0);await noChange(saved);
+    return "Rendered Add creates disabled empty policies; general entities retain their tree, keyboard membership, overlaps and five-minute wait. All four focused source categories use flat lists and preserve their metadata after zero-selection save, arbitrary renaming, disabled duplication and full reload. Complete unrelated settings and an independent notification draft remain intact.";
+  });
+
+  await test("policies.availability-wait",async()=>{
+    let saved=await setup(settings=>{delete policy(settings,"default_entities").parameters.duration_seconds;});await companion();
+    const id="default_entities",duration=field("parameters:duration_seconds"),unit=field("duration-unit:duration_seconds");await edit("policies",id);
+    assert.equal(await at(duration).inputValue(),"0");assert.equal(await at(action("save-scoped")).count(),0);await choose(unit,"hours");assert.equal(await at(action("save-scoped")).count(),0);await noChange(saved);
+    await fill(field("name"),"Existing availability renamed");saved=await savePolicy(saved,id,{...policy(saved,id),name:"Existing availability renamed"});assert.deepEqual(policy(saved,id).parameters,{});
+    await choose(unit,"minutes");await fill(duration,"1.5");await focus(duration);assert.match(await at('.policy-rule').innerText(),/90 seconds/);
+    saved=await savePolicy(saved,id,{...policy(saved,id),parameters:{duration_seconds:90}});await edit("policies",id);assert.equal(await at(duration).inputValue(),"1.5");
+    await listing("policies");assert.match(await at('.definition-list-item').filter({has:page.locator(`${action("edit")}[data-definition-id="${id}"]`)}).innerText(),/Unavailable for at least 90 seconds/);await edit("policies",id);
+    await choose(unit,"seconds");assert.equal(await at(duration).inputValue(),"90");assert.equal(await at(action("save-scoped")).count(),0);
+    for(const value of ["","-1","0.5","31536001"]){await invalid(saved,duration,value);assert.match(await bodyText(),/whole number of seconds/);}
+    await discard();assert.equal(await at(duration).inputValue(),"90");assert.equal(await at('[aria-invalid="true"]').count(),0);await noChange(saved);
+    await fill(duration,"120");transport.mode="reject";const requests=transport.saveRequests;await click(action("save-scoped"));await waitError();assert.equal(transport.saveRequests,requests+1);assert.equal(await at(duration).inputValue(),"120");await noChange(saved);
+    await discard();assert.equal(await at(duration).inputValue(),"90");await fill(duration,"120");transport.mode="reject";await click(action("save-scoped"));await waitError();await noChange(saved);
+    saved=await savePolicy(saved,id,{...policy(saved,id),parameters:{duration_seconds:120}});await fill(duration,"0");saved=await savePolicy(saved,id,{...policy(saved,id),parameters:{duration_seconds:0}});await checkCompanion();await noChange(saved);
+    await clean();await edit("policies",id);assert.equal(await at(duration).inputValue(),"0");assert.match(await at('.policy-rule').innerText(),/without waiting/);await noChange(saved);
+    for(const selector of [duration,unit])assert.equal(await at(selector).evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1;}),true,"Availability timing controls fit their policy editor");
+    return "Legacy absent duration remains effective zero and is not inserted on a rename. Minutes save exactly 90 seconds and reopen with a truthful list summary; units alone do not dirty settings. Blank, negative, fractional and excessive seconds never submit. Rejected saves retain the draft, discard restores it, explicit retry saves once and zero remains immediate after reload; complete unrelated settings and another editor's draft remain intact.";
+  });
+
   await test("policies.lifecycle",async()=>{
     const initial=await snapshot();await companion();
     const custom=await addPolicy("entity","Lifecycle custom");await check(field("enabled"),true);await save();
     let saved=await snapshot();const created=policy(saved,custom);
-    assert.equal(created.name,"Lifecycle custom");assert.equal(created.enabled,true);assert.equal(created.check,"availability");assert.deepEqual(created.match,{kind:["entity"]});
+    assert.equal(created.name,"Lifecycle custom");assert.equal(created.enabled,true);assert.equal(created.check,"availability");assert.deepEqual(created.match,{kind:["entity"],entity:[]});
     await expectPolicy(initial,custom,created);
     for(const id of [custom,"default_batteries"]){
       const original=policy(saved,id);await edit("policies",id);await fill(field("name"),`${original.name} edited`);await check(field("enabled"),!original.enabled);
@@ -64,6 +111,35 @@ export async function runPolicyGaps(ctx) {
     }
     await checkCompanion();await noChange(saved);
     return "Custom and supplied policies: exact add/edit/enable/disable/duplicate/discard/delete/cancel effects; full installation snapshots and independent notification draft checked.";
+  });
+
+  await test("policies.delete-visible",async()=>{
+    const id="lab_delete_visible",before=await setup(settings=>{
+      const example={id,name:"Delete visibility target",check:"availability",match:{kind:["entity"],entity:[]},parameters:{},enabled:false,notifications:[]};
+      settings.monitoring_policies.unshift(example);
+      for(let index=0;index<20;index++)settings.monitoring_policies.push({...structuredClone(example),id:`lab_delete_filler_${index}`,name:`Visibility filler ${index}`});
+    });
+    const editTarget=`${action("edit")}[data-definition-kind="policies"][data-definition-id="${id}"]`,prompt='.settings-preview[aria-label="Confirm deletion"]';
+    const inViewport=async selector=>{
+      const geometry=await at(selector).evaluate(element=>{
+        const root=element.getRootNode(),rect=element.getBoundingClientRect(),viewport=window.visualViewport;
+        const top=Math.max(viewport?.offsetTop||0,root.querySelector('.shell > .header')?.getBoundingClientRect().bottom||0),left=viewport?.offsetLeft||0,bottom=(viewport?.offsetTop||0)+(viewport?.height||innerHeight),right=left+(viewport?.width||innerWidth);
+        const hit=root.elementFromPoint(rect.left+rect.width/2,rect.top+rect.height/2);
+        return {top:rect.top,bottom:rect.bottom,left:rect.left,right:rect.right,viewport:{top,bottom,left,right},inside:rect.top>=top-1&&rect.bottom<=bottom+1&&rect.left>=left-1&&rect.right<=right+1,uncovered:hit===element||element.contains(hit)};
+      });
+      assert.equal(geometry.inside,true,`${selector} must already fit the visible viewport: ${JSON.stringify(geometry)}`);assert.equal(geometry.uncovered,true,`${selector} must not be obscured`);
+    };
+    const opened=async()=>{
+      await menu("policies",id,"delete");await at(prompt).waitFor({state:"visible"});
+      await at(prompt).evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+      // Geometry checks precede any confirmation-control interaction: locator.click would auto-scroll and hide the regression.
+      for(const selector of [`${prompt} h3`,`${prompt} ${action("confirm-delete")}`,`${prompt} ${action("cancel-delete")}`])await inViewport(selector);
+      await focus(`${prompt} ${action("cancel-delete")}`);await noChange(before);
+    };
+    await opened();await page.screenshot({path:`${ctx.artifactDir}/policy-delete-confirmation-${page.viewportSize().width}.png`,fullPage:false});
+    await page.keyboard.press("Enter");assert.equal(await at(prompt).count(),0);await noChange(before);await focus(editTarget);await inViewport(editTarget);
+    await opened();await deleteConfirm();await expectPolicy(before,id,null);
+    return `From an early row in a long policy list, the confirmation heading and both buttons are immediately visible and unobscured at ${page.viewportSize().width}×${page.viewportSize().height}, before any locator could auto-scroll them. Cancel has focus, Enter saves nothing and returns to the visible original Edit policy control. Reopened confirmation deletes only that disabled target; complete unrelated settings are preserved.`;
   });
 
   await test("policies.entity-selection",async()=>{
@@ -98,46 +174,50 @@ export async function runPolicyGaps(ctx) {
   });
 
   await test("policies.scope",async()=>{
-    const id="lab_temperature",before=await snapshot(),source=`registry:${lab.registry_ids.temperature}`;
+    const id="lab_temperature",before=await snapshot(),reference=`registry:${lab.registry_ids.temperature}`,source=`entity:${reference}`;
     await page.goto("about:blank");transport.commandModes.set("homeostatic/catalog","hold");const requested=observeRequest("homeostatic/catalog");await clean();await edit("policies",id);await requested();
-    assert.match(await bodyText(),/Loading available sources/);assert.match(await bodyText(),/Saved selection/);assert.match(await bodyText(),new RegExp(source));
-    await click(action("pick"));assert.doesNotMatch(await bodyText(),/No temperature sensors available|No temperature sensors match/);await noChange(before);
+    assert.match(await bodyText(),/Loading available sources/);assert.match(await bodyText(),new RegExp(source));
+    assert.doesNotMatch(await bodyText(),/No temperature sensors available|No temperature sensors match/);assert.equal(await at(`[data-definition-field="source-forget"][data-definition-value="${source}"]`).isDisabled(),true);await noChange(before);
     transport.release("reject");await at('[data-action="retry-catalog"]').waitFor();assert.match(await bodyText(),/Could not load available sources/);await noChange(before);
-    await click('[data-action="retry-catalog"]');await at(selection(source)).waitFor();assert.equal(await at(selection(source)).isChecked(),true);await click(action("finish-pick"));
-    let saved=before;
-    for(const [mode,selectorKey,value] of [["all",null,null],["selected","entity",source],["all_except","excluded_sources",`entity:${source}`]]){
-      await choose(field("watch"),mode);const expected={...policy(saved,id),match:{kind:["entity"]}};delete expected.excluded_sources;
-      if(selectorKey){await click(action("pick"));await fill('[data-definition-picker-search]',lab.entities.temperature);await at(selection(value)).check();await check('[data-definition-picker-selected]',true);assert.equal(await at(field("selection")).count(),1);await fill('[data-definition-picker-search]',"no-such-lab-source");assert.equal(await at(field("selection")).count(),0);assert.match(await bodyText(),/match your search/);await fill('[data-definition-picker-search]',"");assert.equal(await at(selection(value)).isChecked(),true);await click(action("finish-pick"));if(mode==="all_except")expected.excluded_sources=[value];else expected.match[selectorKey]=[value];}
-      saved=await savePolicy(saved,id,expected);await edit("policies",id);assert.equal(await at(`${field("watch")}:checked`).inputValue(),mode);
-    }
-    await choose(field("watch"),"selected");const requests=transport.saveRequests;await click(action("save-scoped"));assert.equal(transport.saveRequests,requests);assert.match(await bodyText(),/Choose at least one/);await noChange(saved);await discard();
-    return "Real catalog held, rejected and retried; saved identity retained; All, selected and canonical exclusions saved exactly; no-match and selected-only filters preserve selections; empty scope blocked.";
+    await click('[data-action="retry-catalog"]');await at(`${selection(source)}:not(:disabled)`).waitFor();assert.equal(await at(selection(source)).isChecked(),true);
+    await check(selection(source),false);let requests=transport.saveRequests;await click(action("save-scoped"));assert.equal(transport.saveRequests,requests);assert.match(await bodyText(),/Choose at least one/);await noChange(before);await discard();
+    const broadMatch={...policy(before,id).match};delete broadMatch.entity;
+    await choose(field("source-future"),"all");let saved=await savePolicy(before,id,{...policy(before,id),match:broadMatch});await edit("policies",id);
+    await fill(field("source-search"),lab.entities.temperature);await check(selection(source),false);assert.equal(await at(selection(source)).isChecked(),false,"Unchecked always means unmonitored");
+    saved=await savePolicy(saved,id,{...policy(saved,id),excluded_sources:[source]});await edit("policies",id);await fill(field("source-search"),"");
+    const monitored=await at(`${field("source-choice")}:checked`).evaluateAll(elements=>elements.map(element=>element.dataset.definitionValue.slice(7)).sort());assert.ok(monitored.length>1);assert.ok(!monitored.includes(reference));
+    await choose(field("source-future"),"selected");assert.equal(await at(`${field("source-choice")}:checked`).count(),monitored.length,"Turning off future inclusion keeps present coverage");
+    saved=await savePolicy(saved,id,{...policy(saved,id),match:{...broadMatch,entity:monitored}});await edit("policies",id);assert.equal(await at(field("source-future")).inputValue(),"selected");
+    await fill(field("source-search"),source);await check(selection(source),true);await check(field("source-selected-only"),true);assert.equal(await at(field("source-choice")).count(),1);await fill(field("source-search"),"no-such-lab-source");assert.equal(await at(field("source-choice")).count(),0);assert.match(await bodyText(),/match your selection or search/);await fill(field("source-search"),source);assert.equal(await at(selection(source)).isChecked(),true);
+    const expected={...policy(saved,id),match:{...broadMatch,entity:[...monitored,reference]}};delete expected.excluded_sources;saved=await savePolicy(saved,id,expected);await edit("policies",id);await noChange(saved);
+    return "Real catalog held, rejected and retried; saved identity remains visible and read-only until complete. Explicit and future scope save exactly; checked always means monitored, canonical exclusions persist, filters preserve selections and empty temperature scope is blocked.";
   });
 
   await test("policies.picker-context",async()=>{
-    await companion();const before=await snapshot(),id="lab_temperature";await edit("policies",id);await click(action("pick"));await waitCatalog();
-    await fill('[data-definition-picker-search]',"Lab identical temperature");assert.equal(await at(field("selection")).count(),2);
-    const duplicates=await at('.policy-picker-choice').allInnerTexts();for(const text of duplicates){assert.match(text,/Office/);assert.match(text,/Ground floor/);}assert.notEqual(duplicates[0],duplicates[1]);
-    const chosen=`registry:${lab.registry_ids.temperature_0}`;await check(selection(chosen),true);await check('[data-definition-picker-selected]',true);assert.equal(await at(field("selection")).count(),1);await fill('[data-definition-picker-search]',"unmatched source");assert.equal(await at(field("selection")).count(),0);await fill('[data-definition-picker-search]',"Office");assert.equal(await at(selection(chosen)).isChecked(),true);await click(action("finish-pick"));await focus(action("pick"));
+    await companion();const before=await snapshot(),id="lab_temperature";await edit("policies",id);await waitCatalog();
+    await fill(field("source-search"),"Lab identical temperature");assert.equal(await at(field("source-choice")).count(),2);
+    const duplicates=await at(field("source-choice")).evaluateAll(elements=>elements.map(element=>element.closest("label").textContent));for(const text of duplicates){assert.match(text,/Office/);assert.match(text,/Ground floor/);}assert.notEqual(duplicates[0],duplicates[1]);
+    const chosen=`registry:${lab.registry_ids.temperature_0}`;await check(selection(`entity:${chosen}`),true);await check(field("source-selected-only"),true);assert.equal(await at(field("source-choice")).count(),1);await fill(field("source-search"),"unmatched source");assert.equal(await at(field("source-choice")).count(),0);await fill(field("source-search"),"Office");assert.equal(await at(selection(`entity:${chosen}`)).isChecked(),true);
     let saved=await savePolicy(before,id,{...policy(before,id),match:{entity:[`registry:${lab.registry_ids.temperature}`,chosen]}});
     for(const [mode,collection,relevant,empty,expectedCount] of [["area",lab.areas,"Office","Future room",23],["label",lab.labels,"Lab temperature","Future equipment",45]]){
-      await edit("policies",id);await choose(field("watch"),mode);await click(action("pick"));await waitCatalog();
-      const relevantChoice=at('.policy-picker-choice').filter({has:page.locator(selection(collection[relevant]))});
-      assert.match(await relevantChoice.innerText(),new RegExp(`${expectedCount} temperature sensors`));assert.equal(await at(selection(collection[empty])).count(),0);
-      await check('[data-definition-picker-all]',true);assert.match(await at('.policy-picker-choice').filter({has:page.locator(selection(collection[empty]))}).innerText(),/No temperature sensors/);
-      await check(selection(collection[empty]),true);await check('[data-definition-picker-all]',false);assert.equal(await at(selection(collection[empty])).isChecked(),true);
-      await check(selection(collection[relevant]),true);await check('[data-definition-picker-selected]',true);assert.equal(await at(field("selection")).count(),2);
-      await fill('[data-definition-picker-search]',empty);assert.equal(await at(field("selection")).count(),1);await fill('[data-definition-picker-search]',"");await click(action("finish-pick"));
-      const expected={...policy(saved,id),match:{kind:["entity"],[mode]:[collection[empty],collection[relevant]]}};saved=await savePolicy(saved,id,expected);await edit("policies",id);assert.match(await at('.policy-selected-sources').innerText(),new RegExp(empty));
+      await edit("policies",id);await choose(field("source-future"),mode);await fill(field("source-search"),"");await check(field("source-selected-only"),false);
+      const relevantChoice=at(groupChoice(collection[relevant]));
+      assert.match(await relevantChoice.evaluate(element=>element.closest("label").textContent),new RegExp(`${expectedCount} eligible temperature sensors`));
+      assert.equal(await at(groupChoice(collection[empty])).count(),0);await check(field("source-show-all"),true);assert.match(await at(groupChoice(collection[empty])).evaluate(element=>element.closest("label").textContent),/0 eligible temperature sensors/);
+      await check(groupChoice(collection[empty]),true);await check(groupChoice(collection[relevant]),true);await check(field("source-show-all"),false);assert.equal(await at(groupChoice(collection[empty])).isChecked(),true,"Selected empty groups remain removable");
+      assert.equal(await at(field("source-choice")).count(),expectedCount,"The current list follows the selected future group scope");
+      const match={...policy(saved,id).match};delete match.entity;delete match.area;delete match.label;match[mode]=[collection[empty],collection[relevant]];
+      const expected={...policy(saved,id),match};saved=await savePolicy(saved,id,expected);await edit("policies",id);assert.equal(await at(groupChoice(collection[empty])).isChecked(),true);
     }
     await checkCompanion();await noChange(saved);
-    return "Duplicate sensor names retain distinct IDs and location/floor; exact eligible area/label counts, empty-group Show all, selected-only/search retention and full scoped saves verified.";
+    return "Inline duplicate names retain distinct identities and location/floor. Area and label groups expose empty future groups directly; each current source list matches its selected groups and group scope preserves future coverage and saved empty groups, with unrelated drafts retained.";
   });
 
   await test("policies.detection",async()=>{
     let saved=await snapshot();
     for(const type of ["integration","entity","battery","vacuum","repair","broken_automation","thermostat","temperature_limit","ups_power","ups_reserve","ups_battery_replacement","ups_fault"]){
       const id=await addPolicy(type,`Detection ${type}`);const expected={id,name:`Detection ${type}`,check:["integration","entity"].includes(type)?"availability":type,match:{kind:[["integration","entity"].includes(type)?type:type.startsWith("ups_")?"ups":["thermostat","temperature_limit"].includes(type)?"entity":type]},parameters:{},enabled:false};
+      if(type==="entity")expected.match.entity=[];
       if(type==="battery"){for(const bad of ["-1","101","25.5"])await invalid(saved,field("parameters:threshold"),bad);await fill(field("parameters:threshold"),"25");expected.parameters={threshold:25};}
       if(type==="thermostat"){
         for(const key of ["margin","progress","worsening","progress_seconds"])await invalid(saved,field(`parameters:${key}`),"-1").then(()=>fill(field(`parameters:${key}`),key==="progress_seconds"?"120":"9"));
@@ -186,16 +266,17 @@ export async function runPolicyGaps(ctx) {
   });
 
   await test("policies.temperature-picker",async()=>{
-    const before=await snapshot(),id="lab_temperature";await edit("policies",id);await click(action("pick"));await waitCatalog();await fill('[data-definition-picker-search]',"Lab temperature reading");
-    const choices=at(field("selection"));assert.ok(await choices.count()>=40);const target=choices.nth(35),value=await target.getAttribute("data-definition-value");await target.scrollIntoViewIfNeeded();
-    const scroll=await at('.policy-picker-options').evaluate(el=>({top:el.scrollTop,height:el.clientHeight,total:el.scrollHeight}));assert.ok(scroll.total>scroll.height);assert.ok(scroll.top>0);await target.check();
-    assert.equal(await at('[data-definition-picker-search]').inputValue(),"Lab temperature reading");await focus(selection(value));assert.ok(Math.abs((await at('.policy-picker-options').evaluate(el=>el.scrollTop))-scroll.top)<2,"Selection retains list position");
-    const context=await at('.policy-picker-choice').filter({has:page.locator(selection(value))}).innerText();assert.match(context,/Office|Upstairs/);
-    for(const selector of ['.policy-picker','[data-definition-picker-search]',action("finish-pick"),'.policy-picker-choice']){
+    const before=await snapshot(),id="lab_temperature";await edit("policies",id);await waitCatalog();await fill(field("source-search"),"Lab temperature reading");
+    const choices=at(field("source-choice"));assert.ok(await choices.count()>=40);const target=choices.nth(35),value=await target.getAttribute("data-definition-value");await target.scrollIntoViewIfNeeded();
+    const top=await target.evaluate(element=>element.getBoundingClientRect().top);await target.check();
+    assert.equal(await at(field("source-search")).inputValue(),"Lab temperature reading");await focus(selection(value));assert.ok(Math.abs(await at(selection(value)).evaluate(element=>element.getBoundingClientRect().top)-top)<2,"Selection retains reading position");
+    const context=await at(selection(value)).evaluate(element=>element.closest("label").textContent);assert.match(context,/Office|Upstairs/);
+    assert.equal(await at('[data-definition-action="pick"],[data-definition-action="finish-pick"],.policy-picker-options').count(),0,"Inline selection adds no picker, Done or nested scroll area");
+    for(const selector of [field("source-search"),field("source-future"),field("source-choice")]){
       const boxes=await at(selector).evaluateAll(els=>els.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,overflow:el.scrollWidth>el.clientWidth+1};}));for(const box of boxes){assert.ok(box.left>=-1&&box.right<=page.viewportSize().width+1,`${selector} fits viewport`);assert.ok(!box.overflow,`${selector} needs no horizontal scroll`);}
     }
-    await click(action("finish-pick"));await focus(action("pick"));await savePolicy(before,id,{...policy(before,id),match:{entity:[...policy(before,id).match.entity,value]}});
-    return `Real scrollable temperature list retains checkbox focus, search and position; area context and all picker controls fit ${page.viewportSize().width}×${page.viewportSize().height}. Theme/layout matrix is recorded by the runner.`;
+    await savePolicy(before,id,{...policy(before,id),match:{entity:[...policy(before,id).match.entity,value.slice(7)]}});await edit("policies",id);await fill(field("source-search"),"Lab temperature reading");assert.equal(await at(selection(value)).isChecked(),true);
+    return `Real inline temperature selection retains checkbox focus, search and reading position, saves and reopens exactly, and fits ${page.viewportSize().width}×${page.viewportSize().height} without nested scrolling. Theme/layout matrix is recorded by the runner.`;
   });
 
   await test("policies.restore",async()=>{

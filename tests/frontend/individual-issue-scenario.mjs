@@ -100,7 +100,7 @@ let openedEntity=null;card.addEventListener("hass-more-info",event=>{openedEntit
 async function run() {
   const button=document.querySelector("#run"),result=document.querySelector("#result"),evidence=[];
   button.disabled=true;
-  const receipt={...emptyReceipt({fixture:"individual-issue.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",build:"working tree",transport:"synthetic inventory and mocked services",physical_safari:"untested"}),status:"running",evidence};
+  const receipt={...emptyReceipt({fixture:"individual-issue.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",build:"working tree",transport:"synthetic inventory and mocked services"}),status:"running",evidence};
   try {
     await close();fixture=individualIssueFixture();card.configuration=copy(fixture.base.configuration);card.settingsDraft=copy(fixture.base.configuration.settings);calls.length=0;publish();await settle();await open();
     const settings=JSON.stringify(card.configuration.settings);

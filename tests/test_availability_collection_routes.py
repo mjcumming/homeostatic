@@ -32,8 +32,7 @@ def availability_config(config: dict[str, Any]) -> None:
     config["monitoring_policies"] = [
         row
         for row in policy_templates()
-        if row["id"]
-        in {"default_integrations", "default_entities", "default_important_equipment"}
+        if row["id"] in {"default_integrations", "default_entities", "default_locks"}
     ]
     # General equipment remains watched without adding a second Morning route.
     config["monitoring_policies"][1]["notifications"] = []

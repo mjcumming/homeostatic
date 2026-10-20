@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-19
 
+**Later decision:** [ADR 0107](0107-add-new-supplied-policies-disabled-on-upgrade.md) permits a separate, validated addition of genuinely new supplied policies once, disabled, on existing installations. It preserves this collection-format conversion and its prohibition on recreating historical policies, notifications or delivery methods.
+
 **Supersedes in part:** The release-reset exception in [ADR 0102](0102-collect-requests-by-saved-notification.md). Its collection behavior and fresh-install defaults remain unchanged.
 
 ## Context

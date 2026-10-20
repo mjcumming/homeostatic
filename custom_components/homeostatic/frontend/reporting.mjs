@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=104";
+import {escapeHtml as esc} from "./model.mjs?v=107";
 
 const labels = {immediate:"Immediately",acknowledge:"Until acknowledged",morning:"Morning",evening:"Evening",weekly:"Weekly",dashboard:"Dashboard only"};
 const label = id => Object.hasOwn(labels,id) ? labels[id] : "Configured notification";

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {emptyNotificationDefinitions,newMonitoringPolicy,namedPolicies,namedNotifications,editReusable,definitionUses,applicablePolicyLinks,testDeliveryMethod,watchChoices,watchMode,policySelectionChoices} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
+import {emptyNotificationDefinitions,newMonitoringPolicy,namedPolicies,namedNotifications,editReusable,definitionUses,applicablePolicyLinks,testDeliveryMethod} from "../../custom_components/homeostatic/frontend/reusable-editors.mjs";
+import {futureMode,flatSourceRows,sourceCategory} from "../../custom_components/homeostatic/frontend/source-selection.mjs";
 import {installationSettings} from "../../custom_components/homeostatic/frontend/installation-settings.mjs";
 import {saveScopedConfiguration,scopedDirty,discardScopedConfiguration} from "../../custom_components/homeostatic/frontend/scoped-configuration.mjs";
 import {monitoringExample} from "./monitoring-fixture.mjs";
@@ -183,7 +184,7 @@ test("copying a named policy is independent, inactive and preserves explicit not
 test("adding selects a permanent monitoring type without inheriting notifications",()=>{
   const {card}=fixture();card.definitionTemplate="thermostat";click(card,"add","policies");
   assert.equal(card.settingsDraft.monitoring_policies.length,1);
-  assert.match(namedPolicies(card),/Choose the monitoring type/);
+  assert.match(namedPolicies(card),/Choose what to watch/);
   click(card,"create","policies");
   const policy=card.settingsDraft.monitoring_policies[1];
   assert.deepEqual(policy.notifications,[]);assert.equal(policy.enabled,false);
@@ -194,10 +195,27 @@ test("adding selects a permanent monitoring type without inheriting notification
 });
 
 
-test("editing an exact source remains owned by the named policy",()=>{
-  const {card}=fixture();
-  change(card,"policies","policy-1","match:entity","climate.hall, climate.garage");
-  assert.deepEqual(card.settingsDraft.monitoring_policies[0].match.entity,["climate.hall","climate.garage"]);
+test("editing a flat source remains owned by the named policy until Save",()=>{
+  const {card}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
+  const source={node_id:"entity:registry:hall",name:"Hall thermostat",kind:"entity",attributes:{kind:["entity"],domain:["climate"],entity:["registry:hall"]}};
+  card.current.data.inventory.catalog.candidates.push(source);policy.match={kind:["entity"],entity:[]};
+  const saved=structuredClone(card.configuration.settings.monitoring_policies);
+  change(card,"policies",policy.id,"source-choice",true,{definitionValue:source.node_id});
+  assert.deepEqual(policy.match.entity,["registry:hall"]);
+  assert.deepEqual(card.configuration.settings.monitoring_policies,saved);
+});
+
+test("Add policy offers categories only for unavailable entities and preserves the chosen scope through duplication",()=>{
+  const {card}=fixture();card.definitionTemplate="entity";click(card,"add","policies");
+  assert.match(namedPolicies(card),/data-definition-category/);assert.match(namedPolicies(card),/>Unavailable entities</);
+  editReusable(card,{type:"change",target:{dataset:{definitionCategory:""},value:"safety_sensors"}});
+  click(card,"create","policies");const original=card.settingsDraft.monitoring_policies.at(-1);
+  assert.equal(sourceCategory(original),"safety_sensors");assert.deepEqual(original.match.entity,[]);
+  change(card,"policies",original.id,"name","House sensors");change(card,"policies",original.id,"parameters:duration_seconds",120);
+  click(card,"duplicate","policies",original.id);const copy=card.settingsDraft.monitoring_policies.at(-1);
+  assert.notEqual(copy.id,original.id);assert.equal(copy.enabled,false);assert.equal(sourceCategory(copy),"safety_sensors");
+  assert.deepEqual(copy.match,original.match);assert.deepEqual(copy.parameters,original.parameters);
+  card.policyCreating=true;card.definitionTemplate="battery";assert.doesNotMatch(namedPolicies(card),/data-definition-category/);
 });
 
 test("thermostat unit edits convert differences without applying a temperature offset",()=>{
@@ -314,79 +332,43 @@ test("untrusted names and unavailable selected destinations render as text witho
 
 
 
-test("watch choices match monitoring capabilities",()=>{
-  assert.deepEqual(Object.keys(watchChoices(newMonitoringPolicy([],"integration"))),["all","all_except","selected"]);
-  assert.deepEqual(Object.keys(watchChoices(newMonitoringPolicy([],"repair"))),["all"]);
-  assert.deepEqual(Object.keys(watchChoices(newMonitoringPolicy([],"battery"))),["all","all_except","selected","area","label"]);
-});
-
-for(const type of ["integration","device","entity","battery","vacuum","thermostat","temperature_limit","ups_power","ups_reserve","ups_battery_replacement","ups_fault"])test(`${type} all-except scope never converts included sources into exclusions`,()=>{
+for(const type of ["integration","battery","vacuum","thermostat","temperature_limit","ups_power","ups_reserve","ups_battery_replacement","ups_fault"])test(`${type} edits future coverage in place without inclusion radios or a picker`,()=>{
   const {card}=fixture(),policy=newMonitoringPolicy([],type);
-  card.settingsDraft.monitoring_policies=[policy];
-  change(card,"policies",policy.id,"watch","selected");
-  change(card,"policies",policy.id,"selection",true,{definitionValue:"previous-choice"});
-  change(card,"policies",policy.id,"watch","all_except");
-  assert.equal(watchMode(policy),"all_except");
-  assert.deepEqual(Object.keys(policy.match),["kind"]);
-  assert.deepEqual(policy.excluded_sources,[]);
-  change(card,"policies",policy.id,"selection",true,{definitionValue:"excluded-source"});
-  assert.deepEqual(policy.excluded_sources,["excluded-source"]);
-  assert.deepEqual(Object.keys(policy.match),["kind"]);
-  change(card,"policies",policy.id,"watch","selected");
-  assert.equal(watchMode(policy),"selected");
-  assert.equal(Object.hasOwn(policy,"excluded_sources"),false);
-  assert.ok(Object.values(policy.match).some(values=>values.length===0));
+  card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
+  change(card,"policies",policy.id,"source-future","selected");
+  assert.equal(futureMode(policy),"selected");
+  policy.excluded_sources=["entity:registry:missing"];
+  change(card,"policies",policy.id,"source-future","all");
+  assert.equal(futureMode(policy),"all");assert.deepEqual(policy.excluded_sources,["entity:registry:missing"]);
+  const html=namedPolicies(card);
+  assert.match(html,/data-definition-field="source-future"/);
+  assert.doesNotMatch(html,/data-watch-mode|data-definition-action="pick"|policy-picker|type="radio"/);
 });
 
-test("integration exclusions identify individual connections while selected scope still uses families",()=>{
-  const {card}=fixture(),policy=newMonitoringPolicy([],"integration");
-  const rows=card.current.data.inventory.nodes;
-  rows.push({node_id:"entry:mobile-one",kind:"integration",name:"First phone",attributes:{integration_domain:["mobile_app"]}});
-  rows.push({node_id:"entry:mobile-two",kind:"integration",name:"Second phone",attributes:{integration_domain:["mobile_app"]}});
-  assert.equal(policySelectionChoices(card,policy,"selected").filter(item=>item.id==="mobile_app").length,1);
-  assert.deepEqual(policySelectionChoices(card,policy,"all_except").filter(item=>item.id.startsWith("entry:mobile-")).map(item=>item.id),["entry:mobile-one","entry:mobile-two"]);
-});
-
-test("clearing the final exclusion retains broad matching and permits saving",async()=>{
-  const {card,calls}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
-  change(card,"policies",policy.id,"watch","all_except");
-  change(card,"policies",policy.id,"selection",true,{definitionValue:"entity:registry:missing"});
-  change(card,"policies",policy.id,"selection",false,{definitionValue:"entity:registry:missing"});
-  assert.deepEqual(policy.excluded_sources,[]);
-  assert.deepEqual(policy.match,{kind:["entity"]});
+test("removing a saved missing exclusion keeps broad matching and permits saving",async()=>{
+  const {card,calls}=fixture(),policy=newMonitoringPolicy([],"battery");
+  policy.excluded_sources=["battery:registry:missing"];
+  card.settingsDraft.monitoring_policies=[policy];card.configuration.settings.monitoring_policies=structuredClone([policy]);
+  card.definitionSelection={kind:"policies",id:policy.id};
+  click(card,"source-forget","policies",policy.id,{definitionField:"source-forget",definitionValue:"battery:registry:missing"});
+  assert.equal(policy.excluded_sources,undefined);assert.deepEqual(policy.match,{kind:["battery"]});
   assert.equal(await saveScopedConfiguration(card,{kind:"policy",id:policy.id}),true);
   assert.equal(calls.some(call=>call.type==="homeostatic/save_settings"),true);
 });
 
-test("saved combined area scope keeps exclusions and does not imply all sources are included",()=>{
-  const {card}=fixture(),policy=newMonitoringPolicy([],"battery");
-  card.settingsDraft.monitoring_policies=[policy];
-  policy.match={kind:["entity"],area:["kitchen"]};policy.excluded_sources=["entity:registry:standalone"];
-  card.configuration.areas=[{id:"kitchen",name:"Kitchen"}];
-  card.definitionSelection={kind:"policies",id:policy.id};
-  const before=structuredClone(policy),html=namedPolicies(card);
-  assert.equal(watchMode(policy),"area");
-  assert.match(html,/data-watch-mode="area" value="area" checked/);
-  assert.match(html,/This scope also excludes: Standalone switch/);
-  assert.deepEqual(policy,before);
-  change(card,"policies",policy.id,"name","Kitchen thermostat");
-  assert.deepEqual(policy.excluded_sources,before.excluded_sources);
-});
-
-test("area picker groups names by floor and preserves multiple selections through search",()=>{
-  const {card}=fixture();card.configuration.areas=[{id:"a",name:"Kitchen",floor_id:"main"},{id:"b",name:"Bedroom",floor_id:"upper"}];card.configuration.floors=[{id:"main",name:"Main floor"},{id:"upper",name:"Upstairs"}];
-  card.definitionSelection={kind:"policies",id:"policy-1"};
-  change(card,"policies","policy-1","watch","area");
-  change(card,"policies","policy-1","selection",true,{definitionValue:"a"});change(card,"policies","policy-1","selection",true,{definitionValue:"b"});
-  const policy=card.settingsDraft.monitoring_policies[0];
-  assert.deepEqual(policy.match,{kind:["entity"],area:["a","b"]});
-  click(card,"pick","policies",policy.id);
-  assert.match(namedPolicies(card),/Main floor/);assert.match(namedPolicies(card),/Upstairs/);
-  editReusable(card,{type:"input",target:{dataset:{definitionPickerSearch:""},value:"Kitchen"}});
-  assert.deepEqual(policy.match.area,["a","b"]);assert.equal(card.policyPicker.query,"Kitchen");
-  assert.match(namedPolicies(card),/2 selected/);assert.doesNotMatch(namedPolicies(card),/<legend>Upstairs/);
-  click(card,"finish-pick","policies",policy.id);assert.match(namedPolicies(card),/Kitchen<\/span><span class="small">Main floor[\s\S]*Bedroom<\/span><span class="small">Upstairs/);
-  change(card,"policies",policy.id,"watch","label");assert.deepEqual(policy.match,{kind:["entity"],label:[]});assert.equal(watchMode(policy),"label");
+test("focused camera editing keeps category scope and waits while area and label selection remain in the editor",()=>{
+  const {card}=fixture(),policy=newMonitoringPolicy([],"entity",null,"cameras");
+  policy.parameters={duration_seconds:300};policy.excluded_sources=["entity:registry:missing"];
+  card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
+  card.configuration.areas=[{id:"a",name:"Kitchen"},{id:"b",name:"Bedroom"}];card.configuration.labels=[{id:"safety",name:"Safety"}];
+  change(card,"policies",policy.id,"source-future","area");
+  change(card,"policies",policy.id,"source-group",true,{definitionValue:"a"});change(card,"policies",policy.id,"source-group",true,{definitionValue:"b"});
+  assert.deepEqual(policy.match,{kind:["entity"],domain:["camera"],area:["a","b"]});assert.equal(sourceCategory(policy),"cameras");
+  const before=structuredClone(policy);change(card,"policies",policy.id,"source-search","Kitchen");
+  assert.deepEqual(policy,before);assert.equal(card.sourceSelection.query,"Kitchen");
+  change(card,"policies",policy.id,"source-future","label");change(card,"policies",policy.id,"source-group",true,{definitionValue:"safety"});
+  assert.deepEqual(policy.match,{kind:["entity"],domain:["camera"],label:["safety"]});
+  assert.deepEqual(policy.parameters,{duration_seconds:300});assert.deepEqual(policy.excluded_sources,["entity:registry:missing"]);
 });
 
 test("selective restoration preserves edits and deleted defaults remain absent until chosen",()=>{
@@ -427,21 +409,19 @@ test("unified problem detail renders policy actions and base source links withou
 
 });
 
-test("integration picker lists families once and stores domain selection",()=>{
+test("integration flat selection identifies individual connections without changing saved family coverage",()=>{
   const {card}=fixture();
   card.current.data.inventory.catalog.candidates.push(
     {node_id:"entry:phone1",kind:"integration",name:"One phone",attributes:{kind:["integration"],integration:["phone1"],integration_domain:["mobile_app"]}},
     {node_id:"entry:phone2",kind:"integration",name:"Other phone",attributes:{kind:["integration"],integration:["phone2"],integration_domain:["mobile_app"]}}
   );
   const policy=newMonitoringPolicy([],"integration");card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
-  const choices=policySelectionChoices(card,policy,"selected");
-  assert.equal(choices.filter(item=>item.id==="mobile_app").length,1);
-  assert.equal(choices.find(item=>item.id==="mobile_app").name,"Mobile App");
-  change(card,"policies",policy.id,"watch","selected");click(card,"pick","policies",policy.id);
-  assert.match(namedPolicies(card),/Choose integrations/);assert.match(namedPolicies(card),/<legend class="sr-only">Integrations/);
-  assert.doesNotMatch(namedPolicies(card),/One phone|Other phone|Choose sources/);
-  change(card,"policies",policy.id,"selection",true,{definitionValue:"mobile_app"});
-  assert.deepEqual(policy.match,{kind:["integration"],integration_domain:["mobile_app"]});
+  policy.match={kind:["integration"],integration_domain:["mobile_app"]};
+  const before=structuredClone(policy),choices=flatSourceRows(card,policy);
+  assert.deepEqual(choices.map(item=>item.id).sort(),["entry:phone1","entry:phone2"]);
+  assert.match(namedPolicies(card),/One phone|Other phone/);assert.deepEqual(policy,before);
+  change(card,"policies",policy.id,"source-choice",false,{definitionValue:"entry:phone1"});
+  assert.deepEqual(policy.match,before.match);assert.deepEqual(policy.excluded_sources,["entry:phone1"]);
 });
 
 for(const [type,text] of [["repair","Watches all Home Assistant Repairs"],["broken_automation","Checks all automations for references"]])test(`${type} has scope text without a one-choice selector`,()=>{
@@ -520,16 +500,16 @@ test("new policy discard abandons it without saving an empty policy",()=>{
   assert.equal(calls.length,0);
 });
 
-test("save control rejects empty exact selections before making a request",()=>{
+test("save control rejects an empty area scope before making a request",()=>{
   const {card,calls}=fixture();click(card,"edit","policies","policy-1");
-  change(card,"policies","policy-1","watch","area");click(card,"save-scoped","policies","policy-1");
+  change(card,"policies","policy-1","source-future","area");click(card,"save-scoped","policies","policy-1");
   assert.equal(calls.length,0);assert.match(card.scopedError,/Choose at least one/);
   assert.match(namedPolicies(card),/role="alert"/);
 });
 
 
 
-function batteryPicker({loaded=true,stale=false,error=null}={}) {
+function batterySelection({loaded=true,stale=false,error=null}={}) {
   const {card,calls}=fixture(),policy={...newMonitoringPolicy([],"battery"),excluded_sources:["battery:registry:phone"]};
   const battery={node_id:"battery:registry:phone",name:"Owner phone",kind:"battery",
     entity_id:"sensor.owner_phone_battery",attributes:{kind:["battery"],entity:["registry:phone"]}};
@@ -538,16 +518,16 @@ function batteryPicker({loaded=true,stale=false,error=null}={}) {
   card.definitionSelection={kind:"policies",id:policy.id};
   card.current={status:"current",catalogError:error,data:{...card.current.data,schema_version:3,catalog_loaded:loaded,catalog_stale:stale,
     inventory:{...card.current.data.inventory,nodes:[],catalog:{candidates:loaded?[battery]:[]}}}};
-  click(card,"pick","policies",policy.id);
   return {card,policy,calls,battery};
 }
 
 test("battery scope waits for complete choices and keeps exclusions when loading fails",()=>{
-  const {card,policy}=batteryPicker({loaded:false}),before=structuredClone(card.settingsDraft);
+  const {card,policy}=batterySelection({loaded:false}),before=structuredClone(card.settingsDraft);
   const loading=namedPolicies(card);
   assert.match(loading,/Loading available sources/);
-  assert.match(loading,/1 excluded/);
-  assert.doesNotMatch(loading,/No matching choices|Unavailable excluded source|data-definition-value=/);
+  assert.match(loading,/battery:registry:phone/);
+  assert.match(loading,/data-definition-field="source-future" disabled/);
+  assert.doesNotMatch(loading,/No batteries match/);
   card.current.catalogError="Could not read <catalog>";
   const failed=namedPolicies(card);
   assert.match(failed,/Could not load available sources: Could not read &lt;catalog&gt;/);
@@ -557,44 +537,46 @@ test("battery scope waits for complete choices and keeps exclusions when loading
   assert.deepEqual(policy.excluded_sources,["battery:registry:phone"]);
 });
 
-test("battery picker searches entity IDs as well as names without changing exclusions",()=>{
-  const {card,policy,calls}=batteryPicker(),before=structuredClone(policy);
-  editReusable(card,{type:"input",target:{dataset:{definitionPickerSearch:""},value:" Batt "}});
+test("battery flat selection searches entity IDs as well as names without changing exclusions",()=>{
+  const {card,policy,calls}=batterySelection(),before=structuredClone(policy);
+  change(card,"policies",policy.id,"source-search"," Batt ");
   const html=namedPolicies(card);
   assert.match(html,/Owner phone/);
-  assert.match(html,/data-definition-value="battery:registry:phone" checked/);
+  assert.match(html,/data-definition-value="battery:registry:phone"/);
+  assert.doesNotMatch(html,/data-definition-value="battery:registry:phone" checked/);
   assert.doesNotMatch(html,/No matching choices/);
-  editReusable(card,{type:"input",target:{dataset:{definitionPickerSearch:""},value:"No such reading"}});
-  assert.match(namedPolicies(card),/No batteries match your search/);
+  change(card,"policies",policy.id,"source-search","No such reading");
+  assert.match(namedPolicies(card),/No batteries match your selection or search/);
   assert.deepEqual(policy,before);assert.deepEqual(calls,[]);
 });
 
-test("catalog arrival fills an open picker and preserves its current search and selections",()=>{
-  const {card,policy,battery}=batteryPicker({loaded:false});
-  card.policyPicker.query="Batt";card.policyPicker.selectedOnly=true;
+test("catalog arrival fills the flat list and preserves search and saved exclusions",()=>{
+  const {card,policy,battery}=batterySelection({loaded:false});
+  card.sourceSelection={id:policy.id,query:"Batt",selectedOnly:false};
   const before=structuredClone(policy);
   card.current={...card.current,catalogError:null,data:{...card.current.data,catalog_loaded:true,
     inventory:{...card.current.data.inventory,nodes:[],catalog:{candidates:[battery]}}}};
   const html=namedPolicies(card);
-  assert.match(html,/data-definition-value="battery:registry:phone" checked/);
+  assert.match(html,/data-definition-value="battery:registry:phone"/);
+  assert.doesNotMatch(html,/data-definition-value="battery:registry:phone" checked/);
   assert.doesNotMatch(html,/Loading available sources|No matching choices/);
-  assert.deepEqual(card.policyPicker,{id:policy.id,query:"Batt",selectedOnly:true,showAll:false});
+  assert.deepEqual(card.sourceSelection,{id:policy.id,query:"Batt",selectedOnly:false});
   assert.deepEqual(policy,before);
 });
 
-test("stale policy choices remain usable while refresh errors are explicit",()=>{
-  const {card,policy}=batteryPicker({stale:true}),before=structuredClone(policy);
+test("stale policy choices remain visible and disabled while refresh errors are explicit",()=>{
+  const {card,policy}=batterySelection({stale:true}),before=structuredClone(policy);
   assert.match(namedPolicies(card),/Updating available sources/);
   card.current.catalogError="Update failed";
   const html=namedPolicies(card);
   assert.match(html,/Could not update available sources: Update failed/);
   assert.match(html,/data-action="retry-catalog"/);
-  assert.match(html,/data-definition-value="battery:registry:phone" checked/);
+  assert.match(html,/data-definition-value="battery:registry:phone" disabled/);
   assert.deepEqual(policy,before);
 });
 
 test("direct Policies entry requests its catalog and retries through the existing store",async()=>{
-  const prototype=await cardPrototype(),{card}=batteryPicker({loaded:false}),requests=[];
+  const prototype=await cardPrototype(),{card}=batterySelection({loaded:false}),requests=[];
   const shadowNode={};
   Object.assign(card,{config:{view:"policies"},navigation:{updateReturn(){}},viewIdentity:()=>"policies",
     capturePageState:()=>null,renderNotificationControl(){},observeSourceBranches(){},
@@ -626,7 +608,7 @@ test("policy and method editors keep controls without repeated setup instruction
   assert.doesNotMatch(method,/Timing and reminders are set|Choose the destinations this method sends to/);
 });
 
-for(const type of ["device","integration","entity","vacuum","ups_power","ups_reserve","ups_battery_replacement","ups_fault"])test(`${type} omits an empty detection section`,()=>{
+for(const type of ["device","integration","vacuum","ups_power","ups_reserve","ups_battery_replacement","ups_fault"])test(`${type} omits an empty detection section`,()=>{
   const {card}=fixture(),policy=newMonitoringPolicy([],type);
   card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
   const before=structuredClone(policy),html=namedPolicies(card);
@@ -641,12 +623,12 @@ test("compact policy scopes retain missing selections and all numeric detection 
   card.configuration.areas=[{id:"hall",name:"Hall"},{id:"kitchen",name:"Kitchen"}];
   card.configuration.settings.monitoring_policies=structuredClone(card.settingsDraft.monitoring_policies);
   const before=structuredClone(policy),list=namedPolicies(card);
-  assert.match(list,/Areas: Hall, Kitchen \+1 more · 1 unavailable/);
+  assert.match(list,/New sources in the selected areas are included automatically/);
   assert.match(list,/2°F deviation · 60 minute progress window/);
   assert.match(list,/Custom notification · Immediately → Owner phone/);
-  click(card,"edit","policies",policy.id);click(card,"pick","policies",policy.id);
+  click(card,"edit","policies",policy.id);
   const editor=namedPolicies(card);
-  assert.match(editor,/data-definition-value="missing" checked>[\s\S]*?Unavailable selection/);
+  assert.match(editor,/data-definition-value="missing" checked>[\s\S]*?Unavailable area/);
   for(const field of ["margin","progress","worsening","progress_seconds"])assert.ok(editor.includes(`data-definition-field="parameters:${field}"`));
   assert.deepEqual(policy,before);
 });

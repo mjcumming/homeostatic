@@ -10,7 +10,7 @@ For the phone steps, have the Home Assistant Companion app connected to this ser
 
 Open **Homeostatic** in the sidebar. **Open issues** shows the current reported problems. Keep the **Notifications** switch off while reviewing the setup.
 
-Open **Policies**. A fresh installation enables all eight supplied policies: **Integrations**, **General entity availability**, **Important equipment availability**, **Entities not provided**, **Repairs**, **Broken automations**, **Batteries** and **Vacuums**. The supplied policies already select named notifications, but those notifications have no delivery methods yet. Temperature, thermostat and UPS policies need their sources and settings configured before enabling.
+Open **Policies**. A fresh installation enables the supplied **Integrations**, **General entity availability**, **Cameras**, **Locks**, **Alarm panels**, **Safety sensors**, **Missing entities**, **Repairs**, **Broken automations**, **Batteries** and **Vacuums** policies. The supplied policies already select named notifications, but those notifications have no delivery methods yet. Temperature, thermostat and UPS policies need their sources and settings configured before enabling.
 
 If Homeostatic has been configured before, the saved choices may differ. The [monitoring reference](monitoring-reference.md) lists fresh-install defaults; updates preserve your choices.
 
@@ -47,7 +47,7 @@ Read the result, then check the phone. A successful request means Home Assistant
 3. Under **Send using**, select **Household phone**.
 4. Inspect the listed policy uses, then select **Save notification**.
 
-This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes General entity availability, Integrations, Entities not provided, Repairs, Broken automations and Batteries. Important equipment availability uses Immediate, and Vacuums uses Evening summary. To receive those reports too, repeat these steps for **Immediate** or **Evening summary** and select **Household phone**. Creating a delivery method does not select it for any notification. Disabled policies remain disabled.
+This is a shared notification: the change applies to all saved policies that use it. On a fresh installation, that includes General entity availability, Integrations, Missing entities, Repairs, Broken automations and Batteries. Cameras, Locks, Alarm panels and Safety sensors use Immediate, and Vacuums uses Evening summary. To receive those reports too, repeat these steps for **Immediate** or **Evening summary** and select **Household phone**. Creating a delivery method does not select it for any notification. Disabled policies remain disabled.
 
 Open the policy you reviewed earlier and inspect its **Notifications** assignment. It should select **Morning summary**. If you change the assignment, select **Save policy**. Saving a notification does not save a pending policy edit.
 

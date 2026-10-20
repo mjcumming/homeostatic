@@ -5,7 +5,7 @@ import {notProvidedProblem,notProvidedVisible} from "../../custom_components/hom
 test("The not-provided brief describes the registration and offers inspection",()=>{
   const source={kind:"entity_not_provided"},status={current:{status:"warn",reason:"entity_not_provided",message:"Robot integration is loaded but is not providing Dust emptying."}};
   const problem=notProvidedProblem(source,status);
-  assert.equal(problem.headline,"Entity not provided");
+  assert.equal(problem.headline,"Entity missing");
   assert.equal(problem.summary,status.current.message);
   assert.match(problem.nextStep,/Inspect the entity/);
   assert.doesNotMatch(JSON.stringify(problem),/obsolete|delete|cleanup/i);

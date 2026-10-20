@@ -1,4 +1,4 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=104";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=107";
 
 
 const date = (value) => value ? new Date(value).toLocaleString(undefined, {year:"numeric", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : "Unknown";

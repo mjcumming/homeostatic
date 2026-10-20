@@ -13,6 +13,7 @@ from custom_components.homeostatic.dashboard import (
     _settings_candidate,
 )
 from custom_components.homeostatic.policy_defaults import (
+    SUPPLIED_POLICY_INTRODUCTIONS,
     initial_settings,
     policy_templates,
 )
@@ -27,15 +28,33 @@ def test_defaults_are_independent_and_dashboard_only(hass: HomeAssistant) -> Non
     assert not settings.notifications
     assert settings.notification_definitions["methods"] == {}
     assert settings.notification_definitions["timezone"] == "America/Chicago"
+    assert settings.supplied_policy_introductions == SUPPLIED_POLICY_INTRODUCTIONS
+    assert {"default_devices", "default_important_equipment"} <= set(
+        settings.supplied_policy_introductions
+    )
     assert {policy.id: policy.enabled for policy in settings.monitoring_policies} == {
         "default_integrations": True,
         "default_entities": True,
-        "default_important_equipment": True,
+        "default_cameras": True,
+        "default_locks": True,
+        "default_alarm_panels": True,
+        "default_safety_sensors": True,
         "default_repairs": True,
         "default_broken_automations": True,
         "default_batteries": True,
         "default_vacuums": True,
         "default_entities_not_provided": True,
+    }
+    assert {
+        policy.id: policy.parameters["duration_seconds"]
+        for policy in settings.monitoring_policies
+        if policy.check == "availability" and policy.match.get("kind") == ("entity",)
+    } == {
+        "default_entities": 0,
+        "default_cameras": 300,
+        "default_locks": 0,
+        "default_alarm_panels": 0,
+        "default_safety_sensors": 0,
     }
     data["monitoring_policies"][0]["name"] = "Changed"
     assert policy_templates()[0]["name"] == "Integrations"
@@ -176,7 +195,7 @@ async def test_fresh_setup_preview_and_delete(
     assert details["source"]["monitoring_source"] == cloned.monitoring_source
     await client.send_json({"id": 3, "type": "homeostatic/configuration"})
     configuration = (await client.receive_json())["result"]
-    assert len(configuration["monitoring_policy_templates"]) == 8
+    assert len(configuration["monitoring_policy_templates"]) == 11
     draft = configuration["settings"]
     draft["monitoring_policies"] = []
     await client.send_json(
