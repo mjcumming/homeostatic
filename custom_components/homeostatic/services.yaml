@@ -1,6 +1,28 @@
 inventory:
   name: Inventory
   description: List monitored node identities, current episodes, and evidence limitations.
+notification_report:
+  name: Notification report
+  description: Read one page of the exact issue IDs included in a retained notification link.
+  fields:
+    reference:
+      required: true
+      description: The reference from a notification's details URL.
+      selector:
+        text:
+    offset:
+      description: Number of included issue IDs to skip.
+      selector:
+        number:
+          min: 0
+          mode: box
+    limit:
+      description: Maximum number of issue IDs to return, up to 200.
+      selector:
+        number:
+          min: 1
+          max: 200
+          mode: box
 explain:
   name: Explain
   description: Explain a capability and its failing or unknown dependencies.

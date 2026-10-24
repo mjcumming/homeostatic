@@ -1,0 +1,57 @@
+{
+  "checked_on": "2026-10-23",
+  "timezone": "America/Chicago",
+  "purpose": "Confirm whether the historical Recorder event-size warning still occurs on the household installation before selecting implementation work.",
+  "result": "Confirmed current Recorder event-data loss; affected request and delivery impact remain unidentified.",
+  "installation": {
+    "homeostatic_version": "1.12.1",
+    "version_evidence": "Read the installed custom_components/homeostatic/manifest.json through the existing config share.",
+    "home_assistant_core_version": "2026.10.0",
+    "core_version_evidence": "The current Core log-detail reporting link identifies version 2026.10.0."
+  },
+  "current_log_evidence": {
+    "source": "Authenticated Home Assistant Settings > System > Logs and the Recorder log-detail dialog at http://homeassistant:8123/config/logs",
+    "logger": "homeassistant.components.recorder.db_schema",
+    "source_location": "components/recorder/db_schema.py:368",
+    "first_occurred_local": "19:00:01",
+    "last_logged_local": "19:00:04",
+    "grouped_occurrences": 2,
+    "messages": [
+      "Event data for homeostatic_notification exceed maximum size of 32768 bytes. This can cause database performance issues; Event data will not be stored",
+      "Event data for call_service exceed maximum size of 32768 bytes. This can cause database performance issues; Event data will not be stored"
+    ]
+  },
+  "recorder_behavior": {
+    "verified_source": "https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/recorder/db_schema.py",
+    "method": "EventData.shared_data_bytes_from_event",
+    "limit_bytes": 32768,
+    "oversized_data_replacement": {},
+    "scope": "Recorder's serialized copy of event data. The method does not modify the event delivered to live subscribers."
+  },
+  "separate_observation": {
+    "component": "Mobile App",
+    "local_time": "19:00:06",
+    "observation": "The current log contains one phone-notification sending error without a detailed cause.",
+    "relationship_to_size_warning": "Unconfirmed; timing alone does not establish causation."
+  },
+  "limits": [
+    "The current Recorder log group names notification and service-call events. A current episode-event size warning was not established by this check.",
+    "The log does not identify the affected request, its source issue, exact byte size, or service-call payload. The relationship between the two oversized events is not established.",
+    "The public homeostatic.inventory action returned successfully, but the large rendered response could not be exported for payload measurement; its tab was closed.",
+    "A full current Core log download was not obtained. The old file log on the config share dates from 2025 and was excluded from current evidence.",
+    "Database rows were not queried directly. Event-data loss follows the current warning and the matching Core-version implementation."
+  ],
+  "safety": {
+    "notification_tests_requested": false,
+    "settings_changed": false,
+    "restart_requested": false,
+    "component_files_changed": false,
+    "actions": [
+      "Read current Core log summaries and Recorder and Mobile App log details.",
+      "Read the installed Homeostatic manifest.",
+      "Call the public read-only homeostatic.inventory action.",
+      "Read the official matching Home Assistant Core Recorder source."
+    ]
+  },
+  "next_step": "Identify and measure the affected notification request without sending test notifications; then choose the smallest compatible correction."
+}

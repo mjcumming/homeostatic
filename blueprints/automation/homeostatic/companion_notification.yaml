@@ -43,7 +43,9 @@ conditions:
 actions:
   - variables:
       notification_url: >-
-        {% if 'episodes' in trigger.event.data %}
+        {% if trigger.event.data.get('details_url', '').startswith('/homeostatic/') %}
+          {{ trigger.event.data.details_url }}
+        {% elif 'episodes' in trigger.event.data %}
           {% set members = trigger.event.data.episodes | select('string') | reject('equalto', '') | unique(case_sensitive=true) | list %}
           {% if members | length == 1 %}
             {{ '/homeostatic/episode/' ~ (members[0] | urlencode | replace('/', '%2F')) }}

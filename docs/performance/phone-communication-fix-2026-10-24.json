@@ -1,0 +1,61 @@
+{
+  "validated_on": "2026-10-24",
+  "timezone": "America/Chicago",
+  "outcome": "Confirmed an oversized-push failure class through Core's actual mobile-app service and verified compact requests against a mocked gateway; added a complete-request size check before phone I/O. Household receipt remains unverified.",
+  "live_read_only_check": {
+    "source": "Authenticated Home Assistant Settings > System > Logs and Mobile App log-detail dialog",
+    "core_version": "2026.10.0",
+    "installed_homeostatic_version": "1.12.1",
+    "updated_sender_installed": false,
+    "installation_evidence": "Read installed manifest through the existing config share and compare installed/local notification_routes.py SHA-256 values; no installed files changed.",
+    "logger": "homeassistant.components.mobile_app.notify",
+    "source_location": "components/mobile_app/notify.py:258",
+    "failure_time_local": "2026-10-23 19:00:06",
+    "occurrences": 1,
+    "provider_response_available": false,
+    "finding": "The retained log still shows the same generic phone-send failure, with no later occurrence displayed. It does not identify the HTTP status, provider body or failed delivery ID. No notification, configuration change, log clearing or restart was requested."
+  },
+  "core_contract": {
+    "source": "https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/mobile_app/notify.py",
+    "finding": "The rich mobile-app service catches HomeAssistantError from the remote sender and logs it. A service call returning normally does not establish provider acceptance or physical receipt.",
+    "boundary": "Homeostatic continues using Home Assistant's public service interface. No provider credential access, direct provider requests, private Core sender calls, log interception or automatic retries were added to integration code."
+  },
+  "fix": {
+    "presentation": "Existing byte-bounded messages and durable exact-membership short links from ADR 0109",
+    "transport": "The built-in phone sender rejects complete encoded service requests above 3000 bytes before invoking notify, including title, message, both links, tag, actions, urgency and target.",
+    "failure_reporting": "HomeAssistantError passes through existing runtime delivery_failures and configured-method test results. Membership, destinations, delivery IDs and replay attempts stay intact.",
+    "provider_budget": "3000 bytes is a conservative adapter service-data budget that reserves room for provider wrapping. It is not a claim about the precise wire format or acceptance limits of every provider."
+  },
+  "validation": {
+    "environment": "WSL Ubuntu, Python 3.14.7, pinned Home Assistant 2026.9.3 and published health-tree 0.11.0",
+    "new_core_path_tests": {
+      "file": "tests/test_phone_push_boundary.py",
+      "result": "4 passed",
+      "log": "build/phone-push-boundary-final.log",
+      "scenarios": [
+        "Register Core's actual MobileAppNotificationService and its actual HA notify service schema; replace only the external HTTP client with a mock.",
+        "A 221-member old-format report receives simulated HTTP 413 from a gateway with a 4096-byte test budget. Core logs its error but the public service call returns normally.",
+        "The compact request, with urgent options and both exact report links, passes through the same real service and is accepted by the mock. The resulting provider request includes Core's push token and registration_info and remains below 3000 bytes. Complete event membership is unchanged.",
+        "Oversized Unicode/escaped message text, URL or acknowledgment metadata raises a Home Assistant size error without reaching the mocked provider."
+      ],
+      "fixture_repairs": "The initial Core fixture omitted push_channel and live_activity_tokens initialization; supplied the same empty sections that Core setup creates, then reran all four scenarios successfully. These failures were fixture setup errors."
+    },
+    "regressions": {
+      "files": ["tests/test_notification_routes.py", "tests/test_notification_reports.py", "tests/test_delivery_method_tests.py", "tests/test_blueprint.py"],
+      "result": "167 existing regressions passed. The combined run had 170 passes (including three new preflight cases) and one Core-path fixture-initialization failure; the complete new four-case module subsequently passed.",
+      "log": "build/phone-communication-tests.log"
+    },
+    "quick": {"result": "pass", "frontend_tests": 900, "log": "build/phone-communication-quick.log"},
+    "strict_types": {"result": "pass", "source_files": 41},
+    "full_ci": "Not run; follows the maintainer-authorized clean release candidate workflow.",
+    "metadata": "No additional manifest, service schema or translation changes in this follow-up.",
+    "ui": "No frontend code or controls changed in this follow-up. Existing notification and scoped issue views retain the preceding rendered acceptance receipt."
+  },
+  "remaining": [
+    "The original household provider response was not retained at the available log level. The reproduced failure class does not prove the cause of that historical request.",
+    "The fix remains uncommitted, unreleased and uninstalled. Installation plus one explicitly authorized delivery check to the configured phone is needed for household verification.",
+    "Other possible provider, credential, connectivity or phone permission failures are not resolved by a size budget; no speculative workarounds were introduced.",
+    "Previously deferred extreme machine-event and reconnect/native-host cases remain deferred."
+  ],
+  "publication": {"committed": false, "pushed": false, "published": false, "installed": false, "live_test_notifications": 0}
+}

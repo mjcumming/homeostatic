@@ -8,11 +8,14 @@ import pytest
 from homeassistant.components.blueprint import BLUEPRINT_SCHEMA
 from homeassistant.components.blueprint.models import Blueprint, BlueprintInputs
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.json import json_bytes
 from homeassistant.setup import async_setup_component
+from homeassistant.util import dt as dt_util
 from homeassistant.util import yaml as yaml_util
 from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.homeostatic.const import EVENT_EPISODE, EVENT_NOTIFICATION
+from custom_components.homeostatic.notification_reports import NotificationReports
 
 
 @pytest.mark.parametrize(
@@ -234,6 +237,42 @@ async def load_example(
     )
     inputs.validate()
     return {**inputs.async_substitute(), "id": name, "alias": name}
+
+
+async def test_compact_companion_report(hass: HomeAssistant) -> None:
+    """The real consumer uses a compact report link without expanding all IDs."""
+    automation = await load_example(
+        hass,
+        "companion_notification.yaml",
+        {"recipient": "owner", "notify_service": "notify.mobile_app_test"},
+    )
+    calls = async_mock_service(hass, "notify", "mobile_app_test")
+    assert await async_setup_component(hass, "automation", {"automation": [automation]})
+    await hass.async_block_till_done()
+    payload = NotificationReports("entry").present(
+        {
+            "schema_version": 1,
+            "action": "summary",
+            "recipient": "owner",
+            "channels": ["event"],
+            "tag": "report",
+            "loudness": "urgent",
+            "silent": False,
+            "episodes": [f"{i:036d}" for i in range(221)],
+            "title": "221 issues need attention",
+            "message": "House 🏠 sensor unavailable\n" * 221,
+        },
+        dt_util.utcnow(),
+    )
+    hass.bus.async_fire(EVENT_NOTIFICATION, payload)
+    await hass.async_block_till_done()
+    [call] = calls
+    assert (
+        call.data["data"]["url"]
+        == call.data["data"]["clickAction"]
+        == payload["details_url"]
+    )
+    assert len(json_bytes(dict(call.data))) < 3000
 
 
 async def test_logbook_records_selected_changes(hass: HomeAssistant) -> None:

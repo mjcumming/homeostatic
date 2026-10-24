@@ -189,9 +189,14 @@ export async function runIssueGaps(ctx) {
     await call("homeostatic/save_settings",{revision:config.revision,settings});await clean();
     const before=await snapshot(),policyBefore=await query("policy");
     const first=await episodeFor("offline","entity","default_entities"),second=await episodeFor("offline_second","entity","default_entities"),other=await episodeFor("offline","entity","acceptance_overlap");
-    const ids=[first.episode_id,second.episode_id],path=`/homeostatic/issues/notification/${ids.map(encodeURIComponent).join(",")}`,url=`${lab.url}${path}`;
+    const ids=[first.episode_id,second.episode_id];
+    const report=await control("notification_report",{episodes:ids}),path=report.notification_url,url=`${lab.url}${path}`;
+    assert.ok(path.length<100,"The phone link does not grow with report membership");
+    await control("reload");
     const shown=async()=>{await expandIssues();return [...new Set(await at('main [data-episode]').evaluateAll(items=>items.map(item=>item.dataset.episode)))].sort();};
-    await page.goto(url);await text('main h1',/^Issues in this notification$/);
+    transport.commandModes.set("homeostatic/notification_report","hold");
+    await page.goto(url);await text('[data-notification-scope]',/Loading the issues/);assert.equal(await at('main [data-episode]').count(),0);await screenshot("notification-membership-loading");
+    transport.release();await text('[data-notification-scope]',/2 issues included/);
     assert.deepEqual(await shown(),[...ids].sort());assert.equal(await at('main [data-device-issues]').count(),0,"A notification cannot widen to other issues on the same device");
     assert.ok(!ids.includes(other.episode_id),"Another independent policy issue already exists on the included device");
     await fit('.intro');await screenshot("notification-membership");
@@ -219,8 +224,13 @@ export async function runIssueGaps(ctx) {
     const all=at('[data-all-issues]');assert.equal(await all.getAttribute("href"),"/homeostatic/issues");assert.ok((await all.boundingBox()).height>=44);
     await all.focus();await page.keyboard.press("Enter");await text('main h1',/^Open issues$/);assert.equal(new URL(page.url()).pathname,"/homeostatic/issues");assert.ok((await shown()).includes(later.episode_id));
     await page.goBack();await text('main',/No included issues are still open/);assert.equal(new URL(page.url()).pathname,path);
+    transport.interceptRequest=(request,route)=>{if(request.type!=="homeostatic/notification_report")return false;route.send(JSON.stringify({id:request.id,type:"result",success:false,error:{code:"acceptance_rejection",message:"Temporary read failure"}}));return true;};
+    await page.reload();await text('[data-notification-scope]',/could not be loaded/);assert.equal(await at('main [data-episode]').count(),0);await screenshot("notification-membership-read-error");
+    transport.interceptRequest=null;await click('[data-action="retry-notification-report"]');await text('main',/No included issues are still open/);
+    await control("expire_notification_reports");await page.reload();await text('[data-notification-scope]',/expired or is no longer available/);assert.equal(await at('main [data-episode]').count(),0);await screenshot("notification-membership-expired");
+    await at('[data-all-issues]').focus();await page.keyboard.press("Enter");await text('main h1',/^Open issues$/);
     await noChange(before);assert.deepEqual(await controls(),[]);
-    return "Exact included IDs survive direct entry, issue dialog refresh, close, browser Back and page reload. Same-device, unrelated and later issues stay excluded; acknowledgment affects only the chosen included issue. Partial and full recovery explain ended membership, and keyboard navigation to all issues preserves settings and fits this viewport.";
+    return "The durable short link survives HA reload, direct entry, issue dialog refresh, close, browser Back and page reload. Same-device, unrelated and later issues stay excluded; acknowledgment affects only the chosen included issue. Partial/full recovery, a failed read with explicit retry, expiry and keyboard navigation to all issues preserve settings and fit this viewport.";
   });
   await scenario("issues.independent-devices",async()=>{
     await control("integration_failure",{failed:false});await control("recover");

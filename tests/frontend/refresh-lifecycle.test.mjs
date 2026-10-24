@@ -7,6 +7,7 @@ import {monitoringExample} from "./monitoring-fixture.mjs";
 import {sourceDetailsFixture} from "./source-details-fixture.mjs";
 import {individualIssueFixture} from "./individual-issue-fixture.mjs";
 import {issueAvailabilitySources} from "../../custom_components/homeostatic/frontend/issue-monitoring.mjs";
+import {WorkspaceNavigation} from "../../custom_components/homeostatic/frontend/workspace-navigation.mjs";
 
 const elements=new Map();
 globalThis.HTMLElement=class {};
@@ -91,6 +92,7 @@ test("navigation during a source read discards its result and loads the new sele
 
 test("reconnection abandons a pending source response and can read the same timestamp again",async()=>{
   const pending=[],card=Object.create(prototype);
+  card.navigation=new WorkspaceNavigation(card);
   Object.assign(card,{page:"sources",current:{status:"current",data:dataFixture()},sourcesSelection:"source:device:camera-0",sourceSequence:0,detailSequence:0,render(){},
     _hass:{connection:{},states:{},callWS(){const next=deferred();pending.push(next);return next.promise;}}});
   const old=card.loadSource();

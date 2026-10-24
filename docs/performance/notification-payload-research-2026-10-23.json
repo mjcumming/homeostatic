@@ -1,0 +1,98 @@
+{
+  "researched_on": "2026-10-23",
+  "timezone": "America/Chicago",
+  "status": "Research and sizing experiments only; no integration behavior, installed files or settings changed.",
+  "question": "Which correction addresses oversized notification events and phone requests while preserving exact issue membership and replay?",
+  "recommendation": "Use a byte-bounded human summary and a short authenticated link to a durable record of the exact delivered membership. Preserve full issue evidence through existing investigation workflows and a bounded read-only report lookup. Treat event compatibility and very large membership as explicit design work before implementation.",
+  "live_observation": {
+    "method": "Invoke the public read-only homeostatic.inventory action through the signed-in HA UI, then inspect its observed WebSocket result through the browser developer network capability. No stored snapshot was queried.",
+    "inventory_updated_at_utc": "2026-10-24T02:44:37.122715+00:00",
+    "retained_notification_members": 244,
+    "report_group_member_counts": [221, 10, 8, 3, 1, 1],
+    "largest_report": {
+      "kind": "Scheduled report",
+      "members": 221,
+      "missing_entity_members": 221,
+      "integration_domains": {"eero": 114, "roborock": 106, "home_connect": 1},
+      "reconstructed_message_utf8_bytes": 36947,
+      "reconstructed_included_issue_url_utf8_bytes": 8209,
+      "estimated_event_json_bytes": 46829,
+      "estimated_phone_service_json_bytes": 53846,
+      "estimated_phone_service_with_1000_byte_message_and_original_link": 17679,
+      "estimated_phone_service_with_1000_byte_message_and_short_link": 1377
+    },
+    "limits": [
+      "These are reconstructions from current retained public member records, not captured historical outgoing payloads. The exact earlier failed request remains uncorrelated.",
+      "Estimates use compact UTF-8 JSON, a synthetic delivery id and representative phone tag/target lengths. Exact Python serialization was separately exercised with synthetic data.",
+      "The phone-service object is not the final APNs or FCM envelope. Provider wrapping, action buttons, critical and silent options need their own budget.",
+      "The public inventory returned no Homeostatic delivery_failures. Core Mobile App catches and logs remote send errors internally, so that empty list does not prove provider success.",
+      "Household names, account names, message contents, device identifiers and destinations are omitted from this research record."
+    ]
+  },
+  "verified_limits": [
+    {
+      "component": "Home Assistant Recorder",
+      "bytes": 32768,
+      "behavior": "Oversized serialized event data is replaced with an empty object in Recorder; live event subscribers retain their event data.",
+      "source": "https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/recorder/db_schema.py#L360-L376"
+    },
+    {
+      "component": "Apple regular remote push",
+      "bytes": 4096,
+      "behavior": "APNs rejects oversized regular notification payloads.",
+      "source": "https://developer.apple.com/library/archive/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CreatingtheNotificationPayload.html"
+    },
+    {
+      "component": "Firebase Cloud Messaging",
+      "bytes": 4096,
+      "behavior": "Both notification and data message types have a 4096-byte payload maximum.",
+      "source": "https://firebase.google.com/docs/cloud-messaging/customize-messages/set-message-type"
+    }
+  ],
+  "code_findings": [
+    {"path": "custom_components/homeostatic/runtime.py:2688", "finding": "The issue message joins every finding without a byte bound."},
+    {"path": "custom_components/homeostatic/delivery.py:531", "finding": "Grouped reports join every member's title and message, with new/outstanding and age text, without a byte bound."},
+    {"path": "custom_components/homeostatic/notification_routes.py:267", "finding": "The notification URL serializes every included issue id. The phone service request carries that URL in both url and clickAction."},
+    {"path": "custom_components/homeostatic/runtime.py:2726", "finding": "The published payload removes _alerting but may retain _target_channels. Removing that internal field is insufficient to solve report text and URL growth."},
+    {"path": "custom_components/homeostatic/phone_actions.py:76", "finding": "The existing durable phone-action registry demonstrates exact membership correlation. Reports skip acknowledgment actions, and the current registry is not a report-link resolver."},
+    {"path": "blueprints/automation/homeostatic/companion_notification.yaml:44", "finding": "The optional consumer blueprint independently builds the same long membership URL and sends the event message. Fixing only the built-in sender leaves that consumer path unchanged."},
+    {"path": "custom_components/homeostatic/runtime.py:2729", "finding": "The resolved-request cache is process memory, bounded to 2000 entries. It cannot by itself support links that survive restart."}
+  ],
+  "synthetic_validation": {
+    "result": "Passed sizing and Recorder behavior probes through current DeliveryState.record, notification_url and async_send functions. Every notification service was mocked; no live notifications were requested.",
+    "python": "3.14.7",
+    "library": "Published health-tree 0.11.0 installed only into an ignored research dependency directory. The unrelated existing virtual environment still has health-tree 0.6.0 and was not synchronized.",
+    "local_probe": "build/notification_payload_research.py",
+    "local_results": "build/notification_payload_research.json",
+    "command": "uv run --no-sync python build/notification_payload_research.py",
+    "cases": [
+      {"members": 1, "event_bytes": 941, "phone_service_bytes": 532, "recorder_discards_data": false},
+      {"members": 10, "event_bytes": 2743, "phone_service_bytes": 2672, "recorder_discards_data": false},
+      {"members": 100, "event_bytes": 20745, "phone_service_bytes": 23823, "recorder_discards_data": false},
+      {"members": 221, "event_bytes": 44945, "phone_service_bytes": 52258, "recorder_discards_data": true, "summary_event_preserving_all_members_bytes": 9434, "short_text_only_phone_service_bytes": 16747, "short_text_and_short_link_phone_service_bytes": 445},
+      {"members": 1000, "event_bytes": 200747, "phone_service_bytes": 235324, "recorder_discards_data": true, "summary_event_preserving_all_members_bytes": 39818, "short_text_only_phone_service_bytes": 74395, "short_text_and_short_link_phone_service_bytes": 447}
+    ],
+    "scope": "Short text and short links are sizing experiments. A durable report resolver, production formatter and transport budget have not been implemented."
+  },
+  "alternatives": [
+    {"option": "Short summary plus a durable short report link", "assessment": "Recommended. Addresses both text growth and repeated links while retaining one logical notification. Exact membership belongs in the retained report, and links must remain authenticated."},
+    {"option": "Shorten only the message text", "assessment": "Insufficient. The observed 221-member reconstruction still produces an estimated 17679-byte phone-service request with a 1000-byte message."},
+    {"option": "Split a large report into multiple phone alerts", "assessment": "Possible fallback, but creates more alerts and requires stable part tags, frozen membership and cleanup across partial recovery and restart. Supersedes the accepted one-combined-request presentation and is not the preferred household outcome."},
+    {"option": "Exclude events from Recorder or suppress the warning", "assessment": "A logging workaround that deliberately gives up audit data and leaves oversized phone content unchanged."},
+    {"option": "Raise Recorder's limit or compress notification content", "assessment": "Does not address the smaller remote-push limit or ordinary readable notification rendering; changing Core's constant is outside the adapter correction."}
+  ],
+  "implementation_constraints": [
+    "Keep detection, audience resolution, collection deadlines, notification schedules and independent policy assignments unchanged. Initial work is owned by the Homeostatic presentation and delivery boundary.",
+    "Measure encoded bytes for the complete payload, including title, URLs, buttons, critical/silent options and provider overhead. A character-count limit or a 32 KB phone-message limit is insufficient.",
+    "Keep complete findings in issue queries. Mark summarized messages explicitly and retain counts and a route to the exact included report.",
+    "A short link must resolve frozen membership for that particular delivery, not current membership under a mutable group tag. Later arrivals must not appear in an old delivered scope. Reuse stable delivery identity and normal HA authorization; a reference is not a bearer credential.",
+    "Persist any new report-reference data with a bounded retention policy and validate upgrade and repeat-reload preservation. Preserve stored choices, edits, accepted destinations, pending delivery identities and old notification links.",
+    "Do not acknowledge omitted or unseen issues from a short preview. Existing reports already omit phone acknowledgment; collected immediate messages need an explicit preview/action rule.",
+    "Update the built-in sender and the shipped optional consumer blueprint together. Consumer automations that construct their own links need a documented compact-link field or lookup contract.",
+    "Retain exact machine membership for existing events wherever it fits. The 1000-member probe demonstrates that message summarization alone cannot guarantee the 32 KB Recorder bound while schema 1 requires an unbounded exact episodes array. A fully bounded reference-based event contract requires an explicit version and compatibility decision; never silently truncate episodes or change them to mean only the preview.",
+    "The current event reference promises one summary line per issue. Reconcile that documentation with bounded human summaries and the accepted concise-message workflow before dependent implementation. Do not silently repurpose a published field.",
+    "Verify direct and optional consumer delivery with mocked services, Unicode byte boundaries, one unusually large finding, large memberships, exact click-through, acknowledgment scope, partial recovery, silent replacement, final cleanup, pending replay, restart and failed persistence. Existing settings and destinations remain unchanged."
+  ],
+  "remaining_uncertainty": "The earlier phone-delivery error is not proven to be caused by size. Current report reconstruction and isolated probes demonstrate the structural size problem independently; a real-provider outcome would require a separate authorized delivery trial.",
+  "publication": "No commit, push, release or deployment."
+}

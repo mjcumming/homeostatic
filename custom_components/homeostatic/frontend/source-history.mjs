@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=108";
-import {observedRange, RESOLUTIONS} from "./history-controls.mjs?v=108";
+import {escapeHtml as esc} from "./model.mjs?v=109";
+import {observedRange, RESOLUTIONS} from "./history-controls.mjs?v=109";
 
 const timestamp = value => value ? Date.parse(value) : NaN;
 const time = value => Number.isFinite(timestamp(value))

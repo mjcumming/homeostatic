@@ -9,6 +9,10 @@ export function parseWorkspacePath(path = "") {
   if(parts[0] === "homeostatic")parts.shift();
   const [name,encoded,extra] = parts;
   const id = encoded ? decode(encoded) : null;
+  if(name === "notification") {
+    const episodeId=extra === "episode" && parts[3] ? decode(parts[3]) : null;
+    return {page:"problems",notificationReference:id || "invalid",...(episodeId ? {detail:{episodeId}} : {})};
+  }
   if(name === "issues" && encoded === "notification") {
     const members = extra ? extra.split(",").map(decode) : [];
     const issueIds = members.every(Boolean) ? [...new Set(members)] : [];
@@ -32,6 +36,7 @@ export function parseWorkspacePath(path = "") {
 
 export function workspacePath(route) {
   const encode = encodeURIComponent;
+  if(workspacePage(route.page) === "problems" && route.notificationReference)return `/notification/${encode(route.notificationReference)}${route.detail?.episodeId ? `/episode/${encode(route.detail.episodeId)}` : ""}`;
   if(workspacePage(route.page) === "problems" && Array.isArray(route.issueIds) && (!route.detail || route.issueIds.includes(route.detail.episodeId))) {
     const members = route.issueIds.map(encode).join(",");
     const detail = route.issueIds.includes(route.detail?.episodeId) ? `/episode/${encode(route.detail.episodeId)}` : "";
@@ -56,6 +61,7 @@ export function workspaceRoute(card) {
   const page = workspacePage(card.page);
   return {
     page,
+    ...(page === "problems" && card.notificationReference ? {notificationReference:card.notificationReference} : {}),
     issueIds:page === "problems" && Array.isArray(card.notificationIssueIds) ? [...card.notificationIssueIds] : null,
     source:page === "sources" ? card.sourcesSelection : null,
     sourcesView:card.sourcesView,
@@ -121,7 +127,55 @@ export class WorkspaceNavigation {
     window.addEventListener("beforeunload",this.onUnload);
   }
 
-  disconnect() {window.removeEventListener("popstate",this.onPop);window.removeEventListener("beforeunload",this.onUnload);this.connected = false;}
+  disconnect() {this.invalidateNotificationReport();window.removeEventListener("popstate",this.onPop);window.removeEventListener("beforeunload",this.onUnload);this.connected = false;}
+
+  invalidateNotificationReport() {
+    this.reportSequence=(this.reportSequence || 0)+1;
+    this.reportRequest=null;
+    if(this.card.notificationReference){this.card.notificationIssueIds=[];this.card.notificationReportStatus="loading";}
+  }
+
+  clearNotificationReport() {
+    this.invalidateNotificationReport();
+    this.card.notificationReference=null;
+    this.card.notificationReportStatus=null;
+    this.card.notificationIssueIds=null;
+    this.pendingReportEpisode=null;
+  }
+
+  loadNotificationReport() {
+    const card=this.card,reference=card.notificationReference;
+    if(!reference || card.current.status!=="current" || !card.isConnected || !card._hass?.callWS)return;
+    if(this.reportRequest || ["available","expired","error"].includes(card.notificationReportStatus))return this.reportRequest;
+    const sequence=this.reportSequence=(this.reportSequence || 0)+1;
+    card.notificationReportStatus="loading";
+    const current=()=>sequence===this.reportSequence && reference===card.notificationReference && card.isConnected;
+    this.reportRequest=(async()=>{
+      try {
+        if(!/^[0-9a-f]{32}$/.test(reference)){card.notificationReportStatus="expired";return;}
+        const members=[];let offset=0,total=null;
+        do {
+          const result=await card._hass.callWS({type:"homeostatic/notification_report",reference,offset,limit:200});
+          if(!current())return;
+          if(result.status==="expired"){card.notificationReportStatus="expired";return;}
+          if(result.status!=="available" || result.reference!==reference || !Array.isArray(result.episodes) || result.episodes.some(id=>typeof id!=="string" || !id) || !Number.isInteger(result.total) || result.total<1 || result.total>20000 || total!==null&&total!==result.total)throw Error("Invalid notification membership");
+          total=result.total;members.push(...result.episodes);
+          const next=result.next_offset;
+          if(members.length>total || next!==null&&(next!==members.length || next<=offset) || next===null&&members.length!==total)throw Error("Incomplete notification membership");
+          offset=next;
+        } while(offset!==null);
+        if(new Set(members).size!==members.length)throw Error("Repeated notification membership");
+        card.notificationIssueIds=members;card.notificationReportStatus="available";
+        const episodeId=this.pendingReportEpisode;this.pendingReportEpisode=null;
+        if(episodeId && members.includes(episodeId))card.openDetail({episodeId});
+      } catch {
+        if(current())card.notificationReportStatus="error";
+      } finally {
+        if(current()){this.reportRequest=null;card.render();}
+      }
+    })();
+    return this.reportRequest;
+  }
 
   capture(persist = true) {
     if(this.restoring)return null;
@@ -183,7 +237,10 @@ export class WorkspaceNavigation {
       this.currentId = historyState?.id || `view-${++this.sequence}`;
       restoreWorkspaceContext(card,cached?.context || historyState?.context);
       card.page = route.page;
-      card.notificationIssueIds = Array.isArray(route.issueIds) ? [...route.issueIds] : null;
+      this.clearNotificationReport();
+      card.notificationReference=route.notificationReference || null;
+      card.notificationIssueIds = card.notificationReference ? [] : Array.isArray(route.issueIds) ? [...route.issueIds] : null;
+      if(card.notificationReference)card.notificationReportStatus="loading";
       if(!cached && !historyState?.context && card.notificationIssueIds)card.issueQuery = "";
       if(route.source !== undefined)card.sourcesSelection = route.source;
       if(route.sourcesView)card.sourcesView = route.sourcesView;
@@ -205,7 +262,8 @@ export class WorkspaceNavigation {
       if(cached?.pageState && !route.historyId)card.restorePageState(cached.pageState);
       this.entries.set(this.currentId,{id:this.currentId,route,context:workspaceContext(card),pageState:cached?.pageState || null});
       if(route.detail?.episodeId) {
-        if(card.isConnected && card.current.status === "current")card.openDetail(route.detail);
+        if(card.notificationReference)this.pendingReportEpisode=route.detail.episodeId;
+        else if(card.isConnected && card.current.status === "current")card.openDetail(route.detail);
         else card.pendingEpisode = route.detail.episodeId;
       } else if(route.detail?.nodeId) {
         if(card.current.status === "current")card.openDetail(route.detail);
@@ -220,6 +278,7 @@ export class WorkspaceNavigation {
         if(cached?.pageState)card.restorePageState(cached.pageState);
       }
       if(card.current.status === "current" && !card.configuration && !card.configBusy)card.loadConfiguration?.();
+      this.loadNotificationReport();
       this.updateReturn();
     } finally {this.restoring = false;}
   }

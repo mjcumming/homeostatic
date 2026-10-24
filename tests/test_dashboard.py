@@ -266,6 +266,10 @@ async def test_location_names_and_situation_detail(
             id="catalog-page",
         ),
         pytest.param({"type": "homeostatic/node", "node_id": NODE}, id="node"),
+        pytest.param(
+            {"type": "homeostatic/notification_report", "reference": "a" * 32},
+            id="notification-report",
+        ),
         pytest.param({"type": "homeostatic/configuration"}, id="configuration"),
         pytest.param({"type": "homeostatic/source", "node_id": NODE}, id="source"),
         pytest.param(

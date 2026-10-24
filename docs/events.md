@@ -143,7 +143,10 @@ Each policy notification assignment is evaluated independently using its named n
 | `episode_id` | An issue ID on individual and standalone-entity requests; an opaque presentation ID on a collected message, device message, summary or digest. Use `episodes` for exact grouped membership. |
 | `tag` | An opaque key for replacing or clearing this message. A device group keeps its key through membership changes and restart. |
 | `title` | The source, device or alert name. On a collected message, `Homeostatic: 3 issues need attention`; on other summaries, `Homeostatic: 3 open problems`. |
-| `message` | The issue's findings. On a summary, one line per issue. On `resolve`, a short note such as `Problem cleared.` |
+| `message` | A readable preview of findings, bounded to 1,400 encoded JSON bytes. Large reports can omit finding text; use the included IDs or details link for complete issue context. On `resolve`, a short note such as `Problem cleared.` |
+| `message_summarized` | When `true`, the title or message was shortened. Human text is presentation and must not be parsed for complete membership. |
+| `details_url` | When present, the preferred relative Homeostatic destination. Large memberships use a durable short reference; older consumers can still use complete `episodes`. |
+| `issue_count` | When a details link is supplied, the count of its exact included issue IDs. |
 | `loudness` | `digest`, `notify` or `urgent` |
 | `silent` | `true` when the request replaces an earlier message without alerting again |
 | `digest` | The report's identifier on digest requests; otherwise `null`. Treat generated identifiers as opaque. Legacy choices use names such as `morning`. |
@@ -183,7 +186,7 @@ Requests selecting the same saved notification identity, recipient and resolved 
 
 Silent updates keep the collection's tag and exact remaining members. Partial recovery does not resolve other issues. Pending deadlines, accepted targets and membership survive restart; outbox replay retains the same `delivery_id`. A shared integration issue preserves applicable monitored availability assignments, including independently timed Immediate and Morning requests. No message creates a shared cause or proves delivery.
 
-The built-in phone Acknowledge action freezes the issue IDs shown by that request. Later arrivals do not inherit its acknowledgment. The built-in sender and Companion blueprint link to the exact included issue IDs. A message with several issues opens the existing Issues view restricted to those IDs; ended issues are counted, and Show all open issues explicitly leaves that scope. Tapping acknowledges nothing.
+The built-in phone Acknowledge action freezes the issue IDs shown by that request. Shortened multi-issue previews omit this action; use individual issue controls in the panel. Later arrivals do not inherit acknowledgment. The built-in sender and updated Companion blueprint prefer `details_url` and retain their legacy ID-link fallback. A message with several issues opens the existing Issues view restricted to those IDs; ended issues are counted, and Show all open issues explicitly leaves that scope. Tapping acknowledges nothing.
 
 ### Continuing Custom device messages
 
@@ -191,7 +194,7 @@ Supported inline Custom assignments retain device messages when their complete t
 
 A device message keeps the same `tag` when findings join, recover or leave monitoring. Partial recovery produces a silent `update` containing the remaining authorized findings. Only the last member ending produces `resolve` with empty `episodes`; `resolution` distinguishes recovery from monitoring removal. A newly qualifying issue can request attention even when earlier members have been acknowledged. Different instructions or destinations remain separate messages.
 
-The built-in phone Acknowledge action freezes the issue IDs shown by that particular request. It can acknowledge those issues only; a later failure on the same device requires its own acknowledgment. The panel still controls each issue separately. Tapping the device message opens its included issues without acknowledging anything.
+The built-in phone Acknowledge action freezes the issue IDs shown by that particular request. Shortened multi-issue previews omit it, including when some members end before the send. A later failure on the same device requires its own acknowledgment. The panel still controls each issue separately. Tapping the device message opens its included issues without acknowledging anything.
 
 ### Summaries and digests
 
@@ -212,6 +215,8 @@ You may also get a `resolve` for a message your automation never saw, for exampl
 The event bus doesn't keep events. If your automation is off or Home Assistant is down when a request fires, nothing sends it again later.
 
 The built-in sender records each `delivery_id` and channel before it sends, so a replayed request doesn't reach the phone twice. If Home Assistant stops after that record is saved and before the send, that one message is lost.
+
+The built-in phone sender checks its complete encoded service request before I/O. A request above its 3,000-byte budget becomes a reported delivery failure without contacting the phone provider. This does not change event membership or delivery IDs. A service call that returns without error still does not prove provider acceptance or phone receipt; Core's rich mobile-app service can log a provider error internally.
 
 ## Restart and activation
 
@@ -236,6 +241,8 @@ Homeostatic saves the state an event describes before it fires the event. `homeo
 ## Compatibility
 
 Every payload carries `schema_version: 1`. Within a version, fields are only ever added, never renamed or removed, so ignore fields you don't recognize and match `schema_version: 1` in your triggers. Treat IDs and tags as opaque text.
+
+Titles and messages are bounded human previews; exact `episodes` and other machine fields remain complete. This keeps existing automations compatible but does not impose a total event-size bound: extremely large membership, route or finding lists can still exceed Recorder's 32,768-byte limit. Recorder can then retain the event with empty data while live subscribers receive its original data. The event bus and existing issue queries remain independent of Recorder storage. See [notification tap destinations](spec.md#notification-tap-destinations) for short-link retention and the authenticated reader.
 
 Homeostatic's own Acknowledge button on phones arrives as a `mobile_app_notification_action` event whose `action` starts with `HOMEOSTATIC_ACK_`. Homeostatic handles it, and it isn't meant for your automations. The panel's WebSocket commands aren't an automation interface either; [spec.md](spec.md#live-updates-and-subscriptions) describes them.
 

@@ -106,8 +106,8 @@ def _change_rows(changes: dict[str, JSONValue]) -> int:
     )
 
 
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=108"
-PANEL_ELEMENT = "homeostatic-panel-v60"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=109"
+PANEL_ELEMENT = "homeostatic-panel-v61"
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 
@@ -572,6 +572,34 @@ def websocket_catalog(
             "next_offset": end if end < len(rows) else None,
         },
     )
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "homeostatic/notification_report",
+        vol.Required("reference"): vol.All(str, vol.Match(r"^[0-9a-f]{32}$")),
+        vol.Optional("offset", default=0): vol.All(int, vol.Range(min=0)),
+        vol.Optional("limit", default=200): vol.All(int, vol.Range(min=1, max=200)),
+    }
+)
+@require_admin
+@callback
+def websocket_notification_report(
+    hass: HomeAssistant, connection: ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Read exact notification membership without changing monitoring state."""
+    runtime = hass.data[DATA_DASHBOARD].runtime
+    if runtime is None or not runtime.available:
+        connection.send_error(msg["id"], "not_ready", "Monitoring is unavailable")
+        return
+    try:
+        result = runtime.notification_reports.view(
+            msg["reference"], dt_util.utcnow(), offset=msg["offset"], limit=msg["limit"]
+        )
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_query", str(err))
+        return
+    connection.send_result(msg["id"], result)
 
 
 @websocket_command(
@@ -1439,6 +1467,7 @@ async def async_register_dashboard(hass: HomeAssistant, runtime: Runtime) -> Non
         hass.data[DATA_DASHBOARD] = Dashboard(hass)
         websocket_api.async_register_command(hass, websocket_subscribe)
         websocket_api.async_register_command(hass, websocket_catalog)
+        websocket_api.async_register_command(hass, websocket_notification_report)
         websocket_api.async_register_command(hass, websocket_node)
         websocket_api.async_register_command(hass, websocket_source)
         websocket_api.async_register_command(hass, websocket_configuration)

@@ -1,0 +1,463 @@
+{
+  "schema_version": 1,
+  "validated_on": "2026-10-23",
+  "timezone": "America/Chicago",
+  "generated_at_utc": "2026-10-23T23:06:54.713375-05:00",
+  "outcome": "Compact notification presentation and durable exact-scope local links implemented and scoped acceptance passed; no commit, release or installation.",
+  "owner": "Homeostatic adapter; no health-tree changes required",
+  "decision": "docs/adr/0109-compact-notification-presentation.md",
+  "source": {
+    "branch": "main",
+    "revision": "ac34f971650f0cb1dd7ca493d894d5e3c10d0bd0",
+    "dirty": true,
+    "component_sha256": "5b115cbb88d3bcc2f13b034cb09732e446a97001034de59d024fb3b4ea7df4ed"
+  },
+  "sizing": {
+    "measured_at_utc": "2026-10-23T22:58:26.366261-05:00",
+    "method": "Current DeliveryState grouping, NotificationReports presentation, actual phone sender with mocked services, actual Recorder serializer; synthetic input only.",
+    "cases": [
+      {
+        "members": 221,
+        "original_event_bytes": 44945,
+        "final_event_bytes": 10845,
+        "message_json_bytes": 1400,
+        "url_bytes": 58,
+        "phone_service_bytes": {
+          "normal": 1775,
+          "urgent_with_action": 2060,
+          "silent": 1848
+        },
+        "recorder_retains_final_data": true,
+        "complete_membership_preserved": true,
+        "link_reloads": true
+      },
+      {
+        "members": 1000,
+        "original_event_bytes": 200747,
+        "final_event_bytes": 41229,
+        "message_json_bytes": 1400,
+        "url_bytes": 58,
+        "phone_service_bytes": {
+          "normal": 1776,
+          "urgent_with_action": 2061,
+          "silent": 1849
+        },
+        "recorder_retains_final_data": false,
+        "complete_membership_preserved": true,
+        "link_reloads": true
+      }
+    ],
+    "limit": "Service mappings are measured before provider wrapping. No real notifications were sent. Schema 1 retains all IDs, so extreme event membership can still exceed Recorder's limit."
+  },
+  "validation": {
+    "quick": {
+      "result": "pass",
+      "command": "uv run --no-sync python script/check.py --quick",
+      "frontend_tests": 900,
+      "artifact": "build/notification-quick.log"
+    },
+    "types": {
+      "result": "pass",
+      "command": "uv run --no-sync python -m mypy",
+      "source_files": 41
+    },
+    "official_hassfest": {
+      "result": "pass",
+      "command": "docker run --rm --mount type=bind,source=C:\\GitHub\\homeostatic,target=/github/workspace,readonly ghcr.io/home-assistant/hassfest",
+      "invalid_integrations": 0
+    },
+    "focused_python": [
+      {
+        "result": "pass",
+        "tests": 172,
+        "files": [
+          "test_notification_reports.py",
+          "test_notification_collection.py",
+          "test_notification_routes.py",
+          "test_blueprint.py"
+        ],
+        "note": "Initial focused delivery and compatibility checks."
+      },
+      {
+        "result": "pass",
+        "tests": 80,
+        "files": [
+          "test_storage.py",
+          "test_dashboard.py",
+          "test_dashboard_actions.py",
+          "test_notification_integration.py",
+          "test_group_delivery.py",
+          "test_device_notifications.py"
+        ],
+        "artifact": "build/notification-regressions.log"
+      },
+      {
+        "result": "116 passed; one new test assertion corrected",
+        "files": [
+          "test_notification_reports.py",
+          "test_foundation.py",
+          "test_attention.py",
+          "test_dashboard.py"
+        ],
+        "artifact": "build/notification-final-tests.log",
+        "note": "The failing assertion indexed an intentionally omitted optional acknowledgment argument. Corrected to accept its absence, then reran the complete affected module below."
+      },
+      {
+        "result": "pass",
+        "tests": 9,
+        "files": [
+          "test_notification_reports.py"
+        ],
+        "artifact": "build/notification-report-final.log",
+        "note": "Final current code: real 221-issue collection and mocked sender, authenticated WS/service paging, missing-section upgrade, stable queued identity and destinations, repeat reload, failed persistence, Unicode/escaped bytes, exact retained membership, corruption rejection and unseen-member acknowledgment guard."
+      }
+    ],
+    "rendered": [
+      {
+        "report": "build/ui-acceptance/notification-final-desktop-2026-10-23/report.json",
+        "candidate": {
+          "branch": "main",
+          "revision": "ac34f971650f0cb1dd7ca493d894d5e3c10d0bd0",
+          "dirty": true,
+          "component_sha256": "5b115cbb88d3bcc2f13b034cb09732e446a97001034de59d024fb3b4ea7df4ed"
+        },
+        "environment": {
+          "group": "all",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "theme": "light",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "issues.notification-membership",
+            "navigation.history",
+            "layout.keyboard",
+            "layout.themes"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true
+        },
+        "paths": [
+          {
+            "id": "issues.notification-membership",
+            "page": "Open issues",
+            "controls": "Short notification link, HA reload, exact issue dialog, reload, Back, acknowledgment, recovery, read retry, expiry and all-issues navigation",
+            "expected": "Only included still-open issues appear; exact scope survives navigation and restart and never expands to later issues on the same device. Ended/expired membership and failed reads stay explicit; controls affect only the selected issue.",
+            "fixture": null,
+            "requirement": "../../docs/adr/0109-compact-notification-presentation.md",
+            "status": "pass",
+            "evidence": [
+              "all/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":8645,\"detail\":\"The durable short link survives HA reload, direct entry, issue dialog refresh, close, browser Back and page reload. Same-device, unrelated and later issues stay excluded; acknowledgment affects only the chosen included issue. Partial/full recovery, a failed read with explicit retry, expiry and keyboard navigation to all issues preserve settings and fit this viewport.\"}"
+            ]
+          },
+          {
+            "id": "navigation.history",
+            "page": "Navigation",
+            "controls": "Back, Forward, direct link, refresh",
+            "expected": "Restore the meaningful destination or explain a missing target.",
+            "fixture": "workspace.html",
+            "requirement": "../../docs/spec.md#completion-criteria",
+            "status": "pass",
+            "evidence": [
+              "all/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3779,\"detail\":\"All page Back/Forward routes; direct and refreshed policy/source routes; missing issue explanation; no saved configuration changes.\"}"
+            ]
+          },
+          {
+            "id": "layout.keyboard",
+            "page": "Accessibility",
+            "controls": "Tab, Shift+Tab, Enter, Space, Escape",
+            "expected": "Complete navigation, editors and dialogs with visible focus and correct return.",
+            "fixture": "reusable-editors.html",
+            "requirement": "../../docs/spec.md#component-review-checklist",
+            "status": "pass",
+            "evidence": [
+              "all/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3058,\"detail\":\"Tab/Shift+Tab/Enter/Space/Escape traversed page navigation, editable policy fields, discard, destination picker, deletion and filter dialogs with focus return.\"}"
+            ]
+          },
+          {
+            "id": "layout.themes",
+            "page": "Accessibility",
+            "controls": "Light, dark, enlarged text, 320px and desktop",
+            "expected": "No clipping, required horizontal scroll or unreadable control state.",
+            "fixture": "mobile-layout.html",
+            "requirement": "../../docs/spec.md#component-review-checklist",
+            "status": "pass",
+            "evidence": [
+              "all/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":7761,\"detail\":\"Desktop/390/320, light/dark, all pages and doubled editor text examined for content and control clipping.\"}"
+            ]
+          }
+        ],
+        "unselected_inventory": "Untested by design in this scoped run; no app-wide acceptance claim.",
+        "caught_optional_websocket_errors": {
+          "count": 31,
+          "commands": [
+            "topomation/locations/list"
+          ]
+        }
+      },
+      {
+        "report": "build/ui-acceptance/notification-final-phone-2026-10-23/report.json",
+        "candidate": {
+          "branch": "main",
+          "revision": "ac34f971650f0cb1dd7ca493d894d5e3c10d0bd0",
+          "dirty": true,
+          "component_sha256": "5b115cbb88d3bcc2f13b034cb09732e446a97001034de59d024fb3b4ea7df4ed"
+        },
+        "environment": {
+          "group": "all",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "theme": "dark",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "issues.notification-membership",
+            "navigation.history",
+            "layout.keyboard",
+            "layout.themes"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true
+        },
+        "paths": [
+          {
+            "id": "issues.notification-membership",
+            "page": "Open issues",
+            "controls": "Short notification link, HA reload, exact issue dialog, reload, Back, acknowledgment, recovery, read retry, expiry and all-issues navigation",
+            "expected": "Only included still-open issues appear; exact scope survives navigation and restart and never expands to later issues on the same device. Ended/expired membership and failed reads stay explicit; controls affect only the selected issue.",
+            "fixture": null,
+            "requirement": "../../docs/adr/0109-compact-notification-presentation.md",
+            "status": "pass",
+            "evidence": [
+              "all/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":8686,\"detail\":\"The durable short link survives HA reload, direct entry, issue dialog refresh, close, browser Back and page reload. Same-device, unrelated and later issues stay excluded; acknowledgment affects only the chosen included issue. Partial/full recovery, a failed read with explicit retry, expiry and keyboard navigation to all issues preserve settings and fit this viewport.\"}"
+            ]
+          },
+          {
+            "id": "navigation.history",
+            "page": "Navigation",
+            "controls": "Back, Forward, direct link, refresh",
+            "expected": "Restore the meaningful destination or explain a missing target.",
+            "fixture": "workspace.html",
+            "requirement": "../../docs/spec.md#completion-criteria",
+            "status": "pass",
+            "evidence": [
+              "all/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":3649,\"detail\":\"All page Back/Forward routes; direct and refreshed policy/source routes; missing issue explanation; no saved configuration changes.\"}"
+            ]
+          },
+          {
+            "id": "layout.keyboard",
+            "page": "Accessibility",
+            "controls": "Tab, Shift+Tab, Enter, Space, Escape",
+            "expected": "Complete navigation, editors and dialogs with visible focus and correct return.",
+            "fixture": "reusable-editors.html",
+            "requirement": "../../docs/spec.md#component-review-checklist",
+            "status": "pass",
+            "evidence": [
+              "all/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":2922,\"detail\":\"Tab/Shift+Tab/Enter/Space/Escape traversed page navigation, editable policy fields, discard, destination picker, deletion and filter dialogs with focus return.\"}"
+            ]
+          },
+          {
+            "id": "layout.themes",
+            "page": "Accessibility",
+            "controls": "Light, dark, enlarged text, 320px and desktop",
+            "expected": "No clipping, required horizontal scroll or unreadable control state.",
+            "fixture": "mobile-layout.html",
+            "requirement": "../../docs/spec.md#component-review-checklist",
+            "status": "pass",
+            "evidence": [
+              "all/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":7769,\"detail\":\"Desktop/390/320, light/dark, all pages and doubled editor text examined for content and control clipping.\"}"
+            ]
+          }
+        ],
+        "unselected_inventory": "Untested by design in this scoped run; no app-wide acceptance claim.",
+        "caught_optional_websocket_errors": {
+          "count": 31,
+          "commands": [
+            "topomation/locations/list"
+          ]
+        }
+      },
+      {
+        "report": "build/ui-acceptance/notification-loading-final-desktop-2026-10-23/report.json",
+        "candidate": {
+          "branch": "main",
+          "revision": "ac34f971650f0cb1dd7ca493d894d5e3c10d0bd0",
+          "dirty": true,
+          "component_sha256": "5b115cbb88d3bcc2f13b034cb09732e446a97001034de59d024fb3b4ea7df4ed"
+        },
+        "environment": {
+          "group": "issues",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "theme": "light",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "issues.notification-membership"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true
+        },
+        "paths": [
+          {
+            "id": "issues.notification-membership",
+            "page": "Open issues",
+            "controls": "Short notification link, HA reload, exact issue dialog, reload, Back, acknowledgment, recovery, read retry, expiry and all-issues navigation",
+            "expected": "Only included still-open issues appear; exact scope survives navigation and restart and never expands to later issues on the same device. Ended/expired membership and failed reads stay explicit; controls affect only the selected issue.",
+            "fixture": null,
+            "requirement": "../../docs/adr/0109-compact-notification-presentation.md",
+            "status": "pass",
+            "evidence": [
+              "issues/1440px/light: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":8903,\"detail\":\"The durable short link survives HA reload, direct entry, issue dialog refresh, close, browser Back and page reload. Same-device, unrelated and later issues stay excluded; acknowledgment affects only the chosen included issue. Partial/full recovery, a failed read with explicit retry, expiry and keyboard navigation to all issues preserve settings and fit this viewport.\"}"
+            ]
+          }
+        ],
+        "unselected_inventory": "Untested by design in this scoped run; no app-wide acceptance claim.",
+        "caught_optional_websocket_errors": {
+          "count": 14,
+          "commands": [
+            "topomation/locations/list"
+          ]
+        }
+      },
+      {
+        "report": "build/ui-acceptance/notification-loading-phone-retry-2026-10-23/report.json",
+        "candidate": {
+          "branch": "main",
+          "revision": "ac34f971650f0cb1dd7ca493d894d5e3c10d0bd0",
+          "dirty": true,
+          "component_sha256": "5b115cbb88d3bcc2f13b034cb09732e446a97001034de59d024fb3b4ea7df4ed"
+        },
+        "environment": {
+          "group": "issues",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "theme": "dark",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "issues.notification-membership"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true
+        },
+        "paths": [
+          {
+            "id": "issues.notification-membership",
+            "page": "Open issues",
+            "controls": "Short notification link, HA reload, exact issue dialog, reload, Back, acknowledgment, recovery, read retry, expiry and all-issues navigation",
+            "expected": "Only included still-open issues appear; exact scope survives navigation and restart and never expands to later issues on the same device. Ended/expired membership and failed reads stay explicit; controls affect only the selected issue.",
+            "fixture": null,
+            "requirement": "../../docs/adr/0109-compact-notification-presentation.md",
+            "status": "pass",
+            "evidence": [
+              "issues/390px/dark: {\"environment\":\"isolated Home Assistant\",\"interaction\":\"Playwright pointer and keyboard\",\"duration_ms\":8507,\"detail\":\"The durable short link survives HA reload, direct entry, issue dialog refresh, close, browser Back and page reload. Same-device, unrelated and later issues stay excluded; acknowledgment affects only the chosen included issue. Partial/full recovery, a failed read with explicit retry, expiry and keyboard navigation to all issues preserve settings and fit this viewport.\"}"
+            ]
+          }
+        ],
+        "unselected_inventory": "Untested by design in this scoped run; no app-wide acceptance claim.",
+        "caught_optional_websocket_errors": {
+          "count": 14,
+          "commands": [
+            "topomation/locations/list"
+          ]
+        }
+      }
+    ],
+    "visual_review": {
+      "result": "pass",
+      "task_owner": "Existing Issues page and individual issue dialog",
+      "benefit": "A short phone link opens the delivered membership, with clear loading, retry and expiry states and explicit navigation to all issues. No new investigation page or additional disclosure was introduced.",
+      "inspected": [
+        "build/ui-acceptance/notification-final-phone-2026-10-23/notification-membership.png",
+        "build/ui-acceptance/notification-final-desktop-2026-10-23/notification-membership-read-error.png",
+        "build/ui-acceptance/notification-payload-phone-2026-10-23/notification-membership-expired.png",
+        "build/ui-acceptance/notification-loading-phone-retry-2026-10-23/notification-membership-loading.png"
+      ],
+      "layout": "Desktop and 390px phone review; existing live layout matrix checks 320/390/1440px light/dark, navigation, keyboard and doubled editor text."
+    },
+    "diff": "git diff --check passed. Release packaging includes custom_components/homeostatic, blueprints/automation/homeostatic and docs; no archive was built from the dirty tree.",
+    "final_title_budget": "Passed the explicit oversized Unicode title and message scenario after the final module run."
+  },
+  "existing_issue": {
+    "id": "updates.retention",
+    "result": "Separate pre-existing failure reproduced from git archive HEAD, with the same same-input DOM assertion at ui_acceptance_gaps_layout.mjs:72. Draft value remains, but node identity changes after reconnect.",
+    "baseline_source": "ac34f971650f0cb1dd7ca493d894d5e3c10d0bd0",
+    "baseline_report": "build/ui-acceptance/notification-baseline-reconnect-2026-10-23/report.json",
+    "baseline_evidence": {
+      "id": "updates.retention",
+      "page": "Live updates",
+      "controls": "Unchanged update, disconnect, reconnect",
+      "expected": "Retain DOM, focus, selection and draft; stale view is visibly read-only.",
+      "fixture": "reusable-editors.html",
+      "requirement": "../../docs/spec.md#component-review-checklist",
+      "status": "fail",
+      "evidence": [
+        "layout/1440px/light: {\"environment\":\"isolated Home Assistant\",\"duration_ms\":1857,\"error\":\"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\\n\\nfalse !== true\\n\\n    at file:///mnt/c/GitHub/homeostatic/build/notification-baseline-20261023/script/ui_acceptance_gaps_layout.mjs:72:79\\n    at async run (file:///mnt/c/GitHub/homeostatic/build/notification-baseline-20261023/script/ui_acceptance_cases.mjs:97:20)\\n    at async Module.runLayoutGaps (file:///mnt/c/GitHub/homeostatic/build/notification-baseline-20261023/script/ui_acceptance_gaps_layout.mjs:43:3)\\n    at async runLiveCases (file:///mnt/c/GitHub/homeostatic/build/notification-baseline-20261023/script/ui_acceptance_cases.mjs:477:5)\\n    at async main (file:///mnt/c/GitHub/homeostatic/build/notification-baseline-20261023/script/ui_acceptance.mjs:278:25)\\n    at async file:///mnt/c/GitHub/homeostatic/build/notification-baseline-20261023/script/ui_acceptance.mjs:313:79\",\"screenshot\":\"/mnt/c/GitHub/homeostatic/build/ui-acceptance/notification-baseline-reconnect-2026-10-23/layout-updates.retention.png\",\"dom\":\"/mnt/c/GitHub/homeostatic/build/ui-acceptance/notification-baseline-reconnect-2026-10-23/layout-updates.retention.txt\"}"
+      ]
+    },
+    "candidate_comparison": [
+      "build/ui-acceptance/notification-payload-desktop-2026-10-23/report.json",
+      "build/ui-acceptance/notification-payload-phone-2026-10-23/report.json"
+    ],
+    "status": "Tracked in roadmap; unchanged by this fix."
+  },
+  "other_observed_failures": [
+    {
+      "reports": [
+        "build/ui-acceptance/notification-loading-desktop-2026-10-23/report.json",
+        "build/ui-acceptance/notification-loading-phone-2026-10-23/report.json"
+      ],
+      "finding": "The new loading fixture initially forwarded a held request after higher WebSocket IDs. Core correctly rejected it as id_reuse. Replaced the custom hold with the existing ordered transport hold; both final loading scenarios passed."
+    },
+    {
+      "report": "build/ui-acceptance/notification-loading-final-phone-2026-10-23/report.json",
+      "finding": "One phone run reported a null _panel_custom TypeError in native HA frontend _createPanel during the reload workflow. Its raw stack and failed outcome remain in that report. Repeating the same candidate and case passed without this diagnostic; no errors were suppressed. The transient native-host failure's root cause remains outside this fix."
+    }
+  ],
+  "limits": [
+    "All schema-one machine fields remain complete. The 1000-member probe is still too large for Recorder, while its phone request stays compact. A universally bounded machine event needs a separate versioned-contract decision.",
+    "Short-link retention is 30 days from latest request, bounded to 1000 scopes and 20000 membership references. Unknown/expired scope never widens to all issues implicitly.",
+    "Measured phone service data precedes provider wrapping. Physical iOS/Android Companion use and provider acceptance/receipt are untested; the earlier mobile-app error's cause remains unproven.",
+    "Detected-fact events are outside this change. Existing consumer automations need the updated blueprint reimported or must prefer details_url."
+  ],
+  "publication": {
+    "committed": false,
+    "pushed": false,
+    "released": false,
+    "installed": false,
+    "live_test_notifications": 0
+  }
+}

@@ -352,6 +352,21 @@ async def exercise(config: Path, port: int) -> None:
         ), inventory["episodes"]
         assert inventory["attention_controls_supported"]
         episode = pilot[0]["episode_id"]
+        # Persist a large exact report without requesting a real notification.
+        report = runtime.notification_reports.present(
+            {
+                "schema_version": 1,
+                "action": "summary",
+                "episodes": [episode, *(f"smoke-{index:036d}" for index in range(220))],
+                "message": "Unavailable source " * 200,
+            },
+            dt_util.utcnow(),
+        )
+        reference = str(report["details_url"]).rsplit("/", 1)[1]
+        first_page = runtime.query("notification_report", {"reference": reference})
+        assert first_page["total"] == 221
+        assert first_page["episodes"][0] == episode
+        assert first_page["next_offset"] == 200
         acknowledgment = await hass.services.async_call(
             "homeostatic",
             "acknowledge",
@@ -380,6 +395,17 @@ async def exercise(config: Path, port: int) -> None:
         assert await hass.config_entries.async_reload(entry.entry_id)
         await hass.async_block_till_done()
         runtime = entry.runtime_data
+        assert (
+            runtime.query("notification_report", {"reference": reference}) == first_page
+        )
+        assert (
+            len(
+                runtime.query(
+                    "notification_report", {"reference": reference, "offset": 200}
+                )["episodes"]
+            )
+            == 21
+        )
         decision = next(
             row
             for row in runtime.query("policy", {})["episodes"]

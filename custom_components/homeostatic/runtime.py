@@ -123,6 +123,7 @@ from .monitoring_runtime import (
     thermostat_enrolled,
     ups_sources,
 )
+from .notification_reports import NotificationReports
 from .notification_routes import async_send, notification_url, unavailable_destinations
 from .phone_actions import PhoneActions
 from .repairs import Repairs
@@ -224,6 +225,7 @@ class Runtime:
         self._broken_named: set[str] = set()
         self._broken_created: set[str] = set()
         self.phone_actions = PhoneActions()
+        self.notification_reports = NotificationReports(entry.entry_id)
         self.delivery_failures: deque[dict[str, str]] = deque(maxlen=50)
         self._activating = False
         self._activating_routes: set[str] | None = None
@@ -383,6 +385,7 @@ class Runtime:
         self.repairs.restore(self.saved.get("repairs", {}))
         self.broken.restore(self.saved.get("broken_automations", {}))
         self.phone_actions.restore(self.saved.get("phone_actions", {}))
+        self.notification_reports.restore(self.saved.get("notification_reports", {}))
         if "resolved_history" in self.saved:
             self.history.restore(self.saved["resolved_history"])
         stored_evidence = self.saved.get("evidence")
@@ -1231,6 +1234,7 @@ class Runtime:
         self._prune_controls(now)
         self.history.advance(now)
         self.phone_actions.prune(now)
+        self.notification_reports.prune(now)
         if not self.settings.notifications:
             self.delivery.deactivate()
         self._end_quiet(now)
@@ -2722,10 +2726,19 @@ class Runtime:
         if not self.delivery.outbox:
             return
         pending = list(self.delivery.outbox)
-        for payload in pending:
-            public_payload = {
-                key: value for key, value in payload.items() if key != "_alerting"
-            }
+        previous_reports = self.notification_reports.snapshot()
+        now = dt_util.utcnow()
+        try:
+            public_payloads = [
+                self.notification_reports.present(payload, now) for payload in pending
+            ]
+            # Save link scopes before publication, retaining the raw pending IDs.
+            if self.notification_reports.snapshot() != previous_reports:
+                await self._save()
+        except OSError, HomeAssistantError, ValueError, TypeError:
+            self.notification_reports.restore(previous_reports)
+            raise
+        for payload, public_payload in zip(pending, public_payloads, strict=True):
             self._resolved_requests[str(payload["delivery_id"])] = public_payload
             if len(self._resolved_requests) > 2000:
                 self._resolved_requests.pop(next(iter(self._resolved_requests)))
@@ -2800,6 +2813,9 @@ class Runtime:
                         self.hass, payload, channel, dt_util.utcnow()
                     )
                     if current
+                    and not (
+                        payload.get("message_summarized") is True and len(shown) > 1
+                    )
                     and self.policy is not None
                     and any(
                         not self._acknowledged(episode_id) for episode_id in current
@@ -2895,6 +2911,7 @@ class Runtime:
             "repairs": self.repairs.snapshot(),
             "broken_automations": self.broken.snapshot(),
             "phone_actions": deepcopy(self.phone_actions.records),
+            "notification_reports": self.notification_reports.snapshot(),
             "enrollment": {
                 node_id: {key: list(values) for key, values in metadata.items()}
                 for node_id, metadata in self.enrolled.items()
@@ -3196,6 +3213,13 @@ class Runtime:
             raise HomeAssistantError("Homeostatic is not ready")
         if action == "resolved_history":
             return self.history.view(dt_util.utcnow())
+        if action == "notification_report":
+            return self.notification_reports.view(
+                data["reference"],
+                dt_util.utcnow(),
+                offset=data.get("offset", 0),
+                limit=data.get("limit", 200),
+            )
         if action == "preview_maintenance":
             return self._preview_maintenance(data, dt_util.utcnow())
         if action == "operator_controls":

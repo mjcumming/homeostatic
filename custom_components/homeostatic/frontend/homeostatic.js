@@ -1,28 +1,28 @@
-import {notProvidedProblem} from "./entity-not-provided.mjs?v=108";
-import {retainedProblem, sharedDeviceCondition} from "./check-presentation.mjs?v=108";
-import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=108";
-import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=108";
-import {upsProblem} from "./ups.mjs?v=108";
-import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=108";
-import {affectedFunctions, dashboardStore, editorEvidenceOnly, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=108";
-import {deviceEntityName,entityReadingsStamp} from "./device-entities.mjs?v=108";
-import {batteryProblem, brokenAutomationProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=108";
-import {DashboardTools} from "./history-controls.mjs?v=108";
-import {diagnosticOverview} from "./evidence.mjs?v=108";
-import {styles} from "./styles.mjs?v=108";
+import {notProvidedProblem} from "./entity-not-provided.mjs?v=109";
+import {retainedProblem, sharedDeviceCondition} from "./check-presentation.mjs?v=109";
+import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=109";
+import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=109";
+import {upsProblem} from "./ups.mjs?v=109";
+import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=109";
+import {affectedFunctions, dashboardStore, editorEvidenceOnly, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=109";
+import {deviceEntityName,entityReadingsStamp} from "./device-entities.mjs?v=109";
+import {batteryProblem, brokenAutomationProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=109";
+import {DashboardTools} from "./history-controls.mjs?v=109";
+import {diagnosticOverview} from "./evidence.mjs?v=109";
+import {styles} from "./styles.mjs?v=109";
 
-import {sourcesBrowser, sourcesTree, sourcePaths, sourceForSelection, topomationTree, canonicalSourceSelection, editSourceAvailability, editSourcePolicies, restoreSourceFilters, restoreSourcePolicies} from "./sources-workspace.mjs?v=108";
+import {sourcesBrowser, sourcesTree, sourcePaths, sourceForSelection, topomationTree, canonicalSourceSelection, editSourceAvailability, editSourcePolicies, restoreSourceFilters, restoreSourcePolicies} from "./sources-workspace.mjs?v=109";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=108";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=109";
 
-import {cardView} from "./notification-navigation.mjs?v=108";
-import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=108";
-import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=108";
-import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=108";
-import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=108";
-import {editIssueAvailability,issueAvailabilityAction,issueAvailabilityNeedsCatalog,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=108";
-import {editDeviceIssues,readDeviceIssues} from "./device-issues.mjs?v=108";
-import {issueDeviceId} from "./device-issue-model.mjs?v=108";
+import {cardView} from "./notification-navigation.mjs?v=109";
+import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=109";
+import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=109";
+import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=109";
+import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=109";
+import {editIssueAvailability,issueAvailabilityAction,issueAvailabilityNeedsCatalog,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=109";
+import {editDeviceIssues,readDeviceIssues} from "./device-issues.mjs?v=109";
+import {issueDeviceId} from "./device-issue-model.mjs?v=109";
 
 const VIEWS = ["sources", "problems", "history", "notifications", "policies", "configuration"];
 const date = (value) => value ? new Date(value).toLocaleString() : "No completed update";
@@ -219,6 +219,7 @@ class HomeostaticCard extends HTMLElement {
   }
 
   invalidateReads() {
+    this.navigation.invalidateNotificationReport();
     this.sourceSequence++;
     this.sourceRequest=null;
     this.sourceRefreshPending=false;
@@ -245,6 +246,7 @@ class HomeostaticCard extends HTMLElement {
       const catalogArrived = value.data?.catalog_loaded &&
         (!this.current.data?.catalog_loaded || this.current.data?.catalog_stale && !value.data?.catalog_stale);
       this.current = value;
+      if(value.status==="current")this.navigation.loadNotificationReport();
       if (catalogArrived) {
         this.revealSourcesSelection();
         if (this.sourcesQuery) this.revealSourcesSearch();
@@ -738,7 +740,7 @@ class HomeostaticCard extends HTMLElement {
     const allIssues = event.target.closest?.("a[data-all-issues]");
     if(allIssues) {
       if(event.button>0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
-      event.preventDefault();this.notificationIssueIds=null;this.issueQuery="";this.render();return;
+      event.preventDefault();this.navigation.clearNotificationReport();this.issueQuery="";this.render();return;
     }
     const sourceView=event.target.closest?.("a[data-sources-view]");
     if(sourceView) {
@@ -754,6 +756,7 @@ class HomeostaticCard extends HTMLElement {
     if (editInstallation(this,event)) return;
     const button = event.target.closest("button");
     if (!button) return;
+    if(button.dataset.action === "retry-notification-report"){this.navigation.invalidateNotificationReport();this.navigation.loadNotificationReport();this.render();return;}
     if(button.dataset.sourceOpenEntity){this.dispatchEvent(new CustomEvent("hass-more-info",{bubbles:true,composed:true,detail:{entityId:button.dataset.sourceOpenEntity}}));return;}
     if(button.dataset.deviceIssues){this.openDetail({deviceId:button.dataset.deviceIssues});return;}
     if (button.dataset.action === "retry-issue-configuration") {void this.loadConfiguration().then(()=>this.loadDetail());return;}
@@ -792,7 +795,7 @@ class HomeostaticCard extends HTMLElement {
       this.detail=null;
       this.dialog.close();
       this.page = workspacePage(button.dataset.page);
-      if(this.page === "problems")this.notificationIssueIds=null;
+      this.navigation.clearNotificationReport();
       if (button.dataset.configureMonitoring!==undefined) {this.definitionSelection=null;this.policyCreating=false;}
       if (button.closest(".nav")) {
         if (["policies","notifications"].includes(this.page)) {this.definitionSelection=null;this.policyCreating=false;}
@@ -1026,11 +1029,11 @@ class HomeostaticStrategy {
   static getCreateSuggestions() { return {title:"Homeostatic",icon:"mdi:home-heart"}; }
   static async generate() {
     return {title:"Homeostatic",views:[
-      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v56",view:"issues",navigation:false}]},
-      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v56",view:"sources",navigation:false}]},
-      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v56",view:"policies",navigation:false}]},
-      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v56",view:"notifications",navigation:false}]},
-      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v56",view:"history",navigation:false}]},
+      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v57",view:"issues",navigation:false}]},
+      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v57",view:"sources",navigation:false}]},
+      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v57",view:"policies",navigation:false}]},
+      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v57",view:"notifications",navigation:false}]},
+      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v57",view:"history",navigation:false}]},
     ]};
   }
 }
@@ -1038,7 +1041,7 @@ class HomeostaticStrategy {
 if (!customElements.get("homeostatic-card-v53")) customElements.define("homeostatic-card-v53", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-card-v54")) customElements.define("homeostatic-card-v54", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-card-v55")) customElements.define("homeostatic-card-v55", class extends HomeostaticCard {});
-if (!customElements.get("homeostatic-card-v56")) customElements.define("homeostatic-card-v56", HomeostaticCard);
+if (!customElements.get("homeostatic-card-v56")) customElements.define("homeostatic-card-v56", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-card-v50")) customElements.define("homeostatic-card-v50", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-card-v49")) customElements.define("homeostatic-card-v49", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-card-v48")) customElements.define("homeostatic-card-v48", class extends HomeostaticCard {});
@@ -1055,7 +1058,7 @@ if (!customElements.get("homeostatic-card-v37")) customElements.define("homeosta
 if (!customElements.get("homeostatic-panel-v57")) customElements.define("homeostatic-panel-v57", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-panel-v58")) customElements.define("homeostatic-panel-v58", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-panel-v59")) customElements.define("homeostatic-panel-v59", class extends HomeostaticPanel {});
-if (!customElements.get("homeostatic-panel-v60")) customElements.define("homeostatic-panel-v60", HomeostaticPanel);
+if (!customElements.get("homeostatic-panel-v60")) customElements.define("homeostatic-panel-v60", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-panel-v56")) customElements.define("homeostatic-panel-v56", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v52")) customElements.define("homeostatic-card-v52", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-panel-v55")) customElements.define("homeostatic-panel-v55", class extends HomeostaticPanel {});
@@ -1118,3 +1121,6 @@ window.customStrategies = window.customStrategies || [];
 if (!window.customStrategies.some((item) => item.type === "homeostatic")) window.customStrategies.push({
   type:"homeostatic",strategyType:"dashboard",name:"Homeostatic",description:"A dashboard populated from Homeostatic monitoring.",
 });
+
+if (!customElements.get("homeostatic-card-v57")) customElements.define("homeostatic-card-v57", HomeostaticCard);
+if (!customElements.get("homeostatic-panel-v61")) customElements.define("homeostatic-panel-v61", HomeostaticPanel);

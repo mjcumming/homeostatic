@@ -1,8 +1,8 @@
-import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=108";
+import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=109";
 
-import {deviceEntityName} from "./device-entities.mjs?v=108";
-import {waitingOnly} from "./check-presentation.mjs?v=108";
-import {issueDeviceId} from "./device-issue-model.mjs?v=108";
+import {deviceEntityName} from "./device-entities.mjs?v=109";
+import {waitingOnly} from "./check-presentation.mjs?v=109";
+import {issueDeviceId} from "./device-issue-model.mjs?v=109";
 
 const count = (value, singular, plural = `${singular}s`) => `${value} ${value === 1 ? singular : plural}`;
 const sourceId = source => source?.monitoring_source || source?.node_id;
@@ -134,6 +134,11 @@ function ordered(episodes, sort, nodes) {
 
 /** Render one entry per issue, with evidence available in its details. */
 export function issuesWorkspace(card) {
+  if(card.notificationReference && card.notificationReportStatus!=="available") {
+    const status=card.notificationReportStatus;
+    const message=status==="expired" ? "This notification link has expired or is no longer available. Its included issues cannot be determined." : status==="error" ? "The issues included in this notification could not be loaded. Try again when Home Assistant is available." : "Loading the issues included in this notification…";
+    return `<div class="intro"><div><h1>Issues in this notification</h1><p class="page-description" role="status" data-notification-scope>${message}</p>${status==="error" ? `<button type="button" class="button" data-action="retry-notification-report">Try again</button> ` : ""}<a class="button" href="/homeostatic/issues" data-all-issues>Show all open issues</a></div></div>`;
+  }
   const included = Array.isArray(card.notificationIssueIds) ? new Set(card.notificationIssueIds) : null;
   const current = card.current.data;
   const data = included ? {...current,inventory:{...current.inventory,episodes:current.inventory.episodes.filter(episode=>included.has(episode.episode_id))}} : current;

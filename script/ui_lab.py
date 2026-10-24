@@ -14,7 +14,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -709,6 +709,8 @@ class Lab:
                         "integration_failure",
                         "temperature_device",
                         "importance_cases",
+                        "notification_report",
+                        "expire_notification_reports",
                         "advance",
                         "shutdown",
                     ]
@@ -716,6 +718,7 @@ class Lab:
                 vol.Optional("entity_id"): str,
                 vol.Optional("state"): str,
                 vol.Optional("attributes"): dict,
+                vol.Optional("episodes"): [str],
                 vol.Optional("mode"): vol.In(["capture", "fail"]),
                 vol.Optional("failed"): bool,
                 vol.Optional("name"): str,
@@ -730,7 +733,30 @@ class Lab:
             hass: HomeAssistant, connection: ActiveConnection, message: dict[str, Any]
         ) -> None:
             action = message["action"]
-            if action == "reset":
+            if action == "notification_report":
+                from custom_components.homeostatic import notification_reports
+
+                assert self.entry is not None
+                runtime = self.entry.runtime_data
+                # Exercise the large-link path with the existing bounded fixture.
+                with patch.object(notification_reports, "MAX_INLINE_URL_BYTES", 1):
+                    payload = runtime.notification_reports.present(
+                        {"episodes": message["episodes"], "message": "Fixture report"},
+                        dt_util.utcnow(),
+                    )
+                await runtime._save()
+                connection.send_result(
+                    message["id"],
+                    {**self.status(), "notification_url": payload["details_url"]},
+                )
+                return
+            if action == "expire_notification_reports":
+                assert self.entry is not None
+                self.entry.runtime_data.notification_reports.prune(
+                    dt_util.utcnow() + timedelta(days=31)
+                )
+                await self.entry.runtime_data._save()
+            elif action == "reset":
                 await self.reset()
             elif action in {"outage", "recover"}:
                 await self.condition(action == "outage")

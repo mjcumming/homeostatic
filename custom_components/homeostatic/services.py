@@ -26,6 +26,7 @@ SERVICES = (
     *MUTATIONS,
     "operator_controls",
     "resolved_history",
+    "notification_report",
     "preview_maintenance",
     "policy",
     "preview_policy",
@@ -94,6 +95,16 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
                 )
         elif service == "preview_policy":
             fields = {vol.Required("policy"): dict}
+        elif service == "notification_report":
+            fields = {
+                vol.Required("reference"): vol.All(
+                    cv.string, vol.Match(r"^[0-9a-f]{32}$")
+                ),
+                vol.Optional("offset", default=0): vol.All(cv.positive_int),
+                vol.Optional("limit", default=200): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=200)
+                ),
+            }
         elif service in {"explain", "impact"}:
             fields = {vol.Required("node_id"): cv.string}
         elif service in {"readiness", "rollup"}:

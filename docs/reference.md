@@ -104,6 +104,7 @@ Queries require a running Homeostatic instance. Unknown identities and invalid f
 | [`policy`](#homeostaticpolicy) | Read | Notification decisions for current issues. |
 | [`operator_controls`](#homeostaticoperator_controls) | Read | Active pauses and maintenance windows. |
 | [`resolved_history`](#homeostaticresolved_history) | Read | Retained ended issues. |
+| [`notification_report`](#homeostaticnotification_report) | Read | Exact included issue IDs for a short notification link. |
 | [`preview_policy`](#homeostaticpreview_policy) | Preview | Simulate notification-policy activation. |
 | [`preview_maintenance`](#homeostaticpreview_maintenance) | Preview | Calculate the current maintenance scope. |
 | [`acknowledge`](#homeostaticacknowledge) | Change | Acknowledge an issue. |
@@ -212,6 +213,18 @@ New source snapshots retain known ownership and canonical-source metadata. Older
 
 ```yaml
 action: homeostatic.resolved_history
+```
+
+### `homeostatic.notification_report`
+
+Read a short notification link's exact membership. Pass `reference`, the 32-character identifier after `/homeostatic/notification/`; optional `offset` defaults to 0 and `limit` defaults to 200 (maximum 200). The response contains `status` (`available` or `expired`), `reference`, `episodes`, `total` and `next_offset`. Request each page until `next_offset` is `null`. Unknown or expired references return no IDs and never imply recovery. Reading does not extend retention or change monitoring. Link retention is described in [notification tap destinations](spec.md#notification-tap-destinations).
+
+```yaml
+action: homeostatic.notification_report
+data:
+  reference: "0123456789abcdef0123456789abcdef"
+  offset: 0
+  limit: 200
 ```
 
 ### `homeostatic.preview_policy`

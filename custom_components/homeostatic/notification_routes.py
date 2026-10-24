@@ -3,18 +3,22 @@
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any
-from urllib.parse import quote, unquote
+from urllib.parse import unquote
 
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.json import json_bytes
+
+from .notification_reports import notification_url as notification_url
 
 # Importing optional integration packages loads providers and their dependencies.
 # These public feature bits are defined by Core's entity platform contracts.
 _SATELLITE_ANNOUNCE = 1
 _PLAYER_PLAY_MEDIA = 512
+MAX_PHONE_REQUEST_BYTES = 3000
 
 
 def webhook_id_from_device_id(hass: HomeAssistant, device_id: str) -> str | None:
@@ -264,28 +268,6 @@ def _entity(hass: HomeAssistant, identity: str, domain: str) -> er.RegistryEntry
     return entity
 
 
-def notification_url(payload: dict[str, Any]) -> str:
-    """Keep the delivered membership in a history-safe issue destination."""
-    included = payload.get("episodes")
-    if isinstance(included, list):
-        identities = list(
-            dict.fromkeys(item for item in included if isinstance(item, str) and item)
-        )
-        if len(identities) == 1:
-            return f"/homeostatic/episode/{quote(identities[0], safe='')}"
-        members = ",".join(quote(item, safe="") for item in identities)
-        return f"/homeostatic/issues/notification/{members}"
-    episode_id = payload.get("episode_id")
-    if payload.get("episodes") is not None or payload.get("action") in {
-        "summary",
-        "digest",
-    }:
-        return "/homeostatic/issues"
-    if isinstance(episode_id, str) and episode_id:
-        return f"/homeostatic/episode/{quote(episode_id, safe='')}"
-    return "/homeostatic/issues"
-
-
 async def async_send(
     hass: HomeAssistant,
     channel: str,
@@ -341,15 +323,21 @@ async def async_send(
                         "interruption-level": "passive",
                     }
                 )
+        service_data = {
+            "message": message,
+            "title": title,
+            "data": notification_data,
+            "target": webhook_id,
+        }
+        if len(json_bytes(service_data)) > MAX_PHONE_REQUEST_BYTES:
+            raise HomeAssistantError(
+                "The phone notification exceeds Homeostatic's size budget. "
+                "Use a compact preview and a short Homeostatic issue link."
+            )
         await hass.services.async_call(
             "notify",
             service,
-            {
-                "message": message,
-                "title": title,
-                "data": notification_data,
-                "target": webhook_id,
-            },
+            service_data,
             blocking=True,
         )
         return

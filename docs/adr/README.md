@@ -4,6 +4,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0109](0109-compact-notification-presentation.md) | Bound notification previews and use durable exact-scope local links | Accepted; refines 0033/0102 presentation while preserving schema-one machine fields |
 | [0108](0108-category-availability-policies-and-policy-waits.md) | Supply category availability policies, focused source selection and configurable waits | Accepted; refines 0103 with flat focused lists and empty custom selections; supersedes the fresh General/Important split in 0099/0106; preserves existing policies under 0107 |
 | [0107](0107-add-new-supplied-policies-disabled-on-upgrade.md) | Add newly supplied policies once, disabled, on existing installations | Accepted; extends 0058/0106 with durable introduction tracking while preserving edits and deletions |
 | [0106](0106-enable-supplied-battery-and-vacuum-policies.md) | Enable supplied battery and vacuum policies on fresh setup | Accepted; supersedes disabled battery/vacuum defaults in 0058; fresh availability list superseded by 0108; additions follow 0107 |

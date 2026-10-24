@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.12.2] - 2026-10-24
+
+### Fixed
+
+- Keep large notification previews and phone links compact. Short links open the exact included issues in the Home Assistant app and survive restart; unavailable links explain their limit. Shortened multi-issue previews use the panel's individual acknowledgment controls.
+- Preserve complete issue IDs and existing notification-event compatibility. Extremely large machine-readable event data can still exceed Home Assistant Recorder's storage limit. Reimport the Companion notification blueprint to update an existing consumer automation.
+- Reject oversized built-in phone requests before sending and report a size error through Homeostatic, including title, links and action metadata in the budget.
+
 ## [1.12.1] - 2026-10-20
 
 ### Fixed
