@@ -1,0 +1,94 @@
+{
+  "recorded_at_utc": "2026-10-24T23:37:32.6289692Z",
+  "version": "1.12.5",
+  "commit": "016508be08ec295ee2a757e798b95c077ccf702d",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.12.5",
+  "published_at": "2026-10-24T23:36:38Z",
+  "change": "Preserve complete editor state across panel replacement, remove property forwarding and maintain parameterized release verification and installation tooling.",
+  "candidate": {
+    "branch": "main",
+    "dirty": false,
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "archive_sha256": "20d70cb2b45e97dcf312af5f238c322aeae2e75c5bdf38007323baa9460282d8",
+    "packaged_files_verified": 469,
+    "embedded_hashes_verified": 468,
+    "component_files_verified": 83,
+    "sources_match_commit": true,
+    "published_download_matches_ci": true,
+    "published_sidecar_matches_ci": true,
+    "tag_points_to_candidate": true,
+    "configuration_migration": false,
+    "storage_format_change": false,
+    "frontend_code_changed": true
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/40143113191",
+    "run_id": 40143113191,
+    "head_sha": "016508be08ec295ee2a757e798b95c077ccf702d",
+    "result": "success",
+    "home_assistant": "2026.9.3",
+    "python_tests_passed": 1441,
+    "opt_in_performance_tests_skipped": 15,
+    "frontend_tests_passed": 906,
+    "statement_coverage_percent": 96.89994431037684,
+    "branch_coverage_percent": 93.23122529644269,
+    "strict_types": "pass",
+    "hassfest": "pass",
+    "hacs": "pass",
+    "exact_candidate_archive_verification": "pass",
+    "fresh_package_installation": "pass",
+    "packaged_saved_state_reload": "pass"
+  },
+  "behavior_validation": {
+    "frontend_receipt": "editor-state-2026-10-24.json",
+    "tooling_receipt": "release-tooling-2026-10-24.json",
+    "local_focused_python_tests_passed": 62,
+    "release_tooling_strict_types": "pass",
+    "rendered_candidate_comparison": {
+      "candidate": "016508be08ec295ee2a757e798b95c077ccf702d",
+      "compared_component_files": 83,
+      "all_component_bytes_match_rendered_snapshot_except_version": true,
+      "only_difference": [
+        "manifest.json"
+      ],
+      "rendered_snapshot": "build/ui-acceptance/editor-state-reviewed",
+      "previous_version": "1.12.4",
+      "candidate_version": "1.12.5"
+    },
+    "isolated_ui_workflows_per_viewport": {
+      "passed": 128,
+      "failed": 1,
+      "failure": "The existing updates.retention same-input DOM assertion and native HA subscription diagnostic remain deferred. Draft values are retained."
+    },
+    "upgrade_preservation": "Existing settings, edited and deleted policies, destinations, sending choices, controls and stable pending delivery identities retain the unchanged persistence contract. Isolated CI upgrade and repeat-reload scenarios and the packaged-install smoke pass."
+  },
+  "publication": {
+    "tag": "v1.12.5",
+    "latest_stable": true,
+    "is_draft": false,
+    "is_prerelease": false,
+    "assets": [
+      {
+        "name": "homeostatic-1.12.5.zip",
+        "digest": "sha256:20d70cb2b45e97dcf312af5f238c322aeae2e75c5bdf38007323baa9460282d8",
+        "size": 6643438,
+        "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.12.5/homeostatic-1.12.5.zip"
+      },
+      {
+        "name": "homeostatic-1.12.5.zip.sha256",
+        "digest": "sha256:bbe86bce2894651dce32dfc5d87454b16bc992c6480722bf01c4cca3cb52763c",
+        "size": 89,
+        "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.12.5/homeostatic-1.12.5.zip.sha256"
+      }
+    ]
+  },
+  "installation": {
+    "performed": false,
+    "reason": "The release request authorized publication; no household installation was changed.",
+    "last_verified_household_version": "1.12.3",
+    "previous_receipt": "release-1.12.3.json",
+    "live_notification_tests_requested": false
+  }
+}
