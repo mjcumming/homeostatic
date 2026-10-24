@@ -157,7 +157,9 @@
     "destination": "Michael’s iPhone",
     "requested_count": 1,
     "message": "Homeostatic test: this route works",
-    "physical_receipt_confirmed": false,
+    "physical_receipt_confirmed": true,
+    "confirmed_on": "2026-10-24",
+    "confirmation_source": "Maintainer message: Got the notification",
     "response": {
       "requested": true
     },
@@ -166,7 +168,6 @@
     "core_log_check": "No mobile_app.notify or Homeostatic log records before or immediately after the single test."
   },
   "remaining": [
-    "Physical iPhone receipt requires owner confirmation.",
     "The original historical provider response was not retained; the reproduced oversized-request failure does not prove that historical request's cause.",
     "Extreme machine-event sizes and separate reconnect/native-host cases remain deferred as requested. Physical Companion use of a large report remains untested."
   ]
