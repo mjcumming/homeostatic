@@ -55,8 +55,8 @@ if(!embedded) {
   async function show(state="active",variant="devices") {
     fixture=issueEvidenceFixture({state,variant});
     card.current={status:"current",data:fixture.data};card.page="problems";
-    card.configuration={settings:{notifications:fixture.data.policy.notifications_enabled,monitoring_policies:fixture.policies,notification_definitions:emptyNotificationDefinitions("America/Chicago")}};
-    card.settingsDraft=structuredClone(card.configuration.settings);
+    card.editors.configuration={settings:{notifications:fixture.data.policy.notifications_enabled,monitoring_policies:fixture.policies,notification_definitions:emptyNotificationDefinitions("America/Chicago")}};
+    card.editors.settingsDraft=structuredClone(card.editors.configuration.settings);
     card.issueGroupsExpanded=new Set();card.sourceDetail=null;
     if(state!=="recovered"){card.detail=null;card.dialog.close();}
     card.render();

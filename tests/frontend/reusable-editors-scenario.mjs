@@ -47,7 +47,7 @@ card._hass={user:{id:"fixture",is_admin:true},config:{time_zone:"America/Chicago
   throw Error("Unexpected request in isolated fixture: "+request.type);
 }};
 card.current={status:"current",data:monitoringExample()};
-card.configuration=configuration();card.settingsDraft=structuredClone(saved);card.page="notifications";card.notificationSection="profiles";card.render();
+card.editors.configuration=configuration();card.editors.settingsDraft=structuredClone(saved);card.page="notifications";card.notificationSection="profiles";card.render();
 if(new URLSearchParams(location.search).has("settings-history")) {
   card.page="configuration";card.settingsSection="timing";card.render();
   card.navigation.enabled=true;
@@ -61,7 +61,7 @@ const root=card.shadowRoot;
 const check=(value,message)=>{if(!value)throw Error(message);};
 const find=selector=>{const element=root.querySelector(selector);check(element,"Missing "+selector);return element;};
 const tick=()=>new Promise(resolve=>{const channel=new MessageChannel();channel.port1.onmessage=()=>{channel.port1.close();channel.port2.close();resolve();};channel.port2.postMessage(null);});
-const settle=async()=>{for(let n=0;n<120;n++){await tick();if(!card.scopedBusy&&!card.deliveryBusy&&!card.deliveryMethodBusy){await tick();return;}}throw Error("The editor did not finish its pending operation");};
+const settle=async()=>{for(let n=0;n<120;n++){await tick();if(!card.editors.scopedBusy&&!card.editors.deliveryBusy&&!card.editors.deliveryMethodBusy){await tick();return;}}throw Error("The editor did not finish its pending operation");};
 const click=async selector=>{const element=find(selector);check(!element.disabled&&!element.closest("[inert]"),"Control is disabled: "+selector);element.scrollIntoView({block:"nearest"});const box=element.getBoundingClientRect(),hit=root.elementFromPoint(box.x+box.width/2,box.y+box.height/2);check(box.width>0&&box.height>0&&(element===hit||element.contains(hit)),"Control is hidden or covered: "+selector);element.click();await tick();};
 const change=async(selector,value)=>{const element=find(selector);check(!element.matches(':disabled')&&!element.closest('[inert]'),"Input is disabled: "+selector);element.focus();if(element.type==="checkbox")element.checked=value;else element.value=value;element.dispatchEvent(new Event("input",{bubbles:true,composed:true}));element.dispatchEvent(new Event("change",{bubbles:true,composed:true}));await tick();};
 const save=async()=>{await click('[data-definition-action="save-scoped"]');await settle();};
@@ -127,13 +127,13 @@ document.querySelector("#run").onclick=async()=>{
       await changeName("Pending battery policy");await edit("morning");
       await change('[data-definition-field="timing:at"]',"09:00");await change('[data-definition-field="methods"][data-definition-value="phone"]',true);await save();
       check(saved.notification_definitions.profiles.morning.timing.at==="09:00","Save notification persists timing");
-      check(saved.monitoring_policies[0].name==="Low battery"&&card.settingsDraft.monitoring_policies[0].name==="Pending battery policy","Unrelated policy draft remains unsaved");
+      check(saved.monitoring_policies[0].name==="Low battery"&&card.editors.settingsDraft.monitoring_policies[0].name==="Pending battery policy","Unrelated policy draft remains unsaved");
       savedList("profiles","morning","Morning summary");
       check(!root.querySelector('[data-definition-action="save-scoped"]'),"Completed save removes the editor footer");
     });
     await runPath("profiles.discard",async()=>{
       await edit("morning");await changeName("Discard this name");await click('[data-definition-action="discard-scoped"]');
-      check(name().value==="Morning summary"&&card.settingsDraft.monitoring_policies[0].name==="Pending battery policy","Discard restores only this profile");
+      check(name().value==="Morning summary"&&card.editors.settingsDraft.monitoring_policies[0].name==="Pending battery policy","Discard restores only this profile");
     });
     await runPath("profiles.timing",async()=>{
       await edit("weekly");
@@ -201,17 +201,17 @@ document.querySelector("#run").onclick=async()=>{
       check(saved.monitoring_policies[0].notifications[0].profile==="urgent","Policy choice saves through its button");
       const add='.policy-notification-add select',policyId=card.definitionSelection.id;
       const otherPolicies=JSON.stringify(saved.monitoring_policies.slice(1)),definitions=JSON.stringify(saved.notification_definitions);
-      check(find(add).value===""&&card.settingsDraft.monitoring_policies[0].notifications.length===1,"Add starts without an implicit assignment");
+      check(find(add).value===""&&card.editors.settingsDraft.monitoring_policies[0].notifications.length===1,"Add starts without an implicit assignment");
       await change(add,"acknowledge");
       check(root.querySelectorAll('.policy-notification-row').length===2,"Additional row appears only after a choice");
-      check(root.activeElement?.dataset.rowId===card.settingsDraft.monitoring_policies[0].notifications[1].id,"Focus follows the added notification");
+      check(root.activeElement?.dataset.rowId===card.editors.settingsDraft.monitoring_policies[0].notifications[1].id,"Focus follows the added notification");
       await click('[data-definition-action="remove-row"]');await click('[data-definition-action="discard-scoped"]');
       check(saved.monitoring_policies[0].notifications.length===1,"Discard leaves saved assignments unchanged");
       await click('[data-definition-action="remove-row"]');
       check(!root.querySelector('.policy-notification-row')&&root.textContent.includes("No notifications"),"Removing the final notification shows the empty state");
       check(root.activeElement===find(add),"Focus returns to Add notification");
       saveMode="reject";await save();
-      check(card.settingsDraft.monitoring_policies[0].notifications.length===0&&saved.monitoring_policies[0].notifications.length===1,"Failed removal save preserves the empty draft and saved assignment");
+      check(card.editors.settingsDraft.monitoring_policies[0].notifications.length===0&&saved.monitoring_policies[0].notifications.length===1,"Failed removal save preserves the empty draft and saved assignment");
       await save();
       check(saved.monitoring_policies[0].notifications.length===0,"Zero notifications saves");
       await click('[data-workspace-return]');await click(`[data-definition-action="edit"][data-definition-id="${policyId}"]`);
@@ -228,7 +228,7 @@ document.querySelector("#run").onclick=async()=>{
     });
     await runPath("save.pending",async()=>{
       await edit("urgent");await changeName("Urgent delayed");saveMode="hold";const before=persistCount();await click('[data-definition-action="save-scoped"]');
-      check(Boolean(card.scopedBusy)&&root.textContent.includes("Saving"),"Pending save stays visible");
+      check(Boolean(card.editors.scopedBusy)&&root.textContent.includes("Saving"),"Pending save stays visible");
       const pending=root.querySelector('[data-definition-action="save-scoped"]');check(!pending||pending.disabled||pending.closest('fieldset[disabled]'),"Duplicate submit disabled");
       releaseSave();releaseSave=null;await settle();check(persistCount()===before+1&&saved.notification_definitions.profiles.urgent.name==="Urgent delayed","Only one request submitted");
       savedList("profiles","urgent","Urgent delayed");
@@ -247,7 +247,7 @@ document.querySelector("#run").onclick=async()=>{
       releaseSave();releaseSave=null;await settle();
       check(name()===editorInput&&card.main.inert&&!root.textContent.includes("Changes saved.")&&!root.textContent.includes("Saving…"),"Confirmed response retains the locked editor without a success message");
       check(root.querySelector('.workspace-status').textContent==="Finishing update…","Confirmed save explains the remaining wait without duplicating success");
-      check(saved.notification_definitions.methods.phone.name==="Phone saved through outage"&&card.settingsDraft.monitoring_policies[0].name==="Unrelated policy draft during outage"&&saved.monitoring_policies[0].name!=="Unrelated policy draft during outage","Exact method saves while unrelated policy draft stays unsaved");
+      check(saved.notification_definitions.methods.phone.name==="Phone saved through outage"&&card.editors.settingsDraft.monitoring_policies[0].name==="Unrelated policy draft during outage"&&saved.monitoring_policies[0].name!=="Unrelated policy draft during outage","Exact method saves while unrelated policy draft stays unsaved");
       card.current=current;card.render();check(!card.main.inert&&name().value==="Phone saved through outage","Current monitoring restores editing after confirmation");
       for(const [outcome,message] of [["reject","Synthetic storage rejected"],["rollback-failed","Synthetic save and rollback failed"],["lost","Synthetic response lost"],["refresh-fail","Changes were saved, but current settings could not be reloaded"]]) {
         await changeName(`Phone ${outcome}`);saveMode=`hold-${outcome}`;await click('[data-definition-action="save-scoped"]');
@@ -257,7 +257,7 @@ document.querySelector("#run").onclick=async()=>{
         releaseSave();releaseSave=null;await settle();
         check(card.main.querySelector('.banner')&&root.textContent.includes(message)&&!root.textContent.includes("Changes saved."),"Failed or uncertain result ends exception and remains explicit");
         card.render();card.render();check(root.textContent.includes(message)&&persistCount()===beforeResult,"Repeated unavailable updates preserve the failure and never resubmit");
-        check(card.settingsDraft.notification_definitions.methods.phone.name===`Phone ${outcome}`&&card.settingsDraft.monitoring_policies[0].name==="Unrelated policy draft during outage","Failure preserves both drafts");
+        check(card.editors.settingsDraft.notification_definitions.methods.phone.name===`Phone ${outcome}`&&card.editors.settingsDraft.monitoring_policies[0].name==="Unrelated policy draft during outage","Failure preserves both drafts");
         card.current=current;card.render();await save();
         check(saved.notification_definitions.methods.phone.name===`Phone ${outcome}`,"Explicit retry inspects and resolves saved state");
         savedList("methods","phone","Phone "+outcome);

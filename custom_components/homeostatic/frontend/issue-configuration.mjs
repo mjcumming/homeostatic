@@ -1,5 +1,5 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=109";
-import {sourceCoverageIndex, sourceCoveragePolicies} from "./source-coverage.mjs?v=109";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=110";
+import {sourceCoverageIndex, sourceCoveragePolicies} from "./source-coverage.mjs?v=110";
 
 const button=(action,kind,id,name)=>`<button type="button" class="button" data-definition-action="${action}" data-definition-kind="${kind}" data-definition-id="${esc(id)}">${esc(name)}</button>`;
 
@@ -8,13 +8,13 @@ export function issuePolicyChoices(card,sources,coverage=[]) {
   const data=card.current.data,index=sourceCoverageIndex(data);
   const canonical=new Map(inventoryRows(data).filter(source=>!source.monitoring_policy).map(source=>[source.node_id,source]));
   const ids=new Set(sources.filter(Boolean).flatMap(source=>sourceCoveragePolicies(canonical.get(source.monitoring_source)||source,index)));
-  const saved=(card.configuration?.settings?.monitoring_policies||[]).filter(policy=>policy.enabled!==false&&ids.has(policy.id));
+  const saved=(card.editors.configuration?.settings?.monitoring_policies||[]).filter(policy=>policy.enabled!==false&&ids.has(policy.id));
   return [...new Map([...coverage,...saved].map(policy=>[policy.id,{id:policy.id,name:policy.name}])).values()];
 }
 
 /** Link saved coverage and notification assignments without reading pending drafts. */
 export function issueConfiguration(card,coverage,{unavailable=false}={}) {
-  const settings=card.configuration?.settings;
+  const settings=card.editors.configuration?.settings;
   if(unavailable||!settings)return '<section class="issue-configuration"><p role="status">Policy and notification coverage is unavailable.</p><button type="button" class="button" data-action="retry-issue-configuration">Retry</button></section>';
   const policies=[...new Map(coverage.map(policy=>[policy.id,policy])).values()];
   const definitions=settings.notification_definitions||{},profiles=definitions.profiles||{};

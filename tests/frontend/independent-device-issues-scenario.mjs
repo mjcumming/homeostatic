@@ -40,8 +40,8 @@ card._hass={user:{id:"fixture",is_admin:true},config:{time_zone:"America/Chicago
 function reset(integrationFailed=false) {
   card.tools.close();if(card.dialog.open)card.dialog.close();fixture=independentDeviceIssuesFixture({integrationFailed});calls.length=0;
   card._hass.states=Object.fromEntries(Object.keys(deviceNames).map(id=>[`light.${id}`,{state:"unavailable",attributes:{}}]));
-  Object.assign(card,{current:{status:"current",data:fixture.data},configuration:configuration(),settingsDraft:copy(fixture.settings),scopedConfiguration:null,page:"problems",detail:null,issueQuery:"",issueSort:"name",issueGroupsExpanded:new Set(["integration:matter"]),issueGroupLimits:new Map(),issueAvailabilityPlan:null,issueAvailabilityEpisode:null});
-  initializeScopedConfiguration(card);card.render();
+  Object.assign(card,{current:{status:"current",data:fixture.data},editors:{configuration:configuration(),settingsDraft:copy(fixture.settings),scopedConfiguration:null},page:"problems",detail:null,issueQuery:"",issueSort:"name",issueGroupsExpanded:new Set(["integration:matter"]),issueGroupLimits:new Map(),issueAvailabilityPlan:null,issueAvailabilityEpisode:null});
+  initializeScopedConfiguration(card.editors);card.render();
 }
 async function openIssue(id="issue:devices:deck") {
   await close();await click('[data-page="problems"]');
@@ -103,12 +103,12 @@ document.querySelector("#run").onclick=async()=>{
       check(mutations().length===0,"History navigation requests no mutation");noOverflow();
     },"Expanded Issues separated, verified no-recovery wording and explicit expired successor, followed readable links into the open light and retained hallway issue. No mutation.");
     await path("settings.timing-only",async()=>{
-      reset();const before=JSON.stringify(card.configuration.settings);await click('[data-page="configuration"]');
+      reset();const before=JSON.stringify(card.editors.configuration.settings);await click('[data-page="configuration"]');
       check(!root.querySelector('[data-settings-section], [data-setting-path="timings.coalesce_count"], [data-setting-path="timings.coalesce_window"]'),"Inactive grouping controls are absent");
       check(find('main h2').innerText==="Timing","Settings shows Timing directly");
       card.navigation.applyPath("/settings/grouping");await settle();check(card.page==="configuration"&&find('[data-setting-path="timings.clear_hold"]'),"Legacy grouping destination retains useful timing controls");
       await click('[data-ui-key="settings-advanced-timing"] summary');check(find('[data-setting-path="timings.settle"]').getClientRects().length,"Advanced timing remains reachable");
-      check(JSON.stringify(card.configuration.settings)===before&&card.settingsDraft.timings.coalesce_count===3&&card.settingsDraft.timings.coalesce_window===60,"Navigation preserves saved legacy values");noOverflow();
+      check(JSON.stringify(card.editors.configuration.settings)===before&&card.editors.settingsDraft.timings.coalesce_count===3&&card.editors.settingsDraft.timings.coalesce_window===60,"Navigation preserves saved legacy values");noOverflow();
     },"Settings opens directly to Timing; legacy grouping route works, advanced waits remain reachable, inactive grouping fields/navigation are absent, and saved values stay unchanged.");
     reset();await openIssue();feedback.textContent="PASS: Independent device actions, real integration scope, split history and Timing checked.";
   }catch(error){feedback.textContent="FAIL: "+error.stack;}finally{button.disabled=false;report();}

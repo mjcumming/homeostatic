@@ -39,7 +39,7 @@ async function close() {
 }
 async function openCase(id) {
   await close();fixture=compactPopupFixture(id);
-  Object.assign(card,{configuration:copy(configuration),settingsDraft:copy(settings),page:"problems",detail:null});
+  Object.assign(card,{editors:{configuration:copy(configuration),settingsDraft:copy(settings)},page:"problems",detail:null});
   publish();await settle();
   document.querySelector("#example").value=id;
   if(fixture.episode) {
@@ -60,7 +60,7 @@ for(const definition of popupCases)select.add(new Option(definition.id,definitio
 document.querySelector("#theme").onchange=event=>document.documentElement.dataset.theme=event.target.value;
 document.querySelector("#open").onclick=()=>openCase(select.value);
 select.onchange=()=>openCase(select.value);
-Object.assign(card,{configuration:copy(configuration),settingsDraft:copy(settings),current:{status:"current",data:fixture.data},page:"problems"});
+Object.assign(card,{editors:{configuration:copy(configuration),settingsDraft:copy(settings)},current:{status:"current",data:fixture.data},page:"problems"});
 card.render();
 
 async function run() {
@@ -115,7 +115,7 @@ async function run() {
     check(!body().innerText.includes("Household impact")&&!body().innerText.includes("What Homeostatic knows"),"Source evidence omits redundant technical explanations");
     fixture.source.kind="external";fixture.result.source.kind="external";publish();await settle();
     check(!body().querySelector('[data-maintenance]'),"External source detail offers no new-maintenance action");
-    check(mutations().length===0&&JSON.stringify(card.configuration.settings)===JSON.stringify(settings),"Opening and inspecting all examples changes no controls or saved settings");
+    check(mutations().length===0&&JSON.stringify(card.editors.configuration.settings)===JSON.stringify(settings),"Opening and inspecting all examples changes no controls or saved settings");
     evidence.push("Entity, integration, device and external source details offer no new-maintenance action. Changed evidence retains the flat layout and action keyboard focus; all browsing is read-only.");
     receipt.status="pass";result.textContent="Compact popup checks passed ("+popupCases.length+" examples)";
   } catch(error) {receipt.status="fail";receipt.error=error.message;result.textContent="Failed: "+error.message;}

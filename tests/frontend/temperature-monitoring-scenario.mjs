@@ -7,14 +7,14 @@ const card=document.querySelector("homeostatic-panel"),root=card.shadowRoot;
 const copy=value=>structuredClone(value),base=temperatureFixture(),calls=[];
 const sensor=base.current.data.inventory.nodes.find(source=>source.node_id===ENTITY_ID);
 const original=copy(base.sourceDetail.temperature_checks[0]);
-base.configuration.settings.notifications=false;
-base.configuration.settings.notification_definitions={profiles:{},methods:{}};
-const secondPolicy={...copy(base.configuration.settings.monitoring_policies.at(-1)),id:"second-temperature",name:"Second temperature policy",parameters:{unit:"°F",minimum:50,maximum:null,duration_seconds:0}};
-base.configuration.settings.monitoring_policies.push(secondPolicy);
+base.editors.configuration.settings.notifications=false;
+base.editors.configuration.settings.notification_definitions={profiles:{},methods:{}};
+const secondPolicy={...copy(base.editors.configuration.settings.monitoring_policies.at(-1)),id:"second-temperature",name:"Second temperature policy",parameters:{unit:"°F",minimum:50,maximum:null,duration_seconds:0}};
+base.editors.configuration.settings.monitoring_policies.push(secondPolicy);
 let revision=0,condition="waiting",overlap=false,excluded=false;
 const check=(value,message)=>{if(!value)throw Error(message);};
 const frame=()=>new Promise(resolve=>{const channel=new MessageChannel();channel.port1.onmessage=()=>{channel.port1.close();channel.port2.close();resolve();};channel.port2.postMessage(null);});
-const settle=async()=>{for(let attempt=0;attempt<50;attempt++){await frame();if(!card.sourceDetail?.loading&&!card.configBusy&&!card.scopedBusy)return;}throw Error("Temperature view did not settle");};
+const settle=async()=>{for(let attempt=0;attempt<50;attempt++){await frame();if(!card.sourceDetail?.loading&&!card.editors.configBusy&&!card.editors.scopedBusy)return;}throw Error("Temperature view did not settle");};
 const timestamp=()=>new Date(Date.parse("2026-10-15T16:30:00Z")+revision*1000).toISOString();
 function temperatureChecks() {
   const first=copy(original);
@@ -37,7 +37,7 @@ function detail(id,offset=0) {
   const end=id===DEVICE_ID&&excluded?Math.min(offset+1,all.length):all.length;
   return {...copy(base.sourceDetail),nodeId:id,updated_at:timestamp(),members:copy(all.slice(offset,end)),total:all.length,offset,next_offset:end<all.length?end:null,
     device_availability:id===DEVICE_ID?copy(base.sourceDetail.device_availability):null,
-    monitoring_policies:base.configuration.settings.monitoring_policies.filter(policy=>policy.id!==secondPolicy.id||overlap).map(({id,name})=>({id,name})),
+    monitoring_policies:base.editors.configuration.settings.monitoring_policies.filter(policy=>policy.id!==secondPolicy.id||overlap).map(({id,name})=>({id,name})),
     temperature_checks:[DEVICE_ID,ENTITY_ID].includes(id)?temperatureChecks():[]};
 }
 function publish() {revision++;card.current={status:"current",data:inventory()};card.render();}
@@ -45,11 +45,11 @@ function selectDevice() {card.page="sources";card.sourcesGrouping="integration";
 card.navigation.enabled=false;
 card._hass={user:{id:"fixture",is_admin:true},config:{time_zone:"America/Chicago"},localize:base._hass.localize,states:Object.fromEntries(base.sourceDetail.members.map(member=>[member.entity_id,{state:member.state,attributes:{unit_of_measurement:member.unit}}])),async callWS(request){
   calls.push(copy(request));
-  if(request.type==="homeostatic/configuration")return copy(base.configuration);
+  if(request.type==="homeostatic/configuration")return copy(base.editors.configuration);
   if(request.type==="homeostatic/source")return detail(request.node_id,request.offset||0);
   throw Error("Unexpected request in temperature fixture: "+request.type);
 }};
-Object.assign(card,{current:{status:"current",data:inventory()},configuration:copy(base.configuration),settingsDraft:copy(base.configuration.settings),page:"sources",sourcesGrouping:"integration",sourcesExpanded:new Set(base.sourcesExpanded),sourcesSelection:`source:${DEVICE_ID}`,sourcesMobileDetail:true,topomation:{locations:[{id:"room",name:"Thermostat room",entity_ids:[sensor.entity_id]}]}});
+Object.assign(card,{current:{status:"current",data:inventory()},editors:{configuration:copy(base.editors.configuration),settingsDraft:copy(base.editors.configuration.settings)},page:"sources",sourcesGrouping:"integration",sourcesExpanded:new Set(base.sourcesExpanded),sourcesSelection:`source:${DEVICE_ID}`,sourcesMobileDetail:true,topomation:{locations:[{id:"room",name:"Thermostat room",entity_ids:[sensor.entity_id]}]}});
 card.render();
 root.addEventListener("click",event=>{if(event.target.closest("a[href]"))event.preventDefault();});
 document.querySelector("#width").onchange=event=>card.style.width=`${event.target.value}px`;
@@ -73,7 +73,7 @@ document.querySelector("#run").onclick=async()=>{
   try {
     condition="waiting";overlap=false;excluded=false;document.querySelector("#condition").value=condition;document.querySelector("#overlap").checked=false;document.querySelector("#exclude").checked=false;
     card.sourcesMonitoring="all";publish();selectDevice();await settle();
-    const settings=JSON.stringify(card.configuration.settings),states=JSON.stringify(card._hass.states);
+    const settings=JSON.stringify(card.editors.configuration.settings),states=JSON.stringify(card._hass.states);
     check(detailText().includes("Home Interior Temperature Monitoring")&&article().innerText.includes("Waiting")&&article().innerText.includes("1 hour"),"Thermostat shows named policy and one-hour waiting state without opening Details");
     check(!root.querySelector(".source-monitoring-explanation"),"Short device evidence needs no Details disclosure");
     for(const grouping of ["integration","location","topomation"]) {
@@ -108,7 +108,7 @@ document.querySelector("#run").onclick=async()=>{
     check(!monitoring.toLowerCase().includes("availability")&&monitoring.toLowerCase().includes("temperature"),"Temperature-only sensor coverage does not invent availability monitoring");
     await click("#show-device",document);
     const pane=find(".config-detail");check(pane.scrollWidth<=pane.clientWidth,"Temperature details have no horizontal overflow");
-    check(JSON.stringify(card.configuration.settings)===settings&&!calls.some(request=>request.type==="homeostatic/save_settings"),"Browsing, grouping, linking and evidence updates never save settings");
+    check(JSON.stringify(card.editors.configuration.settings)===settings&&!calls.some(request=>request.type==="homeostatic/save_settings"),"Browsing, grouping, linking and evidence updates never save settings");
     receipt.presentation={card_width:card.clientWidth,theme:document.documentElement.dataset.theme||"light",viewport_width:window.innerWidth};
     recordResult(receipt,id,"pass","Rendered integration/location/TopoMation grouping, one canonical sensor, old route, thermostat policy and Waiting, actual editor link, pending-to-warning update with unchanged HA states, truthful missing evidence, independent overlapping verdicts, availability exclusion and pagination, reading navigation, unchanged settings and no horizontal overflow.");
     result.textContent="Temperature monitoring checks passed";

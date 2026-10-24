@@ -1,17 +1,13 @@
 /** Keep unfinished edits in this tab while Home Assistant replaces its panel. */
 const sessions = new WeakMap();
-const fields = ["configuration", "settingsDraft", "scopedConfiguration", "configBusy", "configError",
-  "settingsBusy", "settingsError", "scopedBusy", "scopedStatusScope", "scopedError", "scopedNotice",
-  "deliveryBusy", "deliveryError", "policyValidation", "policyDurationUnits", "policyTemperatureUnits"];
-
 /** Independent cards start fresh when their connection or permissions change. */
 export function resetCardDrafts(card) {
-  for (const key of fields) card[key] = undefined;
+  card.editors = {};
 }
 
 function unfinished(session) {
-  const state = session.values;
-  return state.settingsBusy || state.configBusy || state.deliveryBusy ||
+  const state = session.editors;
+  return state.settingsBusy || state.configBusy || state.deliveryBusy || state.deliveryMethodBusy ||
     state.settingsDraft && JSON.stringify(state.settingsDraft) !== JSON.stringify(state.configuration?.settings);
 }
 
@@ -27,7 +23,7 @@ export function connectPanelDrafts(card) {
     const restored = previous.owner !== card;
     previous.owner = card;
     sessions.set(connection, previous);
-    if (restored && card.scopedConfiguration) card.scopedConfiguration.needsRefresh = true;
+    if (restored && card.editors.scopedConfiguration) card.editors.scopedConfiguration.needsRefresh = true;
     return restored;
   }
   if (previous) {
@@ -40,16 +36,13 @@ export function connectPanelDrafts(card) {
     session = null;
   }
   const restored = Boolean(session);
-  const values = Object.fromEntries(fields.map(key => [key, previous ? undefined : card[key]]));
-  session ??= {connection, userId:user?.id, values, owner:null};
+  session ??= {connection, userId:user?.id, editors:previous ? {} : card.editors || {}, owner:null};
   session.owner = card;
   card.panelDraftSession = session;
-  for (const key of fields) Object.defineProperty(card, key, {
-    configurable:true, get:() => card.panelDraftSession.values[key], set:value => {card.panelDraftSession.values[key] = value;},
-  });
+  card.editors = session.editors;
   if (connection && user?.id && user.is_admin) {
     sessions.set(connection, session);
-    if (restored && card.scopedConfiguration) card.scopedConfiguration.needsRefresh = true;
+    if (restored && card.editors.scopedConfiguration) card.editors.scopedConfiguration.needsRefresh = true;
   }
   return restored;
 }

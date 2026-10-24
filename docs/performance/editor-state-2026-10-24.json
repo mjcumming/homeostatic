@@ -1,0 +1,225 @@
+{
+  "recorded_at_utc": "2026-10-24T17:17:22.885173-05:00",
+  "change": "Give frontend editor state one explicit owner while preserving existing workflows.",
+  "branch": "main",
+  "governing_decisions": [
+    "0061",
+    "0066",
+    "0072",
+    "0092"
+  ],
+  "implementation": {
+    "state": "One plain card.editors object owns confirmed configuration, scoped drafts and baselines, request status, validation, display units and picker state. The panel session retains that object directly; navigation and rendering remain on the card.",
+    "removed": "The card-property allowlist and getter/setter forwarding; unused methodCancel and deliveryMethodReview writes.",
+    "boundaries": "Replacement panels on the same authorized connection retain in-flight work without replay; user, permission and connection changes replace editor state and ignore obsolete responses.",
+    "dependencies_added": 0,
+    "new_ui_controls": 0,
+    "health_tree_changes": false,
+    "configuration_or_storage_format_change": false,
+    "frontend_module": 110,
+    "panel_element": "homeostatic-panel-v62",
+    "generated_card_element": "homeostatic-card-v58"
+  },
+  "checks": {
+    "quick": {
+      "command": "uv run --no-sync python script/check.py --quick",
+      "result": "pass",
+      "frontend_tests_passed": 906
+    },
+    "dashboard": {
+      "command": "uv run --no-sync pytest tests/test_dashboard.py -q",
+      "result": "pass",
+      "tests_passed": 41
+    },
+    "typing": {
+      "command": "uv run --no-sync python -m mypy",
+      "result": "Success: no issues found in 43 source files"
+    },
+    "diff_check": "pass",
+    "full_python_suite_and_coverage": "Not run for this frontend refactor and asset-identity update."
+  },
+  "executable_regressions": [
+    "tests/frontend/panel-drafts.test.mjs: validation, units and picker context follow drafts across panel replacement; a pending method test completes once in its replacement panel.",
+    "tests/frontend/delivery-picker.test.mjs: obsolete successful or failed preview/request replies cannot continue a test or modify replacement editor state.",
+    "tests/frontend/policy-picker.test.mjs: a retained broad-tree search cannot hide focused category choices; this assertion failed before restoring the existing search boundary.",
+    "Existing scoped-save, conflict, independent-draft, embedded-card, connection, user, permission, navigation and frontend-upgrade scenarios remain active."
+  ],
+  "rendered_acceptance": [
+    {
+      "report": "build/ui-acceptance/editor-state-final-desktop/report.json",
+      "candidate": {
+        "branch": "main",
+        "revision": "5588d9fdd2d9fd9134fca91653bda492dde5946a",
+        "dirty": true,
+        "component_sha256": "a778b9849d8ffc96329ae6f7c404a5ca90a06ee89ca54b0858e041f8f37d0fc2",
+        "fixture_sha256": "b8eb77ccf54bdada095c995ecc90029bcf51de727141859d079e00c5a276fdbc",
+        "frozen_at": "2026-10-24T22:09:34.836Z"
+      },
+      "environment": {
+        "group": "all",
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "theme": "light",
+        "browser": "chromium",
+        "browser_channel": null,
+        "headed": false,
+        "mode": "all",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.11.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "fixtures": {
+        "pass": 76,
+        "untested": 6
+      },
+      "live": {
+        "pass": 128,
+        "fail": 1
+      },
+      "failures": [
+        {
+          "id": "updates.retention",
+          "page": "Live updates",
+          "controls": "Unchanged update, disconnect, reconnect",
+          "expected": "Retain DOM, focus, selection and draft; stale view is visibly read-only.",
+          "fixture": "reusable-editors.html",
+          "requirement": "../../docs/spec.md#component-review-checklist",
+          "status": "fail",
+          "evidence": [
+            "all/1440px/light: {\"environment\":\"isolated Home Assistant\",\"duration_ms\":2076,\"error\":\"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\\n\\nfalse !== true\\n\\n    at file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_layout.mjs:72:79\\n    at async run (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:97:20)\\n    at async Module.runLayoutGaps (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_layout.mjs:43:3)\\n    at async runLiveCases (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:477:5)\\n    at async main (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:278:25)\\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:313:79\",\"screenshot\":\"/mnt/c/GitHub/homeostatic/build/ui-acceptance/editor-state-final-desktop/all-updates.retention.png\",\"dom\":\"/mnt/c/GitHub/homeostatic/build/ui-acceptance/editor-state-final-desktop/all-updates.retention.txt\"}"
+          ]
+        }
+      ],
+      "diagnostics": [
+        "Unhandled rejection (updates.retention): not_found Subscription not found.",
+        "Browser: Object"
+      ],
+      "browser_errors": [
+        {
+          "name": "",
+          "message": "Object",
+          "stack": "",
+          "case": "updates.retention",
+          "at": "2026-10-24T22:16:09.522Z"
+        }
+      ],
+      "unhandled_rejections": [
+        {
+          "code": "not_found",
+          "message": "Subscription not found.",
+          "case": "updates.retention",
+          "at": "2026-10-24T22:16:09.521Z"
+        }
+      ]
+    },
+    {
+      "report": "build/ui-acceptance/editor-state-final-phone/report.json",
+      "candidate": {
+        "branch": "main",
+        "revision": "5588d9fdd2d9fd9134fca91653bda492dde5946a",
+        "dirty": true,
+        "component_sha256": "a778b9849d8ffc96329ae6f7c404a5ca90a06ee89ca54b0858e041f8f37d0fc2",
+        "fixture_sha256": "b8eb77ccf54bdada095c995ecc90029bcf51de727141859d079e00c5a276fdbc",
+        "frozen_at": "2026-10-24T22:09:34.836Z"
+      },
+      "environment": {
+        "group": "all",
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "theme": "dark",
+        "browser": "chromium",
+        "browser_channel": null,
+        "headed": false,
+        "mode": "all",
+        "notifications": "captured by synthetic services only",
+        "browser_version": "143.0.7499.4",
+        "ha": "2026.9.3",
+        "python": "3.14.7",
+        "library": "0.11.0",
+        "candidate_unchanged": true,
+        "checkout_matches_snapshot": true
+      },
+      "fixtures": {
+        "pass": 76,
+        "untested": 6
+      },
+      "live": {
+        "pass": 128,
+        "fail": 1
+      },
+      "failures": [
+        {
+          "id": "updates.retention",
+          "page": "Live updates",
+          "controls": "Unchanged update, disconnect, reconnect",
+          "expected": "Retain DOM, focus, selection and draft; stale view is visibly read-only.",
+          "fixture": "reusable-editors.html",
+          "requirement": "../../docs/spec.md#component-review-checklist",
+          "status": "fail",
+          "evidence": [
+            "all/390px/dark: {\"environment\":\"isolated Home Assistant\",\"duration_ms\":2031,\"error\":\"AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\\n\\nfalse !== true\\n\\n    at file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_layout.mjs:72:79\\n    at async run (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:97:20)\\n    at async Module.runLayoutGaps (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_gaps_layout.mjs:43:3)\\n    at async runLiveCases (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance_cases.mjs:477:5)\\n    at async main (file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:278:25)\\n    at async file:///mnt/c/GitHub/homeostatic/script/ui_acceptance.mjs:313:79\",\"screenshot\":\"/mnt/c/GitHub/homeostatic/build/ui-acceptance/editor-state-final-phone/all-updates.retention.png\",\"dom\":\"/mnt/c/GitHub/homeostatic/build/ui-acceptance/editor-state-final-phone/all-updates.retention.txt\"}"
+          ]
+        }
+      ],
+      "diagnostics": [
+        "Unhandled rejection (updates.retention): not_found Subscription not found.",
+        "Browser: Object"
+      ],
+      "browser_errors": [
+        {
+          "name": "",
+          "message": "Object",
+          "stack": "",
+          "case": "updates.retention",
+          "at": "2026-10-24T22:16:08.02Z"
+        }
+      ],
+      "unhandled_rejections": [
+        {
+          "code": "not_found",
+          "message": "Subscription not found.",
+          "case": "updates.retention",
+          "at": "2026-10-24T22:16:08.019Z"
+        }
+      ]
+    }
+  ],
+  "ui_purpose_review": {
+    "owners": "Policies owns policy edits; Notifications owns reusable notifications and delivery methods; Settings owns installation timing.",
+    "benefit": "Preserve the pending editing task and diagnostic status when Home Assistant replaces the panel, without a second workflow.",
+    "controls_or_navigation_added": "None. Existing scoped Save, Discard and contextual return paths are reused.",
+    "visual_review": "Desktop light and phone dark policy and delivery-method screenshots inspected. Existing layout, labels, group selection and action placement remain intact; the fixture sweep includes keyboard and enlarged-text paths.",
+    "inspected_screenshots": [
+      "build/ui-acceptance/editor-state-final-desktop/notifications-collection-editor.png",
+      "build/ui-acceptance/editor-state-final-phone/notifications-picker.png",
+      "build/ui-acceptance/editor-state-final-phone/policy-picker-390-dark-expanded.png"
+    ]
+  },
+  "earlier_attempts": {
+    "reports": [
+      "build/ui-acceptance/editor-state-desktop-ready/report.json",
+      "build/ui-acceptance/editor-state-phone-ready/report.json"
+    ],
+    "environment": "The first Chromium launch lacked libasound.so.2; the prepared local library path resolved it.",
+    "fixture_corrections": "Aligned destination-picker current/previous element identities after advancing the frontend version. Corrected the real-HA missing-entity assertion to the existing Entity missing headline; the product wording matches unchanged HEAD."
+  },
+  "remaining": {
+    "reconnect": "The separately deferred updates.retention same-input DOM assertion and native HA subscription diagnostic remain open. Prior unchanged-main reproduction is recorded in docs/performance/notification-payload-fix-2026-10-23.json.",
+    "next_engineering_work": "Maintained release verification and installation tooling remains separate."
+  },
+  "publication": {
+    "committed": false,
+    "pushed": false,
+    "released": false,
+    "installed": false,
+    "household_test_notifications": 0
+  }
+}

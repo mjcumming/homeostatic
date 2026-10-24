@@ -9,7 +9,7 @@ test("retired grouping destinations normalize to Timing without restoring an obs
   assert.deepEqual(parseWorkspacePath("/settings/grouping"),{page:"configuration"});
   assert.equal(workspacePath(parseWorkspacePath("/settings/grouping")),"/settings/timing");
   assert.equal(workspacePath({page:"configuration",settingsSection:"grouping"}),"/settings/timing");
-  const card={page:"configuration"};
+  const card={editors:{},page:"configuration"};
   restoreWorkspaceContext(card,{settingsSection:"grouping"});
   assert.equal(card.settingsSection,undefined);
   assert.equal(Object.hasOwn(workspaceRoute(card),"settingsSection"),false);
@@ -22,30 +22,30 @@ test("older and malformed destinations open Issues",()=>{
 });
 
 test("restoring investigation context preserves unrelated drafts",()=>{
-  const draft={name:"Unsaved"},card={settingsDraft:draft,issueQuery:"Matter",issueGroupsExpanded:new Set(["matter"]),issueGroupLimits:new Map([["matter",40]]),sourcesExpanded:new Set(),sourcesLimits:new Map(),tools:{query:"removed",resolution:"removed",page:2}};
+  const draft={name:"Unsaved"},card={editors:{settingsDraft:draft},issueQuery:"Matter",issueGroupsExpanded:new Set(["matter"]),issueGroupLimits:new Map([["matter",40]]),sourcesExpanded:new Set(),sourcesLimits:new Map(),tools:{query:"removed",resolution:"removed",page:2}};
   const context=workspaceContext(card);
   card.issueQuery="";card.issueGroupsExpanded.clear();card.tools.page=0;
   restoreWorkspaceContext(card,context);
-  assert.equal(card.settingsDraft,draft);assert.equal(card.issueQuery,"Matter");assert.deepEqual([...card.issueGroupsExpanded],["matter"]);assert.equal(card.tools.page,2);
+  assert.equal(card.editors.settingsDraft,draft);assert.equal(card.issueQuery,"Matter");assert.deepEqual([...card.issueGroupsExpanded],["matter"]);assert.equal(card.tools.page,2);
 });
 
 test("contextual return reopens the originating issue without saving",()=>{
   globalThis.window={addEventListener(){},removeEventListener(){},location:{pathname:"/fixture"}};
-  const card={page:"problems",detail:{episodeId:"one"},current:{status:"current"},isConnected:true,configuration:{},settingsDraft:{name:"Unfinished"},renderedCurrent:false,dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
+  const card={page:"problems",detail:{episodeId:"one"},current:{status:"current"},isConnected:true,editors:{configuration:{},settingsDraft:{name:"Unfinished"}},renderedCurrent:false,dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
   const nav=new WorkspaceNavigation(card),prior=nav.capture();
   card.page="policies";card.detail=null;card.definitionSelection={kind:"policies",id:"availability"};nav.finish(prior);
   assert.equal(card.workspaceReturn.label,"Back to issue");assert.equal(nav.back(),true);
-  assert.equal(card.page,"problems");assert.equal(card.detail.episodeId,"one");assert.equal(card.settingsDraft.name,"Unfinished");
+  assert.equal(card.page,"problems");assert.equal(card.detail.episodeId,"one");assert.equal(card.editors.settingsDraft.name,"Unfinished");
   delete globalThis.window;
 });
 
 
 test("reload protection covers unsaved settings and named notifications",()=>{
- const settings={notifications:false,notification_definitions:{profiles:{morning:{name:"Morning"}}}},card={configuration:{settings},settingsDraft:structuredClone(settings)};
+ const settings={notifications:false,notification_definitions:{profiles:{morning:{name:"Morning"}}}},card={editors:{configuration:{settings},settingsDraft:structuredClone(settings)}};
  assert.equal(hasWorkspaceDrafts(card),false);
- card.settingsDraft.notifications=true;assert.equal(hasWorkspaceDrafts(card),true);
- card.settingsDraft=structuredClone(settings);card.settingsDraft.notification_definitions.profiles.morning.name="Daily morning";assert.equal(hasWorkspaceDrafts(card),true);
- card.settingsDraft=structuredClone(settings);assert.equal(hasWorkspaceDrafts(card),false);
+ card.editors.settingsDraft.notifications=true;assert.equal(hasWorkspaceDrafts(card),true);
+ card.editors.settingsDraft=structuredClone(settings);card.editors.settingsDraft.notification_definitions.profiles.morning.name="Daily morning";assert.equal(hasWorkspaceDrafts(card),true);
+ card.editors.settingsDraft=structuredClone(settings);assert.equal(hasWorkspaceDrafts(card),false);
 });
 test("retired notification policy links open the ordinary policy editor",()=>{
   assert.deepEqual(parseWorkspacePath("/notifications/policies/device"),{page:"policies",definition:{kind:"policies",id:"device"}});
@@ -56,7 +56,7 @@ test("retired notification policy links open the ordinary policy editor",()=>{
 test("Back and Forward restore separate History and source contexts without changing drafts",()=>{
   globalThis.window={addEventListener(){},removeEventListener(){},location:{pathname:"/homeostatic"}};
   const draft={monitoring_policies:[{id:"lights",name:"Unsaved lights"}],notification_definitions:{methods:{phone:{name:"Unsaved phone"}}}};
-  const card={page:"sources",sourcesSelection:"source:entity:light.deck",sourcesView:"source",sourcesQuery:"deck",sourcesGrouping:"integration",sourcesExpanded:new Set(["integration:mqtt"]),sourcesLimits:new Map(),current:{status:"current"},configuration:{},settingsDraft:draft,renderedCurrent:true,
+  const card={page:"sources",sourcesSelection:"source:entity:light.deck",sourcesView:"source",sourcesQuery:"deck",sourcesGrouping:"integration",sourcesExpanded:new Set(["integration:mqtt"]),sourcesLimits:new Map(),current:{status:"current"},editors:{configuration:{},settingsDraft:draft},renderedCurrent:true,
     dialog:{close(){}},tools:{query:"",resolution:"",page:0,close(){this.historyId=null;}},render(){},revealSourcesSelection(){},
     capturePageState(){return {scroll:this.scroll};},restorePageState(value){this.scroll=value.scroll;},scroll:240,shadowRoot:{querySelector(){return null;}}};
   const nav=new WorkspaceNavigation(card),source=nav.capture();
@@ -75,15 +75,15 @@ test("Back and Forward restore separate History and source contexts without chan
   assert.equal(card.page,"history");
   assert.deepEqual({query:card.tools.query,resolution:card.tools.resolution,page:card.tools.page},{query:"unavailable",resolution:"removed",page:2});
   assert.equal(card.scroll,600);
-  assert.equal(card.settingsDraft,draft);
-  assert.equal(card.settingsDraft.monitoring_policies[0].name,"Unsaved lights");
-  assert.equal(card.settingsDraft.notification_definitions.methods.phone.name,"Unsaved phone");
+  assert.equal(card.editors.settingsDraft,draft);
+  assert.equal(card.editors.settingsDraft.monitoring_policies[0].name,"Unsaved lights");
+  assert.equal(card.editors.settingsDraft.notification_definitions.methods.phone.name,"Unsaved phone");
   delete globalThis.window;
 });
 
 test("a retained History detail returns to the originating source",()=>{
   globalThis.window={addEventListener(){},removeEventListener(){},location:{pathname:"/fixture"}};
-  const card={page:"sources",sourcesSelection:"source:entity:light.deck",sourcesView:"source",current:{status:"current"},configuration:{},renderedCurrent:false,dialog:{close(){}},tools:{close(){this.historyId=null;}},render(){},revealSourcesSelection(){},shadowRoot:{querySelector(){return null;}}};
+  const card={page:"sources",sourcesSelection:"source:entity:light.deck",sourcesView:"source",current:{status:"current"},editors:{configuration:{}},renderedCurrent:false,dialog:{close(){}},tools:{close(){this.historyId=null;}},render(){},revealSourcesSelection(){},shadowRoot:{querySelector(){return null;}}};
   const nav=new WorkspaceNavigation(card),source=nav.capture();
   card.page="history";card.tools.historyId="ended-light";nav.finish(source);
   assert.equal(card.workspaceReturn.label,"Back to source");
@@ -96,7 +96,7 @@ test("a retained History detail returns to the originating source",()=>{
 
 test("switching pages does not expose a return route for another page's retained editor",()=>{
   const selection={kind:"policies",id:"saved-policy"};
-  const card={page:"notifications",definitionSelection:selection,sourcesExcludedOnly:true};
+  const card={editors:{},page:"notifications",definitionSelection:selection,sourcesExcludedOnly:true};
   assert.equal(workspaceRoute(card).definition,null);
   assert.equal(card.definitionSelection,selection);
   card.page="policies";
@@ -118,7 +118,7 @@ test("notification paths keep invalid and ended membership restricted",()=>{
 
 test("notification list, exact dialog, reload and browser history retain scope without mutating drafts",()=>{
   globalThis.window={addEventListener(){},removeEventListener(){},location:{pathname:"/fixture"}};
-  const draft={name:"Unfinished"},card={page:"problems",current:{status:"current"},isConnected:true,configuration:{},settingsDraft:draft,issueQuery:"old search",renderedCurrent:false,dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
+  const draft={name:"Unfinished"},card={page:"problems",current:{status:"current"},isConnected:true,editors:{configuration:{},settingsDraft:draft},issueQuery:"old search",renderedCurrent:false,dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
   const nav=new WorkspaceNavigation(card);
   nav.applyPath("/issues/notification/one,two");
   assert.deepEqual(card.notificationIssueIds,["one","two"]);assert.equal(card.issueQuery,"");
@@ -130,23 +130,23 @@ test("notification list, exact dialog, reload and browser history retain scope w
   card.detail=null;assert.equal(workspacePath(workspaceRoute(card)),"/issues/notification/one,two");
   nav.applyPath("/issues");assert.equal(card.notificationIssueIds,null);
   nav.applyPath("/issues/notification/one,two",list);
-  assert.deepEqual(card.notificationIssueIds,["one","two"]);assert.equal(card.settingsDraft,draft);
+  assert.deepEqual(card.notificationIssueIds,["one","two"]);assert.equal(card.editors.settingsDraft,draft);
   delete globalThis.window;
 });
 
 for(const source of ["source:device:deck","source:entity:light.deck"])test(`native Home Assistant return restores device issue source ${source}`,()=>{
   const draft={name:"Unsaved policy"},route={page:"sources",source,sourcesView:"source",detail:{deviceId:"deck"}},state={id:"view-8",route,context:{sourcesQuery:"deck",sourcesGrouping:"integration"}};
   globalThis.window={location:{pathname:"/homeostatic/device-issues/deck"},history:{state:{homeostatic:state}}};
-  const card={page:"problems",sourcesSelection:null,current:{status:"current"},configuration:{},settingsDraft:draft,dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
+  const card={page:"problems",sourcesSelection:null,current:{status:"current"},editors:{configuration:{},settingsDraft:draft},dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
   const nav=new WorkspaceNavigation(card);nav.enabled=true;nav.applyPath("/device-issues/deck");
-  assert.equal(card.sourcesSelection,source);assert.equal(card.sourcesQuery,"deck");assert.equal(card.sourcesGrouping,"integration");assert.equal(card.detail.deviceId,"deck");assert.equal(card.settingsDraft,draft);
+  assert.equal(card.sourcesSelection,source);assert.equal(card.sourcesQuery,"deck");assert.equal(card.sourcesGrouping,"integration");assert.equal(card.detail.deviceId,"deck");assert.equal(card.editors.settingsDraft,draft);
   card.detail=null;assert.equal(workspacePath(workspaceRoute(card)),`/sources/${encodeURIComponent(source)}`);
   delete globalThis.window;
 });
 
 test("a stored browser route cannot replace a different direct destination",()=>{
   globalThis.window={location:{pathname:"/homeostatic/device-issues/other"},history:{state:{homeostatic:{id:"view-8",route:{page:"sources",source:"source:device:deck",detail:{deviceId:"deck"}},context:{sourcesQuery:"deck"}}}}};
-  const card={page:"problems",sourcesSelection:null,current:{status:"current"},configuration:{},dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
+  const card={page:"problems",sourcesSelection:null,current:{status:"current"},editors:{configuration:{}},dialog:{close(){}},tools:{close(){}},render(){},openDetail(detail){this.detail=detail;},shadowRoot:{querySelector(){return null;}}};
   const nav=new WorkspaceNavigation(card);nav.enabled=true;nav.applyPath("/device-issues/other");
   assert.equal(card.sourcesSelection,null);assert.equal(card.sourcesQuery,undefined);assert.equal(card.detail.deviceId,"other");
   nav.applyPath("/policies/battery");assert.equal(card.page,"policies");assert.equal(card.definitionSelection.id,"battery");assert.equal(card.detail,null);

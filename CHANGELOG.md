@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+## [1.12.5] - 2026-10-24
+
+### Fixed
+
+- Retain editor validation, display units, source searches and destination-picker context alongside drafts when Home Assistant replaces the panel. Pending method tests follow the replacement panel without a duplicate request; an obsolete test cannot continue or change another session's feedback.
+
+### Changed
+
+- Give frontend editor state one explicit owner, replacing card-property forwarding while preserving scoped saves, conflict checks and independent drafts.
+
+### Development
+
+- Maintain parameterized release verification and explicit component installation commands. Check archive identity and source bytes against the candidate, verify installed files, and exercise the verifier in CI without embedding household paths or release-specific versions.
+
+### Upgrade
+
+- Existing monitoring policies, notification choices and pending delivery identities are preserved. The saved configuration, stored-state format and health-tree dependency stay unchanged. The Companion blueprint needs no reimport for this update.
+
+### Known limitations
+
+- The existing editor replacement and focus issue after reconnect remains under investigation. Draft values are retained; the broader reconnect browser check still fails.
+
 ## [1.12.4] - 2026-10-24
 
 ### Fixed

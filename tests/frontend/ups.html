@@ -16,14 +16,14 @@ const episodes=sources.map(source=>({episode_id:`issue:${source.node_id}`,anchor
 data.inventory.nodes=sources;data.inventory.catalog.candidates=sources;data.devices=[{id:"office",name:"Office UPS"}];data.functions=[];data.inventory.operator_controls=[];data.inventory.attention_controls_supported=true;data.inventory.notification_requests=[];
 const settings={monitoring_policies:[reserve],notification_definitions:definitions,timings:{},notifications:false,consumer:null};
 card._hass={user:{is_admin:true},states:{},localize(){return null;},async callWS(request){
-  if(request.type==="homeostatic/configuration")return card.configuration;
+  if(request.type==="homeostatic/configuration")return card.editors.configuration;
   if(request.type==="homeostatic/node") {
     const source=sources.find(item=>item.node_id===request.node_id),observation=data.inventory.ups_status[request.node_id];
     return {source,explanation:{node_id:source.node_id,own:"warn",nodes:[],findings:[],muted_by:[],checks:[],episodes:[]},readiness:{answer:"degraded",nodes:[]},impact:{nodes:[]},entity_status:{current:{reason:observation.reason,message:observation.message,observed_at:observation.observed_at},ups:observation}};
   }
   throw Error("Unexpected request in isolated UPS fixture: "+request.type);
 }};
-card.current={status:"current",data};card.configuration={revision:"fixture",settings,areas:[],floors:[],labels:[],notification_people:[],delivery_targets:[]};card.settingsDraft=structuredClone(settings);card.page="problems";
+card.current={status:"current",data};card.editors.configuration={revision:"fixture",settings,areas:[],floors:[],labels:[],notification_people:[],delivery_targets:[]};card.editors.settingsDraft=structuredClone(settings);card.page="problems";
 function mode(backup) {
   data.inventory.episodes=backup?episodes:[episodes[1]];
   data.inventory.ups_status=Object.fromEntries(sources.map(source=>[source.node_id,{status:source.check_id==="ups_power"&&!backup?"pass":"warn",reason:source.check_id==="ups_power"?(backup?"ups_on_battery":"ups_on_mains"):(backup?"ups_reserve_critical":"ups_reserve_low"),message:source.check_id==="ups_power"?(backup?"Running on backup power":"Mains power reported"):(backup?"Low reserve on backup power":"Mains restored; reserve still low"),observed_at:"2026-10-13T12:00:00Z",evidence:{power_mode:backup?"backup":"mains",readings:{charge:8,runtime:3}}}]));

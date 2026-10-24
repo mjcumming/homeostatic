@@ -89,7 +89,7 @@ export async function runWorkspaceControlPaths(context) {
       if(type==="temperature_limit")await change('[data-definition-field="parameters:minimum"]',"40");
       const fields=[...root.querySelectorAll('[data-definition-field^="parameters:"]')];
       for(const element of fields)check(element.checkValidity(),`${label}: initial detection field is valid`);
-      const id=card.definitionSelection.id,expected=structuredClone(card.settingsDraft.monitoring_policies.find(row=>row.id===id));await save();
+      const id=card.definitionSelection.id,expected=structuredClone(card.editors.settingsDraft.monitoring_policies.find(row=>row.id===id));await save();
       check(JSON.stringify(saved().monitoring_policies.find(row=>row.id===id))===JSON.stringify(expected),`${label}: detection choices save exactly`);
     }
   });
@@ -101,11 +101,11 @@ export async function runWorkspaceControlPaths(context) {
   });
   await runPath("navigation.pages",async()=>{
     await go("policies");await click('[data-definition-action="edit"][data-definition-id="policy-1"]');await name("Navigation draft");
-    for(const page of ["problems","sources","notifications","configuration","policies"]) {await go(page);check(card.page===page,`${page}: destination is selected`);check(card.settingsDraft.monitoring_policies[0].name==="Navigation draft","Page change retains draft");}
+    for(const page of ["problems","sources","notifications","configuration","policies"]) {await go(page);check(card.page===page,`${page}: destination is selected`);check(card.editors.settingsDraft.monitoring_policies[0].name==="Navigation draft","Page change retains draft");}
   });
   await runPath("sending.switch",async()=>{
     await change('[data-notifications-switch]',true);await settle();check(saved().notifications===true&&saved().monitoring_policies[0].name==="Low battery","Global On saves independently");
-    await change('[data-notifications-switch]',false);await settle();check(!saved().notifications&&card.settingsDraft.monitoring_policies[0].name==="Navigation draft","Global Off preserves draft");
+    await change('[data-notifications-switch]',false);await settle();check(!saved().notifications&&card.editors.settingsDraft.monitoring_policies[0].name==="Navigation draft","Global Off preserves draft");
     await click('[data-definition-action="edit"][data-definition-id="policy-1"]');await click('[data-definition-action="discard-scoped"]');
   });
   await runPath("settings.edit",async()=>{

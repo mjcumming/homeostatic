@@ -17,18 +17,18 @@ const click=async selector=>{find(selector).click();await settle();},check=(valu
 const change=async(selector,value)=>{const el=find(selector);el.focus();el.value=value;el.dispatchEvent(new Event("change",{bubbles:true}));await settle();};
 const fill=async query=>{const el=find(field("entity-search"));el.focus();el.value=query;el.dispatchEvent(new Event("input",{bubbles:true}));await settle();};
 const open=async name=>click(`.entity-selection-toggle[aria-label="Expand ${name}"]`);
-function show(){card.page="policies";card.current={status:"current",data:{...monitoringExample(),schema_version:3,catalog_loaded:true,inventory:{nodes:[],catalog:{candidates:rows},episodes:[]}}};card.configuration=configuration();card.settingsDraft=copy(saved);card.scopedConfiguration=null;card.definitionSelection={kind:"policies",id:"entities"};card.entitySelection=null;card.render();document.querySelector("#saved-state").textContent=JSON.stringify(saved,null,2);}
+function show(){card.page="policies";card.current={status:"current",data:{...monitoringExample(),schema_version:3,catalog_loaded:true,inventory:{nodes:[],catalog:{candidates:rows},episodes:[]}}};card.editors.configuration=configuration();card.editors.settingsDraft=copy(saved);card.editors.scopedConfiguration=null;card.definitionSelection={kind:"policies",id:"entities"};card.editors.entitySelection=null;card.render();document.querySelector("#saved-state").textContent=JSON.stringify(saved,null,2);}
 async function run(){receipt={fixture:"policy-picker",synthetic:true,results:[]};const test=async(id,body)=>{try{await body();receipt.results.push({id,status:"pass"});}catch(error){receipt.results.push({id,status:"fail",evidence:[error.message]});throw error;}finally{document.querySelector("#receipt").textContent=JSON.stringify(receipt,null,2);}};try{
  saved=copy(initial);calls=[];show();
  await test("entity-tree",async()=>{
-  const before=JSON.stringify(card.settingsDraft);
+  const before=JSON.stringify(card.editors.settingsDraft);
   check(!root.querySelector(field("entity-choice")),"All integrations start collapsed");
   check([...root.querySelectorAll(".entity-selection-toggle")].every(el=>el.getAttribute("aria-expanded")==="false"),"Collapsed disclosure state");
   await open("Z-Wave JS");check(root.textContent.includes("Front door")&&!root.querySelector(field("entity-choice")),"Integration reveals collapsed devices");
   await open("Front door");check(find(choice("lock")),"Device reveals entities");
   await click('.entity-selection-toggle[aria-label="Collapse Z-Wave JS"]');check(!root.querySelector(field("entity-choice")),"Integration hides descendants");
   await open("Z-Wave JS");check(find(choice("lock")),"Reopening retains nested expansion");
-  check(JSON.stringify(card.settingsDraft)===before&&calls.length===0&&!root.querySelector(action("save-scoped")),"Expansion cannot edit, save or create a dirty draft");
+  check(JSON.stringify(card.editors.settingsDraft)===before&&calls.length===0&&!root.querySelector(action("save-scoped")),"Expansion cannot edit, save or create a dirty draft");
  });
  await test("entity-list",async()=>{
   check(!root.querySelector('.entity-selection input[type="radio"],.entity-selection .policy-picker-options'),"No retired picker");
@@ -38,7 +38,7 @@ async function run(){receipt={fixture:"policy-picker",synthetic:true,results:[]}
   await click(field("entity-group"));await fill("");
   check(find(choice("battery")).checked&&find(choice("lock")).checked&&!find(choice("motion")).checked,"Filtered group changes preserve hidden choices");
   check(find('.entity-selection-toggle[aria-label="Expand ESPHome"]'),"Clearing search restores manual branches");
-  check(card.settingsDraft.monitoring_policies[0].match_any[0].domain[0]==="lock","Future scope retained");check(calls.length===0,"Changes are drafts");
+  check(card.editors.settingsDraft.monitoring_policies[0].match_any[0].domain[0]==="lock","Future scope retained");check(calls.length===0,"Changes are drafts");
  });
  await test("entity-branch-selection",async()=>{
   const integration=`${field("entity-integration")}[data-definition-value="zwave_js"]`,device=`${field("entity-group")}[data-definition-value='["zwave_js","door"]']`;
@@ -60,7 +60,7 @@ async function run(){receipt={fixture:"policy-picker",synthetic:true,results:[]}
   reject=true;await click(choice("motion"));await click(action("save-scoped"));check(root.textContent.includes("Synthetic save rejection")&&find(choice("motion")).checked,"Failed save retains draft and branch");await click(action("discard-scoped"));
  });
  await test("entity-missing-loading",async()=>{
-  await fill("missing");check(root.textContent.includes("Entity no longer in the list"),"Missing saved choice remains searchable");await click(action("entity-forget"));check(!card.settingsDraft.monitoring_policies[0].excluded_sources,"Remove saved choice");
+  await fill("missing");check(root.textContent.includes("Entity no longer in the list"),"Missing saved choice remains searchable");await click(action("entity-forget"));check(!card.editors.settingsDraft.monitoring_policies[0].excluded_sources,"Remove saved choice");
   show();await fill("lock");card.current.data.catalog_stale=true;card.render();check(find(choice("lock")).disabled,"Stale catalog cannot change membership");card.current.data.catalog_stale=false;card.render();
  });
  await test("entity-household",async()=>{
@@ -154,7 +154,7 @@ async function run(){receipt={fixture:"policy-picker",synthetic:true,results:[]}
    check(!Object.hasOwn(saved.monitoring_policies.find(policy=>policy.id===id).match,"entity"),"Future enrollment changes only through its explicit control");
    const list=root.querySelector(".source-selection");check(list.scrollWidth<=list.clientWidth+1,"Flat list fits the phone editor");
    check(![...list.querySelectorAll("*")].some(item=>["auto","scroll"].includes(getComputedStyle(item).overflowY)&&item.scrollHeight>item.clientHeight+1),"Only the page scrolls");
-  }finally {rows.splice(end);card.definitionCategory="any";show();}
+  }finally {rows.splice(end);card.editors.definitionCategory="any";show();}
  });
  await test("availability-overlap-duplicate",async()=>{
   const other={...copy(saved.monitoring_policies[0]),id:"important",name:"Important equipment",match:{kind:["entity"]},parameters:{},notifications:[]};
@@ -163,10 +163,10 @@ async function run(){receipt={fixture:"policy-picker",synthetic:true,results:[]}
   const link=`${action("open-policy")}[data-definition-id="important"]`;
   check(find(link).textContent.includes("Unavailable without waiting"),"Other policy's independent wait is named");
   await change(field("duration-unit:duration_seconds"),"minutes");await change(field("parameters:duration_seconds"),"10");await click(link);
-  check(card.definitionSelection.id==="important"&&card.settingsDraft.monitoring_policies[0].parameters.duration_seconds===600,"Existing policy link keeps the first policy's draft");
+  check(card.definitionSelection.id==="important"&&card.editors.settingsDraft.monitoring_policies[0].parameters.duration_seconds===600,"Existing policy link keeps the first policy's draft");
   await click(action("close"));const menu=find('[popovertarget="policy-actions-entities"]');menu.click();await settle();
   await click(`${action("duplicate")}[data-definition-id="entities"]`);
-  const duplicate=card.settingsDraft.monitoring_policies.find(policy=>policy.id===card.definitionSelection.id);
+  const duplicate=card.editors.settingsDraft.monitoring_policies.find(policy=>policy.id===card.definitionSelection.id);
   check(!duplicate.enabled&&duplicate.parameters.duration_seconds===600&&JSON.stringify(duplicate.match_any)===JSON.stringify(saved.monitoring_policies[0].match_any),"Duplicate preserves its source scope and detection in a disabled copy");
   await click(action("discard-scoped"));show();
   const wait=find(field("parameters:duration_seconds")),unit=find(field("duration-unit:duration_seconds"));

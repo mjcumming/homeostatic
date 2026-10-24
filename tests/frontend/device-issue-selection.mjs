@@ -99,9 +99,9 @@ async function initializeBrowserScenario() {
     fixture.data.inventory.episodes=fixture.data.inventory.episodes.filter(item=>![...RELATED_IDS,"issue:battery"].includes(item.episode_id)||keep.includes(item.episode_id));
     for(const member of fixture.members)if(!keep.includes(`issue:${member.node_id.split(":")[1]}`))member.state="off";
     card._hass.states=Object.fromEntries(fixture.members.map(member=>[member.entity_id,{state:member.state,attributes:{}}]));
-    Object.assign(card,{current:{status:"current",data:fixture.data},configuration:configuration(),settingsDraft:clone(fixture.settings),scopedConfiguration:null,page:"sources",detail:null,deviceIssues:null,deviceIssueContext:null,issueQuery:"",issueSort:"name",issueGroupsExpanded:new Set(["integration:alexa_media"]),issueGroupLimits:new Map(),issueAvailabilityPlan:null,issueAvailabilityEpisode:null,
+    Object.assign(card,{current:{status:"current",data:fixture.data},editors:{configuration:configuration(),settingsDraft:clone(fixture.settings),scopedConfiguration:null},page:"sources",detail:null,deviceIssues:null,deviceIssueContext:null,issueQuery:"",issueSort:"name",issueGroupsExpanded:new Set(["integration:alexa_media"]),issueGroupLimits:new Map(),issueAvailabilityPlan:null,issueAvailabilityEpisode:null,
       availabilityPlan:null,availabilityContext:null,availabilityError:null,sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(["integration:alexa_media","source:entry:alexa",`source:${DEVICE_SOURCE}`]),sourcesSelection:`source:${DEVICE_SOURCE}`,sourcesMobileDetail:true,sourceDetail:deviceIssueReply(fixture),sourcesView:"details"});
-    initializeScopedConfiguration(card);card.render();
+    initializeScopedConfiguration(card.editors);card.render();
   }
   async function openCombined() {await click(`[data-device-issues="${DEVICE_ID}"]`);check(card.dialog.open&&card.detail.deviceId===DEVICE_ID,"View opens combined device context");}
   const close=async()=>{if(card.tools.dialog.open)await click('[data-tool="close"]',card.tools.dialog);if(card.dialog.open)await click('[data-action="close"]',card.dialog);};

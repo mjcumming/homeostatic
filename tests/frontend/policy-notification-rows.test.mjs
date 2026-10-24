@@ -6,7 +6,7 @@ import {monitoringExample} from "./monitoring-fixture.mjs";
 import {notificationSettings} from "./notification-profiles-fixture.mjs";
 
 const clone=value=>structuredClone(value);
-const selectedPolicy=card=>card.settingsDraft.monitoring_policies[0];
+const selectedPolicy=card=>card.editors.settingsDraft.monitoring_policies[0];
 const policyScope={kind:"policy",id:"policy-1"};
 
 function fixture(settings=notificationSettings()) {
@@ -22,9 +22,9 @@ function fixture(settings=notificationSettings()) {
     return {saved:true};
   }};
   const reopen=()=>{
-    const card={page:"policies",definitionSelection:{kind:"policies",id:"policy-1"},configuration:configuration(),settingsDraft:clone(saved),
+    const card={page:"policies",definitionSelection:{kind:"policies",id:"policy-1"},editors:{configuration:configuration(),settingsDraft:clone(saved)},
       current:{status:"current",data:monitoringExample()},main:{querySelector:()=>null,querySelectorAll:()=>[]},render(){},_hass:connection};
-    initializeScopedConfiguration(card);
+    initializeScopedConfiguration(card.editors);
     return card;
   };
   return {card:reopen(),calls,reopen,saved:()=>clone(saved)};
@@ -52,12 +52,12 @@ for(const [name,row] of [
   assert.match(namedPolicies(card),/policy-notification-empty/);
   assert.match(namedPolicies(card),/No notifications/);
   assert.doesNotMatch(namedPolicies(card),/data-definition-action="remove-row"/);
-  assert.equal(scopedDirty(card,policyScope),true);
+  assert.equal(scopedDirty(card.editors,policyScope),true);
   assert.equal(await saveScopedConfiguration(card,policyScope),true);
   expected.monitoring_policies[0].notifications=[];
   assert.deepEqual(saved(),expected);
-  assert.deepEqual(card.configuration.settings,expected);
-  assert.equal(scopedDirty(card,policyScope),false);
+  assert.deepEqual(card.editors.configuration.settings,expected);
+  assert.equal(scopedDirty(card.editors,policyScope),false);
   assert.deepEqual(calls.map(request=>request.type),["homeostatic/save_settings","homeostatic/configuration"]);
   card.definitionSelection=null;
   assert.match(namedPolicies(card),/Dashboard only/);
@@ -74,24 +74,24 @@ test("removing all notifications saves only this policy and retains other drafts
   const settings=notificationSettings();settings.notifications=true;
   settings.monitoring_policies.push(newMonitoringPolicy(settings.monitoring_policies,"device",settings.notification_definitions.profiles));
   const {card,saved}=fixture(settings),expected=clone(settings);
-  card.settingsDraft.monitoring_policies[1].name="Pending device policy";
-  card.settingsDraft.notification_definitions.profiles.morning.name="Pending morning name";
-  card.settingsDraft.notifications=false;
+  card.editors.settingsDraft.monitoring_policies[1].name="Pending device policy";
+  card.editors.settingsDraft.notification_definitions.profiles.morning.name="Pending morning name";
+  card.editors.settingsDraft.notifications=false;
   remove(card,"notification-1");
   assert.equal(await saveScopedConfiguration(card,policyScope),true);
   expected.monitoring_policies[0].notifications=[];
   assert.deepEqual(saved(),expected);
-  assert.equal(card.configuration.settings.notifications,true);
-  assert.equal(card.settingsDraft.notifications,false);
-  assert.equal(card.settingsDraft.monitoring_policies[1].name,"Pending device policy");
-  assert.equal(card.settingsDraft.notification_definitions.profiles.morning.name,"Pending morning name");
-  assert.equal(scopedDirty(card,{kind:"policy",id:"policy-2"}),true);
-  assert.equal(scopedDirty(card,{kind:"profile",id:"morning"}),true);
+  assert.equal(card.editors.configuration.settings.notifications,true);
+  assert.equal(card.editors.settingsDraft.notifications,false);
+  assert.equal(card.editors.settingsDraft.monitoring_policies[1].name,"Pending device policy");
+  assert.equal(card.editors.settingsDraft.notification_definitions.profiles.morning.name,"Pending morning name");
+  assert.equal(scopedDirty(card.editors,{kind:"policy",id:"policy-2"}),true);
+  assert.equal(scopedDirty(card.editors,{kind:"profile",id:"morning"}),true);
 });
 
 test("opening or cancelling Add notification does not create a default assignment",()=>{
   const settings=notificationSettings();settings.monitoring_policies[0].notifications=[];
-  const {card,calls}=fixture(settings),before=clone(card.settingsDraft),html=namedPolicies(card);
+  const {card,calls}=fixture(settings),before=clone(card.editors.settingsDraft),html=namedPolicies(card);
   assert.match(html,/policy-notification-add/);
   assert.match(html,/Add notification/);
   assert.match(html,/Choose a notification/);
@@ -99,9 +99,9 @@ test("opening or cancelling Add notification does not create a default assignmen
   assert.doesNotMatch(html,/data-definition-action="add-row"/);
   assert.equal(editReusable(card,{type:"click",target:{closest:()=>null}}),false);
   choose(card,"","");
-  assert.deepEqual(card.settingsDraft,before);
+  assert.deepEqual(card.editors.settingsDraft,before);
   assert.deepEqual(calls,[]);
-  assert.equal(scopedDirty(card,policyScope),false);
+  assert.equal(scopedDirty(card.editors,policyScope),false);
 });
 
 test("Add notification appends exactly the chosen saved definition and leaves existing assignments intact",()=>{
@@ -153,6 +153,6 @@ test("removing the last Custom notification focuses Save policy when no notifica
   card.main.querySelector=selector=>selector==='[data-definition-action="save-scoped"]'?save:null;
   remove(card,"custom");
   assert.deepEqual(selectedPolicy(card).notifications,[]);
-  assert.equal(scopedDirty(card,policyScope),true);
+  assert.equal(scopedDirty(card.editors,policyScope),true);
   assert.deepEqual(focused,["Save policy"]);
 });

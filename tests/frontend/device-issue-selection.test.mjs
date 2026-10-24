@@ -6,7 +6,7 @@ import {deviceIssueFixture,deviceIssueReply,DEVICE_ID,DEVICE_SOURCE,RELATED_IDS,
 function harness() {
   const fixture=deviceIssueFixture(),calls=[],master={},label={},title={},close={disabled:false};
   const body={innerHTML:"",querySelector:selector=>selector==="[data-device-issues-all]"?master:null};
-  const card={current:{status:"current",data:fixture.data},detail:{deviceId:DEVICE_ID},configuration:{revision:"selection-1",settings:fixture.settings},
+  const card={current:{status:"current",data:fixture.data},detail:{deviceId:DEVICE_ID},editors:{configuration:{revision:"selection-1",settings:fixture.settings}},
     dialog:{open:true,querySelector:selector=>selector===".dialog-body"?body:selector==='[data-action="close"]'?close:selector.startsWith("[data-device-response")?{focus(){}}:null},
     shadowRoot:{querySelector:selector=>selector==="#detail-label"?label:selector==="#detail-title"?title:body},capturePageState:()=>({}),restorePageState:()=>{},
     _hass:{user:{is_admin:true},states:Object.fromEntries(fixture.members.map(member=>[member.entity_id,{state:member.state,attributes:{}}])),callWS:async request=>{
@@ -140,7 +140,7 @@ test("a temperature finding retains actionable captured evidence and its exact i
   const check={...entity,node_id:"check:temperature",kind:"temperature_limit",check_id:"temperature_limit",monitoring_source:entity.node_id,monitoring_policy:"temperature"};
   const current={node_id:check.node_id,check_id:check.check_id,status:"warn",reason:"temperature_high",message:"Temperature is 31 °C",evidence:{temperature_celsius:31,maximum:28,unit:"°C",observed_seconds:600,duration_seconds:300}};
   inventory.nodes=[...inventory.nodes,check];
-  inventory.entity_status[check.node_id]={current,last_failure:current};
+  inventory.entity_status[check.node_id]={editors:{},current,last_failure:current};
   inventory.episodes=[{episode_id:"issue:temperature",anchor:check.node_id,recorded:[check.node_id],reasons:[current]}];
   renderDeviceIssues(card);
   assert.match(body.innerHTML,/Temperature above maximum/);assert.match(body.innerHTML,/Temperature is 31 °C/);

@@ -83,7 +83,7 @@ test("short confirmation shows exact entities without repeating policy names",()
 test("a save disables source monitoring controls until its result is known",()=>{
   const card=sourceDetailsFixture("entity",["unavailable"]);
   card.availabilityPlan=prepareAvailabilityChange(card,[ENTITY_ID]);card.availabilityContext=ENTITY_ID;
-  card.scopedBusy="source-availability";
+  card.editors.scopedBusy="source-availability";
   const html=detail(card);
   assert.match(html,/data-availability-action="confirm"[^>]* disabled>Stopping monitoring…/);
   assert.match(html,/data-availability-action="cancel"[^>]* disabled>Cancel/);
@@ -165,7 +165,7 @@ test("automation reporting is readable within one Details section without anothe
 
 test("an excluded entity stays unavailable and has an explicit resume action",()=>{
   const card=sourceDetailsFixture("entity",["unavailable"]);
-  for(const policy of card.configuration.settings.monitoring_policies)policy.excluded_sources=[ENTITY_ID];
+  for(const policy of card.editors.configuration.settings.monitoring_policies)policy.excluded_sources=[ENTITY_ID];
   card.current.data.inventory.nodes=card.current.data.inventory.nodes.filter(item=>!item.monitoring_policy);
   card.availabilityContext=ENTITY_ID;
   const html=detail(card);
@@ -178,7 +178,7 @@ test("an excluded entity stays unavailable and has an explicit resume action",()
 
 test("excluded device members remain selectable for resumption without inventing readings",()=>{
   const card=sourceDetailsFixture("device",["unavailable"]);
-  for(const policy of card.configuration.settings.monitoring_policies)policy.excluded_sources=[ENTITY_ID];
+  for(const policy of card.editors.configuration.settings.monitoring_policies)policy.excluded_sources=[ENTITY_ID];
   card.sourceDetail.members=[];card.sourceDetail.total=0;
   card.availabilitySelected={nodeId:DEVICE_ID,ids:new Set([ENTITY_ID])};
   const html=detail(card);
@@ -189,7 +189,7 @@ test("excluded device members remain selectable for resumption without inventing
 
 test("availability-exclusion filter retains source ancestors and hides unrelated entity rows",()=>{
   const card=sourceDetailsFixture("device",["unavailable","72"]);
-  card.configuration.settings.monitoring_policies[0].excluded_sources=[ENTITY_ID];
+  card.editors.configuration.settings.monitoring_policies[0].excluded_sources=[ENTITY_ID];
   card.sourcesExcludedOnly=true;
   const tree=sourcesBrowser(card).split('<section class="config-detail"')[0];
   assert.match(tree,/data-sources-select="source:entity:third-floor-temperature"/);
@@ -200,7 +200,7 @@ for(const enabled of [false,true]) {
   test("source filters keep "+(enabled?"active choices":"additional choices")+" in a native popover",()=>{
     const card=sourceDetailsFixture();
     card.sourcesShowDisabled=enabled;card.sourcesExcludedOnly=enabled;
-    const settings=structuredClone(card.configuration.settings),html=sourcesBrowser(card);
+    const settings=structuredClone(card.editors.configuration.settings),html=sourcesBrowser(card);
     assert.match(html,/popovertarget="sources-more-filters"/);
     assert.match(html,/id="sources-more-filters"[^>]*popover/);
     assert.match(html,/data-sources-disabled/);
@@ -209,7 +209,7 @@ for(const enabled of [false,true]) {
     assert.doesNotMatch(html,/<details class="sources-filters"/);
     assert.equal((html.match(/data-sources-disabled[^>]* checked/g)||[]).length,Number(enabled));
     assert.equal((html.match(/data-sources-excluded[^>]* checked/g)||[]).length,Number(enabled));
-    assert.deepEqual(card.configuration.settings,settings);
+    assert.deepEqual(card.editors.configuration.settings,settings);
   });
 }
 

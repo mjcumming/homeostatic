@@ -21,9 +21,9 @@ function reset() {
     }
   }
   data={schema_version:3,catalog_loaded:true,catalog_revision:String(revision),available:true,entry_id:"example",updated_at:"2026-10-15T13:00:00Z",areas:[],floors:[],devices:[],readiness:{answer:"unknown",nodes:[]},functions:[],coverage:{no_checks:[],never_observed:[],stale:[]},policy:{notifications_enabled:false,routes:{},episodes:[]},inventory:{nodes,catalog:{candidates:nodes.filter(item=>!item.monitoring_policy)},episodes,entity_status,operator_controls:[],integration_evidence:{},notification_requests:[]}};
-  Object.assign(card,{page:"problems",configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,availabilityPlan:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null,detail:null,availabilityContext:null,availabilityError:null,current:{status:"current",data},issueQuery:"",issueSort:"newest",issueGroupsExpanded:new Set(),sourcesSelection:null,sourcesQuery:"",sourcesExpanded:new Set(),sourcesMobileDetail:false,sourceDetail:null});
+  Object.assign(card,{page:"problems",editors:{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null},availabilityPlan:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null,detail:null,availabilityContext:null,availabilityError:null,current:{status:"current",data},issueQuery:"",issueSort:"newest",issueGroupsExpanded:new Set(),sourcesSelection:null,sourcesQuery:"",sourcesExpanded:new Set(),sourcesMobileDetail:false,sourceDetail:null});
   card._hass.states=Object.fromEntries(data.inventory.catalog.candidates.filter(source=>source.entity_id).map(source=>[source.entity_id,{state:"unavailable",attributes:{}}]));
-  initializeScopedConfiguration(card);card.render();report();
+  initializeScopedConfiguration(card.editors);card.render();report();
 }
 function report() {
   document.querySelector("#result").textContent=JSON.stringify({saveRequests:calls.filter(item=>item.type==="homeostatic/save_settings").length,excluded:saved.monitoring_policies[0].excluded_sources||[],notifications:saved.notifications,openedIssue:card.detail?.episodeId||null,pendingIssue:card.issueAvailabilityEpisode||null,pending:card.issueAvailabilityPlan?.sourceIds||[]},null,2);

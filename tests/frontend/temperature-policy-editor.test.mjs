@@ -10,7 +10,7 @@ function fixture(parameters={}) {
   const calls=[];
   let confirmed=structuredClone(settings);
   const card={page:"policies",definitionSelection:{kind:"policies",id:policy.id},current:{status:"current",data:monitoringExample()},
-    configuration:{revision:"one",settings:structuredClone(settings)},settingsDraft:structuredClone(settings),
+    editors:{configuration:{revision:"one",settings:structuredClone(settings)},settingsDraft:structuredClone(settings)},
     main:{querySelector(){return null;},querySelectorAll(){return [];}},render(){},
     _hass:{async callWS(request){
       calls.push(structuredClone(request));
@@ -18,7 +18,7 @@ function fixture(parameters={}) {
       return {revision:"two",settings:structuredClone(confirmed)};
     }}};
   namedPolicies(card);
-  return {card,calls,policy:card.settingsDraft.monitoring_policies[0],scope:{kind:"policy",id:policy.id}};
+  return {card,calls,policy:card.editors.settingsDraft.monitoring_policies[0],scope:{kind:"policy",id:policy.id}};
 }
 
 function change(card,field,value,extra={}) {
@@ -43,14 +43,14 @@ for(const [name,parameters] of [
   ["upper-only",{minimum:null,maximum:80}],
   ["both bounds",{minimum:-10,maximum:0}],
 ])test(`temperature editor keeps both optional numeric bounds visible for ${name}`,()=>{
-  const {card}=fixture(parameters),before=structuredClone(card.settingsDraft),html=namedPolicies(card);
+  const {card}=fixture(parameters),before=structuredClone(card.editors.settingsDraft),html=namedPolicies(card);
   const below=control(html,"parameters:minimum"),above=control(html,"parameters:maximum");
   assert.match(below,/type="number"/);assert.match(above,/type="number"/);
   assert.doesNotMatch(below,/\brequired\b/);assert.doesNotMatch(above,/\brequired\b/);
   assert.match(html,/<span>Below(?: \(optional\))?<\/span>/);
   assert.match(html,/<span>Above(?: \(optional\))?<\/span>/);
   assert.equal((html.match(/data-definition-field="parameters:(?:minimum|maximum)"/g)||[]).length,2);
-  assert.deepEqual(card.settingsDraft,before);
+  assert.deepEqual(card.editors.settingsDraft,before);
 });
 
 for(const [name,seconds,value,unit] of [
@@ -59,18 +59,18 @@ for(const [name,seconds,value,unit] of [
   ["non-minute duration",61,"61","seconds"],
   ["maximum duration",31536000,"525600","minutes"],
 ])test(`temperature editor presents ${name} without changing saved seconds`,()=>{
-  const {card,scope}=fixture({duration_seconds:seconds}),before=structuredClone(card.settingsDraft),html=namedPolicies(card);
+  const {card,scope}=fixture({duration_seconds:seconds}),before=structuredClone(card.editors.settingsDraft),html=namedPolicies(card);
   const duration=control(html,"parameters:duration_seconds");
   assert.match(duration,new RegExp(`value="${value}"`));
   assert.match(duration,new RegExp(`data-duration-unit="${unit}"`));
   assert.match(duration,/\brequired\b/);
   assert.match(html,new RegExp(`<select[^>]*data-definition-field="duration-unit:duration_seconds"[^>]*>[\\s\\S]*?<option value="${unit}" selected>`));
-  assert.deepEqual(card.settingsDraft,before);
-  assert.equal(scopedDirty(card,scope),false);
+  assert.deepEqual(card.editors.settingsDraft,before);
+  assert.equal(scopedDirty(card.editors,scope),false);
 });
 
 test("temperature duration unit changes only presentation and never dirty the policy",()=>{
-  const {card,calls,scope}=fixture(),before=structuredClone(card.settingsDraft);
+  const {card,calls,scope}=fixture(),before=structuredClone(card.editors.settingsDraft);
   change(card,"duration-unit:duration_seconds","hours");
   assert.match(control(namedPolicies(card),"parameters:duration_seconds"),/value="1"/);
   assert.match(control(namedPolicies(card),"parameters:duration_seconds"),/data-duration-unit="hours"/);
@@ -78,9 +78,9 @@ test("temperature duration unit changes only presentation and never dirty the po
   assert.match(control(namedPolicies(card),"parameters:duration_seconds"),/value="3600"/);
   change(card,"duration-unit:duration_seconds","minutes");
   assert.match(control(namedPolicies(card),"parameters:duration_seconds"),/value="60"/);
-  assert.deepEqual(card.settingsDraft,before);
-  assert.deepEqual(card.configuration.settings,before);
-  assert.equal(scopedDirty(card,scope),false);
+  assert.deepEqual(card.editors.settingsDraft,before);
+  assert.deepEqual(card.editors.configuration.settings,before);
+  assert.equal(scopedDirty(card.editors,scope),false);
   assert.deepEqual(calls,[]);
 });
 
@@ -96,12 +96,12 @@ for(const [unit,value,seconds] of [
   change(card,"parameters:duration_seconds",value,{durationUnit:unit});
   assert.equal(policy.parameters.duration_seconds,seconds);
   assert.equal(Number.isInteger(policy.parameters.duration_seconds),true);
-  assert.equal(card.configuration.settings.monitoring_policies[0].parameters.duration_seconds,3600);
+  assert.equal(card.editors.configuration.settings.monitoring_policies[0].parameters.duration_seconds,3600);
   assert.equal(await saveScopedConfiguration(card,scope),true);
   const submitted=calls.find(request=>request.type==="homeostatic/save_settings").settings;
   assert.equal(submitted.monitoring_policies[0].parameters.duration_seconds,seconds);
   assert.equal(submitted.notifications,false);
-  assert.equal(scopedDirty(card,scope),false);
+  assert.equal(scopedDirty(card.editors,scope),false);
 });
 
 for(const [name,parameters,error] of [
@@ -114,13 +114,13 @@ for(const [name,parameters,error] of [
 ])test(`temperature save rejects ${name} before making a request and retains the draft`,()=>{
   const {card,calls,policy}=fixture();
   policy.parameters={unit:"°F",...parameters};
-  const draft=structuredClone(card.settingsDraft),saved=structuredClone(card.configuration.settings);
+  const draft=structuredClone(card.editors.settingsDraft),saved=structuredClone(card.editors.configuration.settings);
   click(card,"save-scoped");
   assert.deepEqual(calls,[]);
-  assert.match(card.scopedError,error);
+  assert.match(card.editors.scopedError,error);
   assert.match(namedPolicies(card),/role="alert"/);
-  assert.deepEqual(card.settingsDraft,draft);
-  assert.deepEqual(card.configuration.settings,saved);
+  assert.deepEqual(card.editors.settingsDraft,draft);
+  assert.deepEqual(card.editors.configuration.settings,saved);
 });
 
 test("clearing the lower limit leaves an independent upper limit of zero",async()=>{
@@ -141,11 +141,11 @@ test("temperature enabled switch is in the header and changes only the draft unt
   assert.equal((html.match(/data-definition-field="enabled"/g)||[]).length,1);
   change(card,"enabled",false);
   assert.equal(policy.enabled,false);
-  assert.equal(card.configuration.settings.monitoring_policies[0].enabled,true);
+  assert.equal(card.editors.configuration.settings.monitoring_policies[0].enabled,true);
   assert.deepEqual(calls,[]);
   assert.equal(await saveScopedConfiguration(card,scope),true);
-  assert.equal(card.configuration.settings.monitoring_policies[0].enabled,false);
-  assert.equal(card.configuration.settings.notifications,false);
+  assert.equal(card.editors.configuration.settings.monitoring_policies[0].enabled,false);
+  assert.equal(card.editors.configuration.settings.notifications,false);
 });
 
 test("temperature source selection remains in the editor and focuses its replacement control",()=>{
@@ -183,7 +183,7 @@ for(const [seconds,unit] of [[61,"hours"],[7,"minutes"]])test(`editing an unchan
   const displayed=Number(control(namedPolicies(card),"parameters:duration_seconds").match(/value="([^"]+)"/)[1]);
   change(card,"parameters:duration_seconds",displayed,{durationUnit:unit});
   assert.equal(policy.parameters.duration_seconds,seconds);
-  assert.equal(scopedDirty(card,scope),false);
+  assert.equal(scopedDirty(card.editors,scope),false);
 });
 
 test("fractional duration input remains editable and fails Save when it is not whole seconds",()=>{
@@ -192,9 +192,9 @@ test("fractional duration input remains editable and fails Save when it is not w
   assert.equal(policy.parameters.duration_seconds,0.6);
   click(card,"save-scoped");
   assert.deepEqual(calls,[]);
-  assert.match(card.scopedError,/duration|second|whole|integer/i);
+  assert.match(card.editors.scopedError,/duration|second|whole|integer/i);
   assert.equal(policy.parameters.duration_seconds,0.6);
-  assert.equal(card.configuration.settings.monitoring_policies[0].parameters.duration_seconds,3600);
+  assert.equal(card.editors.configuration.settings.monitoring_policies[0].parameters.duration_seconds,3600);
 });
 
 test("equal zero temperature limits pass the Save control",async()=>{
@@ -206,7 +206,7 @@ test("equal zero temperature limits pass the Save control",async()=>{
   const submitted=calls.find(request=>request.type==="homeostatic/save_settings");
   assert.ok(submitted);
   assert.deepEqual(submitted.settings.monitoring_policies[0].parameters,{unit:"°F",minimum:0,maximum:0,duration_seconds:3600});
-  assert.equal(card.scopedError,null);
+  assert.equal(card.editors.scopedError,null);
 });
 
 for(const [initialSeconds,unit,value,seconds] of [
@@ -229,7 +229,7 @@ for(const [name,seconds] of [["small negative",-1e-9],["fractional near-integer"
   assert.equal(policy.parameters.duration_seconds,seconds);
   click(card,"save-scoped");
   assert.deepEqual(calls,[]);
-  assert.match(card.scopedError,/duration|second|whole|integer/i);
+  assert.match(card.editors.scopedError,/duration|second|whole|integer/i);
 });
 
 for(const [name,seconds] of [["not a number",NaN],["infinite",Infinity]])test(`temperature save rejects ${name} duration without mutating it`,()=>{
@@ -237,7 +237,7 @@ for(const [name,seconds] of [["not a number",NaN],["infinite",Infinity]])test(`t
   policy.parameters.duration_seconds=seconds;
   click(card,"save-scoped");
   assert.deepEqual(calls,[]);
-  assert.match(card.scopedError,/duration|second|whole|integer/i);
+  assert.match(card.editors.scopedError,/duration|second|whole|integer/i);
   assert.equal(policy.parameters.duration_seconds,seconds);
 });
 
@@ -250,7 +250,7 @@ test("temperature rule summary describes both bounds and the displayed duration"
 test("disabled immediate temperature rule keeps its meaning while global sending is on",()=>{
   const {card,policy}=fixture({minimum:null,maximum:0,duration_seconds:0});
   policy.enabled=false;
-  card.configuration.settings.notifications=true;
+  card.editors.configuration.settings.notifications=true;
   const html=namedPolicies(card);
   assert.match(html,/<p class="policy-rule" role="status">When enabled, open an issue when the temperature is above 0°F, without waiting\.<\/p>/);
   assert.doesNotMatch(html,/Notifications are turned off globally/);
@@ -265,7 +265,7 @@ test("clearing a duration retains its default seconds unit while the field is em
   assert.match(blank,/data-duration-unit="seconds"/);
   click(card,"save-scoped");
   assert.deepEqual(calls,[]);
-  assert.match(card.scopedError,/duration|second|whole|integer/i);
+  assert.match(card.editors.scopedError,/duration|second|whole|integer/i);
   change(card,"parameters:duration_seconds",120,{durationUnit:"seconds"});
   assert.equal(policy.parameters.duration_seconds,120);
   assert.match(control(namedPolicies(card),"parameters:duration_seconds"),/data-duration-unit="seconds"/);

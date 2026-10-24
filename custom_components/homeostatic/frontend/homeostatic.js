@@ -1,28 +1,28 @@
-import {notProvidedProblem} from "./entity-not-provided.mjs?v=109";
-import {retainedProblem, sharedDeviceCondition} from "./check-presentation.mjs?v=109";
-import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=109";
-import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=109";
-import {upsProblem} from "./ups.mjs?v=109";
-import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=109";
-import {affectedFunctions, dashboardStore, editorEvidenceOnly, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=109";
-import {deviceEntityName,entityReadingsStamp} from "./device-entities.mjs?v=109";
-import {batteryProblem, brokenAutomationProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=109";
-import {DashboardTools} from "./history-controls.mjs?v=109";
-import {diagnosticOverview} from "./evidence.mjs?v=109";
-import {styles} from "./styles.mjs?v=109";
+import {notProvidedProblem} from "./entity-not-provided.mjs?v=110";
+import {retainedProblem, sharedDeviceCondition} from "./check-presentation.mjs?v=110";
+import {editReusable, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=110";
+import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=110";
+import {upsProblem} from "./ups.mjs?v=110";
+import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=110";
+import {affectedFunctions, dashboardStore, editorEvidenceOnly, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=110";
+import {deviceEntityName,entityReadingsStamp} from "./device-entities.mjs?v=110";
+import {batteryProblem, brokenAutomationProblem, entityProblem, integrationProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=110";
+import {DashboardTools} from "./history-controls.mjs?v=110";
+import {diagnosticOverview} from "./evidence.mjs?v=110";
+import {styles} from "./styles.mjs?v=110";
 
-import {sourcesBrowser, sourcesTree, sourcePaths, sourceForSelection, topomationTree, canonicalSourceSelection, editSourceAvailability, editSourcePolicies, restoreSourceFilters, restoreSourcePolicies} from "./sources-workspace.mjs?v=109";
+import {sourcesBrowser, sourcesTree, sourcePaths, sourceForSelection, topomationTree, canonicalSourceSelection, editSourceAvailability, editSourcePolicies, restoreSourceFilters, restoreSourcePolicies} from "./sources-workspace.mjs?v=110";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=109";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=110";
 
-import {cardView} from "./notification-navigation.mjs?v=109";
-import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=109";
-import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=109";
-import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=109";
-import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=109";
-import {editIssueAvailability,issueAvailabilityAction,issueAvailabilityNeedsCatalog,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=109";
-import {editDeviceIssues,readDeviceIssues} from "./device-issues.mjs?v=109";
-import {issueDeviceId} from "./device-issue-model.mjs?v=109";
+import {cardView} from "./notification-navigation.mjs?v=110";
+import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=110";
+import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=110";
+import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=110";
+import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=110";
+import {editIssueAvailability,issueAvailabilityAction,issueAvailabilityNeedsCatalog,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=110";
+import {editDeviceIssues,readDeviceIssues} from "./device-issues.mjs?v=110";
+import {issueDeviceId} from "./device-issue-model.mjs?v=110";
 
 const VIEWS = ["sources", "problems", "history", "notifications", "policies", "configuration"];
 const date = (value) => value ? new Date(value).toLocaleString() : "No completed update";
@@ -41,9 +41,7 @@ class HomeostaticCard extends HTMLElement {
     this.attachShadow({mode: "open"});
     this.config = {view: "problems"};
     this.page = "problems";
-    this.configuration = null;
-    this.configError = null;
-    this.configBusy = false;
+    this.editors = {};
     this.sourcesGrouping = savedSourcesGrouping();
     this.topomation = null;
     this.topomationLoaded = false;
@@ -54,11 +52,6 @@ class HomeostaticCard extends HTMLElement {
     this.sourcesNeedsReview = false;
     this.sourcesMonitoring = "all";
     this.sourcesView = "source";
-    this.settingsDraft = null;
-    this.deliveryBusy = false;
-    this.deliveryError = null;
-    this.settingsBusy = false;
-    this.settingsError = null;
     this.sourcesLimits = new Map();
     this.sourcesMobileDetail = false;
     this.sourceDetail = null;
@@ -241,7 +234,7 @@ class HomeostaticCard extends HTMLElement {
     this.removeListener = this.store.listen((value) => {
       if(value.status!=="current"&&this.current.status==="current")this.invalidateReads();
       const retainEditor=["policies","notifications","configuration"].includes(this.page)&&
-        this.renderedCurrent&&this.renderedView===this.viewIdentity()&&!this.settingsBusy&&!this.configBusy&&!this.retainedSave&&
+        this.renderedCurrent&&this.renderedView===this.viewIdentity()&&!this.editors.settingsBusy&&!this.editors.configBusy&&!this.retainedSave&&
         editorEvidenceOnly(this.current,value);
       const catalogArrived = value.data?.catalog_loaded &&
         (!this.current.data?.catalog_loaded || this.current.data?.catalog_stale && !value.data?.catalog_stale);
@@ -258,8 +251,8 @@ class HomeostaticCard extends HTMLElement {
       }
       this.tools.update(value);
       if(!retainEditor)this.render();
-      if (value.status === "current" && (!this.configuration || this.configurationNeedsReload) && !this.configBusy && !this.settingsBusy) this.loadConfiguration();
-      else if(value.status==="current" && this.configuration && !this.configBusy && !this.settingsBusy && typeof value.data.policy?.notifications_enabled==="boolean" && value.data.policy.notifications_enabled!==this.configuration.settings.notifications)this.loadConfiguration("rebase");
+      if (value.status === "current" && (!this.editors.configuration || this.configurationNeedsReload) && !this.editors.configBusy && !this.editors.settingsBusy) this.loadConfiguration();
+      else if(value.status==="current" && this.editors.configuration && !this.editors.configBusy && !this.editors.settingsBusy && typeof value.data.policy?.notifications_enabled==="boolean" && value.data.policy.notifications_enabled!==this.editors.configuration.settings.notifications)this.loadConfiguration("rebase");
       if (this.pendingEpisode && value.status === "current") {
         const episodeId = this.pendingEpisode;
         this.pendingEpisode = null;
@@ -375,14 +368,14 @@ class HomeostaticCard extends HTMLElement {
 
   renderNotificationControl() {
     const host=this.shadowRoot.querySelector(".workspace-notifications");
-    const known=Boolean(this.configuration);
-    const enabled=this.configuration?.settings?.notifications===true;
-    const pending=this.scopedBusy==="notifications";
-    const error=this.scopedStatusScope==="notifications" ? this.scopedError : null;
+    const known=Boolean(this.editors.configuration);
+    const enabled=this.editors.configuration?.settings?.notifications===true;
+    const pending=this.editors.scopedBusy==="notifications";
+    const error=this.editors.scopedStatusScope==="notifications" ? this.editors.scopedError : null;
     if(!host.querySelector("input"))host.innerHTML='<label class="method-switch"><span>Notifications</span><input type="checkbox" role="switch" data-notifications-switch aria-label="Notifications"><span data-notifications-state></span></label><div data-notifications-feedback></div>';
     const input=host.querySelector("input");
     input.checked=enabled;
-    input.disabled=!known||this.current.status!=="current"||this.settingsBusy||this.configBusy;
+    input.disabled=!known||this.current.status!=="current"||this.editors.settingsBusy||this.editors.configBusy;
     host.querySelector("[data-notifications-state]").textContent=known ? enabled ? 'On' : 'Off' : 'Loading';
     host.querySelector("[data-notifications-feedback]").innerHTML=pending?'<p class="small" role="status">Saving…</p>':error?`<p class="config-error" role="alert">${esc(error)}</p>`:'';
   }
@@ -396,7 +389,7 @@ class HomeostaticCard extends HTMLElement {
     this.shadowRoot.querySelector(".nav").hidden = this.config.navigation === false;
     const back = this.shadowRoot.querySelector('[data-action="back"]');
     back.hidden = this.config.navigation !== false || this.page === this.config.view || Boolean(this.workspaceReturn);
-    back.textContent = `← Back to ${{sources:"Monitoring",problems:"Open issues",history:"History",notifications:"Notifications",policies:"Policies",configuration:"Settings"}[this.config.view]}`;
+    back.textContent = `← Back to ${{sources:"Monitoring",problems:"Open issues",history:"History",notifications:"Notifications",policies:"Policies",editors:{configuration:"Settings"}}[this.config.view]}`;
     this.shadowRoot.querySelectorAll("[data-page]").forEach((button) => {
       if (button.closest(".nav")) {
         if (button.dataset.page === this.page) button.setAttribute("aria-current", "page");
@@ -408,12 +401,12 @@ class HomeostaticCard extends HTMLElement {
       (this.page==="policies"&&selection?.kind==="policies"||this.page==="notifications"&&["methods","profiles"].includes(selection?.kind))?
         `${{policies:"policy",methods:"method",profiles:"profile"}[selection.kind]}:${selection.id}`:null;
     const footer=this.main.querySelector("[data-scoped-editor]");
-    const saveError=editorScope&&this.scopedStatusScope===editorScope&&!this.scopedBusy?this.scopedError:null;
-    const saveNotice=editorScope&&this.scopedStatusScope===editorScope&&!this.scopedBusy?this.scopedNotice:null;
+    const saveError=editorScope&&this.editors.scopedStatusScope===editorScope&&!this.editors.scopedBusy?this.editors.scopedError:null;
+    const saveNotice=editorScope&&this.editors.scopedStatusScope===editorScope&&!this.editors.scopedBusy?this.editors.scopedNotice:null;
     if(this.current.status==="current"||this.retainedSave?.scope!==editorScope||this.renderedView!==view||saveError||
-      !this.scopedBusy&&(this.current.status==="error"||this.current.data?.error))this.retainedSave=null;
-    if(this.current.status!=="current"&&this.renderedCurrent&&this.renderedView===view&&this.settingsBusy&&
-      this.scopedBusy===editorScope&&footer?.dataset.scopedEditor===editorScope) {
+      !this.editors.scopedBusy&&(this.current.status==="error"||this.current.data?.error))this.retainedSave=null;
+    if(this.current.status!=="current"&&this.renderedCurrent&&this.renderedView===view&&this.editors.settingsBusy&&
+      this.editors.scopedBusy===editorScope&&footer?.dataset.scopedEditor===editorScope) {
       this.retainedSave={scope:editorScope,kind:footer.dataset.scopeKind,id:footer.dataset.scopeId,label:footer.dataset.saveLabel};
     }
     const status = this.shadowRoot.querySelector(".workspace-status");
@@ -421,10 +414,10 @@ class HomeostaticCard extends HTMLElement {
       const notice=this.current.status==="disconnected"?"Connection lost. Waiting for Home Assistant to reconnect.":
         this.current.status==="error"?`Monitoring is unavailable. ${this.current.error||"Waiting to reconnect."}`:
         this.current.data?.error?`Monitoring is unavailable. ${this.current.data.error}`:
-        this.scopedBusy?"Applying changes…":"Finishing update…";
+        this.editors.scopedBusy?"Applying changes…":"Finishing update…";
       status.hidden=false;status.textContent=notice;
       this.main.inert=true;
-      if(!this.scopedBusy) {
+      if(!this.editors.scopedBusy) {
         const saved=this.retainedSave;
         const content=scopedEditorFooter(this,{kind:saved.kind,id:saved.id},saved.label);
         if(footer.outerHTML!==content)footer.outerHTML=content;
@@ -500,8 +493,8 @@ class HomeostaticCard extends HTMLElement {
   }
 
   policiesPage() {
-    const intro = this.definitionSelection?.kind === "policies" && this.settingsDraft?.monitoring_policies?.some(policy => policy.id === this.definitionSelection.id) ? "" : '<div class="intro"><h1>Monitoring policies</h1></div>';
-    if (!this.configuration) return `${intro}<section class="panel"><div class="body"><p>${esc(this.configError ?? "Loading policies…")}</p>${this.configError ? '<button type="button" class="button" data-action="load-configuration">Try again</button>' : ""}</div></section>`;
+    const intro = this.definitionSelection?.kind === "policies" && this.editors.settingsDraft?.monitoring_policies?.some(policy => policy.id === this.definitionSelection.id) ? "" : '<div class="intro"><h1>Monitoring policies</h1></div>';
+    if (!this.editors.configuration) return `${intro}<section class="panel"><div class="body"><p>${esc(this.editors.configError ?? "Loading policies…")}</p>${this.editors.configError ? '<button type="button" class="button" data-action="load-configuration">Try again</button>' : ""}</div></section>`;
     return `${intro}<section class="panel policies-content"><div class="body">${namedPolicies(this)}</div></section>`;
   }
 
@@ -545,45 +538,47 @@ class HomeostaticCard extends HTMLElement {
   }
 
   async loadConfiguration() {
-    if (this.configBusy) return;
-    const hass = this._hass, session = this.panelDraftSession, userId = hass.user?.id, admin = hass.user?.is_admin;
-    const current = () => this._hass.connection === hass.connection && this._hass.user?.id === userId && this._hass.user?.is_admin === admin && this.panelDraftSession === session;
-    this.configBusy = true;
-    this.configError = null;
+    const editors = this.editors;
+    if (editors.configBusy) return;
+    const hass = this._hass, userId = hass.user?.id, admin = hass.user?.is_admin;
+    const current = () => this._hass.connection === hass.connection && this._hass.user?.id === userId && this._hass.user?.is_admin === admin && this.editors === editors;
+    editors.configBusy = true;
+    editors.configError = null;
     this.render();
     try {
       const result = await hass.callWS({type:"homeostatic/configuration",section:"settings"});
       if (!current()) return;
-      const previous = this.configuration;
+      const previous = editors.configuration;
       const fresh = {...result,...Object.fromEntries(["delivery_targets","notification_people","notification_destinations","consumers"].filter(key=>previous && key in previous).map(key=>[key,previous[key]]))};
-      if (this.scopedConfiguration) rebaseScopedConfiguration(this,fresh);
+      if (editors.scopedConfiguration) rebaseScopedConfiguration(editors,fresh);
       else {
-        this.configuration = fresh;
-        this.settingsDraft = structuredClone(result.settings);
-        initializeScopedConfiguration(this);
+        editors.configuration = fresh;
+        editors.settingsDraft = structuredClone(result.settings);
+        initializeScopedConfiguration(editors);
       }
       this.configurationNeedsReload = false;
     } catch (error) {
-      if (current()) this.configError = error?.message ?? "Could not load configuration.";
+      if (current()) editors.configError = error?.message ?? "Could not load configuration.";
     } finally {
-      if (current()) {this.configBusy = false;this.render();}
+      if (current()) {editors.configBusy = false;this.render();}
     }
   }
 
   async loadDeliveryConfiguration(retry = false) {
-    if (!this.configuration || this.deliveryBusy || !retry && this.configuration.delivery_targets) return;
-    const hass = this._hass, connection = hass.connection, userId = hass.user?.id, admin = hass.user?.is_admin, session = this.panelDraftSession;
-    const current = () => this._hass.connection === connection && this._hass.user?.id === userId && this._hass.user?.is_admin === admin && this.panelDraftSession === session;
-    this.deliveryBusy = true;
-    this.deliveryError = null;
+    const editors = this.editors;
+    if (!editors.configuration || editors.deliveryBusy || !retry && editors.configuration.delivery_targets) return;
+    const hass = this._hass, connection = hass.connection, userId = hass.user?.id, admin = hass.user?.is_admin;
+    const current = () => this._hass.connection === connection && this._hass.user?.id === userId && this._hass.user?.is_admin === admin && this.editors === editors;
+    editors.deliveryBusy = true;
+    editors.deliveryError = null;
     this.render();
     try {
       const result = await hass.callWS({type:"homeostatic/configuration",section:"delivery"});
-      if (current() && this.configuration) Object.assign(this.configuration,result);
+      if (current() && editors.configuration) Object.assign(editors.configuration,result);
     } catch (error) {
-      if (current()) this.deliveryError = error?.message ?? "Could not load notification destinations.";
+      if (current()) editors.deliveryError = error?.message ?? "Could not load notification destinations.";
     } finally {
-      if (current()) {this.deliveryBusy = false;this.render();}
+      if (current()) {editors.deliveryBusy = false;this.render();}
     }
   }
 
@@ -796,15 +791,15 @@ class HomeostaticCard extends HTMLElement {
       this.dialog.close();
       this.page = workspacePage(button.dataset.page);
       this.navigation.clearNotificationReport();
-      if (button.dataset.configureMonitoring!==undefined) {this.definitionSelection=null;this.policyCreating=false;}
+      if (button.dataset.configureMonitoring!==undefined) {this.definitionSelection=null;this.editors.policyCreating=false;}
       if (button.closest(".nav")) {
-        if (["policies","notifications"].includes(this.page)) {this.definitionSelection=null;this.policyCreating=false;}
+        if (["policies","notifications"].includes(this.page)) {this.definitionSelection=null;this.editors.policyCreating=false;}
         if (this.page === "sources") this.sourcesMobileDetail=false;
       }
       if (button.dataset.page === "coverage") this.sourcesNeedsReview = true;
       if (button.dataset.page === "house") this.sourcesGrouping = "location";
       this.render();
-      if (["configuration","notifications","policies"].includes(this.page) && !this.configuration) this.loadConfiguration();
+      if (["configuration","notifications","policies"].includes(this.page) && !this.editors.configuration) this.loadConfiguration();
     }
     else if (button.dataset.sourceLink) {this.detail=null; this.dialog.close(); this.sourcesMobileDetail=true; this.sourcesView="source"; this.resetSourceScroll=true; this.sourcesSelection = `source:${button.dataset.sourceLink}`; this.page = "sources"; this.revealSourcesSelection(); this.render();}
     else if (button.dataset.node) this.openDetail({nodeId: button.dataset.node});
@@ -1029,11 +1024,11 @@ class HomeostaticStrategy {
   static getCreateSuggestions() { return {title:"Homeostatic",icon:"mdi:home-heart"}; }
   static async generate() {
     return {title:"Homeostatic",views:[
-      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v57",view:"issues",navigation:false}]},
-      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v57",view:"sources",navigation:false}]},
-      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v57",view:"policies",navigation:false}]},
-      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v57",view:"notifications",navigation:false}]},
-      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v57",view:"history",navigation:false}]},
+      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v58",view:"issues",navigation:false}]},
+      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v58",view:"sources",navigation:false}]},
+      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v58",view:"policies",navigation:false}]},
+      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v58",view:"notifications",navigation:false}]},
+      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v58",view:"history",navigation:false}]},
     ]};
   }
 }
@@ -1122,5 +1117,7 @@ if (!window.customStrategies.some((item) => item.type === "homeostatic")) window
   type:"homeostatic",strategyType:"dashboard",name:"Homeostatic",description:"A dashboard populated from Homeostatic monitoring.",
 });
 
-if (!customElements.get("homeostatic-card-v57")) customElements.define("homeostatic-card-v57", HomeostaticCard);
-if (!customElements.get("homeostatic-panel-v61")) customElements.define("homeostatic-panel-v61", HomeostaticPanel);
+if (!customElements.get("homeostatic-card-v57")) customElements.define("homeostatic-card-v57", class extends HomeostaticCard {});
+if (!customElements.get("homeostatic-panel-v61")) customElements.define("homeostatic-panel-v61", class extends HomeostaticPanel {});
+if (!customElements.get("homeostatic-card-v58")) customElements.define("homeostatic-card-v58", HomeostaticCard);
+if (!customElements.get("homeostatic-panel-v62")) customElements.define("homeostatic-panel-v62", HomeostaticPanel);

@@ -36,10 +36,10 @@ test("all monitoring states stay visible by default and filters preserve ancesto
 });
 
 test("parent search cannot bring monitored siblings into the unmonitored filter",()=>{
-  const card=fixture(),data=card.current.data,settings=JSON.stringify(card.configuration);
+  const card=fixture(),data=card.current.data,settings=JSON.stringify(card.editors.configuration);
   const filtered=filterSourceMonitoring(filterSources(sourcesTree(data,"integration"),"3rd Floor Sensor"),"unmonitored",sourceCoverageIndex(data));
   assert.deepEqual(entityIds(filtered),["entity:third-floor-3"]);
-  assert.equal(JSON.stringify(card.configuration),settings);
+  assert.equal(JSON.stringify(card.editors.configuration),settings);
 });
 
 test("filter changes leave a selected source and its actions inspectable",()=>{
@@ -151,7 +151,7 @@ for(const [name,expanded,query,disabled] of [
 });
 
 test("filter choices and expansion survive navigation without changing settings",()=>{
-  const card=fixture(),saved=structuredClone(card.configuration.settings);
+  const card=fixture(),saved=structuredClone(card.editors.configuration.settings);
   Object.assign(card,{sourcesShowDisabled:true,sourcesExcludedOnly:true,sourcesMonitoring:"unmonitored"});
   const context=workspaceContext(card);
   Object.assign(card,{sourcesShowDisabled:false,sourcesExcludedOnly:false,sourcesMonitoring:"all",sourcesExpanded:new Set()});
@@ -161,7 +161,7 @@ test("filter choices and expansion survive navigation without changing settings"
   assert.equal(card.sourcesMonitoring,"unmonitored");
   assert.deepEqual([...card.sourcesExpanded],context.sourcesExpanded);
   assert.match(sourcesBrowser(card),/More filters \(2\)/);
-  assert.deepEqual(card.configuration.settings,saved);
+  assert.deepEqual(card.editors.configuration.settings,saved);
 });
 
 

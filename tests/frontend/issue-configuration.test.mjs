@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {issueConfiguration, issuePolicyChoices} from "../../custom_components/homeostatic/frontend/issue-configuration.mjs";
 
-const fixture=()=>({configuration:{settings:{notifications:true,monitoring_policies:[
+const fixture=()=>({editors:{configuration:{settings:{notifications:true,monitoring_policies:[
   {id:"entity",name:"Entities",notifications:[{id:"first",profile:"evening"}]},
   {id:"temperature",name:"Temperature",notifications:[{id:"second",profile:"evening"},{id:"third",profile:"urgent"}]},
-],notification_definitions:{profiles:{evening:{name:"Evening summary",methods:["phone"]},urgent:{name:"Urgent",methods:[]}},methods:{phone:{mode:"fixed",destinations:["phone:owner"]}}}}}});
+],notification_definitions:{profiles:{evening:{name:"Evening summary",methods:["phone"]},urgent:{name:"Urgent",methods:[]}},methods:{phone:{mode:"fixed",destinations:["phone:owner"]}}}}}}});
 const coverage=[{id:"entity",name:"Old entity name"},{id:"temperature",name:"Temperature"}];
 
 test("issue coverage uses saved names and deduplicates notifications across contributing policies",()=>{
   const card=fixture(),before=structuredClone(card);
-  card.settingsDraft={monitoring_policies:[],notification_definitions:{profiles:{evening:{name:"Unsaved name"}}}};
+  card.editors.settingsDraft={monitoring_policies:[],notification_definitions:{profiles:{evening:{name:"Unsaved name"}}}};
   const html=issueConfiguration(card,[...coverage,coverage[0]]);
   assert.equal((html.match(/data-definition-action="open-notification"/g)||[]).length,2);
   assert.equal((html.match(/data-definition-action="open-policy"/g)||[]).length,2);
@@ -18,21 +18,21 @@ test("issue coverage uses saved names and deduplicates notifications across cont
   assert.match(html,/>Evening summary<\/button>/);assert.match(html,/>Entities<\/button>/);
   assert.match(html,/No delivery method selected/);
   assert.doesNotMatch(html,/Old entity name|Unsaved name|Scheduled summary|Edit policy:/);
-  assert.deepEqual(card.configuration,before.configuration);
+  assert.deepEqual(card.editors.configuration,before.editors.configuration);
 });
 
 test("issue coverage keeps empty assignments visible without repeating global sending status",()=>{
-  const card=fixture();card.configuration.settings.notifications=false;
-  for(const policy of card.configuration.settings.monitoring_policies)policy.notifications=[];
+  const card=fixture();card.editors.configuration.settings.notifications=false;
+  for(const policy of card.editors.configuration.settings.monitoring_policies)policy.notifications=[];
   const html=issueConfiguration(card,coverage);
   assert.match(html,/None assigned/);assert.doesNotMatch(html,/Notifications off/);
   assert.equal((html.match(/data-definition-action="open-policy"/g)||[]).length,2);
-  card.configuration.settings.notifications=true;
+  card.editors.configuration.settings.notifications=true;
   assert.equal(issueConfiguration(card,coverage),html);
 });
 
 test("custom and missing notifications open their owning policy instead of a nonexistent profile editor",()=>{
-  const card=fixture();card.configuration.settings.monitoring_policies[0].notifications=[{id:"custom",timing:{mode:"immediate"},methods:[]},{id:"lost",profile:"missing"}];
+  const card=fixture();card.editors.configuration.settings.monitoring_policies[0].notifications=[{id:"custom",timing:{mode:"immediate"},methods:[]},{id:"lost",profile:"missing"}];
   const html=issueConfiguration(card,[coverage[0]]);
   assert.match(html,/Custom notification · Entities/);assert.match(html,/Unavailable notification · Entities/);
   assert.doesNotMatch(html,/open-notification|data-definition-id="missing"/);
@@ -40,7 +40,7 @@ test("custom and missing notifications open their owning policy instead of a non
 
 test("unavailable coverage cannot claim that no policies or notifications apply",()=>{
   const card=fixture();
-  for(const html of [issueConfiguration(card,[],{unavailable:true}),issueConfiguration({},[])]) {
+  for(const html of [issueConfiguration(card,[],{unavailable:true}),issueConfiguration({editors:{},},[])]) {
     assert.match(html,/coverage is unavailable/);assert.match(html,/Retry/);
     assert.doesNotMatch(html,/None assigned|None currently apply/);
   }
@@ -49,7 +49,7 @@ test("unavailable coverage cannot claim that no policies or notifications apply"
 });
 
 test("policy and notification names remain text",()=>{
-  const card=fixture();card.configuration.settings.notification_definitions.profiles.evening.name='<img src=x onerror="x">';
+  const card=fixture();card.editors.configuration.settings.notification_definitions.profiles.evening.name='<img src=x onerror="x">';
   const html=issueConfiguration(card,coverage);
   assert.doesNotMatch(html,/<img/);assert.match(html,/&lt;img/);
 });
@@ -65,12 +65,12 @@ test("coverage includes auxiliary battery and grouped device policies without un
   ];
   for(const source of [entity,device,...checks])source.name=source.node_id;
   card.current={data:{inventory:{catalog:{candidates:[entity,device]},nodes:checks}}};
-  card.configuration.settings.monitoring_policies.push(...["battery","device","other"].map(id=>({id,name:id,enabled:true,notifications:[]})));
+  card.editors.configuration.settings.monitoring_policies.push(...["battery","device","other"].map(id=>({id,name:id,enabled:true,notifications:[]})));
   assert.deepEqual(issuePolicyChoices(card,[entity]).map(item=>item.id).sort(),["battery","device"]);
   assert.deepEqual(issuePolicyChoices(card,[device,entity,checks[1]]).map(item=>item.id).sort(),["battery","device"]);
 });
 
 test("a selected fixed delivery method without destinations remains visibly unconfigured",()=>{
-  const card=fixture();card.configuration.settings.notification_definitions.methods.phone.destinations=[];
+  const card=fixture();card.editors.configuration.settings.notification_definitions.methods.phone.destinations=[];
   assert.match(issueConfiguration(card,[coverage[0]]),/Delivery method needs destinations/);
 });

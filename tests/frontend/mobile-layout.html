@@ -44,12 +44,12 @@ if(!new URLSearchParams(location.search).has("frame")) {
   card.navigation.enabled=false;
   card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},states:{},localize:()=>null,async callWS(){calls++;throw Error("Live requests are forbidden in this fixture");}};
   card.current={status:"current",data:monitoringExample()};
-  card.configuration={revision:"1",settings:structuredClone(saved),monitoring_policy_templates:[],notification_people:[],delivery_targets:[],areas:[],labels:[],floors:[]};
-  card.settingsDraft=structuredClone(saved);card.page="policies";card.render();
+  card.editors.configuration={revision:"1",settings:structuredClone(saved),monitoring_policy_templates:[],notification_people:[],delivery_targets:[],areas:[],labels:[],floors:[]};
+  card.editors.settingsDraft=structuredClone(saved);card.page="policies";card.render();
   const root=card.shadowRoot,header=root.querySelector(".header"),hamburger=root.querySelector(".ha-menu");
   card.main.style.paddingBottom="900px";
   window.runMobileLayoutScenario=async()=>{
-    const before=JSON.stringify(card.settingsDraft);
+    const before=JSON.stringify(card.editors.settingsDraft);
     for(const distance of [400,800]){
       viewport.scrollTop=distance;await tick();
       expect(Math.abs(header.getBoundingClientRect().top-64)<1,"Sticky panel header stays below the safe area after scrolling");
@@ -81,7 +81,7 @@ if(!new URLSearchParams(location.search).has("frame")) {
       expect(!menu.matches(":popover-open"),`${page}: More toggles the menu closed`);
       if(page==="notifications"){trigger.click();await tick();await tick();activeMenu=menu;}
     }
-    expect(JSON.stringify(card.settingsDraft)===before&&calls===0,"Opening and closing menus leaves settings and services untouched");
+    expect(JSON.stringify(card.editors.settingsDraft)===before&&calls===0,"Opening and closing menus leaves settings and services untouched");
     automaticResult=`PASS at ${window.innerWidth}px: compact policy and method menus, bottom-edge placement, both actions, Escape/focus return, toggle, safe-area header after scroll, notification/Settings alignment, and no configuration changes.\nNative outside dismissal: pending; tap Outside menu in the phone frame.`;
     return automaticResult;
   };

@@ -79,3 +79,29 @@ Configuration and stored-state changes must preserve existing choices or migrate
 3. Publish the release tag and the CI-validated archive only after the exact candidate commit passes. If the owner separately authorizes installation, install that archive on the local HA instance, then check the version, the affected UI, notification requests, and saved monitoring choices. Routine code-only installations do not retain a separate component rollback copy unless the maintainer asks.
 
 Ordinary code-only upgrades need no manual backup or rollback preparation. Before a stored-data migration, options-schema or dependency change, check for a suitable backup and take a fresh full HA backup when needed. If stored data changes, recovery needs the paired HA backup and the matching component. Never put old code over newer stored data.
+
+### Verify and install an archive
+
+Use the maintained `script/release.py` commands after obtaining the CI archive. Set `release_archive` to its ZIP path and `candidate_commit` to the independently verified CI commit. Keep the `.zip.sha256` sidecar beside the ZIP. Verification reads the candidate's version, requirements and complete package inventory from Git, then checks the archive checksum, build identity, every embedded hash and the packaged source bytes. It works while unrelated working-tree edits are pending and writes no installation files.
+
+```bash
+uv run --no-sync python script/release.py verify "$release_archive" --commit "$candidate_commit"
+```
+
+CI runs this verification after building the archive and includes `dist/verification.json` with the artifact. The command checks file identity; the preceding release steps establish successful CI and publication. Compare the public download's checksum with the verified CI archive when publishing. Use `--repository` if the candidate is held in another local checkout.
+
+When installation is separately authorized and the required upgrade preparation above is complete, set `ha_config` to the Home Assistant configuration directory and run the explicit installation command:
+
+```bash
+uv run --no-sync python script/release.py install "$release_archive" --commit "$candidate_commit" --config "$ha_config"
+```
+
+The command verifies the archive again, stages its component outside `custom_components`, replaces only `custom_components/homeostatic` and verifies every installed source file. Stale modules are removed; generated Python caches are ignored during comparison. Saved settings and other integrations stay untouched. The temporary previous directory is removed after success. If replacement fails, the command restores the original directory; if restoration also fails, its error identifies the retained staging directory for recovery. No backup copy is retained after a successful ordinary installation.
+
+Restart Core and complete the runtime and UI checks in step 3. This read-only command can recheck installed files after restart:
+
+```bash
+uv run --no-sync python script/release.py verify "$release_archive" --commit "$candidate_commit" --installed "$ha_config/custom_components/homeostatic"
+```
+
+Both commands write a JSON receipt to standard output. They perform no GitHub publication, Home Assistant action, restart or notification request.

@@ -27,7 +27,7 @@ const click=async selector=>{find(selector).click();await settle();};
 const fill=async(selector,value)=>{const el=find(selector);el.value=value;el.dispatchEvent(new Event(el.tagName==="SELECT"?"change":"input",{bubbles:true,composed:true}));await settle();};
 const check=(value,message)=>{if(!value)throw Error(message);};
 const action=name=>`[data-definition-action="${name}"]`,field=name=>`[data-definition-field="${name}"]`;
-function show(){card.current={status:"current",data};card.configuration=configuration();card.settingsDraft=copy(saved);card.scopedConfiguration=null;card.page="policies";card.definitionSelection=null;card.render();}
+function show(){card.current={status:"current",data};card.editors.configuration=configuration();card.editors.settingsDraft=copy(saved);card.editors.scopedConfiguration=null;card.page="policies";card.definitionSelection=null;card.render();}
 async function run(){const results=[];const record=async(id,body)=>{try{await body();results.push({id,status:"pass"});}catch(error){results.push({id,status:"fail",evidence:error.message});throw error;}finally{document.querySelector("#receipt").textContent=JSON.stringify({fixture:"not-provided-policy",synthetic:true,results},null,2);}};
 try{
   show();const original=copy(saved.monitoring_policies[0]);

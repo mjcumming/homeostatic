@@ -13,7 +13,7 @@ for (const [path,expected] of [["/issues",{page:"problems",episodeId:null}], ["/
   test(`notification route ${path}`,()=>assert.deepEqual({page:parseWorkspacePath(path).page,episodeId:parseWorkspacePath(path).detail?.episodeId||null},expected));
 }
 function card(status="current") {
-  return {current:{status},isConnected:true,tools:{close(){}},dialog:{close(){}},render(){},opened:[],openDetail(value){this.opened.push(value);}};
+  return {editors:{},current:{status},isConnected:true,tools:{close(){}},dialog:{close(){}},render(){},opened:[],openDetail(value){this.opened.push(value);}};
 }
 test("cold start queues the issue and a later summary discards stale pending navigation",()=>{
   const c=card("loading");navigate(c,"/episode/first");

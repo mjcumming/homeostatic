@@ -1,0 +1,64 @@
+{
+  "recorded_at_utc": "2026-10-24T23:11:07.501893+00:00",
+  "change": "Maintain parameterized release verification and explicit component installation.",
+  "source_archive": {
+    "version": "1.12.4",
+    "commit": "cb1118f9ae66413f6b9cb8cf591808940779cfba",
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "archive_sha256": "fbe7851139ae6c1e94b5e556f32fb6afd2471b7eb9abce7fb73e36c4f14757a0",
+    "verified_packaged_files": 466,
+    "verified_component_files": 83,
+    "sources_match_commit": true
+  },
+  "isolated_installation": {
+    "version": "1.12.4",
+    "commit": "cb1118f9ae66413f6b9cb8cf591808940779cfba",
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "archive_sha256": "fbe7851139ae6c1e94b5e556f32fb6afd2471b7eb9abce7fb73e36c4f14757a0",
+    "verified_packaged_files": 466,
+    "verified_component_files": 83,
+    "sources_match_commit": true,
+    "installed_component": "/mnt/c/GitHub/homeostatic/build/release-tooling-isolated-20261024/custom_components/homeostatic",
+    "core_restart_required": true
+  },
+  "installed_file_comparison": {
+    "version": "1.12.4",
+    "commit": "cb1118f9ae66413f6b9cb8cf591808940779cfba",
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "archive_sha256": "fbe7851139ae6c1e94b5e556f32fb6afd2471b7eb9abce7fb73e36c4f14757a0",
+    "verified_packaged_files": 466,
+    "verified_component_files": 83,
+    "sources_match_commit": true,
+    "installed_component": "/mnt/c/GitHub/homeostatic/build/release-tooling-isolated-20261024/custom_components/homeostatic"
+  },
+  "preserved_sentinels_sha256": {
+    "configuration.yaml": "60b9c016d9b08d8f44a651f707f0ce915b697ae0c2472dd2114511537a2a6059",
+    ".storage/core.config_entries": "60b9c016d9b08d8f44a651f707f0ce915b697ae0c2472dd2114511537a2a6059",
+    ".storage/homeostatic": "60b9c016d9b08d8f44a651f707f0ce915b697ae0c2472dd2114511537a2a6059",
+    "custom_components/other/keep.py": "60b9c016d9b08d8f44a651f707f0ce915b697ae0c2472dd2114511537a2a6059"
+  },
+  "obsolete_module_removed": true,
+  "staging_cleaned": true,
+  "checks": {
+    "quick": "pass; 906 frontend tests",
+    "focused": "21 release-tooling scenarios pass",
+    "strict_types": "script/release.py and script/build_release.py pass strict mypy"
+  },
+  "limits": [
+    "The existing archive is a prior CI artifact; the new CI verification step has not run on GitHub.",
+    "Installation was rehearsed only in an isolated configuration directory. Home Assistant was not started or restarted."
+  ],
+  "publication": {
+    "committed": false,
+    "pushed": false,
+    "released": false,
+    "household_installed": false,
+    "live_notifications": 0
+  }
+}

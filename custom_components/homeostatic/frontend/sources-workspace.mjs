@@ -1,15 +1,15 @@
-import {sourceReporting} from "./reporting.mjs?v=109";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=109";
-import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=109";
-import {monitoringTree} from "./configuration.mjs?v=109";
-import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=109";
+import {sourceReporting} from "./reporting.mjs?v=110";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=110";
+import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=110";
+import {monitoringTree} from "./configuration.mjs?v=110";
+import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=110";
 
-import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=109";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=109";
-import {upsSourceSummary} from "./ups.mjs?v=109";
-import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=109";
-import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=109";
-import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=109";
+import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=110";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=110";
+import {upsSourceSummary} from "./ups.mjs?v=110";
+import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=110";
+import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=110";
+import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=110";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -309,7 +309,7 @@ const relatedIssues = (node,episodes) => {const ids=sourceIds(node);return episo
 function contributingPolicies(card,source) {
   const detail=card.sourceDetail?.nodeId===source.node_id?card.sourceDetail:null;
   const policies=new Map((detail?.monitoring_policies||[]).map(policy=>[policy.id,{...policy,contexts:new Set()}]));
-  const saved=card.configuration?.settings?.monitoring_policies||[];
+  const saved=card.editors.configuration?.settings?.monitoring_policies||[];
   const ids=new Set(source.source_aliases||[source.node_id]);
   const sources=canonicalSources(card.current.data);
   const entityNames=new Map(sources.filter(item=>item.kind==="entity").map(item=>[item.entity_id,item.name]));
@@ -410,16 +410,16 @@ function availabilityActions(card,node) {
   const source=node.source;
   if(!source||!["entity","device"].includes(source.kind))return "";
   const updating=card.current.data?.catalog_stale||card.current.data?.catalog_loaded===false;
-  const disabled=card.current.status!=="current"||card.settingsBusy||card.configBusy||card.scopedBusy||!card.configuration?.settings||updating;
+  const disabled=card.current.status!=="current"||card.editors.settingsBusy||card.editors.configBusy||card.editors.scopedBusy||!card.editors.configuration?.settings||updating;
   const state=source.kind==="entity"?availabilityMonitoring(card,source):null;
   const operation=card.availabilityPlan;
   const selected=card.availabilitySelected?.nodeId===source.node_id?card.availabilitySelected:null;
-  const action=(mode,label,id=source.node_id)=>`<button type="button" class="button${mode==="confirm"?" primary":""}" data-availability-action="${mode}" data-availability-source="${esc(id)}"${disabled?' disabled':''}>${mode==="confirm"&&card.scopedBusy==="source-availability"?operation?.mode==="stop"?"Stopping monitoring…":"Resuming monitoring…":label}</button>`;
+  const action=(mode,label,id=source.node_id)=>`<button type="button" class="button${mode==="confirm"?" primary":""}" data-availability-action="${mode}" data-availability-source="${esc(id)}"${disabled?' disabled':''}>${mode==="confirm"&&card.editors.scopedBusy==="source-availability"?operation?.mode==="stop"?"Stopping monitoring…":"Resuming monitoring…":label}</button>`;
   const controls=operation&&card.availabilityContext===source.node_id?"":source.kind==="entity"?`${!source.disabled&&state.canStop?action("stop","Stop Monitoring"):""}${!source.disabled&&state.canResume?action("resume","Resume availability monitoring…"):""}`:action(selected?"cancel-selection":"select",selected?"Cancel selection":"Select entities…");
   const choices=selected?[...selected.ids].map(id=>availabilityMonitoring(card,id)):[];
   const batch=selected?.ids.size?`<div class="source-actions"><span>${selected.ids.size} selected</span>${choices.some(item=>item.canStop)?action("stop-selected","Stop Monitoring"):""}${choices.some(item=>item.canResume)?action("resume-selected","Resume availability monitoring for selected entities…"):""}</div>`:"";
   const confirmation=operation&&card.availabilityContext===source.node_id?availabilityConfirmation(operation,action):"";
-  const feedback=card.availabilityContext===source.node_id&&card.availabilityError?`<p class="config-error" role="alert">${esc(card.availabilityError)}</p>${card.scopedConfiguration?.needsRefresh?action("refresh","Refresh saved monitoring"):""}`:"";
+  const feedback=card.availabilityContext===source.node_id&&card.availabilityError?`<p class="config-error" role="alert">${esc(card.availabilityError)}</p>${card.editors.scopedConfiguration?.needsRefresh?action("refresh","Refresh saved monitoring"):""}`:"";
   return `${controls?`<div class="source-actions">${controls}</div>`:""}${updating?'<p class="small" role="status">Updating monitoring scope…</p>':""}${batch}${confirmation}${feedback}`;
 }
 
@@ -428,7 +428,7 @@ export function editSourceAvailability(card,event) {
   const selection=event.target.matches?.("[data-availability-select]")?event.target:null;
   const button=event.target.closest?.("[data-availability-action]");
   if(!selection&&!button)return false;
-  if(card.current.status!=="current"||card.settingsBusy||card.configBusy||card.scopedBusy)return true;
+  if(card.current.status!=="current"||card.editors.settingsBusy||card.editors.configBusy||card.editors.scopedBusy)return true;
   if(selection) {
     const selected=card.availabilitySelected;
     if(!selected)return true;
@@ -443,7 +443,7 @@ export function editSourceAvailability(card,event) {
   else if(action==="cancel")card.availabilityPlan=null;
   else if(action==="refresh") {
     card.loadConfiguration().then(()=>{
-      if(card.configError)card.availabilityError=card.configError;
+      if(card.editors.configError)card.availabilityError=card.editors.configError;
       else {card.availabilityPlan=null;card.loadSource?.(true);}
       card.render();
       card.shadowRoot?.querySelector('[data-availability-action="resume"], [data-availability-action="stop"], [data-availability-action="refresh"], #sources-detail-title')?.focus({preventScroll:true});
@@ -454,7 +454,7 @@ export function editSourceAvailability(card,event) {
     if(!card.availabilityPlan)return true;
     applyAvailabilityChange(card,card.availabilityPlan).then(saved=>{
       if(saved){card.availabilityPlan=null;card.availabilitySelected=null;card.loadSource?.(true);}
-      else if(card.availabilityPlan?.revision!==card.configuration?.revision||card.availabilityPlan?.catalogRevision!==card.current.data?.catalog_revision)card.availabilityPlan=null;
+      else if(card.availabilityPlan?.revision!==card.editors.configuration?.revision||card.availabilityPlan?.catalogRevision!==card.current.data?.catalog_revision)card.availabilityPlan=null;
       card.render();
       card.shadowRoot?.querySelector('[data-availability-action="confirm"], #sources-detail-title')?.focus({preventScroll:true});
     }).catch(error=>{card.availabilityError=error.message||`Could not ${card.availabilityPlan?.mode==="resume"?"resume":"stop"} monitoring. Read current saved settings before trying again.`;card.render();});
@@ -502,7 +502,7 @@ function deviceInspection(card,node,coverage) {
   const related=relatedDeviceIssues(card.current.data,deviceId);
   const view=related.length?`<button type="button" class="button" data-device-issues="${esc(deviceId)}" aria-label="View issues for ${esc(node.name)}">View</button>`:"";
   const selection=card.availabilitySelected?.nodeId===source.node_id?card.availabilitySelected:null;
-  const checkbox=member=>selection?`<label class="source-member-select"><input type="checkbox" data-availability-select="${esc(member.node_id)}"${selection.ids.has(member.node_id)?" checked":""}${card.settingsBusy||card.scopedBusy?' disabled':''}><span class="sr-only">Select ${esc(member.name)}</span></label>`:"";
+  const checkbox=member=>selection?`<label class="source-member-select"><input type="checkbox" data-availability-select="${esc(member.node_id)}"${selection.ids.has(member.node_id)?" checked":""}${card.editors.settingsBusy||card.editors.scopedBusy?' disabled':''}><span class="sr-only">Select ${esc(member.name)}</span></label>`:"";
   const memberName=member=>member.entity_id?`<a href="/developer-tools/state?entity_id=${encodeURIComponent(member.entity_id)}">${esc(member.name)}</a>`:`<span>${esc(member.name)}</span>`;
   let summary="",body="";
   if(source.disabled)summary='<p class="source-entity-condition">Disabled in Home Assistant</p><p>Monitoring paused while disabled. Saved monitoring choices resume when re-enabled.</p>';
@@ -687,7 +687,7 @@ export function sourcesBrowser(card) {
   const issues=new Map(episodes.flatMap(item=>issueMembers(item).map(id=>[id,item])));
   for(const [id,item] of [...issues]) {const canonical=paths.get(`source:${id}`)?.node.source?.node_id;if(canonical)issues.set(canonical,item);}
   const coverage=sourceCoverageIndex(data);
-  const excluded=new Set((card.configuration?.settings?.monitoring_policies||[]).filter(policy=>policy.check==="availability").flatMap(policy=>policy.excluded_sources||[]));
+  const excluded=new Set((card.editors.configuration?.settings?.monitoring_policies||[]).filter(policy=>policy.check==="availability").flatMap(policy=>policy.excluded_sources||[]));
   const excludedBranches=nodes=>nodes.flatMap(node=>{const children=excludedBranches(node.children);return children.length||excluded.has(node.source?.node_id)?[{...node,children}]:[];});
   const filtered=filterSourceMonitoring(filterSources(full,card.sourcesQuery,card.sourcesNeedsReview,issues),card.sourcesMonitoring,coverage);
   const visible=card.sourcesExcludedOnly?excludedBranches(filtered):filtered;

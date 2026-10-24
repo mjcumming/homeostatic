@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=109";
-import {editReusable, namedNotifications, scopedEditorFooter} from "./reusable-editors.mjs?v=109";
+import {escapeHtml as esc} from "./model.mjs?v=110";
+import {editReusable, namedNotifications, scopedEditorFooter} from "./reusable-editors.mjs?v=110";
 
 
 export const TIMINGS = [
@@ -23,30 +23,30 @@ const field = (path,label,value,type="text",help="",attributes="") => `<label cl
 export function installationSettings(card) {
   const notificationsPage=card.page==="notifications";
   const intro=`<div class="intro"><h1>${notificationsPage?"Notifications":"Settings"}</h1></div>`;
-  if(!card.configuration||!card.settingsDraft)return `${intro}<section class="panel body"><p role="${card.configError?"alert":"status"}">${esc(card.configError||"Loading settings…")}</p>${card.configError?'<button type="button" class="button" data-action="load-configuration">Retry loading settings</button>':""}</section>`;
+  if(!card.editors.configuration||!card.editors.settingsDraft)return `${intro}<section class="panel body"><p role="${card.editors.configError?"alert":"status"}">${esc(card.editors.configError||"Loading settings…")}</p>${card.editors.configError?'<button type="button" class="button" data-action="load-configuration">Retry loading settings</button>':""}</section>`;
   if(notificationsPage) {
     const selection=card.definitionSelection;
-    const active=["methods","profiles"].includes(selection?.kind)&&card.settingsDraft.notification_definitions?.[selection.kind]?.[selection.id];
-    return `${active?"":intro}<section class="panel installation-content notifications-content${active?" has-method-editor":""}"><fieldset class="installation-editor notifications-body"${card.settingsBusy||card.configBusy?' disabled':''}>${namedNotifications(card)}${card.settingsError?`<p class="config-error" role="alert">${esc(card.settingsError)}</p>`:""}</fieldset></section>`;
+    const active=["methods","profiles"].includes(selection?.kind)&&card.editors.settingsDraft.notification_definitions?.[selection.kind]?.[selection.id];
+    return `${active?"":intro}<section class="panel installation-content notifications-content${active?" has-method-editor":""}"><fieldset class="installation-editor notifications-body"${card.editors.settingsBusy||card.editors.configBusy?' disabled':''}>${namedNotifications(card)}${card.editors.settingsError?`<p class="config-error" role="alert">${esc(card.editors.settingsError)}</p>`:""}</fieldset></section>`;
   }
-  const draft=card.settingsDraft;
+  const draft=card.editors.settingsDraft;
   const renderRows=rows=>rows.map(([,key,label,help])=>timingField(`timings.${key}`,label,draft.timings[key],help)).join("");
   const commonKeys=["retry_hold","clear_hold","startup_grace"];
   const body=`<h2>Timing</h2><p class="sub">These waits apply throughout Homeostatic. Zero removes a wait.</p>${renderRows(commonKeys.map(key=>TIMINGS.find(([,name])=>name===key)))}<details class="source-section" data-ui-key="settings-advanced-timing"><summary>Advanced timing</summary>${renderRows(TIMINGS.filter(([,key])=>!commonKeys.includes(key)))}</details>`;
-  return `${intro}<section class="panel installation-content timing-settings"><fieldset class="installation-editor"${card.settingsBusy?' disabled':''}>${body}</fieldset>${card.settingsError?`<p class="config-error" role="alert">${esc(card.settingsError)}</p>`:''}${scopedEditorFooter(card,{kind:"settings"},"Save settings")}</section>`;
+  return `${intro}<section class="panel installation-content timing-settings"><fieldset class="installation-editor"${card.editors.settingsBusy?' disabled':''}>${body}</fieldset>${card.editors.settingsError?`<p class="config-error" role="alert">${esc(card.editors.settingsError)}</p>`:''}${scopedEditorFooter(card,{kind:"settings"},"Save settings")}</section>`;
 }
 
 export function editInstallation(card,event) {
   if(editReusable(card,event))return true;
-  const element=event.target,draft=card.settingsDraft;
+  const element=event.target,draft=card.editors.settingsDraft;
   if(!draft||event.type==="click"||!element.dataset.settingPath?.startsWith("timings."))return false;
   if(element.checkValidity&&!element.checkValidity()) {
-    card.settingsError="Complete the highlighted setting before saving.";
+    card.editors.settingsError="Complete the highlighted setting before saving.";
     element.reportValidity();return true;
   }
   const key=element.dataset.settingPath.slice(8);
   if(!TIMINGS.some(([,name])=>name===key))return false;
   draft.timings[key]=Number(element.value)*Number(element.dataset.settingScale||1);
-  card.settingsError=null;card.scopedError=null;card.scopedNotice=null;
+  card.editors.settingsError=null;card.editors.scopedError=null;card.editors.scopedNotice=null;
   card.render();return true;
 }

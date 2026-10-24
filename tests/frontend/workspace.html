@@ -38,7 +38,7 @@ card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},localize:(
   }
   throw Error("Unexpected request in isolated fixture: "+request.type);
 }};
-card.current={status:"current",data};card.page="problems";card.configuration=configuration();card.settingsDraft=structuredClone(saved);card.render();
+card.current={status:"current",data};card.page="problems";card.editors.configuration=configuration();card.editors.settingsDraft=structuredClone(saved);card.render();
 document.querySelector("#narrow").onchange=event=>{card.style.width=event.target.checked?"390px":"";};
 document.querySelector("#dark").onchange=event=>{document.documentElement.style.cssText=event.target.checked?"--primary-text-color:#e8ecef;--primary-background-color:#10181e;--card-background-color:#19242b;--secondary-background-color:#283740;--secondary-text-color:#b0bfc9;--divider-color:#3e4c56;--primary-color:#4abde5;--text-primary-color:#102530":"";};
 window.addEventListener("error",event=>{feedback.textContent="ERROR: "+event.message;});
@@ -60,14 +60,14 @@ document.querySelector("#run").onclick=async()=>{
   change('[data-notifications-switch]',true);await settle();
   check(saved.notifications===true,"Global notifications saved");
   check(saved.monitoring_policies[0].name==="Main floor thermostat","Global switch did not save policy draft");
-  check(card.settingsDraft.monitoring_policies[0].name==="Changed thermostat","Policy draft retained");
+  check(card.editors.settingsDraft.monitoring_policies[0].name==="Changed thermostat","Policy draft retained");
   change('[data-notifications-switch]',false);await settle();
   click('[data-definition-action="save-scoped"]');await settle();
   check(saved.monitoring_policies[0].name==="Changed thermostat","Policy saved");
   check(!root.querySelector('[data-definition-action="save-scoped"]'),"Save actions disappear after save");
   input('[data-definition-field="name"][data-definition-id="policy-1"]',"Discard me");
   click('[data-definition-action="discard-scoped"]');
-  check(card.settingsDraft.monitoring_policies[0].name==="Changed thermostat","Discard restores saved policy");
+  check(card.editors.settingsDraft.monitoring_policies[0].name==="Changed thermostat","Discard restores saved policy");
   click('[data-page="notifications"]');
   click('[data-definition-action="notification-view"][data-definition-kind="methods"]');
   click('[data-definition-action="edit"][data-definition-kind="methods"][data-definition-id="phone"]');
@@ -85,9 +85,9 @@ if(new URLSearchParams(location.search).has("battery-picker")) {
     attributes:{kind:["battery"],entity:["registry:owner-phone"]},watched:false,attached_by:[],requirements:[]};
   const complete={...structuredClone(data),schema_version:3,catalog_loaded:true,inventory:{...structuredClone(data.inventory),nodes:[],catalog:{candidates:[battery]}}};
   saved.monitoring_policies=[{...newMonitoringPolicy([],"battery"),enabled:true,excluded_sources:[]}];
-  card.configuration=configuration();card.settingsDraft=structuredClone(saved);
-  card.scopedConfiguration=null;card.page="policies";card.definitionSelection={kind:"policies",id:"policy-1"};
-  card.sourceSelection={id:"policy-1",query:"Batt",selectedOnly:false};
+  card.editors.configuration=configuration();card.editors.settingsDraft=structuredClone(saved);
+  card.editors.scopedConfiguration=null;card.page="policies";card.definitionSelection={kind:"policies",id:"policy-1"};
+  card.editors.sourceSelection={id:"policy-1",query:"Batt",selectedOnly:false};
   let requested=false;
   card.store={ensureCatalog(){requested=true;return Promise.resolve();}};
   const finish=document.createElement("button");
@@ -108,9 +108,9 @@ if(new URLSearchParams(location.search).has("battery-picker")) {
       finish.click();
       const choice=root.querySelector('[data-definition-field="source-choice"][data-definition-value="battery:registry:owner-phone"]');
       check(choice,"Batt finds sensor.owner_phone_battery when its name is Owner phone");
-      check(card.sourceSelection.query==="Batt","The search survives arrival");
+      check(card.editors.sourceSelection.query==="Batt","The search survives arrival");
       check(choice.checked,"An included battery starts checked");choice.checked=false;choice.dispatchEvent(new Event("change",{bubbles:true,composed:true}));
-      check(card.settingsDraft.monitoring_policies[0].excluded_sources.includes("battery:registry:owner-phone"),"Exclusion stays a local draft");
+      check(card.editors.settingsDraft.monitoring_policies[0].excluded_sources.includes("battery:registry:owner-phone"),"Exclusion stays a local draft");
       check(JSON.stringify(saved)===before,"Saved policy unchanged");
       check(!calls.some(call=>call.type==="homeostatic/save_settings"||call.type==="homeostatic/test_delivery_method"),"No save or service request");
       feedback.textContent="PASS: direct Policies loading, entity-ID search, retained selection and local exclusion; no saved changes.";

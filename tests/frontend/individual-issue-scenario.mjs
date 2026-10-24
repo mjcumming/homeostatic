@@ -24,16 +24,16 @@ function condition(value) {
   document.querySelector("#condition").value=value;publish();
 }
 function secondCheck() {
-  const data=fixture.base.current.data,first=fixture.base.configuration.settings.monitoring_policies.at(-1);
+  const data=fixture.base.current.data,first=fixture.base.editors.configuration.settings.monitoring_policies.at(-1);
   const policy={...copy(first),id:"second-temperature",name:"Second temperature policy",parameters:{...first.parameters,minimum:75}};
-  fixture.base.configuration.settings.monitoring_policies.push(policy);
+  fixture.base.editors.configuration.settings.monitoring_policies.push(policy);
   fixture.base.sourceDetail.monitoring_policies.push({id:policy.id,name:policy.name});
   const source={...copy(fixture.source),node_id:"temperature:second",monitoring_policy:policy.id,name:fixture.entity.name+" · "+policy.name};
   data.inventory.nodes=[...data.inventory.nodes,source];
   const reasons=fixture.episode.reasons.map(reason=>({...copy(reason),node_id:source.node_id,message:"Temperature 68 °F is below the minimum 75 °F.",evidence:{...reason.evidence,minimum:75}}));
   data.inventory.episodes.push({...copy(fixture.episode),episode_id:"second-temperature-issue",anchor:source.node_id,recorded:[source.node_id],reasons});
   data.inventory.entity_status[source.node_id]={current:copy(reasons[0]),findings:copy(reasons)};
-  card.configuration=copy(fixture.base.configuration);card.settingsDraft=copy(card.configuration.settings);publish();
+  card.editors.configuration=copy(fixture.base.editors.configuration);card.editors.settingsDraft=copy(card.editors.configuration.settings);publish();
 }
 function nodeResult(id) {
   const result=copy(fixture.result);
@@ -50,7 +50,7 @@ card.navigation.enabled=false;
 card._hass={user:{id:"fixture",is_admin:true},config:{time_zone:"America/Chicago"},localize:fixture.base._hass.localize,states:{[fixture.entity.entity_id]:{state:"68",attributes:{unit_of_measurement:"°F"}}},async callWS(request){
   calls.push(copy(request));
   const data=fixture.base.current.data;
-  if(request.type==="homeostatic/configuration")return copy(fixture.base.configuration);
+  if(request.type==="homeostatic/configuration")return copy(fixture.base.editors.configuration);
   if(request.type==="homeostatic/node")return nodeResult(request.node_id);
   if(request.type==="homeostatic/source") {
     check([ENTITY_ID,"device:third-floor"].includes(request.node_id),"Coverage uses the selected canonical source");
@@ -83,7 +83,7 @@ card._hass.callWS=async request=>{
   activeReads--;
   return response;
 };
-Object.assign(card,{current:fixture.base.current,configuration:copy(fixture.base.configuration),settingsDraft:copy(fixture.base.configuration.settings),page:"problems",sourcesGrouping:"integration",sourcesExpanded:new Set(fixture.base.sourcesExpanded)});
+Object.assign(card,{current:fixture.base.current,editors:{configuration:copy(fixture.base.editors.configuration),settingsDraft:copy(fixture.base.editors.configuration.settings)},page:"problems",sourcesGrouping:"integration",sourcesExpanded:new Set(fixture.base.sourcesExpanded)});
 card.render();
 const close=async()=>{if(card.tools.dialog.open)await click('[data-tool="close"]',card.tools.dialog);if(card.dialog.open)await click('[data-action="close"]',card.dialog);};
 async function open() {
@@ -102,8 +102,8 @@ async function run() {
   button.disabled=true;
   const receipt={...emptyReceipt({fixture:"individual-issue.html",browser:navigator.userAgent,viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme||"light",build:"working tree",transport:"synthetic inventory and mocked services"}),status:"running",evidence};
   try {
-    await close();fixture=individualIssueFixture();card.configuration=copy(fixture.base.configuration);card.settingsDraft=copy(fixture.base.configuration.settings);calls.length=0;publish();await settle();await open();
-    const settings=JSON.stringify(card.configuration.settings);
+    await close();fixture=individualIssueFixture();card.editors.configuration=copy(fixture.base.editors.configuration);card.editors.settingsDraft=copy(fixture.base.editors.configuration.settings);calls.length=0;publish();await settle();await open();
+    const settings=JSON.stringify(card.editors.configuration.settings);
     check(find("#detail-title").textContent==="3rd Floor Sensor","Title names the owning device");
     check(body().innerText.includes("Temperature below minimum")&&body().innerText.includes("68 °F")&&body().innerText.includes("80 °F"),"Device issue preserves measured temperature and violated bound");
     check(body().innerText.includes("Required duration")&&body().innerText.includes("1 hour"),"Qualification duration stays visible");
@@ -118,13 +118,13 @@ async function run() {
     check(card.page==="policies"&&card.definitionSelection.id==="home-temperature","Policy link opens the exact editor");
     await input('[data-definition-field="name"]',"Temperature draft");
     await click('[data-workspace-return]');check(card.dialog.open&&card.detail.deviceId==="third-floor","Back restores the owning device issue dialog");
-    check(JSON.stringify(card.configuration.settings)===settings&&mutations().length===0,"Browsing preserves saved settings");
-    check(card.settingsDraft.monitoring_policies.find(policy=>policy.id==="home-temperature").name==="Temperature draft","Editor draft survives Back");
-    const savedSettings=fixture.base.configuration.settings;
+    check(JSON.stringify(card.editors.configuration.settings)===settings&&mutations().length===0,"Browsing preserves saved settings");
+    check(card.editors.settingsDraft.monitoring_policies.find(policy=>policy.id==="home-temperature").name==="Temperature draft","Editor draft survives Back");
+    const savedSettings=fixture.base.editors.configuration.settings;
     savedSettings.notification_definitions={profiles:{morning:{name:"Morning summary",timing:{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]},methods:[]}},methods:{}};
     savedSettings.monitoring_policies.find(policy=>policy.id==="devices").notifications=[{id:"morning-device",profile:"morning"}];
     savedSettings.monitoring_policies.find(policy=>policy.id==="entities").notifications=[{id:"morning-entity",profile:"morning"}];
-    card.configuration=copy(fixture.base.configuration);card.settingsDraft=copy(savedSettings);publish();await settle();await open();
+    card.editors.configuration=copy(fixture.base.editors.configuration);card.editors.settingsDraft=copy(savedSettings);publish();await settle();await open();
     check(body().querySelectorAll('[data-definition-action="open-notification"][data-definition-id="morning"]').length===1,"Shared notification links are deduplicated across covering policies");
     check(body().innerText.includes("No delivery method selected")&&!body().innerText.includes("Notifications off"),"Issue-specific delivery gaps stay visible without repeating global sending status");
     await click('[data-definition-action="open-notification"][data-definition-id="morning"]',body());
@@ -135,7 +135,7 @@ async function run() {
     await click('[data-definition-action="open-notification"][data-definition-id="morning"]',body());
     check(find('[data-definition-field="name"]').value==="Morning draft","Notification draft survives the round trip");
     await click('[data-workspace-return]');
-    check(JSON.stringify(card.configuration.settings)===JSON.stringify(savedSettings)&&mutations().length===0,"Notification browsing never saves drafts");
+    check(JSON.stringify(card.editors.configuration.settings)===JSON.stringify(savedSettings)&&mutations().length===0,"Notification browsing never saves drafts");
     secondCheck();await settle();await open();
     check(body().querySelectorAll('[data-device-issue-select]').length===2&&body().innerText.includes("75 °F")&&body().innerText.includes("80 °F"),"Independent overlapping policies keep both current findings");
     const extra=find('[data-device-issue-select="second-temperature-issue"]',body());extra.checked=false;extra.dispatchEvent(new Event('change',{bubbles:true}));await settle();

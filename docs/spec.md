@@ -456,6 +456,8 @@ Target WCAG 2.2 AA. Switches support Space and expose their state. Navigation, t
 
 Each editor names its object and save scope: Save policy, Save notification, Save delivery method or Save settings. Monitoring settings and notification assignments belong to one policy editor and draft. Rendering changes no configuration, and navigation retains the complete pending draft. A read-only panel and an unchanged editor have no save footer, disabled Save, Cancel or No changes message; navigation remains available independently of editing actions. Cancel is reserved for abandoning a bounded dialog or nested edit whose scope is explicit.
 
+Confirmed settings, independent drafts, validation, display units, picker context and pending-request status share one in-memory editor-state object. Panel replacement within the same authorized connection retains that object; embedded cards keep separate objects. Navigation and rendering stay with the card. A connection, signed-in user or administrator-permission change replaces editor state, and obsolete responses cannot update the replacement state or continue a method test. This adds no browser storage or saved-configuration format.
+
 | Editor state | Actions and feedback |
 | --- | --- |
 | Unchanged | Show saved values and contextual navigation; no dirty-state controls. |

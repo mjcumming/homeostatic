@@ -14,8 +14,8 @@ data.inventory.nodes=data.inventory.nodes.filter(source=>!source.monitoring_poli
 data.inventory.nodes.find(source=>source.node_id===DEVICE_ID).availability_entities=sources.slice(0,2).map(source=>source.entity_id);
 data.inventory.nodes.push({...sources[2],kind:"temperature_limit",node_id:"temperature:average",name:"Average temperature limits",watched:true,monitoring_policy:"temperature",check_id:"temperature_limit"});
 data.inventory.attention_controls_supported=true;
-base.configuration.settings.notification_definitions={profiles:{},methods:{}};
-base.configuration.settings.monitoring_policies.push({id:"temperature",name:"Temperature limits",check:"temperature_limit",enabled:true,match:{sources:[sources[2].node_id]},parameters:{min:60,max:80,unit:"°F",duration:0},notifications:[]});
+base.editors.configuration.settings.notification_definitions={profiles:{},methods:{}};
+base.editors.configuration.settings.monitoring_policies.push({id:"temperature",name:"Temperature limits",check:"temperature_limit",enabled:true,match:{sources:[sources[2].node_id]},parameters:{min:60,max:80,unit:"°F",duration:0},notifications:[]});
 data.inventory.resolved_history={episodes:[],retention:{max_age_days:30,max_episodes:100},started_at:"2026-10-15T12:00:00Z"};
 const batteryId="battery:third-floor",battery={node_id:batteryId,name:"3rd Floor Sensor battery",kind:"battery",watched:false,entity_id:"sensor.third_floor_battery",owner_id:"lyric",attributes:{device:["third-floor"],integration:["lyric"]}};
 data.inventory.nodes.push(battery);data.inventory.catalog.candidates.push(battery);
@@ -26,10 +26,10 @@ function detail(id) {
   const members=id===DEVICE_ID?base.sourceDetail.members:base.sourceDetail.members.filter(member=>member.node_id===id);
   return {...structuredClone(base.sourceDetail),nodeId:id,members,total:members.length,device_availability:id===DEVICE_ID?base.sourceDetail.device_availability:null};
 }
-Object.assign(card,{current:{status:"current",data},configuration:base.configuration,settingsDraft:structuredClone(base.configuration.settings),page:"sources",sourcesGrouping:"integration",sourcesExpanded:base.sourcesExpanded,sourcesSelection:`source:${unmonitored}`,sourceDetail:detail(unmonitored)});
+Object.assign(card,{current:{status:"current",data},editors:{configuration:base.editors.configuration,settingsDraft:structuredClone(base.editors.configuration.settings)},page:"sources",sourcesGrouping:"integration",sourcesExpanded:base.sourcesExpanded,sourcesSelection:`source:${unmonitored}`,sourceDetail:detail(unmonitored)});
 card._hass={user:{is_admin:true},config:{time_zone:"America/Chicago"},localize:base._hass.localize,states:{},async callWS(request){
   calls.push(request);
-  if(request.type==="homeostatic/configuration")return structuredClone(base.configuration);
+  if(request.type==="homeostatic/configuration")return structuredClone(base.editors.configuration);
   if(request.type==="homeostatic/source")return detail(request.node_id);
   throw Error(`Unexpected request in inspector fixture: ${request.type}`);
 }};
@@ -132,7 +132,7 @@ document.querySelector("#run").onclick=async()=>{
   try {
     batteryDetail.members=[{node_id:"entity:third-floor-battery",name:"3rd Floor Sensor battery",state:"unavailable",unit:"%",restored:false}];
     card.sourcesMobileDetail=false;card.sourcesMonitoring="all";card.sourcesQuery="";card.sourcesSelection="source:"+unmonitored;card.sourcesView="source";card.sourceDetail=detail(unmonitored);card.page="sources";card.render();
-    const saved=JSON.stringify(card.configuration.settings);
+    const saved=JSON.stringify(card.editors.configuration.settings);
     check(entityRows().length===4,"All includes every entity");
     await change("[data-sources-monitoring]","monitored");
     check(entityRows().length===3&&!entityRows().includes(`source:${unmonitored}`),"Monitored includes individual, device-only and temperature coverage");
@@ -169,7 +169,7 @@ document.querySelector("#run").onclick=async()=>{
     await click('[data-source-policies="close"]');
     check(root.activeElement?.dataset.sourcePolicies==="open","Closing policies restores its trigger focus");
     check(root.querySelector('[data-availability-action="stop"]').getClientRects().length,"Scoped stop is visible");
-    check(JSON.stringify(card.configuration.settings)===saved&&!calls.some(call=>call.type==="homeostatic/save_settings"),"Browsing and filtering never mutate saved monitoring");
+    check(JSON.stringify(card.editors.configuration.settings)===saved&&!calls.some(call=>call.type==="homeostatic/save_settings"),"Browsing and filtering never mutate saved monitoring");
     const pane=root.querySelector(".config-detail");
     check(pane.scrollWidth<=pane.clientWidth,"Selected source has no horizontal overflow");
     receipt.presentation={card_width:card.clientWidth,theme:document.documentElement.dataset.theme||"light",viewport_width:window.innerWidth};
@@ -206,7 +206,7 @@ document.querySelector("#run").onclick=async()=>{
     check(visibleDetails().includes("Battery percentage")&&visibleDetails().includes("Low battery signal")&&visibleDetails().includes("25%"),"Both battery inputs remain directly inspectable");
     inspectCompact("Paired battery");
     await inspectFlatDetails();
-    check(JSON.stringify(card.configuration.settings)===saved&&!calls.some(call=>call.type==="homeostatic/save_settings"),"Compact-detail navigation leaves saved monitoring unchanged");
+    check(JSON.stringify(card.editors.configuration.settings)===saved&&!calls.some(call=>call.type==="homeostatic/save_settings"),"Compact-detail navigation leaves saved monitoring unchanged");
     recordResult(receipt,compactId,"pass","Rendered entity-first details, battery and device facts, single and paired readings, same-name affected entity with visible current/restored conditions, visible shared-issue controls and scope, one flat Details, integration connections, concise native navigation and automation reporting. History, Policies/return and source actions preserve saved settings without horizontal overflow.");
     activeId=toolbarId;
     if(root.querySelector('[data-action="back-sources"]').getClientRects().length)await click('[data-action="back-sources"]');
@@ -231,7 +231,7 @@ document.querySelector("#run").onclick=async()=>{
     const search=root.querySelector("[data-sources-search]");search.value="3rd Floor";search.dispatchEvent(new Event("input",{bubbles:true}));await settle();
     check(root.querySelector('[data-action="collapse-sources"]').disabled&&root.querySelectorAll('[data-sources-toggle][aria-expanded="true"]').length>0,"Search exposes matching branches while Collapse groups is disabled");
     const clear=root.querySelector("[data-sources-search]");clear.value="";clear.dispatchEvent(new Event("input",{bubbles:true}));await settle();
-    check(JSON.stringify(card.configuration.settings)===saved&&!calls.some(call=>call.type==="homeostatic/save_settings"),"Toolbar interactions do not save settings");
+    check(JSON.stringify(card.editors.configuration.settings)===saved&&!calls.some(call=>call.type==="homeostatic/save_settings"),"Toolbar interactions do not save settings");
     recordResult(receipt,toolbarId,"pass","Rendered ordered page filters and tree-only group controls, native filter opening without toolbar movement, active filter count, focused checkbox and open panel retained through render, saved navigation context, stable Collapse groups and selected source, search-forced expansion and unchanged settings. Native Escape and outside-click dismissal require the accompanying browser keyboard/pointer check.");
     result.textContent="Inspector checks passed";
   } catch(error) {recordResult(receipt,activeId,"fail",error.message);result.textContent=`Failed: ${error.message}`;}

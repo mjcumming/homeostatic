@@ -2,16 +2,12 @@
 
 import hashlib
 import json
-import subprocess
 import sys
 import tomllib
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-
-def git(root: Path, *args: str) -> bytes:
-    """Read committed sources using the current worktree's Git environment."""
-    return subprocess.check_output(["git", *args], cwd=root)
+from release import INSTALL_GUIDE, PACKAGE_PATHS, git
 
 
 def main() -> None:
@@ -38,27 +34,24 @@ def main() -> None:
             "-r",
             "--name-only",
             "HEAD",
-            "custom_components/homeostatic",
-            "blueprints/automation/homeostatic",
-            "docs",
-            "LICENSE",
-            "README.md",
-            "CHANGELOG.md",
+            *PACKAGE_PATHS,
         )
         .decode()
         .splitlines()
     )
     contents = {name: git(root, "show", f"HEAD:{name}") for name in files}
-    contents["INSTALL.md"] = (
-        b"# Homeostatic installation\n\nRead [the installation guide](docs/install.md) before installing.\n"
-    )
+    contents["INSTALL.md"] = INSTALL_GUIDE
     contents["BUILD_INFO.json"] = (
         json.dumps(
             {
                 "version": version,
                 "commit": commit,
                 "requirements": manifest["requirements"],
-                "tested_home_assistant": "2026.9.3",
+                "tested_home_assistant": next(
+                    dependency.removeprefix("homeassistant==")
+                    for dependency in project["dependency-groups"]["dev"]
+                    if dependency.startswith("homeassistant==")
+                ),
                 "files_sha256": {
                     name: hashlib.sha256(data).hexdigest()
                     for name, data in sorted(contents.items())

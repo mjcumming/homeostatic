@@ -27,7 +27,7 @@ test("reserve editor exposes both mode assignments and separates numeric raise a
   const definitions=emptyNotificationDefinitions("America/Chicago");
   definitions.methods.phone={name:"Phone",mode:"fixed",destinations:["phone:owner"]};
   const source={node_id:"ups",kind:"ups",name:"UPS",attributes:{kind:["ups"]},ups_entities:[["charge","sensor.charge"],["runtime","sensor.runtime"]]};
-  const card={current:{data:{inventory:{nodes:[source],catalog:{candidates:[source]}}}},settingsDraft:{monitoring_policies:[policy],notification_definitions:definitions},definitionSelection:{kind:"policies",id:policy.id},configuration:{settings:{monitoring_policies:structuredClone([policy]),notification_definitions:structuredClone(definitions)},areas:[],floors:[],labels:[]},main:{querySelector(){return null;},querySelectorAll(){return [];}},render(){}};
+  const card={current:{data:{inventory:{nodes:[source],catalog:{candidates:[source]}}}},editors:{settingsDraft:{monitoring_policies:[policy],notification_definitions:definitions},configuration:{settings:{monitoring_policies:structuredClone([policy]),notification_definitions:structuredClone(definitions)},areas:[],floors:[],labels:[]}},definitionSelection:{kind:"policies",id:policy.id},main:{querySelector(){return null;},querySelectorAll(){return [];}},render(){}};
   const html=namedPolicies(card);
   assert.match(html,/Mains power confirmed/);
   assert.match(html,/Backup power confirmed/);

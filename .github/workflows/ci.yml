@@ -50,6 +50,9 @@ jobs:
       - name: Build release archive
         working-directory: homeostatic
         run: uv run python script/build_release.py
+      - name: Verify archive against the candidate
+        working-directory: homeostatic
+        run: uv run --no-sync python script/release.py verify dist/homeostatic-*.zip --commit "$GITHUB_SHA" > dist/verification.json
       - name: Verify clean package installation
         working-directory: homeostatic
         run: |

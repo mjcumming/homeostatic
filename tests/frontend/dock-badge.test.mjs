@@ -9,7 +9,7 @@ const badge=(html,id)=>html.split(`data-sources-select="source:${id}"`)[1]?.spli
 for(const grouping of ["integration","location"])for(const condition of ["restored","unmonitored","unavailable","error"]) {
   test(`Dock ${condition} badges use current problem evidence in ${grouping} grouping`,()=>{
     const {data,entity,device,entities}=dockBadgeFixture(condition),before=structuredClone(data);
-    const card={current:{data},sourcesGrouping:grouping,sourcesQuery:"",sourcesNeedsReview:false,sourcesSelection:null,
+    const card={editors:{},current:{data},sourcesGrouping:grouping,sourcesQuery:"",sourcesNeedsReview:false,sourcesSelection:null,
       sourcesExpanded:new Set(sourcePaths(sourcesTree(data,grouping)).keys())};
     const html=sourcesBrowser(card),currentProblem=["unavailable","error"].includes(condition);
     assert.equal(html.includes('class="source-issue-count"'),currentProblem);

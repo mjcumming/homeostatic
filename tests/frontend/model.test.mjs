@@ -64,12 +64,12 @@ for (const scenario of recoveryScenarios) {
     const current={reason:scenario.reason};
     const episode={episode_id:"current",anchor:"anchor",importance:"normal",opened_at:"2026-10-13T10:00:00Z",reasons:scenario.related};
     data.inventory.nodes=[anchor];
-    data.inventory.integration_evidence={anchor:{current,last_failure:null}};
-    data.inventory.entity_status={anchor:{current,explanation:{findings:[],nodes:[]},readiness:{answer:"blocked"}}};
+    data.inventory.integration_evidence={anchor:{editors:{},current,last_failure:null}};
+    data.inventory.entity_status={anchor:{editors:{},current,explanation:{findings:[],nodes:[]},readiness:{answer:"blocked"}}};
     data.inventory.episodes=[episode];
     assert.equal(visibleEpisodes(data).length,Number(scenario.visible));
     assert.equal(sortedEpisodes(data).length,Number(scenario.visible));
-    const problem=integrationProblem(anchor,episode.reasons,()=>null,{current}) ?? entityProblem(anchor,data.inventory.entity_status.anchor);
+    const problem=integrationProblem(anchor,episode.reasons,()=>null,{editors:{},current}) ?? entityProblem(anchor,data.inventory.entity_status.anchor);
     assert.doesNotMatch(problem.summary,/running again|state.*again/);
     assert.equal(scenario.headline ?? problem.headline,problem.headline);
   });
@@ -572,7 +572,7 @@ test("a retry keeps the last timeout and its time distinct from current activity
   const entry=source("entry:receiver",{kind:"integration",name:"Home Theater",attributes:{domain:["denonavr"]}});
   const failure={reason:"setup_retry",message:"Connection timed out",observed_at:"2026-09-25T15:42:00Z"};
   const current={reason:"setup_in_progress",message:"setup in progress",observed_at:"2026-09-25T15:44:00Z"};
-  const evidence={current,last_failure:failure};
+  const evidence={editors:{},current,last_failure:failure};
   const result=integrationProblem(entry,[],()=>null,evidence);
   assert.equal(result.headline,"Receiver connection timed out");
   assert.equal(result.reportedAt,failure.observed_at);
@@ -580,7 +580,7 @@ test("a retry keeps the last timeout and its time distinct from current activity
   assert.match(result.summary,/trying again/);
   assert.equal(result.progress,"Retrying automatically");
   assert.equal(result.currentReason,"setup_in_progress");
-  assert.equal(integrationProblem(entry,[],()=>null,{current,last_failure:null}).headline,"Connection is starting");
+  assert.equal(integrationProblem(entry,[],()=>null,{editors:{},current,last_failure:null}).headline,"Connection is starting");
   assert.equal(evidence.last_failure,failure);
 });
 
@@ -750,7 +750,7 @@ test("invalid compact data clears the view and a new full baseline restores it",
 const light = source("entity:light", {name:"Closet",entity_id:"light.closet",owner_id:"matter",
   attributes:{domain:["light"],area:["upstairs"],device:["device/one"]}});
 const matter = source("entry:matter", {kind:"integration",attributes:{domain:["matter"]}});
-const entityStatus = (reason, answer = "blocked", nodes = []) => ({
+const entityStatus = (reason, answer = "blocked", nodes = []) => ({editors:{},
   current:reason ? {reason} : null,
   explanation:{findings:reason ? [{node_id:light.node_id,reason}] : [],nodes},readiness:{answer},
 });
@@ -876,7 +876,7 @@ test("Sources uses Topomation nesting and keeps unplaced sources reachable",()=>
   assert.equal(sourcesTree(data,"topomation",null,{locations:[
     {id:"a",parent_id:"b"},{id:"b",parent_id:"a"},
   ]})[0]?.type,"location");
-  const card={current:{data},topomation,sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+  const card={editors:{},current:{data},topomation,sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(),sourcesSelection:null};
   assert.match(sourcesBrowser(card),/<option value="topomation">TopoMation locations<\/option>/);
   assert.doesNotMatch(sourcesBrowser(card),/Explore TopoMation|sources-topomation-note/);
@@ -892,7 +892,7 @@ test("Sources review filtering retains grouped ancestors and does not auto-expan
   const data=monitoringExample();
   data.coverage.never_observed=[{node_id:"entity:registry:camera-1-1",check_id:"availability"}];
   const tree=sourcesTree(data);
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:true,
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:true,
     sourcesExpanded:new Set(),sourcesSelection:"source:entry:frigate",sourcesEdit:false};
   const html=sourcesBrowser(card);
   assert.match(html,/Show all sources/);
@@ -906,7 +906,7 @@ test("Sources badges count open issues rather than every evidence gap",()=>{
   const candidates=data.inventory.nodes.filter((row)=>row.kind==="entity").slice(0,78);
   for (const row of candidates) row.watched=true;
   data.coverage.never_observed=candidates.map((row)=>({node_id:row.node_id,check_id:"availability"}));
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:true,
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:true,
     sourcesExpanded:new Set(),sourcesSelection:"source:entry:frigate",sourcesEdit:false};
   const html=sourcesBrowser(card);
   assert.doesNotMatch(html,/78 need review/);
@@ -916,7 +916,7 @@ test("Sources badges count open issues rather than every evidence gap",()=>{
 
 function issueScopeCard(data) {
   const paths=sourcePaths(sourcesTree(data));
-  return {current:{status:"current",data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+  return {editors:{},current:{status:"current",data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(paths.keys()),sourcesSelection:null,sourcesView:"source"};
 }
 
@@ -960,7 +960,7 @@ for(const variant of ["mixed","loose","connections"]) {
 
 test("Sources bounds a large opened branch while full search reaches the last entity",()=>{
   const data=monitoringExample();
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(["source:entry:frigate","source:device:camera-1"]),sourcesSelection:"source:device:camera-1",sourcesEdit:false};
   const html=sourcesBrowser(card);
   assert.match(html,/Show more sources/);
@@ -978,7 +978,7 @@ test("Sources keeps a 6,000-entity inventory searchable with bounded initial mar
     {entity_id:`sensor.scale_${number}`,owner_id:"frigate",attributes:{entity:[`registry:scale-${number}`],device:["camera-1"]}},
   ));
   data.inventory.catalog.candidates=data.inventory.nodes;
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(),sourcesSelection:"source:entry:frigate",sourcesEdit:false};
   const initial=sourcesBrowser(card);
   assert.ok(initial.length<20000);
@@ -995,7 +995,7 @@ test("Sources keeps one detail view with inline history and no empty settings ta
   const data=monitoringExample();
   const entry=data.inventory.nodes.find((row)=>row.node_id==="entry:frigate");
   entry.name="";
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(),sourcesSelection:"source:entry:frigate",sourcesEdit:false,sourcesView:"source"};
   const source=sourcesBrowser(card);
   assert.match(source,/Frigate/);
@@ -1049,7 +1049,7 @@ test("Sources combines registry-owned one-device connections without merging the
   assert.equal(paths.get("source:entry:family").node.source.node_id,"entry:family");
   assert.equal(paths.get("source:device:family").node.connection.node_id,"entry:family");
   assert.equal(paths.get("source:entity:family-player").parents.at(-1).key,"source:device:family");
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set([family.key]),sourcesSelection:family.key,sourcesView:"source"};
   const html=sourcesBrowser(card);
   assert.match(html,/Family Room/);
@@ -1085,7 +1085,7 @@ test("Sources keeps an entry parent for several devices or unattached entities",
   assert.deepEqual(hub.children.map(node=>node.name),["First","Second"]);
   assert.deepEqual(service.children.map(node=>node.name),["Account signal"]);
   assert.deepEqual(mixed.children.map(node=>node.name),["Loose signal","Mixed device"]);
-  const card={configuration:{rules:[],settings:{notifications:false}},configDraft:[],configScopes:[],current:{data},settingsDraft:null};
+  const card={editors:{configuration:{rules:[],settings:{notifications:false}},settingsDraft:null},configDraft:[],configScopes:[],current:{data}};
 });
 
 
@@ -1117,7 +1117,7 @@ for(const [name,error,expected] of [
 for (const grouping of ["integration","location","topomation"]) {
   for (const selection of [null,"source:removed"]) {
     test(`Sources ${grouping} leaves rows unselected for ${selection}`,()=>{
-      const card={current:{data:monitoringExample()},sourcesGrouping:grouping,sourcesQuery:"",sourcesNeedsReview:false,
+      const card={editors:{},current:{data:monitoringExample()},sourcesGrouping:grouping,sourcesQuery:"",sourcesNeedsReview:false,
         sourcesExpanded:new Set(),sourcesSelection:selection,sourcesView:"source",topomation:{locations:[{id:"house",name:"House"}]}};
       const html=sourcesBrowser(card);
       assert.doesNotMatch(html,/<button[^>]*data-sources-select[^>]*aria-current="true"/);
@@ -1129,7 +1129,7 @@ for (const grouping of ["integration","location","topomation"]) {
 for (const grouping of ["integration","location"]) {
   test(`Sources ${grouping} highlights only the selected group`,()=>{
     const data=monitoringExample(),tree=sourcesTree(data,grouping),selected=tree[0];
-    const card={current:{data},sourcesGrouping:grouping,sourcesQuery:"",sourcesNeedsReview:false,
+    const card={editors:{},current:{data},sourcesGrouping:grouping,sourcesQuery:"",sourcesNeedsReview:false,
       sourcesExpanded:new Set([selected.key]),sourcesSelection:selected.key,sourcesView:"history"};
     const html=sourcesBrowser(card);
     const current=[...html.matchAll(/<button[^>]*data-sources-select="([^"]+)"[^>]*aria-current="true"/g)];
@@ -1147,7 +1147,7 @@ test("Sources selects only the paired device when viewing its connection",()=>{
   ];
   data.devices=[{id:"first",name:"First device",config_entry_id:"first"},{id:"second",name:"Second device",config_entry_id:"second"}];
   data.inventory.catalog.candidates=data.inventory.nodes;
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set([sourcesTree(data)[0].key]),sourcesSelection:"source:entry:first",sourcesView:"history"};
   const html=sourcesBrowser(card);
   const current=[...html.matchAll(/<button[^>]*data-sources-select="([^"]+)"[^>]*aria-current="true"/g)];
@@ -1165,7 +1165,7 @@ test("Sources starts collapsed with issue indicators and source kinds beside nam
   separate.watched=true;
   entityOnly.watched=true;disabled.disabled=true;
   data.inventory.episodes=[{episode_id:"camera-issue",anchor:device.node_id,opened_at:"2026-09-30T12:00:00Z",reasons:[]}];
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(),sourcesSelection:null,sourcesView:"source",sourcesShowDisabled:true};
   const closed=sourcesBrowser(card);
   assert.match(closed,/Frigate <span class="source-issue-count">Issues<\/span><\/span><\/button>/);
@@ -1187,7 +1187,7 @@ test("Sources starts collapsed with issue indicators and source kinds beside nam
 });
 
 test("Sources starts with source selection rather than setup documentation",()=>{
-  const card={current:{data:monitoringExample()},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
+  const card={editors:{},current:{data:monitoringExample()},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,
     sourcesExpanded:new Set(),sourcesSelection:null,sourcesView:"source"};
   const closed=sourcesBrowser(card);
   assert.match(closed,/Select an item/);
@@ -1214,7 +1214,7 @@ test("history observation range shows the elapsed time without seconds", () => {
 
 test("entity details separate availability from its current value",()=>{
   const data=monitoringExample(),id="entity:registry:camera-1-1";
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesView:"source",
     sourcesSelection:`source:${id}`,sourceDetail:{nodeId:id,members:[{node_id:id,name:"Back Porch signal 001",state:"18",unit:"%"}],total:1}};
   assert.match(sourcesBrowser(card),/<p class="source-entity-condition">Available in Home Assistant<\/p>.*<p class="source-current-value">18%<\/p>/s);
   card.sourceDetail.members[0].state="unknown";
@@ -1229,7 +1229,7 @@ test("policy configuration loads without delivery discovery and discovery preser
   globalThis.window={};
   t.after(()=>{delete globalThis.HTMLElement;delete globalThis.customElements;delete globalThis.window;});
   await import("../../custom_components/homeostatic/frontend/homeostatic.js?configuration-test");
-  const card=Object.create(elements.get("homeostatic-card-v39").prototype);
+  const card=Object.assign(Object.create(elements.get("homeostatic-card-v39").prototype),{editors:{}});
   const calls=[],pending=[];
   Object.assign(card,{page:"policies",render(){},_hass:{connection:{},callWS(request){calls.push(request);return new Promise((resolve,reject)=>pending.push({resolve,reject}));}}});
   const settings={monitoring_policies:[{id:"one",name:"Saved policy"}],notification_definitions:{methods:{}}};
@@ -1237,21 +1237,21 @@ test("policy configuration loads without delivery discovery and discovery preser
   assert.deepEqual(calls,[{type:"homeostatic/configuration",section:"settings"}]);
   pending[0].resolve({revision:"one",rules:[],settings,alerts:{notifications:false,consumer:null}});
   await loading;
-  card.settingsDraft.monitoring_policies[0].name="Unsaved policy";
-  const draft=card.settingsDraft;
+  card.editors.settingsDraft.monitoring_policies[0].name="Unsaved policy";
+  const draft=card.editors.settingsDraft;
   const discovery=card.loadDeliveryConfiguration();
   await card.loadDeliveryConfiguration();
   assert.equal(calls.length,2);
   assert.deepEqual(calls[1],{type:"homeostatic/configuration",section:"delivery"});
   pending[1].reject(Error("Discovery failed"));
   await discovery;
-  assert.equal(card.deliveryError,"Discovery failed");
-  assert.equal(card.settingsDraft,draft);
+  assert.equal(card.editors.deliveryError,"Discovery failed");
+  assert.equal(card.editors.settingsDraft,draft);
   const retry=card.loadDeliveryConfiguration(true);
   pending[2].resolve({delivery_targets:[{channel:"phone:one",name:"Owner phone"}],notification_people:[],notification_destinations:[],consumers:[]});
   await retry;
-  assert.equal(card.settingsDraft.monitoring_policies[0].name,"Unsaved policy");
-  assert.equal(card.deliveryError,null);
+  assert.equal(card.editors.settingsDraft.monitoring_policies[0].name,"Unsaved policy");
+  assert.equal(card.editors.deliveryError,null);
   await card.loadDeliveryConfiguration();
   assert.equal(calls.length,3);
 });
@@ -1295,7 +1295,7 @@ for(const grouping of ["integration","location","topomation"])test(`Sources disa
 test("Sources defaults to hidden and explains disabled monitoring when revealed",()=>{
   const data=monitoringExample(),source=data.inventory.nodes.find(row=>row.node_id==="entry:other-0");
   source.disabled=true;
-  const card={current:{data},sourcesGrouping:"integration",sourcesExpanded:new Set(),sourcesSelection:`source:${source.node_id}`};
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesExpanded:new Set(),sourcesSelection:`source:${source.node_id}`};
   assert.doesNotMatch(sourcesBrowser(card),/data-sources-disabled checked|Monitoring paused while disabled/);
   assert.match(sourcesBrowser(card),/Include disabled sources/);
   card.sourcesShowDisabled=true;

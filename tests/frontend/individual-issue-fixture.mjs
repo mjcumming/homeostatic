@@ -25,9 +25,9 @@ export function individualIssueFixture(condition="low") {
   const episode={episode_id:ISSUE_ID,anchor:source.node_id,recorded:[source.node_id],impact:[],importance:"normal",opened_at:"2026-10-15T17:20:00Z",reasons:structuredClone(status.findings)};
   Object.assign(data,{catalog_loaded:true,schema_version:3});
   Object.assign(data.inventory,{episodes:[episode],attention_controls_supported:true,entity_status:{[source.node_id]:status},resolved_history:{started_at:"2026-10-15T12:00:00Z",retention:{max_age_days:30,max_episodes:100},episodes:[]}});
-  base.configuration.settings.notifications=false;
-  base.configuration.settings.notification_definitions={profiles:{},methods:{}};
-  base.sourceDetail.monitoring_policies=base.configuration.settings.monitoring_policies.map(({id,name})=>({id,name}));
+  base.editors.configuration.settings.notifications=false;
+  base.editors.configuration.settings.notification_definitions={profiles:{},methods:{}};
+  base.sourceDetail.monitoring_policies=base.editors.configuration.settings.monitoring_policies.map(({id,name})=>({id,name}));
   base.sourceDetail.temperature_checks[0].observation=observation;
   base.sourceDetail.temperature_checks[0].next_deadline=null;
   const result={source,readiness:{answer:observation.status==="warn"?"degraded":observation.status==="pass"?"ready":"unknown",nodes:[]},explanation:{findings:status.findings,nodes:[]},impact:{nodes:[]},entity_status:status,temperature_status:{observation,next_deadline:null},monitoring_policies:[{id:source.monitoring_policy,name:base.sourceDetail.temperature_checks[0].policy_name}]};

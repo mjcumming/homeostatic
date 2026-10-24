@@ -25,7 +25,7 @@ const settle=async()=>{for(let index=0;index<5;index++)await Promise.resolve();}
 
 function detailCard(base) {
   const body={innerHTML:"",querySelector:()=>null,querySelectorAll:()=>[]},label={};
-  const card=Object.assign(Object.create(prototype),base,{detailSequence:0,dialog:{open:true},
+  const card=Object.assign(Object.create(prototype),{editors:{}},base,{detailSequence:0,dialog:{open:true},
     shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:label},
     tools:{detailButtons:()=>""},capturePageState:()=>({}),restorePageState(){}});
   return {card,body};
@@ -39,7 +39,7 @@ test("catalog structure and source paths survive evidence updates while current 
   assert.equal(sourcesTree(changed),tree);
   assert.equal(sourcePaths(tree),paths);
   assert.equal(sourceForSelection(changed,`source:${sourceId}`),paths.get(`source:${sourceId}`).node.source);
-  const card={current:{data:changed},sourcesGrouping:"integration",sourcesSelection:`source:${sourceId}`,sourcesExpanded:new Set(),
+  const card={editors:{},current:{data:changed},sourcesGrouping:"integration",sourcesSelection:`source:${sourceId}`,sourcesExpanded:new Set(),
     sourceDetail:{nodeId:sourceId,members:[{entity_id:"sensor.current",name:"Current reading",state:"unavailable"}],total:1}};
   assert.match(sourcesBrowser(card),/Home Assistant reports this entity as unavailable/);
   card.sourceDetail.members[0].state="72";
@@ -53,8 +53,8 @@ test("catalog structure and source paths survive evidence updates while current 
 
 test("source requests keep one active read and one follow-up for the latest evidence",async()=>{
   const pending=[],requests=[],data=dataFixture();
-  const card=Object.create(prototype);
-  Object.assign(card,{page:"sources",current:{status:"current",data},sourcesSelection:"source:device:camera-0",sourceSequence:0,render(){},
+  const card=Object.assign(Object.create(prototype),{editors:{}});
+  Object.assign(card,{editors:{},page:"sources",current:{status:"current",data},sourcesSelection:"source:device:camera-0",sourceSequence:0,render(){},
     _hass:{connection:{},states:{},callWS(request){requests.push(request);const next=deferred();pending.push(next);return next.promise;}}});
   const first=card.loadSource();
   card.current={status:"current",data:{...data,updated_at:"second"}};
@@ -74,8 +74,8 @@ test("source requests keep one active read and one follow-up for the latest evid
 });
 
 test("navigation during a source read discards its result and loads the new selection once",async()=>{
-  const pending=[],card=Object.create(prototype);
-  Object.assign(card,{page:"sources",current:{status:"current",data:dataFixture()},sourcesSelection:"source:device:camera-0",sourceSequence:0,render(){},
+  const pending=[],card=Object.assign(Object.create(prototype),{editors:{}});
+  Object.assign(card,{editors:{},page:"sources",current:{status:"current",data:dataFixture()},sourcesSelection:"source:device:camera-0",sourceSequence:0,render(){},
     _hass:{connection:{},states:{},callWS(request){const next=deferred();pending.push({...next,request});return next.promise;}}});
   const first=card.loadSource();
   card.sourcesSelection="source:device:camera-1";
@@ -91,9 +91,9 @@ test("navigation during a source read discards its result and loads the new sele
 });
 
 test("reconnection abandons a pending source response and can read the same timestamp again",async()=>{
-  const pending=[],card=Object.create(prototype);
+  const pending=[],card=Object.assign(Object.create(prototype),{editors:{}});
   card.navigation=new WorkspaceNavigation(card);
-  Object.assign(card,{page:"sources",current:{status:"current",data:dataFixture()},sourcesSelection:"source:device:camera-0",sourceSequence:0,detailSequence:0,render(){},
+  Object.assign(card,{editors:{},page:"sources",current:{status:"current",data:dataFixture()},sourcesSelection:"source:device:camera-0",sourceSequence:0,detailSequence:0,render(){},
     _hass:{connection:{},states:{},callWS(){const next=deferred();pending.push(next);return next.promise;}}});
   const old=card.loadSource();
   card.invalidateReads();
@@ -107,8 +107,8 @@ test("reconnection abandons a pending source response and can read the same time
 });
 
 test("paging and refresh share one source request and discard a superseded page",async()=>{
-  const pending=[],card=Object.create(prototype),data=dataFixture();
-  Object.assign(card,{page:"sources",current:{status:"current",data},sourcesSelection:"source:device:camera-0",sourceSequence:0,render(){},
+  const pending=[],card=Object.assign(Object.create(prototype),{editors:{}}),data=dataFixture();
+  Object.assign(card,{editors:{},page:"sources",current:{status:"current",data},sourcesSelection:"source:device:camera-0",sourceSequence:0,render(){},
     sourceDetail:{nodeId:"device:camera-0",stamp:`${data.updated_at}:`,updated_at:data.updated_at,next_offset:1,members:[{entity_id:"sensor.first",state:"old"}]},
     _hass:{connection:{},states:{},callWS(request){const next=deferred();pending.push({...next,request});return next.promise;}}});
   const page=card.loadSourceMore();
@@ -125,9 +125,9 @@ test("paging and refresh share one source request and discard a superseded page"
 });
 
 test("a completed evidence page survives the following render without reloading page one",async()=>{
-  const requests=[],card=Object.create(prototype),data=dataFixture();
+  const requests=[],card=Object.assign(Object.create(prototype),{editors:{}}),data=dataFixture();
   const checks=[{node_id:"temperature:first"},{node_id:"temperature:second"}];
-  Object.assign(card,{page:"sources",current:{status:"current",data},sourcesSelection:"source:device:camera-0",sourceSequence:0,render(){},
+  Object.assign(card,{editors:{},page:"sources",current:{status:"current",data},sourcesSelection:"source:device:camera-0",sourceSequence:0,render(){},
     _hass:{connection:{},states:{},async callWS(request){
       requests.push(request);
       return {updated_at:data.updated_at,total:2,next_offset:request.offset?null:1,
@@ -143,8 +143,8 @@ test("a completed evidence page survives the following render without reloading 
 });
 
 test("issue detail requests coalesce changing evidence and reject an old navigation result",async()=>{
-  const pending=[],body={innerHTML:"new dialog"},label={},card=Object.create(prototype);
-  Object.assign(card,{current:{status:"current",data:dataFixture()},detail:{nodeId:"one"},detailSequence:0,
+  const pending=[],body={innerHTML:"new dialog"},label={},card=Object.assign(Object.create(prototype),{editors:{}});
+  Object.assign(card,{editors:{},current:{status:"current",data:dataFixture()},detail:{nodeId:"one"},detailSequence:0,
     shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:label},
     _hass:{connection:{},callWS(request){const next=deferred();pending.push({...next,request});return next.promise;}}});
   const first=card.loadDetail();
@@ -193,11 +193,11 @@ test("a context-only issue summary uses total monitoring count without a full ca
   const data=dataFixture();
   data.panel_context=true;data.catalog_loaded=false;
   data.inventory={...data.inventory,nodes:[],catalog:{candidates:[]},monitored_count:6000};
-  const html=issuesWorkspace({current:{data},issueGroupsExpanded:new Set(),issueGroupLimits:new Map()});
+  const html=issuesWorkspace({editors:{},current:{data},issueGroupsExpanded:new Set(),issueGroupLimits:new Map()});
   assert.match(html,/No open issues<\/h2>/);
   assert.doesNotMatch(html,/Nothing is monitored|No open issues reported|inspect the configured monitoring scope/);
   data.inventory.monitored_count=0;
-  assert.match(issuesWorkspace({current:{data},issueGroupsExpanded:new Set(),issueGroupLimits:new Map()}),/Nothing is monitored/);
+  assert.match(issuesWorkspace({editors:{},current:{data},issueGroupsExpanded:new Set(),issueGroupLimits:new Map()}),/Nothing is monitored/);
 });
 
 test("a partial temperature issue reads every canonical policy without loading the full catalog",async()=>{
@@ -205,7 +205,7 @@ test("a partial temperature issue reads every canonical policy without loading t
   delete source.monitoring_source;
   const data={...base.current.data,panel_context:true,catalog_loaded:false,
     inventory:{...base.current.data.inventory,nodes:[source,entity],catalog:{candidates:[entity]}}};
-  const calls=[],{card,body}=detailCard({...base,current:{status:"current",data},detail:{episodeId:episode.episode_id},
+  const calls=[],{card,body}=detailCard({editors:{},...base,current:{status:"current",data},detail:{episodeId:episode.episode_id},
     store:{ensureCatalog(){throw Error("Temperature details do not need the full catalog");}}});
   card._hass={...base._hass,connection:{},async callWS(request){
     calls.push(request);

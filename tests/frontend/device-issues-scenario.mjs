@@ -75,8 +75,8 @@ function reset(expanded=true) {
   if(card.dialog.open)card.dialog.close();
   data=inventory();calls.length=0;
   card._hass.states=Object.fromEntries(data.inventory.catalog.candidates.filter(source=>source.entity_id).map(source=>[source.entity_id,{state:"unavailable",attributes:{}}]));
-  Object.assign(card,{current:{status:"current",data},configuration:configuration(),settingsDraft:copy(settings),scopedConfiguration:null,page:"problems",detail:null,issueQuery:"",issueSort:"newest",issueGroupsExpanded:new Set(expanded?["integration:esphome","integration:mqtt"]:[]),issueGroupLimits:new Map(),availabilityNotice:null,availabilityError:null,availabilityContext:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null});
-  initializeScopedConfiguration(card);card.render();
+  Object.assign(card,{current:{status:"current",data},editors:{configuration:configuration(),settingsDraft:copy(settings),scopedConfiguration:null},page:"problems",detail:null,issueQuery:"",issueSort:"newest",issueGroupsExpanded:new Set(expanded?["integration:esphome","integration:mqtt"]:[]),issueGroupLimits:new Map(),availabilityNotice:null,availabilityError:null,availabilityContext:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null});
+  initializeScopedConfiguration(card.editors);card.render();
 }
 document.querySelector("#dark").onchange=event=>{document.documentElement.dataset.theme=event.target.checked?"dark":"light";};
 document.querySelector("#reset").onclick=()=>{reset();document.querySelector("#feedback").textContent="Synthetic examples restored. No saved settings changed.";};
@@ -162,7 +162,7 @@ document.querySelector("#run").onclick=async()=>{
     await click('[data-device-issues="laundry"]');
     check(!card.issueAvailabilityPlan&&!card.dialog.querySelector('[data-issue-availability="confirm"]'),"Another issue starts without the previous review");
     await click('[data-action="close"]',card.dialog);
-    check(JSON.stringify(card.configuration.settings)===JSON.stringify(settings),"Browsing and cancellation leave saved monitoring unchanged");
+    check(JSON.stringify(card.editors.configuration.settings)===JSON.stringify(settings),"Browsing and cancellation leave saved monitoring unchanged");
     check(!card.main.querySelector("[data-issue-availability],.issue-availability,.issue-monitoring-feedback"),"The queue remains free of removal controls and feedback after closing");
     check(calls.every(request=>["homeostatic/node","homeostatic/source","homeostatic/configuration"].includes(request.type)),"Browsing and Cancel send no mutation or live-service request");
     check(find(".shell").scrollWidth<=find(".shell").clientWidth+1,"Current viewport has no horizontal overflow");

@@ -4,11 +4,11 @@ import {emptyReceipt,recordResult} from "./control-path-inventory.mjs";
 
 class OldPanel extends HTMLElement {}
 class OldCard extends HTMLElement {}
-customElements.define("homeostatic-panel-v59",OldPanel);
-customElements.define("homeostatic-card-v55",OldCard);
+customElements.define("homeostatic-panel-v61",OldPanel);
+customElements.define("homeostatic-card-v57",OldCard);
 await import("../../custom_components/homeostatic/frontend/homeostatic.js");
 
-const card=document.querySelector("homeostatic-panel-v61"),feedback=document.querySelector("#feedback");
+const card=document.querySelector("homeostatic-panel-v62"),feedback=document.querySelector("#feedback");
 const names=["Basement TV","Cabin Bunkie","Cabin Kitchen","Dining room","Family room","Garage","Guest bedroom","Hallway","Kitchen","Laundry room","Living room","Main bedroom","Office","Patio","Playroom","Porch","Reading room","Upstairs landing","Workshop","Downstairs guest bedroom television beside the garden-facing windows"];
 const targets=names.flatMap((name,index)=>["local","cloud"].map(provider=>({channel:`tts:${provider}:speaker-${index}`,type:"voice",name,destination_name:name,destination_id:`speaker-${index}`,provider_name:provider==="local"?"Local voice":"Cloud voice",area:index===1||index===2?"Cabin":index===0?"Basement":"House",available:true})));
 targets.push({channel:"phone:spare",type:"app",name:"Household phone",available:true},{channel:"sms:fixture:",type:"sms",name:"Household SMS",requires_target:true,available:true});
@@ -19,8 +19,8 @@ let receipt,automaticPassed=false,escapeBefore=null;
 card.navigation.enabled=false;
 card._hass={user:{id:"fixture",is_admin:true},config:{time_zone:"America/Chicago"},states:{},localize:()=>null,async callWS(request){calls.push(request);throw Error("Service and save requests are forbidden in this isolated fixture");}};
 card.current={status:"current",data:monitoringExample()};
-card.configuration={revision:"fixture-1",settings:structuredClone(saved),delivery_targets:targets,notification_people:[],monitoring_policy_templates:[],areas:[],labels:[],floors:[]};
-card.settingsDraft=structuredClone(saved);card.page="notifications";card.notificationSection="methods";card.definitionSelection={kind:"methods",id:"phone"};card.render();
+card.editors.configuration={revision:"fixture-1",settings:structuredClone(saved),delivery_targets:targets,notification_people:[],monitoring_policy_templates:[],areas:[],labels:[],floors:[]};
+card.editors.settingsDraft=structuredClone(saved);card.page="notifications";card.notificationSection="methods";card.definitionSelection={kind:"methods",id:"phone"};card.render();
 const root=card.shadowRoot;
 const tick=()=>new Promise(resolve=>{const channel=new MessageChannel();channel.port1.onmessage=()=>{channel.port1.close();channel.port2.close();resolve();};channel.port2.postMessage(null);});
 const check=(condition,message)=>{if(!condition)throw Error(message);};
@@ -35,13 +35,13 @@ const click=async selector=>{
 };
 const change=async(selector,value)=>{const element=find(selector);element.value=value;element.dispatchEvent(new Event("change",{bubbles:true}));await tick();};
 const open=async()=>{
-  card.deliveryPicker=null;card.render();await tick();
+  card.editors.deliveryPicker=null;card.render();await tick();
   await click('[data-definition-action="destination-open"]');await change('[data-definition-delivery-type]',"voice");
 };
 const close=()=>click('[data-definition-action="destination-close"]');
-const draftChoices=()=>card.settingsDraft.notification_definitions.methods.phone.destinations;
+const draftChoices=()=>card.editors.settingsDraft.notification_definitions.methods.phone.destinations;
 const focusReturned=()=>root.activeElement?.dataset.definitionAction==="destination-open";
-const reset=()=>{card.deliveryPicker=null;card.settingsDraft=structuredClone(saved);card.render();};
+const reset=()=>{card.editors.deliveryPicker=null;card.editors.settingsDraft=structuredClone(saved);card.render();};
 const headerCheck=()=>{
   const dialog=find("dialog.delivery-picker"),header=find(".delivery-picker-header"),title=header.querySelector("h2"),button=header.querySelector('[aria-label="Close destination picker"]');
   check(title&&button,"Title and accessible Close share the picker header");
@@ -57,10 +57,10 @@ document.querySelector("#show").onclick=async()=>{await open();feedback.textCont
 document.querySelector("#run").onclick=async()=>{
   freshReceipt();feedback.textContent="Running isolated layout and selection checks…";
   try {
-    check(customElements.get("homeostatic-panel-v59")===OldPanel&&customElements.get("homeostatic-card-v55")===OldCard,"Previously registered elements remain intact");
-    check(card instanceof customElements.get("homeostatic-panel-v61")&&card instanceof customElements.get("homeostatic-card-v57")&&!(card instanceof OldPanel),"Current panel uses the updated card despite old registered elements");
+    check(customElements.get("homeostatic-panel-v61")===OldPanel&&customElements.get("homeostatic-card-v57")===OldCard,"Previously registered elements remain intact");
+    check(card instanceof customElements.get("homeostatic-panel-v62")&&card instanceof customElements.get("homeostatic-card-v58")&&!(card instanceof OldPanel),"Current panel uses the updated card despite old registered elements");
     reset();await open();headerCheck();
-    const helpDraft=JSON.stringify(card.settingsDraft),selectTop=find("[data-definition-delivery-type]").getBoundingClientRect().top;
+    const helpDraft=JSON.stringify(card.editors.settingsDraft),selectTop=find("[data-definition-delivery-type]").getBoundingClientRect().top;
     check(!find(".contextual-help-popover").matches(":popover-open"),"Delivery help starts closed");
     await click(".contextual-help-trigger");
     check(find(".contextual-help-popover").matches(":popover-open"),"Delivery help opens through its visible control");
@@ -68,7 +68,7 @@ document.querySelector("#run").onclick=async()=>{
     check(find('.contextual-help-popover a').href==="https://www.home-assistant.io/integrations/smtp/","Email setup links to Home Assistant");
     headerCheck();
     check(find("[data-definition-delivery-type]").getBoundingClientRect().top===selectTop,"Help does not move the form");
-    check(JSON.stringify(card.settingsDraft)===helpDraft&&calls.length===0,"Help leaves drafts unchanged and sends nothing");
+    check(JSON.stringify(card.editors.settingsDraft)===helpDraft&&calls.length===0,"Help leaves drafts unchanged and sends nothing");
     await click(".contextual-help-trigger");
     check(!find(".contextual-help-popover").matches(":popover-open"),"Delivery help closes through its visible control");
     check(find(".delivery-picker").closest(".notification-methods .delivery-method-editor"),"Fixture uses the full production method-editor nesting");
@@ -102,9 +102,9 @@ document.querySelector("#run").onclick=async()=>{
     await click('[data-definition-action="destination-open"]');await change('[data-definition-delivery-type]',"app");
     await click('[data-definition-action="destination-add"][data-destination-channel="phone:spare"]');
     check(JSON.stringify(draftChoices())===JSON.stringify(["tts:cloud:speaker-1","phone:spare"]),"Single-route destination adds directly");
-    const beforeClose=JSON.stringify(card.settingsDraft);await open();await close();
-    check(JSON.stringify(card.settingsDraft)===beforeClose&&focusReturned(),"Close preserves choices and returns focus");
-    check(JSON.stringify(card.configuration.settings)===savedSnapshot&&calls.length===0,"All selections remain drafts; no saves or notification requests occur");
+    const beforeClose=JSON.stringify(card.editors.settingsDraft);await open();await close();
+    check(JSON.stringify(card.editors.settingsDraft)===beforeClose&&focusReturned(),"Close preserves choices and returns focus");
+    check(JSON.stringify(card.editors.configuration.settings)===savedSnapshot&&calls.length===0,"All selections remain drafts; no saves or notification requests occur");
     automaticPassed=true;
     recordResult(receipt,"methods.picker-layout","untested","Automatic geometry and selection checks passed. Native Escape still needs a real keystroke.");
     feedback.textContent=`PASS: layout and draft selection checks at ${innerWidth}px. Choose Check native Escape, then press Escape to finish this receipt.`;
@@ -112,12 +112,12 @@ document.querySelector("#run").onclick=async()=>{
   publish();
 };
 document.querySelector("#escape").onclick=async()=>{
-  escapeBefore=JSON.stringify(card.settingsDraft);await open();feedback.textContent="Press the real Escape key. The picker should close and return focus to Add destination.";
+  escapeBefore=JSON.stringify(card.editors.settingsDraft);await open();feedback.textContent="Press the real Escape key. The picker should close and return focus to Add destination.";
 };
 root.addEventListener("keydown",async event=>{
   if(event.key!=="Escape"||!event.isTrusted||escapeBefore===null)return;
   await tick();
-  const passed=card.deliveryPicker===null&&JSON.stringify(card.settingsDraft)===escapeBefore&&focusReturned()&&calls.length===0;
+  const passed=card.editors.deliveryPicker===null&&JSON.stringify(card.editors.settingsDraft)===escapeBefore&&focusReturned()&&calls.length===0;
   escapeBefore=null;
   recordResult(receipt,"methods.picker-layout",passed&&automaticPassed?"pass":passed?"untested":"fail",passed?"Real Escape keystroke closed the picker, preserved draft choices, and returned focus; no service calls.":"Native Escape did not close, preserve choices, or return focus.");
   feedback.textContent=passed?(automaticPassed?`PASS: geometry, selections and native Escape at ${innerWidth}px. No saves or notifications.`:"PASS: native Escape. Run layout checks to complete this receipt."):"FAIL: native Escape handling.";publish();

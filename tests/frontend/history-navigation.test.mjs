@@ -12,7 +12,7 @@ await import("../../custom_components/homeostatic/frontend/homeostatic.js");
 const Card=elements.get("homeostatic-card");
 
 for(const keyboard of [false,true])test(`Monitoring disclosure restores focus without scrolling after ${keyboard?"ArrowRight":"click"}`,()=>{
-  const card=Object.create(Card.prototype),key="integration:test",options=[];
+  const card=Object.assign(Object.create(Card.prototype),{editors:{}}),key="integration:test",options=[];
   const button={dataset:{sourcesToggle:key},closest:()=>null,matches:()=>true,focus:value=>options.push(value)};
   Object.assign(card,{sourcesExpanded:new Set(),render(){},shadowRoot:{querySelectorAll:()=>[button]}});
   if(keyboard)card.keydown({target:button,key:"ArrowRight",preventDefault(){}});
@@ -22,7 +22,7 @@ for(const keyboard of [false,true])test(`Monitoring disclosure restores focus wi
 
 for(const retained of [true,false])test(`an ended notification member keeps its scoped dialog with ${retained?"available":"unavailable"} history`,async()=>{
   const body={innerHTML:""},label={},detail={episodeId:"ended"};
-  const card=Object.assign(Object.create(Card.prototype),{page:"problems",notificationIssueIds:["ended","other"],detail,detailSequence:0,
+  const card=Object.assign(Object.create(Card.prototype),{editors:{},page:"problems",notificationIssueIds:["ended","other"],detail,detailSequence:0,
     current:{status:"current",data:{inventory:{episodes:[],resolved_history:{episodes:retained?[{episode:{episode_id:"ended"}}]:[]}}}},
     shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:label},
     tools:{showHistory(){assert.fail("Recovery cannot navigate to all History");}}});
@@ -47,8 +47,8 @@ test("primary labels describe the work while retaining the existing page routes"
 test("History has its own heading and is the only selected primary destination",()=>{
   const buttons=["problems","sources","policies","notifications","history"].map(page=>({dataset:{page},attributes:{},closest:()=>true,setAttribute(name,value){this.attributes[name]=value;},removeAttribute(name){delete this.attributes[name];}}));
   const main={innerHTML:"",querySelector:()=>null},nodes={".nav":{},'[data-action="back"]':{},".workspace-status":{}};
-  const card=Object.create(Card.prototype);
-  Object.assign(card,{page:"history",config:{view:"history"},current:{status:"current",data:{inventory:{}}},main,
+  const card=Object.assign(Object.create(Card.prototype),{editors:{}});
+  Object.assign(card,{editors:{},page:"history",config:{view:"history"},current:{status:"current",data:{inventory:{}}},main,
     shadowRoot:{querySelector:selector=>nodes[selector]||null,querySelectorAll:()=>buttons},
     tools:{historyPanel:()=>'<section><h2>Ended problems</h2></section>'},navigation:{updateReturn(){}},renderNotificationControl(){},observeSourceBranches(){}});
   card.renderPage();
@@ -75,7 +75,7 @@ function historyTools(count=1) {
   const item={episode:{episode_id:"ended-0",anchor:"entity:one",opened_at:"2026-10-14T12:00:00Z",reasons:[{message:"First condition"},{message:"Second condition"}]},source:{name:"Hallway sensor",kind:"entity"},resolution:"cleared",resolved_at:"2026-10-14T13:00:00Z"};
   const data={inventory:{episodes:[],resolved_history:{episodes:Array.from({length:count},(_,i)=>({...item,episode:{...item.episode,episode_id:`ended-${i}`}})),retention:{max_episodes:100,max_age_days:30},started_at:"2026-10-01T00:00:00Z"}}};
   const dialog={open:false,close(){},showModal(){assert.fail("History must expand inline");}};
-  const card={page:"history",detailSequence:0,dialog,current:{status:"current",data},main:{querySelectorAll:()=>[]},render(){this.html=this.tools.historyPanel(data);}};
+  const card={editors:{},page:"history",detailSequence:0,dialog,current:{status:"current",data},main:{querySelectorAll:()=>[]},render(){this.html=this.tools.historyPanel(data);}};
   card.tools=Object.assign(Object.create(DashboardTools.prototype),{card,dialog,query:"",resolution:"",page:0,revision:0,operation:0});
   return {tools:card.tools,card,data};
 }
@@ -164,7 +164,7 @@ for(const [name,attribute,query,resolution] of [
   const history={state:null,replaceState(state,_title,url){this.state=state;location.pathname=url;location.href=url;},pushState(state,_title,url){this.state=state;location.pathname=url;location.href=url;pushed.push(url);}};
   globalThis.window={location,history};
   const {tools,card}=historyTools();
-  Object.assign(card,{configuration:{},renderedCurrent:false,shadowRoot:{querySelector:()=>null}});
+  Object.assign(card,{editors:{...card.editors,configuration:{}},renderedCurrent:false,shadowRoot:{querySelector:()=>null}});
   card.navigation=new WorkspaceNavigation(card);
   card.navigation.enabled=true;
   tools.showHistory("ended-0");
@@ -187,7 +187,7 @@ test("Back restores related-history focus and scroll after its expanded content 
   Object.assign(data.inventory.resolved_history.episodes[0],{resolution:"absorbed",absorbed_into:"open"});
   data.inventory.episodes=[{episode_id:"open"}];
   let restored=null;
-  Object.assign(card,{configuration:{},renderedCurrent:true,shadowRoot:{querySelector:()=>null},
+  Object.assign(card,{editors:{...card.editors,configuration:{}},renderedCurrent:true,shadowRoot:{querySelector:()=>null},
     capturePageState:()=>({focusedEpisode:"open",scroll:320}),
     restorePageState(state){
       assert.match(this.html,/data-history-toggle="ended-0"[^>]*aria-expanded="true"/);
@@ -212,7 +212,7 @@ function navigationCard() {
   draft.notification_definitions.methods.phone.name="Unsaved phone";
   draft.notification_definitions.profiles.morning.name="Unsaved summary";
   const card=Object.assign(Object.create(Card.prototype),{
-    page:"policies",configuration:{settings},settingsDraft:draft,current:{status:"current"},renderedCurrent:false,
+    page:"policies",editors:{configuration:{settings},settingsDraft:draft},current:{status:"current"},renderedCurrent:false,
     dialog:{close(){}},shadowRoot:{querySelector:()=>null},
     render(){this.navigation.updateReturn();},revealSourcesSelection(){},
     loadConfiguration(){assert.fail("Navigation must preserve the loaded configuration and drafts");},
@@ -232,32 +232,32 @@ for(const [page,kind,id,path] of [
   ["notifications","profiles","morning","/notifications"],
   ["notifications","methods","phone","/notifications/methods"],
 ])test(`primary ${page} navigation returns from ${kind} editor to its list and preserves all drafts`,()=>{
-  const card=navigationCard(),draft=card.settingsDraft,before=structuredClone(draft);
-  Object.assign(card,{page,definitionSelection:{kind,id},notificationSection:kind,policyCreating:true});
+  const card=navigationCard(),draft=card.editors.settingsDraft,before=structuredClone(draft);
+  Object.assign(card,{page,definitionSelection:{kind,id},notificationSection:kind,editors:{...card.editors,policyCreating:true}});
   card.clicked(buttonClick({page},true));
   assert.equal(card.definitionSelection,null);
-  assert.equal(card.policyCreating,false);
+  assert.equal(card.editors.policyCreating,false);
   assert.equal(workspacePath(workspaceRoute(card)),path);
   assert.equal(card.workspaceReturn,null);
-  assert.equal(card.settingsDraft,draft);
-  assert.deepEqual(card.settingsDraft,before);
+  assert.equal(card.editors.settingsDraft,draft);
+  assert.deepEqual(card.editors.settingsDraft,before);
   assert.equal(hasWorkspaceDrafts(card),true);
 });
 
 test("primary Monitoring navigation returns to the tree while retaining selection and drafts",()=>{
-  const card=navigationCard(),draft=card.settingsDraft;
+  const card=navigationCard(),draft=card.editors.settingsDraft;
   Object.assign(card,{page:"sources",sourcesSelection:"source:entity:light.deck",sourcesMobileDetail:true});
   card.clicked(buttonClick({page:"sources"},true));
   assert.equal(card.page,"sources");
   assert.equal(card.sourcesMobileDetail,false);
   assert.equal(card.sourcesSelection,"source:entity:light.deck");
   assert.equal(card.workspaceReturn,null);
-  assert.equal(card.settingsDraft,draft);
+  assert.equal(card.editors.settingsDraft,draft);
   assert.equal(hasWorkspaceDrafts(card),true);
 });
 
 test("a contextual page button preserves its selected editor",()=>{
-  const card=navigationCard(),selection={kind:"policies",id:card.settingsDraft.monitoring_policies[0].id};
+  const card=navigationCard(),selection={kind:"policies",id:card.editors.settingsDraft.monitoring_policies[0].id};
   Object.assign(card,{page:"sources",definitionSelection:selection,sourcesSelection:"source:entity:light.deck"});
   card.clicked(buttonClick({page:"policies"}));
   assert.equal(card.page,"policies");
@@ -288,12 +288,12 @@ test("History uses the shared left disclosure and starts collapsed",()=>{
 test("Open entity requests Home Assistant more-info without leaving the source or changing settings",()=>{
   const card=new Card(),events=[];card.dispatchEvent=event=>events.push(event);
   card.page="sources";card.sourcesSelection="source:entity:water";
-  card.settingsDraft={monitoring_policies:[]};const before=JSON.stringify(card.settingsDraft);
+  card.editors.settingsDraft={monitoring_policies:[]};const before=JSON.stringify(card.editors.settingsDraft);
   const button={dataset:{sourceOpenEntity:"binary_sensor.water_shortage"},closest:()=>null};
   card.handleClick({type:"click",target:{dataset:{},closest:selector=>selector==="button"?button:null,matches:()=>false}});
   assert.equal(events.length,1);assert.equal(events[0].type,"hass-more-info");
   assert.deepEqual(events[0].detail,{entityId:"binary_sensor.water_shortage"});
   assert.equal(events[0].bubbles,true);assert.equal(events[0].composed,true);
   assert.equal(card.sourcesSelection,"source:entity:water");assert.equal(card.page,"sources");
-  assert.equal(JSON.stringify(card.settingsDraft),before);
+  assert.equal(JSON.stringify(card.editors.settingsDraft),before);
 });

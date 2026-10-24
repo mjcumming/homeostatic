@@ -1,10 +1,10 @@
 /** Contextual availability changes use the same saved policy exclusions as Policies. */
-import {saveScopedConfiguration,sameConfiguration as same} from "./scoped-configuration.mjs?v=109";
-import {escapeHtml as esc} from "./model.mjs?v=109";
+import {saveScopedConfiguration,sameConfiguration as same} from "./scoped-configuration.mjs?v=110";
+import {escapeHtml as esc} from "./model.mjs?v=110";
 
 const copy=value=>structuredClone(value);
 const scope={kind:"source-availability"};
-const policies=card=>card.configuration?.settings?.monitoring_policies||[];
+const policies=card=>card.editors.configuration?.settings?.monitoring_policies||[];
 const identity=source=>source?.monitoring_source||source?.node_id;
 const rows=card=>[...(card.current?.data?.inventory?.catalog?.candidates||[]),...(card.current?.data?.inventory?.nodes||[])];
 const pendingCatalog=card=>card.current?.data?.catalog_stale||card.current?.data?.catalog_loaded===false;
@@ -60,7 +60,7 @@ export function prepareAvailabilityChange(card,values,mode="stop") {
   const operation=mode==="stop"?"stopping":"resuming";
   if(card.current?.status!=="current")throw new Error(`Reconnect before ${operation} monitoring.`);
   if(pendingCatalog(card))throw new Error(`Wait for the source list to finish updating before ${operation} monitoring.`);
-  if(typeof card.configuration?.revision!=="string")throw new Error(`Read saved settings before ${operation} monitoring.`);
+  if(typeof card.editors.configuration?.revision!=="string")throw new Error(`Read saved settings before ${operation} monitoring.`);
   const index=monitoringIndex(card,values);
   const selected=[...new Map(values.map(value=>{
     const source=entitySource(index,value);
@@ -84,20 +84,20 @@ export function prepareAvailabilityChange(card,values,mode="stop") {
   if(!changes.length)throw new Error(mode==="stop"?"No saved availability policy is currently monitoring the selected entities.":"The selected entities have no availability exclusions to remove.");
   const affectedIds=new Set(changes.flatMap(change=>change.sourceIds));
   const sources=selected.filter(source=>affectedIds.has(identity(source))).map(source=>({id:identity(source),name:source.name,entityId:source.entity_id}));
-  return {revision:card.configuration.revision,catalogRevision:card.current.data?.catalog_revision,mode,sourceIds:sources.map(source=>source.id).sort(),sources,changes,
+  return {revision:card.editors.configuration.revision,catalogRevision:card.current.data?.catalog_revision,mode,sourceIds:sources.map(source=>source.id).sort(),sources,changes,
     summary:mode==="stop"?"Stops individual availability checks and device availability contributions in the named policies. Other checks and Home Assistant entities stay enabled.":"Removes these entities’ explicit availability exclusions from the named policies. Each policy’s existing selection, enabled state and eligibility still apply."};
 }
 
 /** Apply exactly the reviewed exclusions after confirming the saved result. */
 export async function applyAvailabilityChange(card,plan) {
   card.availabilityError=null;
-  if(card.current?.status!=="current"||pendingCatalog(card)||card.scopedBusy||card.settingsBusy||card.configBusy) {
+  if(card.current?.status!=="current"||pendingCatalog(card)||card.editors.scopedBusy||card.editors.settingsBusy||card.editors.configBusy) {
     card.availabilityError=`Wait for the current operation and connection before ${plan.mode==="stop"?"stopping":"resuming"} monitoring.`;
     card.render?.();return false;
   }
   const saved=await saveScopedConfiguration(card,scope,plan);
   if(!saved) {
-    card.availabilityError=card.scopedError||`Could not ${plan.mode==="stop"?"stop":"resume"} monitoring. Read current saved settings before trying again.`;
+    card.availabilityError=card.editors.scopedError||`Could not ${plan.mode==="stop"?"stop":"resume"} monitoring. Read current saved settings before trying again.`;
     card.render?.();return false;
   }
   const confirmed=plan.changes.every(change=>same(policies(card).find(policy=>policy.id===change.id),change.after));

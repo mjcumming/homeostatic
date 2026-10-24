@@ -77,8 +77,8 @@ const setFields = ["sourcesExpanded","issueGroupsExpanded"];
 const mapFields = ["sourcesLimits","issueGroupLimits"];
 
 export function hasWorkspaceDrafts(card) {
-  if(!card.configuration)return false;
-  return Boolean(card.settingsDraft && JSON.stringify(card.settingsDraft)!==JSON.stringify(card.configuration.settings));
+  if(!card.editors.configuration)return false;
+  return Boolean(card.editors.settingsDraft && JSON.stringify(card.editors.settingsDraft)!==JSON.stringify(card.editors.configuration.settings));
 }
 
 export function workspaceContext(card) {
@@ -277,7 +277,7 @@ export class WorkspaceNavigation {
         else card.pendingHistory=route.historyId;
         if(cached?.pageState)card.restorePageState(cached.pageState);
       }
-      if(card.current.status === "current" && !card.configuration && !card.configBusy)card.loadConfiguration?.();
+      if(card.current.status === "current" && !card.editors.configuration && !card.editors.configBusy)card.loadConfiguration?.();
       this.loadNotificationReport();
       this.updateReturn();
     } finally {this.restoring = false;}

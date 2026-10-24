@@ -52,7 +52,7 @@ test("Sources shows independent battery policy outcomes at 25 percent without a 
   const data=monitoringExample();
   const battery=baseSource("battery:registry:battery","Deck battery","battery",{entity_id:"sensor.deck_battery",attributes:{kind:["battery"],entity:["registry:battery"]},watched:false});
   data.inventory.catalog.candidates.push(battery);
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${battery.node_id}`,sourcesView:"source",sourceDetail:{nodeId:battery.node_id,battery_condition:null,battery_conditions:[
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:`source:${battery.node_id}`,sourcesView:"source",sourceDetail:{nodeId:battery.node_id,battery_condition:null,battery_conditions:[
     {policy_id:"early",policy_name:"Early battery warning",condition:{status:"warn",reason:"battery_low",message:"Battery reads 25% under the 30% policy.",evidence:{battery_pct:25,threshold:30}}},
     {policy_id:"standard",policy_name:"Standard battery warning",condition:{status:"pass",reason:"battery_ok",message:"Battery reads 25% above the 20% policy.",evidence:{battery_pct:25,threshold:20}}},
   ],members:[{name:"Deck battery level",state:"25",restored:false}]}};
@@ -73,7 +73,7 @@ test("Sources shows independent battery policy outcomes at 25 percent without a 
 function batteryInspectorFixture(members) {
   const data=monitoringExample(),source=baseSource("battery:registry:battery","Deck battery","battery",{entity_id:"sensor.deck_battery",attributes:{kind:["battery"],device:["camera-0"],entity:["registry:battery"]}});
   data.inventory.catalog.candidates.push(source);
-  return {current:{status:"current",data},configuration:{revision:"r1",settings:{monitoring_policies:[]}},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesSelection:"source:"+source.node_id,sourceDetail:{nodeId:source.node_id,battery_condition:null,battery_conditions:[],members}};
+  return {current:{status:"current",data},editors:{configuration:{revision:"r1",settings:{monitoring_policies:[]}}},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesSelection:"source:"+source.node_id,sourceDetail:{nodeId:source.node_id,battery_condition:null,battery_conditions:[],members}};
 }
 
 const batteryDetail=card=>sourcesBrowser(card).split('<section class="config-detail" aria-label="Selected source">')[1];

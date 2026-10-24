@@ -1,5 +1,5 @@
-import {escapeHtml as esc,inventoryRows} from "./model.mjs?v=109";
-import {chooseEntitySource,entitySelected,entitySelectionRows} from "./entity-selection.mjs?v=109";
+import {escapeHtml as esc,inventoryRows} from "./model.mjs?v=110";
+import {chooseEntitySource,entitySelected,entitySelectionRows} from "./entity-selection.mjs?v=110";
 
 export const SOURCE_CATEGORIES={
   any:{name:"Any entity type"},
@@ -51,14 +51,14 @@ export function flatSourceRows(card,policy) {
   const exact=policy.match?.[sourceField]||[];
   const eligible=source=>source.kind===kind(policy)&&(policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature"));
   const sources=candidates.filter(eligible);
-  const areas=new Map((card.configuration.areas||[]).map(area=>[area.id,area])),floors=new Map((card.configuration.floors||[]).map(floor=>[floor.id,floor.name]));
+  const areas=new Map((card.editors.configuration.areas||[]).map(area=>[area.id,area])),floors=new Map((card.editors.configuration.floors||[]).map(floor=>[floor.id,floor.name]));
   const context=source=>{
     const areaId=source.attributes?.area?.[0],area=areas.get(areaId);
     return source.kind==="integration"?"":areaId?area?[area.name,floors.get(area.floor_id)].filter(Boolean).join(" · "):"Area unavailable":"No area assigned";
   };
   let rows;
   if(entityPolicy(policy)) {
-    rows=entitySelectionRows({...card,entitySelection:null},policy).filter(row=>row.missing||matches(SOURCE_CATEGORIES[category]?.match,row.source?.attributes||{})||row.selected||saved.has(row.id)||exact.some(id=>row.source?.attributes?.entity?.includes(id))).map(row=>({...row,area:row.source?context(row.source):row.area,outsideCategory:!row.missing&&!matches(SOURCE_CATEGORIES[category]?.match,row.source.attributes||{})}));
+    rows=entitySelectionRows({...card,editors:{...card.editors,entitySelection:null}},policy).filter(row=>row.missing||matches(SOURCE_CATEGORIES[category]?.match,row.source?.attributes||{})||row.selected||saved.has(row.id)||exact.some(id=>row.source?.attributes?.entity?.includes(id))).map(row=>({...row,area:row.source?context(row.source):row.area,outsideCategory:!row.missing&&!matches(SOURCE_CATEGORIES[category]?.match,row.source.attributes||{})}));
   }else {
     rows=sources.filter(source=>matches(scope,source.attributes||{})||saved.has(identity(source))||exact.some(ref=>source.attributes?.[sourceField]?.includes(ref))).map(source=>{
       return {id:identity(source),source,name:source.name,entityId:source.entity_id||"",area:context(source),selected:sourceSelected(policy,source),outsideScope:!matches(scope,source.attributes||{}),blockedByDevice:deviceExcluded(policy,source)};
@@ -84,7 +84,7 @@ function sourceGroups(card,policy,mode) {
   delete scope.match.area;delete scope.match.label;delete scope.match[field(policy)];
   delete scope.included_sources;delete scope.excluded_sources;
   const rows=flatSourceRows(card,scope).filter(row=>row.source&&!row.source.disabled&&(!entityPolicy(policy)||!row.source.attributes?.entity_category?.length));
-  const groups=card.configuration[mode==="area"?"areas":"labels"]||[];
+  const groups=card.editors.configuration[mode==="area"?"areas":"labels"]||[];
   return groups.map(group=>({...group,count:rows.filter(row=>row.source.attributes?.[mode]?.includes(group.id)).length}));
 }
 
@@ -92,7 +92,7 @@ function sourceGroups(card,policy,mode) {
 export function flatSourceSelection(card,policy) {
   const mode=futureMode(policy),noun=sourceNoun(policy),pending=!complete(card),stale=card.current?.data?.catalog_stale,disabled=pending||stale;
   const attr=name=>`data-definition-kind="policies" data-definition-id="${esc(policy.id)}" data-definition-field="${name}"`;
-  const state=card.sourceSelection?.id===policy.id?card.sourceSelection:{query:"",selectedOnly:false};
+  const state=card.editors.sourceSelection?.id===policy.id?card.editors.sourceSelection:{query:"",selectedOnly:false};
   const rows=flatSourceRows(card,policy),query=(state.query||"").trim().toLocaleLowerCase();
   const visible=rows.filter(row=>(!state.selectedOnly||row.selected||row.missing)&&[row.name,row.area,row.entityId,row.id].join(" ").toLocaleLowerCase().includes(query));
   const choices={selected:"Do not include automatically",all:"Include automatically",...(kind(policy)==="integration"?{}:{area:"In selected areas",label:"With selected labels"})};
@@ -108,12 +108,12 @@ export function flatSourceSelection(card,policy) {
 export function editSourceSelection(card,event,element,invalidate,renderAfterEdit) {
   const name=element.dataset.definitionField;
   if(!name?.startsWith("source-"))return false;
-  const policy=card.settingsDraft.monitoring_policies.find(item=>item.id===element.dataset.definitionId);
+  const policy=card.editors.settingsDraft.monitoring_policies.find(item=>item.id===element.dataset.definitionId);
   if(!policy)return true;
-  card.sourceSelection=card.sourceSelection?.id===policy.id?card.sourceSelection:{id:policy.id,query:"",selectedOnly:false};
+  card.editors.sourceSelection=card.editors.sourceSelection?.id===policy.id?card.editors.sourceSelection:{id:policy.id,query:"",selectedOnly:false};
   if(["source-search","source-selected-only","source-show-all"].includes(name)) {
     if(event.type==="click")return true;
-    card.sourceSelection[name==="source-search"?"query":name==="source-show-all"?"showAll":"selectedOnly"]=name==="source-search"?element.value:element.checked;
+    card.editors.sourceSelection[name==="source-search"?"query":name==="source-show-all"?"showAll":"selectedOnly"]=name==="source-search"?element.value:element.checked;
     renderAfterEdit(card,element);return true;
   }
   if(!complete(card)||card.current.data.catalog_stale)return true;

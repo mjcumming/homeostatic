@@ -14,9 +14,9 @@ for(const [name,parameters,expected] of [
 ])test(`temperature policy list: ${name}`,()=>{
   const policy={...newMonitoringPolicy([],"temperature_limit"),name:"Interior temperature",parameters:{unit:"°F",duration_seconds:0,...parameters},notifications:[]};
   const settings={monitoring_policies:[policy],notification_definitions:emptyNotificationDefinitions("America/Chicago")};
-  const card={configuration:{revision:"one",settings:structuredClone(settings)},settingsDraft:structuredClone(settings)};
+  const card={editors:{configuration:{revision:"one",settings:structuredClone(settings)},settingsDraft:structuredClone(settings)}};
   const html=namedPolicies(card);
   assert.ok(html.includes(`<p class="small">${expected}</p>`),html);
   assert.doesNotMatch(html,/null°F|undefined°F/);
-  assert.deepEqual(card.configuration.settings,settings);
+  assert.deepEqual(card.editors.configuration.settings,settings);
 });

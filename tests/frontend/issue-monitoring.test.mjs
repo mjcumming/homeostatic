@@ -21,7 +21,7 @@ function fixture(count=3) {
   const settings={notifications:false,monitoring_policies:[{id:"entities",name:"Entities",enabled:true,check:"availability",match:{kind:["entity"]},parameters:{},notifications:[]},{id:"temperature",name:"Temperature",enabled:true,check:"temperature_limit",match:{kind:["entity"]},parameters:{},notifications:[]}]};
   const server={revision:"r1",settings:clone(settings)},calls=[];
   const data={schema_version:3,catalog_loaded:true,catalog_revision:"c1",inventory:{nodes:[entry,...entities,...checks],catalog:{candidates:[entry,...entities]},episodes,entity_status:Object.fromEntries(checks.map(check=>[check.node_id,{current:{status:"warn",reason:"unavailable"}}]))}};
-  const card={current:{status:"current",data},configuration:clone(server),settingsDraft:clone(settings),dialog:{open:false,close(){this.open=false;}},detail:null,
+  const card={current:{status:"current",data},editors:{configuration:clone(server),settingsDraft:clone(settings)},dialog:{open:false,close(){this.open=false;}},detail:null,
     issueRow:(_,episode)=>'<article data-episode="'+episode.episode_id+'"></article>',
     render(){this.html=issuesWorkspace(this);const episode=this.dialog.open&&(data.inventory.episodes.find(item=>item.episode_id===this.detail?.episodeId)||{episode_id:this.detail?.episodeId});this.dialogHtml=episode?issueAvailabilityAction(this,episode):"";},
     _hass:{async callWS(request){
@@ -33,7 +33,7 @@ function fixture(count=3) {
       data.inventory.episodes=data.inventory.episodes.filter(episode=>!excluded.has(canonical.get(episode.anchor)));
       return {saved:true};
     }}};
-  initializeScopedConfiguration(card);card.render();
+  initializeScopedConfiguration(card.editors);card.render();
   return {card,server,calls,entities,checks,episodes,data};
 }
 
@@ -168,7 +168,7 @@ test("stale catalog reviews and affected drafts block writes inside the issue",a
   const {card,calls,episodes}=fixture();open(card,episodes[0].episode_id);
   click(card,"remove");card.current.data.catalog_revision="c2";click(card,"confirm");await tick();
   assert.equal(saves(calls).length,0);assert.match(card.dialogHtml,/role="alert"/);
-  click(card,"remove");card.settingsDraft.monitoring_policies[0].name="Unfinished edit";click(card,"confirm");await tick();
+  click(card,"remove");card.editors.settingsDraft.monitoring_policies[0].name="Unfinished edit";click(card,"confirm");await tick();
   assert.equal(saves(calls).length,0);assert.match(card.dialogHtml,/draft/);
   assert.equal(card.dialog.open,true);
 });
@@ -183,7 +183,7 @@ test("source-level errors cannot replace an issue's confirmation or leak into it
 
 for(const [name,update] of [
   ["stale catalog",card=>{card.current.data.catalog_stale=true;}],
-  ["configuration loading",card=>{card.configBusy=true;}],
+  ["configuration loading",card=>{card.editors.configBusy=true;}],
   ["disconnection",card=>{card.current.status="disconnected";}],
 ]) {
   test("the issue review remains cancellable during "+name,()=>{
@@ -260,14 +260,14 @@ test("detail refresh holds a reviewed issue until refreshed monitoring releases 
   card.tools={showHistory:id=>history.push(id)};card.detailSequence=0;card.page="problems";
   data.inventory.episodes=data.inventory.episodes.slice(1);
   data.inventory.resolved_history={episodes:[{episode:episodes[0],resolution:"removed"}]};
-  card.scopedBusy="source-availability";
+  card.editors.scopedBusy="source-availability";
   const loadDetail=elements.get("homeostatic-card").prototype.loadDetail;
   card.readDetail=elements.get("homeostatic-card").prototype.readDetail;
   await loadDetail.call(card);
   assert.equal(card.dialog.open,true);assert.equal(card.page,"problems");
   assert.deepEqual(history,[]);assert.equal(calls.length,0);
   assert.equal(body.innerHTML,"Original issue evidence");assert.match(host.innerHTML,/Stopping monitoring…/);
-  card.scopedBusy=null;card.availabilityError="Save not confirmed";
+  card.editors.scopedBusy=null;card.availabilityError="Save not confirmed";
   await loadDetail.call(card);
   assert.match(host.innerHTML,/Save not confirmed/);assert.deepEqual(history,[]);
   card.loadConfiguration=async()=>{};card.loadDetail=()=>loadDetail.call(card);
@@ -288,7 +288,7 @@ test("a failed pending save preserves its error after connection loss removes th
   assert.equal(card.dialog.open,true);assert.equal(card.detail.episodeId,episodes[0].episode_id);
   assert.match(card.dialogHtml,/Disconnected save rejection/);
   assert.doesNotMatch(card.dialogHtml,/Cannot read|data-issue-availability="remove"/);
-  assert.equal(card.settingsBusy,false);
+  assert.equal(card.editors.settingsBusy,false);
 });
 
 test("an unavailable-to-current transition rebuilds a removed issue review and retains its failure",async t=>{
@@ -315,14 +315,14 @@ test("an unavailable-to-current transition rebuilds a removed issue review and r
   assert.equal(card.dialog.querySelector(".issue-availability"),null);
   data.inventory.episodes=data.inventory.episodes.slice(1);
   data.inventory.resolved_history={episodes:[{episode:episodes[0],resolution:"removed"}]};
-  card.current={status:"current",data};card.scopedBusy="source-availability";card.settingsBusy=true;
+  card.current={status:"current",data};card.editors.scopedBusy="source-availability";card.editors.settingsBusy=true;
   await card.loadDetail();
   assert.equal(body.inert,false);assert.equal(label.hidden,false);assert.equal(label.textContent,"Issue no longer current");
   assert.doesNotMatch(body.innerHTML,/Wait for monitoring to reconnect/);
   assert.match(body.innerHTML,/Stopping monitoring…/);
   assert.match(body.innerHTML,/<button[^>]*data-issue-availability="confirm"[^>]* disabled/);
   assert.match(body.innerHTML,/<button[^>]*data-issue-availability="cancel"[^>]* disabled/);
-  card.scopedBusy=null;card.settingsBusy=false;card.availabilityError="Save result could not be confirmed";
+  card.editors.scopedBusy=null;card.editors.settingsBusy=false;card.availabilityError="Save result could not be confirmed";
   await card.loadDetail();
   assert.match(host.innerHTML,/Save result could not be confirmed/);
   assert.match(host.innerHTML,/<button[^>]*data-issue-availability="confirm"[^>]* disabled/);
@@ -344,7 +344,7 @@ for(const [outcome,finish,expected] of [
     const pending=new Promise((accept,decline)=>{resolve=accept;reject=decline;});
     card._hass.callWS=async request=>{if(request.type==="homeostatic/save_settings")await pending;return callWS(request);};
     open(card,episodes[0].episode_id);click(card,"remove");click(card,"confirm");
-    assert.equal(card.settingsBusy,true);close(card);open(card,episodes[1].episode_id);
+    assert.equal(card.editors.settingsBusy,true);close(card);open(card,episodes[1].episode_id);
     finish({resolve,reject});await tick();
     assert.equal(card.dialog.open,true);assert.equal(card.detail.episodeId,episodes[1].episode_id);
     assert.equal(card.issueAvailabilityPlan,null);assert.equal(card.issueAvailabilityEpisode,null);

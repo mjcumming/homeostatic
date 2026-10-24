@@ -5,7 +5,7 @@ import {issuesWorkspace} from "../../custom_components/homeostatic/frontend/issu
 
 const reference="a".repeat(32), path=`/notification/${reference}`;
 function card(callWS) {
-  const c={current:{status:"current"},isConnected:true,_hass:{callWS},tools:{close(){}},dialog:{close(){}},render(){},opened:[],openDetail(value){this.opened.push(value);}};
+  const c={editors:{},current:{status:"current"},isConnected:true,_hass:{callWS},tools:{close(){}},dialog:{close(){}},render(){},opened:[],openDetail(value){this.opened.push(value);}};
   c.navigation=new WorkspaceNavigation(c);return c;
 }
 test("short scope round trips with an exact issue and never expands its URL",()=>{

@@ -10,7 +10,7 @@ await import("../../custom_components/homeostatic/frontend/homeostatic.js");
 const Card=elements.get("homeostatic-card-v39");
 
 for(const [view,page] of [["overview","problems"],["functions","problems"],["house","sources"],["coverage","sources"]])test(`retired ${view} card route opens the current ${page} workspace`,()=>{
-  const card=Object.create(Card.prototype);card.render=()=>{};
+  const card=Object.assign(Object.create(Card.prototype),{editors:{}});card.render=()=>{};
   card.setConfig({view});
   assert.equal(card.page,page);
   assert.equal(card.config.view,page);
@@ -18,11 +18,11 @@ for(const [view,page] of [["overview","problems"],["functions","problems"],["hou
 
 test("current configuration loads without a legacy rule or alert response",async()=>{
   const settings={timings:{settle:120},notifications:false,consumer:null,monitoring_policies:[],notification_definitions:{timezone:"UTC",methods:{},default:[],repairs:[],broken_automations:[],assignments:{},automation_profiles:{}}};
-  const card=Object.create(Card.prototype),calls=[];
+  const card=Object.assign(Object.create(Card.prototype),{editors:{}}),calls=[];
   Object.assign(card,{render(){},_hass:{async callWS(request){calls.push(request);return {revision:"current",settings:structuredClone(settings)};}}});
   await card.loadConfiguration();
-  assert.equal(card.configError,null);
-  assert.deepEqual(card.settingsDraft,settings);
+  assert.equal(card.editors.configError,null);
+  assert.deepEqual(card.editors.settingsDraft,settings);
   assert.deepEqual(calls,[{type:"homeostatic/configuration",section:"settings"}]);
 });
 

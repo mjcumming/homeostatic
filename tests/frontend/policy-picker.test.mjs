@@ -29,7 +29,7 @@ function fixture(type="battery",mode="selected",values=[]) {
   const policy=newMonitoringPolicy([],type),field=mode==="selected"?type.startsWith("ups_")?"device":"entity":mode;
   policy.match={...policy.match,...(mode==="all"?{}:{[field]:values})};
   const settings=notificationSettings();settings.monitoring_policies=[policy];
-  const card={sourceSelection:{id:policy.id,query:"",selectedOnly:false},current:{status:"current",data:{schema_version:3,catalog_loaded:true,available:true,inventory:{nodes:[],catalog:{candidates:rows}}}},configuration:{revision:"one",settings:structuredClone(settings),areas,floors,labels},settingsDraft:settings};
+  const card={editors:{sourceSelection:{id:policy.id,query:"",selectedOnly:false},configuration:{revision:"one",settings:structuredClone(settings),areas,floors,labels},settingsDraft:settings},current:{status:"current",data:{schema_version:3,catalog_loaded:true,available:true,inventory:{nodes:[],catalog:{candidates:rows}}}}};
   return {card,policy,rows};
 }
 function edit(card,policy,field,value,extra={}) {
@@ -122,6 +122,7 @@ test("monitored-only filtering uses effective positive selection without rewriti
 });
 test("focused availability retains outside-category inclusions and missing choices without rewriting detection settings",()=>{
   const {card,policy,rows}=fixture("entity");policy.match={kind:["entity"],domain:["camera"],entity:[]};policy.parameters={duration_seconds:300};
+  card.editors.entitySelection={id:policy.id,query:"Earlier tree search",selectedOnly:true};
   policy.included_sources=["entity:registry:temperature","entity:registry:gone"];policy.excluded_sources=["entity:registry:removed"];
   const before=structuredClone(policy),choices=flatSourceRows(card,policy);
   assert.deepEqual(choices.map(row=>row.id).sort(),["entity:registry:camera","entity:registry:temperature","entity:registry:gone","entity:registry:removed"].sort());

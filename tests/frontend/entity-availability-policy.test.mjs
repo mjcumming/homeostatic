@@ -10,14 +10,14 @@ function fixture(policy=newMonitoringPolicy([],"entity")) {
   const calls=[],rows=[entity("door"),entity("hall"),entity("front","lock")];
   let confirmed=structuredClone(settings);
   const card={page:"policies",definitionSelection:{kind:"policies",id:policy.id},current:{status:"current",data:{schema_version:3,catalog_loaded:true,inventory:{nodes:[],catalog:{candidates:rows}}}},
-    configuration:{revision:"one",settings:structuredClone(settings)},settingsDraft:structuredClone(settings),
+    editors:{configuration:{revision:"one",settings:structuredClone(settings)},settingsDraft:structuredClone(settings)},
     main:{querySelector:()=>null,querySelectorAll:()=>[]},render(){},_hass:{async callWS(request){
       calls.push(structuredClone(request));
       if(request.type==="homeostatic/save_settings"){confirmed=structuredClone(request.settings);return {saved:true};}
       return {revision:"two",settings:structuredClone(confirmed)};
     }}};
   namedPolicies(card);
-  return {card,calls,rows,policy:card.settingsDraft.monitoring_policies[0],scope:{kind:"policy",id:policy.id}};
+  return {card,calls,rows,policy:card.editors.settingsDraft.monitoring_policies[0],scope:{kind:"policy",id:policy.id}};
 }
 function change(card,field,value,extra={}) {
   const target={dataset:{definitionKind:"policies",definitionId:card.definitionSelection.id,definitionField:field,...extra},value:String(value),checked:value,type:field.startsWith("parameters:")?"number":typeof value==="boolean"?"checkbox":"select-one"};
@@ -39,8 +39,8 @@ test("new custom entity availability starts disabled and empty without enrolling
   assert.deepEqual(policy,before);
   rows.push(entity("new"));assert.equal(entitySelected(policy,rows.at(-1)),false);
   change(card,"name","Focused cameras");assert.equal(await saveScopedConfiguration(card,scope),true);
-  assert.deepEqual(card.configuration.settings.monitoring_policies[0].match.entity,[]);
-  assert.ok(entitySelectionRows(card,card.configuration.settings.monitoring_policies[0]).every(row=>!row.selected));
+  assert.deepEqual(card.editors.configuration.settings.monitoring_policies[0].match.entity,[]);
+  assert.ok(entitySelectionRows(card,card.editors.configuration.settings.monitoring_policies[0]).every(row=>!row.selected));
 });
 
 test("explicit selection and save retain only chosen entities and leave new entities unchecked",async()=>{
@@ -48,16 +48,16 @@ test("explicit selection and save retain only chosen entities and leave new enti
   change(card,"entity-choice",true,{definitionValue:"entity:registry:door"});
   assert.equal(entitySelected(policy,rows[0]),true);assert.equal(entitySelected(policy,rows[1]),false);
   assert.equal(await saveScopedConfiguration(card,scope),true);
-  assert.deepEqual(card.configuration.settings.monitoring_policies[0].included_sources,["entity:registry:door"]);
-  rows.push(entity("future"));assert.equal(entitySelected(card.configuration.settings.monitoring_policies[0],rows.at(-1)),false);
+  assert.deepEqual(card.editors.configuration.settings.monitoring_policies[0].included_sources,["entity:registry:door"]);
+  rows.push(entity("future"));assert.equal(entitySelected(card.editors.configuration.settings.monitoring_policies[0],rows.at(-1)),false);
 });
 
 test("legacy absent availability wait renders effective zero without changing the saved policy",async()=>{
   const existing={...newMonitoringPolicy([],"entity"),match:{kind:["entity"]},enabled:true};
   const {card,policy,scope,calls}=fixture(existing),before=structuredClone(policy);
   assert.match(durationControl(card),/value="0"/);assert.match(namedPolicies(card),/Report unavailable after/);
-  assert.deepEqual(policy,before);assert.equal(scopedDirty(card,scope),false);
-  change(card,"duration-unit:duration_seconds","hours");assert.equal(scopedDirty(card,scope),false);
+  assert.deepEqual(policy,before);assert.equal(scopedDirty(card.editors,scope),false);
+  change(card,"duration-unit:duration_seconds","hours");assert.equal(scopedDirty(card.editors,scope),false);
   change(card,"name","Renamed policy");assert.equal(await saveScopedConfiguration(card,scope),true);
   assert.deepEqual(calls[0].settings.monitoring_policies[0].parameters,{});
 });
@@ -68,13 +68,13 @@ for(const [unit,value,seconds] of [["minutes",1.5,90],["hours",0.25,900],["secon
   assert.equal(policy.parameters.duration_seconds,seconds);assert.equal(await saveScopedConfiguration(card,scope),true);
   const settings=calls[0].settings;
   assert.equal(settings.monitoring_policies[0].parameters.duration_seconds,seconds);
-  assert.equal(settings.notifications,false);assert.equal(settings.recovery_seconds,45);assert.equal(scopedDirty(card,scope),false);
+  assert.equal(settings.notifications,false);assert.equal(settings.recovery_seconds,45);assert.equal(scopedDirty(card.editors,scope),false);
 });
 
 for(const value of ["",-1,0.5,31536001,NaN])test(`availability wait rejects ${String(value)||"blank"} with a nearby error before saving`,()=>{
   const {card,policy,calls}=fixture();change(card,"parameters:duration_seconds",value,{durationUnit:"seconds"});
   const before=structuredClone(policy);click(card,"save-scoped");
-  assert.deepEqual(calls,[]);assert.deepEqual(policy,before);assert.match(card.scopedError,/whole number of seconds/);
+  assert.deepEqual(calls,[]);assert.deepEqual(policy,before);assert.match(card.editors.scopedError,/whole number of seconds/);
   assert.match(namedPolicies(card),/role="alert"/);assert.match(durationControl(card),/aria-invalid="true"/);
 });
 
@@ -82,7 +82,7 @@ test("partial-minute availability waits start in seconds and presentation unit c
   const {card,policy,scope}=fixture({...newMonitoringPolicy([],"entity"),parameters:{duration_seconds:61}});
   assert.match(durationControl(card),/value="61"[^>]*data-duration-unit="seconds"/);
   change(card,"duration-unit:duration_seconds","hours");
-  assert.equal(policy.parameters.duration_seconds,61);assert.equal(scopedDirty(card,scope),false);
+  assert.equal(policy.parameters.duration_seconds,61);assert.equal(scopedDirty(card.editors,scope),false);
 });
 
 test("editing a wait retains the native number input until Save",()=>{
@@ -102,18 +102,18 @@ test("policy summaries show their saved effective availability wait",()=>{
 test("only overlapping enabled availability policies are linked with their independent waits",()=>{
   const {card,policy}=fixture({...newMonitoringPolicy([],"entity"),match:{kind:["entity"],entity:["registry:door"]},parameters:{duration_seconds:300}});
   const other={...newMonitoringPolicy([],"entity"),id:"important",name:"Important equipment",enabled:true,match:{kind:["entity"]}};
-  card.configuration.settings.monitoring_policies.push(other,{...other,id:"disabled",name:"Disabled coverage",enabled:false},{...other,id:"locks",name:"Locks",match:{kind:["entity"],domain:["lock"]}});
+  card.editors.configuration.settings.monitoring_policies.push(other,{...other,id:"disabled",name:"Disabled coverage",enabled:false},{...other,id:"locks",name:"Locks",match:{kind:["entity"],domain:["lock"]}});
   assert.match(namedPolicies(card),/Other enabled policies also monitor selected entities/);
   assert.match(namedPolicies(card),/Important equipment: Unavailable without waiting/);assert.doesNotMatch(namedPolicies(card),/Disabled coverage|Locks:/);
-  const before=structuredClone(card.settingsDraft);click(card,"open-policy","important");
-  assert.equal(card.definitionSelection.id,"important");assert.deepEqual(card.settingsDraft,before);
+  const before=structuredClone(card.editors.settingsDraft);click(card,"open-policy","important");
+  assert.equal(card.definitionSelection.id,"important");assert.deepEqual(card.editors.settingsDraft,before);
   card.definitionSelection={kind:"policies",id:policy.id};policy.match.entity=[];
   assert.doesNotMatch(namedPolicies(card),/Other enabled policies/);
 });
 
 test("duplicate retains the saved scope and wait in an independent disabled policy",()=>{
   const {card,policy}=fixture({...newMonitoringPolicy([],"entity"),enabled:true,match:{kind:["entity"]},match_any:[{domain:["camera"]}],parameters:{duration_seconds:300},included_sources:["entity:registry:front"]});
-  click(card,"duplicate");const copy=card.settingsDraft.monitoring_policies.at(-1);
+  click(card,"duplicate");const copy=card.editors.settingsDraft.monitoring_policies.at(-1);
   assert.notEqual(copy.id,policy.id);assert.equal(copy.enabled,false);assert.deepEqual(copy.match,policy.match);
   assert.deepEqual(copy.match_any,policy.match_any);assert.deepEqual(copy.parameters,{duration_seconds:300});
   copy.match_any[0].domain.push("lock");assert.deepEqual(policy.match_any,[{domain:["camera"]}]);

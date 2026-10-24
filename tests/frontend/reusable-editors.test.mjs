@@ -15,7 +15,7 @@ function fixture() {
   const policy={...newMonitoringPolicy([],"thermostat"),name:"Hall thermostat",enabled:true,notifications:[{id:"phone",timing:{mode:"immediate"},methods:["phone"]},{id:"report",timing:{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]},methods:["email"]}]};
   const settings={notification_definitions:definitions,monitoring_policies:[policy],timings:{},notifications:false,consumer:null};
   const calls=[];let confirmed=structuredClone(settings);
-  const card={page:"policies",current:{status:"current",data:monitoringExample()},configuration:{revision:"one",settings:structuredClone(settings),notification_people:[{id:"owner-internal",entity_id:"person.owner",name:"Owner",user_id:"owner-user",administrator:true}],delivery_targets:[{channel:"phone:owner",name:"Owner's phone",type:"App",available:true},{channel:"notify:email",name:"Email",type:"Email",available:true},{channel:"satellite:kitchen",name:"Kitchen voice",type:"Voice",available:true},{channel:"sms:family:",name:"Family SMS",type:"SMS",requires_target:true}]},settingsDraft:settings,main:{querySelector(){return null;},querySelectorAll(){return [];}},render(){},async loadConfiguration(){this.configuration={...this.configuration,settings:structuredClone(this.settingsDraft),revision:"two"};},_hass:{async callWS(request){calls.push(structuredClone(request));if(request.type==="homeostatic/save_settings"){confirmed=structuredClone(request.settings);return {saved:true};}if(request.type==="homeostatic/configuration")return {...card.configuration,settings:structuredClone(confirmed),revision:"two"};return {preview_token:"exact",open_problems:1,requests_now:0,monitoring:{watched:1,added:[],removed:[],added_count:0,removed_count:0,functions:[],ended_issues:["issue-1"]}};}}};
+  const card={page:"policies",current:{status:"current",data:monitoringExample()},editors:{configuration:{revision:"one",settings:structuredClone(settings),notification_people:[{id:"owner-internal",entity_id:"person.owner",name:"Owner",user_id:"owner-user",administrator:true}],delivery_targets:[{channel:"phone:owner",name:"Owner's phone",type:"App",available:true},{channel:"notify:email",name:"Email",type:"Email",available:true},{channel:"satellite:kitchen",name:"Kitchen voice",type:"Voice",available:true},{channel:"sms:family:",name:"Family SMS",type:"SMS",requires_target:true}]},settingsDraft:settings},main:{querySelector(){return null;},querySelectorAll(){return [];}},render(){},async loadConfiguration(){this.editors.configuration={...this.editors.configuration,settings:structuredClone(this.editors.settingsDraft),revision:"two"};},_hass:{async callWS(request){calls.push(structuredClone(request));if(request.type==="homeostatic/save_settings"){confirmed=structuredClone(request.settings);return {saved:true};}if(request.type==="homeostatic/configuration")return {...card.editors.configuration,settings:structuredClone(confirmed),revision:"two"};return {preview_token:"exact",open_problems:1,requests_now:0,monitoring:{watched:1,added:[],removed:[],added_count:0,removed_count:0,functions:[],ended_issues:["issue-1"]}};}}};
   return {card,calls};
 }
 async function cardPrototype() {
@@ -41,13 +41,13 @@ function notificationEditorFixture(kind,existing=true) {
   const context=fixture(),{card}=context,navigation=[],focused=[];
   const id=kind==="methods"?"phone":"morning";
   const profile={name:"Morning",timing:{mode:"report",at:"08:00",weekdays:[0,1,2,3,4,5,6]},methods:["phone"]};
-  card.settingsDraft.notification_definitions.profiles={morning:structuredClone(profile)};
-  card.configuration.settings.notification_definitions.profiles={morning:structuredClone(profile)};
+  card.editors.settingsDraft.notification_definitions.profiles={morning:structuredClone(profile)};
+  card.editors.configuration.settings.notification_definitions.profiles={morning:structuredClone(profile)};
   card.page="notifications";card.notificationSection=kind;
   if(existing)card.definitionSelection={kind,id};else click(card,"add",kind);
   const selected=card.definitionSelection.id;
   change(card,kind,selected,"name","Kitchen Echo");
-  card.settingsDraft.monitoring_policies[0].name="Unrelated draft";
+  card.editors.settingsDraft.monitoring_policies[0].name="Unrelated draft";
   card.navigation={capture(){const before={page:card.page,selection:card.definitionSelection};navigation.push(["capture",before]);return before;},finish(before){navigation.push(["finish",before]);}};
   card.main.querySelectorAll=selector=>selector.includes("data-definition-action")?[{dataset:{definitionKind:kind,definitionId:selected},focus(){focused.push(selected);}}]:[];
   return {...context,kind,id:selected,navigation,focused};
@@ -62,20 +62,20 @@ function deferred() {
 
 for(const kind of ["methods","profiles"])for(const existing of [true,false])test(`${existing?"existing":"new"} ${kind} Save returns to its updated list without a success message`,async()=>{
   const {card,calls,id,navigation,focused}=notificationEditorFixture(kind,existing);
-  const submitted=structuredClone(card.settingsDraft.notification_definitions[kind][id]);
-  card.deliveryPicker={id,field:"destinations"};
+  const submitted=structuredClone(card.editors.settingsDraft.notification_definitions[kind][id]);
+  card.editors.deliveryPicker={id,field:"destinations"};
   click(card,"save-scoped",kind,id);await nextTurn();
   assert.equal(card.page,"notifications");assert.equal(card.notificationSection,kind);
-  assert.equal(card.definitionSelection,null);assert.equal(card.deliveryPicker,null);
-  assert.deepEqual(card.configuration.settings.notification_definitions[kind][id],submitted);
-  assert.equal(card.settingsDraft.monitoring_policies[0].name,"Unrelated draft");
-  assert.equal(card.configuration.settings.monitoring_policies[0].name,"Hall thermostat");
+  assert.equal(card.definitionSelection,null);assert.equal(card.editors.deliveryPicker,null);
+  assert.deepEqual(card.editors.configuration.settings.notification_definitions[kind][id],submitted);
+  assert.equal(card.editors.settingsDraft.monitoring_policies[0].name,"Unrelated draft");
+  assert.equal(card.editors.configuration.settings.monitoring_policies[0].name,"Hall thermostat");
   assert.equal(calls.filter(call=>call.type==="homeostatic/save_settings").length,1);
   assert.deepEqual(navigation.map(([action])=>action),["capture","finish"]);
   assert.equal(navigation[1][1],navigation[0][1]);assert.deepEqual(focused,[id]);
   assert.doesNotMatch(namedNotifications(card),/definition-save-result|Kitchen Echo saved\.|Changes saved\./);
   click(card,"edit",kind,id);
-  assert.deepEqual(card.settingsDraft.notification_definitions[kind][id],submitted);
+  assert.deepEqual(card.editors.settingsDraft.notification_definitions[kind][id],submitted);
   assert.doesNotMatch(namedNotifications(card),/Kitchen Echo saved\./);
 });
 
@@ -86,8 +86,8 @@ for(const kind of ["methods","profiles"])for(const failure of ["save","refresh"]
   card._hass.callWS=async request=>{if(request.type===failedType)throw Object.assign(Error("Synthetic save failure"),{code:"save_failed"});return original(request);};
   click(card,"save-scoped",kind,id);await nextTurn();
   assert.equal(card.definitionSelection,selection);assert.equal(card.page,"notifications");
-  assert.equal(card.settingsDraft.notification_definitions[kind][id].name,"Kitchen Echo");
-  assert.match(card.scopedError,/Synthetic save failure|Changes were saved, but current settings could not be reloaded/);
+  assert.equal(card.editors.settingsDraft.notification_definitions[kind][id].name,"Kitchen Echo");
+  assert.match(card.editors.scopedError,/Synthetic save failure|Changes were saved, but current settings could not be reloaded/);
   assert.deepEqual(navigation,[]);assert.deepEqual(focused,[]);
   assert.doesNotMatch(namedNotifications(card),/Kitchen Echo saved\./);
 });
@@ -100,8 +100,8 @@ for(const kind of ["methods","profiles"])test(`${kind} removed before the saved 
     return response;
   };
   click(card,"save-scoped",kind,id);await nextTurn();
-  assert.equal(card.configuration.settings.notification_definitions[kind][id],undefined);
-  assert.equal(card.settingsDraft.notification_definitions[kind][id],undefined);
+  assert.equal(card.editors.configuration.settings.notification_definitions[kind][id],undefined);
+  assert.equal(card.editors.settingsDraft.notification_definitions[kind][id],undefined);
   assert.equal(card.definitionSelection,selection);
   assert.deepEqual(navigation,[]);assert.deepEqual(focused,[]);
   assert.doesNotMatch(namedNotifications(card),/Kitchen Echo saved\./);
@@ -110,17 +110,17 @@ for(const kind of ["methods","profiles"])test(`${kind} removed before the saved 
 for(const kind of ["methods","profiles"])for(const [label,move] of [
   ["another page",card=>{card.page="policies";card.definitionSelection={kind:"policies",id:"policy-1"};}],
   ["another editor",(card,kind)=>{card.definitionSelection={kind,id:"other"};}],
-  ["newer edits",(card,kind,id)=>{card.settingsDraft.notification_definitions[kind][id].name="Newer unsaved name";}],
+  ["newer edits",(card,kind,id)=>{card.editors.settingsDraft.notification_definitions[kind][id].name="Newer unsaved name";}],
 ])test(`${kind} Save completion preserves ${label}`,async()=>{
   const {card,id,navigation,focused}=notificationEditorFixture(kind),entered=deferred(),release=deferred(),original=card._hass.callWS;
   card._hass.callWS=async request=>{if(request.type==="homeostatic/save_settings"){entered.resolve();await release.promise;}return original(request);};
   click(card,"save-scoped",kind,id);await entered.promise;
   move(card,kind,id);
-  const page=card.page,selection=card.definitionSelection,name=card.settingsDraft.notification_definitions[kind][id].name;
+  const page=card.page,selection=card.definitionSelection,name=card.editors.settingsDraft.notification_definitions[kind][id].name;
   release.resolve();await nextTurn();
   assert.equal(card.page,page);assert.equal(card.definitionSelection,selection);
-  assert.equal(card.settingsDraft.notification_definitions[kind][id].name,name);
-  assert.equal(card.configuration.settings.notification_definitions[kind][id].name,"Kitchen Echo");
+  assert.equal(card.editors.settingsDraft.notification_definitions[kind][id].name,name);
+  assert.equal(card.editors.configuration.settings.notification_definitions[kind][id].name,"Kitchen Echo");
   assert.deepEqual(navigation,[]);assert.deepEqual(focused,[]);
 });
 
@@ -135,7 +135,7 @@ for(const [label,prepare] of [
   ["another method",card=>{card.definitionSelection={kind:"methods",id:"email"};}],
   ["a new method",card=>click(card,"add","methods")],
   ["a duplicated method",card=>click(card,"duplicate","methods","phone")],
-  ["changed destinations",card=>{card.settingsDraft.notification_definitions.methods.phone.destinations=["notify:email"];card.configuration.settings.notification_definitions.methods.phone.destinations=["notify:email"];}],
+  ["changed destinations",card=>{card.editors.settingsDraft.notification_definitions.methods.phone.destinations=["notify:email"];card.editors.configuration.settings.notification_definitions.methods.phone.destinations=["notify:email"];}],
   ["an unsaved edit",card=>change(card,"methods","phone","name","Changed name")],
 ])test(`delivery test outcome is hidden for ${label}`,async()=>{
   const {card}=fixture();card.page="notifications";card.definitionSelection={kind:"methods",id:"phone"};
@@ -158,37 +158,37 @@ for(const stage of ["preview","request"])test(`late ${stage} test completion nev
 });
 
 test("rendering policies, definitions and setup does not stage changes or send requests",()=>{
-  const {card,calls}=fixture(),before=structuredClone(card.settingsDraft);
+  const {card,calls}=fixture(),before=structuredClone(card.editors.settingsDraft);
   card.definitionSelection={kind:"policies",id:"policy-1"};
   assert.match(namedPolicies(card),/Thermostat progress/);
   card.page="notifications";
   assert.match(installationSettings(card),/Delivery methods/);
-  assert.deepEqual(structuredClone(card.settingsDraft),before);assert.equal(calls.length,0);
+  assert.deepEqual(structuredClone(card.editors.settingsDraft),before);assert.equal(calls.length,0);
   card.notificationSection="methods";
-  card.settingsDraft.notification_definitions.methods={};
-  card.configuration.settings.notification_definitions.methods={};
+  card.editors.settingsDraft.notification_definitions.methods={};
+  card.editors.configuration.settings.notification_definitions.methods={};
   assert.match(namedNotifications(card),/No saved delivery methods yet/);
-  assert.deepEqual(card.settingsDraft.notification_definitions.methods,{});
+  assert.deepEqual(card.editors.settingsDraft.notification_definitions.methods,{});
 });
 
 test("copying a named policy is independent, inactive and preserves explicit notification pairings",()=>{
-  const {card}=fixture(),original=structuredClone(card.settingsDraft.monitoring_policies[0]);
+  const {card}=fixture(),original=structuredClone(card.editors.settingsDraft.monitoring_policies[0]);
   click(card,"duplicate","policies","policy-1");
-  const copy=card.settingsDraft.monitoring_policies[1];
+  const copy=card.editors.settingsDraft.monitoring_policies[1];
   assert.equal(copy.id,"policy-2");assert.equal(copy.enabled,false);
   change(card,"policies",copy.id,"parameters:margin",4);
-  assert.deepEqual(card.settingsDraft.monitoring_policies[0],original);
+  assert.deepEqual(card.editors.settingsDraft.monitoring_policies[0],original);
   assert.deepEqual(copy.notifications,original.notifications);
 });
 
 test("adding selects a permanent monitoring type without inheriting notifications",()=>{
-  const {card}=fixture();card.definitionTemplate="thermostat";click(card,"add","policies");
-  assert.equal(card.settingsDraft.monitoring_policies.length,1);
+  const {card}=fixture();card.editors.definitionTemplate="thermostat";click(card,"add","policies");
+  assert.equal(card.editors.settingsDraft.monitoring_policies.length,1);
   assert.match(namedPolicies(card),/Choose what to watch/);
   click(card,"create","policies");
-  const policy=card.settingsDraft.monitoring_policies[1];
+  const policy=card.editors.settingsDraft.monitoring_policies[1];
   assert.deepEqual(policy.notifications,[]);assert.equal(policy.enabled,false);
-  assert.equal(card.settingsDraft.notifications,false);
+  assert.equal(card.editors.settingsDraft.notifications,false);
   const before=structuredClone(policy);change(card,"policies",policy.id,"check","battery");
   assert.deepEqual(policy,before);
   assert.doesNotMatch(namedPolicies(card),/data-definition-field="check"/);
@@ -196,49 +196,49 @@ test("adding selects a permanent monitoring type without inheriting notification
 
 
 test("editing a flat source remains owned by the named policy until Save",()=>{
-  const {card}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
+  const {card}=fixture(),policy=card.editors.settingsDraft.monitoring_policies[0];
   const source={node_id:"entity:registry:hall",name:"Hall thermostat",kind:"entity",attributes:{kind:["entity"],domain:["climate"],entity:["registry:hall"]}};
   card.current.data.inventory.catalog.candidates.push(source);policy.match={kind:["entity"],entity:[]};
-  const saved=structuredClone(card.configuration.settings.monitoring_policies);
+  const saved=structuredClone(card.editors.configuration.settings.monitoring_policies);
   change(card,"policies",policy.id,"source-choice",true,{definitionValue:source.node_id});
   assert.deepEqual(policy.match.entity,["registry:hall"]);
-  assert.deepEqual(card.configuration.settings.monitoring_policies,saved);
+  assert.deepEqual(card.editors.configuration.settings.monitoring_policies,saved);
 });
 
 test("Add policy offers categories only for unavailable entities and preserves the chosen scope through duplication",()=>{
-  const {card}=fixture();card.definitionTemplate="entity";click(card,"add","policies");
+  const {card}=fixture();card.editors.definitionTemplate="entity";click(card,"add","policies");
   assert.match(namedPolicies(card),/data-definition-category/);assert.match(namedPolicies(card),/>Unavailable entities</);
   editReusable(card,{type:"change",target:{dataset:{definitionCategory:""},value:"safety_sensors"}});
-  click(card,"create","policies");const original=card.settingsDraft.monitoring_policies.at(-1);
+  click(card,"create","policies");const original=card.editors.settingsDraft.monitoring_policies.at(-1);
   assert.equal(sourceCategory(original),"safety_sensors");assert.deepEqual(original.match.entity,[]);
   change(card,"policies",original.id,"name","House sensors");change(card,"policies",original.id,"parameters:duration_seconds",120);
-  click(card,"duplicate","policies",original.id);const copy=card.settingsDraft.monitoring_policies.at(-1);
+  click(card,"duplicate","policies",original.id);const copy=card.editors.settingsDraft.monitoring_policies.at(-1);
   assert.notEqual(copy.id,original.id);assert.equal(copy.enabled,false);assert.equal(sourceCategory(copy),"safety_sensors");
   assert.deepEqual(copy.match,original.match);assert.deepEqual(copy.parameters,original.parameters);
-  card.policyCreating=true;card.definitionTemplate="battery";assert.doesNotMatch(namedPolicies(card),/data-definition-category/);
+  card.editors.policyCreating=true;card.editors.definitionTemplate="battery";assert.doesNotMatch(namedPolicies(card),/data-definition-category/);
 });
 
 test("thermostat unit edits convert differences without applying a temperature offset",()=>{
   const {card}=fixture();change(card,"policies","policy-1","parameters:unit","°C");
-  const values=card.settingsDraft.monitoring_policies[0].parameters;
+  const values=card.editors.settingsDraft.monitoring_policies[0].parameters;
   assert.equal(values.margin,10/9);assert.equal(values.progress,10/9);assert.equal(values.worsening,10/9);
   assert.equal(values.progress_seconds,3600);
   change(card,"policies","policy-1","parameters:unit","°F");assert.equal(values.margin,2);
 });
 
 test("temperature limit unit edits preserve absolute bounds",()=>{
-  const {card}=fixture();card.settingsDraft.monitoring_policies=[newMonitoringPolicy([],"temperature_limit")];
+  const {card}=fixture();card.editors.settingsDraft.monitoring_policies=[newMonitoringPolicy([],"temperature_limit")];
   change(card,"policies","policy-1","parameters:minimum",32);change(card,"policies","policy-1","parameters:maximum",77);
   change(card,"policies","policy-1","parameters:unit","°C");
-  assert.deepEqual(card.settingsDraft.monitoring_policies[0].parameters,{unit:"°C",duration_seconds:0,minimum:0,maximum:25});
-  assert.match(namedPolicies({...card,definitionSelection:{kind:"policies",id:"policy-1"}}),/data-definition-field="parameters:duration_seconds"[^>]*value="0"[^>]*required/);
+  assert.deepEqual(card.editors.settingsDraft.monitoring_policies[0].parameters,{unit:"°C",duration_seconds:0,minimum:0,maximum:25});
+  assert.match(namedPolicies({editors:{...card.editors,},...card,definitionSelection:{kind:"policies",id:"policy-1"}}),/data-definition-field="parameters:duration_seconds"[^>]*value="0"[^>]*required/);
 });
 
 for(const kind of ["methods"])test(`${kind} duplicate gets a stable new id and no assignments`,()=>{
   const {card}=fixture(),id="phone";
   click(card,"duplicate",kind,id);const copyId=card.definitionSelection.id;
-  assert.notEqual(copyId,id);assert.deepEqual(definitionUses(card.settingsDraft,kind,copyId),[]);
-  change(card,kind,copyId,"name","Renamed copy");assert.equal(card.settingsDraft.notification_definitions[kind][copyId].name,"Renamed copy");
+  assert.notEqual(copyId,id);assert.deepEqual(definitionUses(card.editors.settingsDraft,kind,copyId),[]);
+  change(card,kind,copyId,"name","Renamed copy");assert.equal(card.editors.settingsDraft.notification_definitions[kind][copyId].name,"Renamed copy");
 });
 
 
@@ -246,7 +246,7 @@ for(const kind of ["methods"])test(`${kind} duplicate gets a stable new id and n
 
 test("presence fallback must be chosen explicitly and fixed methods have no fallback fields",()=>{
   const {card}=fixture();click(card,"add","methods");
-  const id=card.definitionSelection.id,method=card.settingsDraft.notification_definitions.methods[id];
+  const id=card.definitionSelection.id,method=card.editors.settingsDraft.notification_definitions.methods[id];
   assert.deepEqual(method,{name:"New delivery method",mode:"fixed",destinations:[]});
   change(card,"methods",id,"mode","home_away");
   assert.equal(method.skip,false);assert.deepEqual(method.fallback,[]);
@@ -273,7 +273,7 @@ test("SMS recipients are explicit and encoded without making a service request",
   const {card,calls}=fixture();
   card.main.querySelectorAll=()=>[{dataset:{smsMethod:"phone",smsField:"destinations",smsService:"sms:family:"},value:"+15551234567"}];
   click(card,"add-sms","methods","phone",{smsField:"destinations",smsService:"sms:family:"});
-  assert.deepEqual(card.settingsDraft.notification_definitions.methods.phone.destinations,["phone:owner","sms:family:%2B15551234567"]);
+  assert.deepEqual(card.editors.settingsDraft.notification_definitions.methods.phone.destinations,["phone:owner","sms:family:%2B15551234567"]);
   assert.equal(calls.length,0);
 });
 
@@ -285,7 +285,7 @@ test("saved method tests use an internal exact-target check with one user action
   assert.match(namedNotifications(card),/>Send test</);assert.doesNotMatch(namedNotifications(card),/Preview delivery method/);
   await testDeliveryMethod(card,"phone");
   assert.deepEqual(calls[1],{type:"homeostatic/test_delivery_method",method_id:"phone",revision:"one",preview_token:"bound-presence"});
-  assert.match(card.deliveryMethodNotice,/Owner phone/);
+  assert.match(card.editors.deliveryMethodNotice,/Owner phone/);
 });
 
 test("editing a saved method prevents test requests until it is saved",async()=>{
@@ -304,29 +304,29 @@ test("source detail links name the actual contributing policy and opening retain
   const {card}=fixture(),source={node_id:"device:one",kind:"device"};
   card.sourceDetail={nodeId:source.node_id,monitoring_policies:[{id:"policy-1",name:"Hall thermostat"}]};
   assert.match(applicablePolicyLinks(card,source),/Hall thermostat/);
-  const before=structuredClone(card.settingsDraft);click(card,"open-policy","policies","policy-1");
-  assert.equal(card.page,"policies");assert.deepEqual(structuredClone(card.settingsDraft),before);
+  const before=structuredClone(card.editors.settingsDraft);click(card,"open-policy","policies","policy-1");
+  assert.equal(card.page,"policies");assert.deepEqual(structuredClone(card.editors.settingsDraft),before);
 });
 
 test("issue notification links open the named editor without discarding any draft",()=>{
   const {card}=fixture();card.detail={episodeId:"issue-one"};
   let closed=false;card.dialog={close(){closed=true;}};
-  const before=structuredClone(card.settingsDraft);
+  const before=structuredClone(card.editors.settingsDraft);
   click(card,"open-notification","profiles","morning");
   assert.equal(card.page,"notifications");assert.equal(card.notificationSection,"profiles");
   assert.deepEqual(card.definitionSelection,{kind:"profiles",id:"morning"});
   assert.equal(card.detail,null);assert.equal(closed,true);
-  assert.deepEqual(structuredClone(card.settingsDraft),before);
+  assert.deepEqual(structuredClone(card.editors.settingsDraft),before);
 });
 
 
 
 test("untrusted names and unavailable selected destinations render as text without being discarded",()=>{
-  const {card}=fixture();card.settingsDraft.notification_definitions.methods.phone.name='<img src=x onerror=alert(1)>';
-  card.settingsDraft.notification_definitions.methods.phone.destinations.push("notify:missing");
+  const {card}=fixture();card.editors.settingsDraft.notification_definitions.methods.phone.name='<img src=x onerror=alert(1)>';
+  card.editors.settingsDraft.notification_definitions.methods.phone.destinations.push("notify:missing");
   card.notificationDefinitionTab="methods";card.definitionSelection={kind:"methods",id:"phone"};
   const html=namedNotifications(card);assert.doesNotMatch(html,/<img/);assert.match(html,/Saved destination unavailable/);
-  assert.ok(card.settingsDraft.notification_definitions.methods.phone.destinations.includes("notify:missing"));
+  assert.ok(card.editors.settingsDraft.notification_definitions.methods.phone.destinations.includes("notify:missing"));
 });
 
 
@@ -334,7 +334,7 @@ test("untrusted names and unavailable selected destinations render as text witho
 
 for(const type of ["integration","battery","vacuum","thermostat","temperature_limit","ups_power","ups_reserve","ups_battery_replacement","ups_fault"])test(`${type} edits future coverage in place without inclusion radios or a picker`,()=>{
   const {card}=fixture(),policy=newMonitoringPolicy([],type);
-  card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
+  card.editors.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
   change(card,"policies",policy.id,"source-future","selected");
   assert.equal(futureMode(policy),"selected");
   policy.excluded_sources=["entity:registry:missing"];
@@ -348,7 +348,7 @@ for(const type of ["integration","battery","vacuum","thermostat","temperature_li
 test("removing a saved missing exclusion keeps broad matching and permits saving",async()=>{
   const {card,calls}=fixture(),policy=newMonitoringPolicy([],"battery");
   policy.excluded_sources=["battery:registry:missing"];
-  card.settingsDraft.monitoring_policies=[policy];card.configuration.settings.monitoring_policies=structuredClone([policy]);
+  card.editors.settingsDraft.monitoring_policies=[policy];card.editors.configuration.settings.monitoring_policies=structuredClone([policy]);
   card.definitionSelection={kind:"policies",id:policy.id};
   click(card,"source-forget","policies",policy.id,{definitionField:"source-forget",definitionValue:"battery:registry:missing"});
   assert.equal(policy.excluded_sources,undefined);assert.deepEqual(policy.match,{kind:["battery"]});
@@ -359,28 +359,28 @@ test("removing a saved missing exclusion keeps broad matching and permits saving
 test("focused camera editing keeps category scope and waits while area and label selection remain in the editor",()=>{
   const {card}=fixture(),policy=newMonitoringPolicy([],"entity",null,"cameras");
   policy.parameters={duration_seconds:300};policy.excluded_sources=["entity:registry:missing"];
-  card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
-  card.configuration.areas=[{id:"a",name:"Kitchen"},{id:"b",name:"Bedroom"}];card.configuration.labels=[{id:"safety",name:"Safety"}];
+  card.editors.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
+  card.editors.configuration.areas=[{id:"a",name:"Kitchen"},{id:"b",name:"Bedroom"}];card.editors.configuration.labels=[{id:"safety",name:"Safety"}];
   change(card,"policies",policy.id,"source-future","area");
   change(card,"policies",policy.id,"source-group",true,{definitionValue:"a"});change(card,"policies",policy.id,"source-group",true,{definitionValue:"b"});
   assert.deepEqual(policy.match,{kind:["entity"],domain:["camera"],area:["a","b"]});assert.equal(sourceCategory(policy),"cameras");
   const before=structuredClone(policy);change(card,"policies",policy.id,"source-search","Kitchen");
-  assert.deepEqual(policy,before);assert.equal(card.sourceSelection.query,"Kitchen");
+  assert.deepEqual(policy,before);assert.equal(card.editors.sourceSelection.query,"Kitchen");
   change(card,"policies",policy.id,"source-future","label");change(card,"policies",policy.id,"source-group",true,{definitionValue:"safety"});
   assert.deepEqual(policy.match,{kind:["entity"],domain:["camera"],label:["safety"]});
   assert.deepEqual(policy.parameters,{duration_seconds:300});assert.deepEqual(policy.excluded_sources,["entity:registry:missing"]);
 });
 
 test("selective restoration preserves edits and deleted defaults remain absent until chosen",()=>{
-  const {card}=fixture();const original=structuredClone(card.settingsDraft.monitoring_policies[0]);
-  card.configuration.monitoring_policy_templates=[{...newMonitoringPolicy([],"battery"),id:"default_batteries"},{...newMonitoringPolicy([],"device"),id:"default_devices",enabled:true}];
+  const {card}=fixture();const original=structuredClone(card.editors.settingsDraft.monitoring_policies[0]);
+  card.editors.configuration.monitoring_policy_templates=[{...newMonitoringPolicy([],"battery"),id:"default_batteries"},{...newMonitoringPolicy([],"device"),id:"default_devices",enabled:true}];
   click(card,"restore","policies");
   editReusable(card,{type:"change",target:{dataset:{definitionRestore:"default_batteries"},checked:true}});
   click(card,"confirm-restore","policies");
-  assert.deepEqual(card.settingsDraft.monitoring_policies[0],original);
-  assert.deepEqual(card.settingsDraft.monitoring_policies.map(policy=>policy.id),["policy-1","default_batteries"]);
+  assert.deepEqual(card.editors.settingsDraft.monitoring_policies[0],original);
+  assert.deepEqual(card.editors.settingsDraft.monitoring_policies.map(policy=>policy.id),["policy-1","default_batteries"]);
   click(card,"delete","policies","default_batteries");click(card,"confirm-delete","policies","default_batteries");
-  namedPolicies(card);assert.deepEqual(card.settingsDraft.monitoring_policies,[original]);
+  namedPolicies(card);assert.deepEqual(card.editors.settingsDraft.monitoring_policies,[original]);
 });
 
 test("empty notification definitions have no schedule library and all source scopes",()=>{
@@ -398,7 +398,7 @@ test("unified problem detail renders policy actions and base source links withou
   data.inventory.episodes=[episode];data.inventory.nodes.push(source);
   const result={source,monitoring_policies:[{id:"policy-1",name:"Entity monitoring"}],explanation:{findings:[],nodes:[]},entity_status:[]};
   const body={innerHTML:"",querySelectorAll:()=>[],querySelector:()=>({addEventListener(){}})};
-  const detail={...card,detailSequence:0,detail:{episodeId:episode.episode_id},configuration:{...card.configuration,monitoring_policy_version:1},shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:{textContent:""}},displaySourceName:item=>item.name,tools:{detailButtons:()=>""},capturePageState:()=>({}),restorePageState:()=>{},_hass:{callWS:async()=>result}};
+  const detail={...card,detailSequence:0,detail:{episodeId:episode.episode_id},editors:{...card.editors,configuration:{...card.editors.configuration,monitoring_policy_version:1}},shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:{textContent:""}},displaySourceName:item=>item.name,tools:{detailButtons:()=>""},capturePageState:()=>({}),restorePageState:()=>{},_hass:{callWS:async()=>result}};
   detail.readDetail=()=>prototype.readDetail.call(detail);
   await prototype.loadDetail.call(detail);
   assert.match(body.innerHTML,/data-definition-action="open-policy"/);
@@ -415,7 +415,7 @@ test("integration flat selection identifies individual connections without chang
     {node_id:"entry:phone1",kind:"integration",name:"One phone",attributes:{kind:["integration"],integration:["phone1"],integration_domain:["mobile_app"]}},
     {node_id:"entry:phone2",kind:"integration",name:"Other phone",attributes:{kind:["integration"],integration:["phone2"],integration_domain:["mobile_app"]}}
   );
-  const policy=newMonitoringPolicy([],"integration");card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
+  const policy=newMonitoringPolicy([],"integration");card.editors.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
   policy.match={kind:["integration"],integration_domain:["mobile_app"]};
   const before=structuredClone(policy),choices=flatSourceRows(card,policy);
   assert.deepEqual(choices.map(item=>item.id).sort(),["entry:phone1","entry:phone2"]);
@@ -425,7 +425,7 @@ test("integration flat selection identifies individual connections without chang
 });
 
 for(const [type,text] of [["repair","Watches all Home Assistant Repairs"],["broken_automation","Checks all automations for references"]])test(`${type} has scope text without a one-choice selector`,()=>{
-  const {card}=fixture();const policy=newMonitoringPolicy([],type);card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
+  const {card}=fixture();const policy=newMonitoringPolicy([],type);card.editors.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
   const html=namedPolicies(card);assert.ok(html.includes(text));
   assert.doesNotMatch(html,/data-definition-field="watch"|When it becomes a problem|data-definition-field="check"/);
 });
@@ -435,8 +435,8 @@ for(const [type,text] of [["repair","Watches all Home Assistant Repairs"],["brok
 
 
 for(const enabled of [true,false])test(`enabled policy draft from ${enabled?"on":"off"} leaves list state saved until scoped save`,async()=>{
-  const {card,calls}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
-  policy.enabled=enabled;card.configuration.settings.monitoring_policies[0].enabled=enabled;
+  const {card,calls}=fixture(),policy=card.editors.settingsDraft.monitoring_policies[0];
+  policy.enabled=enabled;card.editors.configuration.settings.monitoring_policies[0].enabled=enabled;
   assert.doesNotMatch(namedPolicies(card),/data-definition-action="toggle"/);
   click(card,"edit","policies",policy.id);
   change(card,"policies",policy.id,"enabled",!enabled);
@@ -450,7 +450,7 @@ for(const enabled of [true,false])test(`enabled policy draft from ${enabled?"on"
 
 test("a new policy is not presented as a saved on or off choice",()=>{
   const {card}=fixture();
-  card.settingsDraft.monitoring_policies.push(newMonitoringPolicy(card.settingsDraft.monitoring_policies,"battery"));
+  card.editors.settingsDraft.monitoring_policies.push(newMonitoringPolicy(card.editors.settingsDraft.monitoring_policies,"battery"));
   assert.match(namedPolicies(card),/<h3>Low battery <span class="small">Not saved<\/span>/);
   change(card,"policies","policy-2","enabled",true);
   assert.match(namedPolicies(card),/Not saved<\/span>[\s\S]*Unsaved changes/);
@@ -458,13 +458,13 @@ test("a new policy is not presented as a saved on or off choice",()=>{
 
 test("policy overflow names are escaped and actions retain the policy identity without staging edits",()=>{
   const {card,calls}=fixture();
-  card.settingsDraft.monitoring_policies[0].name='<House> "policy"';
-  card.configuration.settings.monitoring_policies[0].name='<House> "policy"';
-  const before=structuredClone(card.settingsDraft),html=namedPolicies(card);
+  card.editors.settingsDraft.monitoring_policies[0].name='<House> "policy"';
+  card.editors.configuration.settings.monitoring_policies[0].name='<House> "policy"';
+  const before=structuredClone(card.editors.settingsDraft),html=namedPolicies(card);
   assert.match(html,/aria-label="More actions for &lt;House&gt; &quot;policy&quot;"/);
   assert.match(html,/popovertarget="policy-actions-policy-1"/);
   assert.match(html,/<div id="policy-actions-policy-1" class="policy-actions-popover" popover role="group"[^>]*><button[^>]*data-definition-action="duplicate"[^>]*data-definition-id="policy-1"[^>]*>Duplicate<\/button><button[^>]*data-definition-action="delete"[^>]*data-definition-id="policy-1"/);
-  assert.deepEqual(card.settingsDraft,before);
+  assert.deepEqual(card.editors.settingsDraft,before);
   assert.equal(calls.length,0);
 });
 
@@ -478,7 +478,7 @@ test("clean policy and method editors have no save footer and discard stays in t
   assert.match(namedPolicies(card),/>Save policy</);assert.match(namedPolicies(card),/>Discard changes</);
   click(card,"discard-scoped","policies","policy-1");
   assert.deepEqual(card.definitionSelection,{kind:"policies",id:"policy-1"});
-  assert.equal(card.settingsDraft.monitoring_policies[0].name,"Hall thermostat");
+  assert.equal(card.editors.settingsDraft.monitoring_policies[0].name,"Hall thermostat");
   assert.doesNotMatch(namedPolicies(card),/<footer/);
   card.page="notifications";click(card,"edit","methods","phone");
   assert.doesNotMatch(installationSettings(card),/<footer|>Save delivery method<|>Cancel<|No changes/);
@@ -496,14 +496,14 @@ test("new policy discard abandons it without saving an empty policy",()=>{
   const {card,calls}=fixture();click(card,"create","policies");const id=card.definitionSelection.id;
   assert.match(namedPolicies(card),/>Save policy</);
   click(card,"discard-scoped","policies",id);
-  assert.equal(card.definitionSelection,null);assert.equal(card.settingsDraft.monitoring_policies.some(policy=>policy.id===id),false);
+  assert.equal(card.definitionSelection,null);assert.equal(card.editors.settingsDraft.monitoring_policies.some(policy=>policy.id===id),false);
   assert.equal(calls.length,0);
 });
 
 test("save control rejects an empty area scope before making a request",()=>{
   const {card,calls}=fixture();click(card,"edit","policies","policy-1");
   change(card,"policies","policy-1","source-future","area");click(card,"save-scoped","policies","policy-1");
-  assert.equal(calls.length,0);assert.match(card.scopedError,/Choose at least one/);
+  assert.equal(calls.length,0);assert.match(card.editors.scopedError,/Choose at least one/);
   assert.match(namedPolicies(card),/role="alert"/);
 });
 
@@ -513,8 +513,8 @@ function batterySelection({loaded=true,stale=false,error=null}={}) {
   const {card,calls}=fixture(),policy={...newMonitoringPolicy([],"battery"),excluded_sources:["battery:registry:phone"]};
   const battery={node_id:"battery:registry:phone",name:"Owner phone",kind:"battery",
     entity_id:"sensor.owner_phone_battery",attributes:{kind:["battery"],entity:["registry:phone"]}};
-  card.settingsDraft.monitoring_policies=[policy];
-  card.configuration.settings.monitoring_policies=structuredClone([policy]);
+  card.editors.settingsDraft.monitoring_policies=[policy];
+  card.editors.configuration.settings.monitoring_policies=structuredClone([policy]);
   card.definitionSelection={kind:"policies",id:policy.id};
   card.current={status:"current",catalogError:error,data:{...card.current.data,schema_version:3,catalog_loaded:loaded,catalog_stale:stale,
     inventory:{...card.current.data.inventory,nodes:[],catalog:{candidates:loaded?[battery]:[]}}}};
@@ -522,7 +522,7 @@ function batterySelection({loaded=true,stale=false,error=null}={}) {
 }
 
 test("battery scope waits for complete choices and keeps exclusions when loading fails",()=>{
-  const {card,policy}=batterySelection({loaded:false}),before=structuredClone(card.settingsDraft);
+  const {card,policy}=batterySelection({loaded:false}),before=structuredClone(card.editors.settingsDraft);
   const loading=namedPolicies(card);
   assert.match(loading,/Loading available sources/);
   assert.match(loading,/battery:registry:phone/);
@@ -533,7 +533,7 @@ test("battery scope waits for complete choices and keeps exclusions when loading
   assert.match(failed,/Could not load available sources: Could not read &lt;catalog&gt;/);
   assert.match(failed,/data-action="retry-catalog"/);
   assert.doesNotMatch(failed,/No matching choices|Unavailable excluded source/);
-  assert.deepEqual(card.settingsDraft,before);
+  assert.deepEqual(card.editors.settingsDraft,before);
   assert.deepEqual(policy.excluded_sources,["battery:registry:phone"]);
 });
 
@@ -552,7 +552,7 @@ test("battery flat selection searches entity IDs as well as names without changi
 
 test("catalog arrival fills the flat list and preserves search and saved exclusions",()=>{
   const {card,policy,battery}=batterySelection({loaded:false});
-  card.sourceSelection={id:policy.id,query:"Batt",selectedOnly:false};
+  card.editors.sourceSelection={id:policy.id,query:"Batt",selectedOnly:false};
   const before=structuredClone(policy);
   card.current={...card.current,catalogError:null,data:{...card.current.data,catalog_loaded:true,
     inventory:{...card.current.data.inventory,nodes:[],catalog:{candidates:[battery]}}}};
@@ -560,7 +560,7 @@ test("catalog arrival fills the flat list and preserves search and saved exclusi
   assert.match(html,/data-definition-value="battery:registry:phone"/);
   assert.doesNotMatch(html,/data-definition-value="battery:registry:phone" checked/);
   assert.doesNotMatch(html,/Loading available sources|No matching choices/);
-  assert.deepEqual(card.sourceSelection,{id:policy.id,query:"Batt",selectedOnly:false});
+  assert.deepEqual(card.editors.sourceSelection,{id:policy.id,query:"Batt",selectedOnly:false});
   assert.deepEqual(policy,before);
 });
 
@@ -583,18 +583,18 @@ test("direct Policies entry requests its catalog and retries through the existin
     shadowRoot:{querySelector:()=>shadowNode,querySelectorAll:()=>[]},
     main:{innerHTML:"",querySelector:()=>null,querySelectorAll:()=>[]},
     policiesPage:()=>namedPolicies(card),store:{ensureCatalog(retry=false){requests.push(retry);}}});
-  const before=structuredClone(card.settingsDraft);
+  const before=structuredClone(card.editors.settingsDraft);
   prototype.renderPage.call(card);
   assert.deepEqual(requests,[false]);
   assert.match(card.main.innerHTML,/Loading available sources/);
   const target={dataset:{action:"retry-catalog"},closest(selector){return selector==="button"?this:null;}};
   prototype.handleClick.call(card,{type:"click",target});
   assert.deepEqual(requests,[false,true]);
-  assert.deepEqual(card.settingsDraft,before);
+  assert.deepEqual(card.editors.settingsDraft,before);
 });
 
 test("policy and method editors keep controls without repeated setup instructions",()=>{
-  const {card}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
+  const {card}=fixture(),policy=card.editors.settingsDraft.monitoring_policies[0];
   policy.notifications=[];card.definitionSelection={kind:"policies",id:policy.id};
   const html=namedPolicies(card);
   assert.match(html,/No notifications/);
@@ -610,7 +610,7 @@ test("policy and method editors keep controls without repeated setup instruction
 
 for(const type of ["device","integration","vacuum","ups_power","ups_reserve","ups_battery_replacement","ups_fault"])test(`${type} omits an empty detection section`,()=>{
   const {card}=fixture(),policy=newMonitoringPolicy([],type);
-  card.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
+  card.editors.settingsDraft.monitoring_policies=[policy];card.definitionSelection={kind:"policies",id:policy.id};
   const before=structuredClone(policy),html=namedPolicies(card);
   assert.doesNotMatch(html,/When it becomes a problem|Uses the reported Home Assistant state/);
   assert.match(html,/data-definition-field="enabled"/);
@@ -618,10 +618,10 @@ for(const type of ["device","integration","vacuum","ups_power","ups_reserve","up
 });
 
 test("compact policy scopes retain missing selections and all numeric detection fields",()=>{
-  const {card}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
+  const {card}=fixture(),policy=card.editors.settingsDraft.monitoring_policies[0];
   policy.match={kind:["entity"],area:["hall","kitchen","missing"]};
-  card.configuration.areas=[{id:"hall",name:"Hall"},{id:"kitchen",name:"Kitchen"}];
-  card.configuration.settings.monitoring_policies=structuredClone(card.settingsDraft.monitoring_policies);
+  card.editors.configuration.areas=[{id:"hall",name:"Hall"},{id:"kitchen",name:"Kitchen"}];
+  card.editors.configuration.settings.monitoring_policies=structuredClone(card.editors.settingsDraft.monitoring_policies);
   const before=structuredClone(policy),list=namedPolicies(card);
   assert.match(list,/New sources in the selected areas are included automatically/);
   assert.match(list,/2°F deviation · 60 minute progress window/);
@@ -635,9 +635,9 @@ test("compact policy scopes retain missing selections and all numeric detection 
 
 test("method lists compact uses and destinations while editors retain every assignment",()=>{
   const {card}=fixture();card.notificationSection="methods";
-  card.configuration.settings.notification_definitions.methods.phone.destinations=["phone:owner","notify:email","notify:missing"];
-  card.settingsDraft.notification_definitions.methods.phone=structuredClone(card.configuration.settings.notification_definitions.methods.phone);
-  const before=structuredClone(card.settingsDraft),list=namedNotifications(card);
+  card.editors.configuration.settings.notification_definitions.methods.phone.destinations=["phone:owner","notify:email","notify:missing"];
+  card.editors.settingsDraft.notification_definitions.methods.phone=structuredClone(card.editors.configuration.settings.notification_definitions.methods.phone);
+  const before=structuredClone(card.editors.settingsDraft),list=namedNotifications(card);
   assert.match(list,/Owner&#39;s phone, Email \+1 more · 1 unavailable/);
   assert.match(list,/>3 uses</);
   assert.doesNotMatch(list,/Used by Hall thermostat|Default reporting|Automation profile/);
@@ -645,12 +645,12 @@ test("method lists compact uses and destinations while editors retain every assi
   const editor=namedNotifications(card);
   assert.match(editor,/Used by Hall thermostat, Default reporting, Automation profile · immediate/);
   assert.match(editor,/notify:missing[\s\S]*Saved destination unavailable/);
-  assert.deepEqual(card.settingsDraft,before);
+  assert.deepEqual(card.editors.settingsDraft,before);
 });
 
 test("method list omits only a single available destination repeating its name",()=>{
   const {card}=fixture();card.notificationSection="methods";
-  const method=card.configuration.settings.notification_definitions.methods.phone,target=card.configuration.delivery_targets[0];
+  const method=card.editors.configuration.settings.notification_definitions.methods.phone,target=card.editors.configuration.delivery_targets[0];
   target.name=method.name;
   assert.match(namedNotifications(card),/<h3>Owner phone<\/h3><p class="small">3 uses<\/p>/);
   target.available=false;
@@ -689,7 +689,7 @@ test("saved summary timing shows the library forecast in the configured timezone
 });
 
 test("edited or new summary timing never borrows a saved forecast",()=>{
-  const {card}=fixture(),policy=card.settingsDraft.monitoring_policies[0];
+  const {card}=fixture(),policy=card.editors.settingsDraft.monitoring_policies[0];
   card.definitionSelection={kind:"policies",id:policy.id};
   card.current.data.policy.reports=[{name:"entry:policy_policy-1_report",next_at:"2026-10-15T13:00:00Z"}];
   policy.notifications[1].timing.at="09:00";
@@ -707,8 +707,8 @@ for(const [name,enabled,reports] of [
 ])test(`${name} summary forecast is described without inventing an occurrence`,()=>{
   const {card}=fixture();
   card.definitionSelection={kind:"policies",id:"policy-1"};
-  card.settingsDraft.monitoring_policies[0].enabled=enabled;
-  card.configuration.settings.monitoring_policies[0].enabled=enabled;
+  card.editors.settingsDraft.monitoring_policies[0].enabled=enabled;
+  card.editors.configuration.settings.monitoring_policies[0].enabled=enabled;
   card.current.data.policy.reports=reports;
   assert.match(namedPolicies(card),/No summary is currently scheduled for this policy/);
   assert.doesNotMatch(namedPolicies(card),/Next summary:/);
@@ -720,17 +720,17 @@ for(const [name,savedEnabled,draftEnabled] of [
 ])test(`unsaved policy change ${name} does not describe draft summary scheduling as current`,()=>{
   const {card}=fixture();
   card.definitionSelection={kind:"policies",id:"policy-1"};
-  card.configuration.settings.monitoring_policies[0].enabled=savedEnabled;
-  card.settingsDraft.monitoring_policies[0].enabled=draftEnabled;
+  card.editors.configuration.settings.monitoring_policies[0].enabled=savedEnabled;
+  card.editors.settingsDraft.monitoring_policies[0].enabled=draftEnabled;
   card.current.data.policy.reports=[{name:"entry:policy_policy-1_report",next_at:"2026-10-15T13:00:00Z"}];
   const html=namedPolicies(card);
   assert.match(html,/Summary scheduling changes after you save this policy/);
   assert.doesNotMatch(html,/Next summary:|No summary is currently scheduled/);
-  assert.equal(card.configuration.settings.monitoring_policies[0].enabled,savedEnabled);
+  assert.equal(card.editors.configuration.settings.monitoring_policies[0].enabled,savedEnabled);
 });
 
 test("Add policy lists monitoring types alphabetically and preserves the selected type",()=>{
-  const {card}=fixture();card.policyCreating=true;card.definitionTemplate="entity_not_provided";
+  const {card}=fixture();card.editors.policyCreating=true;card.editors.definitionTemplate="entity_not_provided";
   const html=namedPolicies(card);
   const choices=[...html.matchAll(/<option value="([^"]+)"( selected)?>([^<]+)<\/option>/g)];
   const names=choices.map(choice=>choice[3]);
@@ -738,5 +738,5 @@ test("Add policy lists monitoring types alphabetically and preserves the selecte
   assert.deepEqual(names,[...names].sort((a,b)=>a.localeCompare(b)));
   assert.deepEqual(choices.filter(choice=>choice[2]).map(choice=>choice[1]),["entity_not_provided"]);
   click(card,"create","policies");
-  assert.equal(card.settingsDraft.monitoring_policies.at(-1).check,"entity_not_provided");
+  assert.equal(card.editors.settingsDraft.monitoring_policies.at(-1).check,"entity_not_provided");
 });

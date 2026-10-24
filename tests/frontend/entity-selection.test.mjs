@@ -9,7 +9,7 @@ function fixture() {
   const source=(id,name,domain,device="front",extra={})=>({node_id:`entity:registry:${id}`,name,kind:"entity",entity_id:`${domain}.${id}`,attributes:{kind:["entity"],entity:[`registry:${id}`],domain:[domain],integration_domain:["esphome"],...(device?{device:[device]}:{}),area:["hall"]},...extra});
   const rows=[{node_id:"device:front",name:"Front door",kind:"device",attributes:{device:["front"]}},source("lock","Lock","lock"),source("signal","Signal strength","sensor"),source("disabled","Disabled reading","sensor","front",{disabled:true}),source("loose","Loose sensor","sensor",null)];
   const settings=notificationSettings();settings.monitoring_policies=[policy];
-  const card={settingsDraft:settings,configuration:{settings:structuredClone(settings),revision:"one",areas:[{id:"hall",name:"Hall"}],floors:[],labels:[]},definitionSelection:{kind:"policies",id:policy.id},current:{status:"current",data:{schema_version:3,catalog_loaded:true,inventory:{nodes:[],catalog:{candidates:rows}}}},main:{querySelector:()=>null,querySelectorAll:()=>[]},render(){}};
+  const card={editors:{settingsDraft:settings,configuration:{settings:structuredClone(settings),revision:"one",areas:[{id:"hall",name:"Hall"}],floors:[],labels:[]}},definitionSelection:{kind:"policies",id:policy.id},current:{status:"current",data:{schema_version:3,catalog_loaded:true,inventory:{nodes:[],catalog:{candidates:rows}}}},main:{querySelector:()=>null,querySelectorAll:()=>[]},render(){}};
   return {card,policy,rows};
 }
 function change(card,field,value,id="") {

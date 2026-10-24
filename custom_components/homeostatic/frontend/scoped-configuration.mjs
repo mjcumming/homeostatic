@@ -56,21 +56,21 @@ function scopes(...settings) {
 }
 
 /** Call after the first confirmed configuration load, before editing. */
-export function initializeScopedConfiguration(card) {
-  if(!card.configuration?.settings)return null;
-  if(card.scopedConfiguration)return card.scopedConfiguration;
-  card.settingsDraft??=copy(card.configuration.settings);
-  const saved=copy(card.configuration),baselines=new Map();
+export function initializeScopedConfiguration(editors) {
+  if(!editors.configuration?.settings)return null;
+  if(editors.scopedConfiguration)return editors.scopedConfiguration;
+  editors.settingsDraft??=copy(editors.configuration.settings);
+  const saved=copy(editors.configuration),baselines=new Map();
   for(const scope of scopes(saved.settings))baselines.set(keyOf(scope),copy(read(saved.settings,scope)));
-  return card.scopedConfiguration={saved,baselines,needsRefresh:false};
+  return editors.scopedConfiguration={saved,baselines,needsRefresh:false};
 }
 
 /** Install refreshed saved settings without replacing independent or conflicting drafts. */
-export function rebaseScopedConfiguration(card,fresh) {
+export function rebaseScopedConfiguration(editors,fresh) {
   if(!fresh?.settings||typeof fresh.revision!=="string")throw new Error("Current saved settings could not be read.");
-  const state=initializeScopedConfiguration(card);
-  if(!state){card.configuration=copy(fresh);card.settingsDraft=copy(fresh.settings);initializeScopedConfiguration(card);return;}
-  const draft=card.settingsDraft;
+  const state=initializeScopedConfiguration(editors);
+  if(!state){editors.configuration=copy(fresh);editors.settingsDraft=copy(fresh.settings);initializeScopedConfiguration(editors);return;}
+  const draft=editors.settingsDraft;
   for(const scope of scopes(state.saved.settings,fresh.settings,draft)) {
     const key=keyOf(scope),base=state.baselines.get(key),local=read(draft,scope),next=read(fresh.settings,scope);
     if(scope.kind==="settings") {
@@ -87,26 +87,26 @@ export function rebaseScopedConfiguration(card,fresh) {
     const localMethods=copy(methods(draft)),localProfiles=copy(draft.notification_definitions?.profiles);
     draft.notification_definitions=fresh.settings.notification_definitions?{...copy(definitionMetadata(fresh.settings)),methods:localMethods,...(localProfiles===undefined?{}:{profiles:localProfiles})}:fresh.settings.notification_definitions;
   }
-  card.configuration={...card.configuration,...copy(fresh)};
-  state.saved=copy(card.configuration);state.needsRefresh=false;
+  editors.configuration={...editors.configuration,...copy(fresh)};
+  state.saved=copy(editors.configuration);state.needsRefresh=false;
 }
 
-export function scopedDirty(card,scope) {
-  if(!initializeScopedConfiguration(card))return false;
-  return !same(read(card.settingsDraft,scope),read(card.configuration.settings,scope));
+export function scopedDirty(editors,scope) {
+  if(!initializeScopedConfiguration(editors))return false;
+  return !same(read(editors.settingsDraft,scope),read(editors.configuration.settings,scope));
 }
 
-function status(card,scope,error=null,notice=null) {
-  card.scopedStatusScope=keyOf(scope);card.scopedError=error;card.scopedNotice=notice;
+function status(editors,scope,error=null,notice=null) {
+  editors.scopedStatusScope=keyOf(scope);editors.scopedError=error;editors.scopedNotice=notice;
 }
 
 /** Discard just this editor while preserving other scopes. */
-export function discardScopedConfiguration(card,scope) {
-  const state=initializeScopedConfiguration(card);
-  if(!state||card.scopedBusy)return false;
-  const value=read(card.configuration.settings,scope);
-  write(card.settingsDraft,scope,value);state.baselines.set(keyOf(scope),copy(value));
-  status(card,scope,null,"Unsaved changes discarded.");card.render?.();return true;
+export function discardScopedConfiguration(editors,scope) {
+  const state=initializeScopedConfiguration(editors);
+  if(!state||editors.scopedBusy)return false;
+  const value=read(editors.configuration.settings,scope);
+  write(editors.settingsDraft,scope,value);state.baselines.set(keyOf(scope),copy(value));
+  status(editors,scope,null,"Unsaved changes discarded.");return true;
 }
 
 function assertUnchanged(state,scope,current) {
@@ -121,19 +121,19 @@ function rowsIn(defs) {
   return rows.filter(Array.isArray);
 }
 
-function removeMethod(card,candidate,id,operation) {
+function removeMethod(editors,candidate,id,operation) {
   if(!methods(candidate)[id])throw new Error("This delivery method no longer exists.");
-  if(scopedDirty(card,{kind:"method",id}))throw new Error("Save or discard this method's draft before deleting it.");
+  if(scopedDirty(editors,{kind:"method",id}))throw new Error("Save or discard this method's draft before deleting it.");
   const replacement=operation.replacement;
   if(replacement&&(replacement===id||!methods(candidate)[replacement]))throw new Error("Choose a different saved replacement method.");
   const affected=(candidate.monitoring_policies||[]).filter(item=>item.notifications.some(row=>row.methods?.includes(id)));
-  for(const item of affected)if(scopedDirty(card,{kind:"policy",id:item.id}))throw new Error("Save or discard policy drafts using this method before deleting it.");
-  for(const item of card.settingsDraft.monitoring_policies||[]) {
-    if(scopedDirty(card,{kind:"policy",id:item.id})&&item.notifications.some(row=>row.methods?.includes(id)))throw new Error("Save or discard policy drafts using this method before deleting it.");
+  for(const item of affected)if(scopedDirty(editors,{kind:"policy",id:item.id}))throw new Error("Save or discard policy drafts using this method before deleting it.");
+  for(const item of editors.settingsDraft.monitoring_policies||[]) {
+    if(scopedDirty(editors,{kind:"policy",id:item.id})&&item.notifications.some(row=>row.methods?.includes(id)))throw new Error("Save or discard policy drafts using this method before deleting it.");
   }
   const affectedProfiles=Object.entries(profiles(candidate)).filter(([,profile])=>profile.methods.includes(id));
-  for(const pid of new Set([...affectedProfiles.map(([pid])=>pid),...Object.entries(profiles(card.settingsDraft)).filter(([,profile])=>profile.methods.includes(id)).map(([pid])=>pid)])) {
-    if(scopedDirty(card,{kind:"profile",id:pid}))throw new Error("Save or discard notification drafts using this method before deleting it.");
+  for(const pid of new Set([...affectedProfiles.map(([pid])=>pid),...Object.entries(profiles(editors.settingsDraft)).filter(([,profile])=>profile.methods.includes(id)).map(([pid])=>pid)])) {
+    if(scopedDirty(editors,{kind:"profile",id:pid}))throw new Error("Save or discard notification drafts using this method before deleting it.");
   }
   const rows=[...rowsIn(candidate.notification_definitions),...affected.map(item=>item.notifications)];
   if((affectedProfiles.length||rows.some(items=>items.some(row=>row.methods?.includes(id))))&&!replacement&&!operation.removeReferences)throw new Error("Choose a replacement or explicitly remove this method from its entries.");
@@ -147,14 +147,14 @@ function removeMethod(card,candidate,id,operation) {
   delete candidate.notification_definitions.methods[id];
 }
 
-function removeProfile(card,candidate,id,operation) {
+function removeProfile(editors,candidate,id,operation) {
   if(!profiles(candidate)[id])throw new Error("This notification no longer exists.");
-  if(scopedDirty(card,{kind:"profile",id}))throw new Error("Save or discard this notification's draft before deleting it.");
+  if(scopedDirty(editors,{kind:"profile",id}))throw new Error("Save or discard this notification's draft before deleting it.");
   const replacement=operation.replacement;
   if(replacement&&(replacement===id||!profiles(candidate)[replacement]))throw new Error("Choose a different saved replacement notification.");
   const affected=(candidate.monitoring_policies||[]).filter(item=>item.notifications.some(row=>row.profile===id));
-  for(const pid of new Set([...affected.map(item=>item.id),...(card.settingsDraft.monitoring_policies||[]).filter(item=>item.notifications.some(row=>row.profile===id)).map(item=>item.id)])) {
-    if(scopedDirty(card,{kind:"policy",id:pid}))throw new Error("Save or discard policy drafts using this notification before deleting it.");
+  for(const pid of new Set([...affected.map(item=>item.id),...(editors.settingsDraft.monitoring_policies||[]).filter(item=>item.notifications.some(row=>row.profile===id)).map(item=>item.id)])) {
+    if(scopedDirty(editors,{kind:"policy",id:pid}))throw new Error("Save or discard policy drafts using this notification before deleting it.");
   }
   const rows=[...rowsIn(candidate.notification_definitions),...affected.map(item=>item.notifications)];
   if(rows.some(items=>items.some(row=>row.profile===id))&&!replacement&&!operation.removeReferences)throw new Error("Choose a replacement or explicitly remove this notification's assignments.");
@@ -166,10 +166,10 @@ function removeProfile(card,candidate,id,operation) {
   delete candidate.notification_definitions.profiles[id];
 }
 
-function proposal(card,scope,value) {
-  const state=card.scopedConfiguration,current=card.configuration.settings,candidate=copy(current);
+function proposal(editors,scope,value) {
+  const state=editors.scopedConfiguration,current=editors.configuration.settings,candidate=copy(current);
   if(scope.kind==="source-availability") {
-    if(value?.revision!==card.configuration.revision)throw new Error("Saved settings changed. Review the affected policies again before saving.");
+    if(value?.revision!==editors.configuration.revision)throw new Error("Saved settings changed. Review the affected policies again before saving.");
     if(!value.changes?.length)throw new Error("No availability monitoring changes were selected.");
     const ids=new Set(),selectedIds=new Set(value.sourceIds||[]);
     for(const change of value.changes) {
@@ -177,7 +177,7 @@ function proposal(card,scope,value) {
       if(ids.has(change.id)||!saved||saved.check!=="availability")throw new Error("Choose existing availability policies.");
       ids.add(change.id);
       if(!same(saved,change.before))throw new Error("An affected policy changed. Review the availability change again.");
-      if(scopedDirty(card,selected))throw new Error(`Save or discard the draft for “${saved.name}” before changing its availability monitoring.`);
+      if(scopedDirty(editors,selected))throw new Error(`Save or discard the draft for “${saved.name}” before changing its availability monitoring.`);
       const {excluded_sources:before,...beforeFields}=saved,{excluded_sources:after,...afterFields}=change.after;
       if(!same(beforeFields,afterFields)||after!==undefined&&(!Array.isArray(after)||after.some(id=>typeof id!=="string")))throw new Error("This action can change availability exclusions only.");
       const beforeIds=new Set(before||[]),afterIds=new Set(after||[]);
@@ -189,13 +189,13 @@ function proposal(card,scope,value) {
     if(typeof value!=="boolean")throw new Error("Choose whether notifications are on or off.");
     candidate.notifications=value;
   }else if(scope.kind==="policy"&&typeof value==="boolean") {
-    if(scopedDirty(card,scope))throw new Error("Continue editing this policy before changing its saved enabled state.");
+    if(scopedDirty(editors,scope))throw new Error("Continue editing this policy before changing its saved enabled state.");
     const saved=policy(candidate,scope.id);if(!saved)throw new Error("Save this policy before changing its enabled state.");
     saved.enabled=value;
-  }else if(scope.kind==="method"&&value?.delete)removeMethod(card,candidate,scope.id,value);
-  else if(scope.kind==="profile"&&value?.delete)removeProfile(card,candidate,scope.id,value);
+  }else if(scope.kind==="method"&&value?.delete)removeMethod(editors,candidate,scope.id,value);
+  else if(scope.kind==="profile"&&value?.delete)removeProfile(editors,candidate,scope.id,value);
   else if(scope.kind==="settings") {
-    const local=read(card.settingsDraft,scope),base=state.baselines.get("settings")||{},saved=read(current,scope),changed={...saved};
+    const local=read(editors.settingsDraft,scope),base=state.baselines.get("settings")||{},saved=read(current,scope),changed={...saved};
     for(const field of generalKeys)if(!same(local[field],base[field])) {
       if(!same(saved[field],base[field]))throw new Error("Saved installation settings changed. Your draft is preserved; reconcile it before saving.");
       changed[field]=copy(local[field]);
@@ -203,26 +203,26 @@ function proposal(card,scope,value) {
     write(candidate,scope,changed);
   }else {
     assertUnchanged(state,scope,current);
-    const desired=read(card.settingsDraft,scope);
+    const desired=read(editors.settingsDraft,scope);
     if(scope.kind==="policy"&&desired?.id!==undefined&&desired.id!==scope.id)throw new Error("The policy identity cannot change.");
     write(candidate,scope,desired);
   }
   return candidate;
 }
 
-function acceptSubmitted(card,scope,submitted,operation) {
-  const state=card.scopedConfiguration;
+function acceptSubmitted(editors,scope,submitted,operation) {
+  const state=editors.scopedConfiguration;
   if(scope.kind==="source-availability") {
     for(const change of operation.changes) {
       const selected={kind:"policy",id:change.id},saved=read(submitted,selected);
-      if(same(read(card.settingsDraft,selected),change.before))write(card.settingsDraft,selected,saved);
+      if(same(read(editors.settingsDraft,selected),change.before))write(editors.settingsDraft,selected,saved);
       state.baselines.set(keyOf(selected),copy(saved));
     }
     return;
   }
   state.baselines.set(keyOf(scope),copy(read(submitted,scope)));
-  if(scope.kind==="notifications"||scope.kind==="policy"&&typeof operation==="boolean")write(card.settingsDraft,scope,read(submitted,scope));
-  if(["method","profile"].includes(scope.kind)&&operation?.delete)write(card.settingsDraft,scope,undefined);
+  if(scope.kind==="notifications"||scope.kind==="policy"&&typeof operation==="boolean")write(editors.settingsDraft,scope,read(submitted,scope));
+  if(["method","profile"].includes(scope.kind)&&operation?.delete)write(editors.settingsDraft,scope,undefined);
 }
 
 function errorText(error) {
@@ -231,42 +231,43 @@ function errorText(error) {
 
 /** Save one explicit scope; the server still validates and applies a complete exact payload. */
 export async function saveScopedConfiguration(card,scope,value) {
-  const state=initializeScopedConfiguration(card);
-  if(!state||card.scopedBusy||card.settingsBusy||card.configBusy||card.current?.status!=="current")return false;
-  const hass=card._hass,connection=hass.connection,userId=hass.user?.id,admin=hass.user?.is_admin,session=card.panelDraftSession;
-  const current=()=>card._hass.connection===connection&&card._hass.user?.id===userId&&card._hass.user?.is_admin===admin&&card.panelDraftSession===session;
-  card.scopedBusy=keyOf(scope);card.settingsBusy=true;status(card,scope);card.render?.();
+  const editors=card.editors;
+  const state=initializeScopedConfiguration(editors);
+  if(!state||editors.scopedBusy||editors.settingsBusy||editors.configBusy||card.current?.status!=="current")return false;
+  const hass=card._hass,connection=hass.connection,userId=hass.user?.id,admin=hass.user?.is_admin;
+  const current=()=>card._hass.connection===connection&&card._hass.user?.id===userId&&card._hass.user?.is_admin===admin&&card.editors===editors;
+  editors.scopedBusy=keyOf(scope);editors.settingsBusy=true;status(editors,scope);card.render?.();
   let saved=false;
   try {
     if(state.needsRefresh) {
       const fresh=await hass.callWS({type:"homeostatic/configuration",section:"settings"});
       if(!current())return false;
-      rebaseScopedConfiguration(card,fresh);
+      rebaseScopedConfiguration(editors,fresh);
     }
-    const candidate=proposal(card,scope,value);
+    const candidate=proposal(editors,scope,value);
     if(scope.kind==="source-availability") {
       if(card.current?.status!=="current")throw new Error("Monitoring is not connected. Reconnect before changing availability monitoring.");
       if(card.current.data?.catalog_stale||card.current.data?.catalog_loaded===false)throw new Error("Wait for the source list to finish updating before changing availability monitoring.");
       if(value.catalogRevision!==card.current.data?.catalog_revision)throw new Error("The monitored source list changed. Review the affected policies again before saving.");
     }
-    if(same(candidate,card.configuration.settings))return true;
-    const revision=card.configuration.revision;
+    if(same(candidate,editors.configuration.settings))return true;
+    const revision=editors.configuration.revision;
     const response=await hass.callWS({type:"homeostatic/save_settings",revision,settings:copy(candidate)});
     if(!current())return false;
     if(response?.saved!==true)throw new Error("The save was not confirmed. Refresh saved settings before trying again.");
-    saved=true;acceptSubmitted(card,scope,candidate,value);
+    saved=true;acceptSubmitted(editors,scope,candidate,value);
     const fresh=await hass.callWS({type:"homeostatic/configuration",section:"settings"});
     if(!current())return false;
-    rebaseScopedConfiguration(card,fresh);
-    status(card,scope,null,["notifications","source-availability"].includes(scope.kind)?null:scopedDirty(card,scope)?"Newer edits are still unsaved.":null);
+    rebaseScopedConfiguration(editors,fresh);
+    status(editors,scope,null,["notifications","source-availability"].includes(scope.kind)?null:scopedDirty(editors,scope)?"Newer edits are still unsaved.":null);
     return true;
   }catch(error) {
     if(!current())return false;
     const code=error?.code||error?.error?.code;
     state.needsRefresh=saved||!code||code==="stale_configuration";
-    status(card,scope,saved?"Changes were saved, but current settings could not be reloaded. Your other drafts are retained. Refresh saved settings before continuing.":errorText(error));
+    status(editors,scope,saved?"Changes were saved, but current settings could not be reloaded. Your other drafts are retained. Refresh saved settings before continuing.":errorText(error));
     return false;
   }finally {
-    if(current()){card.scopedBusy=null;card.settingsBusy=false;card.render?.();}
+    if(current()){editors.scopedBusy=null;editors.settingsBusy=false;card.render?.();}
   }
 }

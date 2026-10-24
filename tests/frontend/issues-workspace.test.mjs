@@ -22,8 +22,8 @@ function fixture() {
 }
 
 const episode=(id,anchor,recorded=[anchor])=>({episode_id:id,anchor,recorded,impact:[],reasons:[{node_id:anchor,status:"fail",message:"Home Assistant reports unavailable."}],importance:"normal",opened_at:"2026-10-14T10:00:00Z"});
-const issueCard=data=>({current:{data},issueGroupsExpanded:new Set(),issueGroupLimits:new Map(),issueRow:(_,item)=>`<button data-episode="${item.episode_id}">${item.episode_id}</button>`});
-const sourceCard=data=>({current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesSelection:"source:entity:table",configuration:{monitoring_policy_version:1,settings:{monitoring_policies:[{id:"devices",name:"Device availability"},{id:"entities",name:"Entity availability"},{id:"extra",name:"Extra light"}]}},sourceDetail:{nodeId:"entity:table",members:[{node_id:"entity:table",entity_id:"light.table",name:"Back Deck Table Light",state:"unavailable"}]}});
+const issueCard=data=>({editors:{},current:{data},issueGroupsExpanded:new Set(),issueGroupLimits:new Map(),issueRow:(_,item)=>`<button data-episode="${item.episode_id}">${item.episode_id}</button>`});
+const sourceCard=data=>({current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesSelection:"source:entity:table",editors:{configuration:{monitoring_policy_version:1,settings:{monitoring_policies:[{id:"devices",name:"Device availability"},{id:"entities",name:"Entity availability"},{id:"extra",name:"Extra light"}]}}},sourceDetail:{nodeId:"entity:table",members:[{node_id:"entity:table",entity_id:"light.table",name:"Back Deck Table Light",state:"unavailable"}]}});
 
 test("investigation grouping keeps independent issue IDs and starts collapsed",()=>{
   const data=fixture(),groups=issueGroups(data),card=issueCard(data);

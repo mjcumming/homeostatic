@@ -41,12 +41,12 @@ const tick=()=>new Promise(resolve=>{const channel=new MessageChannel();channel.
 const check=(condition,message)=>{if(!condition)throw Error(message);};
 const find=selector=>{const element=root.querySelector(selector);check(element,`Missing ${selector}`);return element;};
 async function click(selector) {const element=find(selector);check(!element.disabled,`Disabled ${selector}`);element.click();await tick();}
-async function settle() {for(let index=0;index<60;index++){await tick();if(!card.scopedBusy&&!card.settingsBusy&&!card.configBusy)return;}throw Error("Simulated save did not settle");}
+async function settle() {for(let index=0;index<60;index++){await tick();if(!card.editors.scopedBusy&&!card.editors.settingsBusy&&!card.editors.configBusy)return;}throw Error("Simulated save did not settle");}
 function reset() {
   if(card.dialog.open)card.dialog.close();
   saved=copy(initial);revision=1;calls.length=0;
-  Object.assign(card,{current:{status:"current",data:inventory()},configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,page:"problems",issueQuery:"",issueGroupsExpanded:new Set(),issueGroupLimits:new Map(),availabilityNotice:null,availabilityError:null,availabilityContext:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null,detail:null});
-  initializeScopedConfiguration(card);card.render();
+  Object.assign(card,{current:{status:"current",data:inventory()},editors:{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null},page:"problems",issueQuery:"",issueGroupsExpanded:new Set(),issueGroupLimits:new Map(),availabilityNotice:null,availabilityError:null,availabilityContext:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null,detail:null});
+  initializeScopedConfiguration(card.editors);card.render();
 }
 async function openReview() {
   await click('[data-issue-group="integration:mqtt"]');

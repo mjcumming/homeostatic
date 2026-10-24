@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=109";
+import {escapeHtml as esc} from "./model.mjs?v=110";
 
 const identity=source=>source.monitoring_source||source.node_id;
 const matches=(match,metadata)=>Object.entries(match||{}).every(([field,values])=>values.some(value=>(metadata[field]||[]).includes(value)));
@@ -25,7 +25,7 @@ export function entityScopeSummary(policy) {
 export function entitySelectionRows(card,policy) {
   const candidates=card.current?.data?.inventory?.catalog?.candidates||[];
   const devices=new Map(candidates.filter(source=>source.kind==="device").flatMap(source=>(source.attributes?.device||[source.node_id.slice(7)]).map(id=>[id,source.name])));
-  const areas=new Map((card.configuration.areas||[]).map(area=>[area.id,area.name]));
+  const areas=new Map((card.editors.configuration.areas||[]).map(area=>[area.id,area.name]));
   const rows=candidates.filter(source=>source.kind==="entity").map(source=>{
     const domain=source.attributes?.integration_domain?.[0]||"",deviceId=source.attributes?.device?.[0]||"";
     const integration=domain?(card._hass?.localize?.(`component.${domain}.title`)||domain.replaceAll("_"," ").replace(/^./,letter=>letter.toUpperCase())):"Other entities";
@@ -37,7 +37,7 @@ export function entitySelectionRows(card,policy) {
     if(known.has(id))continue;
     rows.push({id,name:id.startsWith("device:")?(devices.has(id.slice(7))?`Excluded device: ${devices.get(id.slice(7))}`:"Excluded device no longer in the list"):"Entity no longer in the list",entityId:id,area:"",integration:"Unavailable selections",integrationKey:"unavailable",device:"Saved choices",group:"unavailable",missing:true,selected:!(policy.excluded_sources||[]).includes(id)});
   }
-  const state=card.entitySelection?.id===policy.id?card.entitySelection:{query:"",selectedOnly:false};
+  const state=card.editors.entitySelection?.id===policy.id?card.editors.entitySelection:{query:"",selectedOnly:false};
   const query=(state.query||"").trim().toLocaleLowerCase();
   return rows.filter(row=>(!state.selectedOnly||row.selected)&&[row.name,row.entityId,row.area,row.integration,row.device].join(" ").toLocaleLowerCase().includes(query))
     .sort((a,b)=>a.integration.localeCompare(b.integration)||a.device.localeCompare(b.device)||a.group.localeCompare(b.group)||a.name.localeCompare(b.name)||a.id.localeCompare(b.id));
@@ -45,7 +45,7 @@ export function entitySelectionRows(card,policy) {
 
 export function entitySelection(card,policy) {
   const data=card.current?.data,pending=!data?.inventory?.catalog||data.schema_version===3&&!data.catalog_loaded,stale=data?.catalog_stale;
-  const state=card.entitySelection?.id===policy.id?card.entitySelection:{query:"",selectedOnly:false},rows=entitySelectionRows(card,policy);
+  const state=card.editors.entitySelection?.id===policy.id?card.editors.entitySelection:{query:"",selectedOnly:false},rows=entitySelectionRows(card,policy);
   const attr=field=>`data-definition-kind="policies" data-definition-id="${esc(policy.id)}" data-definition-field="${field}"`;
   const integrations=new Map(),searching=Boolean(state.query?.trim());
   for(const row of rows) {
@@ -86,21 +86,21 @@ export function chooseEntitySource(policy,row,selected) {
 export function editEntitySelection(card,event,element,invalidate,renderAfterEdit) {
   const field=element.dataset.definitionField;
   if(!field?.startsWith("entity-"))return false;
-  const policy=card.settingsDraft.monitoring_policies.find(policy=>policy.id===element.dataset.definitionId);
+  const policy=card.editors.settingsDraft.monitoring_policies.find(policy=>policy.id===element.dataset.definitionId);
   if(!policy||!["availability","entity_not_provided"].includes(policy.check)||policy.match?.kind?.[0]!=="entity")return true;
-  card.entitySelection=card.entitySelection?.id===policy.id?card.entitySelection:{id:policy.id,query:"",selectedOnly:false};
+  card.editors.entitySelection=card.editors.entitySelection?.id===policy.id?card.editors.entitySelection:{id:policy.id,query:"",selectedOnly:false};
   if(field==="entity-expand") {
     if(event.type!=="click")return true;
-    const key=element.dataset.definitionValue,searching=Boolean(card.entitySelection.query.trim()),property=searching?"searchCollapsed":"expanded";
-    const expanded=new Set(card.entitySelection[property]||[]);
+    const key=element.dataset.definitionValue,searching=Boolean(card.editors.entitySelection.query.trim()),property=searching?"searchCollapsed":"expanded";
+    const expanded=new Set(card.editors.entitySelection[property]||[]);
     if(expanded.has(key))expanded.delete(key);else expanded.add(key);
-    card.entitySelection[property]=[...expanded];
+    card.editors.entitySelection[property]=[...expanded];
     renderAfterEdit(card,element);return true;
   }
   if(field==="entity-search"||field==="entity-selected-only") {
     if(event.type==="click")return true;
-    card.entitySelection[field==="entity-search"?"query":"selectedOnly"]=field==="entity-search"?element.value:element.checked;
-    card.entitySelection.searchCollapsed=[];
+    card.editors.entitySelection[field==="entity-search"?"query":"selectedOnly"]=field==="entity-search"?element.value:element.checked;
+    card.editors.entitySelection.searchCollapsed=[];
     renderAfterEdit(card,element);return true;
   }
   if(card.current?.data?.catalog_stale||card.current?.data?.catalog_loaded===false)return true;

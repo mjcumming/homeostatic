@@ -35,11 +35,11 @@ test("source history keeps ended records concise with exact detail targets newes
 
 test("integration history does not infer retained membership from today's hierarchy",()=>{
   const data=sourceHistoryExample();
-  const html=sourcesBrowser({current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:"source:entry:mqtt",sourcesView:"history"});
+  const html=sourcesBrowser({editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:"source:entry:mqtt",sourcesView:"history"});
   assert.match(html,/porch temperature entity as unavailable/);
   assert.match(html,/data-episode="open"/);
   assert.doesNotMatch(html,/data-history="cleared"|data-history="removed"|data-history="absorbed"/);
-  const garage=sourcesBrowser({current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:"source:device:garage",sourcesView:"history"});
+  const garage=sourcesBrowser({editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesNeedsReview:false,sourcesExpanded:new Set(),sourcesSelection:"source:device:garage",sourcesView:"history"});
   assert.match(garage,/Garage relay before rename/);
   assert.match(garage,/data-history="cleared"/);
 });
@@ -51,17 +51,17 @@ test("recorded parent and canonical identity survive removed checks and a differ
   record.source={node_id:anchor,name:"Original child · entities",kind:"entity",owner_id:"mqtt",monitoring_source:canonical,attributes:{integration:["mqtt"],device:["garage"]}};
   data.inventory.resolved_history.episodes=[record];
   data.inventory.nodes.push(baseSource("entry:other","Other connection","integration",{entry_id:"other",attributes:{domain:["other"]}}));
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesView:"history"};
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesView:"history"};
   for(const selection of ["source:entry:mqtt","source:device:garage"]){
-    const html=sourcesBrowser({...card,sourcesSelection:selection});
+    const html=sourcesBrowser({editors:{},...card,sourcesSelection:selection});
     assert.match(html,/data-history="removed"/);
     assert.match(html,/Original child · entities/);
   }
   data.inventory.nodes.push(baseSource(canonical,"Renamed child","entity",{owner_id:"other",attributes:{integration:["other"],device:["porch"]}}));
-  assert.match(sourcesBrowser({...card,sourcesSelection:`source:${canonical}`}),/data-history="removed"/);
+  assert.match(sourcesBrowser({editors:{},...card,sourcesSelection:`source:${canonical}`}),/data-history="removed"/);
   for(const selection of ["source:entry:other","source:device:porch"])
-    assert.doesNotMatch(sourcesBrowser({...card,sourcesSelection:selection}),/data-history="removed"/);
-  assert.match(sourcesBrowser({...card,sourcesSelection:"source:entry:mqtt"}),/Original child · entities/);
+    assert.doesNotMatch(sourcesBrowser({editors:{},...card,sourcesSelection:selection}),/data-history="removed"/);
+  assert.match(sourcesBrowser({editors:{},...card,sourcesSelection:"source:entry:mqtt"}),/Original child · entities/);
 });
 
 test("history is bounded to the selected source and does not replace historical findings with live state",()=>{
@@ -98,7 +98,7 @@ test("missing retained evidence and timestamps are explicit and unsafe text is e
 test("source details keep the current issue separate from retained history and disclose coverage once",()=>{
   const data=sourceHistoryExample();
   for(const item of data.inventory.resolved_history.episodes)item.source.owner_id="mqtt";
-  const card={current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesSelection:"source:entry:mqtt"};
+  const card={editors:{},current:{data},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(),sourcesSelection:"source:entry:mqtt"};
   const compact=sourcesBrowser(card);
   assert.equal([...compact.matchAll(/data-episode="open"/g)].length,1);
   assert.doesNotMatch(compact,/data-history="cleared"|History information|Older child issues/);

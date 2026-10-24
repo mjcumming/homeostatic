@@ -1,20 +1,20 @@
-import {notProvidedProblem} from "./entity-not-provided.mjs?v=109";
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=109";
-import {callAction} from "./history-controls.mjs?v=109";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=109";
-import {deviceEntitySummary} from "./device-entities.mjs?v=109";
-import {sourceCoverageIndex,sourceCoverage} from "./source-coverage.mjs?v=109";
-import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=109";
-import {issueAvailabilityAction, issueAvailabilityNeedsCatalog, renderIssueAvailability} from "./issue-monitoring.mjs?v=109";
-import {batteryProblem,entityProblem,vacuumProblem} from "./problem.mjs?v=109";
-import {temperatureProblem} from "./source-temperature.mjs?v=109";
-import {upsProblem} from "./ups.mjs?v=109";
-import {retainedProblem} from "./check-presentation.mjs?v=109";
+import {notProvidedProblem} from "./entity-not-provided.mjs?v=110";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=110";
+import {callAction} from "./history-controls.mjs?v=110";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=110";
+import {deviceEntitySummary} from "./device-entities.mjs?v=110";
+import {sourceCoverageIndex,sourceCoverage} from "./source-coverage.mjs?v=110";
+import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=110";
+import {issueAvailabilityAction, issueAvailabilityNeedsCatalog, renderIssueAvailability} from "./issue-monitoring.mjs?v=110";
+import {batteryProblem,entityProblem,vacuumProblem} from "./problem.mjs?v=110";
+import {temperatureProblem} from "./source-temperature.mjs?v=110";
+import {upsProblem} from "./ups.mjs?v=110";
+import {retainedProblem} from "./check-presentation.mjs?v=110";
 
 const date=value=>new Date(value).toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const issueId=item=>item.episode.episode_id;
 const currentEntries=card=>card.current.data?relatedDeviceIssues(card.current.data,card.detail?.deviceId):[];
-const canAct=card=>card.current.status==="current"&&card._hass?.user?.is_admin&&card.current.data?.inventory.attention_controls_supported&&!card.scopedBusy&&!card.settingsBusy;
+const canAct=card=>card.current.status==="current"&&card._hass?.user?.is_admin&&card.current.data?.inventory.attention_controls_supported&&!card.editors.scopedBusy&&!card.editors.settingsBusy;
 const stateFor=(card,entries)=>{
   let state=card.deviceIssues;
   if(!state||state.selection!==card.detail)state=card.deviceIssues={selection:card.detail,selected:new Set(entries.map(issueId)),results:new Map(),busy:false,form:null};
@@ -88,7 +88,7 @@ export function renderDeviceIssues(card,result=card.deviceIssueContext) {
   const row=item=>{
     const id=issueId(item),name=issueName(item);
     const duplicates=entries.filter(other=>other.canonicalSource.node_id===item.canonicalSource.node_id).length>1;
-    const policy=typeof item.source.monitoring_policy==="object"?item.source.monitoring_policy?.name:card.configuration?.settings?.monitoring_policies?.find(policy=>policy.id===item.source.monitoring_policy)?.name;
+    const policy=typeof item.source.monitoring_policy==="object"?item.source.monitoring_policy?.name:card.editors.configuration?.settings?.monitoring_policies?.find(policy=>policy.id===item.source.monitoring_policy)?.name;
     return `<label class="device-issue-choice"><input type="checkbox" data-device-issue-select="${esc(id)}"${state.selected.has(id)?" checked":""}${state.busy||state.form?" disabled":""}><span><strong>${esc(name)}</strong>${duplicates&&policy?`<span class="small">${esc(policy)}</span>`:""}${evidence(item)}${issueState(card,item,state)}</span></label>`;
   };
   const deviceLevel=item=>["device","battery","ups"].includes(item.canonicalSource.kind);

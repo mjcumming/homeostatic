@@ -6,9 +6,9 @@ import {emptyReceipt,recordResult,receiptSummary} from "./control-path-inventory
 const card=document.querySelector("homeostatic-panel"),root=card.shadowRoot,result=document.querySelector("#result");
 const copy=value=>structuredClone(value),base=sourceDetailsFixture("device",["unavailable","unknown","off"]);
 const candidates=base.current.data.inventory.catalog.candidates,entities=candidates.filter(item=>item.kind==="entity"),members=base.sourceDetail.members;
-const initial={...base.configuration.settings,notifications:false,timings:{settle:30},consumer:null,
+const initial={...base.editors.configuration.settings,notifications:false,timings:{settle:30},consumer:null,
   notification_definitions:{methods:{phone:{name:"Phone",mode:"fixed",destinations:[]}},profiles:{}},
-  monitoring_policies:[...base.configuration.settings.monitoring_policies,{id:"temperature",name:"Temperature",check:"temperature_limit",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]}]};
+  monitoring_policies:[...base.editors.configuration.settings.monitoring_policies,{id:"temperature",name:"Temperature",check:"temperature_limit",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]}]};
 let saved,revision,calls,failNext,receipt,activePath,rejectPendingSave,withSibling=false;
 const configuration=()=>({revision:String(revision),settings:copy(saved)});
 const policy=id=>saved.monitoring_policies.find(item=>item.id===id);
@@ -54,7 +54,7 @@ root.addEventListener("click",event=>{if(event.target.closest("a[href]"))event.p
 const frame=()=>new Promise(resolve=>{const channel=new MessageChannel();channel.port1.onmessage=()=>{channel.port1.close();channel.port2.close();resolve();};channel.port2.postMessage(null);});
 const check=(value,message)=>{if(!value)throw Error(message);};
 async function settle() {
-  for(let index=0;index<40;index++){await frame();if(!card.settingsBusy&&!card.sourceDetail?.loading)return;}
+  for(let index=0;index<40;index++){await frame();if(!card.editors.settingsBusy&&!card.sourceDetail?.loading)return;}
   throw Error("Source action did not settle");
 }
 function click(selector) {
@@ -68,8 +68,8 @@ function reset(includeSibling=false) {
   saved=copy(initial);revision=1;calls=[];failNext=null;rejectPendingSave=null;withSibling=includeSibling;
   delete card._hass.states["sensor.unrelated_reading"];
   if(withSibling)card._hass.states["sensor.unrelated_reading"]={state:"unavailable",attributes:{}};
-  Object.assign(card,{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null,availabilityPlan:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null,detail:null,issueGroupsExpanded:new Set(),issueGroupLimits:new Map(),availabilitySelected:null,availabilityError:null,availabilityContext:null,sourcePoliciesSelection:null,sourcesExcludedOnly:false,sourcesQuery:"",sourcesExpanded:new Set(base.sourcesExpanded),current:{status:"current",data:inventory()},page:"sources"});
-  initializeScopedConfiguration(card);choose(ENTITY_ID);
+  Object.assign(card,{editors:{configuration:configuration(),settingsDraft:copy(saved),scopedConfiguration:null},availabilityPlan:null,issueAvailabilityPlan:null,issueAvailabilityEpisode:null,detail:null,issueGroupsExpanded:new Set(),issueGroupLimits:new Map(),availabilitySelected:null,availabilityError:null,availabilityContext:null,sourcePoliciesSelection:null,sourcesExcludedOnly:false,sourcesQuery:"",sourcesExpanded:new Set(base.sourcesExpanded),current:{status:"current",data:inventory()},page:"sources"});
+  initializeScopedConfiguration(card.editors);choose(ENTITY_ID);
 }
 async function openIssueReview() {
   reset(true);card.page="issues";card.render();await settle();
@@ -138,7 +138,7 @@ document.querySelector("#run").onclick=async()=>{
 
     await openIssueReview();failNext={code:"invalid_settings",message:"Synthetic late issue failure",deferred:true};
     click('.dialog-body [data-issue-availability="confirm"][data-issue-id="shared"]');await frame();
-    check(saves().length===1&&card.settingsBusy&&typeof rejectPendingSave==="function","The issue save remains explicitly pending");
+    check(saves().length===1&&card.editors.settingsBusy&&typeof rejectPendingSave==="function","The issue save remains explicitly pending");
     click('[data-action="close"]');await frame();
     check(!card.dialog.open&&!card.issueAvailabilityPlan&&!card.issueAvailabilityEpisode,"Close discards the pending dialog's review");
     click('[data-episode="unrelated"]');await frame();
@@ -152,8 +152,8 @@ document.querySelector("#run").onclick=async()=>{
 
     reset();await settle();
     start("sources.availability");
-    card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name="Pending temperature";
-    card.settingsDraft.notification_definitions.methods.phone.name="Pending phone";
+    card.editors.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name="Pending temperature";
+    card.editors.settingsDraft.notification_definitions.methods.phone.name="Pending phone";
     check(root.querySelector('[data-availability-action="stop"]').textContent==="Stop Monitoring","Entity monitoring uses the Stop Monitoring label");
     click('[data-availability-action="stop"]');
     check(card.availabilityPlan.changes.map(policy=>policy.id).sort().join(",")==="devices,entities","The reviewed change covers both availability roles");
@@ -163,8 +163,8 @@ document.querySelector("#run").onclick=async()=>{
     check(saves().length===1&&exclusion("entities",ENTITY_ID)&&exclusion("devices",ENTITY_ID),"One save excludes exactly the entity in both policies");
     const availability=root.querySelector(".source-entity-condition").textContent;
     check(availability==="Home Assistant reports this entity as unavailable","Unmonitor must not reinterpret unavailable");
-    check(policy("temperature").name==="Temperature"&&card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name==="Pending temperature","Unrelated policy draft survives unsaved");
-    check(saved.notification_definitions.methods.phone.name==="Phone"&&card.settingsDraft.notification_definitions.methods.phone.name==="Pending phone","Unrelated delivery draft survives unsaved");
+    check(policy("temperature").name==="Temperature"&&card.editors.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name==="Pending temperature","Unrelated policy draft survives unsaved");
+    check(saved.notification_definitions.methods.phone.name==="Phone"&&card.editors.settingsDraft.notification_definitions.methods.phone.name==="Pending phone","Unrelated delivery draft survives unsaved");
     choose(DEVICE_ID);await settle();choose(ENTITY_ID);await settle();
     click('[data-availability-action="resume"]');click('[data-availability-action="confirm"]');await settle();
     check(!exclusion("entities",ENTITY_ID)&&!exclusion("devices",ENTITY_ID),"Resume persisted after reopening");
@@ -191,9 +191,9 @@ document.querySelector("#run").onclick=async()=>{
     pass(activePath,"Device checkboxes select exactly two entities for one save; omitted excluded members remain reachable for selective resumption; exclusion filter retains only excluded branches.");
 
     start("sources.availability-conflicts");reset();await settle();
-    click('[data-availability-action="stop"]');card.settingsDraft.monitoring_policies.find(item=>item.id==="entities").name="Pending affected draft";
+    click('[data-availability-action="stop"]');card.editors.settingsDraft.monitoring_policies.find(item=>item.id==="entities").name="Pending affected draft";
     click('[data-availability-action="confirm"]');await settle();check(saves().length===0&&root.querySelector('[role="alert"]').textContent.includes("draft"),"Affected drafts block the entire save");
-    reset();await settle();click('[data-availability-action="stop"]');revision++;saved.notifications=true;rebaseScopedConfiguration(card,configuration());
+    reset();await settle();click('[data-availability-action="stop"]');revision++;saved.notifications=true;rebaseScopedConfiguration(card.editors,configuration());
     click('[data-availability-action="confirm"]');await settle();check(saves().length===0&&root.querySelector('[role="alert"]').textContent.includes("changed"),"Stale review must not overwrite settings");
     reset();await settle();click('[data-availability-action="stop"]');card.current.data.catalog_revision="new-catalog";
     click('[data-availability-action="confirm"]');await settle();check(saves().length===0&&!root.querySelector('[data-availability-action="confirm"]'),"Changed catalog clears the stale review without a write");
@@ -227,9 +227,9 @@ document.querySelector("#run").onclick=async()=>{
 
     start("sources.monitoring-policies");reset();await settle();
     const policySettings=JSON.stringify(saved);
-    card.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name="Pending temperature";
-    card.settingsDraft.notification_definitions.methods.phone.name="Pending phone";
-    const policyDrafts=JSON.stringify(card.settingsDraft);
+    card.editors.settingsDraft.monitoring_policies.find(item=>item.id==="temperature").name="Pending temperature";
+    card.editors.settingsDraft.notification_definitions.methods.phone.name="Pending phone";
+    const policyDrafts=JSON.stringify(card.editors.settingsDraft);
     check(root.querySelectorAll('.source-policy-links [data-source-policies="open"]').length===1&&!root.querySelector('.config-detail [data-definition-id]'),"One contextual policy action replaces inline policy editing");
     click('[data-source-policies="open"]');await settle();
     check(root.querySelector('.source-policy-dialog')?.open,"Monitoring policies opens a native dialog");
@@ -268,7 +268,7 @@ document.querySelector("#run").onclick=async()=>{
     click('[data-source-policies="close"]');await settle();
     check(root.activeElement?.id==="sources-detail-title","Closing a dialog without its trigger focuses the selected entity heading");
     card.current.data.inventory.nodes=monitoringNodes;card.render();
-    check(JSON.stringify(saved)===policySettings&&JSON.stringify(card.settingsDraft)===policyDrafts&&saves().length===0,"Policy navigation preserves saved monitoring and unrelated policy/method drafts");
+    check(JSON.stringify(saved)===policySettings&&JSON.stringify(card.editors.settingsDraft)===policyDrafts&&saves().length===0,"Policy navigation preserves saved monitoring and unrelated policy/method drafts");
     pass(activePath,"One rendered Monitoring policies action opens both contribution roles for the selected entity. Close and native cancel-event wiring restore focus; a live render preserves dialog, edit focus and a long list's scroll. Both Edit policy actions open the exact editor and Back to source restores selected identity. Loss of the last contributor keeps the dialog dismissible and Close focuses the entity heading. Saved settings and unrelated policy/method drafts remain unchanged. Native keyboard activation and Escape require the accompanying browser check.");
 
     start("sources.compact-layout");reset();await settle();

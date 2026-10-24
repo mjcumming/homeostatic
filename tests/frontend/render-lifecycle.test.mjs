@@ -33,8 +33,7 @@ function pageFixture() {
   const card={
     page:"notifications",notificationSection:"methods",definitionSelection:{kind:"methods",id:"phone"},
     current:{status:"current",data:monitoringExample()},config:{view:"notifications"},
-    configuration:{settings:structuredClone(settings),delivery_targets:[],notification_people:[]},
-    settingsDraft:settings,main,renderedView:null,renderedCurrent:false,renderedContent:null,
+    editors:{configuration:{settings:structuredClone(settings),delivery_targets:[],notification_people:[]},settingsDraft:settings},main,renderedView:null,renderedCurrent:false,renderedContent:null,
     shadowRoot:{querySelector:selector=>({".workspace-status":status,".nav":nav,'[data-action="back"]':back}[selector]??null),querySelectorAll:()=>[]},
     navigation:{updateReturn(){}},viewIdentity:()=> "notifications",renderNotificationControl(){},
     capturePageState:()=>focus,restorePageState:state=>restored.push(state),observeSourceBranches(){},
@@ -45,15 +44,15 @@ function pageFixture() {
 test("unchanged monitoring updates retain the notification editor and its DOM state",()=>{
   const {card,main}=pageFixture();
   prototype.renderPage.call(card);
-  const draft=card.settingsDraft;
+  const draft=card.editors.settingsDraft;
   assert.match(main.innerHTML,/Owner phone/);
   for(const updated_at of ["2026-10-14T21:00:00Z","2026-10-14T21:00:01Z"]) {
     card.current={status:"current",data:{...card.current.data,updated_at}};
     prototype.renderPage.call(card);
   }
   assert.equal(main.writes,1);
-  assert.equal(card.settingsDraft,draft);
-  card.settingsDraft.notification_definitions.methods.phone.name="Changed name";
+  assert.equal(card.editors.settingsDraft,draft);
+  card.editors.settingsDraft.notification_definitions.methods.phone.name="Changed name";
   prototype.renderPage.call(card);
   assert.equal(main.writes,2);
   assert.match(main.innerHTML,/Changed name/);
@@ -98,14 +97,14 @@ test("a remounted page uses its retained snapshot while initial and failed loads
 
 function pendingMethod() {
   const fixture=pageFixture(),{card}=fixture;
-  card.settingsDraft.notification_definitions.methods.phone.name="Edited phone";
-  card.scopedBusy="method:phone";card.scopedStatusScope="method:phone";card.settingsBusy=true;
+  card.editors.settingsDraft.notification_definitions.methods.phone.name="Edited phone";
+  card.editors.scopedBusy="method:phone";card.editors.scopedStatusScope="method:phone";card.editors.settingsBusy=true;
   prototype.renderPage.call(card);
   return fixture;
 }
 
 test("an external outage retains the exact pending editor until confirmed save and fresh monitoring",()=>{
-  const {card,main,status}=pendingMethod(),draft=card.settingsDraft,current=card.current;
+  const {card,main,status}=pendingMethod(),draft=card.editors.settingsDraft,current=card.current;
   assert.match(main.innerHTML,/Saving…/);
   card.current={status:"unavailable",data:{available:false}};
   prototype.renderPage.call(card);
@@ -113,7 +112,7 @@ test("an external outage retains the exact pending editor until confirmed save a
   assert.equal(main.inert,true);
   assert.equal(card.current.data.available,false);
   assert.equal(status.textContent,"Applying changes…");
-  card.configuration.settings=structuredClone(draft);card.scopedBusy=null;card.settingsBusy=false;card.scopedNotice=null;
+  card.editors.configuration.settings=structuredClone(draft);card.editors.scopedBusy=null;card.editors.settingsBusy=false;card.editors.scopedNotice=null;
   prototype.renderPage.call(card);
   assert.equal(main.writes,1);
   assert.equal(main.inert,true);
@@ -124,7 +123,7 @@ test("an external outage retains the exact pending editor until confirmed save a
   assert.equal(main.inert,false);
   assert.equal(status.hidden,true);
   assert.equal(card.retainedSave,null);
-  assert.equal(card.settingsDraft,draft);
+  assert.equal(card.editors.settingsDraft,draft);
   assert.doesNotMatch(main.innerHTML,/Changes saved/);
 });
 
@@ -136,13 +135,13 @@ for(const state of ["unavailable","disconnected","loading","error"]) {
     assert.equal(main.writes,1);
     assert.equal(main.inert,true);
     assert.equal(status.hidden,false);
-    card.scopedBusy=null;card.settingsBusy=false;card.scopedError="The save could not be confirmed; edits are retained.";
+    card.editors.scopedBusy=null;card.editors.settingsBusy=false;card.editors.scopedError="The save could not be confirmed; edits are retained.";
     prototype.renderPage.call(card);
     assert.equal(card.retainedSave,null);
     assert.equal(main.inert,false);
     assert.match(main.innerHTML,/The save could not be confirmed/);
     assert.doesNotMatch(main.innerHTML,/Saving…|Edited phone/);
-    assert.equal(card.settingsDraft.notification_definitions.methods.phone.name,"Edited phone");
+    assert.equal(card.editors.settingsDraft.notification_definitions.methods.phone.name,"Edited phone");
     prototype.renderPage.call(card);
     assert.match(main.innerHTML,/The save could not be confirmed/);
   });
@@ -154,7 +153,7 @@ test("fresh monitoring never confirms a pending save",()=>{
   card.current=current;prototype.renderPage.call(card);
   assert.match(main.innerHTML,/Saving…/);
   assert.doesNotMatch(main.innerHTML,/Changes saved/);
-  assert.equal(card.scopedBusy,"method:phone");
+  assert.equal(card.editors.scopedBusy,"method:phone");
 });
 
 for(const change of ["different-editor","different-page","global-save"]) {
@@ -162,7 +161,7 @@ for(const change of ["different-editor","different-page","global-save"]) {
     const {card,main}=pendingMethod();
     if(change==="different-editor")card.definitionSelection={kind:"methods",id:"other"};
     if(change==="different-page")card.page="problems";
-    if(change==="global-save")card.scopedBusy="notifications";
+    if(change==="global-save")card.editors.scopedBusy="notifications";
     card.current={status:"unavailable",data:{available:false}};prototype.renderPage.call(card);
     assert.match(main.innerHTML,/Monitoring unavailable/);
     assert.doesNotMatch(main.innerHTML,/Saving…/);
@@ -173,7 +172,7 @@ for(const change of ["different-editor","different-page","global-save"]) {
 test("a runtime error after confirmed save ends reload retention and remains visible",()=>{
   const {card,main}=pendingMethod();
   card.current={status:"unavailable",data:{available:false}};prototype.renderPage.call(card);
-  card.scopedBusy=null;card.settingsBusy=false;card.scopedNotice=null;
+  card.editors.scopedBusy=null;card.editors.settingsBusy=false;card.editors.scopedNotice=null;
   card.current={status:"unavailable",data:{available:false,error:"Storage unavailable"}};
   prototype.renderPage.call(card);
   assert.equal(card.retainedSave,null);
@@ -185,9 +184,9 @@ test("a runtime error after confirmed save ends reload retention and remains vis
 test("newer unsaved edits stay explicit during a confirmed save's remaining runtime outage",()=>{
   const {card,main,status}=pendingMethod(),current=card.current;
   card.current={status:"unavailable",data:{available:false}};prototype.renderPage.call(card);
-  card.configuration.settings=structuredClone(card.settingsDraft);
-  card.settingsDraft.notification_definitions.methods.phone.name="Newer phone";
-  card.scopedBusy=null;card.settingsBusy=false;card.scopedNotice="Newer edits are still unsaved.";
+  card.editors.configuration.settings=structuredClone(card.editors.settingsDraft);
+  card.editors.settingsDraft.notification_definitions.methods.phone.name="Newer phone";
+  card.editors.scopedBusy=null;card.editors.settingsBusy=false;card.editors.scopedNotice="Newer edits are still unsaved.";
   prototype.renderPage.call(card);
   assert.equal(main.inert,true);
   assert.equal(status.textContent,"Finishing update…");
@@ -200,7 +199,7 @@ test("newer unsaved edits stay explicit during a confirmed save's remaining runt
   assert.doesNotMatch(main.innerHTML,/Changes saved|Saving…/);
   card.current=current;prototype.renderPage.call(card);
   assert.match(main.innerHTML,/Newer phone|Save delivery method/);
-  assert.equal(card.settingsDraft.notification_definitions.methods.phone.name,"Newer phone");
+  assert.equal(card.editors.settingsDraft.notification_definitions.methods.phone.name,"Newer phone");
 });
 
 test("legacy grouping history returns to Timing and retains its in-flight save",()=>{
@@ -209,8 +208,8 @@ test("legacy grouping history returns to Timing and retains its in-flight save",
   card.viewIdentity=()=>prototype.viewIdentity.call(card);
   card.render=()=>prototype.renderPage.call(card);
   card.dialog={close(){}};
-  card.settingsDraft.timings.settle=600;
-  card.scopedBusy="settings";card.scopedStatusScope="settings";card.settingsBusy=true;
+  card.editors.settingsDraft.timings.settle=600;
+  card.editors.scopedBusy="settings";card.editors.scopedStatusScope="settings";card.editors.settingsBusy=true;
   card.render();
   assert.match(main.innerHTML,/Save settings|Saving…/);
   card.current={status:"unavailable",data:{available:false}};card.render();
@@ -220,7 +219,7 @@ test("legacy grouping history returns to Timing and retains its in-flight save",
   navigation.applyPath("/settings/grouping");
   assert.equal(card.page,"configuration");
   assert.equal(card.settingsSection,undefined);
-  assert.equal(card.scopedBusy,"settings");
+  assert.equal(card.editors.scopedBusy,"settings");
   assert.equal(card.retainedSave.scope,"settings");
   assert.match(main.innerHTML,/Saving…/);
   assert.doesNotMatch(main.innerHTML,/Problem grouping/);
@@ -228,7 +227,7 @@ test("legacy grouping history returns to Timing and retains its in-flight save",
 
 test("unchanged issue details retain disclosures and exclude raw diagnostic controls",async()=>{
   const fixture=issueEvidenceFixture(),body=contentHost(),label={};
-  const detail={
+  const detail={editors:{},
     current:{status:"current",data:fixture.data},detail:{episodeId:LYRIC_EPISODE},detailSequence:0,
     shadowRoot:{querySelector:selector=>selector===".dialog-body"?body:label},
     displaySourceName:source=>source.name,tools:{detailButtons:()=>""},

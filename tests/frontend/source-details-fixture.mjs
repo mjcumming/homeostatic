@@ -30,7 +30,7 @@ export function sourceDetailsFixture(view="device",states=["restored","restored"
   const selected=view==="entity"?ENTITY_ID:DEVICE_ID;
   const selectedMembers=view==="entity"?members.slice(0,1):members;
   const card={current:{status:"current",data},sourcesGrouping:"integration",sourcesQuery:"",sourcesExpanded:new Set(["integration:lyric","source:entry:lyric",`source:${DEVICE_ID}`]),sourcesSelection:`source:${selected}`,
-    configuration:{revision:"r1",settings:{monitoring_policies:[{id:"devices",name:"Devices",check:"availability",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]},{id:"entities",name:"Entities",check:"availability",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]}]}},
+    editors:{configuration:{revision:"r1",settings:{monitoring_policies:[{id:"devices",name:"Devices",check:"availability",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]},{id:"entities",name:"Entities",check:"availability",enabled:true,match:{kind:["entity"]},parameters:{},notifications:[]}]}}},
     _hass:{localize:key=>key==="component.lyric.title"?"Honeywell Lyric":null},
     sourceDetail:{nodeId:selected,members:selectedMembers,total:selectedMembers.length,offset:0,next_offset:null,
       unavailable_count:selectedMembers.filter(item=>item.state==="unavailable"&&!item.restored).length,
