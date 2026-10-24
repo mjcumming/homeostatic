@@ -1,0 +1,247 @@
+{
+  "recorded_at_utc": "2026-10-24T09:20:19.421371+00:00",
+  "version": "1.12.3",
+  "commit": "2de8b72d8227048f61a01414e275f760ad6e7ff4",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.12.3",
+  "published_at": "2026-10-24T09:14:21Z",
+  "change": "Require administrator access for report reads and separate producer state and dispatch from ordered runtime coordination.",
+  "candidate": {
+    "branch": "main",
+    "dirty": false,
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "archive_sha256": "9342c2b168d2aecf0458db377f3f33ce4324ed948447a9f1e6349a5cda9b40c5",
+    "packaged_files_verified": 463,
+    "embedded_hashes_verified": 462,
+    "sources_match_commit": true,
+    "published_download_matches_ci": true,
+    "configuration_migration": false,
+    "storage_format_change": false
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/40080829194",
+    "head_sha": "2de8b72d8227048f61a01414e275f760ad6e7ff4",
+    "result": "success",
+    "home_assistant": "2026.9.3",
+    "python_tests_passed": 1417,
+    "opt_in_performance_tests_skipped": 15,
+    "frontend_tests_passed": 900,
+    "statement_coverage_percent": 96.8137,
+    "branch_coverage_percent": 93.1751,
+    "strict_types": "pass",
+    "hassfest": "pass",
+    "hacs": "pass",
+    "fresh_package_installation": "pass",
+    "packaged_saved_state_reload": "pass"
+  },
+  "behavior_validation": {
+    "producer_boundary": "../adr/0110-separate-producers-from-runtime.md",
+    "mixed_producer_scenario": "../../tests/test_producers.py",
+    "ordered_capture": "Availability and temperature failures and recoveries retain their order while the worker is locked; persisted producer and engine state agree; two reloads preserve settings and history.",
+    "upgrade_preservation": "Existing published snapshot section names remain unchanged; affected restore and invalid-state scenarios pass without a reset."
+  },
+  "installation": {
+    "installed_files": {
+      "installed_at_utc": "2026-10-24T09:15:37.7878640Z",
+      "restart_required": true,
+      "archive_sha256": "9342c2b168d2aecf0458db377f3f33ce4324ed948447a9f1e6349a5cda9b40c5",
+      "temporary_paths_removed": true,
+      "version": "1.12.3",
+      "component_files": 82,
+      "installed_hashes_verified": true,
+      "commit": "2de8b72d8227048f61a01414e275f760ad6e7ff4"
+    },
+    "restart": {
+      "restart_requested_at_utc": "2026-10-24T09:15:46.194996+00:00",
+      "request_result": "ServerDisconnectedError",
+      "running_at_utc": "2026-10-24T09:17:58.966897+00:00",
+      "wait_seconds": 110.11,
+      "ha_version": "2026.10.0",
+      "ha_state": "RUNNING",
+      "entry_states": [
+        "loaded"
+      ],
+      "panel": {
+        "name": "homeostatic-panel-v61",
+        "embed_iframe": false,
+        "trust_external": false,
+        "module_url": "/homeostatic_static/homeostatic.js?v=109"
+      },
+      "test_notifications_requested": false
+    },
+    "checked_at_utc": "2026-10-24T09:18:54.787115+00:00",
+    "home_assistant": "2026.10.0",
+    "ha_state": "RUNNING",
+    "entry_states": [
+      "loaded"
+    ],
+    "previous_version": "1.12.2",
+    "installed_version": "1.12.3",
+    "installed_hashes_match_archive": true,
+    "saved_settings_before_sha256": "76fd71bd09212c627254586f2e698e862f22cd473833604456ce388322612a71",
+    "saved_settings_after_sha256": "76fd71bd09212c627254586f2e698e862f22cd473833604456ce388322612a71",
+    "all_saved_settings_unchanged": true,
+    "raw_entry_data_options_unchanged": true,
+    "policy_count": 13,
+    "policy_edits_and_introduction_tracking_unchanged": true,
+    "notification_definitions_unchanged": true,
+    "sending_before": true,
+    "sending_after": true,
+    "panel": {
+      "name": "homeostatic-panel-v61",
+      "embed_iframe": false,
+      "trust_external": false,
+      "module_url": "/homeostatic_static/homeostatic.js?v=109"
+    },
+    "served_module": {
+      "status": 200,
+      "sha256": "497c382724f36298ed5495270f2179575b40f245a0d3a3697b49198d102553fa",
+      "matches_installed": true
+    },
+    "homeostatic_log_errors": 0,
+    "read_only_api_checks": {
+      "checked_at_utc": "2026-10-24T09:19:39.752910+00:00",
+      "read_only": true,
+      "paged_panel_available": true,
+      "inventory_nodes": 6446,
+      "catalog_page_rows": 200,
+      "sampled_source_kinds": {
+        "battery": 8,
+        "broken_automation": 1,
+        "entity": 36,
+        "entity_not_provided": 404,
+        "integration": 31,
+        "temperature_limit": 3,
+        "vacuum": 3
+      },
+      "open_issues": 263,
+      "readiness_answer": "degraded",
+      "coverage_query_success": true,
+      "source_query_paths": {
+        "battery": {
+          "response_keys": [
+            "battery_conditions",
+            "entity_status",
+            "integration_evidence",
+            "members",
+            "monitoring_policies",
+            "next_offset",
+            "offset",
+            "temperature_checks",
+            "total",
+            "unavailable_count",
+            "unknown_count",
+            "updated_at",
+            "vacuum_activity"
+          ],
+          "success": true
+        },
+        "entity": {
+          "response_keys": [
+            "battery_conditions",
+            "entity_status",
+            "integration_evidence",
+            "members",
+            "monitoring_policies",
+            "next_offset",
+            "offset",
+            "temperature_checks",
+            "total",
+            "unavailable_count",
+            "unknown_count",
+            "updated_at",
+            "vacuum_activity"
+          ],
+          "success": true
+        },
+        "integration": {
+          "response_keys": [
+            "battery_conditions",
+            "entity_status",
+            "integration_evidence",
+            "members",
+            "monitoring_policies",
+            "next_offset",
+            "offset",
+            "temperature_checks",
+            "total",
+            "unavailable_count",
+            "unknown_count",
+            "updated_at",
+            "vacuum_activity"
+          ],
+          "success": true
+        },
+        "vacuum": {
+          "response_keys": [
+            "battery_conditions",
+            "entity_status",
+            "integration_evidence",
+            "members",
+            "monitoring_policies",
+            "next_offset",
+            "offset",
+            "temperature_checks",
+            "total",
+            "unavailable_count",
+            "unknown_count",
+            "updated_at",
+            "vacuum_activity"
+          ],
+          "success": true
+        },
+        "entity_not_provided": {
+          "response_keys": [
+            "battery_conditions",
+            "entity_status",
+            "integration_evidence",
+            "members",
+            "monitoring_policies",
+            "next_offset",
+            "offset",
+            "temperature_checks",
+            "total",
+            "unavailable_count",
+            "unknown_count",
+            "updated_at",
+            "vacuum_activity"
+          ],
+          "success": true
+        },
+        "temperature_limit": {
+          "response_keys": [
+            "battery_conditions",
+            "entity_status",
+            "integration_evidence",
+            "members",
+            "monitoring_policies",
+            "next_offset",
+            "offset",
+            "temperature_checks",
+            "total",
+            "unavailable_count",
+            "unknown_count",
+            "updated_at",
+            "vacuum_activity"
+          ],
+          "success": true
+        }
+      },
+      "notification_report_action_and_websocket_agree": true,
+      "unknown_notification_report_status": "expired",
+      "test_notifications_requested": false,
+      "browser_visual_check": {
+        "status": "unavailable",
+        "reason": "The Chrome computer-use bridge timed out on Emulation.setFocusEmulationEnabled after retry and session reset; no browser action succeeded."
+      },
+      "initial_harness_correction": "The legacy full-inventory query exceeded the test client's default 4 MiB WebSocket receive limit. Verification uses the panel's existing paged subscription and bounded catalog path instead."
+    },
+    "test_notifications_requested": false,
+    "backup": "No new manual backup or retained rollback copy for this code-only update; existing settings and stored-state format are preserved."
+  },
+  "remaining": [
+    "Live rendered browser review is unavailable because the Chrome computer-use bridge timed out before any UI action. Served frontend bytes and read-only HA queries were verified; the frontend is unchanged.",
+    "Extreme machine-payload sizes and separate reconnect/native-host investigations remain deferred."
+  ]
+}
