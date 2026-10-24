@@ -274,7 +274,7 @@ async def test_turning_the_check_off_ends_the_issue(
     await runtime.async_refresh()
     assert bound_identity(POLICY, node) not in runtime.sources
     assert not open_for(runtime, node)
-    assert runtime.broken.records[node]["state"] == "active"
+    assert runtime.producers.broken.records[node]["state"] == "active"
     runtime.settings = Settings.from_data(
         {**config_data, "monitoring_policies": [POLICY]}
     )

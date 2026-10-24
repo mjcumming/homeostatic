@@ -43,7 +43,7 @@ async def test_retry_attempt_preserves_failure_duration(
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
-    onset = deepcopy(runtime.retry_since)
+    onset = deepcopy(runtime.producers.retry_since)
     freezer.tick(timedelta(seconds=15))
     source._async_set_state(hass, ConfigEntryState.SETUP_IN_PROGRESS, None)
     await hass.async_block_till_done()
@@ -52,7 +52,7 @@ async def test_retry_attempt_preserves_failure_duration(
     freezer.tick(timedelta(seconds=6))
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
-    assert runtime.retry_since == onset
+    assert runtime.producers.retry_since == onset
     assert runtime.readiness == "blocked"
     assert await hass.config_entries.async_unload(entry.entry_id)
 

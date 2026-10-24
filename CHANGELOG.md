@@ -2,9 +2,15 @@
 
 ## [Unreleased]
 
+## [1.12.3] - 2026-10-24
+
 ### Fixed
 
 - Require administrator access for the notification-report action, matching the panel and WebSocket reader.
+
+### Changed
+
+- Give check producers one owner for detection state and dispatch while runtime coordinates ordered work, storage and delivery. Monitoring behavior and saved settings stay unchanged.
 
 ## [1.12.2] - 2026-10-24
 

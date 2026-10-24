@@ -190,7 +190,8 @@ async def test_provider_transitions_keep_availability_and_owner_evidence_separat
     } == {"availability"}
     # All live values remain provided, even as their availability meaning changes.
     with patch(
-        "custom_components.homeostatic.runtime.not_provided_observation", wraps=observe
+        "custom_components.homeostatic.producers.not_provided_observation",
+        wraps=observe,
     ) as observe_provider:
         for state in ("unknown", "off", "43"):
             hass.states.async_set(entity.entity_id, state)

@@ -392,7 +392,7 @@ async def test_source_temperature_checks_show_independent_member_conditions(
     assert pending["observation"]["evidence"]["temperature_celsius"] == 20
     assert pending["observation"]["evidence"]["duration_seconds"] == 3600
     assert pending["observation"]["evidence"]["observed_seconds"] == 0
-    since = runtime.temperature_monitors[monitored["pending"].node_id].since
+    since = runtime.producers.temperature_monitors[monitored["pending"].node_id].since
     assert since is not None
     assert pending["qualifying_since"] == since.isoformat()
     assert pending["next_deadline"] == (since + timedelta(hours=1)).isoformat()
@@ -407,7 +407,10 @@ async def test_source_temperature_checks_show_independent_member_conditions(
         "in_range",
     }
     assert runtime.snapshot() == before
-    assert runtime.temperature_monitors[monitored["pending"].node_id].since == since
+    assert (
+        runtime.producers.temperature_monitors[monitored["pending"].node_id].since
+        == since
+    )
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()
 
@@ -488,7 +491,8 @@ async def test_source_temperature_evidence_tracks_deadline_gap_and_recovery(
         """Read the same captured condition through source and issue details."""
         snapshot = deepcopy(runtime.snapshot())
         qualification = {
-            key: monitor.since for key, monitor in runtime.temperature_monitors.items()
+            key: monitor.since
+            for key, monitor in runtime.producers.temperature_monitors.items()
         }
         observations = {key: runtime.evidence.latest(key) for key in runtime.sources}
         await client.send_json(
@@ -511,7 +515,8 @@ async def test_source_temperature_evidence_tracks_deadline_gap_and_recovery(
         }
         assert runtime.snapshot() == snapshot
         assert {
-            key: monitor.since for key, monitor in runtime.temperature_monitors.items()
+            key: monitor.since
+            for key, monitor in runtime.producers.temperature_monitors.items()
         } == qualification
         assert {
             key: runtime.evidence.latest(key) for key in runtime.sources

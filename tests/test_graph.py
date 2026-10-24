@@ -154,7 +154,7 @@ async def test_retry_timer_and_recovery(
     source._async_set_state(hass, ConfigEntryState.LOADED, None)
     await hass.async_block_till_done()
     assert runtime.readiness == "ready"
-    assert not runtime.retry_since
+    assert not runtime.producers.retry_since
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

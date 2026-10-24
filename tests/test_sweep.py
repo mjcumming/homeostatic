@@ -45,7 +45,7 @@ async def test_state_refresh_observes_only_its_subject(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     with patch.object(
-        runtime, "_observe_entry", wraps=runtime._observe_entry
+        runtime.producers, "observe_entry", wraps=runtime.producers.observe_entry
     ) as entries:
         hass.states.async_set("sensor.observed", "unavailable")
         await hass.async_block_till_done()

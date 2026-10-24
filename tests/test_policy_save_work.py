@@ -98,7 +98,10 @@ async def test_policy_edit_preserves_exact_catalog_and_unaffected_monitoring(
         ]
         assert len(renamed) == 1
         assert renamed[0].name.endswith(" · Indoor temperature")
-        assert runtime.temperature_monitors[renamed[0].node_id].name == renamed[0].name
+        assert (
+            runtime.producers.temperature_monitors[renamed[0].node_id].name
+            == renamed[0].name
+        )
     assert await runtime.store.async_load() == runtime.snapshot()
     assert runtime.inventory_static["catalog"] is previous_catalog
     assert runtime.inventory_static["catalog"] == report(

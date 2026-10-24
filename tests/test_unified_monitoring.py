@@ -1,5 +1,6 @@
 """Independent policy ownership through real Home Assistant lifecycle scenarios."""
 
+from copy import deepcopy
 from typing import Any
 
 import pytest
@@ -212,7 +213,7 @@ async def test_repair_policies_are_independent_and_observed_recovery_uses_origin
     assert not runtime.episodes
     assert runtime.history.snapshot()["episodes"][-1]["resolution"] == "cleared"
     await runtime.async_refresh()
-    assert not runtime.repairs.records
+    assert not runtime.producers.repairs.records
 
 
 async def test_entity_and_integration_policies_keep_dependency_correlation(
@@ -285,7 +286,7 @@ async def test_broken_automation_has_no_hidden_owner_after_policy_deletion(
 ) -> None:
     """Removing the ordinary policy stops monitoring without clearing the HA fault."""
     assert await async_setup_component(
-        hass, "automation", {"automation": [BROKEN_DECK]}
+        hass, "automation", {"automation": [deepcopy(BROKEN_DECK)]}
     )
     selected = policy("broken", "broken_automation", {"kind": ["broken_automation"]})
     entry = entry_for(config_data, [selected])
@@ -295,7 +296,7 @@ async def test_broken_automation_has_no_hidden_owner_after_policy_deletion(
     runtime = entry.runtime_data
     assert not runtime.episodes
     assert runtime.history.snapshot()["episodes"][-1]["resolution"] == "removed"
-    assert runtime.broken.records
+    assert runtime.producers.broken.records
     assert not any(
         source.kind == "broken_automation" for source in runtime.sources.values()
     )

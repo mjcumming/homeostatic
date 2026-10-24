@@ -261,7 +261,7 @@ async def test_thermostat_off_and_resume(
         "climate.room", "heat", {"current_temperature": 13, "temperature": 21}
     )
     await hass.async_block_till_done()
-    assert len(runtime.temperature_monitors) == 1
+    assert len(runtime.producers.temperature_monitors) == 1
     hass.states.async_set(
         "climate.room", "heat", {"current_temperature": 11, "temperature": 21}
     )
@@ -459,7 +459,7 @@ async def test_sensor_removed_during_shutdown_is_retired_on_restart(
     await hass.async_block_till_done()
     runtime = config_entry.runtime_data
     assert not runtime.episodes
-    assert not runtime.temperature_monitors
+    assert not runtime.producers.temperature_monitors
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
@@ -655,7 +655,7 @@ async def test_thermostat_off_at_restart_does_not_resurrect_old_qualification(
     )
     await hass.async_block_till_done()
     assert not runtime.episodes
-    assert len(runtime.temperature_monitors) == 1
+    assert len(runtime.producers.temperature_monitors) == 1
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
@@ -667,7 +667,7 @@ async def test_captured_temperature_does_not_advance_persisted_producer_before_e
     hass.states.async_set("sensor.temperature", "10", attributes)
     configure(hass, config_entry, [limit_policy()])
     runtime = await start_monitor(hass, config_entry)
-    node_id = next(iter(runtime.temperature_monitors))
+    node_id = next(iter(runtime.producers.temperature_monitors))
     received = asyncio.Event()
 
     @callback
@@ -685,7 +685,7 @@ async def test_captured_temperature_does_not_advance_persisted_producer_before_e
     cancel()
     await hass.async_block_till_done()
     assert len(runtime.episodes) == 1
-    assert runtime.temperature_monitors[node_id].snapshot() == {
+    assert runtime.producers.temperature_monitors[node_id].snapshot() == {
         "active_reason": "temperature_low"
     }
     assert await hass.config_entries.async_unload(config_entry.entry_id)

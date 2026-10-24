@@ -135,12 +135,12 @@ async def test_thermostat_refresh_follows_selected_enrollment_transitions(
         hass.states.async_set("climate.room", "off", attributes)
         await hass.async_block_till_done()
         assert not runtime.episodes
-        assert not runtime.temperature_monitors
+        assert not runtime.producers.temperature_monitors
         assert discover.call_count == 1
         assert runtime.history.snapshot()["episodes"][0]["resolution"] == "removed"
         hass.states.async_set("climate.room", "heat", attributes)
         await hass.async_block_till_done()
-        assert len(runtime.temperature_monitors) == 1
+        assert len(runtime.producers.temperature_monitors) == 1
         assert discover.call_count == 2
         # Re-enrollment changed no episode; its save waits for the window.
         async_fire_time_changed(

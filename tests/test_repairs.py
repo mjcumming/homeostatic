@@ -81,7 +81,7 @@ async def test_repair_opens_an_issue_and_clears_with_ha(
     assert (last["resolution"], last["source"]["kind"]) == ("cleared", "repair")
     await runtime.async_refresh()
     assert bound_identity(POLICY, node) not in runtime.sources
-    assert not runtime.repairs.records
+    assert not runtime.producers.repairs.records
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
@@ -185,7 +185,7 @@ async def test_repair_capacity_is_bounded(
             translation_key=issue_id,
         )
     await hass.async_block_till_done()
-    assert list(runtime.repairs.records) == [node_id("zha", "a")]
+    assert list(runtime.producers.repairs.records) == [node_id("zha", "a")]
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 

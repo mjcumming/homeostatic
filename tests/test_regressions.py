@@ -215,12 +215,12 @@ async def test_retry_restore_keeps_onset(
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
-    onset = deepcopy(runtime.retry_since)
+    onset = deepcopy(runtime.producers.retry_since)
     assert await hass.config_entries.async_unload(entry.entry_id)
     freezer.tick(timedelta(seconds=21))
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     restored = entry.runtime_data
-    assert restored.retry_since == onset
+    assert restored.producers.retry_since == onset
     assert restored.readiness == "blocked"
     assert await hass.config_entries.async_unload(entry.entry_id)

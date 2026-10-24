@@ -298,7 +298,10 @@ async def test_runtime_reserve_escalation_and_restart(
     registry.async_remove(charge.entity_id)
     await hass.async_block_till_done()
     assert issue in runtime.episodes
-    assert runtime.ups_monitors[reserve_source.node_id].latest.status.value == "unknown"
+    assert (
+        runtime.producers.ups_monitors[reserve_source.node_id].latest.status.value
+        == "unknown"
+    )
     hass.states.async_set(charge.entity_id, "100", {"unit_of_measurement": "%"})
     await hass.async_block_till_done()
     assert issue in runtime.episodes

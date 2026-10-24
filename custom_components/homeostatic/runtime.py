@@ -71,14 +71,7 @@ from homeassistant.util import dt as dt_util
 from . import notification_definitions, notification_grouping
 from .attention import build_policy, explanations
 from .automation_alerts import MAX_ALERTS, AutomationAlerts, automation_owner, identity
-from .battery import observe as battery_observation
-from .broken_automations import BrokenAutomations
-from .catalog import (
-    Source,
-    entity_observation,
-    entity_state_signature,
-    entry_observation,
-)
+from .catalog import Source
 from .config import Settings, normalize_definitions
 from .const import (
     DOMAIN,
@@ -98,9 +91,7 @@ from .enrollment import (
     report,
     restore_enrollment,
 )
-from .entity_not_provided import observe as not_provided_observation
 from .entity_not_provided import sources as not_provided_sources
-from .entity_not_provided import state_provided
 from .evidence import ReportedEvidence
 from .facts import (
     FACT_SCHEMA_VERSION,
@@ -126,18 +117,10 @@ from .monitoring_runtime import (
 from .notification_reports import NotificationReports
 from .notification_routes import async_send, notification_url, unavailable_destinations
 from .phone_actions import PhoneActions
-from .repairs import Repairs
+from .producers import Producers
 from .rules import Attributes
 from .serialization import json_digest, json_object, to_json
 from .situation_reports import report_observation
-from .temperature import (
-    TemperatureLimitParameters,
-    TemperatureMonitor,
-    ThermostatParameters,
-)
-from .ups import MAPPINGS, UpsMonitor, platform_identities, retained_candidates
-from .ups_parameters import ReserveParameters
-from .vacuum import observe as vacuum_observation
 
 _LOGGER = logging.getLogger(__name__)
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
@@ -210,17 +193,10 @@ class Runtime:
         self.evidence = ReportedEvidence()
         self.controls: list[OperatorControl] = []
         self.delivery = DeliveryState(entry.entry_id)
-        self.temperature_monitors: dict[str, TemperatureMonitor] = {}
-        self.ups_monitors: dict[str, UpsMonitor] = {}
-        self._ups_saved: dict[str, Any] = {}
-        self._temperature_saved: dict[str, Any] = {}
-        self._temperature_deadlines: dict[str, datetime] = {}
-        self._temperature_removed: set[str] = set()
+        self.producers = Producers(hass)
         self._resolved_requests: dict[str, dict[str, JSONValue]] = {}
         self.automation_alerts = AutomationAlerts()
-        self.repairs = Repairs()
         self._repairs_dirty = True
-        self.broken = BrokenAutomations()
         self._broken_full = True
         self._broken_named: set[str] = set()
         self._broken_created: set[str] = set()
@@ -239,7 +215,6 @@ class Runtime:
                 tuple[tuple[str, State | None], ...],
             ]
         ] = deque()
-        self.retry_since: dict[str, datetime] = {}
         self.saved: dict[str, Any] | None = None
         self.running = False
         self._stopped = False
@@ -373,17 +348,7 @@ class Runtime:
         if type(self.saved.get("notifications_enabled")) is not bool:
             raise ValueError("Invalid notification activation state")
         self.automation_alerts.restore(self.saved.get("automation_alerts", {}))
-        for key in ("temperature_monitors", "ups_monitors"):
-            monitors = self.saved.get(key, {})
-            if not isinstance(monitors, dict) or any(
-                not isinstance(identity, str) or not isinstance(value, dict)
-                for identity, value in monitors.items()
-            ):
-                raise ValueError(f"Invalid stored {key}")
-        self._temperature_saved = dict(self.saved.get("temperature_monitors", {}))
-        self._ups_saved = dict(self.saved.get("ups_monitors", {}))
-        self.repairs.restore(self.saved.get("repairs", {}))
-        self.broken.restore(self.saved.get("broken_automations", {}))
+        self.producers.restore(self.saved)
         self.phone_actions.restore(self.saved.get("phone_actions", {}))
         self.notification_reports.restore(self.saved.get("notification_reports", {}))
         if "resolved_history" in self.saved:
@@ -505,63 +470,15 @@ class Runtime:
         ):
             self._inventory_dirty = True
             self._request_refresh()
-        availability_changed = entity_state_signature(old) != entity_state_signature(
-            new
-        )
-        provided_changed = state_provided(old) != state_provided(new)
-        observed_sources = [
-            source
-            for source in sources
-            if (
-                provided_changed
-                if source.kind == "entity_not_provided"
-                else source.kind
-                in {"situation", "battery", "vacuum", "ups", *TEMPERATURE_CHECKS}
-                or availability_changed
-            )
-        ]
+        observed_sources = self.producers.changed_sources(sources, old, new)
         if observed_sources:
             now = dt_util.utcnow()
-            observations = []
-            temperature_states: list[tuple[str, State | None]] = []
-            for source in observed_sources:
-                if source.kind in TEMPERATURE_CHECKS:
-                    temperature_states.append((source.node_id, new))
-                    continue
-                observation = (
-                    battery_observation(
-                        self.hass,
-                        source,
-                        now,
-                        threshold=self._battery_threshold(source),
-                        changed_entity_id=entity_id,
-                        changed_state=new,
-                    )
-                    if source.kind == "battery"
-                    else vacuum_observation(
-                        self.hass,
-                        source,
-                        now,
-                        changed_entity_id=entity_id,
-                        changed_state=new,
-                    )
-                    if source.kind == "vacuum"
-                    else not_provided_observation(
-                        self.hass,
-                        source,
-                        now,
-                        changed_entity_id=entity_id,
-                        changed_state=new,
-                    )
-                    if source.kind == "entity_not_provided"
-                    else self._observe_ups(source, now, entity_id, new)
-                    if source.kind == "ups"
-                    else entity_observation(source, event.data["new_state"], now)
-                )
-                observations.append(observation)
-            if observations or temperature_states:
+            observations, producer_states = self.producers.capture_entity(
+                observed_sources, entity_id, new, self.settings, now
+            )
+            if observations or producer_states:
                 self._pending.append(
-                    (now, observations, event.context, tuple(temperature_states))
+                    (now, observations, event.context, producer_states)
                 )
                 self._request_refresh()
             elif metadata_changed:
@@ -573,17 +490,8 @@ class Runtime:
     def _entry_changed(self, entry: ConfigEntry) -> None:
         if self.running:
             now = dt_util.utcnow()
-            observations = [
-                self._observe_entry(source, now)
-                for source in self.sources.values()
-                if source.entry_id == entry.entry_id and source.watched
-            ]
-            observations.extend(
-                not_provided_observation(self.hass, source, now)
-                for source in self.sources.values()
-                if source.kind == "entity_not_provided"
-                and source.owner_id == entry.entry_id
-                and source.watched
+            observations = self.producers.capture_entry(
+                self.sources.values(), entry.entry_id, self.settings, now
             )
             self._pending.append((now, observations, None, ()))
             self._request_refresh(cause="config_entry")
@@ -594,16 +502,17 @@ class Runtime:
         processed = 0
         slice_started = perf_counter()
         while self._pending:
-            now, observations, cause, temperature_states = self._pending.popleft()
-            for node_id, state in temperature_states:
+            now, observations, cause, producer_states = self._pending.popleft()
+            for node_id, state in producer_states:
                 source = self.sources.get(node_id)
                 if source is None:
                     continue
-                observation = self._observe_temperature(source, state, now)
+                observation = self.producers.observe_captured(
+                    source, state, self.settings, now
+                )
                 if observation is not None:
                     observations.append(observation)
-                if node_id in self._temperature_removed:
-                    self._temperature_removed.discard(node_id)
+                if self.producers.take_restarts(node_id):
                     self._handle(self.engine.remove(node_id, now), now, cause)
                     self._handle(
                         self.engine.register_many([source.node(self.settings)], now),
@@ -732,9 +641,7 @@ class Runtime:
         else:
             discovered = inventory(self.hass, self.settings, self.enrolled)
             cached = (key, discovered)
-        discovered = retained_candidates(
-            self.hass, discovered, self.candidates, self._ups_saved
-        )
+        discovered = self.producers.retained_candidates(discovered, self.candidates)
         candidates = evaluate(
             discovered,
             rules,
@@ -837,10 +744,10 @@ class Runtime:
             original_identity(str(episode["anchor"]))
             for episode in open_episodes.values()
         }
-        self.repairs.prune(open_anchors)
-        self.broken.prune(open_anchors)
-        sources.update(self.repairs.sources())
-        sources.update(self.broken.sources())
+        self.producers.repairs.prune(open_anchors)
+        self.producers.broken.prune(open_anchors)
+        sources.update(self.producers.repairs.sources())
+        sources.update(self.producers.broken.sources())
         sources.update(
             temperature_sources(
                 self.hass, self.settings.monitoring_policies, candidates
@@ -1087,7 +994,7 @@ class Runtime:
                         self._inventory_dirty = True
                 if reconcile or self._repairs_dirty:
                     self._repairs_dirty = False
-                    if await self.repairs.async_read(self.hass):
+                    if await self.producers.repairs.async_read(self.hass):
                         self._inventory_dirty = True
                     now = dt_util.utcnow()
                 if self._broken_full or self._broken_named or self._broken_created:
@@ -1097,7 +1004,7 @@ class Runtime:
                     self._broken_full = False
                     self._broken_named.clear()
                     self._broken_created.clear()
-                    if self.broken.scan(
+                    if self.producers.broken.scan(
                         self.hass, full=full, named=named, created=created
                     ):
                         self._inventory_dirty = True
@@ -1806,7 +1713,7 @@ class Runtime:
                 engine_settings = replace(engine_settings, startup_grace=timedelta(0))
             self.engine = Engine(engine_settings)
         assert self.engine is not None
-        for node_id in self._temperature_removed:
+        for node_id in self.producers.take_restarts():
             if node_id in self.sources and node_id in sources:
                 events.extend(self.engine.remove(node_id, now))
                 events.extend(
@@ -1814,7 +1721,6 @@ class Runtime:
                         [sources[node_id].node(self.settings)], now
                     )
                 )
-        self._temperature_removed.clear()
         changed = [
             source.node(self.settings)
             for node_id, source in sources.items()
@@ -1887,27 +1793,8 @@ class Runtime:
             self._inventory_dirty = False
             self._entity_sources = {}
             for source in sources.values():
-                if source.entity_id and source.watched:
-                    self._entity_sources.setdefault(source.entity_id, []).append(source)
-                if source.kind == "ups" and source.watched:
-                    for entity_id in dict.fromkeys(
-                        entity for _, entity in source.ups_entities
-                    ):
-                        if entity_id != source.entity_id:
-                            self._entity_sources.setdefault(entity_id, []).append(
-                                source
-                            )
-                if source.kind == "battery" and source.watched:
-                    for entity_id in dict.fromkeys(
-                        entity_id
-                        for entity_id in (
-                            source.battery_level_entity,
-                            source.battery_warning_entity,
-                            source.battery_charging_entity,
-                        )
-                        if entity_id and entity_id != source.entity_id
-                    ):
-                        self._entity_sources.setdefault(entity_id, []).append(source)
+                for entity_id in self.producers.entity_inputs(source):
+                    self._entity_sources.setdefault(entity_id, []).append(source)
         after_catalog = perf_counter()
         # Retain the observed source until resolution handling, even when this
         # reconciliation removes it from the current catalog.
@@ -1922,17 +1809,7 @@ class Runtime:
             is not None
         }
         self.sources = sources
-        self.ups_monitors = {
-            key: value for key, value in self.ups_monitors.items() if key in sources
-        }
-        self._ups_saved = {
-            key: value for key, value in self._ups_saved.items() if key in sources
-        }
-        self._temperature_saved = {
-            key: value
-            for key, value in self._temperature_saved.items()
-            if key in sources
-        }
+        self.producers.retain(sources)
         compiled = (
             self._policy_config(sources=sources)
             if policy_changed
@@ -1949,16 +1826,6 @@ class Runtime:
         self._compiled_settings = self.settings
         after_policy = perf_counter()
         assert self.policy is not None
-        self.temperature_monitors = {
-            key: value
-            for key, value in self.temperature_monitors.items()
-            if key in sources
-        }
-        self._temperature_deadlines = {
-            key: value
-            for key, value in self._temperature_deadlines.items()
-            if key in sources
-        }
         self.evidence.retain({key for key, source in sources.items() if source.watched})
         self._listen_entries()
         if first and self.saved is not None:
@@ -1992,75 +1859,18 @@ class Runtime:
                     for route in previous_routes.keys() | current_routes.keys()
                     if previous_routes.get(route) != current_routes.get(route)
                 }
-            self.retry_since = {
-                entry_id: datetime.fromisoformat(value)
-                for entry_id, value in self.saved["retry_since"].items()
-            }
+            self.producers.restore_retries(self.saved)
             self.policy.restore(self.saved["policy"], now)
             events.extend(self.engine.restore(self.saved["engine"], now))
         events.extend(self._bind_maintenance(now))
-        observations = []
-        for source in sources.values():
-            if not source.watched:
-                continue
-            if source.kind in TEMPERATURE_CHECKS:
-                state = (
-                    self.hass.states.get(source.entity_id) if source.entity_id else None
-                )
-                if (
-                    observation := self._observe_temperature(source, state, now)
-                ) is not None:
-                    observations.append(observation)
-                continue
-            if source.kind == "repair":
-                if discover and (
-                    observation := self.repairs.observation(
-                        source.monitoring_source or source.node_id,
-                        now,
-                        holding=self.startup_quiet,
-                    )
-                ):
-                    observations.append(replace(observation, node_id=source.node_id))
-                continue
-            if source.kind == "broken_automation":
-                if discover:
-                    observations.append(
-                        replace(
-                            self.broken.observation(
-                                source.monitoring_source or source.node_id, now
-                            ),
-                            node_id=source.node_id,
-                        )
-                    )
-                continue
-            if source.report_timeout is not None:
-                if first:
-                    observations.append(report_observation(source, "unknown", now))
-                continue
-            if source.kind == "battery" and discover:
-                observations.append(
-                    battery_observation(
-                        self.hass,
-                        source,
-                        now,
-                        threshold=self._battery_threshold(source),
-                    )
-                )
-            elif source.kind == "ups" and discover:
-                observations.append(self._observe_ups(source, now))
-            elif source.kind == "vacuum" and discover:
-                observations.append(vacuum_observation(self.hass, source, now))
-            elif source.kind == "entity_not_provided" and discover:
-                observations.append(not_provided_observation(self.hass, source, now))
-            elif source.kind in {"entity", "situation"} and discover:
-                state = (
-                    self.hass.states.get(source.entity_id) if source.entity_id else None
-                )
-                observations.append(entity_observation(source, state, now))
-            elif source.kind == "integration" and (
-                discover or self._retry_due(source, now)
-            ):
-                observations.append(self._observe_entry(source, now))
+        observations = self.producers.current(
+            sources.values(),
+            self.settings,
+            now,
+            discover=discover,
+            first=first,
+            holding=self.startup_quiet,
+        )
         if observations:
             self._record_observations(observations)
             events.extend(self.engine.ingest_many(observations, now))
@@ -2080,10 +1890,9 @@ class Runtime:
         return events
 
     def _record_observations(self, observations: list[Observation]) -> None:
+        self.producers.record(observations)
         for observation in observations:
             source = self.sources[observation.node_id]
-            if source.kind == "ups" and source.node_id in self.ups_monitors:
-                self.ups_monitors[source.node_id].latest = observation
             if source.kind in {
                 "integration",
                 "entity",
@@ -2095,140 +1904,6 @@ class Runtime:
                 *TEMPERATURE_CHECKS,
             }:
                 self.evidence.observe(observation, source.name)
-
-    def _observe_ups(
-        self,
-        source: Source,
-        now: datetime,
-        changed_entity: str | None = None,
-        changed_state: State | None = None,
-    ) -> Observation:
-        monitor = self.ups_monitors.get(source.node_id)
-        if monitor is None:
-            policy = next(
-                (
-                    item
-                    for item in self.settings.monitoring_policies
-                    if item.id == source.monitoring_policy
-                ),
-                None,
-            )
-            parameters = (
-                ReserveParameters.from_data(policy.parameters)
-                if policy and policy.check == "ups_reserve"
-                else ReserveParameters()
-            )
-            monitor = UpsMonitor(source=source, parameters=parameters)
-            if source.node_id in self._ups_saved:
-                monitor.restore(self._ups_saved[source.node_id])
-                del self._ups_saved[source.node_id]
-            self.ups_monitors[source.node_id] = monitor
-        monitor.source = source
-        states: dict[str, State | None] = {}
-        registry, devices = er.async_get(self.hass), dr.async_get(self.hass)
-        device_id = next(iter(source.attributes.get("device", ())), None)
-        device = devices.async_get(device_id) if device_id else None
-        identities = (
-            set(platform_identities(device.identifiers, source.ups_platform))
-            if device
-            else set()
-        )
-        for role, entity in source.ups_entities:
-            registered = registry.async_get(entity)
-            key = MAPPINGS[source.ups_platform or "nut"].get(role)
-            valid = (
-                registered is not None
-                and registered.device_id == device_id
-                and registered.platform == source.ups_platform
-                and registered.disabled_by is None
-                and key is not None
-                and registered.unique_id
-                in {f"{identity}_{key}" for identity in identities}
-            )
-            states[role] = (
-                (
-                    changed_state
-                    if entity == changed_entity
-                    else self.hass.states.get(entity)
-                )
-                if valid
-                else None
-            )
-        return monitor.evaluate(states, now)
-
-    def _observe_temperature(
-        self, source: Source, state: State | None, now: datetime
-    ) -> Observation | None:
-        policy = next(
-            item
-            for item in self.settings.monitoring_policies
-            if item.id == source.monitoring_policy
-        )
-        monitor = self.temperature_monitors.get(source.node_id)
-        if monitor is None:
-            parameters = (
-                TemperatureLimitParameters.from_data(policy.parameters)
-                if policy.check == "temperature_limit"
-                else ThermostatParameters.from_data(policy.parameters)
-            )
-            monitor = TemperatureMonitor(
-                node_id=source.node_id,
-                check_id=source.check_id,
-                name=source.name,
-                parameters=parameters,
-            )
-            if source.node_id in self._temperature_saved:
-                monitor.restore(self._temperature_saved[source.node_id])
-                del self._temperature_saved[source.node_id]
-            self.temperature_monitors[source.node_id] = monitor
-        monitor.name = source.name
-        result = monitor.evaluate(
-            state, now, climate_unit=self.hass.config.units.temperature_unit
-        )
-        self._temperature_deadlines.pop(source.node_id, None)
-        if result.next_deadline is not None:
-            self._temperature_deadlines[source.node_id] = result.next_deadline
-        if result.removed:
-            self._temperature_removed.add(source.node_id)
-        return result.observation
-
-    def _retry_due(self, source: Source, now: datetime) -> bool:
-        """Whether a setup retry has run past its hold and needs a fresh observation."""
-        since = self.retry_since.get(source.entry_id or "")
-        return since is not None and now >= since + self.settings.duration("retry_hold")
-
-    def _observe_entry(self, source: Source, now: datetime) -> Observation:
-        assert source.entry_id is not None
-        entry = self.hass.config_entries.async_get_entry(source.entry_id)
-        if entry is not None and entry.state is ConfigEntryState.SETUP_RETRY:
-            self.retry_since.setdefault(source.entry_id, now)
-        elif entry is None or entry.state is not ConfigEntryState.SETUP_IN_PROGRESS:
-            self.retry_since.pop(source.entry_id, None)
-        reauth = any(
-            flow["context"].get("source") == "reauth"
-            and flow["context"].get("entry_id") == source.entry_id
-            for flow in self.hass.config_entries.flow.async_progress()
-        )
-        return entry_observation(
-            source,
-            entry,
-            now,
-            self.retry_since.get(source.entry_id),
-            self.settings,
-            reauth,
-        )
-
-    def _battery_threshold(self, source: Source) -> float:
-        """Read the threshold of this independent battery expectation."""
-        policy = next(
-            (
-                item
-                for item in self.settings.monitoring_policies
-                if item.id == source.monitoring_policy
-            ),
-            None,
-        )
-        return float(policy.parameters["threshold"]) if policy is not None else 20.0
 
     def _handle(
         self,
@@ -2267,8 +1942,7 @@ class Runtime:
             rearm = False
             if isinstance(event, EpisodeUpdated):
                 source = self.sources.get(event.episode.anchor)
-                monitor = self.ups_monitors.get(event.episode.anchor)
-                latest = monitor.latest if monitor else None
+                latest = self.producers.ups_latest(event.episode.anchor)
                 previous = self.episodes.get(event.episode.episode_id, {})
                 old_reasons = previous.get("reasons", [])
                 already_critical = (
@@ -2871,8 +2545,8 @@ class Runtime:
             self.engine.next_deadline(),
             self.policy.next_deadline(),
             self.delivery.collections.next_deadline(),
+            self.producers.next_deadline(self.settings, now),
         ]
-        deadlines.extend(self._temperature_deadlines.values())
         deadlines.extend(
             control.until for control in self.controls if control.until > now
         )
@@ -2882,11 +2556,6 @@ class Runtime:
                 for key in ("startup_grace", "startup_quiet_max")
                 if self._quiet_since + self.settings.duration(key) > now
             )
-        deadlines.extend(
-            since + self.settings.duration("retry_hold")
-            for since in self.retry_since.values()
-            if since + self.settings.duration("retry_hold") > now
-        )
         deadline = min((time for time in deadlines if time is not None), default=None)
         if deadline is not None:
             self._deadline_cancel = async_track_point_in_utc_time(
@@ -2900,16 +2569,8 @@ class Runtime:
         return {
             "schema_version": 3,
             "monitoring_identities": self._monitoring_identities.copy(),
-            "temperature_monitors": {
-                key: monitor.snapshot()
-                for key, monitor in self.temperature_monitors.items()
-            },
-            "ups_monitors": {
-                key: monitor.snapshot() for key, monitor in self.ups_monitors.items()
-            },
+            **self.producers.snapshot(),
             "automation_alerts": deepcopy(self.automation_alerts.records),
-            "repairs": self.repairs.snapshot(),
-            "broken_automations": self.broken.snapshot(),
             "phone_actions": deepcopy(self.phone_actions.records),
             "notification_reports": self.notification_reports.snapshot(),
             "enrollment": {
@@ -2927,9 +2588,6 @@ class Runtime:
             "notifications": sorted(self.desired_notifications),
             "notifications_enabled": self.settings.notifications,
             "delivery": self.delivery.snapshot(),
-            "retry_since": {
-                key: value.isoformat() for key, value in self.retry_since.items()
-            },
         }
 
     @callback
@@ -3132,9 +2790,7 @@ class Runtime:
         rules = (*enrollment_rules(settings.monitoring_policies),)
         candidates = evaluate(inventory(self.hass, settings, self.enrolled), rules)
         candidates = evaluate(
-            retained_candidates(
-                self.hass, candidates, self.candidates, self._ups_saved
-            ),
+            self.producers.retained_candidates(candidates, self.candidates),
             rules,
         )
         selected_ups = ups_sources(settings.monitoring_policies, candidates)
@@ -3143,8 +2799,8 @@ class Runtime:
         )
         sources.update(self.automation_alerts.sources(settings))
         sources.update(selected_ups)
-        sources.update(self.repairs.sources())
-        sources.update(self.broken.sources())
+        sources.update(self.producers.repairs.sources())
+        sources.update(self.producers.broken.sources())
         sources.update(
             temperature_sources(self.hass, settings.monitoring_policies, candidates)
         )
@@ -3286,16 +2942,9 @@ class Runtime:
     def temperature_status(self, node_id: str) -> dict[str, JSONValue]:
         """Present captured temperature evidence without advancing qualification."""
         current = self.evidence.latest(node_id)
-        monitor = self.temperature_monitors.get(node_id)
-        deadline = self._temperature_deadlines.get(node_id)
         return {
             "observation": json_object(current) if current is not None else None,
-            "qualifying_since": monitor.since.isoformat()
-            if monitor is not None
-            and monitor.since is not None
-            and deadline is not None
-            else None,
-            "next_deadline": deadline.isoformat() if deadline is not None else None,
+            **self.producers.temperature_status(node_id),
         }
 
     def entity_status(self, node_id: str) -> dict[str, JSONValue] | None:
@@ -3310,9 +2959,8 @@ class Runtime:
                 if evidence and evidence["history_complete"]
                 else {}
             ),
-            "ups": json_object(self.ups_monitors[node_id].latest)
-            if node_id in self.ups_monitors
-            and self.ups_monitors[node_id].latest is not None
+            "ups": json_object(latest)
+            if (latest := self.producers.ups_latest(node_id)) is not None
             else None,
             "explanation": self.query("explain", {"node_id": node_id}),
             "readiness": self.query("readiness", {"node_ids": [node_id]}),
@@ -3335,11 +2983,7 @@ class Runtime:
                 )
         return {
             "episodes": list(self.episodes.values()),
-            "ups_status": {
-                key: json_object(monitor.latest)
-                for key, monitor in self.ups_monitors.items()
-                if monitor.latest is not None
-            },
+            "ups_status": self.producers.ups_status(),
             "integration_evidence": {
                 str(episode["anchor"]): self.evidence.view(str(episode["anchor"]))
                 for episode in self.episodes.values()
