@@ -6,6 +6,8 @@ Homeostatic helps you keep track of what needs attention in Home Assistant. It b
 
 As your installation grows, an unavailable switch or an integration waiting for you to sign in can be easy to miss. Home Assistant often already knows about the problem. Homeostatic helps you notice it and find where to take action.
 
+See [How Homeostatic works](docs/how-it-works.md) for a short overview and flowchart.
+
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
 [![GitHub Release](https://img.shields.io/github/v/release/mjcumming/homeostatic?sort=semver)](https://github.com/mjcumming/homeostatic/releases)
 [![CI](https://github.com/mjcumming/homeostatic/actions/workflows/ci.yml/badge.svg)](https://github.com/mjcumming/homeostatic/actions/workflows/ci.yml)
@@ -48,7 +50,6 @@ Start at the **[Homeostatic manual](docs/guide.md)**, or go directly to a task:
 - [Review and respond to an issue](docs/manual/issues.md)
 - [Choose what to monitor](docs/manual/policies.md)
 - [Set up notifications](docs/manual/notifications.md)
-- [Understand how issues work](docs/how-it-works.md)
 - [Troubleshoot a problem](docs/troubleshooting.md)
 - [Upgrade, roll back or remove Homeostatic](docs/manual/maintain-installation.md)
 

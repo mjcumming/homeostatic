@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [1.12.4] - 2026-10-24
+
+### Fixed
+
+- Renew attention for low UPS reserve when backup power is reported during a save and Home Assistant restarts before processing the reading.
+
+### Changed
+
+- Separate notification handling from runtime coordination, keeping ordered monitoring and verified save steps together.
+- Add a high-level system flowchart to the explanation of how Homeostatic works, with a link near the top of the README.
+
+### Upgrade
+
+- Existing monitoring policies, acknowledgment and pause controls, notification choices and pending delivery identities are preserved. This release keeps the stored-state format and health-tree dependency unchanged. The Companion blueprint needs no reimport for this update.
+
 ## [1.12.3] - 2026-10-24
 
 ### Fixed

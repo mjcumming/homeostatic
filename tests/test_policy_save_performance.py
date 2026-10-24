@@ -106,7 +106,7 @@ async def test_temperature_policy_save_profile(
             assert saved["settings"] == proposed
             assert entry.runtime_data is runtime
             assert not runtime.settings.notifications
-            assert not runtime.delivery.outbox
+            assert not runtime.notifications.delivery.outbox
             results.append(
                 {
                     "save_seconds": elapsed,

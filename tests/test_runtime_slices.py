@@ -87,7 +87,7 @@ async def test_burst_yields_and_retains_later_evidence(
     assert len(runtime.episodes) == 1
     assert runtime.readiness == "degraded"
     assert runtime.available
-    assert not runtime.delivery.outbox
+    assert not runtime.notifications.delivery.outbox
     episode = next(iter(runtime.episodes))
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()

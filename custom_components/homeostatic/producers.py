@@ -1,7 +1,7 @@
 """Own Home Assistant producers without engine, timer or storage coordination."""
 
 from collections.abc import Iterable
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
@@ -34,6 +34,25 @@ from .temperature import (
 from .ups import MAPPINGS, UpsMonitor, platform_identities, retained_candidates
 from .ups_parameters import ReserveParameters
 from .vacuum import observe as vacuum_observation
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CapturedTemperature:
+    """Temperature evidence waiting for the ordered worker."""
+
+    node_id: str
+    state: State | None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CapturedUps:
+    """A complete UPS input reading without advancing retained detector state."""
+
+    node_id: str
+    states: tuple[tuple[str, State | None], ...]
+
+
+type CapturedInput = CapturedTemperature | CapturedUps
 
 
 class Producers:
@@ -168,13 +187,25 @@ class Producers:
         state: State | None,
         settings: Settings,
         now: datetime,
-    ) -> tuple[list[Observation], tuple[tuple[str, State | None], ...]]:
-        """Capture event evidence; defer temperature advancement to the worker."""
+    ) -> tuple[list[Observation], tuple[CapturedInput, ...]]:
+        """Capture inputs without advancing stateful producers before the worker."""
         observations = []
-        captured = []
+        captured: list[CapturedInput] = []
         for source in sources:
             if source.kind in TEMPERATURE_CHECKS:
-                captured.append((source.node_id, state))
+                captured.append(
+                    CapturedTemperature(node_id=source.node_id, state=state)
+                )
+                continue
+            if source.kind == "ups":
+                captured.append(
+                    CapturedUps(
+                        node_id=source.node_id,
+                        states=tuple(
+                            self._ups_states(source, entity_id, state).items()
+                        ),
+                    )
+                )
                 continue
             observation = (
                 battery_observation(
@@ -202,8 +233,6 @@ class Producers:
                     changed_state=state,
                 )
                 if source.kind == "entity_not_provided"
-                else self._observe_ups(source, settings, now, entity_id, state)
-                if source.kind == "ups"
                 else entity_observation(source, state, now)
             )
             observations.append(observation)
@@ -233,10 +262,14 @@ class Producers:
         return observations
 
     def observe_captured(
-        self, source: Source, state: State | None, settings: Settings, now: datetime
+        self, source: Source, captured: CapturedInput, settings: Settings, now: datetime
     ) -> Observation | None:
         """Advance the captured state under the same lock as engine ingestion."""
-        return self._observe_temperature(source, state, settings, now)
+        if isinstance(captured, CapturedUps):
+            return self._ups_monitor(source, settings).evaluate(
+                dict(captured.states), now
+            )
+        return self._observe_temperature(source, captured.state, settings, now)
 
     def take_restarts(self, node_id: str | None = None) -> set[str]:
         """Consume expectation resets for runtime to apply through public engine APIs."""
@@ -374,6 +407,12 @@ class Producers:
         changed_state: State | None = None,
     ) -> Observation:
         """Interpret mapped UPS evidence with its retained mode and thresholds."""
+        return self._ups_monitor(source, settings).evaluate(
+            self._ups_states(source, changed_entity, changed_state), now
+        )
+
+    def _ups_monitor(self, source: Source, settings: Settings) -> UpsMonitor:
+        """Construct or restore the monitor only on the ordered worker."""
         monitor = self.ups_monitors.get(source.node_id)
         if monitor is None:
             policy = next(
@@ -395,6 +434,15 @@ class Producers:
                 del self._ups_saved[source.node_id]
             self.ups_monitors[source.node_id] = monitor
         monitor.source = source
+        return monitor
+
+    def _ups_states(
+        self,
+        source: Source,
+        changed_entity: str | None = None,
+        changed_state: State | None = None,
+    ) -> dict[str, State | None]:
+        """Capture every verified role at the event boundary, including missing inputs."""
         states: dict[str, State | None] = {}
         registry, devices = er.async_get(self.hass), dr.async_get(self.hass)
         device_id = next(iter(source.attributes.get("device", ())), None)
@@ -425,7 +473,7 @@ class Producers:
                 if valid
                 else None
             )
-        return monitor.evaluate(states, now)
+        return states
 
     def _observe_temperature(
         self, source: Source, state: State | None, settings: Settings, now: datetime

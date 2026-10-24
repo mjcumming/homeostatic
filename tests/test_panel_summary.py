@@ -160,7 +160,7 @@ async def test_panel_summary_keeps_grouped_checks_and_control_only_source(
             row.get("entity_id") != entities[3].entity_id for row in rows.values()
         )
         assert not runtime.settings.notifications
-        assert not runtime.delivery.outbox
+        assert not runtime.notifications.delivery.outbox
     finally:
         await client.close()
         assert await hass.config_entries.async_unload(entry.entry_id)
@@ -221,7 +221,7 @@ async def test_panel_summary_contains_issue_owners_and_locations(
     assert summary["floors"] == [{"id": floor.floor_id, "name": floor.name}]
     assert summary["inventory"]["episodes"] == model.value["inventory"]["episodes"]
     assert not runtime.settings.notifications
-    assert not runtime.delivery.outbox
+    assert not runtime.notifications.delivery.outbox
     await client.close()
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -301,7 +301,7 @@ async def test_temperature_issue_retains_canonical_source_and_all_policies(
         assert all(
             item["source_id"] == canonical for item in response["temperature_checks"]
         )
-        assert not runtime.delivery.outbox
+        assert not runtime.notifications.delivery.outbox
     finally:
         await client.close()
         assert await hass.config_entries.async_unload(entry.entry_id)

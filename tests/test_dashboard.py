@@ -580,7 +580,7 @@ async def test_installation_settings_exact_review_preserves_definitions(
     assert entry.options["timings"]["unknown_hold"] == 240
     assert entry.options["monitoring_policies"] == draft["monitoring_policies"]
     assert entry.runtime_data.available
-    assert not entry.runtime_data.delivery.messages
+    assert not entry.runtime_data.notifications.delivery.messages
     await client.send_json({"id": 5, "type": "homeostatic/preview_settings", **change})
     assert (await client.receive_json())["error"]["code"] == "stale_configuration"
     assert await hass.config_entries.async_unload(entry.entry_id)

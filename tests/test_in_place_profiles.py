@@ -62,7 +62,9 @@ async def test_named_notification_saves_keep_panel_runtime_and_unaffected_clocks
     """Each named-editor operation saves without unloading or reenrolling sources."""
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=named_config)
-    with patch("custom_components.homeostatic.runtime.async_send", new=AsyncMock()):
+    with patch(
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
+    ):
         runtime = await start_monitor(hass, entry)
         client = await hass_ws_client(hass)
         panel = hass.data[frontend.DATA_PANELS][DOMAIN]
@@ -149,7 +151,7 @@ async def test_profile_rename_preserves_queued_request_and_all_policy_clocks(
     with patch.object(runtime, "_flush_events", new=AsyncMock()):
         hass.states.async_set("sensor.observed", "unavailable")
         await hass.async_block_till_done()
-        assert runtime.delivery.outbox
+        assert runtime.notifications.delivery.outbox
         before = deepcopy(runtime.snapshot())
         await client.send_json({"id": 1, "type": "homeostatic/configuration"})
         configuration = (await client.receive_json())["result"]
@@ -219,8 +221,8 @@ async def test_profiles_and_assignments_can_be_saved_together_with_sending_off(
     assert runtime.sources == sources
     assert runtime.episodes == episodes
     assert not runtime.settings.notifications
-    assert not runtime.delivery.outbox
-    assert not runtime.delivery.messages
+    assert not runtime.notifications.delivery.outbox
+    assert not runtime.notifications.delivery.messages
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()
 
@@ -303,7 +305,9 @@ async def test_incidental_enrollment_during_profile_save_does_not_reactivate_unc
     named_config["monitoring_policies"][0]["match"] = {"kind": ["entity"]}
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=named_config)
-    with patch("custom_components.homeostatic.runtime.async_send", new=AsyncMock()):
+    with patch(
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
+    ):
         runtime = await start_monitor(hass, entry)
         client = await hass_ws_client(hass)
         await client.send_json({"id": 1, "type": "homeostatic/configuration"})

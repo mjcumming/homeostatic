@@ -353,7 +353,7 @@ async def exercise(config: Path, port: int) -> None:
         assert inventory["attention_controls_supported"]
         episode = pilot[0]["episode_id"]
         # Persist a large exact report without requesting a real notification.
-        report = runtime.notification_reports.present(
+        report = runtime.notifications.reports.present(
             {
                 "schema_version": 1,
                 "action": "summary",

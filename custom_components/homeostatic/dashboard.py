@@ -593,7 +593,7 @@ def websocket_notification_report(
         connection.send_error(msg["id"], "not_ready", "Monitoring is unavailable")
         return
     try:
-        result = runtime.notification_reports.view(
+        result = runtime.notifications.reports.view(
             msg["reference"], dt_util.utcnow(), offset=msg["offset"], limit=msg["limit"]
         )
     except ValueError as err:

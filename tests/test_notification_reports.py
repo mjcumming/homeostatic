@@ -18,7 +18,7 @@ from pytest_homeassistant_custom_component.common import (
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.homeostatic import notification_routes as routes
-from custom_components.homeostatic import runtime as runtime_module
+from custom_components.homeostatic import notifications as notifications_module
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.notification_reports import (
     MAX_MESSAGE_BYTES,
@@ -244,7 +244,7 @@ async def test_report_persist_failure_never_publishes_an_unresolvable_link(
     runtime = await start_monitor(hass, config_entry)
     pending = large_payload()
     pending["delivery_id"] = f"{config_entry.entry_id}:123"
-    runtime.delivery.outbox.append(pending)
+    runtime.notifications.delivery.outbox.append(pending)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with (
         patch.object(runtime, "_save", AsyncMock(side_effect=OSError("disk full"))),
@@ -253,14 +253,14 @@ async def test_report_persist_failure_never_publishes_an_unresolvable_link(
         await runtime._flush_events()
     await hass.async_block_till_done()
     assert not events
-    assert runtime.notification_reports.snapshot() == {}
-    assert runtime.delivery.outbox == [pending]
+    assert runtime.notifications.reports.snapshot() == {}
+    assert runtime.notifications.delivery.outbox == [pending]
     with patch.object(runtime, "_save", AsyncMock()) as save:
         await runtime._flush_events()
     await hass.async_block_till_done()
     assert save.await_count == 2
     assert events[0].data["delivery_id"] == pending["delivery_id"]
-    assert runtime.delivery.outbox == []
+    assert runtime.notifications.delivery.outbox == []
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
@@ -270,7 +270,7 @@ async def test_older_store_preserves_choices_and_pending_delivery_on_repeat_relo
     """An existing schema-three store gains link storage without resetting data."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
-    [message] = runtime.delivery.messages.values()
+    [message] = runtime.notifications.delivery.messages.values()
     pending = deepcopy(message)
     pending["delivery_id"] = f"{config_entry.entry_id}:pending-upgrade"
     options = deepcopy(dict(config_entry.options))
@@ -286,8 +286,11 @@ async def test_older_store_preserves_choices_and_pending_delivery_on_repeat_relo
         assert dict(config_entry.options) == options
         assert dict(config_entry.data) == data
         runtime = config_entry.runtime_data
-        assert next(iter(runtime.delivery.messages.values()))["tag"] == message["tag"]
-        assert runtime.delivery.outbox == []
+        assert (
+            next(iter(runtime.notifications.delivery.messages.values()))["tag"]
+            == message["tag"]
+        )
+        assert runtime.notifications.delivery.outbox == []
         assert runtime.settings.notifications
         assert await hass.config_entries.async_unload(config_entry.entry_id)
     replayed = [
@@ -306,7 +309,7 @@ async def test_short_preview_never_acknowledges_an_unseen_remaining_member(
     """Recovery before I/O cannot put an Acknowledge action on a short preview."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
-    [message] = runtime._resolved_requests.values()
+    [message] = runtime.notifications._resolved_requests.values()
     payload = {
         **message,
         "delivery_id": f"{config_entry.entry_id}:preview",
@@ -314,10 +317,10 @@ async def test_short_preview_never_acknowledges_an_unseen_remaining_member(
         "episodes": ["already-ended", next(iter(runtime.episodes))],
         "message_summarized": True,
     }
-    runtime._resolved_requests[payload["delivery_id"]] = payload
+    runtime.notifications._resolved_requests[payload["delivery_id"]] = payload
     with (
-        patch.object(runtime.phone_actions, "prepare") as prepare,
-        patch.object(runtime_module, "async_send", AsyncMock()) as send,
+        patch.object(runtime.notifications.phone_actions, "prepare") as prepare,
+        patch.object(notifications_module, "async_send", AsyncMock()) as send,
     ):
         await runtime.async_send_notification(payload)
     prepare.assert_not_called()

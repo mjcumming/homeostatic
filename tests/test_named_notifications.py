@@ -360,7 +360,7 @@ async def test_profile_edits_track_effective_window_and_current_phone_permission
         "user_id": "owner",
     }
     monkeypatch.setattr(
-        runtime.phone_actions, "authorize", AsyncMock(return_value=record)
+        runtime.notifications.phone_actions, "authorize", AsyncMock(return_value=record)
     )
     control = AsyncMock()
     monkeypatch.setattr(runtime, "async_control", control)

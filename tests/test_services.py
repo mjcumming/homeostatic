@@ -24,11 +24,11 @@ async def test_notification_report_rejects_read_only_user(
 ) -> None:
     """A known report reference cannot bypass administrator access via HA actions."""
     runtime = await start_monitor(hass, config_entry)
-    report = runtime.notification_reports.present(
+    report = runtime.notifications.reports.present(
         {"episodes": [f"issue-{index:036d}" for index in range(8)]}, dt_util.utcnow()
     )
     reference = str(report["details_url"]).rsplit("/", 1)[1]
-    before = runtime.notification_reports.snapshot()
+    before = runtime.notifications.reports.snapshot()
     refresh = await hass.auth.async_create_refresh_token(
         hass_read_only_user, client_id="http://test.local"
     )
@@ -50,7 +50,7 @@ async def test_notification_report_rejects_read_only_user(
         "code": "home_assistant_error",
         "message": "Unauthorized",
     }
-    assert runtime.notification_reports.snapshot() == before
+    assert runtime.notifications.reports.snapshot() == before
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     await client.close()
 

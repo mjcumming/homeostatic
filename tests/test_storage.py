@@ -132,12 +132,13 @@ async def test_storage_failure_defers_notification(
         assert runtime.episodes
         assert not runtime.available
         assert {
-            message["tag"] for message in runtime.delivery.messages.values()
+            message["tag"]
+            for message in runtime.notifications.delivery.messages.values()
         }.isdisjoint(hass.data[persistent_notification.DOMAIN])
     await runtime.async_refresh()
     assert runtime.available
     assert (
-        next(iter(runtime.delivery.messages.values()))["tag"]
+        next(iter(runtime.notifications.delivery.messages.values()))["tag"]
         in hass.data[persistent_notification.DOMAIN]
     )
     assert await hass.config_entries.async_unload(config_entry.entry_id)
@@ -196,7 +197,7 @@ async def test_remove_cleans_store_and_notification(
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
     notification_tags = {
-        message["tag"] for message in runtime.delivery.messages.values()
+        message["tag"] for message in runtime.notifications.delivery.messages.values()
     }
     assert notification_tags
     snapshot = runtime.snapshot

@@ -4,6 +4,27 @@
 
 Home Assistant already reports many things that go wrong: an integration cannot load, an entity is unavailable, a battery is low or an automation names an entity that no longer exists. Homeostatic watches the conditions you choose, keeps track of their issues and requests notifications on your schedule.
 
+## The overall flow
+
+Homeostatic runs locally inside Home Assistant. Home Assistant supplies the reports and delivery services. The health-tree library tracks issues, relates connected problems and decides when attention is due. Homeostatic connects those decisions to your monitoring policies, dashboard and configured destinations.
+
+```mermaid
+flowchart TD
+    A["Home Assistant reports<br/>States, integration status and Repairs"]
+    B["Homeostatic checks<br/>Apply your monitoring policies"]
+    C["health-tree<br/>Track issues, relationships and notification timing"]
+    D["Homeostatic runtime<br/>Coordinate work and save state"]
+    E["Dashboard<br/>Issues, controls and history"]
+    F["Notification handling<br/>Compose, group and route requests"]
+    G["Home Assistant delivery services<br/>Phone, email, voice and SMS"]
+
+    A --> B --> C --> D
+    D --> E
+    D --> F --> G
+```
+
+The runtime keeps processing and saving in order. Issue changes and notification requests are published after their state has been saved. Checks and notification handling have separate responsibilities within that coordinated flow.
+
 ## From a report to an issue
 
 A policy connects a source to an expectation. An availability policy expects its selected equipment to remain available through Home Assistant. A battery policy expects the reported charge to stay above its threshold. A temperature policy applies the limits and duration you choose.

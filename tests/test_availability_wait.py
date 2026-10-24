@@ -14,7 +14,7 @@ from pytest_homeassistant_custom_component.common import (
     async_capture_events,
 )
 
-from custom_components.homeostatic import runtime as runtime_module
+from custom_components.homeostatic import notifications as notifications_module
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.monitoring import parse_policies
 from tests.policy_helpers import monitoring_policy
@@ -75,7 +75,7 @@ async def test_outages_require_one_continuous_interval(
     hass.states.async_set("camera.porch", "idle")
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     direct = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", direct)
+    monkeypatch.setattr(notifications_module, "async_send", direct)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     hass.states.async_set("camera.porch", "unavailable")
@@ -161,7 +161,7 @@ async def test_shared_integration_issue_waits_for_camera_qualification(
     hass.states.async_set(camera.entity_id, "idle")
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     direct = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", direct)
+    monkeypatch.setattr(notifications_module, "async_send", direct)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     if arrival == "integration_first":

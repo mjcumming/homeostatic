@@ -8,14 +8,13 @@ from collections import Counter, deque
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import replace
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 from functools import partial
 from operator import ne
 from time import perf_counter
 from typing import Any, cast
 from uuid import uuid4
 
-from health_tree.delivery_collections import CollectionRequest
 from health_tree.engine import Engine
 from health_tree.policy import Policy
 from health_tree.types import (
@@ -23,14 +22,12 @@ from health_tree.types import (
     EpisodeOpened,
     EpisodeResolved,
     EpisodeUpdated,
-    Importance,
     JSONValue,
     Notification,
     Observation,
     PolicyConfig,
     PolicyContext,
     ProbeRequested,
-    QuietHours,
     QuietWindow,
     View,
 )
@@ -47,7 +44,7 @@ from homeassistant.config_entries import (
     ConfigEntryState,
 )
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP, EVENT_STATE_CHANGED
-from homeassistant.core import Context, Event, HomeAssistant, State, callback
+from homeassistant.core import Context, Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -68,7 +65,7 @@ from homeassistant.helpers.json import prepare_save_json
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from . import notification_definitions, notification_grouping
+from . import notification_definitions
 from .attention import build_policy, explanations
 from .automation_alerts import MAX_ALERTS, AutomationAlerts, automation_owner, identity
 from .catalog import Source
@@ -77,14 +74,12 @@ from .const import (
     DOMAIN,
     EVENT_CONTROL,
     EVENT_EPISODE,
-    EVENT_NOTIFICATION,
     NAME,
     SAVE_COALESCE_SECONDS,
     STORE_VERSION,
     SWEEP_INTERVAL,
 )
 from .controls import OperatorControl, expiry, presentation, restore_controls
-from .delivery import DeliveryState
 from .enrollment import (
     evaluate,
     inventory,
@@ -114,10 +109,9 @@ from .monitoring_runtime import (
     thermostat_enrolled,
     ups_sources,
 )
-from .notification_reports import NotificationReports
-from .notification_routes import async_send, notification_url, unavailable_destinations
-from .phone_actions import PhoneActions
-from .producers import Producers
+from .notification_routes import unavailable_destinations
+from .notifications import NotificationContext, Notifications
+from .producers import CapturedInput, Producers
 from .rules import Attributes
 from .serialization import json_digest, json_object, to_json
 from .situation_reports import report_observation
@@ -192,17 +186,13 @@ class Runtime:
         # One map holds the latest observation of every source (audit step 2).
         self.evidence = ReportedEvidence()
         self.controls: list[OperatorControl] = []
-        self.delivery = DeliveryState(entry.entry_id)
+        self.notifications = Notifications(hass, entry.entry_id)
         self.producers = Producers(hass)
-        self._resolved_requests: dict[str, dict[str, JSONValue]] = {}
         self.automation_alerts = AutomationAlerts()
         self._repairs_dirty = True
         self._broken_full = True
         self._broken_named: set[str] = set()
         self._broken_created: set[str] = set()
-        self.phone_actions = PhoneActions()
-        self.notification_reports = NotificationReports(entry.entry_id)
-        self.delivery_failures: deque[dict[str, str]] = deque(maxlen=50)
         self._activating = False
         self._activating_routes: set[str] | None = None
         self.fresh_start = False
@@ -212,7 +202,7 @@ class Runtime:
                 datetime,
                 list[Observation],
                 Context | None,
-                tuple[tuple[str, State | None], ...],
+                tuple[CapturedInput, ...],
             ]
         ] = deque()
         self.saved: dict[str, Any] | None = None
@@ -245,7 +235,7 @@ class Runtime:
     @property
     def desired_notifications(self) -> set[str]:
         """Episode ids represented in the last requested notification information."""
-        return self.delivery.episode_ids
+        return self.notifications.delivery.episode_ids
 
     @property
     def consumer_missing(self) -> bool:
@@ -344,13 +334,11 @@ class Runtime:
         ):
             raise ValueError("Invalid stored monitoring identities")
         self._monitoring_identities = dict(identities)
-        self.delivery.restore(self.saved["delivery"])
+        self.notifications.restore(self.saved)
         if type(self.saved.get("notifications_enabled")) is not bool:
             raise ValueError("Invalid notification activation state")
         self.automation_alerts.restore(self.saved.get("automation_alerts", {}))
         self.producers.restore(self.saved)
-        self.phone_actions.restore(self.saved.get("phone_actions", {}))
-        self.notification_reports.restore(self.saved.get("notification_reports", {}))
         if "resolved_history" in self.saved:
             self.history.restore(self.saved["resolved_history"])
         stored_evidence = self.saved.get("evidence")
@@ -503,12 +491,13 @@ class Runtime:
         slice_started = perf_counter()
         while self._pending:
             now, observations, cause, producer_states = self._pending.popleft()
-            for node_id, state in producer_states:
+            for captured in producer_states:
+                node_id = captured.node_id
                 source = self.sources.get(node_id)
                 if source is None:
                     continue
                 observation = self.producers.observe_captured(
-                    source, state, self.settings, now
+                    source, captured, self.settings, now
                 )
                 if observation is not None:
                     observations.append(observation)
@@ -1124,7 +1113,7 @@ class Runtime:
         assert self.policy is not None
         if self._activating:
             self._save_required = True
-            self.delivery.deactivate(
+            self.notifications.delivery.deactivate(
                 routes=self._activating_routes, preserve_pending=True
             )
             self._activating = False
@@ -1140,20 +1129,14 @@ class Runtime:
         self._deliveries(self.policy.advance(now, PolicyContext()), now)
         self._prune_controls(now)
         self.history.advance(now)
-        self.phone_actions.prune(now)
-        self.notification_reports.prune(now)
-        if not self.settings.notifications:
-            self.delivery.deactivate()
         self._end_quiet(now)
-        if self.settings.notifications:
-            previous_collection_state = self.delivery.collections.snapshot()
-            for update in self.delivery.collections.advance(
-                now, self.policy, held=self.startup_quiet
-            ):
-                self.delivery.record_collection(update)
-                self._save_required = True
-            if self.delivery.collections.snapshot() != previous_collection_state:
-                self._save_required = True
+        if self.notifications.advance(
+            self.policy,
+            now,
+            enabled=self.settings.notifications,
+            held=self.startup_quiet,
+        ):
+            self._save_required = True
         # A source can reject its stored state after engine/policy restoration.
         # Keep the original snapshot until the entire first pass has succeeded,
         # so failed retries and unload cannot save partially restored state.
@@ -1169,7 +1152,7 @@ class Runtime:
         if (
             durable
             or self._save_required
-            or self.delivery.outbox
+            or self.notifications.delivery.outbox
             or self._facts
             or self.error is not None
             or not self.running
@@ -1571,7 +1554,9 @@ class Runtime:
 
     async def async_phone_action(self, event: Event[Any]) -> None:
         """Apply an authenticated recipient response through existing operator controls."""
-        row = await self.phone_actions.authorize(self.hass, event, dt_util.utcnow())
+        row = await self.notifications.phone_actions.authorize(
+            self.hass, event, dt_util.utcnow()
+        )
         if row is None or not self.settings.notifications:
             return
         # Delivered actions must recheck current destination permissions.
@@ -2232,308 +2217,66 @@ class Runtime:
     def _deliveries(self, deliveries: list[Delivery], now: datetime) -> None:
         if not deliveries or not self.settings.notifications or self._activating:
             return
-        self.delivery.prepare_reports(deliveries)
-        intents = notification_grouping.compatible_intents(self.settings)
-        collections = notification_grouping.collection_settings(self.settings)
-        requests: list[CollectionRequest] = []
-        grouped: list[Delivery] = []
-        group_ids: dict[tuple[str, str], str] = {}
-        contents: dict[tuple[str, str], dict[str, JSONValue]] = {}
-        for delivery in deliveries:
-            content = (
-                self._content(delivery.episode_id)
-                if isinstance(delivery, Notification)
-                else {}
-            )
-            if isinstance(delivery, Notification):
-                if delivery.route in collections:
-                    accepted = collections[delivery.route]
-                    instructions = accepted["instructions"]
-                    timing = instructions["timing"]
-                    requests.append(
-                        CollectionRequest(
-                            notification=replace(
-                                delivery,
-                                channels=self._resolve_channels(delivery.channels),
-                            ),
-                            group_id=accepted["group_id"],
-                            delay=timedelta(seconds=timing["collection_delay_seconds"]),
-                            instructions=instructions,
-                            content=content,
-                            quiet_hours=QuietHours(
-                                start=time.fromisoformat(timing["end"]),
-                                end=time.fromisoformat(timing["start"]),
-                            )
-                            if timing["mode"] == "window"
-                            else None,
-                            timezone=instructions["timezone"],
-                        )
-                    )
-                    continue
-                subject = content.get("notification_subject")
-                previous = self.delivery.messages.get(
-                    f"{delivery.recipient}:{delivery.episode_id}"
-                    + (f"_route_{delivery.route}" if delivery.route else "")
-                )
-                prior_summary = (
-                    previous is not None
-                    and "group" in previous
-                    and str(previous["group"]).startswith("digest_")
-                )
-                if (
-                    subject
-                    and delivery.route in intents
-                    and delivery.cause != "digest"
-                    and not (delivery.silent and prior_summary)
-                ):
-                    key = (delivery.episode_id, delivery.route)
-                    group_ids[key] = f"{subject}:{intents[delivery.route]}"
-                    contents[key] = content
-                    channels = (
-                        tuple(str(channel) for channel in previous["channels"])
-                        if delivery.silent
-                        and previous is not None
-                        and isinstance(previous["channels"], list)
-                        else self._resolve_channels(delivery.channels)
-                    )
-                    grouped.append(replace(delivery, channels=channels))
-                    continue
-            else:
-                grouped.append(delivery)
-                previous = self.delivery.messages.get(
-                    f"{delivery.recipient}:{delivery.episode_id}"
-                    + (f"_route_{delivery.route}" if delivery.route else "")
-                )
-                if previous and str(previous.get("group", "")).startswith("device_"):
-                    continue
-            self.delivery.record(
-                delivery,
-                content,
-                startup=self._quiet_since is not None,
-                resolve_channels=self._resolve_channels,
-            )
-        for update in sorted(
-            self.delivery.groups.apply(grouped, group_ids),
-            key=lambda update: not update.closed,
-        ):
-            self.delivery.record_group(update, contents)
-        assert self.policy is not None
-        for collected in self.delivery.collections.apply(
-            requests,
-            [item for item in deliveries if not isinstance(item, Notification)],
+        if self.notifications.record(
+            deliveries,
+            self._notification_context(),
             now,
-            self.policy,
+            startup=self._quiet_since is not None,
             held=self.startup_quiet,
-            flush=False,
         ):
-            self.delivery.record_collection(collected)
-        if requests:
             self._save_required = True
 
-    def _resolve_channels(self, channels: tuple[str, ...]) -> tuple[str, ...]:
-        result = []
-        for channel in channels:
-            if channel.startswith("method:"):
-                result.extend(
-                    notification_definitions.resolve_channels(
-                        self.hass, self.settings.notification_definitions, channel[7:]
-                    )
-                )
-            else:
-                result.append(channel)
-        return tuple(dict.fromkeys(result))
-
-    def _content(self, episode_id: str) -> dict[str, JSONValue]:
+    def _notification_context(self) -> NotificationContext:
+        """Capture the explicit read inputs for one notification operation."""
         assert self.engine is not None
-        episode = self.episodes[episode_id]
-        anchor = str(episode["anchor"])
-        source = self.sources[anchor]
-        functions = [
-            self.sources[item.node_id]
-            for item in self.engine.impact(anchor).nodes
-            if self.sources[item.node_id].kind == "function"
-        ]
-        names: list[JSONValue] = [item.name for item in functions]
-        title = source.name
-        subject_id = notification_grouping.subject(source)
-        subject = self.candidates.get(subject_id) if subject_id else None
-        canonical = source.monitoring_source or source.node_id
-        original = self.candidates.get(canonical)
-        if subject_id:
-            title = original.name if original else source.name
-        if functions:
-            title = f"{', '.join(item.name for item in functions)}: {self.engine.readiness([item.node_id for item in functions]).answer}"
-        findings = episode["reasons"]
-        assert isinstance(findings, list)
-        message = (
-            "\n".join(
-                str(finding.get("message") or finding["reason"])
-                for finding in findings
-                if isinstance(finding, dict)
-            )
-            or "Current evidence is unknown."
+        assert self.policy is not None
+        return NotificationContext(
+            settings=self.settings,
+            sources=self.sources,
+            candidates=self.candidates,
+            episodes=self.episodes,
+            engine=self.engine,
+            policy=self.policy,
+            at=dt_util.utcnow(),
         )
-        return {
-            "schema_version": 1,
-            "entry_id": self.entry.entry_id,
-            "episode_id": episode_id,
-            "tag": self.notification_id(episode_id),
-            "title": title,
-            **(
-                {
-                    "notification_subject": subject_id,
-                    "notification_subject_name": subject.name if subject else title,
-                }
-                if subject_id
-                else {}
-            ),
-            "age": f"{max(0, int((dt_util.utcnow() - datetime.fromisoformat(str(episode['opened_at']))).total_seconds()) // 3600)}h",
-            "message": message,
-            "functions": names,
-            "cause": anchor,
-            "loudness": "urgent"
-            if episode["importance"] == Importance.CRITICAL.value
-            else "notify",
-        }
 
     async def _flush_events(self) -> None:
-        if not self.delivery.outbox:
+        if not self.notifications.delivery.outbox:
             return
-        pending = list(self.delivery.outbox)
-        previous_reports = self.notification_reports.snapshot()
-        now = dt_util.utcnow()
+        batch = self.notifications.prepare_publication(dt_util.utcnow())
         try:
-            public_payloads = [
-                self.notification_reports.present(payload, now) for payload in pending
-            ]
-            # Save link scopes before publication, retaining the raw pending IDs.
-            if self.notification_reports.snapshot() != previous_reports:
+            if batch.scopes_changed:
                 await self._save()
         except OSError, HomeAssistantError, ValueError, TypeError:
-            self.notification_reports.restore(previous_reports)
+            self.notifications.rollback_publication(batch)
             raise
-        for payload, public_payload in zip(pending, public_payloads, strict=True):
-            self._resolved_requests[str(payload["delivery_id"])] = public_payload
-            if len(self._resolved_requests) > 2000:
-                self._resolved_requests.pop(next(iter(self._resolved_requests)))
-            self.hass.bus.async_fire(
-                EVENT_NOTIFICATION,
-                public_payload,
-            )
-        self.delivery.outbox.clear()
+        self.notifications.publish(batch)
         try:
             await self._save()
         except OSError, HomeAssistantError, ValueError, TypeError:
-            self.delivery.outbox[:0] = pending
+            self.notifications.requeue(batch)
             raise
 
     async def async_send_notification(self, payload: dict[str, Any]) -> None:
-        """Attempt selected built-in routes once per durable delivery id."""
-        if not self.settings.notifications and payload.get("action") != "resolve":
-            return
-        delivery_id = payload.get("delivery_id")
-        channels = payload.get("channels")
-        if (
-            not isinstance(delivery_id, str)
-            or not delivery_id.startswith(f"{self.entry.entry_id}:")
-            or not isinstance(channels, list)
-        ):
-            return
-        recipient_id = payload.get("recipient")
-        if not isinstance(recipient_id, str):
-            return
-        recipient = self._policy_config().recipients.get(recipient_id)
-        resolved = self._resolved_requests.get(delivery_id) == payload
-        if recipient is None and not resolved:
-            return
-        permitted = (
-            set(channels) if resolved else set(recipient.channels if recipient else ())
+        """Save each authorized transport attempt before releasing it for I/O."""
+        request = self.notifications.authorize(
+            payload, self.settings, self._policy_config()
         )
-        for channel in channels:
-            if not isinstance(channel, str) or channel not in permitted:
-                continue
-            if not channel.startswith(
-                ("phone:", "notify:", "satellite:", "tts:", "sms:", "service:")
-            ):
-                continue
-            attempt = f"{delivery_id}:{channel}"
+        if request is None:
+            return
+        for channel in request.channels:
             async with self._lock:
-                if resolved and self._resolved_requests.get(delivery_id) != payload:
+                attempt = self.notifications.prepare_attempt(
+                    request, channel, self._notification_context()
+                )
+                if attempt is None:
                     continue
-                if attempt in self.delivery.attempted:
-                    continue
-                self.delivery.attempted.add(attempt)
-                previous_actions = deepcopy(self.phone_actions.records)
-                shown = payload.get("episodes", [payload.get("episode_id")])
-                current = (
-                    [
-                        episode_id
-                        for episode_id in shown
-                        if isinstance(episode_id, str) and episode_id in self.episodes
-                    ]
-                    if isinstance(shown, list)
-                    else []
-                )
-                sent_to = (
-                    [
-                        self.policy.explain(episode_id)["sent_to"]
-                        for episode_id in current
-                    ]
-                    if self.policy is not None
-                    else []
-                )
-                acknowledgment = (
-                    self.phone_actions.prepare(
-                        self.hass, payload, channel, dt_util.utcnow()
-                    )
-                    if current
-                    and not (
-                        payload.get("message_summarized") is True and len(shown) > 1
-                    )
-                    and self.policy is not None
-                    and any(
-                        not self._acknowledged(episode_id) for episode_id in current
-                    )
-                    and all(
-                        isinstance(recipients, list) and recipient_id in recipients
-                        for recipients in sent_to
-                    )
-                    else None
-                )
                 try:
                     await self._save()
                 except OSError, HomeAssistantError, ValueError, TypeError:
-                    self.delivery.attempted.remove(attempt)
-                    self.phone_actions.records = previous_actions
+                    self.notifications.rollback_attempt(attempt)
                     raise
-            try:
-                await async_send(
-                    self.hass,
-                    channel,
-                    title=str(payload.get("title", "Homeostatic")),
-                    message=str(payload.get("message", "")),
-                    tag=str(payload.get("tag", "")),
-                    url=notification_url(payload),
-                    **({"acknowledgment": acknowledgment} if acknowledgment else {}),
-                    urgent=payload.get("loudness") == "urgent"
-                    and payload.get("silent") is not True
-                    and payload.get("action") != "resolve",
-                    silent=payload.get("silent") is True,
-                    clear=payload.get("action") == "resolve"
-                    and (
-                        not channel.startswith("phone:")
-                        or not self.settings.notifications
-                        or payload.get("loudness") != "urgent"
-                    ),
-                )
-            except HomeAssistantError as err:
-                self.delivery_failures.append(
-                    {"delivery_id": delivery_id, "channel": channel, "error": str(err)}
-                )
-
-    def notification_id(self, episode_id: str) -> str:
-        """Stable id for replacement and dismissal, scoped to this installation."""
-        return f"{DOMAIN}_{self.entry.entry_id}_{episode_id}"
+            await self.notifications.async_send(attempt)
 
     def _schedule(self, now: datetime) -> None:
         if self._deadline_cancel is not None:
@@ -2544,7 +2287,7 @@ class Runtime:
         deadlines = [
             self.engine.next_deadline(),
             self.policy.next_deadline(),
-            self.delivery.collections.next_deadline(),
+            self.notifications.delivery.collections.next_deadline(),
             self.producers.next_deadline(self.settings, now),
         ]
         deadlines.extend(
@@ -2571,8 +2314,7 @@ class Runtime:
             "monitoring_identities": self._monitoring_identities.copy(),
             **self.producers.snapshot(),
             "automation_alerts": deepcopy(self.automation_alerts.records),
-            "phone_actions": deepcopy(self.phone_actions.records),
-            "notification_reports": self.notification_reports.snapshot(),
+            **self.notifications.snapshot(),
             "enrollment": {
                 node_id: {key: list(values) for key, values in metadata.items()}
                 for node_id, metadata in self.enrolled.items()
@@ -2587,7 +2329,6 @@ class Runtime:
             "episodes": self.episodes.copy(),
             "notifications": sorted(self.desired_notifications),
             "notifications_enabled": self.settings.notifications,
-            "delivery": self.delivery.snapshot(),
         }
 
     @callback
@@ -2870,7 +2611,7 @@ class Runtime:
         if action == "resolved_history":
             return self.history.view(dt_util.utcnow())
         if action == "notification_report":
-            return self.notification_reports.view(
+            return self.notifications.reports.view(
                 data["reference"],
                 dt_util.utcnow(),
                 offset=data.get("offset", 0),
@@ -3010,8 +2751,10 @@ class Runtime:
             "physical_freshness_supported": False,
             "notification_consumer_missing": self.consumer_missing,
             "situation_availability_verified": False,
-            "notification_requests": list(self.delivery.messages.values()),
-            "delivery_failures": to_json(list(self.delivery_failures)),
+            "notification_requests": list(
+                self.notifications.delivery.messages.values()
+            ),
+            "delivery_failures": to_json(list(self.notifications.failures)),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 

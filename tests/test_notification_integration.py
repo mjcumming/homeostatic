@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.homeostatic import notification_definitions as definitions
-from custom_components.homeostatic import runtime as runtime_module
+from custom_components.homeostatic import notifications as notifications_module
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
 from tests.test_lifecycle import start_monitor
@@ -74,7 +74,7 @@ async def test_presence_change_replay_and_original_target_cleanup(
     ]
     config_data.update(consumer=None, notification_definitions=data)
     send = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", send)
+    monkeypatch.setattr(notifications_module, "async_send", send)
     hass.states.async_set("person.owner", "home")
     hass.states.async_set("sensor.observed", "42")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
@@ -83,7 +83,7 @@ async def test_presence_change_replay_and_original_target_cleanup(
     await hass.async_block_till_done()
     send.assert_awaited_once()
     assert send.call_args.args[1] == "notify:home"
-    payload = deepcopy(next(iter(runtime._resolved_requests.values())))
+    payload = deepcopy(next(iter(runtime.notifications._resolved_requests.values())))
     hass.states.async_set("person.owner", "not_home")
     await hass.async_block_till_done()
     await runtime.async_send_notification(payload)
@@ -109,7 +109,7 @@ async def test_name_only_method_edit_does_not_notify_again(
     ]
     config_data.update(consumer=None, notification_definitions=data)
     send = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", send)
+    monkeypatch.setattr(notifications_module, "async_send", send)
     hass.states.async_set("sensor.observed", "42")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
@@ -151,7 +151,7 @@ async def test_edit_only_restarts_affected_notification_row(
     ]
     config_data.update(consumer=None, notification_definitions=data)
     send = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", send)
+    monkeypatch.setattr(notifications_module, "async_send", send)
     hass.states.async_set("sensor.observed", "42")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
@@ -159,8 +159,12 @@ async def test_edit_only_restarts_affected_notification_row(
     await hass.async_block_till_done()
     assert send.await_count == 2
     unaffected = deepcopy(
-        runtime.delivery.messages[
-            next(key for key in runtime.delivery.messages if "other_now" in key)
+        runtime.notifications.delivery.messages[
+            next(
+                key
+                for key in runtime.notifications.delivery.messages
+                if "other_now" in key
+            )
         ]
     )
     changed = deepcopy(data)
@@ -179,5 +183,5 @@ async def test_edit_only_restarts_affected_notification_row(
         call.args[1] == "notify:new_mail" and not call.kwargs["clear"]
         for call in send.await_args_list[2:]
     )
-    assert unaffected in entry.runtime_data.delivery.messages.values()
+    assert unaffected in entry.runtime_data.notifications.delivery.messages.values()
     assert await hass.config_entries.async_unload(entry.entry_id)

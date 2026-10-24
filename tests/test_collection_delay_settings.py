@@ -13,7 +13,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.homeostatic import notification_definitions as definitions
-from custom_components.homeostatic import runtime as runtime_module
+from custom_components.homeostatic import notifications as notifications_module
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from tests.test_lifecycle import start_monitor
@@ -102,7 +102,7 @@ async def test_switch_from_collection_to_report_sends_at_the_report_time(
     config_data["notification_definitions"]["timezone"] = "UTC"
     hass.states.async_set("sensor.observed", "42")
     direct = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", direct)
+    monkeypatch.setattr(notifications_module, "async_send", direct)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     runtime = await start_monitor(hass, entry)
@@ -122,7 +122,7 @@ async def test_switch_from_collection_to_report_sends_at_the_report_time(
     assert len(events) == 1
     assert events[0].time_fired.isoformat() == "2026-10-18T08:00:00+00:00"
     direct.assert_awaited_once()
-    assert runtime.delivery.collections.next_deadline() is None
+    assert runtime.notifications.delivery.collections.next_deadline() is None
     await advance(hass, freezer, 60)
     assert len(events) == 1
     direct.assert_awaited_once()

@@ -740,7 +740,7 @@ class Lab:
                 runtime = self.entry.runtime_data
                 # Exercise the large-link path with the existing bounded fixture.
                 with patch.object(notification_reports, "MAX_INLINE_URL_BYTES", 1):
-                    payload = runtime.notification_reports.present(
+                    payload = runtime.notifications.reports.present(
                         {"episodes": message["episodes"], "message": "Fixture report"},
                         dt_util.utcnow(),
                     )
@@ -752,7 +752,7 @@ class Lab:
                 return
             if action == "expire_notification_reports":
                 assert self.entry is not None
-                self.entry.runtime_data.notification_reports.prune(
+                self.entry.runtime_data.notifications.reports.prune(
                     dt_util.utcnow() + timedelta(days=31)
                 )
                 await self.entry.runtime_data._save()

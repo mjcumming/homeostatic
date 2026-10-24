@@ -25,6 +25,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.homeostatic import automation_alerts, phone_actions
+from custom_components.homeostatic import notifications as notifications_module
 from custom_components.homeostatic import runtime as runtime_module
 from custom_components.homeostatic.automation_alerts import (
     AutomationAlerts,
@@ -319,8 +320,55 @@ def phone_policy(
         }.items()
     }
     config_data["notification_definitions"] = value
-    monkeypatch.setattr(runtime_module, "async_send", AsyncMock())
+    monkeypatch.setattr(notifications_module, "async_send", AsyncMock())
     return config_data
+
+
+async def test_phone_attempt_save_failure_rolls_back_before_transport(
+    hass: HomeAssistant,
+    phone_policy: dict[str, Any],
+    owner: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed attempt save sends nothing and a retry saves its action before I/O."""
+    entry = MockConfigEntry(domain=DOMAIN, data=phone_policy)
+    runtime = await start_monitor(hass, entry)
+    # Capture an ordinary authorized request without consuming its transport attempt.
+    with monkeypatch.context() as held:
+        held.setattr(runtime, "async_send_notification", AsyncMock())
+        await report(hass, owner, profile="acknowledge")
+        await hass.async_block_till_done()
+    [payload] = runtime.notifications._resolved_requests.values()
+    attempt_id = f"{payload['delivery_id']}:phone:mine"
+    actions = deepcopy(runtime.notifications.phone_actions.records)
+    send = notifications_module.async_send
+
+    async def fail_save() -> None:
+        assert attempt_id in runtime.notifications.delivery.attempted
+        assert runtime.notifications.phone_actions.records != actions
+        raise OSError("disk full")
+
+    with monkeypatch.context() as failed:
+        failed.setattr(runtime, "_save", fail_save)
+        with pytest.raises(OSError, match="disk full"):
+            await runtime.async_send_notification(dict(payload))
+    send.assert_not_awaited()
+    assert attempt_id not in runtime.notifications.delivery.attempted
+    assert runtime.notifications.phone_actions.records == actions
+
+    async def verify_saved(*args: Any, **kwargs: Any) -> None:
+        stored = await runtime.store.async_load()
+        assert stored is not None
+        assert attempt_id in stored["delivery"]["attempted"]
+        token = kwargs["acknowledgment"]
+        assert stored["phone_actions"][token]["episode_id"] == payload["episode_id"]
+
+    send.side_effect = verify_saved
+    await runtime.async_send_notification(dict(payload))
+    send.assert_awaited_once()
+    await runtime.async_send_notification(dict(payload))
+    send.assert_awaited_once()
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 @pytest.mark.parametrize(
@@ -365,8 +413,8 @@ async def test_phone_ack_callback_and_old_occurrence(
     await report(hass, owner, profile="acknowledge")
     await hass.async_block_till_done()
     episode = next(iter(runtime.episodes))
-    token = next(iter(runtime.phone_actions.records))
-    assert runtime_module.async_send.call_args.kwargs["acknowledgment"] == token
+    token = next(iter(runtime.notifications.phone_actions.records))
+    assert notifications_module.async_send.call_args.kwargs["acknowledgment"] == token
     assert not hass_read_only_user.is_admin
     hass.bus.async_fire(
         "mobile_app_notification_action",
@@ -389,7 +437,7 @@ async def test_phone_ack_callback_and_old_occurrence(
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data
-    assert token in runtime.phone_actions.records
+    assert token in runtime.notifications.phone_actions.records
     await report(hass, owner, "clear", profile="acknowledge")
     await report(hass, owner, profile="acknowledge")
     fresh = next(iter(runtime.episodes))
@@ -429,7 +477,7 @@ async def test_phone_rejects_forged_callbacks(
     runtime = await start_monitor(hass, entry)
     await report(hass, owner, profile="immediate")
     await hass.async_block_till_done()
-    actual = next(iter(runtime.phone_actions.records))
+    actual = next(iter(runtime.notifications.phone_actions.records))
     await runtime.async_phone_action(
         Event(
             "mobile_app_notification_action",
@@ -718,7 +766,7 @@ async def test_grouped_phone_ack_survives_partial_recovery_without_clearing_late
     first = next(iter(runtime.episodes))
     await report(hass, owner, alert_key="second", profile="acknowledge")
     second = next(episode for episode in runtime.episodes if episode != first)
-    token = runtime.phone_actions.prepare(
+    token = runtime.notifications.phone_actions.prepare(
         hass,
         {
             "episode_id": "device-group",
@@ -740,7 +788,10 @@ async def test_grouped_phone_ack_survives_partial_recovery_without_clearing_late
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data
-    assert runtime.phone_actions.records[token]["episodes"] == [first, second]
+    assert runtime.notifications.phone_actions.records[token]["episodes"] == [
+        first,
+        second,
+    ]
     await runtime.async_phone_action(
         Event(
             "mobile_app_notification_action",
@@ -777,7 +828,7 @@ async def test_grouped_phone_ack_applies_to_each_shown_issue_with_current_permis
     await report(hass, owner, alert_key="second", profile="acknowledge")
     shown = list(runtime.episodes)
     assert len(shown) == 2
-    token = runtime.phone_actions.prepare(
+    token = runtime.notifications.phone_actions.prepare(
         hass,
         {
             "episode_id": "device-group",
@@ -855,7 +906,7 @@ async def test_unready_reporting_does_not_send(
     await hass.async_block_till_done()
     assert result["reporting_status"] == status
     assert len(runtime.episodes) == 1
-    runtime_module.async_send.assert_not_called()
+    notifications_module.async_send.assert_not_called()
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -888,11 +939,11 @@ async def test_callback_rechecks_authority(
     runtime = await start_monitor(hass, entry)
     await report(hass, owner, profile="acknowledge")
     await hass.async_block_till_done()
-    token = next(iter(runtime.phone_actions.records))
+    token = next(iter(runtime.notifications.phone_actions.records))
     episode = next(iter(runtime.episodes))
 
     def expired() -> None:
-        runtime.phone_actions.records[token]["expires_at"] = (
+        runtime.notifications.phone_actions.records[token]["expires_at"] = (
             dt_util.utcnow() - timedelta(seconds=1)
         ).isoformat()
 

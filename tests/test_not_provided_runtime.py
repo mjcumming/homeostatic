@@ -65,7 +65,7 @@ async def test_runtime_qualification_state_recovery_and_owner_reload(
         row["anchor"] == source.node_id and row["status"] == "warn"
         for row in runtime.episodes.values()
     )
-    assert not runtime.delivery.messages
+    assert not runtime.notifications.delivery.messages
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data
@@ -131,7 +131,7 @@ async def test_warning_requests_notification_but_unloaded_owner_does_not(
         EVENT_NOTIFICATION, lambda event: requests.append(event.data)
     )
     with patch(
-        "custom_components.homeostatic.runtime.async_send", new_callable=AsyncMock
+        "custom_components.homeostatic.notifications.async_send", new_callable=AsyncMock
     ) as transport:
         entry = MockConfigEntry(domain=DOMAIN, data=config_data)
         runtime = await start_monitor(hass, entry)

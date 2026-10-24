@@ -64,7 +64,7 @@ async def test_device_policy_migrates_without_losing_saved_choices(
     )
     assert all(source.kind == "entity" for source in checks)
     assert len(runtime.episodes) == (2 if enabled else 0)
-    assert not runtime.delivery.outbox
+    assert not runtime.notifications.delivery.outbox
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.data == converted

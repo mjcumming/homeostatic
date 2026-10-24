@@ -18,7 +18,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.homeostatic import notification_grouping, phone_actions
-from custom_components.homeostatic import runtime as runtime_module
+from custom_components.homeostatic import notifications as notifications_module
 from custom_components.homeostatic.catalog import Source
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.notification_routes import Destination
@@ -75,9 +75,9 @@ async def test_open_finding_moves_between_device_and_standalone_then_recovers(
     assert moved["episodes"] == [episode]
     assert moved["tag"] != first["tag"]
     assert not moved["silent"]
-    assert {message["tag"] for message in runtime.delivery.messages.values()} == {
-        moved["tag"]
-    }
+    assert {
+        message["tag"] for message in runtime.notifications.delivery.messages.values()
+    } == {moved["tag"]}
 
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
@@ -91,7 +91,7 @@ async def test_open_finding_moves_between_device_and_standalone_then_recovers(
     assert events[0].data["action"] == "resolve"
     assert events[0].data["tag"] == moved["tag"]
     assert events[0].data["resolution"] == "cleared"
-    assert not runtime.delivery.messages
+    assert not runtime.notifications.delivery.messages
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -146,9 +146,9 @@ async def test_detaching_finding_keeps_device_siblings_and_their_message(
     assert len(events) == 1
     assert events[0].data["action"] == "resolve"
     assert events[0].data["tag"] == standalone["tag"]
-    assert {message["tag"] for message in runtime.delivery.messages.values()} == {
-        original["tag"]
-    }
+    assert {
+        message["tag"] for message in runtime.notifications.delivery.messages.values()
+    } == {original["tag"]}
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -188,7 +188,7 @@ async def test_acknowledged_finding_can_recover_after_association_change(
     assert len(events) == 1
     assert events[0].data["tag"] == first["tag"]
     assert events[0].data["resolution"] == "cleared"
-    assert not runtime.delivery.messages
+    assert not runtime.notifications.delivery.messages
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -223,7 +223,7 @@ async def test_changing_grouped_route_to_scheduled_report_retires_old_membership
     assert len(events) == 1
     assert events[0].data["tag"] == original["tag"]
     assert events[0].data["resolution"] == "notifications_disabled"
-    assert not runtime.delivery.messages
+    assert not runtime.notifications.delivery.messages
     events.clear()
     freezer.tick(timedelta(hours=1, seconds=1))
     async_fire_time_changed(hass, dt_util.utcnow())
@@ -240,7 +240,7 @@ async def test_changing_grouped_route_to_scheduled_report_retires_old_membership
     assert len(events) == 1
     assert events[0].data["tag"] == report["tag"]
     assert events[0].data["resolution"] == "cleared"
-    assert not runtime.delivery.messages
+    assert not runtime.notifications.delivery.messages
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -264,7 +264,7 @@ async def test_standalone_phone_action_acknowledges_the_shown_finding(
     )
     monkeypatch.setattr(phone_actions, "destinations", lambda _: [route])
     send = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", send)
+    monkeypatch.setattr(notifications_module, "async_send", send)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
@@ -276,7 +276,7 @@ async def test_standalone_phone_action_acknowledges_the_shown_finding(
     send.assert_awaited_once()
     token = send.call_args.kwargs["acknowledgment"]
     assert token is not None
-    assert runtime.phone_actions.records[token]["episodes"] == [episode]
+    assert runtime.notifications.phone_actions.records[token]["episodes"] == [episode]
     await runtime.async_phone_action(
         Event(
             "mobile_app_notification_action",

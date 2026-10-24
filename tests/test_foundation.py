@@ -118,15 +118,18 @@ async def test_unknown_value_clears_availability_warning(
     """An unknown value clears an availability warning without inventing a failure."""
     hass.states.async_set("sensor.observed", "unavailable")
     runtime = await start_monitor(hass, config_entry)
-    before = deepcopy(runtime.delivery.messages)
+    before = deepcopy(runtime.notifications.delivery.messages)
     hass.states.async_set("sensor.observed", "unknown")
     await hass.async_block_till_done()
-    assert runtime.delivery.messages != before
+    assert runtime.notifications.delivery.messages != before
     assert not runtime.episodes
     assert runtime.readiness == "ready"
     assert await hass.config_entries.async_reload(config_entry.entry_id)
     await hass.async_block_till_done()
-    assert config_entry.runtime_data.delivery.messages == runtime.delivery.messages
+    assert (
+        config_entry.runtime_data.notifications.delivery.messages
+        == runtime.notifications.delivery.messages
+    )
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 
@@ -308,7 +311,7 @@ async def test_notification_activation_keeps_each_standalone_subject(
     } == expected
     by_subject = {event.data["notification_subject"]: event.data for event in events}
     assert len({item["tag"] for item in by_subject.values()}) == 2
-    assert not runtime.delivery.outbox
+    assert not runtime.notifications.delivery.outbox
     hass.states.async_set("sensor.observed", "42")
     await hass.async_block_till_done()
     assert [event.data["action"] for event in events] == [
@@ -323,9 +326,9 @@ async def test_notification_activation_keeps_each_standalone_subject(
     assert events[-1].data["episodes"] == []
     remaining = expected["entity:entity_id:sensor.other"]
     assert list(runtime.episodes) == remaining
-    assert {message["tag"] for message in runtime.delivery.messages.values()} == {
-        by_subject["entity:entity_id:sensor.other"]["tag"]
-    }
+    assert {
+        message["tag"] for message in runtime.notifications.delivery.messages.values()
+    } == {by_subject["entity:entity_id:sensor.other"]["tag"]}
     delivered = [event.data["delivery_id"] for event in events]
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
@@ -433,7 +436,7 @@ async def test_activation_replaces_pending_opening_once_for_its_subject(
     assert [event.data["delivery_id"] for event in events] == [
         activation["delivery_id"]
     ]
-    assert not entry.runtime_data.delivery.outbox
+    assert not entry.runtime_data.notifications.delivery.outbox
     assert list(entry.runtime_data.episodes) == [episode]
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -473,7 +476,7 @@ async def test_outbox_replays_same_id_after_ack_failure(
         await hass.async_block_till_done()
     assert not runtime.available
     assert len(events) == 1
-    assert len(runtime.delivery.outbox) == 1
+    assert len(runtime.notifications.delivery.outbox) == 1
     hass.states.async_set("sensor.observed", next_state)
     await hass.async_block_till_done()
     await runtime.async_refresh()
@@ -482,7 +485,7 @@ async def test_outbox_replays_same_id_after_ack_failure(
     assert len(events) == 2
     assert [event.data["action"] for event in events] == actions
     assert (events[0].data["delivery_id"] == events[1].data["delivery_id"]) is same_id
-    assert not runtime.delivery.outbox
+    assert not runtime.notifications.delivery.outbox
     assert await hass.config_entries.async_unload(config_entry.entry_id)
 
 

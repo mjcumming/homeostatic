@@ -87,7 +87,7 @@ async def test_shelf_holds_all_recipients_across_reload(
     )
     assert result["control"]["user_id"] == hass_admin_user.id
     assert runtime.readiness == "degraded"
-    assert len(runtime.delivery.messages) == 2
+    assert len(runtime.notifications.delivery.messages) == 2
     freezer.tick(timedelta(seconds=11))
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
@@ -254,7 +254,7 @@ async def test_shelf_extension_resolution_and_expiry_without_reminders(
     hass.states.async_set("sensor.observed", "42")
     await hass.async_block_till_done()
     assert not runtime.controls
-    assert not runtime.delivery.messages
+    assert not runtime.notifications.delivery.messages
     with pytest.raises(ServiceValidationError, match="current episode"):
         await action(hass, "shelve", {"episode_id": episode_id, "until": end()})
     assert await hass.config_entries.async_unload(config_entry.entry_id)

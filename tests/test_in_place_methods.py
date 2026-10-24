@@ -108,7 +108,7 @@ async def test_method_save_keeps_runtime_panel_and_inventory_with_sending_off(
             side_effect=AssertionError("Method save does not change discovery"),
         ),
         patch(
-            "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+            "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
         ) as send,
     ):
         await client.send_json(
@@ -228,7 +228,7 @@ async def test_method_change_retires_only_its_pending_original_targets(
         retained = deepcopy(
             runtime.policy.explain(episode)["routes"]["policy_observed_retained"]
         )
-        pending = deepcopy(runtime.delivery.outbox)
+        pending = deepcopy(runtime.notifications.delivery.outbox)
         old = next(row for row in pending if row["route"] == "policy_observed_edited")
         other = next(
             row for row in pending if row["route"] == "policy_observed_retained"
@@ -276,9 +276,13 @@ async def test_method_change_retires_only_its_pending_original_targets(
             runtime.policy.explain(episode)["routes"]["policy_observed_retained"]
             == retained
         )
-        assert other in runtime.delivery.outbox
-        assert old not in runtime.delivery.outbox
-        cleanup = [row for row in runtime.delivery.outbox if row["action"] == "resolve"]
+        assert other in runtime.notifications.delivery.outbox
+        assert old not in runtime.notifications.delivery.outbox
+        cleanup = [
+            row
+            for row in runtime.notifications.delivery.outbox
+            if row["action"] == "resolve"
+        ]
         assert cleanup
         assert all(
             row["channels"] == ["notify:old"] and row["tag"] == old["tag"]
@@ -286,7 +290,7 @@ async def test_method_change_retires_only_its_pending_original_targets(
         )
         targets = [
             row["channels"]
-            for row in runtime.delivery.outbox
+            for row in runtime.notifications.delivery.outbox
             if row["action"] != "resolve" and row["route"] == "policy_observed_edited"
         ]
         assert (
@@ -300,7 +304,7 @@ async def test_method_change_retires_only_its_pending_original_targets(
         )
         assert await runtime.store.async_load() == runtime.snapshot()
         with patch(
-            "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+            "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
         ) as send:
             await runtime.async_send_notification(old)
             send.assert_not_awaited()
@@ -363,7 +367,9 @@ async def test_removed_method_destination_cannot_authorize_old_phone_action(
         "phone:old"
     ]
     entry = MockConfigEntry(domain=DOMAIN, data=method_config)
-    with patch("custom_components.homeostatic.runtime.async_send", new=AsyncMock()):
+    with patch(
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
+    ):
         runtime = await start_monitor(hass, entry)
         [episode] = runtime.episodes
         changed = deepcopy(method_config)
@@ -379,7 +385,9 @@ async def test_removed_method_destination_cannot_authorize_old_phone_action(
         }
         with (
             patch.object(
-                runtime.phone_actions, "authorize", new=AsyncMock(return_value=row)
+                runtime.notifications.phone_actions,
+                "authorize",
+                new=AsyncMock(return_value=row),
             ),
             patch.object(runtime, "async_control", new=AsyncMock()) as control,
         ):
@@ -454,7 +462,9 @@ async def test_method_edit_preserves_independent_window_pending_clock(
     }
     hass.states.async_set("sensor.observed", "unavailable")
     entry = MockConfigEntry(domain=DOMAIN, data=method_config)
-    with patch("custom_components.homeostatic.runtime.async_send", new=AsyncMock()):
+    with patch(
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
+    ):
         runtime = await start_monitor(hass, entry)
         [episode] = runtime.episodes
         pending = deepcopy(
@@ -472,7 +482,7 @@ async def test_method_edit_preserves_independent_window_pending_clock(
         )
         assert not any(
             row.get("route") == "policy_observed_retained"
-            for row in runtime.delivery.messages.values()
+            for row in runtime.notifications.delivery.messages.values()
         )
         assert await runtime.store.async_load() == runtime.snapshot()
         assert await hass.config_entries.async_unload(entry.entry_id)
@@ -533,7 +543,7 @@ async def test_presence_catalog_identity_saves_without_reload(
             side_effect=AssertionError("Presence save must not reload"),
         ),
         patch(
-            "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+            "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
         ) as send,
     ):
         await client.send_json(

@@ -18,8 +18,8 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
+from custom_components.homeostatic import notifications as notifications_module
 from custom_components.homeostatic import phone_actions
-from custom_components.homeostatic import runtime as runtime_module
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.notification_routes import Destination
 from tests.policy_helpers import immediate_notification, monitoring_policy
@@ -49,7 +49,7 @@ async def test_enabling_existing_device_failures_sends_one_acknowledgeable_messa
     )
     monkeypatch.setattr(phone_actions, "destinations", lambda _: [route])
     send = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", send)
+    monkeypatch.setattr(notifications_module, "async_send", send)
     hass.states.async_set(temperature.entity_id, "unavailable")
     hass.states.async_set(switch.entity_id, "unavailable")
     events = async_capture_events(hass, EVENT_NOTIFICATION)
@@ -58,7 +58,7 @@ async def test_enabling_existing_device_failures_sends_one_acknowledgeable_messa
     shown = set(runtime.episodes)
     assert len(shown) == 2
     assert not events
-    assert not runtime.delivery.outbox
+    assert not runtime.notifications.delivery.outbox
     send.assert_not_called()
 
     hass.config_entries.async_update_entry(
@@ -73,13 +73,13 @@ async def test_enabling_existing_device_failures_sends_one_acknowledgeable_messa
     assert payload["action"] == "activate"
     assert set(payload["episodes"]) == shown
     assert not payload["silent"]
-    assert {row["tag"] for row in runtime.delivery.messages.values()} == {
+    assert {row["tag"] for row in runtime.notifications.delivery.messages.values()} == {
         payload["tag"]
     }
     assert send.await_count == 1
     token = send.call_args.kwargs["acknowledgment"]
     assert token is not None
-    assert set(runtime.phone_actions.records[token]["episodes"]) == shown
+    assert set(runtime.notifications.phone_actions.records[token]["episodes"]) == shown
     await runtime.async_phone_action(
         Event(
             "mobile_app_notification_action",
@@ -97,9 +97,9 @@ async def test_enabling_existing_device_failures_sends_one_acknowledgeable_messa
     new_token = send.call_args.kwargs["acknowledgment"]
     assert new_token != token
     assert events[-1].data["tag"] == payload["tag"]
-    assert set(runtime.phone_actions.records[new_token]["episodes"]) == set(
-        runtime.episodes
-    )
+    assert set(
+        runtime.notifications.phone_actions.records[new_token]["episodes"]
+    ) == set(runtime.episodes)
     new_failures = set(runtime.episodes) - shown
     assert len(new_failures) == 1
     await runtime.async_phone_action(
@@ -164,7 +164,7 @@ async def test_startup_hold_emits_one_message_per_device_without_individual_copi
     assert runtime.startup_quiet
     assert len(runtime.episodes) == 3
     assert not events
-    assert len(runtime.delivery.outbox) == 2
+    assert len(runtime.notifications.delivery.outbox) == 2
     slow.mock_state(hass, ConfigEntryState.LOADED)
     await hass.async_block_till_done()
     assert not runtime.startup_quiet
@@ -179,7 +179,7 @@ async def test_startup_hold_emits_one_message_per_device_without_individual_copi
     assert {episode for event in events for episode in event.data["episodes"]} == set(
         runtime.episodes
     )
-    assert {row["tag"] for row in runtime.delivery.messages.values()} == {
+    assert {row["tag"] for row in runtime.notifications.delivery.messages.values()} == {
         event.data["tag"] for event in events
     }
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -208,8 +208,8 @@ async def test_partial_recovery_during_startup_hold_delivers_only_remaining_fail
     assert runtime.startup_quiet
     assert set(runtime.episodes) == {remaining}
     assert not events
-    assert len(runtime.delivery.outbox) == 1
-    assert runtime.delivery.outbox[0]["episodes"] == [remaining]
+    assert len(runtime.notifications.delivery.outbox) == 1
+    assert runtime.notifications.delivery.outbox[0]["episodes"] == [remaining]
     slow.mock_state(hass, ConfigEntryState.LOADED)
     await hass.async_block_till_done()
     assert len(events) == 1
@@ -240,14 +240,14 @@ async def test_disabled_notifications_stay_silent_after_startup_and_partial_reco
     assert not runtime.startup_quiet
     assert len(runtime.episodes) == 1
     assert not events
-    assert not runtime.delivery.outbox
-    assert not runtime.delivery.messages
+    assert not runtime.notifications.delivery.outbox
+    assert not runtime.notifications.delivery.messages
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data
     assert not runtime.settings.notifications
     assert len(runtime.episodes) == 1
     assert not events
-    assert not runtime.delivery.outbox
-    assert not runtime.delivery.messages
+    assert not runtime.notifications.delivery.outbox
+    assert not runtime.notifications.delivery.messages
     assert await hass.config_entries.async_unload(entry.entry_id)

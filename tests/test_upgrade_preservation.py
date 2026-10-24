@@ -50,7 +50,7 @@ async def test_malformed_source_state_never_starts_conversion(
     before = deepcopy((dict(entry.data), dict(entry.options), hass_storage[key]))
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with patch(
-        "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
     ) as send:
         assert not await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -133,7 +133,7 @@ async def test_corrupt_source_restore_survives_retry_and_unload(
     before = deepcopy((dict(entry.data), dict(entry.options), hass_storage[key]))
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with patch(
-        "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
     ) as send:
         for retry in (False, True):
             assert await hass.config_entries.async_setup(entry.entry_id)
@@ -195,7 +195,7 @@ async def test_new_defaults_preserve_battery_and_vacuum_choices(
     expected = Settings.from_data(data, functions_enabled=False)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with patch(
-        "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
     ) as send:
         runtime = await start_monitor(hass, entry)
         for reload in range(3):

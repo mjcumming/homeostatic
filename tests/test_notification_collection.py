@@ -24,8 +24,8 @@ from pytest_homeassistant_custom_component.common import (
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.homeostatic import notification_routes as routes
+from custom_components.homeostatic import notifications as notifications_module
 from custom_components.homeostatic import phone_actions
-from custom_components.homeostatic import runtime as runtime_module
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.notification_routes import Destination
@@ -89,18 +89,18 @@ async def test_thirty_unrelated_issues_restart_fixed_deadline_and_late_arrival(
     runtime = await start_monitor(hass, entry)
     hass.states.async_set("sensor.collection_0", "unavailable")
     await hass.async_block_till_done()
-    due = runtime.delivery.collections.next_deadline()
+    due = runtime.notifications.delivery.collections.next_deadline()
     assert due == dt_util.utcnow() + timedelta(seconds=60)
     await advance(hass, freezer, 30)
     for index in range(1, 30):
         hass.states.async_set(f"sensor.collection_{index}", "unavailable")
     await hass.async_block_till_done()
-    assert runtime.delivery.collections.next_deadline() == due
+    assert runtime.notifications.delivery.collections.next_deadline() == due
     assert events == []
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     runtime = entry.runtime_data
-    assert runtime.delivery.collections.next_deadline() == due
+    assert runtime.notifications.delivery.collections.next_deadline() == due
     await advance(hass, freezer, 29)
     assert events == []
     await advance(hass, freezer, 1)
@@ -137,12 +137,12 @@ async def test_startup_release_persists_collection_deadline_before_delivery(
     hass.states.async_set("sensor.observed", "unavailable")
     await hass.async_block_till_done()
     assert runtime.startup_quiet
-    assert runtime.delivery.collections.pending()
-    assert runtime.delivery.collections.next_deadline() is None
+    assert runtime.notifications.delivery.collections.pending()
+    assert runtime.notifications.delivery.collections.next_deadline() is None
     await advance(hass, freezer, 20)
     assert not runtime.startup_quiet
     due = dt_util.utcnow() + timedelta(seconds=60)
-    assert runtime.delivery.collections.next_deadline() == due
+    assert runtime.notifications.delivery.collections.next_deadline() == due
     saved = await runtime.store.async_load()
     restored = DeliveryCollections()
     restored.restore(saved["delivery"]["delivery_collections"])
@@ -150,7 +150,7 @@ async def test_startup_release_persists_collection_deadline_before_delivery(
     assert not events
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
-    assert entry.runtime_data.delivery.collections.next_deadline() == due
+    assert entry.runtime_data.notifications.delivery.collections.next_deadline() == due
     await advance(hass, freezer, 60)
     assert len(events) == 1
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -178,7 +178,7 @@ async def test_partial_recovery_while_reminder_collects_keeps_existing_members(
     [opening] = events
     assert len(opening.data["episodes"]) == 2
     await advance(hass, freezer, 40)
-    assert runtime.delivery.collections.pending()
+    assert runtime.notifications.delivery.collections.pending()
     await advance(hass, freezer, 10)
     hass.states.async_set("sensor.two", "43")
     await hass.async_block_till_done()
@@ -245,13 +245,13 @@ async def test_collection_outbox_replay_retains_id_and_exact_members(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     direct = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", direct)
+    monkeypatch.setattr(notifications_module, "async_send", direct)
     runtime = await start_monitor(hass, entry)
     with patch.object(runtime, "_flush_events", new=AsyncMock()):
         hass.states.async_set("sensor.observed", "unavailable")
         await hass.async_block_till_done()
         await advance(hass, freezer, 5)
-        [pending] = deepcopy(runtime.delivery.outbox)
+        [pending] = deepcopy(runtime.notifications.delivery.outbox)
         assert not events
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
@@ -289,7 +289,7 @@ async def test_collected_integration_issue_has_exact_phone_acknowledgment(
     )
     monkeypatch.setattr(phone_actions, "destinations", lambda _h: [route])
     direct = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", direct)
+    monkeypatch.setattr(notifications_module, "async_send", direct)
     owner = MockConfigEntry(domain="test", state=ConfigEntryState.LOADED)
     owner.add_to_hass(hass)
     lock = er.async_get(hass).async_get_or_create(
@@ -304,8 +304,8 @@ async def test_collected_integration_issue_has_exact_phone_acknowledgment(
     await hass.async_block_till_done()
     await advance(hass, freezer, 5)
     [episode] = runtime.episodes
-    [token] = runtime.phone_actions.records
-    assert runtime.phone_actions.records[token]["episodes"] == [episode]
+    [token] = runtime.notifications.phone_actions.records
+    assert runtime.notifications.phone_actions.records[token]["episodes"] == [episode]
     assert direct.await_args.kwargs["acknowledgment"] == token
     await runtime.async_phone_action(
         Event(
@@ -342,7 +342,7 @@ async def test_collection_zero_and_empty_window(
     assert len([event for event in events if not event.data["silent"]]) == int(
         delay == 0
     )
-    assert runtime.delivery.collections.next_deadline() is None
+    assert runtime.notifications.delivery.collections.next_deadline() is None
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -390,13 +390,13 @@ async def test_collection_requires_sending_and_a_destination(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     direct = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", direct)
+    monkeypatch.setattr(notifications_module, "async_send", direct)
     runtime = await start_monitor(hass, entry)
     hass.states.async_set("sensor.observed", "unavailable")
     await hass.async_block_till_done()
     await advance(hass, freezer, 10)
     assert runtime.episodes
-    assert not runtime.delivery.collections.pending()
+    assert not runtime.notifications.delivery.collections.pending()
     assert not events
     direct.assert_not_awaited()
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -415,11 +415,11 @@ async def test_turning_sending_off_cancels_pending_collection(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     direct = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", direct)
+    monkeypatch.setattr(notifications_module, "async_send", direct)
     runtime = await start_monitor(hass, entry)
     hass.states.async_set("sensor.observed", "unavailable")
     await hass.async_block_till_done()
-    assert runtime.delivery.collections.pending()
+    assert runtime.notifications.delivery.collections.pending()
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "homeostatic/configuration"})
     configuration = (await client.receive_json())["result"]
@@ -437,7 +437,7 @@ async def test_turning_sending_off_cancels_pending_collection(
     await hass.async_block_till_done()
     await advance(hass, freezer, 70)
     assert not entry.runtime_data.settings.notifications
-    assert not entry.runtime_data.delivery.collections.pending()
+    assert not entry.runtime_data.notifications.delivery.collections.pending()
     assert not events
     direct.assert_not_awaited()
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -466,7 +466,7 @@ async def test_pending_instructions_and_presence_survive_edit_and_restart(
     runtime = await start_monitor(hass, entry)
     hass.states.async_set("sensor.observed", "unavailable")
     await hass.async_block_till_done()
-    due = runtime.delivery.collections.next_deadline()
+    due = runtime.notifications.delivery.collections.next_deadline()
     await advance(hass, freezer, 20)
     hass.states.async_set("person.owner", "not_home")
     updated = deepcopy(config_data)
@@ -477,7 +477,7 @@ async def test_pending_instructions_and_presence_survive_edit_and_restart(
         "service:changed_away_test"
     ]
     await runtime.async_apply_settings(Settings.from_data(updated))
-    assert runtime.delivery.collections.next_deadline() == due
+    assert runtime.notifications.delivery.collections.next_deadline() == due
     assert events == []
     await advance(hass, freezer, 40)
     [message] = events

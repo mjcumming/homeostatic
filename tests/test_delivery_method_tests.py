@@ -107,7 +107,7 @@ async def test_preview_then_explicit_mixed_test(
     preview = (await client.receive_json())["result"]
     assert preview["targets"][-1]["name"] == "Twilio → +15551234567"
     assert preview["skipped"] is False
-    assert runtime.delivery.outbox == []
+    assert runtime.notifications.delivery.outbox == []
     assert runtime.settings.notifications is False
     send.assert_not_awaited()
     await client.send_json(
@@ -122,7 +122,7 @@ async def test_preview_then_explicit_mixed_test(
     expected = [target["channel"] for target in preview["targets"]]
     assert result == {"requested": expected, "failed": [], "skipped": False}
     assert [call.args[1] for call in send.await_args_list] == expected
-    assert runtime.delivery.outbox == []
+    assert runtime.notifications.delivery.outbox == []
     assert runtime.episodes == {}
     await client.close()
 

@@ -65,7 +65,7 @@ async def test_failure_notification_recovery(
     await hass.async_block_till_done()
     episode_id = next(iter(runtime.episodes))
     assert runtime.readiness == "degraded"
-    [message] = runtime.delivery.messages.values()
+    [message] = runtime.notifications.delivery.messages.values()
     notification_tag = message["tag"]
     assert message["episode_id"] == episode_id
     assert notification_tag in hass.data[persistent_notification.DOMAIN]

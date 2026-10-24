@@ -69,7 +69,7 @@ async def test_slow_integration_holds_then_releases_each_standalone_subject(
     assert len(runtime.episodes) == 2
     assert runtime.startup_quiet
     assert not events
-    assert len(runtime.delivery.outbox) == 2
+    assert len(runtime.notifications.delivery.outbox) == 2
     expected = {
         f"entity:entity_id:{runtime.sources[str(episode['anchor'])].entity_id}": [
             identity
@@ -78,11 +78,11 @@ async def test_slow_integration_holds_then_releases_each_standalone_subject(
     }
     held = {
         item["notification_subject"]: (item["delivery_id"], item["tag"])
-        for item in runtime.delivery.outbox
+        for item in runtime.notifications.delivery.outbox
     }
     assert {
         item["notification_subject"]: item["episodes"]
-        for item in runtime.delivery.outbox
+        for item in runtime.notifications.delivery.outbox
     } == expected
 
     slow.mock_state(hass, ConfigEntryState.LOADED)
@@ -96,7 +96,7 @@ async def test_slow_integration_holds_then_releases_each_standalone_subject(
         item["notification_subject"]: (item["delivery_id"], item["tag"])
         for item in loud
     } == held
-    assert not runtime.delivery.outbox
+    assert not runtime.notifications.delivery.outbox
     await runtime.async_refresh()
     await hass.async_block_till_done()
     assert len(events) == 2
@@ -113,7 +113,7 @@ async def test_hold_ends_at_the_cap(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await fresh_start(hass, entry)
     [episode] = runtime.episodes
-    [held] = runtime.delivery.outbox
+    [held] = runtime.notifications.delivery.outbox
     freezer.tick(timedelta(seconds=599))
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
@@ -130,7 +130,7 @@ async def test_hold_ends_at_the_cap(
     assert released["episodes"] == [episode]
     assert released["delivery_id"] == held["delivery_id"]
     assert released["tag"] == held["tag"]
-    assert not runtime.delivery.outbox
+    assert not runtime.notifications.delivery.outbox
     await runtime.async_refresh()
     await hass.async_block_till_done()
     assert len(events) == 1
@@ -158,7 +158,7 @@ async def test_setup_retry_does_not_hold(
     assert released["action"] == "open"
     assert released["notification_subject"] == "entity:entity_id:sensor.observed"
     assert released["episodes"] == [episode]
-    assert not runtime.delivery.outbox
+    assert not runtime.notifications.delivery.outbox
     await runtime.async_refresh()
     await hass.async_block_till_done()
     assert len(events) == 1
@@ -223,7 +223,7 @@ async def test_restart_sends_one_due_reminder_for_the_existing_subject(
     assert loud[0]["notification_subject"] == original["notification_subject"]
     assert loud[0]["tag"] == original["tag"]
     assert loud[0]["delivery_id"] != original["delivery_id"]
-    assert not restarted.delivery.outbox
+    assert not restarted.notifications.delivery.outbox
     freezer.tick(timedelta(minutes=20))  # before the next hourly reminder
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()

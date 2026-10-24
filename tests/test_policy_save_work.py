@@ -156,7 +156,9 @@ async def test_policy_rename_preserves_durable_requests_and_rolls_back_names(
         }
     hass.states.async_set("sensor.observed", "20", attributes)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    with patch("custom_components.homeostatic.runtime.async_send", new=AsyncMock()):
+    with patch(
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
+    ):
         runtime = await start_monitor(hass, entry)
         with (
             patch.object(runtime, "_flush_events", new=AsyncMock())
@@ -169,7 +171,7 @@ async def test_policy_rename_preserves_durable_requests_and_rolls_back_names(
                 attributes,
             )
             await hass.async_block_till_done()
-            assert bool(runtime.delivery.outbox) == queued
+            assert bool(runtime.notifications.delivery.outbox) == queued
             before = runtime.snapshot()
             assert runtime.policy is not None
             clocks = {
@@ -242,17 +244,17 @@ async def test_policy_rename_preserves_durable_requests_and_rolls_back_names(
             if not failed_write and not queued:
                 targets = {
                     message["tag"]: message["channels"]
-                    for message in runtime.delivery.messages.values()
+                    for message in runtime.notifications.delivery.messages.values()
                 }
                 with patch.object(runtime, "_flush_events", new=AsyncMock()):
                     hass.states.async_set("sensor.observed", "20", attributes)
                     await hass.async_block_till_done()
                     assert not runtime.episodes
-                    assert runtime.delivery.outbox
+                    assert runtime.notifications.delivery.outbox
                     assert all(
                         row["action"] == "resolve"
                         and row["channels"] == targets[row["tag"]]
-                        for row in runtime.delivery.outbox
+                        for row in runtime.notifications.delivery.outbox
                     )
         assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -277,13 +279,15 @@ async def test_policy_rename_keeps_due_and_changed_temperature_notifications(
         },
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    with patch("custom_components.homeostatic.runtime.async_send", new=AsyncMock()):
+    with patch(
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
+    ):
         runtime = await start_monitor(hass, entry)
         with patch.object(runtime, "_flush_events", new=AsyncMock()):
             hass.states.async_set("sensor.observed", "0", attributes)
             await hass.async_block_till_done()
             before = set(runtime.episodes)
-            sequence = runtime.delivery.sequence
+            sequence = runtime.notifications.delivery.sequence
             changed = deepcopy(config_data)
             changed["monitoring_policies"][0]["name"] = "Renamed policy"
             if change == "deadline":
@@ -297,8 +301,8 @@ async def test_policy_rename_keeps_due_and_changed_temperature_notifications(
             assert len(runtime.episodes) == 1
             if before:
                 assert set(runtime.episodes) == before
-            assert runtime.delivery.sequence > sequence
-            assert runtime.delivery.outbox
+            assert runtime.notifications.delivery.sequence > sequence
+            assert runtime.notifications.delivery.outbox
             [episode] = runtime.episodes.values()
             assert {reason["reason"] for reason in episode["reasons"]} == {
                 "temperature_low" if change == "deadline" else "temperature_high"

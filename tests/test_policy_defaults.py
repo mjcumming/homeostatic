@@ -85,7 +85,7 @@ async def test_fresh_setup_reports_batteries_and_vacuums_without_sending(
     entry = MockConfigEntry(domain=DOMAIN, data=data)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with patch(
-        "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
     ) as send:
         runtime = await start_monitor(hass, entry)
         assert {

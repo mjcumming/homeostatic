@@ -376,7 +376,7 @@ async def test_notification_editor_save_profile(
             assert saved["settings"] == proposed
             assert (entry.runtime_data is before) is in_place
             assert not entry.runtime_data.settings.notifications
-            assert not entry.runtime_data.delivery.outbox
+            assert not entry.runtime_data.notifications.delivery.outbox
             stored_file = await hass.async_add_executor_job(
                 Path(entry.runtime_data.store.path).stat
             )

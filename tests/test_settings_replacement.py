@@ -80,7 +80,7 @@ async def test_old_settings_are_converted_once_without_replacing_choices(
     )
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with patch(
-        "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
     ) as send:
         runtime = await start_monitor(hass, entry)
         expected = deepcopy(old)
@@ -262,7 +262,7 @@ async def test_failed_runtime_restore_never_persists_conversion(
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with (
         patch(
-            "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+            "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
         ) as send,
         patch(
             "custom_components.homeostatic.runtime.Runtime._save", new=AsyncMock()
@@ -323,7 +323,7 @@ async def test_historical_delivery_state_is_rejected_without_mutation_or_sending
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     entry.add_to_hass(hass)
     with patch(
-        "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
     ) as send:
         assert not await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_start()
@@ -408,7 +408,7 @@ async def test_conversion_preserves_presented_messages_and_queued_requests(
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with (
         patch(
-            "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+            "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
         ) as send,
     ):
         runtime = await start_monitor(hass, entry)
@@ -419,10 +419,10 @@ async def test_conversion_preserves_presented_messages_and_queued_requests(
         ):
             hass.states.async_set("sensor.observed", "unavailable")
             await hass.async_block_till_done()
-            assert runtime.delivery.messages
-            assert bool(runtime.delivery.outbox) is queued
-            messages = deepcopy(runtime.delivery.messages)
-            pending = deepcopy(runtime.delivery.outbox)
+            assert runtime.notifications.delivery.messages
+            assert bool(runtime.notifications.delivery.outbox) is queued
+            messages = deepcopy(runtime.notifications.delivery.messages)
+            pending = deepcopy(runtime.notifications.delivery.outbox)
             events.clear()
             send.reset_mock()
             legacy = deepcopy(config_data)
@@ -432,7 +432,7 @@ async def test_conversion_preserves_presented_messages_and_queued_requests(
             assert await hass.config_entries.async_reload(entry.entry_id)
             await hass.async_block_till_done()
         assert entry.runtime_data.settings.notifications
-        assert entry.runtime_data.delivery.messages == messages
+        assert entry.runtime_data.notifications.delivery.messages == messages
         assert [event.data["delivery_id"] for event in events] == [
             row["delivery_id"] for row in pending
         ]
@@ -440,7 +440,7 @@ async def test_conversion_preserves_presented_messages_and_queued_requests(
             row["channels"] for row in pending
         ]
         assert len(send.await_args_list) == len(pending)
-        assert not entry.runtime_data.delivery.outbox
+        assert not entry.runtime_data.notifications.delivery.outbox
         previous = list(events)
         assert await hass.config_entries.async_reload(entry.entry_id)
         await hass.async_block_till_done()

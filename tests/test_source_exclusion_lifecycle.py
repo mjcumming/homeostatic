@@ -74,7 +74,7 @@ async def test_source_exclusion_preserves_sibling_attention_and_history(
     messages = deepcopy(
         {
             key: row
-            for key, row in runtime.delivery.messages.items()
+            for key, row in runtime.notifications.delivery.messages.items()
             if row["episode_id"] == retained_id
         }
     )
@@ -100,7 +100,7 @@ async def test_source_exclusion_preserves_sibling_attention_and_history(
     assert runtime.controls == controls
     assert {
         key: row
-        for key, row in runtime.delivery.messages.items()
+        for key, row in runtime.notifications.delivery.messages.items()
         if row["episode_id"] == retained_id
     } == messages
     history = runtime.history.snapshot()["episodes"]

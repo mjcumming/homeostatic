@@ -62,7 +62,9 @@ async def test_monitoring_save_preserves_other_episodes_clocks_and_history(
         policy=notification_definitions.generate(definitions),
     )
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
-    with patch("custom_components.homeostatic.runtime.async_send", new=AsyncMock()):
+    with patch(
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
+    ):
         runtime = await start_monitor(hass, entry)
         client = await hass_ws_client(hass)
         retained_id = next(
@@ -76,7 +78,7 @@ async def test_monitoring_save_preserves_other_episodes_clocks_and_history(
         delivery = deepcopy(
             [
                 row
-                for row in runtime.delivery.messages.values()
+                for row in runtime.notifications.delivery.messages.values()
                 if row["episode_id"] == retained_id
             ]
         )
@@ -102,7 +104,7 @@ async def test_monitoring_save_preserves_other_episodes_clocks_and_history(
         assert runtime.episodes == {retained_id: retained}
         after_delivery = [
             row
-            for row in runtime.delivery.messages.values()
+            for row in runtime.notifications.delivery.messages.values()
             if row["episode_id"] == retained_id
         ]
         assert {

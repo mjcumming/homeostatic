@@ -19,7 +19,7 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.homeostatic import runtime as runtime_module
+from custom_components.homeostatic import notifications as notifications_module
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from tests.policy_helpers import immediate_notification, monitoring_policy
 from tests.test_lifecycle import start_monitor
@@ -121,7 +121,9 @@ async def test_outage_partial_recovery_absence_and_reload_keep_one_device_messag
     await hass.async_block_till_done()
     runtime = entry.runtime_data
     assert remaining_id in runtime.episodes
-    assert {message["tag"] for message in runtime.delivery.messages.values()} == {tag}
+    assert {
+        message["tag"] for message in runtime.notifications.delivery.messages.values()
+    } == {tag}
 
     events.clear()
     hass.states.async_set(temperature.entity_id, "22")
@@ -178,8 +180,10 @@ async def test_compatible_route_removal_keeps_other_device_findings(
     await hass.async_block_till_done()
     runtime = entry.runtime_data
     assert len(runtime.episodes) == 2
-    assert len(runtime.delivery.messages) == 1
-    assert {message["tag"] for message in runtime.delivery.messages.values()} == {tag}
+    assert len(runtime.notifications.delivery.messages) == 1
+    assert {
+        message["tag"] for message in runtime.notifications.delivery.messages.values()
+    } == {tag}
     assert all(event.data["action"] != "resolve" for event in events)
     assert await hass.config_entries.async_unload(entry.entry_id)
 
@@ -257,7 +261,7 @@ async def test_presence_change_keeps_new_findings_away_from_previous_destination
         "fallback": ["notify:fallback"],
         "skip": False,
     }
-    monkeypatch.setattr(runtime_module, "async_send", AsyncMock())
+    monkeypatch.setattr(notifications_module, "async_send", AsyncMock())
     hass.states.async_set("person.owner", "home")
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
@@ -287,7 +291,8 @@ async def test_presence_change_keeps_new_findings_away_from_previous_destination
     assert home_updates[0]["tag"] == home_tag
     assert away_updates == []
     assert {
-        message["tag"] for message in entry.runtime_data.delivery.messages.values()
+        message["tag"]
+        for message in entry.runtime_data.notifications.delivery.messages.values()
     } == {away_tag}
     assert len(entry.runtime_data.episodes) == 1
     assert await hass.config_entries.async_unload(entry.entry_id)

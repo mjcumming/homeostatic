@@ -4,6 +4,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0111](0111-separate-notifications-from-runtime.md) | Separate notification handling while runtime owns ordering and verified saves | Accepted; extends 0110 and preserves delivery and storage contracts |
 | [0110](0110-separate-producers-from-runtime.md) | Give producer state and dispatch one owner while runtime coordinates ordered work | Accepted; extends 0092 and preserves storage and delivery contracts |
 | [0109](0109-compact-notification-presentation.md) | Bound notification previews and use durable exact-scope local links | Accepted; refines 0033/0102 presentation while preserving schema-one machine fields |
 | [0108](0108-category-availability-policies-and-policy-waits.md) | Supply category availability policies, focused source selection and configurable waits | Accepted; refines 0103 with flat focused lists and empty custom selections; supersedes the fresh General/Important split in 0099/0106; preserves existing policies under 0107 |

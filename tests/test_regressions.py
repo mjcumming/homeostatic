@@ -86,7 +86,7 @@ async def test_notification_options_reload(
     assert list(restored.episodes) == [episode_id]
     assert not restored.desired_notifications
     assert (
-        runtime.notification_id(episode_id)
+        runtime.notifications.notification_id(episode_id)
         not in hass.data[persistent_notification.DOMAIN]
     )
     assert restored.readiness == "degraded"

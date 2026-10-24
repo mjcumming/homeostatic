@@ -15,7 +15,7 @@ from pytest_homeassistant_custom_component.common import (
     async_capture_events,
 )
 
-from custom_components.homeostatic import runtime as runtime_module
+from custom_components.homeostatic import notifications as notifications_module
 from custom_components.homeostatic.const import DOMAIN, EVENT_NOTIFICATION
 from custom_components.homeostatic.policy_defaults import policy_templates
 from tests.policy_helpers import monitoring_policy
@@ -59,7 +59,7 @@ async def test_integration_and_equipment_arrival_orders_keep_one_opening(
     hass.states.async_set(lock.entity_id, "locked")
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     direct = AsyncMock()
-    monkeypatch.setattr(runtime_module, "async_send", direct)
+    monkeypatch.setattr(notifications_module, "async_send", direct)
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     runtime = await start_monitor(hass, entry)
     if arrival == "integration_first":
@@ -71,12 +71,15 @@ async def test_integration_and_equipment_arrival_orders_keep_one_opening(
     else:
         hass.states.async_set(lock.entity_id, "unavailable")
         await hass.async_block_till_done()
-        original_due = runtime.delivery.collections.next_deadline()
+        original_due = runtime.notifications.delivery.collections.next_deadline()
         await advance(hass, freezer, 1 if arrival == "pending_absorption" else 5)
         owner._async_set_state(hass, ConfigEntryState.SETUP_ERROR, None)
         await hass.async_block_till_done()
         if arrival == "pending_absorption":
-            assert runtime.delivery.collections.next_deadline() == original_due
+            assert (
+                runtime.notifications.delivery.collections.next_deadline()
+                == original_due
+            )
             await advance(hass, freezer, 4)
     assert len(runtime.episodes) == 1
     [shared] = runtime.episodes
@@ -143,8 +146,9 @@ async def test_first_important_member_after_general_outage_requests_attention_on
     first = registry.async_get_or_create("lock", "test", "first", config_entry=owner)
     hass.states.async_set(first.entity_id, "unavailable")
     await hass.async_block_till_done()
-    assert runtime.delivery.collections.next_deadline() == dt_util.utcnow() + timedelta(
-        seconds=5
+    assert (
+        runtime.notifications.delivery.collections.next_deadline()
+        == dt_util.utcnow() + timedelta(seconds=5)
     )
     await advance(hass, freezer, 5)
     assert len([event for event in events if not event.data["silent"]]) == 1

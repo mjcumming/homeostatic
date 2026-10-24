@@ -72,7 +72,7 @@ async def test_categories_are_disabled_additions_and_never_recreated(
     )
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with patch(
-        "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
     ) as send:
         runtime = await start_monitor(hass, entry)
         upgraded = deepcopy(dict(entry.data))
@@ -245,7 +245,7 @@ async def test_failed_addition_preserves_settings_tracking_and_snapshot(
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with (
         patch(
-            "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+            "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
         ) as send,
         patch.object(
             hass.config_entries,
@@ -290,7 +290,7 @@ async def test_introductions_preserve_delivery_and_replay_identity(
     entry = MockConfigEntry(domain=DOMAIN, data=config_data)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with patch(
-        "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+        "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
     ) as send:
         runtime = await start_monitor(hass, entry)
         with (
@@ -300,8 +300,8 @@ async def test_introductions_preserve_delivery_and_replay_identity(
         ):
             hass.states.async_set("sensor.observed", "unavailable")
             await hass.async_block_till_done()
-            messages = deepcopy(runtime.delivery.messages)
-            pending = deepcopy(runtime.delivery.outbox)
+            messages = deepcopy(runtime.notifications.delivery.messages)
+            pending = deepcopy(runtime.notifications.delivery.outbox)
             assert messages
             assert bool(pending) is queued
             # Published Match records lacked the new optional qualification field.
@@ -329,13 +329,13 @@ async def test_introductions_preserve_delivery_and_replay_identity(
                 )
                 assert await hass.config_entries.async_setup(entry.entry_id)
                 await hass.async_block_till_done()
-        assert entry.runtime_data.delivery.messages == messages
+        assert entry.runtime_data.notifications.delivery.messages == messages
         assert entry.runtime_data._route_digests() == previous_routes
         assert [event.data["delivery_id"] for event in events] == [
             row["delivery_id"] for row in pending
         ]
         assert send.await_count == len(pending)
-        assert not entry.runtime_data.delivery.outbox
+        assert not entry.runtime_data.notifications.delivery.outbox
         assert entry.data["supplied_policy_introductions"] == list(
             SUPPLIED_POLICY_INTRODUCTIONS
         )
@@ -359,7 +359,7 @@ async def test_failed_first_introduction_write_does_not_create_runtime_storage(
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with (
         patch(
-            "custom_components.homeostatic.runtime.async_send", new=AsyncMock()
+            "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
         ) as send,
         patch.object(
             hass.config_entries,
