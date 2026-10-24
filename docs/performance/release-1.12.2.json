@@ -1,0 +1,173 @@
+{
+  "recorded_at_utc": "2026-10-24T05:58:42.931820+00:00",
+  "version": "1.12.2",
+  "commit": "6eea72cffed7a1a6a16b3fc92931ac93a7236fed",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.12.2",
+  "published_at": "2026-10-24T05:54:30Z",
+  "change": "Compact notification previews and durable short links preserve exact issue membership; the phone sender rejects oversized complete requests before HA I/O.",
+  "candidate": {
+    "branch": "main",
+    "dirty": false,
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "archive_sha256": "44b03870c51ab03e46b311112ba3b2522d0d96525167c6631b8a33f517014a09",
+    "packaged_files_verified": 460,
+    "embedded_hashes_verified": 459,
+    "sources_match_commit": true,
+    "published_download_matches_ci": true
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/40067848420",
+    "head_sha": "6eea72cffed7a1a6a16b3fc92931ac93a7236fed",
+    "result": "success",
+    "python": "3.14.9",
+    "home_assistant": "2026.9.3",
+    "python_tests_passed": 1415,
+    "opt_in_performance_tests_skipped": 15,
+    "frontend_tests_passed": 900,
+    "statement_coverage_percent": 96.7773,
+    "branch_coverage_percent": 93.1818,
+    "hassfest": "pass",
+    "hacs": "pass",
+    "strict_types": "pass",
+    "fresh_package_installation": "pass",
+    "packaged_report_scope_reload": "pass",
+    "first_candidate_failure": "Clean CI lacked optional Core import dependencies for the actual phone service test. Added those only to the locked development environment; all required checks passed on the final candidate."
+  },
+  "behavior_validation": {
+    "payload_and_rendered_acceptance": "notification-payload-fix-2026-10-23.json",
+    "core_phone_service_mocked_gateway": "phone-communication-fix-2026-10-24.json",
+    "upgrade_preservation": "Existing schema-three state without report scopes, settings, destinations and pending IDs survives upgrade and repeat reload in executable scenarios; malformed scopes stop safely.",
+    "consumer_blueprint": "The published blueprint prefers short report links. Household settings select no consumer, and no loaded Homeostatic consumer automation was found; the built-in phone path is used."
+  },
+  "backup": {
+    "details": [
+      {
+        "slug": "df681ded",
+        "name": "Before Homeostatic compact notifications - 2026-10-24",
+        "date": "2026-10-24T05:47:01.754617+00:00",
+        "type": "partial",
+        "homeassistant": "2026.10.0",
+        "size_bytes": 956876800,
+        "compressed": true,
+        "protected": true
+      }
+    ],
+    "contents_verified_in_ha_ui": [
+      "Home Assistant settings and history",
+      "media",
+      "share",
+      "SSL certificates",
+      "all 14 apps"
+    ],
+    "note": "The modern HA manual-backup workflow labels its Supervisor record partial; the saved details UI lists all selected household restore contents. It is encrypted and available locally and in the existing Cloud destination.",
+    "screenshot": "../../build/release-1.12.2/backup.jpg"
+  },
+  "installation": {
+    "installed_files": {
+      "commit": "6eea72cffed7a1a6a16b3fc92931ac93a7236fed",
+      "installed_at_utc": "2026-10-24T05:54:59.7419135Z",
+      "component_files": 81,
+      "temporary_paths_removed": true,
+      "restart_required": true,
+      "archive_sha256": "44b03870c51ab03e46b311112ba3b2522d0d96525167c6631b8a33f517014a09",
+      "version": "1.12.2",
+      "installed_hashes_verified": true
+    },
+    "restart": {
+      "restart_requested_at_utc": "2026-10-24T05:55:00.097101+00:00",
+      "request_result": "ServerDisconnectedError",
+      "running_at_utc": "2026-10-24T05:56:53.596123+00:00",
+      "wait_seconds": 90.74,
+      "ha_version": "2026.10.0",
+      "ha_state": "RUNNING",
+      "entry_states": [
+        "loaded"
+      ],
+      "panel": {
+        "name": "homeostatic-panel-v61",
+        "embed_iframe": false,
+        "trust_external": false,
+        "module_url": "/homeostatic_static/homeostatic.js?v=109"
+      },
+      "test_notifications_requested": false
+    },
+    "checked_at_utc": "2026-10-24T05:57:09.628340+00:00",
+    "home_assistant": "2026.10.0",
+    "ha_state": "RUNNING",
+    "entry_states": [
+      "loaded"
+    ],
+    "previous_version": "1.12.1",
+    "installed_version": "1.12.2",
+    "installed_hashes_match_archive": true,
+    "saved_settings_before_sha256": "76fd71bd09212c627254586f2e698e862f22cd473833604456ce388322612a71",
+    "saved_settings_after_sha256": "76fd71bd09212c627254586f2e698e862f22cd473833604456ce388322612a71",
+    "all_saved_settings_unchanged": true,
+    "raw_entry_data_options_unchanged": true,
+    "policy_count": 13,
+    "policy_edits_and_introduction_tracking_unchanged": true,
+    "notification_definitions_unchanged": true,
+    "sending_before": true,
+    "sending_after": true,
+    "panel": {
+      "name": "homeostatic-panel-v61",
+      "embed_iframe": false,
+      "trust_external": false,
+      "module_url": "/homeostatic_static/homeostatic.js?v=109"
+    },
+    "served_module": {
+      "status": 200,
+      "sha256": "497c382724f36298ed5495270f2179575b40f245a0d3a3697b49198d102553fa",
+      "matches_installed": true
+    },
+    "homeostatic_log_errors": 0,
+    "live_browser": {
+      "browser": "Chrome on Windows, household Home Assistant 2026.10.0",
+      "scope": "Read-only installed report-link handling, navigation and saved delivery destination",
+      "paths": [
+        {
+          "path": "unknown short report link",
+          "status": "pass",
+          "result": "Visible loading state followed by explicit unavailable-link explanation; no current issues shown under unknown membership",
+          "screenshot": "../../build/release-1.12.2/live-report-unavailable.jpg"
+        },
+        {
+          "path": "Show all open issues",
+          "status": "pass",
+          "result": "Explicit link leaves report scope and opens the existing Issues page"
+        },
+        {
+          "path": "Notifications > Delivery methods > Mike Phone",
+          "status": "pass",
+          "result": "Saved Michael's iPhone destination and notification assignments remain visible; sending stays On",
+          "screenshot": "../../build/release-1.12.2/live-delivery-method.jpg"
+        }
+      ],
+      "visual_review": "The existing delivery-method editor keeps its selected phone, clear notification state and unchanged Send test control. No settings were edited or saved, and the UI test button was not clicked.",
+      "browser_diagnostics": "Four generic native HA console errors were retained from the backup page during the intentional Core restart at 05:56:07Z, before RUNNING at 05:56:53Z. No subsequent browser errors appeared during the reviewed Homeostatic paths. The broader previously deferred reconnect cases remain outside this acceptance.",
+      "phone_sized_and_exact_membership_acceptance": "The preceding isolated desktop/phone receipt covers valid 221-member reports, paging, navigation, error retry and responsive layouts. The household check used an unavailable reference and did not create synthetic production issues or report scopes.",
+      "test_requests_from_ui": 0,
+      "test_requests_through_public_route": 1
+    }
+  },
+  "phone_check": {
+    "started_at_utc": "2026-10-24T05:57:35.450254+00:00",
+    "destination": "Michael’s iPhone",
+    "requested_count": 1,
+    "message": "Homeostatic test: this route works",
+    "physical_receipt_confirmed": false,
+    "response": {
+      "requested": true
+    },
+    "completed_at_utc": "2026-10-24T05:57:35.626486+00:00",
+    "new_delivery_errors": 0,
+    "core_log_check": "No mobile_app.notify or Homeostatic log records before or immediately after the single test."
+  },
+  "remaining": [
+    "Physical iPhone receipt requires owner confirmation.",
+    "The original historical provider response was not retained; the reproduced oversized-request failure does not prove that historical request's cause.",
+    "Extreme machine-event sizes and separate reconnect/native-host cases remain deferred as requested. Physical Companion use of a large report remains untested."
+  ]
+}
