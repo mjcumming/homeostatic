@@ -1,0 +1,78 @@
+{
+  "recorded_at_utc": "2026-10-24T20:08:43.8289378Z",
+  "version": "1.12.4",
+  "commit": "cb1118f9ae66413f6b9cb8cf591808940779cfba",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.12.4",
+  "published_at": "2026-10-24T20:07:30Z",
+  "change": "Preserve renewed UPS attention across queued evidence and restart; separate notification handling from ordered runtime coordination; add the high-level overview and flowchart.",
+  "candidate": {
+    "branch": "main",
+    "dirty": false,
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "archive_sha256": "fbe7851139ae6c1e94b5e556f32fb6afd2471b7eb9abce7fb73e36c4f14757a0",
+    "packaged_files_verified": 466,
+    "embedded_hashes_verified": 465,
+    "component_files_verified": 83,
+    "sources_match_commit": true,
+    "published_download_matches_ci": true,
+    "tag_points_to_candidate": true,
+    "configuration_migration": false,
+    "storage_format_change": false,
+    "frontend_code_changed": false
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/40128076441",
+    "run_id": 40128076441,
+    "head_sha": "cb1118f9ae66413f6b9cb8cf591808940779cfba",
+    "result": "success",
+    "home_assistant": "2026.9.3",
+    "python_tests_passed": 1420,
+    "opt_in_performance_tests_skipped": 15,
+    "frontend_tests_passed": 900,
+    "statement_coverage_percent": 96.8999,
+    "branch_coverage_percent": 93.2312,
+    "strict_types": "pass",
+    "hassfest": "pass",
+    "hacs": "pass",
+    "fresh_package_installation": "pass",
+    "packaged_saved_state_reload": "pass"
+  },
+  "behavior_validation": {
+    "decision": "../adr/0111-separate-notifications-from-runtime.md",
+    "ups_scenarios": "../../tests/test_ups_capture.py",
+    "ups_ordering": "Queued UPS role readings leave retained detector state unchanged until ordered ingestion; save and restore preserve backup-transition rearm and numeric hysteresis.",
+    "send_attempt_scenario": "../../tests/test_automation_alerts.py",
+    "transport_ordering": "A failed attempt save rolls back the attempt and phone action without transport; a retry persists both before I/O and retains deduplication.",
+    "upgrade_preservation": "Current-format settings, published snapshot section names, destinations, pending delivery IDs, acknowledgment, controls and repeat reloads pass isolated CI scenarios.",
+    "overview": "../how-it-works.md#the-overall-flow"
+  },
+  "publication": {
+    "tag": "v1.12.4",
+    "latest_stable": true,
+    "is_draft": false,
+    "is_prerelease": false,
+    "assets": [
+      {
+        "name": "homeostatic-1.12.4.zip",
+        "digest": "sha256:fbe7851139ae6c1e94b5e556f32fb6afd2471b7eb9abce7fb73e36c4f14757a0",
+        "size": 6635860,
+        "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.12.4/homeostatic-1.12.4.zip"
+      },
+      {
+        "name": "homeostatic-1.12.4.zip.sha256",
+        "digest": "sha256:88e7af3cea7367b706d12f8caac6abf5d717d6bf3f3f12b16b9713496e861e6d",
+        "size": 89,
+        "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.12.4/homeostatic-1.12.4.zip.sha256"
+      }
+    ]
+  },
+  "installation": {
+    "performed": false,
+    "reason": "This request authorized publication; no household installation was changed.",
+    "last_verified_household_version": "1.12.3",
+    "previous_receipt": "release-1.12.3.json",
+    "live_notification_tests_requested": false
+  }
+}
