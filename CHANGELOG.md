@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Require administrator access for the notification-report action, matching the panel and WebSocket reader.
+
 ## [1.12.2] - 2026-10-24
 
 ### Fixed

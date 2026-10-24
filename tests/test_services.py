@@ -3,14 +3,56 @@
 from typing import Any
 
 import pytest
+from homeassistant.auth.models import User
 from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
 from custom_components.homeostatic.const import DOMAIN
 from tests.test_lifecycle import start_monitor
 
 NODE = "entity:entity_id:sensor.observed"
+
+
+async def test_notification_report_rejects_read_only_user(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    hass_ws_client: WebSocketGenerator,
+    hass_read_only_user: User,
+) -> None:
+    """A known report reference cannot bypass administrator access via HA actions."""
+    runtime = await start_monitor(hass, config_entry)
+    report = runtime.notification_reports.present(
+        {"episodes": [f"issue-{index:036d}" for index in range(8)]}, dt_util.utcnow()
+    )
+    reference = str(report["details_url"]).rsplit("/", 1)[1]
+    before = runtime.notification_reports.snapshot()
+    refresh = await hass.auth.async_create_refresh_token(
+        hass_read_only_user, client_id="http://test.local"
+    )
+    token = hass.auth.async_create_access_token(refresh)
+    client = await hass_ws_client(hass, access_token=token)
+    await client.send_json(
+        {
+            "id": 1,
+            "type": "call_service",
+            "domain": DOMAIN,
+            "service": "notification_report",
+            "service_data": {"reference": reference},
+            "return_response": True,
+        }
+    )
+    response = await client.receive_json()
+    assert response["success"] is False
+    assert response["error"] == {
+        "code": "home_assistant_error",
+        "message": "Unauthorized",
+    }
+    assert runtime.notification_reports.snapshot() == before
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await client.close()
 
 
 @pytest.mark.parametrize(

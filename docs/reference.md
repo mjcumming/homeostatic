@@ -89,7 +89,7 @@ When results differ, the precedence is `blocked`, `degraded`, `unknown`, `ready`
 
 ## Actions
 
-Read-only actions require a response and do not change live monitoring. Call them through **Developer tools → Actions**, or use `response_variable` in a script or automation. Mutation actions support an optional response. A person calling a mutation must be an administrator; HA-owned automations follow Home Assistant's administrator-service authorization.
+Read-only actions require a response and do not change live monitoring. Call them through **Developer tools → Actions**, or use `response_variable` in a script or automation. Mutation actions support an optional response. A person calling a mutation or `notification_report` must be an administrator; HA-owned automations follow Home Assistant's administrator-service authorization.
 
 Queries require a running Homeostatic instance. Unknown identities and invalid fields return errors. Examples containing `<node_id>`, `<episode_id>` or `<control_id>` require values from the current inventory or control response. Templated expiry examples are intended for scripts or automations; direct calls need a future ISO timestamp with a time zone.
 
@@ -217,7 +217,7 @@ action: homeostatic.resolved_history
 
 ### `homeostatic.notification_report`
 
-Read a short notification link's exact membership. Pass `reference`, the 32-character identifier after `/homeostatic/notification/`; optional `offset` defaults to 0 and `limit` defaults to 200 (maximum 200). The response contains `status` (`available` or `expired`), `reference`, `episodes`, `total` and `next_offset`. Request each page until `next_offset` is `null`. Unknown or expired references return no IDs and never imply recovery. Reading does not extend retention or change monitoring. Link retention is described in [notification tap destinations](spec.md#notification-tap-destinations).
+Read a short notification link's exact membership. Requires administrator access. Pass `reference`, the 32-character identifier after `/homeostatic/notification/`; optional `offset` defaults to 0 and `limit` defaults to 200 (maximum 200). The response contains `status` (`available` or `expired`), `reference`, `episodes`, `total` and `next_offset`. Request each page until `next_offset` is `null`. Unknown or expired references return no IDs and never imply recovery. Reading does not extend retention or change monitoring. Link retention is described in [notification tap destinations](spec.md#notification-tap-destinations).
 
 ```yaml
 action: homeostatic.notification_report

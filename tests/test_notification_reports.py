@@ -212,6 +212,19 @@ async def test_221_issue_report_phone_and_repeat_reload(
     response = await client.receive_json()
     assert response["success"]
     assert response["result"]["episodes"] == event.data["episodes"][200:]
+    await client.send_json(
+        {
+            "id": 2,
+            "type": "call_service",
+            "domain": DOMAIN,
+            "service": "notification_report",
+            "service_data": {"reference": reference, "offset": 200},
+            "return_response": True,
+        }
+    )
+    action = await client.receive_json()
+    assert action["success"]
+    assert action["result"]["response"] == response["result"]
     result = await hass.services.async_call(
         DOMAIN,
         "notification_report",

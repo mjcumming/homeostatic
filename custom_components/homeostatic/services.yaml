@@ -3,7 +3,7 @@ inventory:
   description: List monitored node identities, current episodes, and evidence limitations.
 notification_report:
   name: Notification report
-  description: Read one page of the exact issue IDs included in a retained notification link.
+  description: Read one page of the exact issue IDs included in a retained notification link. Requires administrator access.
   fields:
     reference:
       required: true

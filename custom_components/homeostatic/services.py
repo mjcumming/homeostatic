@@ -109,14 +109,18 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
             fields = {vol.Required("node_id"): cv.string}
         elif service in {"readiness", "rollup"}:
             fields = {vol.Optional("node_ids"): vol.All(cv.ensure_list, [cv.string])}
-        if service in MUTATIONS:
+        if service in MUTATIONS or service == "notification_report":
             async_register_admin_service(
                 hass,
                 DOMAIN,
                 service,
                 handle,
                 schema=vol.Schema(fields),
-                supports_response=SupportsResponse.OPTIONAL,
+                supports_response=(
+                    SupportsResponse.OPTIONAL
+                    if service in MUTATIONS
+                    else SupportsResponse.ONLY
+                ),
             )
             continue
         hass.services.async_register(
