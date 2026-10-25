@@ -1,0 +1,120 @@
+{
+  "recorded_at_utc": "2026-10-25T22:58:17.403965+00:00",
+  "version": "1.13.0",
+  "commit": "9062887179523a96eff4bd7a66feb3d2545fcb3a",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.13.0",
+  "published_at": "2026-10-25T22:57:49Z",
+  "change": "Add jammed-lock, left-open and nine standard reported-condition policies, preserve upgrade choices and document the existing setup workflow.",
+  "candidate": {
+    "branch": "main",
+    "dirty": false,
+    "requirements": [
+      "health-tree==0.11.0"
+    ],
+    "archive_sha256": "c8b5a8231bfdbaaa0db9215a6dc85e719072f62b9d8565ca4ac2b1f23cee6606",
+    "packaged_files_verified": 485,
+    "embedded_hashes_verified": 484,
+    "component_files_verified": 88,
+    "sources_match_commit": true,
+    "published_download_matches_ci": true,
+    "published_sidecar_matches_ci": true,
+    "tag_points_to_candidate": true,
+    "configuration_change": "Eleven genuinely new supplied policies introduced once, disabled, under ADR 0107; existing settings and pending identities preserved",
+    "producer_state_change": "Optional persisted left-open monitoring state; prior supported producer state remains readable",
+    "frontend_code_changed": true
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/40242206537",
+    "run_id": 40242206537,
+    "head_sha": "9062887179523a96eff4bd7a66feb3d2545fcb3a",
+    "result": "success",
+    "home_assistant": "2026.9.3",
+    "python_tests_passed": 1691,
+    "opt_in_performance_tests_skipped": 15,
+    "frontend_tests_passed": 931,
+    "statement_coverage_percent": 96.79264909847434,
+    "branch_coverage_percent": 93.05936073059361,
+    "strict_types": "pass",
+    "hassfest": "pass",
+    "hacs": "pass",
+    "exact_candidate_archive_verification": "pass",
+    "fresh_package_installation": "pass",
+    "packaged_saved_settings_repeat_reload": "pass"
+  },
+  "behavior_validation": {
+    "readiness_receipt": "condition-policies-readiness-2026-10-25.json",
+    "reported_conditions_receipt": "reported-conditions-2026-10-25.json",
+    "left_open_receipt": "left-open-trial-2026-10-25.json",
+    "hours_controls_receipt": "left-open-radio-2026-10-25.json",
+    "jammed_locks_receipt": "jammed-locks-2026-10-24.json",
+    "tested_trial_comparison": {
+      "candidate": "9062887179523a96eff4bd7a66feb3d2545fcb3a",
+      "component_files": 88,
+      "all_equivalent_to_tested_trial_except_version": true,
+      "version_change": {
+        "from": "1.12.5",
+        "to": "1.13.0"
+      },
+      "line_ending_normalizations": [
+        "dashboard.py",
+        "frontend/check-presentation.mjs",
+        "frontend/configuration.mjs",
+        "frontend/delivery-picker.mjs",
+        "frontend/device-issue-model.mjs",
+        "frontend/device-issues.mjs",
+        "frontend/entity-selection.mjs",
+        "frontend/history-controls.mjs",
+        "frontend/homeostatic.js",
+        "frontend/installation-settings.mjs",
+        "frontend/issue-configuration.mjs",
+        "frontend/issue-monitoring.mjs",
+        "frontend/issues-workspace.mjs",
+        "frontend/left-open.mjs",
+        "frontend/model.mjs",
+        "frontend/reported-conditions.mjs",
+        "frontend/reporting.mjs",
+        "frontend/reusable-editors.mjs",
+        "frontend/source-history.mjs",
+        "frontend/source-monitoring.mjs",
+        "frontend/source-selection.mjs",
+        "frontend/source-temperature.mjs",
+        "frontend/sources-workspace.mjs",
+        "frontend/ups.mjs",
+        "manifest.json",
+        "monitoring.py",
+        "policy_defaults.py",
+        "runtime.py"
+      ]
+    },
+    "household_acceptance": "Maintainer accepted the UI; few representative new condition sources were available. Fault, missing-evidence, recovery and delivery behavior was exercised in isolated Home Assistant.",
+    "upgrade_preservation": "Full scenarios and the packaged smoke preserve existing edits and deletions, notification definitions, sending choices, controls and pending delivery identities through upgrade and repeated reload.",
+    "known_limitations": "Deferred reconnect editor replacement/focus issue remains. Exact physical iPhone picker dismissal and new-condition household delivery receipt were not established by the scoped acceptance."
+  },
+  "publication": {
+    "tag": "v1.13.0",
+    "latest_stable": true,
+    "is_draft": false,
+    "is_prerelease": false,
+    "assets": [
+      {
+        "name": "homeostatic-1.13.0.zip",
+        "digest": "sha256:c8b5a8231bfdbaaa0db9215a6dc85e719072f62b9d8565ca4ac2b1f23cee6606",
+        "size": 6700990,
+        "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.13.0/homeostatic-1.13.0.zip"
+      },
+      {
+        "name": "homeostatic-1.13.0.zip.sha256",
+        "digest": "sha256:434f0c9366e62eda5807cd3b2355f95be2c63ee34973413e0b648716cdb37679",
+        "size": 89,
+        "url": "https://github.com/mjcumming/homeostatic/releases/download/v1.13.0/homeostatic-1.13.0.zip.sha256"
+      }
+    ]
+  },
+  "installation": {
+    "performed": false,
+    "reason": "Publication was requested; the existing household trial was left unchanged.",
+    "last_verified_household_version": "1.12.5 with the uncommitted opening, lock and reported-condition trial changes",
+    "previous_receipt": "reported-conditions-install-2026-10-25.json",
+    "live_notification_tests_requested": false
+  }
+}
