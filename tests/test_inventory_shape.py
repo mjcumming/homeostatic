@@ -18,6 +18,7 @@ from custom_components.homeostatic.enrollment import (
     inventory,
 )
 from custom_components.homeostatic.monitoring_runtime import enrollment_rules
+from custom_components.homeostatic.reported_conditions import CONDITIONS
 from tests.policy_helpers import current_config, monitoring_policy
 from tests.registry_helpers import forbid_deprecated_device_properties
 
@@ -105,7 +106,15 @@ def test_selective_enrollment_preserves_large_inventory(hass: HomeAssistant) -> 
     assert len(devices.devices) == 695
     assert len(registry.entities) == 6651
     assert sum(entity.device_id is None for entity in candidates) == 1184
-    assert sum(source.disabled for source in sources.values()) == 1192
+    condition_kinds = {"lock", *CONDITIONS}
+    assert (
+        sum(
+            source.disabled
+            for source in sources.values()
+            if source.kind not in condition_kinds
+        )
+        == 1192
+    )
     device_sources = [source for source in sources.values() if source.kind == "device"]
     assert {source.node_id for source in device_sources} == {
         f"device:{device.id}" for device in devices.devices
@@ -117,7 +126,9 @@ def test_selective_enrollment_preserves_large_inventory(hass: HomeAssistant) -> 
         for entity_id in source.availability_entities
     )
     assert sum(source.kind == "vacuum" for source in sources.values()) == 4
-    assert len(sources) == 7361
+    assert (
+        sum(source.kind not in condition_kinds for source in sources.values()) == 7361
+    )
     assert len(watched) == 13
     assert {source.node_id for source in watched if source.kind == "entity"} == {
         f"entity:{reference}" for reference in references

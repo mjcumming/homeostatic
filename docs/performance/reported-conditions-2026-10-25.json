@@ -1,0 +1,131 @@
+{
+  "recorded_at_utc": "2026-10-25T22:18:55.711394+00:00",
+  "task": "Implement nine standard reported-condition policies through the existing workflow",
+  "candidate": {
+    "branch": "main",
+    "revision": "473ae70a9e9e0c71e0de5e89b331fb7370940ae3",
+    "dirty": true,
+    "component_sha256": "6346023878c475fd42cdbb619002103d82c191aa2972443bd5aa6ca963ddcf2e",
+    "manifest_version": "1.12.5",
+    "frontend_module": 114,
+    "panel_element": "homeostatic-panel-v66",
+    "card_element": "homeostatic-card-v62"
+  },
+  "accepted_decisions": [
+    "0076",
+    "0077",
+    "0078",
+    "0079",
+    "0080",
+    "0081",
+    "0082",
+    "0083",
+    "0084"
+  ],
+  "checks": [
+    "problem",
+    "lawn_mower",
+    "tamper",
+    "safety",
+    "moisture",
+    "smoke",
+    "gas",
+    "carbon_monoxide",
+    "alarm_triggered"
+  ],
+  "initial_choices": {
+    "supplied_enabled": false,
+    "upgrades_enabled": false,
+    "all_eligible_sources": [
+      "problem",
+      "lawn_mower"
+    ],
+    "other_types_require_source_selection": true,
+    "problem_notification": "morning",
+    "other_notifications": "immediate",
+    "missing_named_notifications_remain_unassigned": true
+  },
+  "validation": {
+    "command": "uv run --no-sync python script/check.py",
+    "exit_code": 0,
+    "strict_types": "pass; 46 source files",
+    "backend": {
+      "passed": 1691,
+      "skipped_opt_in_profiles": 15
+    },
+    "frontend": {
+      "passed": 931
+    },
+    "statement_coverage_percent": 96.793,
+    "branch_coverage_percent": 93.059,
+    "reported_condition_scenarios": "tests/test_reported_conditions.py; 178 passed as part of the full suite",
+    "rendered": {
+      "desktop": {
+        "case": "policies.reported-conditions",
+        "result": "pass",
+        "environment": {
+          "group": "policies",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "theme": "light",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "policies.reported-conditions"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true
+        },
+        "raw_report": "build/reported-conditions-desktop/report.json"
+      },
+      "phone": {
+        "case": "policies.reported-conditions",
+        "result": "pass",
+        "environment": {
+          "group": "policies",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "theme": "dark",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "policies.reported-conditions"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true
+        },
+        "raw_report": "build/reported-conditions-phone/report.json"
+      }
+    },
+    "rendered_scope": "All nine types: flat source selection, disabled defaults, committed save and reopen, rejected-save retention, discard, duplicate, delete, selective restoration, actual HA condition reports and retained evidence during gaps. Independent notification drafts and saved settings were preserved.",
+    "rendered_diagnostics": "Raw browser runners return 1 for the absent optional TopoMation locations API. The requested workflow passed on both surfaces; no browser, console or unhandled errors occurred. Other inventory paths were outside this scoped run.",
+    "visual_review": [
+      "phone moisture policy",
+      "desktop smoke issue"
+    ],
+    "preservation": "Upgrade and repeat-reload tests preserve existing policies, edits, deletions, notification settings and delivery identities. Both direct notify-entity calls and optional consumer events use isolated mocked services."
+  },
+  "library": "health-tree 0.11.0; no library changes",
+  "status": {
+    "committed": false,
+    "released": false,
+    "installed_on_household": true
+  },
+  "household_installation_receipt": "reported-conditions-install-2026-10-25.json"
+}

@@ -1,0 +1,356 @@
+{
+  "recorded_at_utc": "2026-10-25T22:34:11.757Z",
+  "task": "Install the tested nine-condition batch on the authorized household Home Assistant and perform bounded live checks",
+  "candidate": {
+    "branch": "main",
+    "revision": "473ae70a9e9e0c71e0de5e89b331fb7370940ae3",
+    "dirty": true,
+    "component_sha256": "6346023878c475fd42cdbb619002103d82c191aa2972443bd5aa6ca963ddcf2e",
+    "manifest_version": "1.12.5",
+    "frontend_module": 114,
+    "panel_element": "homeostatic-panel-v66",
+    "card_element": "homeostatic-card-v62",
+    "requirements": [
+      "health-tree==0.11.0"
+    ]
+  },
+  "installation": {
+    "source": "Uncommitted main working tree; component contents identical to the full checks and isolated desktop/phone editor runs",
+    "installed_files": 88,
+    "component_sha256": "6346023878c475fd42cdbb619002103d82c191aa2972443bd5aa6ca963ddcf2e",
+    "exact_source_and_staged_and_installed_bytes": true,
+    "temporary_staging_removed": true,
+    "rollback_copy_created": false,
+    "core_restart_requested_once": true,
+    "core_version": "2026.10.0",
+    "core_state": "RUNNING",
+    "entry_states": [
+      "loaded"
+    ],
+    "panel": {
+      "name": "homeostatic-panel-v66",
+      "embed_iframe": false,
+      "trust_external": false,
+      "module_url": "/homeostatic_static/homeostatic.js?v=114"
+    },
+    "served_assets": {
+      "homeostatic.js": "1d6dc6b0ee64a4b20efd0acbfd76666cb0656ef968d5001485ce0357a77e7d34",
+      "reported-conditions.mjs": "2ea6a0849f1a64272da4962d7a7c0e9ec6c1c3cd936443e66e65acb01aa5a63c",
+      "left-open.mjs": "f0982681893e20f90552510f512bb50a5b730571c82cf7d571c1580ab7be615e"
+    },
+    "homeostatic_log_records": 0,
+    "homeostatic_error_count": 0
+  },
+  "preservation": {
+    "policies_before": 15,
+    "policies_after": 24,
+    "every_existing_policy_and_order_preserved": 15,
+    "other_editable_settings_unchanged": true,
+    "notification_definitions_unchanged": true,
+    "notification_definitions_sha256": "6e9c042aed7c256950bf953853e8c1a4a934c701bcc928b36f79d0a546351e32",
+    "global_notifications_before": true,
+    "global_notifications_after": true,
+    "settings_before_sha256": "f711d20e70f0fbf29c691b8b7211ee34351af68cf1098ea590625253e601998c",
+    "settings_after_sha256": "94458e0fcc3437738de7dd5f132f1898353055859c817deafee123c443fc0389",
+    "only_saved_change": "Nine newly introduced supplied policies appended, all disabled",
+    "new_policies": [
+      {
+        "id": "default_problem",
+        "name": "Problem sensors",
+        "check": "problem",
+        "enabled": false,
+        "match": {
+          "kind": [
+            "problem"
+          ]
+        },
+        "notifications": [
+          {
+            "id": "default",
+            "profile": "morning"
+          }
+        ]
+      },
+      {
+        "id": "default_lawn_mower",
+        "name": "Lawn mower errors",
+        "check": "lawn_mower",
+        "enabled": false,
+        "match": {
+          "kind": [
+            "lawn_mower"
+          ]
+        },
+        "notifications": [
+          {
+            "id": "default",
+            "profile": "immediate"
+          }
+        ]
+      },
+      {
+        "id": "default_tamper",
+        "name": "Tamper",
+        "check": "tamper",
+        "enabled": false,
+        "match": {
+          "kind": [
+            "tamper"
+          ],
+          "entity": []
+        },
+        "notifications": [
+          {
+            "id": "default",
+            "profile": "immediate"
+          }
+        ]
+      },
+      {
+        "id": "default_safety",
+        "name": "Unsafe condition",
+        "check": "safety",
+        "enabled": false,
+        "match": {
+          "kind": [
+            "safety"
+          ],
+          "entity": []
+        },
+        "notifications": [
+          {
+            "id": "default",
+            "profile": "immediate"
+          }
+        ]
+      },
+      {
+        "id": "default_moisture",
+        "name": "Water leak",
+        "check": "moisture",
+        "enabled": false,
+        "match": {
+          "kind": [
+            "moisture"
+          ],
+          "entity": []
+        },
+        "notifications": [
+          {
+            "id": "default",
+            "profile": "immediate"
+          }
+        ]
+      },
+      {
+        "id": "default_smoke",
+        "name": "Smoke detected",
+        "check": "smoke",
+        "enabled": false,
+        "match": {
+          "kind": [
+            "smoke"
+          ],
+          "entity": []
+        },
+        "notifications": [
+          {
+            "id": "default",
+            "profile": "immediate"
+          }
+        ]
+      },
+      {
+        "id": "default_gas",
+        "name": "Gas detected",
+        "check": "gas",
+        "enabled": false,
+        "match": {
+          "kind": [
+            "gas"
+          ],
+          "entity": []
+        },
+        "notifications": [
+          {
+            "id": "default",
+            "profile": "immediate"
+          }
+        ]
+      },
+      {
+        "id": "default_carbon_monoxide",
+        "name": "Carbon monoxide detected",
+        "check": "carbon_monoxide",
+        "enabled": false,
+        "match": {
+          "kind": [
+            "carbon_monoxide"
+          ],
+          "entity": []
+        },
+        "notifications": [
+          {
+            "id": "default",
+            "profile": "immediate"
+          }
+        ]
+      },
+      {
+        "id": "default_alarm_triggered",
+        "name": "Triggered alarm",
+        "check": "alarm_triggered",
+        "enabled": false,
+        "match": {
+          "kind": [
+            "alarm_triggered"
+          ],
+          "entity": []
+        },
+        "notifications": [
+          {
+            "id": "default",
+            "profile": "immediate"
+          }
+        ]
+      }
+    ],
+    "settings_unchanged_during_live_ui_checks": true
+  },
+  "live_ui": {
+    "browser": "Chrome on Windows; existing authenticated household browser",
+    "result": "pass",
+    "rendered_panel_element": "homeostatic-panel-v66",
+    "paths": [
+      {
+        "path": "Policies list",
+        "result": "pass",
+        "observed": "All nine new policies visible and Off; existing Garage Door Left Open policy retained its configured enabled state"
+      },
+      {
+        "path": "Problem sensors editor",
+        "result": "pass",
+        "observed": "Disabled; all-eligible future scope; five eligible sources selected; HA-disabled sources visibly disabled; existing Morning summary assignment"
+      },
+      {
+        "path": "Water leak editor",
+        "result": "pass",
+        "observed": "Disabled; exact selection starts empty; live sprinkler rain source offered and unchecked; existing Immediate assignment"
+      },
+      {
+        "path": "Lawn mower errors editor",
+        "result": "pass",
+        "observed": "Disabled; all-eligible future scope; no matching household mowers; existing Immediate assignment"
+      },
+      {
+        "path": "Return to Policies",
+        "result": "pass",
+        "observed": "Returned without saving or enabling; final read-only configuration comparison confirms preservation"
+      }
+    ],
+    "visual_review": "Live Water leak editor inspected at the normal desktop viewport; labels, flat selection, disabled switch and notification assignment render correctly",
+    "scope": "Live startup, upgrade additions, settings preservation, served assets and bounded editor navigation. All nine save/fault/clear/delivery workflows were previously tested against isolated Home Assistant."
+  },
+  "test_safety": {
+    "synthetic_states_written_to_household": false,
+    "household_test_notification_requests": false,
+    "household_policy_saves": false,
+    "equipment_commands": false
+  },
+  "remaining": "Maintainer selection and enablement of desired new policies, real household condition reports and separately authorized notification receipt testing",
+  "status": {
+    "installed_on_household": true,
+    "committed": false,
+    "released": false
+  },
+  "component_files_sha256": {
+    "__init__.py": "7489d9c4999625fc197538664f2147963f1c7713f217d4cdef07d20d740d42bf",
+    "attention.py": "5122c6dfe24701355e308c47f67c3381365cf7696a2bcd71a5e8d2b275796f1e",
+    "automation_alerts.py": "036e20e5c4cc97979e922a30c4984b4f5cad94e6ee5048741fdd695f5a23e651",
+    "battery.py": "2fdc8c07b4468a506815d4de25592f9f17ebf21742d760317801c616a8b351d0",
+    "brand/dark_icon.png": "cafc59ad017206e00d12914c8337cad8138e2934ff6fca3ca596bba9d295b377",
+    "brand/dark_icon@2x.png": "1a3309f8c526a09252e5ff656445e4425ec89b59f4514e5b956dbd86bf4306d9",
+    "brand/icon.png": "d4740e57a8d672e1c76c19eb551ab06a0003fd87d5099e67d996375769c8d957",
+    "brand/icon@2x.png": "ac577f00ee3c2e98505c9cdcf3eb5af4eb60ff8d63a6afb97481b049259b5139",
+    "broken_automations.py": "76fdc711676054ccfc7a3422f547508685b9800b51f14bcfafeb7ac8a382b1f0",
+    "catalog.py": "f79d11add8715874aff6575e3d215cb78954f4f8396b3d428b12b384ad7241e1",
+    "config_flow.py": "e5f69e5f789b56252c3eaac842ad98d69c51f3c9919bc0bac6d660bd05e14026",
+    "config.py": "f0b68a050c884c6ed0af0ec7add60c31dbe61884aa4a247a94ca7c68563c3283",
+    "const.py": "eb13bc293db38472f94150a15d3108e9b5e537646650536f522af157d26b60ce",
+    "controls.py": "d3c24fb1efbc3a41abdc99bcefcbaed1956bcdb1de729a2aa310c255099506b4",
+    "dashboard.py": "af546803168cdfd10ef5c5855b2e4f63252fea83bc6b68e0186627c4d34798eb",
+    "definitions.py": "ee68cd193a23c9b56ad85c6c49d5c969aa747ea7e7269a6f988b15299e7782f1",
+    "delivery.py": "2e854c9174bbd15da908fda539bc5ae47fb0a07a22932ef724939af64b1e4190",
+    "enrollment.py": "4eabe87a53aa85209262d13b9d81aa25c4d4ae2cc8de3489da78088c700b7d4f",
+    "entity_not_provided.py": "6a6e4a67eee370842201080444acbca49f1f7dc7230f59dce91384fc1d14543b",
+    "event.py": "0a3310309d2c13fbfa2abd4cf1e68814aff16f03be8e1f03578fd592422ce0fd",
+    "evidence.py": "cb9defe16151907926af5b305c8cb9364cf312ae6c5b5ad68d5c9566da3bfa3a",
+    "facts.py": "ad5c7eaa79bea36b4edca8f8dc88da5395e6232ac33856d23cd629df8bc8a102",
+    "frontend/check-presentation.mjs": "62fd6242d5e8cb59f1dcdaf6dd7f49afba0c9b37255652969999cec4258bb4f4",
+    "frontend/configuration.mjs": "70cb552ac59c95eecba2d5ca407b88834b729c177487389616684462b423a3f9",
+    "frontend/delivery-picker.mjs": "e15b60753a6e4e4e237cb92e26a591bd3387c2567f5f28d1f578223a267fe157",
+    "frontend/device-entities.mjs": "a4594c95fb3dc2c90254eae17ea2e75fcdeab286ea6aebd7fab8f6d9af797b48",
+    "frontend/device-issue-model.mjs": "9414c01d452d19e9d1fc59daeaec92f66bd4088e65609a4492f9ebf373c480bf",
+    "frontend/device-issues.mjs": "1ebe7f6c04af725a39c2b5363c8f301e33424d44d6c5c001bc5b509671fcafd4",
+    "frontend/entity-not-provided.mjs": "19f139689e3c8ab0450bfbb43583bc1257c054053864322c44d548806c651fc2",
+    "frontend/entity-selection.mjs": "0006482352150ff9ee0eb502d199a5a966bfdb0577d9672234fe43776038b156",
+    "frontend/evidence.mjs": "1c22fd8a49a7a765d26dfb4680a366d352ccb8ea712e1d0d80257ef080d6c9ba",
+    "frontend/history-controls.mjs": "823375fbaeaa8000fe018bfc231c86ad6e8b700ccd64494a4edef5bcc99a2138",
+    "frontend/homeostatic.js": "1d6dc6b0ee64a4b20efd0acbfd76666cb0656ef968d5001485ce0357a77e7d34",
+    "frontend/installation-settings.mjs": "0d52f8b6a2d145a3550058cb0e3b7be017680ec9836adf7c8ae6771b4753a424",
+    "frontend/issue-configuration.mjs": "b6ed7e00062f483b53f76d1ef12c0d172cf4beb33bcc29cedf14e3b253c7a701",
+    "frontend/issue-monitoring.mjs": "a2011f070c9c74172e904c7b624a3ed4ef97bd20880ee184fb43b87d1023d79e",
+    "frontend/issues-workspace.mjs": "3396d82efc5f6e29a4e337a4cc448370fc736dc3e093a908d969fb1d5c21c8ac",
+    "frontend/left-open.mjs": "f0982681893e20f90552510f512bb50a5b730571c82cf7d571c1580ab7be615e",
+    "frontend/model.mjs": "a56bbf5490332cb060d1e90d68698a654abddf832afe95b792e43a74f85d73e7",
+    "frontend/notification-navigation.mjs": "8509db1036d9a37184015d9c2d1849fcac1a95f6a4b1a7e15badc14198e19c9a",
+    "frontend/package.json": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8",
+    "frontend/panel-drafts.mjs": "80d6da43e266a72862e151bb6b145d29c930ad1a7b7efa023f34cee5e8d5bd92",
+    "frontend/problem.mjs": "8fbf02ca1ea6ba0999cbb8ac2f2ef7bbeacfc6dea66cea74717f9ab452900cea",
+    "frontend/reported-conditions.mjs": "2ea6a0849f1a64272da4962d7a7c0e9ec6c1c3cd936443e66e65acb01aa5a63c",
+    "frontend/reporting.mjs": "300a7f20d609df3d85143f33490cfb302b992e793616ba4e0e6c2f3868eaa99a",
+    "frontend/reusable-editors.mjs": "0d92880097af0dd280dc19aa94b53a44d600bee186c7cb6525ccc537085a4611",
+    "frontend/scoped-configuration.mjs": "1f031eebeafcccd8b62014d12906f3a14428488828827113874ae44a8c574c62",
+    "frontend/source-coverage.mjs": "97fcea39ce7e1ebc0923561d52d192ef2626a1b48f6be507b7c73e83a9739a66",
+    "frontend/source-history.mjs": "283c792ebf9e786e27e7790f0fadc13b5490c14be7ac7b05162549248af938be",
+    "frontend/source-monitoring.mjs": "82bf7be502a9f3307ac790112cd69765e8157794412d84a20f4bbba5c0ec7225",
+    "frontend/source-selection.mjs": "4b8c048b304eca25f713369eee9f20cd3e7982bee6566bf504ad30356918f5d4",
+    "frontend/source-temperature.mjs": "4a43d1bba6c6652ed13bb27f1a659d0f68508c0577768edda71ffad88e1a7d1a",
+    "frontend/sources-workspace.mjs": "85eea40ff14ab8761e9d82099e82442015249851ad9d011db63d989b563c6f0c",
+    "frontend/styles.mjs": "5e63ab8cf000700e14d08af68b613e038a620bac1bda93e2bf224207d72e1564",
+    "frontend/ups.mjs": "761fe29226de87aa2deb441ee0d5e979417e7e0da5c5050ba43446eb39450d93",
+    "frontend/workspace-navigation.mjs": "031e8f4cb96c57a8b3137eee8d83657d4de3cd7435a6fec2a45c071af5a4851a",
+    "function_model.py": "f6689b86391cec96b28317ca876a1120e188dff19cb85bfb33735e0a07635342",
+    "history.py": "352ee2eff5d485e95fe7e7979f924f81c698f0f243441ed0f3eed6fa45497bb2",
+    "left_open.py": "fbdd8cb3d82eb630b9be213cbf0f31c27e62d0882b34ba79f2eda00f68cac354",
+    "lock.py": "74df3c46389a358879231674a33f10215406f30292326c97ad9e710bdc48c979",
+    "manifest.json": "97ee898bd6c41015fb212066c8b6359ecdc580199ec6147d48cc05851fa1b203",
+    "monitoring_runtime.py": "f8c0c3cd00d787fc0b58160bd32ea82e0718c0ce67abf25939d8c537b223cc5c",
+    "monitoring.py": "a4265d253e63416d725b78f55a49e4b40163fe1285bf0703f46c2d0c2d5e9581",
+    "notification_definitions.py": "b4b2f285246d1b2facf62131476db072186558a6e25f3340c5def6f56c90523f",
+    "notification_grouping.py": "de023f8214991ab367bf1a0a674c2bea886e2611fb6de7d13e1d64b3c8210eb0",
+    "notification_people.py": "18e96aa686cc8e15b356d0239bd7b96c1258d20276a70df3aa90b2438cfa04a6",
+    "notification_reports.py": "98852c35614850d56bdc61433008530e8f1c7bd2dee30969278e4c0d2068bcbe",
+    "notification_routes.py": "1dc615aea3dc9679fdf09cfbe81aae2930c394b4395319cd5dae8bbcf31f2e3b",
+    "notifications.py": "74a0ebed189c385b868a801cb99e2b7f5be8d1a9863e0203537dce539b70d08e",
+    "phone_actions.py": "7acdfd14a3bbd0fae4df2bf14a64128d4882c895171f244350140ec39b487d33",
+    "policy_defaults.py": "1950836f3c2ea7305dd98871cca35b8b0cf3e972512eb16bc9bf3db5ae383f26",
+    "policy_migration.py": "a967f700309f3927491759856116b310af3d85f0f314a2c6deec7fba72c20c45",
+    "producers.py": "5de9a47e73b8a35e8e510adebfce8ae372ef4e0b38afa816a8566b5499d0c592",
+    "repairs.py": "e469fe798ea6d7445663ea1731e1339215f084599ee067bfae2da0595c0a8e2d",
+    "reported_conditions.py": "518c0697ce21d4066fc816ac1adb995ba37977590882afb74067d1c6017f22d0",
+    "rules.py": "bbe4fce0d132c31655902c7d7c8814898a4790cde731a11a81d351d6ac44e820",
+    "runtime.py": "2d5594a38883e4059171e4574cf240fe05252e8d39aef25528f4f6ce15103086",
+    "sensor.py": "cf6c1fb2efd4bb9e64255090e9bdce7bfbeccf72a174269e2ec161a0a20a9944",
+    "serialization.py": "d3977f5bfb0ba9d4ae3f1689bea3348693ebfd8a63a5b67a157355d51ab86039",
+    "services.py": "a5fc4798139d09e02a91ae045e8bf5f90efb24204704ddbed252414d84503376",
+    "services.yaml": "c2e818b8242348d227d7df2388a771e21e3fbfd734e0f213d226e9a2b9445988",
+    "situation_reports.py": "2e9025a4074c46cbc92a99c53dd32c2f6f8013b116e177a670e2af0327545a5d",
+    "strings.json": "c1ff05a44c8b51a0ba7e9381876ed4ea711b2aaa40d9fba929bbbc17f22014a3",
+    "temperature.py": "5b5e543082086fd714074f2cf2381139daaf945eceb0e45dbf2d5c5315ee9ae9",
+    "translations/en.json": "c1ff05a44c8b51a0ba7e9381876ed4ea711b2aaa40d9fba929bbbc17f22014a3",
+    "ups_parameters.py": "e348553ea19d0af80de6f8b4ecf4ca856fd3472fa2996e6c94415006c06b03fb",
+    "ups.py": "669f9f9af8b4b4bb11d5d94e0c0f3648a0629bebdca31c780f9ec9d59530ac53",
+    "vacuum.py": "85e407d382c7c0759890576571e347f321e3eee3220828694785f4c0d89f3bc7"
+  }
+}

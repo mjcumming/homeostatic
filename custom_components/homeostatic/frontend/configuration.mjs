@@ -1,4 +1,4 @@
-import {inventoryRows} from "./model.mjs?v=110";
+import {inventoryRows} from "./model.mjs?v=114";
 
 const byName = (left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
 
@@ -6,7 +6,7 @@ const byName = (left, right) => left.name.localeCompare(right.name) || left.id.l
 export function monitoringTree(data, query = "") {
   const names = new Map((data.devices ?? []).map((device) => [device.id, device.name]));
   const groups = new Map();
-  const allRows = inventoryRows(data).filter((source) => ["integration", "entity", "device", "battery", "vacuum", "ups"].includes(source.kind));
+  const allRows = inventoryRows(data).filter((source) => ["integration", "entity", "device", "battery", "vacuum", "lock", "ups"].includes(source.kind));
   const upsRows=new Map();
   for(const source of allRows.filter(item=>item.kind==="ups")) {
     const id=JSON.stringify([source.attributes?.device?.[0],source.check_id]);
@@ -26,7 +26,7 @@ export function monitoringTree(data, query = "") {
     group.name = source.name;
     group.entry = source;
   }
-  for (const source of rows.filter((item) => ["entity", "battery", "vacuum", "ups"].includes(item.kind))) {
+  for (const source of rows.filter((item) => ["entity", "battery", "vacuum", "lock", "ups"].includes(item.kind))) {
     const group = groupFor(source.owner_id ?? source.attributes?.integration?.[0]);
     group.entities.push(source);
     const deviceId = source.attributes?.device?.[0];

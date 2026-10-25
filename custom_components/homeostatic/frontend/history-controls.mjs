@@ -1,4 +1,4 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=110";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=114";
 
 
 const date = (value) => value ? new Date(value).toLocaleString(undefined, {year:"numeric", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : "Unknown";
@@ -62,10 +62,11 @@ export function controlAllowed(current, admin, draft) {
 
 export const historyName = (item) => [item.source?.name, item.episode.labels?.name]
   .find((name) => name && name !== item.episode.anchor) || "Name not recorded";
+export const historyOutcome=item=>item.episode.annotations?.homeostatic_end_reason==="monitoring_window_ended"?"Monitoring window ended":RESOLUTIONS[item.resolution]?.[0]??"Problem ended";
 const historyRows = (rows, data, selected) => rows.map(item => {
   const id = item.episode.episode_id, expanded = selected === id;
   const contentId = `history-${encodeURIComponent(id)}`;
-  const outcome = RESOLUTIONS[item.resolution]?.[0] ?? "Problem ended";
+  const outcome = historyOutcome(item);
   return `<section class="history-entry"><button type="button" class="row history-toggle tree-toggle" data-history-toggle="${esc(id)}" aria-expanded="${expanded}" aria-controls="${esc(contentId)}"><span class="disclosure" aria-hidden="true"></span><span class="row-main">${esc(historyName(item))}<small>${esc(outcome)}${expanded ? "" : ` · ${esc(date(item.resolved_at))}`}</small></span></button><div class="history-content" id="${esc(contentId)}"${expanded ? "" : " hidden"}>${expanded ? historyDetails(item, data) : ""}</div></section>`;
 }).join("");
 
@@ -83,7 +84,7 @@ export function historyAccount(item) {
   if (item.resolution === "cleared" && item.episode.form === "group") {
     return ["Several related sources had a shared problem.", "Individual issues may still be open."];
   }
-  const ending = item.resolution === "removed" ? "Monitoring ended without an observed recovery."
+  const ending = item.episode.annotations?.homeostatic_end_reason==="monitoring_window_ended"?"Monitoring hours ended. Closure was not reported.":item.resolution === "removed" ? "Monitoring ended without an observed recovery."
     : item.resolution === "split" ? RESOLUTIONS.split[1]
       : item.resolution === "absorbed" ? "Recovery was not established." : "";
   return [historyFinding(item, finding), ending];

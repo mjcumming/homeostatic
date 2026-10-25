@@ -204,6 +204,18 @@ export function vacuumProblem(source, status, areas = [], openProblem = true) {
     entityLabel:"View vacuum"};
 }
 
+/** Explain the reported condition without inferring that movement completed. */
+export function lockProblem(source, status) {
+  if(source?.kind!=="lock")return null;
+  const reason=source.disabled?"disabled":status?.current?.reason||"lock_unknown";
+  const jammed=reason==="lock_jammed",clear=reason==="lock_not_jammed",disabled=reason==="disabled";
+  return {context:"Lock",headline:jammed?"Lock jammed":clear?"No jam reported":disabled?"Lock disabled":"Waiting for lock state",
+    summary:jammed?"Home Assistant reports this lock is jammed.":clear?"Home Assistant no longer reports a jam. This does not establish that the door is locked or that movement completed.":status?.current?.message||"A current recognized lock state is unavailable.",
+    nextStep:jammed?"Inspect the lock and its status in Home Assistant.":clear?"Check the lock's current state in Home Assistant if needed.":"Wait for a current lock state in Home Assistant.",
+    tone:jammed?"failure":clear?"recovering":disabled?"neutral":"uncertain",progress:jammed?"Needs attention":clear?"No jam reported":disabled?"Disabled":"Waiting",
+    currentReason:reason,entityLabel:"View lock"};
+}
+
 export function batteryProblem(source, status, openProblem = true) {
   if (source?.kind !== "battery") return null;
   const reason = source.disabled ? "disabled" : status?.current?.reason ?? "battery_evidence_missing";

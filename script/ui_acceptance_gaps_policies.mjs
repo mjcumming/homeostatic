@@ -32,6 +32,123 @@ export async function runPolicyGaps(ctx) {
     return async()=>{const result=await outcome;if(result.error)throw result.error;return result.request;};
   };
 
+  await test("policies.left-open",async()=>{
+    const before=await snapshot();assert.equal(policy(before,"default_left_open").enabled,false);await companion();
+    const id=await addPolicy("left_open","Patio left open"),choice=selection(`entity:registry:${lab.registry_ids.opening}`),duration=field("parameters:duration_seconds");
+    await at(choice).waitFor();assert.equal(await at(field("enabled")).isChecked(),false);assert.equal(await at(choice).isChecked(),false);
+    assert.equal(await at(field("source-future")).count(),0);assert.equal(await at('.entity-selection-tree').count(),0);
+    await check(choice,true);await fill(duration,"5");await choose(field("parameters:monitoring_hours"),"daily");
+    assert.equal(await at(`${field("parameters:monitoring_hours")}[value="daily"]`).isChecked(),true);
+    await at(`${field("parameters:monitoring_hours")}[value="daily"]`).press("ArrowLeft");assert.equal(await at(field("parameters:start")).count(),0);
+    await at(`${field("parameters:monitoring_hours")}[value="always"]`).press("ArrowRight");assert.equal(await at(field("parameters:start")).count(),1);
+    await at(field("duration-unit:duration_seconds")).click();await choose(field("duration-unit:duration_seconds"),"seconds");
+    assert.equal(await at(field("duration-unit:duration_seconds")).evaluate(el=>el.getRootNode().activeElement===el),false,"Pointer selection dismisses the replacement native picker");
+    await at(duration).press("Shift+Tab");await at(duration).press("Tab");
+    await at(field("duration-unit:duration_seconds")).press("Home");
+    assert.equal(await at(field("duration-unit:duration_seconds")).evaluate(el=>el.getRootNode().activeElement===el),true,"Keyboard selection keeps focus");
+    await fill(field("parameters:start"),"22:00");await fill(field("parameters:end"),"07:00");await check(field("parameters:use_temperature"),true);
+    await choose(field("parameters:temperature_source"),`registry:${lab.registry_ids.outdoor_weather}`);await fill(field("parameters:minimum"),"45");await fill(field("parameters:maximum"),"90");await check(field("enabled"),true);
+    const visibleSave=async()=>{const bar=await at(action("save-scoped")).evaluate(el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight};});assert.ok(bar.top>=0&&bar.bottom<=bar.height,`Save remains visible while editing: ${JSON.stringify(bar)}`);};
+    await visibleSave();
+    await at(field("parameters:minimum")).fill("");await at(field("parameters:minimum")).pressSequentially("-10.5");assert.equal(await at(field("parameters:minimum")).inputValue(),"-10.5","Native negative/decimal typing survives input events");await fill(field("parameters:minimum"),"45");
+    await at(duration).fill("");await at(duration).pressSequentially("1.5");assert.equal(await at(duration).inputValue(),"1.5");await fill(duration,"5");await visibleSave();
+    await page.screenshot({path:`${ctx.artifactDir}/left-open-policy.png`,fullPage:true});
+    transport.mode="reject";await click(action("save-scoped"));await waitError();await noChange(before);assert.equal(await at(choice).isChecked(),true);
+    await save();let saved=await snapshot(),created=policy(saved,id);await expectPolicy(before,id,created);
+    assert.deepEqual(created.match,{kind:["entity"],entity:[`registry:${lab.registry_ids.opening}`]});assert.equal(created.parameters.duration_seconds,300);assert.equal(created.parameters.end,"07:00");assert.equal(created.parameters.temperature_source,`registry:${lab.registry_ids.outdoor_weather}`);
+    await checkCompanion();await clean();await companion();await edit("policies",id);assert.equal(await at(choice).isChecked(),true);assert.equal(await at(duration).inputValue(),"5");assert.equal(await at(field("parameters:minimum")).inputValue(),"45");
+    await invalid(saved,field("parameters:maximum"),"40");await discard();assert.equal(await at(field("parameters:maximum")).inputValue(),"90");await noChange(saved);
+    await fill(field("name"),"Discard this opening edit");await discard();assert.equal(await name(),"Patio left open");await noChange(saved);
+    await choose(field("parameters:monitoring_hours"),"always");await fill(duration,"0");await save();saved=await snapshot();
+    await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities.opening,state:"on"});
+    const inventory=async()=>(await call("call_service",{domain:"homeostatic",service:"inventory",service_data:{},return_response:true})).response;
+    const first=await inventory(),issue=first.episodes.find(item=>first.nodes.some(node=>node.node_id===item.anchor&&node.kind==="left_open"&&node.monitoring_policy===id));assert.ok(issue,"Current contact and weather qualify a real issue");
+    await go("problems");for(const button of await at('[data-issue-group]').all())if(await button.getAttribute("aria-expanded")==="false")await button.click();
+    await at(`[data-device-issues="${lab.devices.lock}"]`).click();await at('dialog[open]').filter({hasText:"Door or window left open"}).waitFor();
+    await page.screenshot({path:`${ctx.artifactDir}/left-open-issue.png`,fullPage:true});await page.keyboard.press("Escape");
+    await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities.outdoor_weather,state:"cloudy",attributes:{temperature:70,temperature_unit:"°F"}});assert.ok((await inventory()).episodes.some(item=>item.episode_id===issue.episode_id),"Temperature cannot resolve a qualified opening");
+    await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities.opening,state:"off"});assert.ok(!(await inventory()).episodes.some(item=>item.episode_id===issue.episode_id));
+    await checkCompanion();await noChange(saved);
+    return "Created a disabled exact-contact policy, configured duration, daily hours and explicit weather limits, preserved the draft on rejected save, reopened exact saved choices, blocked reversed bounds and discarded edits. The real backend qualified an opening, retained it after temperature returned inside limits and ended it on a closed report. Unrelated settings and an independent notification draft remained intact; all notification services were isolated captures.";
+  });
+
+  await test("policies.reported-conditions",async()=>{
+    const contracts=[
+      ["problem","Problem reported","on","off"], ["lawn_mower","Mower error","error","docked"],
+      ["tamper","Tampering reported","on","off"], ["safety","Unsafe condition reported","on","off"],
+      ["moisture","Moisture detected","on","off"], ["smoke","Smoke detected","on","off"],
+      ["gas","Gas detected","on","off"], ["carbon_monoxide","Carbon monoxide detected","on","off"],
+      ["alarm_triggered","Alarm triggered","triggered","disarmed"],
+    ];
+    for(const [type,title,active,clear] of contracts) {
+      const before=await snapshot();await companion();
+      const key=`condition_${type}`,id=await addPolicy(type,`Trial ${type}`),identity=`${type}:registry:${lab.registry_ids[key]}`,choice=`${field("source-choice")}[data-definition-value="${identity}"]`;
+      await at(choice).waitFor();assert.equal(await at(field("enabled")).isChecked(),false);
+      assert.equal(await at(field("entity-choice")).count(),0);
+      assert.equal(await at(choice).isChecked(),["problem","lawn_mower"].includes(type));
+      await choose(field("source-future"),"selected");await check(choice,true);await check(field("enabled"),true);
+      transport.mode="reject";await click(action("save-scoped"));await waitError();await noChange(before);
+      assert.equal(await at(choice).isChecked(),true);await save();
+      const saved=await snapshot(),created=policy(saved,id);await expectPolicy(before,id,created);
+      assert.deepEqual(created.match,{kind:[type],entity:[`registry:${lab.registry_ids[key]}`]});
+      await edit("policies",id);assert.equal(await at(choice).isChecked(),true);
+      await fill(field("name"),"Discard this change");await discard();assert.equal(await name(),`Trial ${type}`);
+      await page.screenshot({path:`${ctx.artifactDir}/${type}-policy.png`,fullPage:true});
+      await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities[key],state:active});
+      await go("problems");
+      for(const button of await at('[data-issue-group]').all())if(await button.getAttribute("aria-expanded")==="false")await button.click();
+      await at(`[data-device-issues="${lab.devices.lock}"]`).click();await at('dialog[open]').filter({hasText:title}).waitFor();
+      await page.screenshot({path:`${ctx.artifactDir}/${type}-issue.png`,fullPage:true});
+      await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities[key],state:"unavailable"});
+      await at('dialog[open]').filter({hasText:"waiting for current information"}).waitFor();
+      await page.keyboard.press("Escape");
+      await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities[key],state:clear});
+      await checkCompanion();await noChange(saved);
+      await menu("policies",id,"duplicate");assert.equal(await at(field("enabled")).isChecked(),false);await discard();
+      await menu("policies",id,"delete");await deleteConfirm();await noChange(before);
+      const supplied=`default_${type}`;
+      await menu("policies",supplied,"delete");await deleteConfirm();const removed=await snapshot();
+      await listing("policies");await click(action("restore"));await check(`[data-definition-restore="${supplied}"]`,true);await click(action("confirm-restore"));await noChange(removed);
+      await edit("policies",supplied);await save();
+      const restored=await snapshot();assert.equal(policy(restored,supplied).enabled,false);await expectPolicy(removed,supplied,policy(restored,supplied));await checkCompanion();
+    }
+    return "All nine types reused the existing flat picker and notification editor; rejected saves retained drafts, exact membership reopened, discard and duplication stayed independent, real reported conditions survived lost evidence, and delete/selective restoration preserved unrelated settings. Notification requests were isolated captures.";
+  });
+
+  await test("policies.lock-jam",async()=>{
+    const original=await snapshot();assert.equal(policy(original,"default_jammed_locks").enabled,false);
+    await menu("policies","default_jammed_locks","delete");await deleteConfirm();
+    const before=await snapshot();await companion();
+    const id=await addPolicy("lock_jam","Front door jam"),identity=`lock:registry:${lab.registry_ids.lock}`,choice=`${field("source-choice")}[data-definition-value="${identity}"]`;
+    await at(choice).waitFor();assert.equal(await at(field("enabled")).isChecked(),false);
+    assert.equal(await at(field("entity-choice")).count(),0,"Focused lock choices use the existing flat picker");
+    await choose(field("source-future"),"selected");await check(choice,true);await check(field("enabled"),true);
+    await page.screenshot({path:`${ctx.artifactDir}/lock-jam-policy.png`,fullPage:true});
+    transport.mode="reject";await click(action("save-scoped"));await waitError();await noChange(before);assert.equal(await name(),"Front door jam");
+    await save();const saved=await snapshot(),created=policy(saved,id);assert.equal(created.check,"lock_jam");assert.equal(created.enabled,true);assert.deepEqual(created.match,{kind:["lock"],entity:[`registry:${lab.registry_ids.lock}`]});await expectPolicy(before,id,created);
+    await edit("policies",id);assert.equal(await at(choice).isChecked(),true);await fill(field("name"),"Discard this edit");await discard();assert.equal(await name(),"Front door jam");await noChange(saved);
+    await checkCompanion();await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities.lock,state:"jammed"});await go("problems");
+    for(const button of await at('[data-issue-group]').all())if(await button.getAttribute("aria-expanded")==="false")await button.click();
+    await at(`[data-device-issues="${lab.devices.lock}"]`).click();await at('dialog[open]').filter({hasText:"Lock jammed"}).waitFor();
+    await page.screenshot({path:`${ctx.artifactDir}/lock-jam-issue.png`,fullPage:true});
+    const inventory=(await call("call_service",{domain:"homeostatic",service:"inventory",service_data:{},return_response:true})).response;
+    const issue=inventory.episodes.find(item=>inventory.nodes.some(node=>node.node_id===item.anchor&&node.kind==="lock"&&node.monitoring_policy===id));assert.ok(issue);
+    const detailPage=await page.context().newPage();
+    try{
+      await detailPage.goto(`${lab.url}/homeostatic/episode/${encodeURIComponent(issue.episode_id)}`);
+      await detailPage.locator(lab.panel_element).last().locator('dialog[open]').filter({hasText:"Home Assistant reports this lock is jammed."}).waitFor();
+      await detailPage.screenshot({path:`${ctx.artifactDir}/lock-jam-individual.png`,fullPage:true});
+    }finally{await detailPage.close();}
+    await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities.lock,state:"unavailable"});await at('dialog[open]').filter({hasText:"Lock jam reported"}).waitFor();
+    await page.screenshot({path:`${ctx.artifactDir}/lock-jam-unknown.png`,fullPage:true});
+    await page.keyboard.press("Escape");await call("homeostatic_ui_lab/control",{action:"set_state",entity_id:lab.entities.lock,state:"locked"});
+    await menu("policies",id,"duplicate");assert.equal(await at(field("enabled")).isChecked(),false);await discard();await noChange(saved);
+    await menu("policies",id,"delete");await deleteConfirm();await noChange(before);
+    await listing("policies");await click(action("restore"));await check('[data-definition-restore="default_jammed_locks"]',true);await click(action("confirm-restore"));await noChange(before);
+    await edit("policies","default_jammed_locks");await save();const restored=await snapshot();assert.deepEqual(restored.monitoring_policies.filter(p=>p.id!=="default_jammed_locks"),before.monitoring_policies);assert.equal(policy(restored,"default_jammed_locks").enabled,false);await checkCompanion();
+    return "Created a Jammed lock policy through existing flat choices, rejected a save without losing its draft, saved and reopened exact membership, discarded and duplicated independently, inspected a real reported jam and retained evidence after source loss, deleted the custom policy and selectively restored its disabled supplied template; sending and unrelated notification drafts stayed unchanged.";
+  });
+
   await test("policies.not-provided",async()=>{
     const before=await snapshot(),id=await addPolicy("entity_not_provided","Missing diagnostic readings"),duration=field("parameters:duration_seconds");
     assert.equal(await at(duration).inputValue(),"24");assert.equal(await at(field("enabled")).isChecked(),false);

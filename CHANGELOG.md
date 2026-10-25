@@ -2,6 +2,40 @@
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-25
+
+### Fixed
+
+- Use radio buttons for Left open monitoring hours. Native selectors wait for a committed selection and avoid refocusing their replacement after pointer selection, addressing phone menus that stayed open. Keyboard selection retains focus.
+
+### Added
+
+- Add ordinary policy types for problem sensors, lawn mower errors, tamper, unsafe conditions, water leaks, smoke, gas, carbon monoxide and triggered alarms. They reuse the existing source picker and notifications. Supplied policies start disabled, and missing or unknown reports preserve open conditions.
+
+- Watch selected doors and windows left open for an explicit duration, optionally during daily hours and outside chosen outdoor-temperature limits. Each window starts a fresh countdown. Temperature cannot clear an established issue; hours ending stops alerts and reminders and records Monitoring window ended in History. The supplied policy starts disabled.
+
+- Report a selected lock's Home Assistant `jammed` state as an issue. The supplied Jammed locks policy starts disabled, with Immediate assigned when that named notification exists. Enable it and choose locks through the existing policy editor. Unavailable, restored and unknown readings retain an open jam; a recognized non-jammed state clears it.
+
+### Upgrade
+
+- Introduce the nine supplied reported-condition policies once, disabled, while preserving saved policies, edits, deletions, notification choices and pending delivery identities. Deleted notification defaults remain unassigned.
+
+- Add the new Doors and windows left open policy once, disabled, preserving existing settings and later deletion. Earlier stored producer state remains readable.
+- Add the new Jammed locks policy once, disabled, while preserving existing policies, deleted defaults, notification choices and pending delivery identities. Deleting it keeps it deleted across later reloads and upgrades.
+
+### Documentation
+
+- Describe the optional condition policies and left-open monitoring in the README, with setup requirements and recovery evidence in the manual.
+- Restore accurate descriptions of working automation-defined problem alerts, distinguish reporting choices from current notification assignments, and reconcile the roadmap with published work. Keep verification questions and deferred limitations separate from selected feature work.
+
+### Development
+
+- Exercise the new disabled supplied policies in the packaged-install smoke check, including older settings, deleted notification definitions and policy edits or deletions across repeated reloads.
+
+### Known limitations
+
+- The deferred editor replacement and focus issue after reconnect remains. Draft values are retained; the broader reconnect browser check still fails.
+
 ## [1.12.5] - 2026-10-24
 
 ### Fixed

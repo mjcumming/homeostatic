@@ -22,6 +22,7 @@ The expanded example retains the finding recorded when the Garage relay issue en
 | Outcome | Meaning |
 | --- | --- |
 | Cleared | Homeostatic observed the recovery required by that check. A shared problem can clear while individual issues remain open. |
+| Monitoring window ended | The configured hours ended for a left-open issue. Closure was not established. |
 | Monitoring ended | The source left that monitoring scope. Recovery was not established. |
 | Joined another problem | Homeostatic grouped the issue into another problem. Recovery was not established. |
 | Issues separated | The problems continue as separate issues. Follow their links to inspect them; separation does not establish recovery. |

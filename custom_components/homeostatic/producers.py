@@ -22,8 +22,12 @@ from .catalog import (
 from .config import Settings
 from .entity_not_provided import observe as not_provided_observation
 from .entity_not_provided import state_provided
+from .left_open import LeftOpenMonitor, LeftOpenParameters
+from .lock import observe as lock_observation
 from .monitoring import TEMPERATURE_CHECKS
 from .repairs import Repairs
+from .reported_conditions import CONDITIONS
+from .reported_conditions import observe as condition_observation
 from .serialization import json_object
 from .situation_reports import report_observation
 from .temperature import (
@@ -52,7 +56,16 @@ class CapturedUps:
     states: tuple[tuple[str, State | None], ...]
 
 
-type CapturedInput = CapturedTemperature | CapturedUps
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CapturedOpening:
+    """A contact and temperature reading captured at the same HA event boundary."""
+
+    node_id: str
+    contact: State | None
+    temperature: State | None
+
+
+type CapturedInput = CapturedTemperature | CapturedUps | CapturedOpening
 
 
 class Producers:
@@ -65,6 +78,10 @@ class Producers:
         self.broken = BrokenAutomations()
         self.temperature_monitors: dict[str, TemperatureMonitor] = {}
         self.ups_monitors: dict[str, UpsMonitor] = {}
+        self.left_open_monitors: dict[str, LeftOpenMonitor] = {}
+        self.window_ends: set[str] = set()
+        self._left_open_saved: dict[str, Any] = {}
+        self._left_open_deadlines: dict[str, datetime] = {}
         self._ups_saved: dict[str, Any] = {}
         self._temperature_saved: dict[str, Any] = {}
         self._temperature_deadlines: dict[str, datetime] = {}
@@ -73,7 +90,7 @@ class Producers:
 
     def restore(self, snapshot: dict[str, Any]) -> None:
         """Validate producer sections, deferring per-source restore until enrollment."""
-        for key in ("temperature_monitors", "ups_monitors"):
+        for key in ("temperature_monitors", "ups_monitors", "left_open_monitors"):
             monitors = snapshot.get(key, {})
             if not isinstance(monitors, dict) or any(
                 not isinstance(identity, str) or not isinstance(value, dict)
@@ -82,6 +99,12 @@ class Producers:
                 raise ValueError(f"Invalid stored {key}")
         self._temperature_saved = dict(snapshot.get("temperature_monitors", {}))
         self._ups_saved = dict(snapshot.get("ups_monitors", {}))
+        self._left_open_saved = dict(snapshot.get("left_open_monitors", {}))
+        for identity, state in self._left_open_saved.items():
+            monitor = LeftOpenMonitor(
+                node_id=identity, name="", parameters=LeftOpenParameters()
+            )
+            monitor.restore(state)
         self.repairs.restore(snapshot.get("repairs", {}))
         self.broken.restore(snapshot.get("broken_automations", {}))
 
@@ -95,6 +118,10 @@ class Producers:
     def snapshot(self) -> dict[str, Any]:
         """Return the existing flat persistence sections for the shared save."""
         return {
+            "left_open_monitors": {
+                key: monitor.snapshot()
+                for key, monitor in self.left_open_monitors.items()
+            },
             "temperature_monitors": {
                 key: monitor.snapshot()
                 for key, monitor in self.temperature_monitors.items()
@@ -132,6 +159,20 @@ class Producers:
             for key, value in self._temperature_deadlines.items()
             if key in sources
         }
+        self.left_open_monitors = {
+            key: value
+            for key, value in self.left_open_monitors.items()
+            if key in sources
+        }
+        self._left_open_saved = {
+            key: value for key, value in self._left_open_saved.items() if key in sources
+        }
+        self._left_open_deadlines = {
+            key: value
+            for key, value in self._left_open_deadlines.items()
+            if key in sources
+        }
+        self.window_ends.intersection_update(sources)
 
     def retained_candidates(
         self, discovered: dict[str, Source], previous: dict[str, Source]
@@ -155,7 +196,16 @@ class Producers:
                 provided_changed
                 if source.kind == "entity_not_provided"
                 else source.kind
-                in {"situation", "battery", "vacuum", "ups", *TEMPERATURE_CHECKS}
+                in {
+                    "situation",
+                    "battery",
+                    "vacuum",
+                    "lock",
+                    *CONDITIONS,
+                    "left_open",
+                    "ups",
+                    *TEMPERATURE_CHECKS,
+                }
                 or availability_changed
             )
         ]
@@ -178,6 +228,8 @@ class Producers:
                 )
                 if entity
             )
+        if source.kind == "left_open" and source.left_open_temperature_entity:
+            entities.append(source.left_open_temperature_entity)
         return tuple(dict.fromkeys(entities))
 
     def capture_entity(
@@ -192,6 +244,23 @@ class Producers:
         observations = []
         captured: list[CapturedInput] = []
         for source in sources:
+            if source.kind == "left_open":
+                captured.append(
+                    CapturedOpening(
+                        node_id=source.node_id,
+                        contact=state
+                        if source.entity_id == entity_id
+                        else self.hass.states.get(source.entity_id)
+                        if source.entity_id
+                        else None,
+                        temperature=state
+                        if source.left_open_temperature_entity == entity_id
+                        else self.hass.states.get(source.left_open_temperature_entity)
+                        if source.left_open_temperature_entity
+                        else None,
+                    )
+                )
+                continue
             if source.kind in TEMPERATURE_CHECKS:
                 captured.append(
                     CapturedTemperature(node_id=source.node_id, state=state)
@@ -225,6 +294,22 @@ class Producers:
                     changed_state=state,
                 )
                 if source.kind == "vacuum"
+                else lock_observation(
+                    self.hass,
+                    source,
+                    now,
+                    changed_entity_id=entity_id,
+                    changed_state=state,
+                )
+                if source.kind == "lock"
+                else condition_observation(
+                    self.hass,
+                    source,
+                    now,
+                    changed_entity_id=entity_id,
+                    changed_state=state,
+                )
+                if source.kind in CONDITIONS
                 else not_provided_observation(
                     self.hass,
                     source,
@@ -269,6 +354,10 @@ class Producers:
             return self._ups_monitor(source, settings).evaluate(
                 dict(captured.states), now
             )
+        if isinstance(captured, CapturedOpening):
+            return self._observe_left_open(
+                source, captured.contact, captured.temperature, settings, now
+            )
         return self._observe_temperature(source, captured.state, settings, now)
 
     def take_restarts(self, node_id: str | None = None) -> set[str]:
@@ -293,6 +382,21 @@ class Producers:
         observations = []
         for source in sources:
             if not source.watched:
+                continue
+            if source.kind == "left_open":
+                observations.append(
+                    self._observe_left_open(
+                        source,
+                        self.hass.states.get(source.entity_id)
+                        if source.entity_id
+                        else None,
+                        self.hass.states.get(source.left_open_temperature_entity)
+                        if source.left_open_temperature_entity
+                        else None,
+                        settings,
+                        now,
+                    )
+                )
                 continue
             if source.kind in TEMPERATURE_CHECKS:
                 state = (
@@ -343,6 +447,10 @@ class Producers:
                 observations.append(self._observe_ups(source, settings, now))
             elif source.kind == "vacuum" and discover:
                 observations.append(vacuum_observation(self.hass, source, now))
+            elif source.kind == "lock" and discover:
+                observations.append(lock_observation(self.hass, source, now))
+            elif source.kind in CONDITIONS and discover:
+                observations.append(condition_observation(self.hass, source, now))
             elif source.kind == "entity_not_provided" and discover:
                 observations.append(not_provided_observation(self.hass, source, now))
             elif source.kind in {"entity", "situation"} and discover:
@@ -364,7 +472,10 @@ class Producers:
 
     def next_deadline(self, settings: Settings, now: datetime) -> datetime | None:
         """Return producer work for runtime's single Home Assistant timer."""
-        deadlines = [*self._temperature_deadlines.values()]
+        deadlines = [
+            *self._temperature_deadlines.values(),
+            *self._left_open_deadlines.values(),
+        ]
         deadlines.extend(
             since + settings.duration("retry_hold")
             for since in self.retry_since.values()
@@ -474,6 +585,51 @@ class Producers:
                 else None
             )
         return states
+
+    def _observe_left_open(
+        self,
+        source: Source,
+        contact: State | None,
+        temperature: State | None,
+        settings: Settings,
+        now: datetime,
+    ) -> Observation:
+        """Advance the opening detector together with its ordered engine observation."""
+        monitor = self.left_open_monitors.get(source.node_id)
+        if monitor is None:
+            policy = next(
+                item
+                for item in settings.monitoring_policies
+                if item.id == source.monitoring_policy
+            )
+            monitor = LeftOpenMonitor(
+                node_id=source.node_id,
+                name=source.name,
+                parameters=LeftOpenParameters.from_data(policy.parameters),
+            )
+            if source.node_id in self._left_open_saved:
+                monitor.restore(self._left_open_saved.pop(source.node_id))
+            self.left_open_monitors[source.node_id] = monitor
+        monitor.name = source.name
+        row = (
+            er.async_get(self.hass).async_get(source.left_open_temperature_entity)
+            if source.left_open_temperature_entity
+            else None
+        )
+        if row is not None and row.disabled:
+            temperature = None
+        result = monitor.evaluate(
+            contact, temperature, now, timezone=self.hass.config.time_zone
+        )
+        self._left_open_deadlines.pop(source.node_id, None)
+        if result.next_deadline is not None:
+            self._left_open_deadlines[source.node_id] = result.next_deadline
+        if result.removed:
+            self._restarts.add(source.node_id)
+            self.window_ends.add(source.node_id)
+        elif result.observation.evidence.get("monitoring_active"):
+            self.window_ends.discard(source.node_id)
+        return result.observation
 
     def _observe_temperature(
         self, source: Source, state: State | None, settings: Settings, now: datetime

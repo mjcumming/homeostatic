@@ -25,6 +25,7 @@ from custom_components.homeostatic.policy_defaults import (
     initial_settings,
 )
 from custom_components.homeostatic.policy_migration import introduce_supplied_policies
+from custom_components.homeostatic.reported_conditions import CONDITIONS
 from custom_components.homeostatic.serialization import json_digest
 from tests.policy_helpers import monitoring_policy
 from tests.test_lifecycle import start_monitor
@@ -37,7 +38,14 @@ def previous_settings() -> dict[str, Any]:
     data["monitoring_policies"] = [
         row
         for row in data["monitoring_policies"]
-        if row["id"] not in {*CATEGORY_POLICY_INTRODUCTIONS, "default_batteries"}
+        if row["id"]
+        not in {
+            *CATEGORY_POLICY_INTRODUCTIONS,
+            "default_batteries",
+            "default_jammed_locks",
+            "default_left_open",
+            *(f"default_{check}" for check in CONDITIONS),
+        }
     ]
     general = data["monitoring_policies"][1]
     general["parameters"] = {}
@@ -82,7 +90,12 @@ async def test_categories_are_disabled_additions_and_never_recreated(
             == before["monitoring_policies"]
         )
         added = upgraded["monitoring_policies"][original_count:]
-        assert [row["id"] for row in added] == list(CATEGORY_POLICY_INTRODUCTIONS)
+        assert [row["id"] for row in added] == [
+            *CATEGORY_POLICY_INTRODUCTIONS,
+            "default_jammed_locks",
+            "default_left_open",
+            *(f"default_{check}" for check in CONDITIONS),
+        ]
         assert all(row["enabled"] is False for row in added)
         assert upgraded["supplied_policy_introductions"] == list(
             SUPPLIED_POLICY_INTRODUCTIONS
@@ -151,8 +164,24 @@ def test_existing_identity_and_deleted_notification_take_precedence() -> None:
         == before["monitoring_policies"]
     )
     added = candidate["monitoring_policies"][len(before["monitoring_policies"]) :]
-    assert [row["id"] for row in added] == list(CATEGORY_POLICY_INTRODUCTIONS[1:])
-    assert all(row["notifications"] == [] and not row["enabled"] for row in added)
+    assert [row["id"] for row in added] == [
+        *CATEGORY_POLICY_INTRODUCTIONS[1:],
+        "default_jammed_locks",
+        "default_left_open",
+        *(f"default_{check}" for check in CONDITIONS),
+    ]
+    assert all(not row["enabled"] for row in added)
+    assert all(
+        row["notifications"]
+        == (
+            [{"id": "default", "profile": "acknowledge"}]
+            if row["id"] == "default_left_open"
+            else [{"id": "default", "profile": "morning"}]
+            if row["id"] == "default_problem"
+            else []
+        )
+        for row in added
+    )
     assert candidate["notification_definitions"] == before["notification_definitions"]
     assert introduce_supplied_policies(candidate) is candidate
 
@@ -166,9 +195,12 @@ def test_skipped_retired_introductions_are_recorded_without_restoration() -> Non
     ]
     data["monitoring_policies"] = []
     candidate = introduce_supplied_policies(data)
-    assert {row["id"] for row in candidate["monitoring_policies"]} == set(
-        CATEGORY_POLICY_INTRODUCTIONS
-    )
+    assert {row["id"] for row in candidate["monitoring_policies"]} == {
+        *CATEGORY_POLICY_INTRODUCTIONS,
+        "default_jammed_locks",
+        "default_left_open",
+        *(f"default_{check}" for check in CONDITIONS),
+    }
     assert all(not row["enabled"] for row in candidate["monitoring_policies"])
     assert set(candidate["supplied_policy_introductions"]) == {
         *SUPPLIED_POLICY_INTRODUCTIONS,

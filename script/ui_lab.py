@@ -234,6 +234,7 @@ class Lab:
             ("temperature", "Lab room sensor", "Upstairs"),
             ("battery", "Lab battery sensor", "Kitchen"),
             ("vacuum", "Lab vacuum", "Kitchen"),
+            ("lock", "Lab front door", "Office"),
             ("thermostat", "Lab thermostat", "Upstairs"),
             ("ups", "Lab office UPS", "Office"),
             ("speaker", "Lab kitchen speaker", "Kitchen"),
@@ -323,6 +324,37 @@ class Lab:
             "docked",
             device="vacuum",
             attributes={"battery_level": 90},
+        )
+        entity("lock", "lock", "Lab front door", "locked", device="lock")
+        from custom_components.homeostatic.reported_conditions import CONDITIONS
+
+        for check, condition in CONDITIONS.items():
+            entity(
+                f"condition_{check}",
+                condition.domain,
+                f"Lab {condition.name}",
+                sorted(condition.clear)[0],
+                device="lock",
+                attributes={"device_class": condition.device_class}
+                if condition.device_class
+                else {},
+            )
+
+        entity(
+            "opening",
+            "binary_sensor",
+            "Lab patio opening",
+            "off",
+            device="lock",
+            attributes={"device_class": "door"},
+        )
+        entity(
+            "outdoor_weather",
+            "weather",
+            "Lab outdoor weather",
+            "cloudy",
+            device="temperature",
+            attributes={"temperature": 43, "temperature_unit": "°F"},
         )
         entity(
             "thermostat",
@@ -454,6 +486,7 @@ class Lab:
     def settings(self) -> dict[str, Any]:
         """Build current-schema policies against actual registry identities."""
         from custom_components.homeostatic.policy_defaults import initial_settings
+        from custom_components.homeostatic.reported_conditions import CONDITIONS
 
         data = initial_settings(self.hass.config.time_zone)
         data["timings"].update(
@@ -465,7 +498,11 @@ class Lab:
             batch=0,
         )
         for policy in data["monitoring_policies"]:
-            policy["enabled"] = True
+            policy["enabled"] = policy["check"] not in {
+                "lock_jam",
+                "left_open",
+                *CONDITIONS,
+            }
             if policy["check"] in {
                 "availability",
                 "entity_not_provided",

@@ -1,5 +1,6 @@
-import {escapeHtml as esc,inventoryRows} from "./model.mjs?v=110";
-import {chooseEntitySource,entitySelected,entitySelectionRows} from "./entity-selection.mjs?v=110";
+import {REPORTED_CONDITIONS} from "./reported-conditions.mjs?v=114";
+import {escapeHtml as esc,inventoryRows} from "./model.mjs?v=114";
+import {chooseEntitySource,entitySelected,entitySelectionRows} from "./entity-selection.mjs?v=114";
 
 export const SOURCE_CATEGORIES={
   any:{name:"Any entity type"},
@@ -29,8 +30,10 @@ export function sourceCategory(policy) {
 }
 
 export function sourceNoun(policy) {
+  if(REPORTED_CONDITIONS[policy.check])return REPORTED_CONDITIONS[policy.check].noun;
+  if(policy.check==="left_open")return "doors and windows";
   const category=sourceCategory(policy);
-  return category!=="any"?SOURCE_CATEGORIES[category].name.toLowerCase():{thermostat:"thermostats",temperature_limit:"temperature sensors"}[policy.check]||{integration:"integrations",battery:"batteries",vacuum:"vacuums",entity:"entities",ups:"UPS devices"}[kind(policy)]||"sources";
+  return category!=="any"?SOURCE_CATEGORIES[category].name.toLowerCase():{thermostat:"thermostats",temperature_limit:"temperature sensors"}[policy.check]||{integration:"integrations",battery:"batteries",vacuum:"vacuums",lock:"locks",entity:"entities",ups:"UPS devices"}[kind(policy)]||"sources";
 }
 
 export function futureMode(policy) {
@@ -49,7 +52,7 @@ export function flatSourceRows(card,policy) {
   const originals=new Map((card.current?.data?.inventory?.catalog?.candidates||[]).map(source=>[source.node_id,source]));
   const candidates=complete(card)?[...new Map(inventoryRows(card.current.data).map(source=>[identity(source),originals.get(identity(source))||source])).values()]:[],saved=new Set([...(policy.excluded_sources||[]),...(policy.included_sources||[])]);
   const exact=policy.match?.[sourceField]||[];
-  const eligible=source=>source.kind===kind(policy)&&(policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature"));
+  const eligible=source=>source.kind===kind(policy)&&(policy.check!=="thermostat"||source.attributes?.domain?.includes("climate"))&&(policy.check!=="temperature_limit"||source.attributes?.device_class?.includes("temperature"))&&(policy.check!=="left_open"||source.attributes?.domain?.includes("binary_sensor")&&source.attributes?.device_class?.some(value=>["door","window","garage_door","opening"].includes(value)));
   const sources=candidates.filter(eligible);
   const areas=new Map((card.editors.configuration.areas||[]).map(area=>[area.id,area])),floors=new Map((card.editors.configuration.floors||[]).map(floor=>[floor.id,floor.name]));
   const context=source=>{
@@ -101,7 +104,9 @@ export function flatSourceSelection(card,policy) {
   const status=pending||stale?`<p role="status">${card.current?.catalogError?`Could not ${pending?"load":"update"} available sources: ${esc(card.current.catalogError)} <button type="button" class="link" data-action="retry-catalog">Retry</button>`:pending?"Loading available sources…":"Updating available sources…"}</p>`:"";
   const forget=item=>`<button type="button" class="button" data-definition-action="source-forget" ${attr("source-forget")} data-definition-value="${esc(item.id)}"${item.ref?` data-source-ref="${esc(item.ref)}"`:""}${disabled?" disabled":""}>Remove saved choice</button>`;
   const row=item=>`<li>${item.missing?`<div class="entity-selection-row"><span>${esc(item.name)}<span class="entity-selection-context">${esc(item.id)}</span></span>${forget(item)}</div>`:`<label class="entity-selection-row"><input type="checkbox" ${attr("source-choice")} data-definition-value="${esc(item.id)}"${item.selected&&!item.source.disabled?" checked":""}${disabled||item.source.disabled||item.outsideScope||item.blockedByDevice?" disabled":""}><span>${esc(item.name)}<span class="entity-selection-context">${esc([item.area,item.source.disabled?"Disabled in Home Assistant":item.blockedByDevice?"Excluded device":item.outsideScope?"Outside the selected scope":item.outsideCategory?"Saved choice outside category":""].filter(Boolean).join(" · "))}</span>${rows.some(other=>other.id!==item.id&&other.name===item.name&&other.area===item.area)?`<span class="entity-selection-context">${esc(item.entityId||item.id)}</span>`:""}</span></label>${item.outsideScope?forget(item):""}`}</li>`;
-  return `<section class="source-selection" aria-label="${esc(noun)} selection"><label class="installation-field"><span>Future sources</span><select ${attr("source-future")}${disabled?" disabled":""}>${Object.entries(choices).map(([value,label])=>`<option value="${value}"${mode===value?" selected":""}>${label}</option>`).join("")}</select></label><p class="small">${sourceScopeSummary(policy)}</p>${groups}<label class="installation-field"><span>Search ${esc(noun)}</span><input type="search" ${attr("source-search")} value="${esc(state.query||"")}" placeholder="Name or area"></label><label class="entity-selection-filter"><input type="checkbox" ${attr("source-selected-only")}${state.selectedOnly?" checked":""}>Monitored only</label>${status}<ul class="source-selection-list">${visible.map(row).join("")}</ul>${!visible.length&&!pending?`<p>No ${esc(noun)} match your selection or search.</p>`:""}<p class="small" role="status">${pending||stale?"Selection count awaits current sources":`${rows.filter(row=>row.selected&&row.source&&!row.source.disabled).length} selected`}</p><p class="small">Changes apply when you save this policy.</p></section>`;
+  const list=`<label class="installation-field"><span>Search ${esc(noun)}</span><input type="search" ${attr("source-search")} value="${esc(state.query||"")}" placeholder="Name or area"></label>${policy.check!=="left_open"?`<label class="entity-selection-filter"><input type="checkbox" ${attr("source-selected-only")}${state.selectedOnly?" checked":""}>Monitored only</label>`:""}${status}<ul class="source-selection-list">${visible.map(row).join("")}</ul>${!visible.length&&!pending?`<p>No ${esc(noun)} match your selection or search.</p>`:""}<p class="small" role="status">${pending||stale?"Selection count awaits current sources":`${rows.filter(row=>row.selected&&row.source&&!row.source.disabled).length} selected`}</p>`;
+  if(policy.check==="left_open")return `<section class="source-selection" aria-label="Doors and windows selection">${list}<p class="small">Only selected openings are included. New openings require selection.</p></section>`;
+  return `<section class="source-selection" aria-label="${esc(noun)} selection"><label class="installation-field"><span>Future sources</span><select ${attr("source-future")}${disabled?" disabled":""}>${Object.entries(choices).map(([value,label])=>`<option value="${value}"${mode===value?" selected":""}>${label}</option>`).join("")}</select></label><p class="small">${sourceScopeSummary(policy)}</p>${groups}${list}<p class="small">Changes apply when you save this policy.</p></section>`;
 }
 
 /** Edit matching scope only on deliberate controls; browsing never changes membership. */

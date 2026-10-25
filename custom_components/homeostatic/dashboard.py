@@ -106,8 +106,8 @@ def _change_rows(changes: dict[str, JSONValue]) -> int:
     )
 
 
-MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=110"
-PANEL_ELEMENT = "homeostatic-panel-v62"
+MODULE_URL = f"{ASSET_URL}/homeostatic.js?v=114"
+PANEL_ELEMENT = "homeostatic-panel-v66"
 _SAVE_TIMING_LOGGER = logging.getLogger(f"{__package__}.save_timing")
 
 
@@ -658,15 +658,19 @@ def websocket_node(
     )
 
 
-def _temperature_checks(
-    runtime: Runtime, source: Source, candidates: dict[str, Source]
+def _condition_checks(
+    runtime: Runtime,
+    source: Source,
+    candidates: dict[str, Source],
+    *,
+    kinds: frozenset[str] = TEMPERATURE_CHECKS,
 ) -> list[dict[str, JSONValue]]:
     """Expose independent conditions on this entity or its device's entities."""
     policies = {item.id: item for item in runtime.settings.monitoring_policies}
     result: list[dict[str, JSONValue]] = []
     for check in runtime.sources.values():
         if (
-            check.kind not in TEMPERATURE_CHECKS
+            check.kind not in kinds
             or not check.watched
             or check.disabled
             or check.monitoring_policy is None
@@ -811,7 +815,11 @@ def websocket_source(
             runtime.settings.monitoring_policies, item, runtime.sources
         )
     }
-    temperature_checks = _temperature_checks(runtime, source, candidates)
+    temperature_checks = _condition_checks(runtime, source, candidates)
+    opening_checks = _condition_checks(
+        runtime, source, candidates, kinds=frozenset({"left_open"})
+    )
+    policy_ids.update(str(item["policy_id"]) for item in opening_checks)
     policy_ids.update(str(item["policy_id"]) for item in temperature_checks)
     evidence = runtime.evidence.view(observed_node) or {}
     if source.kind == "integration" and source.entry_id:
@@ -822,6 +830,7 @@ def websocket_source(
         msg["id"],
         {
             "temperature_checks": temperature_checks,
+            "opening_checks": opening_checks,
             "battery_conditions": [
                 {
                     "policy_id": item.id,

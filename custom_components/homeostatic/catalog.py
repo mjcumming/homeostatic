@@ -10,6 +10,7 @@ from homeassistant.core import State
 
 from .config import Settings
 from .entity_not_provided import node as not_provided_node
+from .reported_conditions import CONDITIONS
 from .rules import Attributes
 
 
@@ -45,12 +46,13 @@ class Source:
     ups_platform: str | None = None
     ups_disabled_entities: tuple[str, ...] = ()
     ups_name: str | None = None
+    left_open_temperature_entity: str | None = None
 
     def node(self, settings: Settings) -> Node:
         """Declare a check for the observed HA control-path capability."""
         if self.kind == "entity_not_provided":
             return not_provided_node(self, settings)
-        if self.kind in {"thermostat", "temperature_limit", "ups"}:
+        if self.kind in {"thermostat", "temperature_limit", "ups", "left_open"}:
             return Node(
                 node_id=self.node_id,
                 kind=self.kind,
@@ -69,7 +71,11 @@ class Source:
                         ttl=None,
                         unknown_hold=settings.duration("unknown_hold"),
                         labels={
-                            "category": "ups" if self.kind == "ups" else "temperature"
+                            "category": "ups"
+                            if self.kind == "ups"
+                            else "opening"
+                            if self.kind == "left_open"
+                            else "temperature"
                         },
                     ),
                 ),
@@ -91,7 +97,7 @@ class Source:
                     ),
                 ),
             )
-        if self.kind == "vacuum":
+        if self.kind in {"vacuum", "lock", *CONDITIONS}:
             return Node(
                 node_id=self.node_id,
                 kind=self.kind,
@@ -99,7 +105,7 @@ class Source:
                 labels={"name": self.name, "category": "operation"},
                 checks=(
                     Check(
-                        check_id="vacuum",
+                        check_id=self.check_id,
                         raise_hold=timedelta(0),
                         clear_hold=timedelta(0),
                         ttl=None,

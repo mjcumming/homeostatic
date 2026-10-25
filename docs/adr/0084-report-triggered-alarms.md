@@ -1,6 +1,7 @@
 # ADR 0084: Report triggered alarm panels as issues
 
-**Status:** Proposed
+**Status:** Accepted
+**Accepted:** 2026-10-25
 **Date:** 2026-10-15
 
 ## Context and product scope
@@ -23,7 +24,7 @@ Missing and restored evidence take precedence over state text. Use zero raise an
 
 Use the finding text **Home Assistant reports the alarm is triggered**, with the source's name and available location. When evidence becomes unknown, distinguish the last confirmed condition from the current evidence gap.
 
-Propose **Immediate** as the initial named-notification assignment. This remains editable, including dashboard-only monitoring. Assign only an existing definition; never recreate a deleted notification, choose a destination or enable global sending. Immediate requests a notice including overnight; it does not repeat until acknowledgment. Owners can choose Immediate with acknowledgment when appropriate.
+Use **Immediate** as the initial named-notification assignment. This remains editable, including dashboard-only monitoring. Assign only an existing definition; never recreate a deleted notification, choose a destination or enable global sending. Immediate requests a notice including overnight; it has no acknowledgment reminders. Owners can choose Immediate with acknowledgment when appropriate.
 
 Use the unified lifecycle in [ADR 0058](0058-unified-policy-lifecycle.md), with the notification ownership supersession in [ADR 0066](0066-reusable-notifications-own-timing-and-delivery.md). Preserve saved edits, deletions and independent policy identities. Disable, deletion or lost eligibility ends monitoring as removed, without recording recovery.
 
@@ -37,7 +38,7 @@ Only entities that expose this standard signal are covered. HA reports do not pr
 
 ## Implementation acceptance
 
-Implementation is pending in the [roadmap](../roadmap.md#current-work). Before shipping, update the owning specification, guide, changelog and events reference where affected, and add executable scenarios for:
+The [roadmap](../roadmap.md#current-work) owns implementation and validation status. Before shipping, update the owning specification, guide, changelog and events reference where affected, and add executable scenarios for:
 
 - Every listed state, restored failing evidence, failure followed by unknown, recovery, recurrence and repeated reports.
 - Fresh versus restored startup/restart evidence; acknowledgment without clearance; current evidence gaps without false recovery.
@@ -46,5 +47,5 @@ Implementation is pending in the [roadmap](../roadmap.md#current-work). Before s
 - Independent condition and availability findings, grouped presentation, notification defaults missing or edited, dashboard-only setup and global sending off.
 - Mocked direct notification services and optional consumer events, queued observations during I/O and stable delivery ids through outbox replay.
 
-Use existing condition-check APIs. Identify any required health-tree change in both repositories before implementation. This decision draft changes no runtime behavior.
+Use existing condition-check APIs. Identify any required health-tree change in both repositories before implementation. Reuse the existing policy editor, flat source choices and named notifications; this decision adds no separate setup workflow.
 

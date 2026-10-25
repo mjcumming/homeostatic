@@ -1,15 +1,16 @@
-import {sourceReporting} from "./reporting.mjs?v=110";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=110";
-import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=110";
-import {monitoringTree} from "./configuration.mjs?v=110";
-import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=110";
+import {sourceReporting} from "./reporting.mjs?v=114";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=114";
+import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=114";
+import {monitoringTree} from "./configuration.mjs?v=114";
+import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=114";
 
-import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=110";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=110";
-import {upsSourceSummary} from "./ups.mjs?v=110";
-import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=110";
-import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=110";
-import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=110";
+import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=114";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=114";
+import {upsSourceSummary} from "./ups.mjs?v=114";
+import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=114";
+import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=114";
+import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=114";
+import {sourceOpenings} from "./left-open.mjs?v=114";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
@@ -515,7 +516,7 @@ function deviceInspection(card,node,coverage) {
     const reading=member=>member.restored?"Not provided by integration":member.state==="missing"?"No current state":member.state==="unknown"?"Available · no value":member.state==="unavailable"?uniformUnavailable?"":"Unavailable":`Available · ${sourceReading(member)}`;
     if(members.length)body=`<section class="source-section source-device-entities"><h3>${source.watched?"Monitored entities":"Entities"}</h3><ul class="source-device-members">${members.map(member=>`<li class="source-device-member"><span>${checkbox(member)}${memberName(member)}</span>${reading(member)?`<span class="source-device-member-state">${esc(reading(member))}</span>`:""}</li>`).join("")}</ul></section>`;
     if(counts.total>members.length)body+=`<p class="small">${members.length} of ${counts.total} entity readings loaded.</p><button type="button" class="button" data-action="more-source-evidence"${evidence.moreLoading?' disabled':''}>${evidence.moreLoading?'Loading entities…':'Load more entities'}</button>${evidence.moreError?`<p role="alert">${esc(evidence.moreError)}</p>`:""}`;
-    body+=sourceTemperature(source,evidence);
+    body+=sourceTemperature(source,evidence)+sourceOpenings(source,evidence);
   }
   const excluded=node.children.filter(child=>child.source?.kind==="entity"&&!(evidence?.members||[]).some(member=>member.node_id===child.source.node_id)&&availabilityMonitoring(card,child.source).canResume);
   const exclusions=excluded.length?`<section class="source-excluded-members"><h4>${excluded.length} ${excluded.length===1?"entity with an availability exclusion":"entities with availability exclusions"}</h4><ul class="source-device-members">${excluded.map(child=>`<li class="source-device-member"><span>${checkbox(child.source)}${memberName(child.source)}</span></li>`).join("")}</ul></section>`:"";
@@ -554,7 +555,7 @@ function sourceInspection(card,node,coverage) {
     const title=member?.restored?`Not currently provided by ${sourceIntegrationName(card,source)||"its integration"}`:member?.state==="unavailable"?"Home Assistant reports this entity as unavailable":!member||member.state==="missing"?"No current state from Home Assistant":"Available in Home Assistant";
     facts+=`<p class="source-entity-condition">${esc(title)}</p>`;
     if(member&&!member.restored&&!['unavailable','missing'].includes(member.state))facts+=`<p class="source-current-value">${esc(member.state==="unknown"?"Home Assistant reports no value":sourceReading(member))}</p>`;
-    body+=sourceTemperature(source,evidence);
+    body+=sourceTemperature(source,evidence)+sourceOpenings(source,evidence);
   }
   const availability=source.kind==="entity"?availabilityMonitoring(card,source):null;
   const configure=source.kind==="battery"||availability&&!availability.canStop&&!availability.canResume;
@@ -601,7 +602,7 @@ function currentSourceEvidence(card,node,episodes) {
     body=findings.map(message=>`<p>${esc(message)}</p>`).join("");
     href=source.automation_url||source.fix_url||"";action=source.kind==="broken_automation"?"Inspect automation in Home Assistant":"Open in Home Assistant";
   }
-  return `${sourceTemperature(source,evidence)}<section class="source-condition${unavailable||unknown?' needs-attention':''}"><h3>${esc(title)}</h3>${body}</section>${href?`<a class="link" href="${esc(href)}">${action}</a>`:""}${["entity","device"].includes(source.kind)?"":updated}`;
+  return `${sourceTemperature(source,evidence)+sourceOpenings(source,evidence)}<section class="source-condition${unavailable||unknown?' needs-attention':''}"><h3>${esc(title)}</h3>${body}</section>${href?`<a class="link" href="${esc(href)}">${action}</a>`:""}${["entity","device"].includes(source.kind)?"":updated}`;
 }
 
 function sourceIssueLinks(card,node,episodes,data) {

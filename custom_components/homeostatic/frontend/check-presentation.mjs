@@ -27,7 +27,7 @@ export function retainedProblem(problem, status, findings = []) {
   const failure = status?.last_failure || findings.find(item=>["warn","fail"].includes(item.status));
   if (!problem || !checkWaiting(status) || !failure) return problem;
   return {...problem,
-    headline:failure.reason === "vacuum_error" ? `Vacuum error — ${status.current.reason === "vacuum_unavailable" ? "current status unavailable" : "waiting for current status"}` : "Reported problem — waiting for current information",
+    headline:problem.conditionName ? `${problem.conditionName} — waiting for current information` : failure.reason === "lock_jammed" ? "Lock jam reported — waiting for current state" : failure.reason === "vacuum_error" ? `Vacuum error — ${status.current.reason === "vacuum_unavailable" ? "current status unavailable" : "waiting for current status"}` : "Reported problem — waiting for current information",
     summary:failure.message || "A problem was reported earlier. Its recovery has not been confirmed.",
     nextStep:status.current.message || "Wait for current information to confirm whether the problem has cleared.",
     tone:"uncertain",reported:failure.message,reportedAt:failure.observed_at,historical:true};

@@ -17,6 +17,7 @@ from custom_components.homeostatic.policy_defaults import (
     initial_settings,
     policy_templates,
 )
+from custom_components.homeostatic.reported_conditions import CONDITIONS
 
 
 def test_defaults_are_independent_and_dashboard_only(hass: HomeAssistant) -> None:
@@ -43,6 +44,9 @@ def test_defaults_are_independent_and_dashboard_only(hass: HomeAssistant) -> Non
         "default_broken_automations": True,
         "default_batteries": True,
         "default_vacuums": True,
+        "default_jammed_locks": False,
+        "default_left_open": False,
+        **{f"default_{check}": False for check in CONDITIONS},
         "default_entities_not_provided": True,
     }
     assert {
@@ -195,7 +199,7 @@ async def test_fresh_setup_preview_and_delete(
     assert details["source"]["monitoring_source"] == cloned.monitoring_source
     await client.send_json({"id": 3, "type": "homeostatic/configuration"})
     configuration = (await client.receive_json())["result"]
-    assert len(configuration["monitoring_policy_templates"]) == 11
+    assert len(configuration["monitoring_policy_templates"]) == len(policy_templates())
     draft = configuration["settings"]
     draft["monitoring_policies"] = []
     await client.send_json(

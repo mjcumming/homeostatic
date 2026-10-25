@@ -4,7 +4,7 @@
 
 This page describes Homeostatic's entities, action schemas, identifiers, cards, dashboard strategy and event-consumer blueprints. It is intended for people integrating Homeostatic with scripts, automations or dashboards. Everyday configuration belongs in the [manual](guide.md).
 
-Automation-defined alerts are unfinished and are not ready for user setup. Their existing action and blueprint contracts remain documented under [Unfinished alert interfaces](#unfinished-alert-interfaces) for development and compatibility work. They are outside the supported manual workflows.
+Home Assistant automations can report continuing problems through the [automation alert interfaces](#automation-alert-interfaces). This reference describes their implemented contracts and the distinction between saved alert reporting choices and monitoring-policy notification assignments.
 
 ## Contents
 
@@ -16,7 +16,7 @@ Automation-defined alerts are unfinished and are not ready for user setup. Their
 - [Dashboard strategy](#dashboard-strategy)
 - [Panel addresses](#panel-addresses)
 - [Blueprints](#blueprints)
-- [Unfinished alert interfaces](#unfinished-alert-interfaces)
+- [Automation alert interfaces](#automation-alert-interfaces)
 - [Events](#events)
 
 ## Setup
@@ -29,7 +29,7 @@ Timing labels, defaults, units and behavior are listed in [Notification and cont
 
 ### Fixed limits
 
-History retention, operator-control bounds and other user-facing limits are listed in [Notification and control settings](manual/settings-reference.md). Individual action schemas below repeat bounds needed to validate an API request. Alert-interface limits are confined to the [unfinished interface reference](#unfinished-alert-interfaces).
+History retention, operator-control bounds and other user-facing limits are listed in [Notification and control settings](manual/settings-reference.md). Individual action schemas below repeat bounds needed to validate an API request. Alert-interface limits are listed under [Automation alert interfaces](#automation-alert-interfaces).
 
 ### Policy notifications
 
@@ -51,7 +51,7 @@ These canonical source forms help interpret inventory data; callers should read 
 | Battery | `battery:registry:<primary entity registry id>`, or `battery:entity_id:<entity id>` |
 | Vacuum | `vacuum:registry:<entity registry id>`, or `vacuum:entity_id:<entity id>` |
 
-Other source kinds also expose their identities through inventory. Existing developer alert records use `situation:<id>`; their contracts are [unfinished](#unfinished-alert-interfaces). Functions are dormant: they have no supported setup workflow or registered public action in the current integration.
+Other source kinds also expose their identities through inventory. Automation alert records use `situation:<id>`; their contracts are under [Automation alert interfaces](#automation-alert-interfaces). Functions are dormant: they have no supported setup workflow or registered public action in the current integration.
 
 ## Entities
 
@@ -112,7 +112,7 @@ Queries require a running Homeostatic instance. Unknown identities and invalid f
 | [`start_maintenance`](#homeostaticstart_maintenance) | Change | Hold new issues for equipment undergoing work. |
 | [`cancel_control`](#homeostaticcancel_control) | Change | End one pause or maintenance window early. |
 
-Developer-only `report_alert`, `manage_alert` and `report_situation` are documented [separately](#unfinished-alert-interfaces).
+The automation reporting actions `report_alert`, `manage_alert` and the existing-declaration compatibility action `report_situation` are documented [separately](#automation-alert-interfaces).
 
 ### `homeostatic.inventory`
 
@@ -432,13 +432,15 @@ The blueprint reuses notification tags, sends silent updates when requested and 
 | --- | --- | --- |
 | Changes to record | `opened`, `updated`, `resolved` | Event changes to log. |
 
-## Unfinished alert interfaces
+<a id="unfinished-alert-interfaces"></a>
 
-Automation-defined alerts and their setup blueprints are unfinished and not ready for user use. This section records existing schemas for developers inspecting the implementation or maintaining saved test configurations. It is not an installation procedure or a recommendation to create new alerts. The everyday manual deliberately excludes this feature.
+## Automation alert interfaces
+
+The alert blueprint and reporting actions register automation-owned problems, update their evidence and preserve their identities across reloads. [Automation-defined alerts](automation-situations.md) explains which choices belong to the Home Assistant automation. The contracts below describe current behavior, including the existing saved reporting configuration.
 
 ### Reporting choices
 
-The `report_alert` schema accepts the profile values below. They select entries in the separate `automation_profiles` mapping. The current editors do not create that mapping, and a monitoring policy's named notification assignment does not configure it. Existing saved mappings may use their own timing and delivery methods; these identifiers alone do not promise a schedule or destination.
+The `report_alert` schema accepts the profile values below. Matching `automation_profiles` entries compile into notification routes. The current editors do not create that mapping, and a monitoring policy's named notification assignment does not configure it. Source-specific assignments and current default notification rows can also supply routes under the existing policy order. Existing saved mappings may use their own timing and delivery methods; the profile identifiers alone do not promise a schedule or destination. The blueprint's fixed selector is separate from the current reusable named notifications.
 
 | `profile` | Existing selector label |
 | --- | --- |
@@ -449,11 +451,11 @@ The `report_alert` schema accepts the profile values below. They select entries 
 | `weekly` | Weekly summary |
 | `dashboard` | Dashboard only |
 
-Selecting a profile neither creates delivery methods nor enables global sending. `dashboard` makes no outgoing request. Report responses distinguish `dashboard_only`, `requests_disabled`, `configured` and `missing_destinations`.
+Selecting a profile neither creates delivery methods nor enables global sending. Report responses distinguish `dashboard_only`, `requests_disabled`, `configured` and `missing_destinations`. This status checks the selected alert-profile mapping and global sending; it is not a complete explanation of the effective notification routes. In particular, a missing profile mapping can coexist with delivery through current default notification rows.
 
 ### `homeostatic.report_alert`
 
-Developer-only unfinished interface. Reports a continuing condition owned by a saved automation. The first accepted report creates its declaration. The owning automation's saved identity and `alert_key` determine the alert identity.
+Reports a continuing condition owned by a saved automation. The first accepted report creates its declaration. The owning automation's saved identity and `alert_key` determine the alert identity.
 
 | Field | Required | Value |
 | --- | --- | --- |
@@ -470,7 +472,7 @@ Returns `node_id`, `retired` and `reporting_status`. Up to 1000 active declarati
 
 ### `homeostatic.manage_alert`
 
-Developer-only unfinished interface.
+Retires or resumes a condition owned by a saved automation.
 
 | Field | Required | Value |
 | --- | --- | --- |
@@ -482,7 +484,7 @@ Retiring ends monitoring and rejects further reports until resumed. It does not 
 
 ### `homeostatic.report_situation`
 
-Existing-declaration compatibility interface within the unfinished alert feature. It accepts only previously saved situations with a `report_timeout`; the current manual provides no setup path for these declarations.
+Existing-declaration compatibility interface. It accepts only previously saved situations with a `report_timeout`. Use the automation-owned alert blueprint for automatic registration of a new problem.
 
 | Field | Required | Value |
 | --- | --- | --- |
@@ -493,7 +495,7 @@ Returns `node_id`, `state`, `accepted_at` and `expires_at`. A declaration adopte
 
 ### Homeostatic alert
 
-Developer-only unfinished blueprint: [`alert.yaml`](../blueprints/automation/homeostatic/alert.yaml). It declares Home Assistant 2026.9.0 as its minimum version. Its existing description references reporting setup that the current editors do not provide; those words do not establish a supported setup procedure.
+[`alert.yaml`](../blueprints/automation/homeostatic/alert.yaml) registers a continuing problem from a saved Home Assistant automation and reports its current evidence. It declares Home Assistant 2026.9.0 as its minimum version. Its fixed reporting selector uses the choices described above; the current editors do not create alert-profile mappings.
 
 | Input | Existing contract |
 | --- | --- |
@@ -509,7 +511,7 @@ The implementation reevaluates on required-entity changes, HA startup, every min
 
 ### Report a situation to Homeostatic
 
-Developer-only compatibility blueprint: [`report_situation.yaml`](../blueprints/automation/homeostatic/report_situation.yaml). It targets previously saved declarations and belongs to the unfinished alert feature.
+Compatibility blueprint: [`report_situation.yaml`](../blueprints/automation/homeostatic/report_situation.yaml). It targets previously saved declarations; the automation-owned alert blueprint registers new problems automatically.
 
 | Input | Existing contract |
 | --- | --- |
@@ -520,7 +522,7 @@ Developer-only compatibility blueprint: [`report_situation.yaml`](../blueprints/
 
 ### Diagnostic state as problem
 
-Developer-only helper for the unfinished alert feature: [`diagnostic_state.yaml`](../blueprints/template/homeostatic/diagnostic_state.yaml). It produces a template binary sensor; creating that sensor does not establish a supported Homeostatic alert setup.
+[`diagnostic_state.yaml`](../blueprints/template/homeostatic/diagnostic_state.yaml) produces a template binary sensor from documented fault and clear values. An alert automation can use that sensor as evidence; creating the sensor does not register an alert automatically.
 
 | Input | Existing contract |
 | --- | --- |

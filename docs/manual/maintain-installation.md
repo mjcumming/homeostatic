@@ -8,7 +8,7 @@ Use these procedures for an existing installation. For a new installation, start
 
 Read the target release's [upgrade notes](../../CHANGELOG.md) first. Check that a usable Home Assistant backup exists. Take a fresh backup before an update that changes saved data, configuration structure or dependencies, or when no usable recent backup is available.
 
-Upgrades preserve your policies, source selections, exclusions, notification assignments, delivery methods and sending switch. Disabled policies stay disabled, and deleted supplied policies and notifications stay deleted. Saved issue history and active acknowledgment and pause controls remain in place.
+Upgrades preserve your policies, source selections, exclusions, notification assignments, delivery methods and sending switch. New supplied policies appear once, disabled. Existing disabled policies stay disabled, and deleted supplied policies and notifications stay deleted. Saved issue history and active acknowledgment and pause controls remain in place.
 
 Supported older notification settings gain a **Collection delay (seconds)** of 0 where that setting was previously absent, preserving their existing timing and destinations. Homeostatic first checks that it can safely resume the saved notification state. Older device availability policies become entity availability policies with their saved device coverage retained; [Choose what to monitor](policies.md#choose-a-scope-that-will-stay-useful) explains how that coverage handles future sources. Existing settings that already use the current format remain unchanged.
 

@@ -8,6 +8,7 @@ from typing import Any
 from .catalog import Source
 from .config import Settings
 from .notification_definitions import resolve_rows
+from .reported_conditions import CONDITIONS
 
 
 def subject(source: Source) -> str | None:
@@ -20,8 +21,11 @@ def subject(source: Source) -> str | None:
         "entity",
         "battery",
         "vacuum",
+        "lock",
         "thermostat",
         "temperature_limit",
+        "left_open",
+        *CONDITIONS,
     }:
         references = source.attributes.get("entity", ())
         return f"entity:{references[0]}" if references else canonical

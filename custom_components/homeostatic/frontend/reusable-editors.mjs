@@ -1,9 +1,11 @@
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=110";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=110";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=110";
-import {entitySelection,entityScopeSummary,entitySelected,editEntitySelection} from "./entity-selection.mjs?v=110";
+import {REPORTED_CONDITIONS} from "./reported-conditions.mjs?v=114";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=114";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=114";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=114";
+import {entitySelection,entityScopeSummary,entitySelected,editEntitySelection} from "./entity-selection.mjs?v=114";
+import {leftOpenFields,leftOpenValidation,leftOpenSummary,leftOpenEndText} from "./left-open.mjs?v=114";
 
-import {SOURCE_CATEGORIES,sourceCategory,sourceNoun,sourceScopeSummary,flatSourceSelection,editSourceSelection} from "./source-selection.mjs?v=110";
+import {SOURCE_CATEGORIES,sourceCategory,sourceNoun,sourceScopeSummary,flatSourceSelection,editSourceSelection} from "./source-selection.mjs?v=114";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -42,11 +44,12 @@ function policyDetectionSummary(policy) {
   const p=policy.parameters||{};
   if(hasAvailabilityWait(policy))return p.duration_seconds?`Unavailable for at least ${formatPolicyDuration(p.duration_seconds)}`:"Unavailable without waiting";
   if(policy.check==="battery")return `Battery at or below ${p.threshold??20}%`;
+  if(policy.check==="left_open")return leftOpenSummary(policy);
   if(policy.check==="entity_not_provided")return `Not provided for at least ${formatPolicyDuration(p.duration_seconds??86400)}`;
   if(policy.check==="temperature_limit")return [p.minimum!=null?`Below ${p.minimum}${p.unit}`:"",p.maximum!=null?`Above ${p.maximum}${p.unit}`:"",p.duration_seconds?`for ${formatPolicyDuration(p.duration_seconds)}`:""].filter(Boolean).join(" · ")||"Temperature bounds need configuration";
   if(policy.check==="thermostat")return `${p.margin}${p.unit} deviation · ${p.progress_seconds/60} minute progress window`;
   if(policy.check==="ups_reserve")return [p.charge_low!==undefined?`Charge at or below ${p.charge_low}%`:"",p.runtime_low_minutes!==undefined?`Runtime at or below ${p.runtime_low_minutes} minutes`:""].filter(Boolean).join(" · ");
-  return "";
+  return REPORTED_CONDITIONS[policy.check]?`Home Assistant reports ${REPORTED_CONDITIONS[policy.check].report}`:"";
 }
 function rowDefinition(definitions,row) {
   return row.profile ? definitions.profiles?.[row.profile] : row;
@@ -101,9 +104,10 @@ export function nextDefinitionId(existing,prefix) {
 }
 
 export const MONITORING_TYPES = {
+  ...Object.fromEntries(Object.entries(REPORTED_CONDITIONS).map(([key,value])=>[key,value.name])),
   integration: "Integration availability", entity: "Unavailable entities",
-  battery: "Low battery", vacuum: "Vacuum error", repair: "Repairs", broken_automation: "Broken automations",
-  thermostat: "Thermostat progress", temperature_limit: "Temperature limits", entity_not_provided: "Missing entities",
+  battery: "Low battery", vacuum: "Vacuum error", lock_jam: "Jammed lock", repair: "Repairs", broken_automation: "Broken automations",
+  thermostat: "Thermostat progress", temperature_limit: "Temperature limits", entity_not_provided: "Missing entities", left_open:"Left open",
   ups_power: "UPS backup power", ups_reserve: "UPS low reserve", ups_battery_replacement: "UPS battery replacement", ups_fault: "UPS faults",
 };
 export function policyType(policy) {
@@ -113,12 +117,13 @@ export function newMonitoringPolicy(existing,type="entity",profiles=null,categor
   if(type==="availability")type="entity";
   const check=["integration","entity"].includes(type)?"availability":type;
   const parameters = check === "thermostat" ? {unit:"°F",margin:2,progress:2,worsening:2,progress_seconds:3600}
-    : check === "temperature_limit" ? {unit:"°F",duration_seconds:0} : check === "battery" ? {threshold:20} : check === "entity_not_provided" ? {duration_seconds:86400} : {};
-  const kind = check.startsWith("ups_")?"ups":["thermostat","temperature_limit","entity_not_provided"].includes(check)?"entity":type;
-  const choices=check==="ups_reserve"?[["morning","mains"],["acknowledge","backup"]]:[[{thermostat:"urgent",temperature_limit:"acknowledge",vacuum:"evening",ups_power:"urgent",ups_fault:"urgent"}[check]||"morning"]];
+    : check === "left_open" ? {unit:"°F",duration_seconds:null,use_temperature:false} : check === "temperature_limit" ? {unit:"°F",duration_seconds:0} : check === "battery" ? {threshold:20} : check === "entity_not_provided" ? {duration_seconds:86400} : {};
+  const kind = check==="lock_jam"?"lock":check.startsWith("ups_")?"ups":["thermostat","temperature_limit","entity_not_provided","left_open"].includes(check)?"entity":type;
+  const reported=REPORTED_CONDITIONS[check];
+  const choices=reported?[[reported.profile||"immediate"]]:check==="ups_reserve"?[["morning","mains"],["acknowledge","backup"]]:[[{thermostat:"urgent",temperature_limit:"acknowledge",left_open:"acknowledge",vacuum:"evening",lock_jam:"immediate",ups_power:"urgent",ups_fault:"urgent"}[check]||"morning"]];
   const notifications=choices.filter(([profile])=>profiles?.[profile]).map(([profile,when],index)=>({id:`notification-${index+1}`,profile,...(when?{when}:{})}));
   const sourceCategory=type==="entity"?SOURCE_CATEGORIES[category]||SOURCE_CATEGORIES.any:SOURCE_CATEGORIES.any;
-  return {id:nextDefinitionId(existing,"policy"),name:sourceCategory.match?sourceCategory.name:MONITORING_TYPES[type],check,match:{kind:[kind],...(sourceCategory.match?structuredClone(sourceCategory.match):{}),...(type==="entity"?{entity:[]}: {})},parameters,enabled:false,notifications};
+  return {id:nextDefinitionId(existing,"policy"),name:sourceCategory.match?sourceCategory.name:MONITORING_TYPES[type],check,match:{kind:[kind],...(sourceCategory.match?structuredClone(sourceCategory.match):{}),...(["entity","left_open"].includes(type)||reported&&!reported.all?{entity:[]}: {})},parameters,enabled:false,notifications};
 }
 
 export function emptyNotificationDefinitions(timezone="UTC") {
@@ -274,6 +279,7 @@ function policyFields(card,policy) {
   }
   if(check==="entity_not_provided")parameterFields=input("policies",id,"parameters:duration_seconds","For at least (hours)",(parameters.duration_seconds??86400)/3600,"number",'data-duration-unit="hours" min="0" max="8760" step="any" required')+'<p class="small policy-help">The owning integration must be loaded. Startup and reload gaps restart the wait. Open the entity in Home Assistant to inspect it. Use 0 for no waiting period.</p>';
   if(check==="temperature_limit")parameterFields=temperatureFields(card,policy);
+  if(check==="left_open")parameterFields=durationField(card,policy,"Open for at least",parameters.duration_seconds)+leftOpenFields(card,policy)+policyValidationMessage(card,id)+`<div class="policy-rule" role="status"><p>${esc(leftOpenSummary(policy))}</p><p>${esc(leftOpenEndText(policy))}</p></div>`;
   if(check==="thermostat") {
     parameterFields=select("policies",id,"parameters:unit","Temperature unit",parameters.unit,{"°F":"°F","°C":"°C",K:"K"});
     const fields=[["margin","Deviation from target"],["progress","Required progress"],["worsening","Worsening threshold"],["progress_seconds","Progress window (seconds)"]];
@@ -437,12 +443,24 @@ function invalidate(card) {
   card.editors.deliveryMethodTest=null;
 }
 
+const keyboardSelects=new WeakSet();
+
+/** Remember how a native editor picker was opened without platform detection. */
+export function trackEditorSelectInput(event) {
+  const element=event.target;
+  if(element?.tagName!=="SELECT")return;
+  if(event.type==="keydown")keyboardSelects.add(element);
+  else if(event.type==="pointerdown")keyboardSelects.delete(element);
+}
+
 function renderAfterEdit(card,element) {
   const dataset={...element.dataset},start=element.selectionStart,end=element.selectionEnd;
+  const restoreFocus=element.tagName!=="SELECT"||keyboardSelects.has(element);
+  if(element.tagName==="SELECT")element.blur();
   delete dataset.indeterminate;
   card.render();
   const replacement=[...(card.main?.querySelectorAll?.("[data-definition-field],[data-row-field],[data-definition-delivery-search],[data-definition-template],[data-definition-category]")||[])].find(item=>Object.entries(dataset).every(([key,value])=>item.dataset[key]===value));
-  (replacement||(dataset.definitionField?.startsWith("entity-")?card.main?.querySelector?.('[data-definition-field="entity-selected-only"]'):dataset.definitionField?.startsWith("source-")?card.main?.querySelector?.('[data-definition-field="source-selected-only"]'):null))?.focus?.({preventScroll:true});
+  if(restoreFocus)(replacement||(dataset.definitionField?.startsWith("entity-")?card.main?.querySelector?.('[data-definition-field="entity-selected-only"]'):dataset.definitionField?.startsWith("source-")?card.main?.querySelector?.('[data-definition-field="source-selected-only"]'):null))?.focus?.({preventScroll:true});
   if(start!==null&&start!==undefined)replacement?.setSelectionRange?.(start,end);
 }
 
@@ -472,6 +490,10 @@ export function editReusable(card,event) {
   initializeScopedConfiguration(card.editors);
   const draft=card.editors.settingsDraft;
   if(!Object.keys(d).some(key=>key.startsWith("definition")||key.startsWith("row")))return false;
+  // Native pickers must commit before the editor replaces their controls.
+  if(event.type==="input"&&(element.tagName==="SELECT"||element.type==="radio"))return true;
+  if(element.type==="radio"&&!element.checked)return true;
+  const restoreSelectFocus=element.tagName!=="SELECT"||keyboardSelects.has(element);
   if(card.editors.settingsBusy||card.editors.configBusy)return true;
   const policies=draft.monitoring_policies||[];
   let definitions=draft.notification_definitions;
@@ -486,7 +508,7 @@ export function editReusable(card,event) {
       if(card.editors.scopedBusy)return true;
       if(action==="save-scoped") {
         const policy=scope.kind==="policy"?policies.find(item=>item.id===id):null;
-        const validation=policy?.check==="temperature_limit"?temperatureValidation(policy):policy&&hasAvailabilityWait(policy)?durationValidation(availabilityDuration(policy)):null;
+        const validation=policy?.check==="left_open"?leftOpenValidation(policy):policy?.check==="temperature_limit"?temperatureValidation(policy):policy&&hasAvailabilityWait(policy)?durationValidation(availabilityDuration(policy)):null;
         if(validation) {
           card.editors.policyValidation={id,...validation};card.editors.scopedStatusScope=`policy:${id}`;card.editors.scopedError=validation.message;card.editors.scopedNotice=null;card.render();
           card.main.querySelector?.(`[data-definition-field="parameters:${validation.field}"]`)?.focus?.();return true;
@@ -495,7 +517,7 @@ export function editReusable(card,event) {
         if(policy&&["area","label"].some(field=>Array.isArray(policy.match?.[field])&&!policy.match[field].length)) {
           card.editors.scopedStatusScope=`policy:${id}`;card.editors.scopedError="Choose at least one area or label, or change Future sources.";card.editors.scopedNotice=null;card.render();return true;
         }
-        if(policy&&!["entity","entity_not_provided"].includes(policyType(policy))&&Object.values(policy.match||{}).some(values=>Array.isArray(values)&&!values.length)) {
+        if(policy&&(policy.enabled||!REPORTED_CONDITIONS[policy.check])&&!["entity","entity_not_provided"].includes(policyType(policy))&&Object.values(policy.match||{}).some(values=>Array.isArray(values)&&!values.length)) {
           card.editors.scopedStatusScope=`policy:${id}`;card.editors.scopedError="Choose at least one source, or change Future sources.";card.editors.scopedNotice=null;card.render();return true;
         }
         void saveEditor(card,scope);
@@ -652,6 +674,11 @@ export function editReusable(card,event) {
         return true;
       }else if(field.startsWith("parameters:")) {
         const key=field.slice(11);
+        if(item.check==="left_open"&&key==="monitoring_hours") {
+          item.parameters.start=element.value==="daily"?item.parameters.start||"22:00":null;
+          item.parameters.end=element.value==="daily"?item.parameters.end||"07:00":null;
+          invalidate(card);renderAfterEdit(card,element);return true;
+        }
         if(key==="unit"&&item.parameters.unit!==element.value) {
           const from=item.parameters.unit,to=element.value,difference=item.check==="thermostat";
           const keys=difference?["margin","progress","worsening"]:["minimum","maximum"];
@@ -690,13 +717,13 @@ export function editReusable(card,event) {
     }else return false;
   }
   invalidate(card);
-  const editingDetection=event.type!=="click"&&kind==="policies"&&element.type==="number"&&policies.find(item=>item.id===id&&(item.check==="temperature_limit"||hasAvailabilityWait(item)&&d.definitionField==="parameters:duration_seconds"));
+  const editingDetection=event.type!=="click"&&kind==="policies"&&element.type==="number"&&policies.find(item=>item.id===id&&(["temperature_limit","left_open"].includes(item.check)||hasAvailabilityWait(item)&&d.definitionField==="parameters:duration_seconds"));
   const editingCollection=event.type!=="click"&&kind==="profiles"&&d.definitionField==="timing:collection_delay_seconds";
   if(editingDetection||editingCollection) {
     // Keep native intermediate input such as a leading minus or trailing decimal.
     if(editingDetection) {
       const rule=card.main?.querySelector?.(".policy-rule");
-      if(rule)rule.textContent=editingDetection.check==="temperature_limit"?temperatureRule(editingDetection):availabilityRule(editingDetection);
+      if(rule)rule.textContent=editingDetection.check==="left_open"?`${leftOpenSummary(editingDetection)} ${leftOpenEndText(editingDetection)}`:editingDetection.check==="temperature_limit"?temperatureRule(editingDetection):availabilityRule(editingDetection);
       card.main?.querySelector?.(".policy-section .config-error")?.remove?.();
       for(const field of card.main?.querySelectorAll?.('.unified-policy-editor [aria-invalid="true"]')||[]) {
         field.removeAttribute("aria-invalid");field.removeAttribute("aria-describedby");
@@ -712,7 +739,7 @@ export function editReusable(card,event) {
     return true;
   }
   renderAfterEdit(card,element);
-  if(notificationFocus) {
+  if(notificationFocus&&restoreSelectFocus) {
     const target=[...(card.main?.querySelectorAll?.('[data-row-field="profile"]')||[])].find(item=>item.dataset.rowScope===notificationFocus.scope&&item.dataset.rowId===notificationFocus.id);
     const focus=target?.disabled?card.main?.querySelector?.('[data-definition-action="save-scoped"]'):target;
     focus?.focus?.({preventScroll:true});

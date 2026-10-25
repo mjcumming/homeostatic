@@ -9,6 +9,8 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from .entity_not_provided import parameters as not_provided_parameters
+from .left_open import LeftOpenParameters
+from .reported_conditions import CONDITIONS
 from .rules import Attributes, CatalogRule, alternatives, attributes
 from .temperature import TemperatureLimitParameters, ThermostatParameters
 from .ups_parameters import UPS_CHECKS, ReserveParameters
@@ -19,6 +21,9 @@ CHECKS = frozenset(
         "entity_not_provided",
         "battery",
         "vacuum",
+        "lock_jam",
+        "left_open",
+        *CONDITIONS,
         "repair",
         "broken_automation",
         "thermostat",
@@ -158,7 +163,24 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
         parameters = row.get("parameters", {})
         if not isinstance(parameters, dict):
             raise ValueError("Detection parameters must be an object")
-        if check == "entity_not_provided":
+        if check in CONDITIONS:
+            if match.get("kind") != (check,):
+                raise ValueError("Choose sources for this reported condition")
+            if row.get("enabled") and any(
+                key in match and not match[key] for key in ("entity", "area", "label")
+            ):
+                raise ValueError("Choose at least one source, area or label")
+        if check == "left_open":
+            if match.get("kind") != ("entity",) or "entity" not in match:
+                raise ValueError("Left-open policies require selected opening sensors")
+            if row.get("enabled") and not match["entity"]:
+                raise ValueError("Select at least one door or window")
+            parameters = asdict(
+                LeftOpenParameters.from_data(
+                    parameters, complete=row.get("enabled") is True
+                )
+            )
+        elif check == "entity_not_provided":
             if match.get("kind") != ("entity",):
                 raise ValueError("Entities not provided policies select entities")
             parameters = not_provided_parameters(parameters)
@@ -244,6 +266,13 @@ def parse_excluded_sources(value: object) -> tuple[str, ...]:
                 "battery:entity_id:",
                 "vacuum:registry:",
                 "vacuum:entity_id:",
+                "lock:registry:",
+                "lock:entity_id:",
+                *(
+                    f"{check}:{reference}:"
+                    for check in CONDITIONS
+                    for reference in ("registry", "entity_id")
+                ),
                 "ups:",
                 "repair:",
                 "broken_automation:",

@@ -1,7 +1,7 @@
-import {notProvidedVisible} from "./entity-not-provided.mjs?v=110";
+import {notProvidedVisible} from "./entity-not-provided.mjs?v=114";
 /** Read-model helpers and a shared, lifecycle-bound HA subscription. */
-import {entityProblem, integrationProblem} from "./problem.mjs?v=110";
-import {waitingOnly} from "./check-presentation.mjs?v=110";
+import {entityProblem, integrationProblem} from "./problem.mjs?v=114";
+import {waitingOnly} from "./check-presentation.mjs?v=114";
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -95,7 +95,7 @@ export function locationTree(data) {
   const cached = treeCache.get(inventory);
   if (cached && cached.areas === data.areas && cached.floors === data.floors &&
       cached.devices === data.devices && cached.functions === data.functions) return cached.tree;
-  const rows = inventory.filter((source) => ["entity","device","battery","vacuum"].includes(source.kind));
+  const rows = inventory.filter((source) => ["entity","device","battery","vacuum","lock"].includes(source.kind));
   const deviceNames = new Map((data.devices ?? []).map((device) => [device.id, device.name]));
   const describe = (location) => {
     const devices = new Map();

@@ -125,14 +125,36 @@ class ResolvedHistory:
         ][-MAX_EPISODES:]
         self._episodes = {str(record.episode["episode_id"]): record for record in kept}
 
+    def window_ended(self, episode_id: str) -> bool:
+        """Recognize expired opening requests without reading engine persistence."""
+        record = self._episodes.get(episode_id)
+        if record is None:
+            return False
+        annotations = record.episode.get("annotations")
+        return (
+            isinstance(annotations, dict)
+            and annotations.get("homeostatic_end_reason") == "monitoring_window_ended"
+        )
+
     def record(
-        self, event: EpisodeResolved, source: Source | None, now: datetime
+        self,
+        event: EpisodeResolved,
+        source: Source | None,
+        now: datetime,
+        *,
+        ended_reason: str | None = None,
     ) -> None:
         """Capture a terminal episode once, even if its event is replayed."""
         if event.episode.episode_id in self._episodes:
             return
+        episode = json_object(event.episode)
+        if ended_reason is not None:
+            episode["annotations"] = {
+                **event.episode.annotations,
+                "homeostatic_end_reason": ended_reason,
+            }
         self._episodes[event.episode.episode_id] = ResolvedEpisode(
-            episode=json_object(event.episode),
+            episode=episode,
             resolved_at=now,
             resolution=event.resolution,
             absorbed_into=event.absorbed_into,

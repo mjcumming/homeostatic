@@ -71,4 +71,4 @@ The [monitoring reference](manual/monitoring-reference.md) covers all supported 
 - [Upgrade, roll back or remove Homeostatic](manual/maintain-installation.md)
 - [Add Homeostatic to a dashboard](manual/dashboards.md)
 
-For automations that consume Homeostatic's existing results, use the [advanced interface reference](reference.md) and [events reference](events.md). The [roadmap](roadmap.md) covers work that is not ready for use, including automation-defined alerts.
+Home Assistant automations can also report custom continuing problems to Homeostatic. [Automation-defined alerts](automation-situations.md) explains the division of responsibility and the existing reporting choices. For automations that consume Homeostatic's results, use the [advanced interface reference](reference.md) and [events reference](events.md).

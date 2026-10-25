@@ -56,6 +56,9 @@ async def exercise(config: Path, port: int) -> None:
     try:
         await hass.async_start()
         hass.states.async_set("sensor.pilot_source", "42")
+        hass.states.async_set(
+            "binary_sensor.pilot_problem", "off", {"device_class": "problem"}
+        )
         result = await hass.config_entries.flow.async_init(
             "homeostatic", context={"source": "user"}
         )
@@ -64,7 +67,6 @@ async def exercise(config: Path, port: int) -> None:
         entry = result["result"]
         assert entry.state is ConfigEntryState.LOADED, entry.state
         assert entry.data["monitoring_policy_version"] == 1
-        assert len(entry.data["monitoring_policies"]) == 11
         assert {
             item["id"]: item["enabled"] for item in entry.data["monitoring_policies"]
         } == {
@@ -79,6 +81,17 @@ async def exercise(config: Path, port: int) -> None:
             "default_batteries": True,
             "default_vacuums": True,
             "default_entities_not_provided": True,
+            "default_jammed_locks": False,
+            "default_left_open": False,
+            "default_problem": False,
+            "default_lawn_mower": False,
+            "default_tamper": False,
+            "default_safety": False,
+            "default_moisture": False,
+            "default_smoke": False,
+            "default_gas": False,
+            "default_carbon_monoxide": False,
+            "default_alarm_triggered": False,
         }
         assert {
             item["id"]: item["notifications"]
@@ -97,6 +110,17 @@ async def exercise(config: Path, port: int) -> None:
                 ("default_batteries", "morning"),
                 ("default_vacuums", "evening"),
                 ("default_entities_not_provided", "morning"),
+                ("default_jammed_locks", "immediate"),
+                ("default_left_open", "acknowledge"),
+                ("default_problem", "morning"),
+                ("default_lawn_mower", "immediate"),
+                ("default_tamper", "immediate"),
+                ("default_safety", "immediate"),
+                ("default_moisture", "immediate"),
+                ("default_smoke", "immediate"),
+                ("default_gas", "immediate"),
+                ("default_carbon_monoxide", "immediate"),
+                ("default_alarm_triggered", "immediate"),
             )
         }
         definitions = entry.data["notification_definitions"]
@@ -139,19 +163,30 @@ async def exercise(config: Path, port: int) -> None:
             "notify", "homeostatic_smoke", capture_notification
         )
         fresh = deepcopy(dict(entry.data))
-        category_ids = {
+        introduced_ids = (
             "default_cameras",
             "default_locks",
             "default_alarm_panels",
             "default_safety_sensors",
-        }
+            "default_jammed_locks",
+            "default_left_open",
+            "default_problem",
+            "default_lawn_mower",
+            "default_tamper",
+            "default_safety",
+            "default_moisture",
+            "default_smoke",
+            "default_gas",
+            "default_carbon_monoxide",
+            "default_alarm_triggered",
+        )
         assert {"default_devices", "default_important_equipment"} <= set(
             fresh["supplied_policy_introductions"]
         )
-        category_additions = [
-            {**deepcopy(row), "enabled": False}
-            for row in fresh["monitoring_policies"]
-            if row["id"] in category_ids
+        fresh_policies = {row["id"]: row for row in fresh["monitoring_policies"]}
+        additions = [
+            {**deepcopy(fresh_policies[identity]), "enabled": False}
+            for identity in introduced_ids
         ]
         # Use the exact published settings as well as the customized shape below.
         fixture_path = Path(__file__).parents[1] / "tests/fixtures/settings_1_9.json"
@@ -172,7 +207,7 @@ async def exercise(config: Path, port: int) -> None:
                 if source.kind == "device"
             ),
         }
-        published_expected["monitoring_policies"].extend(deepcopy(category_additions))
+        published_expected["monitoring_policies"].extend(deepcopy(additions))
         published_expected["supplied_policy_introductions"] = fresh[
             "supplied_policy_introductions"
         ]
@@ -232,11 +267,19 @@ async def exercise(config: Path, port: int) -> None:
         legacy["monitoring_policies"][1]["enabled"] = False
         del legacy_definitions["profiles"]["evening"]
         del legacy_definitions["profiles"]["weekly"]
+        del legacy_definitions["profiles"]["acknowledge"]
         expected = deepcopy(legacy)
         for profile in expected["notification_definitions"]["profiles"].values():
             if profile["timing"]["mode"] != "report":
                 profile["timing"]["collection_delay_seconds"] = 0
-        expected["monitoring_policies"].extend(deepcopy(category_additions))
+        legacy_additions = deepcopy(additions)
+        for policy in legacy_additions:
+            policy["notifications"] = [
+                row
+                for row in policy["notifications"]
+                if row["profile"] in legacy_definitions["profiles"]
+            ]
+        expected["monitoring_policies"].extend(legacy_additions)
         expected["supplied_policy_introductions"] = fresh[
             "supplied_policy_introductions"
         ]
@@ -261,7 +304,8 @@ async def exercise(config: Path, port: int) -> None:
         adopted["monitoring_policies"] = [
             row
             for row in adopted["monitoring_policies"]
-            if row["id"] != "default_cameras"
+            if row["id"] not in introduced_ids
+            or row["id"] in {"default_locks", "default_problem"}
         ]
         locks = next(
             row
@@ -269,6 +313,20 @@ async def exercise(config: Path, port: int) -> None:
             if row["id"] == "default_locks"
         )
         locks.update(name="Selected locks", parameters={"duration_seconds": 23})
+        problem = next(
+            row
+            for row in adopted["monitoring_policies"]
+            if row["id"] == "default_problem"
+        )
+        problem.update(
+            name="Selected problem sensor",
+            enabled=True,
+            match={
+                "kind": ["problem"],
+                "entity": ["entity_id:binary_sensor.pilot_problem"],
+            },
+            notifications=[],
+        )
         hass.config_entries.async_update_entry(entry, options=adopted)
         for _ in range(2):
             assert await hass.config_entries.async_reload(entry.entry_id)

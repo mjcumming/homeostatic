@@ -18,6 +18,16 @@ The saved policy controls monitoring. An enabled switch in an unsaved draft has 
 
 To find the policies watching an entity, select it in **Monitoring**, then open **Monitoring policies**. Each policy explains what it checks, including its availability and other condition checks. Use **Edit policy** to change one, or close the dialog to return to the entity. The labeled device and integration names open their Home Assistant pages.
 
+## Watch a door or window left open
+
+Choose **Left open**, or edit the supplied **Doors and windows left open** policy. Select the contact sensors to watch and set **Open for at least** with its duration unit. Use zero to report immediately. Newly added openings require selection.
+
+Under **Monitoring hours**, choose **Always**, or choose **During these hours each day** and enter **Start** and **End**. Home Assistant's time zone applies, and the hours can span midnight. Each window starts a fresh countdown. At the end, its issues finish and alerts and reminders stop. History says **Monitoring window ended**; this does not mean the opening closed.
+
+To qualify only in hot or cold weather, select **Use outdoor temperature**. Choose an **Outdoor temperature source**, its comparison unit, and a **Below** limit, an **Above** limit, or both. Choose a temperature sensor or a weather entity that reports current temperature. A reading within the limits resets an unfinished countdown. Temperature changes cannot end an established issue; a current closed report can.
+
+Choose the policy's notifications, enable it and select **Save policy**. Missing readings cannot clear an established issue. Restart discards an unfinished countdown and preserves a qualified issue within its current monitoring window.
+
 ## Watch entities an integration is not providing
 
 Choose **Missing entities** when registered entities remain in Home Assistant but their integration no longer supplies them. The owning integration must be loaded. Select the entities in the tree and set **For at least (hours)**; the default is 24 hours. Save the policy and choose its notification assignments as usual.
@@ -35,9 +45,9 @@ The issue identifies the entity and its loaded integration. Use **Open Entity** 
 | In selected areas | Home Assistant areas define the equipment you want, including new matching sources. |
 | With selected labels | Home Assistant labels define the equipment you want, including new matching sources. |
 
-Flat lists offer the supported **Future sources** choices above, with area or label choices in the same editor. Checked always means monitored. Checking every current source does not automatically include future sources. Integration lists show each configured connection. Selecting one keeps that exact connection; existing saved rules for an integration family still include its future connections. Area and label choices are not offered for integrations.
+Left-open policies use selected openings only. Other flat lists offer the supported **Future sources** choices above, with area or label choices in the same editor. Checked always means monitored. Checking every current source does not automatically include future sources. Integration lists show each configured connection. Selecting one keeps that exact connection; existing saved rules for an integration family still include its future connections. Area and label choices are not offered for integrations.
 
-For battery, vacuum, temperature, thermostat and UPS policies, area and label scopes show matching sources and saved exceptions. Change the area or label selection to broaden that scope. You can exclude individual matching sources.
+For battery, vacuum, jammed-lock, temperature, thermostat and UPS policies, area and label scopes show matching sources and saved exceptions. Change the area or label selection to broaden that scope. You can exclude individual matching sources.
 
 New custom **Unavailable entities** policies start disabled with no entities selected, including when you choose a category. Choose the entities to include; newly added entities stay outside that exact selection. Supplied availability policies follow their saved category scopes. To watch a diagnostic or configuration entity individually, choose it explicitly. Disabled sources remain outside availability monitoring.
 

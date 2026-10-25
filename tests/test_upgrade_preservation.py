@@ -27,7 +27,9 @@ from tests.test_controls import action, end
 from tests.test_lifecycle import start_monitor
 
 
-@pytest.mark.parametrize("field", ["temperature_monitors", "ups_monitors"])
+@pytest.mark.parametrize(
+    "field", ["temperature_monitors", "ups_monitors", "left_open_monitors"]
+)
 @pytest.mark.parametrize("invalid", [[], {"retained": None}, {"retained": []}])
 async def test_malformed_source_state_never_starts_conversion(
     hass: HomeAssistant,

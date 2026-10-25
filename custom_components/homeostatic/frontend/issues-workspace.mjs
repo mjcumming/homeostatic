@@ -1,12 +1,12 @@
-import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=110";
+import {escapeHtml as esc, inventoryRows, visibleEpisodes} from "./model.mjs?v=114";
 
-import {deviceEntityName} from "./device-entities.mjs?v=110";
-import {waitingOnly} from "./check-presentation.mjs?v=110";
-import {issueDeviceId} from "./device-issue-model.mjs?v=110";
+import {deviceEntityName} from "./device-entities.mjs?v=114";
+import {waitingOnly} from "./check-presentation.mjs?v=114";
+import {issueDeviceId} from "./device-issue-model.mjs?v=114";
 
 const count = (value, singular, plural = `${singular}s`) => `${value} ${value === 1 ? singular : plural}`;
 const sourceId = source => source?.monitoring_source || source?.node_id;
-const sourceType = source => ({integration:"Integration connection",device:"Device",entity:"Entity",battery:"Battery",vacuum:"Vacuum",ups:"UPS",broken_automation:"Automation",repair:"Repair",situation:"Situation"}[source?.kind] || "Source");
+const sourceType = source => ({integration:"Integration connection",device:"Device",entity:"Entity",battery:"Battery",vacuum:"Vacuum",lock:"Lock",ups:"UPS",broken_automation:"Automation",repair:"Repair",situation:"Situation"}[source?.kind] || "Source");
 const inventoryMap = data => new Map(inventoryRows(data).map(source=>[source.node_id,source]));
 
 function deviceContext(source, nodes, devices) {

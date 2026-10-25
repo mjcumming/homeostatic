@@ -12,6 +12,8 @@ Open **Homeostatic** in the sidebar. **Open issues** shows the current reported 
 
 Open **Policies**. A fresh installation enables the supplied **Integrations**, **General entity availability**, **Cameras**, **Locks**, **Alarm panels**, **Safety sensors**, **Missing entities**, **Repairs**, **Broken automations**, **Batteries** and **Vacuums** policies. The supplied policies already select named notifications, but those notifications have no delivery methods yet. Temperature, thermostat and UPS policies need their sources and settings configured before enabling.
 
+The other supplied policies start disabled, including **Jammed locks**, **Doors and windows left open** and the sensor-condition checks. Review their sources, detection settings and notifications in **Policies** before enabling them and selecting **Save policy**. The [monitoring reference](monitoring-reference.md) lists their starting selections and detection and recovery rules.
+
 If Homeostatic has been configured before, the saved choices may differ. The [monitoring reference](monitoring-reference.md) lists fresh-install defaults; updates preserve your choices.
 
 ## 2. Inspect familiar equipment

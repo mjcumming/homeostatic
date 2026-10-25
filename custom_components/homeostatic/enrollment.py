@@ -13,6 +13,9 @@ from .battery import candidates as battery_candidates
 from .catalog import Source
 from .config import Settings, resolve_entity
 from .const import DOMAIN
+from .lock import candidates as lock_candidates
+from .reported_conditions import CONDITIONS
+from .reported_conditions import candidates as condition_candidates
 from .rules import Attributes, CatalogRule, attributes, decide
 from .serialization import json_object
 from .ups import candidates as ups_candidates
@@ -33,7 +36,9 @@ def restore_enrollment(value: Any) -> dict[str, Attributes]:
                 "device:",
                 "battery:",
                 "vacuum:",
+                "lock:",
                 "ups:",
+                *(f"{check}:" for check in CONDITIONS),
             )
         ):
             raise ValueError("Invalid enrolled identity")
@@ -201,6 +206,8 @@ def inventory(
     sources.update(battery_candidates(hass, sources))
     sources.update(ups_candidates(hass, sources))
     sources.update(vacuum_candidates(sources))
+    sources.update(lock_candidates(sources))
+    sources.update(condition_candidates(hass, sources))
     members = device_members(hass)
     device_ids = set(members)
     device_ids.update(

@@ -1,0 +1,249 @@
+{
+  "date": "2026-10-24",
+  "generated_at": "2026-10-24T22:12:46.9661532-05:00",
+  "outcome": "Jammed-lock monitoring implemented and locally validated",
+  "owner": "One agent owns Homeostatic completion; no health-tree change required",
+  "governing_decision": "../adr/0075-report-jammed-locks.md",
+  "candidate": {
+    "branch": "main",
+    "revision": "473ae70a9e9e0c71e0de5e89b331fb7370940ae3",
+    "dirty": true,
+    "component_sha256": "4fbdee268c8f58b2bed7f9b633dad5cbcf955fca94f32bcb62443697c6bd1b9f",
+    "fixture_sha256": "c3c0daa0274aedd4a68598dd1b0576251c7d9a791d98f3a0b5d64b1894c636fb",
+    "frozen_at": "2026-10-25T02:59:06.9Z"
+  },
+  "copied_component_files": [
+    "custom_components/homeostatic/__init__.py",
+    "custom_components/homeostatic/attention.py",
+    "custom_components/homeostatic/automation_alerts.py",
+    "custom_components/homeostatic/battery.py",
+    "custom_components/homeostatic/brand/dark_icon.png",
+    "custom_components/homeostatic/brand/dark_icon@2x.png",
+    "custom_components/homeostatic/brand/icon.png",
+    "custom_components/homeostatic/brand/icon@2x.png",
+    "custom_components/homeostatic/broken_automations.py",
+    "custom_components/homeostatic/catalog.py",
+    "custom_components/homeostatic/config_flow.py",
+    "custom_components/homeostatic/config.py",
+    "custom_components/homeostatic/const.py",
+    "custom_components/homeostatic/controls.py",
+    "custom_components/homeostatic/dashboard.py",
+    "custom_components/homeostatic/definitions.py",
+    "custom_components/homeostatic/delivery.py",
+    "custom_components/homeostatic/enrollment.py",
+    "custom_components/homeostatic/entity_not_provided.py",
+    "custom_components/homeostatic/event.py",
+    "custom_components/homeostatic/evidence.py",
+    "custom_components/homeostatic/facts.py",
+    "custom_components/homeostatic/frontend/check-presentation.mjs",
+    "custom_components/homeostatic/frontend/configuration.mjs",
+    "custom_components/homeostatic/frontend/delivery-picker.mjs",
+    "custom_components/homeostatic/frontend/device-entities.mjs",
+    "custom_components/homeostatic/frontend/device-issue-model.mjs",
+    "custom_components/homeostatic/frontend/device-issues.mjs",
+    "custom_components/homeostatic/frontend/entity-not-provided.mjs",
+    "custom_components/homeostatic/frontend/entity-selection.mjs",
+    "custom_components/homeostatic/frontend/evidence.mjs",
+    "custom_components/homeostatic/frontend/history-controls.mjs",
+    "custom_components/homeostatic/frontend/homeostatic.js",
+    "custom_components/homeostatic/frontend/installation-settings.mjs",
+    "custom_components/homeostatic/frontend/issue-configuration.mjs",
+    "custom_components/homeostatic/frontend/issue-monitoring.mjs",
+    "custom_components/homeostatic/frontend/issues-workspace.mjs",
+    "custom_components/homeostatic/frontend/model.mjs",
+    "custom_components/homeostatic/frontend/notification-navigation.mjs",
+    "custom_components/homeostatic/frontend/package.json",
+    "custom_components/homeostatic/frontend/panel-drafts.mjs",
+    "custom_components/homeostatic/frontend/problem.mjs",
+    "custom_components/homeostatic/frontend/reporting.mjs",
+    "custom_components/homeostatic/frontend/reusable-editors.mjs",
+    "custom_components/homeostatic/frontend/scoped-configuration.mjs",
+    "custom_components/homeostatic/frontend/source-coverage.mjs",
+    "custom_components/homeostatic/frontend/source-history.mjs",
+    "custom_components/homeostatic/frontend/source-monitoring.mjs",
+    "custom_components/homeostatic/frontend/source-selection.mjs",
+    "custom_components/homeostatic/frontend/source-temperature.mjs",
+    "custom_components/homeostatic/frontend/sources-workspace.mjs",
+    "custom_components/homeostatic/frontend/styles.mjs",
+    "custom_components/homeostatic/frontend/ups.mjs",
+    "custom_components/homeostatic/frontend/workspace-navigation.mjs",
+    "custom_components/homeostatic/function_model.py",
+    "custom_components/homeostatic/history.py",
+    "custom_components/homeostatic/lock.py",
+    "custom_components/homeostatic/manifest.json",
+    "custom_components/homeostatic/monitoring_runtime.py",
+    "custom_components/homeostatic/monitoring.py",
+    "custom_components/homeostatic/notification_definitions.py",
+    "custom_components/homeostatic/notification_grouping.py",
+    "custom_components/homeostatic/notification_people.py",
+    "custom_components/homeostatic/notification_reports.py",
+    "custom_components/homeostatic/notification_routes.py",
+    "custom_components/homeostatic/notifications.py",
+    "custom_components/homeostatic/phone_actions.py",
+    "custom_components/homeostatic/policy_defaults.py",
+    "custom_components/homeostatic/policy_migration.py",
+    "custom_components/homeostatic/producers.py",
+    "custom_components/homeostatic/repairs.py",
+    "custom_components/homeostatic/rules.py",
+    "custom_components/homeostatic/runtime.py",
+    "custom_components/homeostatic/sensor.py",
+    "custom_components/homeostatic/serialization.py",
+    "custom_components/homeostatic/services.py",
+    "custom_components/homeostatic/services.yaml",
+    "custom_components/homeostatic/situation_reports.py",
+    "custom_components/homeostatic/strings.json",
+    "custom_components/homeostatic/temperature.py",
+    "custom_components/homeostatic/translations/en.json",
+    "custom_components/homeostatic/ups_parameters.py",
+    "custom_components/homeostatic/ups.py",
+    "custom_components/homeostatic/vacuum.py"
+  ],
+  "validation": {
+    "quick": {
+      "result": "pass",
+      "frontend_tests": 908,
+      "includes": [
+        "Ruff lint",
+        "Ruff format",
+        "frontend tests"
+      ],
+      "log": "../../build/jammed-locks-quick.log"
+    },
+    "strict_types": {
+      "result": "pass",
+      "source_files": 44,
+      "log": "../../build/jammed-locks-types.log"
+    },
+    "focused_python": {
+      "result": "pass",
+      "tests": 258,
+      "log": "../../build/jammed-locks-focused-final.log",
+      "scope": [
+        "lock state table, independent conditions and recurrence",
+        "area and label future membership, exclusions, disabled sources and removal",
+        "queued observations, acknowledgment scope and repeated reload",
+        "direct notify requests, optional consumer events and global sending off",
+        "published-settings upgrade, deleted defaults, failed validation and pending delivery replay",
+        "source queries, dashboard, catalog and existing vacuum behavior"
+      ]
+    },
+    "ui": [
+      {
+        "name": "desktop",
+        "report": "../../build/ui-acceptance/jammed-locks-desktop-accepted/report.md",
+        "environment": {
+          "group": "policies",
+          "viewport": {
+            "width": 1440,
+            "height": 1000
+          },
+          "theme": "light",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "policies.lock-jam"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true,
+          "checkout_matches_snapshot": true
+        },
+        "paths": [
+          {
+            "id": "policies.lock-jam",
+            "status": "pass",
+            "environment": "isolated Home Assistant",
+            "interaction": "Playwright pointer and keyboard",
+            "duration_ms": 5505,
+            "detail": "Created a Jammed lock policy through existing flat choices, rejected a save without losing its draft, saved and reopened exact membership, discarded and duplicated independently, inspected a real reported jam and retained evidence after source loss, deleted the custom policy and selectively restored its disabled supplied template; sending and unrelated notification drafts stayed unchanged."
+          }
+        ],
+        "unrelated_inventory_untested": 82,
+        "diagnostics": [],
+        "browser_errors": [],
+        "inspected_screenshots": [
+          "../../build/ui-acceptance/jammed-locks-desktop-accepted/lock-jam-policy.png",
+          "../../build/ui-acceptance/jammed-locks-desktop-accepted/lock-jam-issue.png",
+          "../../build/ui-acceptance/jammed-locks-desktop-accepted/lock-jam-unknown.png",
+          "../../build/ui-acceptance/jammed-locks-desktop-accepted/lock-jam-individual.png"
+        ]
+      },
+      {
+        "name": "phone",
+        "report": "../../build/ui-acceptance/jammed-locks-phone-accepted/report.md",
+        "environment": {
+          "group": "policies",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "theme": "dark",
+          "browser": "chromium",
+          "browser_channel": null,
+          "headed": false,
+          "mode": "live",
+          "notifications": "captured by synthetic services only",
+          "selected_cases": [
+            "policies.lock-jam"
+          ],
+          "browser_version": "143.0.7499.4",
+          "ha": "2026.9.3",
+          "python": "3.14.7",
+          "library": "0.11.0",
+          "candidate_unchanged": true,
+          "checkout_matches_snapshot": true
+        },
+        "paths": [
+          {
+            "id": "policies.lock-jam",
+            "status": "pass",
+            "environment": "isolated Home Assistant",
+            "interaction": "Playwright pointer and keyboard",
+            "duration_ms": 5970,
+            "detail": "Created a Jammed lock policy through existing flat choices, rejected a save without losing its draft, saved and reopened exact membership, discarded and duplicated independently, inspected a real reported jam and retained evidence after source loss, deleted the custom policy and selectively restored its disabled supplied template; sending and unrelated notification drafts stayed unchanged."
+          }
+        ],
+        "unrelated_inventory_untested": 82,
+        "diagnostics": [],
+        "browser_errors": [],
+        "inspected_screenshots": [
+          "../../build/ui-acceptance/jammed-locks-phone-accepted/lock-jam-policy.png",
+          "../../build/ui-acceptance/jammed-locks-phone-accepted/lock-jam-issue.png",
+          "../../build/ui-acceptance/jammed-locks-phone-accepted/lock-jam-unknown.png",
+          "../../build/ui-acceptance/jammed-locks-phone-accepted/lock-jam-individual.png"
+        ]
+      }
+    ]
+  },
+  "ui_purpose": {
+    "task_owner": "Policies owns source selection and notification assignments; existing issue/device dialogs own reviewing and responding to a jam",
+    "benefit": "One ordinary policy watches reported jams across integrations and directs the owner to inspect the lock",
+    "controls": "Add the Jammed lock type and reuse existing flat selection, notification, lifecycle and issue controls",
+    "disclosures": "No new disclosure or navigation layer",
+    "rendered_review": "Desktop light and phone dark editor, device issue, retained jam and individual issue were inspected; labels, actions and layout fit their existing workflows"
+  },
+  "implementation_limits": [
+    "Reports Home Assistant state; no physical freshness or command completion proof",
+    "An integration must report jammed; no jam capability flag exists",
+    "Unknown, missing and restored evidence cannot clear an open jam",
+    "Supplied policy starts disabled; existing sending and destinations are preserved"
+  ],
+  "release_status": {
+    "committed": false,
+    "released": false,
+    "household_installed": false,
+    "full_release_ci": "Not run; local development workflow only",
+    "household_notification_tests": "None"
+  },
+  "trial_notes": [
+    "Early browser assertions used incorrect selectors; corrected to the existing source-future and device-issues controls",
+    "A full-page navigation discarded an independent unsaved draft by design; the individual notification route is now reviewed in a separate tab",
+    "Interim lab startup errors included a backwards-time reset and a WebSocket runtime mismatch; final runs use an explicit Node 24 executable and report zero diagnostics. No product clock behavior changed."
+  ],
+  "unrelated_dirty_documentation": "Preserved the preceding roadmap and automation-alert documentation reconciliation"
+}

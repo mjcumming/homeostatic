@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=110";
-import {observedRange, RESOLUTIONS} from "./history-controls.mjs?v=110";
+import {escapeHtml as esc} from "./model.mjs?v=114";
+import {observedRange, historyOutcome} from "./history-controls.mjs?v=114";
 
 const timestamp = value => value ? Date.parse(value) : NaN;
 const time = value => Number.isFinite(timestamp(value))
@@ -15,7 +15,7 @@ export function sourceHistory(data, sources, {associationLimited = false} = {}) 
     .sort((a,b) => ((timestamp(b.resolved_at) || 0) - (timestamp(a.resolved_at) || 0)) || a.episode.episode_id.localeCompare(b.episode.episode_id));
   const rows = events.map(({episode, source, resolution, resolved_at}) => {
     const name = source?.name || episode.labels?.name || "Source name not recorded";
-    const [outcome] = RESOLUTIONS[resolution] ?? ["Problem ended"];
+    const outcome = historyOutcome({episode,resolution});
     const finding = episode.reasons?.find(item => item.message?.trim())?.message.trim() || "No readable finding was recorded.";
     return `<li><button type="button" class="row source-history-entry" data-history="${esc(episode.episode_id)}" aria-label="${esc(`View history: ${name}`)}"><span class="row-main"><strong>${esc(name)}</strong><span class="source-history-condition">${esc(finding)}</span><small>${esc(outcome)} · <time datetime="${esc(resolved_at || "")}">${esc(observedRange(episode.opened_at,resolved_at))}</time></small></span></button></li>`;
   }).join("");

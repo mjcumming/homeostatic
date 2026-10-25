@@ -65,6 +65,17 @@ def test_supplied_profiles_are_unconfigured_and_sending_stays_off() -> None:
         "default_batteries": "morning",
         "default_vacuums": "evening",
         "default_entities_not_provided": "morning",
+        "default_jammed_locks": "immediate",
+        "default_left_open": "acknowledge",
+        "default_problem": "morning",
+        "default_lawn_mower": "immediate",
+        "default_tamper": "immediate",
+        "default_safety": "immediate",
+        "default_moisture": "immediate",
+        "default_smoke": "immediate",
+        "default_gas": "immediate",
+        "default_carbon_monoxide": "immediate",
+        "default_alarm_triggered": "immediate",
     }
     assert settings.notification_definitions["profiles"]["weekly"]["timing"] == {
         "mode": "report",

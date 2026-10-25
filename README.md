@@ -27,7 +27,11 @@ Example equipment in Open issues. Expand a group, then open a finding to inspect
 
 ## What it watches
 
-A new installation watches integration and entity availability, persistently missing registered entities, low batteries, vacuum errors, Home Assistant Repairs, and automations that name missing entities. Devices group their entities and related issues. You can also configure UPS conditions, temperature limits and thermostat progress.
+A new installation watches integration and entity availability, persistently missing registered entities, low batteries, vacuum errors, Home Assistant Repairs, and automations that name missing entities. Devices group their entities and related issues.
+
+Optional policies cover jammed locks, problem sensors, lawn mower errors, tampering, unsafe conditions, water leaks, smoke, gas, carbon monoxide and triggered alarms. These policies start disabled so you can review their sources and notifications before enabling them.
+
+You can also watch selected doors and windows left open for a chosen duration, with optional daily hours and outdoor-temperature limits, or configure UPS conditions, temperature limits and thermostat progress.
 
 Browse equipment by integration, Home Assistant location, or optional [TopoMation](https://github.com/mjcumming/topomation) locations. Each source shows its current evidence and the checks that watch it. [The manual](docs/guide.md) explains the available monitoring and how to tailor it to your installation.
 
@@ -55,7 +59,7 @@ Start at the **[Homeostatic manual](docs/guide.md)**, or go directly to a task:
 
 ## Limits
 
-Homeostatic uses what Home Assistant reports. Availability does not establish that a reading is fresh or a command succeeded. It cannot report an outage of Home Assistant itself while running inside it, and it does not repair equipment automatically. Automation-defined alerts are unfinished and are outside the current manual. See [What Homeostatic cannot establish](docs/manual/limitations.md) for the full scope.
+Homeostatic uses what Home Assistant reports. Availability does not establish that a reading is fresh or a command succeeded. It cannot report an outage of Home Assistant itself while running inside it, and it does not repair equipment automatically. Home Assistant automations can report [custom continuing problems](docs/automation-situations.md). See [What Homeostatic cannot establish](docs/manual/limitations.md) for the full scope.
 
 ## Contribute
 

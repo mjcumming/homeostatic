@@ -1,15 +1,17 @@
-import {notProvidedProblem} from "./entity-not-provided.mjs?v=110";
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=110";
-import {callAction} from "./history-controls.mjs?v=110";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=110";
-import {deviceEntitySummary} from "./device-entities.mjs?v=110";
-import {sourceCoverageIndex,sourceCoverage} from "./source-coverage.mjs?v=110";
-import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=110";
-import {issueAvailabilityAction, issueAvailabilityNeedsCatalog, renderIssueAvailability} from "./issue-monitoring.mjs?v=110";
-import {batteryProblem,entityProblem,vacuumProblem} from "./problem.mjs?v=110";
-import {temperatureProblem} from "./source-temperature.mjs?v=110";
-import {upsProblem} from "./ups.mjs?v=110";
-import {retainedProblem} from "./check-presentation.mjs?v=110";
+import {reportedConditionProblem} from "./reported-conditions.mjs?v=114";
+import {notProvidedProblem} from "./entity-not-provided.mjs?v=114";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=114";
+import {callAction} from "./history-controls.mjs?v=114";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=114";
+import {deviceEntitySummary} from "./device-entities.mjs?v=114";
+import {sourceCoverageIndex,sourceCoverage} from "./source-coverage.mjs?v=114";
+import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=114";
+import {issueAvailabilityAction, issueAvailabilityNeedsCatalog, renderIssueAvailability} from "./issue-monitoring.mjs?v=114";
+import {batteryProblem,entityProblem,lockProblem,vacuumProblem} from "./problem.mjs?v=114";
+import {temperatureProblem} from "./source-temperature.mjs?v=114";
+import {leftOpenProblem} from "./left-open.mjs?v=114";
+import {upsProblem} from "./ups.mjs?v=114";
+import {retainedProblem} from "./check-presentation.mjs?v=114";
 
 const date=value=>new Date(value).toLocaleString(undefined,{year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const issueId=item=>item.episode.episode_id;
@@ -36,8 +38,8 @@ function issueName(item) {
 function issueProblem(card,item) {
   const data=card.current.data,source=item.source;
   const status=data.inventory.entity_status?.[source.node_id]||{current:item.episode.reasons?.find(finding=>finding.node_id===source.node_id)};
-  const problem=notProvidedProblem(source,status)??temperatureProblem(source,status)??upsProblem(source,data.inventory.ups_status?.[source.node_id]||status)??
-    batteryProblem(source,status)??vacuumProblem(source,status,data.areas||[]);
+  const problem=leftOpenProblem(source,status)??notProvidedProblem(source,status)??temperatureProblem(source,status)??upsProblem(source,data.inventory.ups_status?.[source.node_id]||status)??
+    reportedConditionProblem(source,status)??batteryProblem(source,status)??lockProblem(source,status)??vacuumProblem(source,status,data.areas||[]);
   const current=problem??entityProblem(source,status,null,data.areas||[],key=>card._hass?.localize?.(key));
   const retained=retainedProblem(current,status,item.episode.reasons);
   return retained?{...retained,currentDetail:retained!==current?current.headline:null}:{headline:status.current?.message||"Current evidence missing"};

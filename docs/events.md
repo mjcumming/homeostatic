@@ -36,12 +36,12 @@ The `change` field says what happened:
 | `form` | `root` for an issue about one source. `group` for a retained older sibling group awaiting separation; new failures under healthy integrations stay independent. |
 | `anchor` | Homeostatic's ID for the source the issue is about, such as `entry:<config entry id>` for an integration or `device:<device id>` for a device. Treat it as opaque. |
 | `anchor_name` | The source's current display name |
-| `anchor_kind` | `integration`, `device`, `entity`, `battery`, `vacuum`, `ups`, `thermostat`, `temperature_limit`, `situation` (an alert), `repair` (a Home Assistant Repair), or `broken_automation` (an automation that names a missing entity). `null` when the source no longer exists. |
+| `anchor_kind` | `integration`, `device`, `entity`, `battery`, `vacuum`, `lock`, `left_open`, `problem`, `lawn_mower`, `tamper`, `safety`, `moisture`, `smoke`, `gas`, `carbon_monoxide`, `alarm_triggered`, `ups`, `thermostat`, `temperature_limit`, `situation` (an alert), `repair` (a Home Assistant Repair), or `broken_automation` (an automation that names a missing entity). `null` when the source no longer exists. |
 | `entity_ids` | The source's entity, or a device's watched entities. Empty for an integration or an alert from an automation. |
 | `device_id`, `area_id`, `floor_id` | The source's Home Assistant device, area and floor IDs, or `null` |
 | `status` | `warn`, `fail` or `unknown` |
 | `importance` | `low`, `normal`, `high` or `critical`. |
-| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `entity_not_provided`, `battery`, `vacuum`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
+| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `entity_not_provided`, `battery`, `vacuum`, `lock_jam`, `left_open`, `problem`, `lawn_mower`, `tamper`, `safety`, `moisture`, `smoke`, `gas`, `carbon_monoxide`, `alarm_triggered`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
 | `opened_at` | When the issue opened, as an ISO 8601 timestamp |
 | `shelved` | Whether Pause notifications was on for the issue |
 | `maintenance` | Whether the source was covered by an equipment maintenance window |
@@ -52,6 +52,12 @@ The `change` field says what happened:
 | `split_from` | On successor `opened` events: the predecessor issue ID whose controls and attention state were retained |
 
 Vacuum evidence gaps use `vacuum_unavailable`, `vacuum_unknown`, `vacuum_missing`, `vacuum_restored` or `vacuum_unrecognized`, each with status `unknown`. Device grouping in the panel does not change event issue identities or recorded membership.
+
+Left-open findings use `left_open` with reason `left_open` when qualified. Pending, closed, outside-hours, in-range temperature and missing input use `left_open_waiting`, `left_open_closed`, `left_open_outside_hours`, `left_open_temperature_in_range`, `left_open_contact_missing` and `left_open_temperature_missing`. Hours ending resolves as `removed`, with the retained history annotation `homeostatic_end_reason=monitoring_window_ended`. Queued alerts and reminders stop at that boundary; silent requests may withdraw a previous message. This does not report physical closure.
+
+Jammed-lock findings use `lock_jam` with reason `lock_jammed` for a current jam and `lock_not_jammed` for a recognized non-jammed state. Missing and restored readings use `lock_missing` and `lock_restored`; other unusable readings use `lock_unknown`. These gaps are `unknown` and cannot clear the jam. Each policy retains its own issue identity through device grouping and notification requests.
+
+Standard reported conditions use their own source kind and check id: `problem`, `lawn_mower`, `tamper`, `safety`, `moisture`, `smoke`, `gas`, `carbon_monoxide` and `alarm_triggered`. Their failure and passing reasons are `<check>_reported` and `<check>_clear`; missing, restored, unavailable, unknown and unrecognized readings use `<check>_unknown`. Disabled sources use `disabled`. Gaps cannot clear an existing condition. Each selected policy retains its own issue, acknowledgment and delivery identity through grouping and restart. The event envelope is unchanged.
 
 The Missing entities monitoring type uses check `entity_not_provided`. Qualified warnings have reason `entity_not_provided`; a live entity reports `entity_provided`. Changing a live entity's value, including to `unknown` or `unavailable`, leaves this condition provided and creates no provider issue event. Startup or unloaded owners use unknown reason `provider_not_loaded`; missing or mismatched ownership uses `provider_not_confirmed`. Unknown findings request no notifications and do not claim recovery. The ordinary issue lifecycle and notification event schemas are unchanged.
 

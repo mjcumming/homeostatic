@@ -102,6 +102,7 @@ from .monitoring import TEMPERATURE_CHECKS
 from .monitoring_runtime import (
     assignments,
     enrollment_rules,
+    left_open_sources,
     ordinary_sources,
     original_identity,
     restore_entity_identities,
@@ -112,6 +113,7 @@ from .monitoring_runtime import (
 from .notification_routes import unavailable_destinations
 from .notifications import NotificationContext, Notifications
 from .producers import CapturedInput, Producers
+from .reported_conditions import CONDITIONS
 from .rules import Attributes
 from .serialization import json_digest, json_object, to_json
 from .situation_reports import report_observation
@@ -743,6 +745,9 @@ class Runtime:
             )
         )
         sources.update(
+            left_open_sources(self.hass, self.settings.monitoring_policies, candidates)
+        )
+        sources.update(
             not_provided_sources(self.settings.monitoring_policies, candidates)
         )
         sources = ordinary_sources(
@@ -765,7 +770,16 @@ class Runtime:
         self.enrolled = {
             source.monitoring_source or node_id: source.attributes
             for node_id, source in sources.items()
-            if source.kind in {"entity", "integration", "device", "battery", "vacuum"}
+            if source.kind
+            in {
+                "entity",
+                "integration",
+                "device",
+                "battery",
+                "vacuum",
+                "lock",
+                *CONDITIONS,
+            }
             or (source.kind == "ups" and source.monitoring_policy is None)
         }
         self._scan = cached
@@ -1856,6 +1870,14 @@ class Runtime:
             first=first,
             holding=self.startup_quiet,
         )
+        for node_id in self.producers.take_restarts():
+            if node_id in sources:
+                events.extend(self.engine.remove(node_id, now))
+                events.extend(
+                    self.engine.register_many(
+                        [sources[node_id].node(self.settings)], now
+                    )
+                )
         if observations:
             self._record_observations(observations)
             events.extend(self.engine.ingest_many(observations, now))
@@ -1884,6 +1906,8 @@ class Runtime:
                 "device",
                 "battery",
                 "vacuum",
+                "lock",
+                *CONDITIONS,
                 "entity_not_provided",
                 "ups",
                 *TEMPERATURE_CHECKS,
@@ -1962,6 +1986,10 @@ class Runtime:
                         self.sources.get(event.episode.anchor),
                     ),
                     now,
+                    ended_reason="monitoring_window_ended"
+                    if event.resolution == "removed"
+                    and event.episode.anchor in self.producers.window_ends
+                    else None,
                 )
                 self.episodes.pop(event.episode.episode_id, None)
                 if event.resolution == "split":
@@ -2266,6 +2294,8 @@ class Runtime:
             return
         for channel in request.channels:
             async with self._lock:
+                if self._opening_request_expired(payload, dt_util.utcnow()):
+                    continue
                 attempt = self.notifications.prepare_attempt(
                     request, channel, self._notification_context()
                 )
@@ -2277,6 +2307,32 @@ class Runtime:
                     self.notifications.rollback_attempt(attempt)
                     raise
             await self.notifications.async_send(attempt)
+
+    def _opening_request_expired(self, payload: dict[str, Any], now: datetime) -> bool:
+        """Stop an earlier queued transport request at an opening's actual cutoff."""
+        if payload.get("silent") is True or payload.get("action") == "resolve":
+            return False
+        shown = payload.get("episodes", [payload.get("episode_id")])
+        if not isinstance(shown, list):
+            return False
+        for episode_id in shown:
+            if not isinstance(episode_id, str):
+                continue
+            if self.history.window_ended(episode_id):
+                return True
+            episode = self.episodes.get(episode_id)
+            monitor = (
+                self.producers.left_open_monitors.get(str(episode.get("anchor")))
+                if episode
+                else None
+            )
+            if (
+                monitor is not None
+                and monitor.window_end is not None
+                and now >= monitor.window_end
+            ):
+                return True
+        return False
 
     def _schedule(self, now: datetime) -> None:
         if self._deadline_cancel is not None:
@@ -2545,6 +2601,9 @@ class Runtime:
         sources.update(
             temperature_sources(self.hass, settings.monitoring_policies, candidates)
         )
+        sources.update(
+            left_open_sources(self.hass, settings.monitoring_policies, candidates)
+        )
         sources.update(not_provided_sources(settings.monitoring_policies, candidates))
         sources = ordinary_sources(
             settings.monitoring_policies, sources, candidates=candidates
@@ -2740,6 +2799,8 @@ class Runtime:
                     "device",
                     "battery",
                     "vacuum",
+                    "lock",
+                    *CONDITIONS,
                     "ups",
                     "entity_not_provided",
                     *TEMPERATURE_CHECKS,

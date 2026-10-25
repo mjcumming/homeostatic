@@ -4,6 +4,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0112](0112-monitor-left-open-doors-and-windows.md) | Monitor selected doors and windows left open, with monitoring hours and optional outdoor temperature | Accepted |
 | [0111](0111-separate-notifications-from-runtime.md) | Separate notification handling while runtime owns ordering and verified saves | Accepted; extends 0110 and preserves delivery and storage contracts |
 | [0110](0110-separate-producers-from-runtime.md) | Give producer state and dispatch one owner while runtime coordinates ordered work | Accepted; extends 0092 and preserves storage and delivery contracts |
 | [0109](0109-compact-notification-presentation.md) | Bound notification previews and use durable exact-scope local links | Accepted; refines 0033/0102 presentation while preserving schema-one machine fields |
@@ -104,16 +105,16 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 | [0072](0072-quiet-save-completion.md) | Complete saves without persistent success messages | Accepted; supersedes success feedback in 0061 and 0070 |
 | [0073](0073-entity-first-monitoring-details.md) | Keep entity details focused on the entity | Accepted; supersedes entity presentation in 0061/0068/0071, source-history placement in 0070 and availability wording in 0069; affected-member presentation and navigation refined by 0086; maintenance creation UI superseded by 0087; entity policy and identity presentation refined by 0089; stopping-action wording superseded by 0091 |
 | [0074](0074-availability-removal-inside-open-issues.md) | Review availability removal inside an opened issue | Accepted; supersedes group-wide action placement and scope in 0069; action wording superseded by 0091 and confirmation presentation by 0094 |
-| [0075](0075-report-jammed-locks.md) | Report a lock's jammed state as an issue | Proposed |
-| [0076](0076-report-problem-sensors.md) | Report problem sensors as issues | Proposed |
-| [0077](0077-report-lawn-mower-errors.md) | Report lawn mower errors as issues | Proposed |
-| [0078](0078-report-tamper-sensors.md) | Report tamper sensors as issues | Proposed |
-| [0079](0079-report-safety-sensors.md) | Report unsafe conditions from safety sensors | Proposed |
-| [0080](0080-report-moisture-sensors.md) | Report moisture from selected leak sensors | Proposed |
-| [0081](0081-report-smoke-sensors.md) | Report smoke detection as an issue | Proposed |
-| [0082](0082-report-gas-sensors.md) | Report gas detection as an issue | Proposed |
-| [0083](0083-report-carbon-monoxide-sensors.md) | Report carbon monoxide detection as an issue | Proposed |
-| [0084](0084-report-triggered-alarms.md) | Report triggered alarm panels as issues | Proposed |
+| [0075](0075-report-jammed-locks.md) | Report a lock's jammed state as an issue | Accepted |
+| [0076](0076-report-problem-sensors.md) | Report problem sensors as issues | Accepted |
+| [0077](0077-report-lawn-mower-errors.md) | Report lawn mower errors as issues | Accepted |
+| [0078](0078-report-tamper-sensors.md) | Report tamper sensors as issues | Accepted |
+| [0079](0079-report-safety-sensors.md) | Report unsafe conditions from safety sensors | Accepted |
+| [0080](0080-report-moisture-sensors.md) | Report moisture from selected leak sensors | Accepted |
+| [0081](0081-report-smoke-sensors.md) | Report smoke detection as an issue | Accepted |
+| [0082](0082-report-gas-sensors.md) | Report gas detection as an issue | Accepted |
+| [0083](0083-report-carbon-monoxide-sensors.md) | Report carbon monoxide detection as an issue | Accepted |
+| [0084](0084-report-triggered-alarms.md) | Report triggered alarm panels as issues | Accepted |
 
 These records explain the decisions behind the current specification and identify later supersessions. Their dates are the dates recorded here, not claimed dates of the original discussions. Acceptance records a product decision. The [roadmap](../roadmap.md#current-work) owns implementation, validation and installation status; those states are not repeated in decision status fields. A new ADR supersedes an accepted decision; a proposed ADR describes unresolved tradeoffs without claiming owner approval.
 

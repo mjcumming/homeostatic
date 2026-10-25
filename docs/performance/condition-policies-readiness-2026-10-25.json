@@ -1,0 +1,89 @@
+{
+  "recorded_at_utc": "2026-10-25T22:48:22.938832+00:00",
+  "scope": "Release readiness for jammed locks, left-open monitoring and nine standard reported conditions",
+  "candidate": {
+    "branch": "main",
+    "revision": "473ae70a9e9e0c71e0de5e89b331fb7370940ae3",
+    "dirty": true,
+    "component_sha256": "6346023878c475fd42cdbb619002103d82c191aa2972443bd5aa6ca963ddcf2e",
+    "manifest_version": "1.12.5",
+    "frontend_module": 114,
+    "panel_element": "homeostatic-panel-v66",
+    "card_element": "homeostatic-card-v62"
+  },
+  "assessment": "Ready for the normal versioned candidate, CI and publication workflow; no known new product blocker",
+  "maintainer_household_acceptance": {
+    "reported": "The UI looks fine; the household installation has little representative equipment for these checks",
+    "coverage": "Household startup, preservation and UI verified. Condition activation, evidence gaps, recovery and notifications are covered by isolated Home Assistant scenarios.",
+    "live_fault_or_delivery_receipt_claimed": false
+  },
+  "documentation": {
+    "readme": "New optional condition policies and left-open capabilities described separately from enabled defaults",
+    "manual": "Source eligibility, source selection, disabled defaults, monitoring hours, outdoor temperature, recovery evidence and upgrade preservation reviewed against implementation",
+    "install_guide": "Corrected the claim that all supplied policies start enabled",
+    "changelog": "Unreleased feature, fix, upgrade, documentation and development entries present",
+    "link_check": {
+      "documents": 30,
+      "local_links": 381,
+      "broken": [],
+      "utf8": "pass"
+    },
+    "files_sha256": {
+      "README.md": "00973a533cbb148fbf7465b60b7681c55dbd8f3bf9688cfaa782d3a320eab0f0",
+      "CHANGELOG.md": "0cd70886f8c178c4ef1f7db986e693e9aad6cad5836c181a1b0ac78245bb1cd2",
+      "docs/install.md": "9b5946b1b0038fa8211823cae205c1f1cfb8853cc029063e6b45eedbaea12a97",
+      "docs/manual/first-run.md": "39d5accab4b003846c897c20cb333f22740ea3920414258de3dd1a2edd09fd36",
+      "docs/manual/maintain-installation.md": "411a5333bf6524154c5476bab8f13ba9d70482319e86e12f8abe63c63c6c6fc1",
+      "docs/manual/monitoring-reference.md": "e902b1f7f0e045a2de543adebcf82e524e3980af28f2594694c5cb9d7c752911",
+      "docs/manual/policies.md": "6360b263f9f6b98fd0404505a615768d2d5dd58a191aaa3e51bb8a24406b6c69",
+      "docs/manual/limitations.md": "0c1b749178d4f79f97174023c5e513f17ad88556b5da67b9f48cebca2bc1dc51",
+      "docs/manual/history.md": "ec58ca6c01605520bcae5542d6844683361ae9d4b0c52b1a0b3f869607a3a368",
+      "docs/spec.md": "738567e2b8333cbd2f3980604233b92c370e10801104a2d676d83e5a8337c49b",
+      "docs/events.md": "e72bee5c0e9e6d55b1f380cfd73dc045851041cd97f50ca22a81733bd6445d8d",
+      "docs/home-assistant-states.md": "6ad13ad36e696c51250d24b07c2018b6c42b924aaa394df683f42a74f5610ee6"
+    }
+  },
+  "validation": {
+    "prior_full_checks": "reported-conditions-2026-10-25.json; unchanged component contents; 1691 backend and 931 frontend tests, strict types and both coverage floors passed",
+    "current_quick": {
+      "exit_code": 0,
+      "frontend_tests_passed": 931,
+      "log": "build/reported-conditions-release-quick.log"
+    },
+    "current_release_tooling": {
+      "exit_code": 0,
+      "passed": 56,
+      "log": "build/reported-conditions-release-tests.log"
+    },
+    "lock_check": "uv lock --check passed; project and integration still identify the local trial base 1.12.5",
+    "packaged_install_rehearsal": {
+      "archive": "reported-conditions-readiness.working-tree.zip",
+      "working_tree_rehearsal": true,
+      "official_candidate_archive": false,
+      "packaged_files": 484,
+      "sha256": "70369481518f40061eadfb0883dfe89c1270c751297a8aa3e60d0b3f5a2f3c72",
+      "component_files": 88,
+      "exit_code": 0,
+      "result": "PASS",
+      "ha": "2026.9.3",
+      "python": "3.14.7",
+      "health_tree_installed_by_ha": "0.11.0",
+      "script_sha256": "15253e68ddd780f5c1ab8ff7fc28242c6d28efa0097eed5bdc616e9d097e3566",
+      "coverage": "Fresh disabled defaults and notification assignments; exact published 1.9 settings in data and options; repeated reloads; deleted notification definitions; enabled edited problem policy; edited availability wait; deleted introduced policies not recreated; all frontend modules served; existing issue controls, report persistence and recovery checks retained",
+      "diagnostics": "The isolated WSL host lacks FFmpeg and libturbojpeg and uses the zlib fallback. HA emitted media-helper diagnostics; all smoke assertions passed. No household instance or live destination was used.",
+      "log": "build/reported-conditions-smoke-final.log"
+    }
+  },
+  "remaining_release_steps": [
+    "Choose the release version and update project, manifest, lockfile and dated changelog together",
+    "Commit and push the reviewed candidate when authorized",
+    "Require the candidate's CI, hassfest, HACS, deterministic archive verification and clean-install smoke result",
+    "Publish the verified CI archive and matching tag when authorized"
+  ],
+  "status": {
+    "committed": false,
+    "ci_candidate_verified": false,
+    "released": false,
+    "household_local_trial_installed": true
+  }
+}

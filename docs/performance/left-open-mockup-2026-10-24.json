@@ -1,0 +1,165 @@
+{
+  "date": "2026-10-24",
+  "recorded_at": "2026-10-25T04:28:34.881543+00:00",
+  "scope": "Interactive UX mockup of the accepted Left open policy; no product implementation",
+  "governing_decision": "docs/adr/0112-monitor-left-open-doors-and-windows.md",
+  "artifacts": [
+    {
+      "path": "docs/mockups/left-open.html",
+      "sha256": "ec8356dc7325ae896cacdfea952e4a3942186b9d3c22e58578de8abeef42d741"
+    },
+    {
+      "path": "docs/mockups/left-open.mjs",
+      "sha256": "72186d5e07acc86fd3103347cfcfd2b9aa7b86112a2a2d23e0f5d54ee62b3b01"
+    }
+  ],
+  "workflow_ownership": {
+    "Policies": "Opening selection, allowed duration, monitoring hours, optional temperature source and limits, notification assignment, independent Save and Discard",
+    "Notifications": "Shared notification timing and destination edits with the policy draft preserved",
+    "Prototype toolbar": "Local theme controls and an explicitly illustrative behavior walkthrough"
+  },
+  "disclosures": [
+    "Temperature fields appear only when outdoor-temperature qualification is selected.",
+    "Start and end fields appear only for daily monitoring hours."
+  ],
+  "rendered_review": {
+    "disposition": "ship the mockup for maintainer review",
+    "reviewer": "Fresh Impeccable finish review",
+    "evidence": "All four full-page captures, each top and scrolled viewport, and the illustrative behavior capture",
+    "resolved_findings": [
+      "Save and Discard remain visible while scrolling",
+      "Outdoor-temperature source remains identifiable on phones",
+      "Shared timing edits preserve destination and reminder edits",
+      "Preview contrast and redundant-label fixes"
+    ],
+    "remaining_material_findings": []
+  },
+  "browser_checks": [
+    "desktop: no horizontal overflow",
+    "desktop: save actions visible at the top of the form",
+    "desktop: save actions remain visible while scrolling",
+    "desktop: final notification control is reachable above the save bar",
+    "mobile: no horizontal overflow",
+    "mobile: save actions visible at the top of the form",
+    "mobile: save actions remain visible while scrolling",
+    "mobile: final notification control is reachable above the save bar",
+    "mobile-dark: no horizontal overflow",
+    "mobile-dark: save actions visible at the top of the form",
+    "mobile-dark: save actions remain visible while scrolling",
+    "mobile-dark: final notification control is reachable above the save bar",
+    "narrow: no horizontal overflow",
+    "narrow: save actions visible at the top of the form",
+    "narrow: save actions remain visible while scrolling",
+    "narrow: final notification control is reachable above the save bar",
+    "Saving applies this policy draft in the preview",
+    "Changing duration display unit preserves the saved interval",
+    "Filtering preserves every selected opening",
+    "Shared notification edits use Notifications",
+    "Shared timing changes preserve unsaved destination and reminder edits",
+    "Shared save preserves and does not save the policy draft",
+    "The named notification updates its existing assignment",
+    "Shared notification save retains the destination and reminder after timing changes",
+    "Returning from Policies retains draft and filter",
+    "Empty temperature limits explain the correction beside the field",
+    "Reversed temperature bounds retain the draft with an inline error",
+    "Continuous monitoring removes unused start and end inputs",
+    "Optional temperature inputs appear only when enabled",
+    "Removing the last notification explicitly permits dashboard-only monitoring",
+    "Discard restores the saved policy without undoing the shared notification save",
+    "Monitoring start begins a fresh countdown",
+    "Warmer temperature leaves an established issue open",
+    "Monitoring end finishes the occurrence and stops notifications",
+    "The next monitoring window begins a new countdown",
+    "Keyboard navigation reaches source search in form order",
+    "No browser runtime errors"
+  ],
+  "viewports": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 1000,
+      "dark": false,
+      "geometry": {
+        "document": 1440,
+        "viewport": 1440,
+        "footer": {
+          "x": 327,
+          "y": 911,
+          "width": 786,
+          "height": 89,
+          "top": 911,
+          "right": 1113,
+          "bottom": 1000,
+          "left": 327
+        }
+      }
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844,
+      "dark": false,
+      "geometry": {
+        "document": 390,
+        "viewport": 390,
+        "footer": {
+          "x": 13,
+          "y": 733,
+          "width": 364,
+          "height": 111,
+          "top": 733,
+          "right": 377,
+          "bottom": 844,
+          "left": 13
+        }
+      }
+    },
+    {
+      "name": "mobile-dark",
+      "width": 390,
+      "height": 844,
+      "dark": true,
+      "geometry": {
+        "document": 390,
+        "viewport": 390,
+        "footer": {
+          "x": 13,
+          "y": 733,
+          "width": 364,
+          "height": 111,
+          "top": 733,
+          "right": 377,
+          "bottom": 844,
+          "left": 13
+        }
+      }
+    },
+    {
+      "name": "narrow",
+      "width": 320,
+      "height": 800,
+      "dark": false,
+      "geometry": {
+        "document": 320,
+        "viewport": 320,
+        "footer": {
+          "x": 13,
+          "y": 689,
+          "width": 294,
+          "height": 111,
+          "top": 689,
+          "right": 307,
+          "bottom": 800,
+          "left": 13
+        }
+      }
+    }
+  ],
+  "browser_errors": [],
+  "evidence_directory": "build/left-open-mockup/",
+  "limits": [
+    "Synthetic sources and in-page saves; no Home Assistant configuration or notification transport.",
+    "The walkthrough illustrates the accepted rules and is not a detector implementation.",
+    "Maintainer acceptance of the UX is pending; product implementation has not been selected."
+  ]
+}

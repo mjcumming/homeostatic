@@ -9,6 +9,7 @@ export function diagnosticOverview(source, result, _affectedFunctions = [], epis
     entity: "Home Assistant entity availability; a usable state does not verify the device's physical operation.",
     battery: "Current Home Assistant battery percentage, low warning, and charging reports; no physical freshness is verified.",
     vacuum: "The vacuum entity's current activity. An error activity opens an issue; other activities clear it.",
+    lock: "Home Assistant's reported lock state. Jammed opens an issue; a current recognized non-jammed state clears it.",
     external: "No direct Home Assistant observation for this external capability.",
     situation: "The owner-defined condition supplied by its bound Home Assistant signal.",
   }[source.kind] ?? "Only the configured checks shown in the diagnostic record.";

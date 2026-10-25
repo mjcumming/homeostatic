@@ -4,6 +4,7 @@ from typing import Any
 
 from .const import DEFAULTS
 from .notification_definitions import defaults
+from .reported_conditions import CONDITIONS
 
 # Retired identities stay reserved so deletion and skipped releases stay final.
 LEGACY_POLICY_INTRODUCTIONS = (
@@ -26,6 +27,9 @@ CATEGORY_POLICY_INTRODUCTIONS = (
 SUPPLIED_POLICY_INTRODUCTIONS = (
     *LEGACY_POLICY_INTRODUCTIONS,
     *CATEGORY_POLICY_INTRODUCTIONS,
+    "default_jammed_locks",
+    "default_left_open",
+    *(f"default_{check}" for check in CONDITIONS),
 )
 
 
@@ -46,7 +50,9 @@ def policy_templates() -> list[dict[str, Any]]:
             "notifications": [
                 {
                     "id": "default",
-                    "profile": "evening" if check == "vacuum" else "morning",
+                    "profile": {"vacuum": "evening", "lock_jam": "immediate"}.get(
+                        check, "morning"
+                    ),
                 }
             ],
         }
@@ -103,6 +109,7 @@ def policy_templates() -> list[dict[str, Any]]:
             ),
             ("default_batteries", "Batteries", "battery", None, True),
             ("default_vacuums", "Vacuums", "vacuum", None, True),
+            ("default_jammed_locks", "Jammed locks", "lock_jam", "lock", False),
             (
                 "default_entities_not_provided",
                 "Missing entities",
@@ -112,6 +119,21 @@ def policy_templates() -> list[dict[str, Any]]:
             ),
         )
     ]
+    policies.extend(
+        {
+            "id": f"default_{check}",
+            "name": condition.name,
+            "check": check,
+            "match": {
+                "kind": [check],
+                **({} if condition.all_sources else {"entity": []}),
+            },
+            "parameters": {},
+            "enabled": False,
+            "notifications": [{"id": "default", "profile": condition.profile}],
+        }
+        for check, condition in CONDITIONS.items()
+    )
     category_scopes = {
         "default_cameras": {"domain": ["camera"]},
         "default_locks": {"domain": ["lock"]},
@@ -137,6 +159,17 @@ def policy_templates() -> list[dict[str, Any]]:
                 "duration_seconds": 300 if policy["id"] == "default_cameras" else 0
             }
             policy["notifications"][0]["profile"] = "immediate"
+    policies.append(
+        {
+            "id": "default_left_open",
+            "name": "Doors and windows left open",
+            "check": "left_open",
+            "match": {"kind": ["entity"], "entity": []},
+            "parameters": {"duration_seconds": None, "use_temperature": False},
+            "enabled": False,
+            "notifications": [{"id": "default", "profile": "acknowledge"}],
+        }
+    )
     return policies
 
 

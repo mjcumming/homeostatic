@@ -20,7 +20,9 @@ The broken-automation check finds named entity references that no longer exist. 
 
 Battery checks cannot identify a replacement battery or tell you which battery to buy. Vacuum checks follow reported error activity. A fault that never appears in the supported evidence is outside that check.
 
-Automation-defined alerts are unfinished and are not ready for user setup. The manual does not offer a blueprint or diagnostic-sensor recipe for them. Backup failures, general host-health checks and other proposed monitoring remain on the [roadmap](../roadmap.md).
+Jammed-lock checks need the integration to report a jam. A later movement or position report ends the jam issue without proving that the movement completed or the door is secured.
+
+Home Assistant automations can report [custom continuing problems](../automation-situations.md). Their authors supply the detection and recovery evidence. Routine activity and completion announcements are outside Homeostatic's scope. Backup failures, general host-health checks and other proposed monitoring remain on the [roadmap](../roadmap.md).
 
 ## Notifications and access
 

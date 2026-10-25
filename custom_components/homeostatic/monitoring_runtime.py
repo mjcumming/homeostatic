@@ -8,7 +8,10 @@ from typing import Any
 from homeassistant.core import HomeAssistant, State
 
 from .catalog import Source
+from .config import resolve_entity
+from .left_open import CONTACT_CLASSES
 from .monitoring import TEMPERATURE_CHECKS, MonitoringPolicy
+from .reported_conditions import CONDITIONS
 from .rules import CatalogRule
 from .ups_parameters import UPS_CHECKS
 
@@ -27,7 +30,8 @@ def enrollment_rules(policies: tuple[MonitoringPolicy, ...]) -> tuple[CatalogRul
             match_none=policy.match_none,
         )
         for policy in policies
-        if policy.check not in TEMPERATURE_CHECKS | UPS_CHECKS | {"entity_not_provided"}
+        if policy.check
+        not in TEMPERATURE_CHECKS | UPS_CHECKS | {"entity_not_provided", "left_open"}
     )
 
 
@@ -39,7 +43,15 @@ def ordinary_sources(
 ) -> dict[str, Source]:
     """Give each policy its own findings and retain explicit upstream dependencies."""
     candidates = sources if candidates is None else candidates
-    ordinary = {"availability", "battery", "vacuum", "repair", "broken_automation"}
+    ordinary = {
+        "availability",
+        "battery",
+        "vacuum",
+        "lock_jam",
+        "repair",
+        "broken_automation",
+        *CONDITIONS,
+    }
     originals = {
         identity: source
         for identity, source in sources.items()
@@ -51,8 +63,10 @@ def ordinary_sources(
             "entity",
             "battery",
             "vacuum",
+            "lock",
             "repair",
             "broken_automation",
+            *CONDITIONS,
         }
         and source.monitoring_policy is None
     }
@@ -167,6 +181,46 @@ def thermostat_enrolled(state: State | None) -> bool:
         or bool(state.attributes.get("restored"))
         or state.state in {"heat", "cool", "heat_cool", "unknown", "unavailable"}
     )
+
+
+def left_open_sources(
+    hass: HomeAssistant,
+    policies: tuple[MonitoringPolicy, ...],
+    candidates: dict[str, Source],
+) -> dict[str, Source]:
+    """Bind independent opening checks without creating duplicate equipment sources."""
+    result = {}
+    for policy in policies:
+        if policy.check != "left_open" or not policy.enabled:
+            continue
+        for source in candidates.values():
+            if (
+                source.kind != "entity"
+                or source.disabled
+                or source.attributes.get("domain") != ("binary_sensor",)
+                or not CONTACT_CLASSES.intersection(
+                    source.attributes.get("device_class", ())
+                )
+                or not policy.matches(source.attributes, source_id=source.node_id)
+            ):
+                continue
+            identity = f"monitoring:{policy.id}:{policy.detection_key()}:{source.attributes['entity'][0]}"
+            reference = policy.parameters.get("temperature_source")
+            result[identity] = replace(
+                source,
+                node_id=identity,
+                kind="left_open",
+                check_id="left_open",
+                watched=True,
+                requirements=(),
+                attached_by=(policy.id,),
+                monitoring_policy=policy.id,
+                monitoring_source=source.node_id,
+                left_open_temperature_entity=resolve_entity(hass, reference)
+                if reference
+                else None,
+            )
+    return result
 
 
 def temperature_sources(
