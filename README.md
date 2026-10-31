@@ -12,6 +12,8 @@ See [How Homeostatic works](docs/how-it-works.md) for a short overview and flowc
 [![GitHub Release](https://img.shields.io/github/v/release/mjcumming/homeostatic?sort=semver)](https://github.com/mjcumming/homeostatic/releases)
 [![CI](https://github.com/mjcumming/homeostatic/actions/workflows/ci.yml/badge.svg)](https://github.com/mjcumming/homeostatic/actions/workflows/ci.yml)
 
+If Homeostatic is useful to you, consider [starring the repository on GitHub](https://github.com/mjcumming/homeostatic).
+
 ## Why use Homeostatic?
 
 - Catch up on routine problems in a morning summary, including low batteries and equipment Home Assistant reports unavailable.
@@ -41,7 +43,11 @@ Upgrades preserve saved monitoring and notification choices. Read the [upgrade g
 
 You need Home Assistant 2026.9.3 or newer and an administrator account. The first load needs internet access to install its Python dependency; Homeostatic then runs locally.
 
-In HACS, add `https://github.com/mjcumming/homeostatic` as a custom repository with type **Integration**, download Homeostatic and restart Home Assistant. Then open **Settings**, choose **Devices & services**, and use **Add integration** to add **Homeostatic**.
+Open Homeostatic in HACS:
+
+[![Open Homeostatic in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mjcumming&repository=homeostatic&category=integration)
+
+If prompted, add Homeostatic as a custom repository. Select **Download** and restart Home Assistant. Then open **Settings**, choose **Devices & services**, and use **Add integration** to add **Homeostatic**.
 
 Common checks start enabled, with notification sending off. Review what Homeostatic finds, choose what matters to you, then decide who should hear about it.
 

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Add a direct HACS repository button and a GitHub star link to the README.
+
 ## [1.14.0] - 2026-10-31
 
 ### Added
