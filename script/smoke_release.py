@@ -92,6 +92,10 @@ async def exercise(config: Path, port: int) -> None:
             "default_gas": False,
             "default_carbon_monoxide": False,
             "default_alarm_triggered": False,
+            "default_host_storage": False,
+            "default_host_memory": False,
+            "default_host_io": False,
+            "default_host_cpu": False,
         }
         assert {
             item["id"]: item["notifications"]
@@ -121,6 +125,10 @@ async def exercise(config: Path, port: int) -> None:
                 ("default_gas", "immediate"),
                 ("default_carbon_monoxide", "immediate"),
                 ("default_alarm_triggered", "immediate"),
+                ("default_host_storage", "morning"),
+                ("default_host_memory", "morning"),
+                ("default_host_io", "morning"),
+                ("default_host_cpu", "morning"),
             )
         }
         definitions = entry.data["notification_definitions"]
@@ -179,6 +187,10 @@ async def exercise(config: Path, port: int) -> None:
             "default_gas",
             "default_carbon_monoxide",
             "default_alarm_triggered",
+            "default_host_storage",
+            "default_host_memory",
+            "default_host_io",
+            "default_host_cpu",
         )
         assert {"default_devices", "default_important_equipment"} <= set(
             fresh["supplied_policy_introductions"]
@@ -305,7 +317,7 @@ async def exercise(config: Path, port: int) -> None:
             row
             for row in adopted["monitoring_policies"]
             if row["id"] not in introduced_ids
-            or row["id"] in {"default_locks", "default_problem"}
+            or row["id"] in {"default_locks", "default_problem", "default_host_memory"}
         ]
         locks = next(
             row
@@ -327,6 +339,12 @@ async def exercise(config: Path, port: int) -> None:
             },
             notifications=[],
         )
+        memory = next(
+            row
+            for row in adopted["monitoring_policies"]
+            if row["id"] == "default_host_memory"
+        )
+        memory["parameters"]["threshold"] = 7.5
         hass.config_entries.async_update_entry(entry, options=adopted)
         for _ in range(2):
             assert await hass.config_entries.async_reload(entry.entry_id)
