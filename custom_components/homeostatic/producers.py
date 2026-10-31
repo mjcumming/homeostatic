@@ -22,6 +22,7 @@ from .catalog import (
 from .config import Settings
 from .entity_not_provided import observe as not_provided_observation
 from .entity_not_provided import state_provided
+from .host_health import HOST_CHECKS, HostHealthMonitor, HostHealthParameters
 from .left_open import LeftOpenMonitor, LeftOpenParameters
 from .lock import observe as lock_observation
 from .monitoring import TEMPERATURE_CHECKS
@@ -79,18 +80,26 @@ class Producers:
         self.temperature_monitors: dict[str, TemperatureMonitor] = {}
         self.ups_monitors: dict[str, UpsMonitor] = {}
         self.left_open_monitors: dict[str, LeftOpenMonitor] = {}
+        self.host_health_monitors: dict[str, HostHealthMonitor] = {}
         self.window_ends: set[str] = set()
         self._left_open_saved: dict[str, Any] = {}
         self._left_open_deadlines: dict[str, datetime] = {}
         self._ups_saved: dict[str, Any] = {}
         self._temperature_saved: dict[str, Any] = {}
         self._temperature_deadlines: dict[str, datetime] = {}
+        self._host_health_saved: dict[str, Any] = {}
+        self._host_health_deadlines: dict[str, datetime] = {}
         self._restarts: set[str] = set()
         self.retry_since: dict[str, datetime] = {}
 
     def restore(self, snapshot: dict[str, Any]) -> None:
         """Validate producer sections, deferring per-source restore until enrollment."""
-        for key in ("temperature_monitors", "ups_monitors", "left_open_monitors"):
+        for key in (
+            "temperature_monitors",
+            "ups_monitors",
+            "left_open_monitors",
+            "host_health_monitors",
+        ):
             monitors = snapshot.get(key, {})
             if not isinstance(monitors, dict) or any(
                 not isinstance(identity, str) or not isinstance(value, dict)
@@ -100,6 +109,12 @@ class Producers:
         self._temperature_saved = dict(snapshot.get("temperature_monitors", {}))
         self._ups_saved = dict(snapshot.get("ups_monitors", {}))
         self._left_open_saved = dict(snapshot.get("left_open_monitors", {}))
+        self._host_health_saved = dict(snapshot.get("host_health_monitors", {}))
+        if any(
+            set(state) != {"active"} or type(state["active"]) is not bool
+            for state in self._host_health_saved.values()
+        ):
+            raise ValueError("Invalid stored host-health monitoring state")
         for identity, state in self._left_open_saved.items():
             monitor = LeftOpenMonitor(
                 node_id=identity, name="", parameters=LeftOpenParameters()
@@ -118,6 +133,10 @@ class Producers:
     def snapshot(self) -> dict[str, Any]:
         """Return the existing flat persistence sections for the shared save."""
         return {
+            "host_health_monitors": {
+                key: monitor.snapshot()
+                for key, monitor in self.host_health_monitors.items()
+            },
             "left_open_monitors": {
                 key: monitor.snapshot()
                 for key, monitor in self.left_open_monitors.items()
@@ -138,6 +157,21 @@ class Producers:
 
     def retain(self, sources: dict[str, Source]) -> None:
         """Discard detector state only when its monitoring expectation is removed."""
+        self.host_health_monitors = {
+            key: value
+            for key, value in self.host_health_monitors.items()
+            if key in sources
+        }
+        self._host_health_saved = {
+            key: value
+            for key, value in self._host_health_saved.items()
+            if key in sources
+        }
+        self._host_health_deadlines = {
+            key: value
+            for key, value in self._host_health_deadlines.items()
+            if key in sources
+        }
         self.ups_monitors = {
             key: value for key, value in self.ups_monitors.items() if key in sources
         }
@@ -205,6 +239,7 @@ class Producers:
                     "left_open",
                     "ups",
                     *TEMPERATURE_CHECKS,
+                    *HOST_CHECKS,
                 }
                 or availability_changed
             )
@@ -261,7 +296,7 @@ class Producers:
                     )
                 )
                 continue
-            if source.kind in TEMPERATURE_CHECKS:
+            if source.kind in TEMPERATURE_CHECKS or source.kind in HOST_CHECKS:
                 captured.append(
                     CapturedTemperature(node_id=source.node_id, state=state)
                 )
@@ -358,6 +393,8 @@ class Producers:
             return self._observe_left_open(
                 source, captured.contact, captured.temperature, settings, now
             )
+        if source.kind in HOST_CHECKS:
+            return self._observe_host_health(source, captured.state, settings, now)
         return self._observe_temperature(source, captured.state, settings, now)
 
     def take_restarts(self, node_id: str | None = None) -> set[str]:
@@ -396,6 +433,14 @@ class Producers:
                         settings,
                         now,
                     )
+                )
+                continue
+            if source.kind in HOST_CHECKS:
+                state = (
+                    self.hass.states.get(source.entity_id) if source.entity_id else None
+                )
+                observations.append(
+                    self._observe_host_health(source, state, settings, now)
                 )
                 continue
             if source.kind in TEMPERATURE_CHECKS:
@@ -475,6 +520,7 @@ class Producers:
         deadlines = [
             *self._temperature_deadlines.values(),
             *self._left_open_deadlines.values(),
+            *self._host_health_deadlines.values(),
         ]
         deadlines.extend(
             since + settings.duration("retry_hold")
@@ -629,6 +675,34 @@ class Producers:
             self.window_ends.add(source.node_id)
         elif result.observation.evidence.get("monitoring_active"):
             self.window_ends.discard(source.node_id)
+        return result.observation
+
+    def _observe_host_health(
+        self, source: Source, state: State | None, settings: Settings, now: datetime
+    ) -> Observation:
+        """Advance one selected host signal with the ordered engine observation."""
+        monitor = self.host_health_monitors.get(source.node_id)
+        if monitor is None:
+            policy = next(
+                item
+                for item in settings.monitoring_policies
+                if item.id == source.monitoring_policy
+            )
+            monitor = HostHealthMonitor(
+                node_id=source.node_id,
+                name=source.name,
+                parameters=HostHealthParameters.from_data(
+                    HOST_CHECKS[policy.check], policy.parameters
+                ),
+            )
+            if source.node_id in self._host_health_saved:
+                monitor.restore(self._host_health_saved.pop(source.node_id))
+            self.host_health_monitors[source.node_id] = monitor
+        monitor.name = source.name
+        result = monitor.evaluate(state, now)
+        self._host_health_deadlines.pop(source.node_id, None)
+        if result.next_deadline is not None:
+            self._host_health_deadlines[source.node_id] = result.next_deadline
         return result.observation
 
     def _observe_temperature(

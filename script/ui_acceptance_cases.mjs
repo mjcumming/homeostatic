@@ -144,6 +144,60 @@ export async function runLiveCases({page,lab,call,record,artifactDir,group="all"
       await fill(field("name"),`${supplied.name} edited`);await save();await fill(field("name"),supplied.name);await save();
       await noChange(before);
     });
+    await run("policies.host-health",async()=>{
+      const before=await snapshot();
+      const id=await addPolicy("host_memory","Acceptance memory pressure");
+      await save();
+      assert.equal((await snapshot()).monitoring_policies.find(p=>p.id===id).enabled,false);
+      await edit("policies",id);
+      const disabled=await snapshot();
+      await fill(field("parameters:recovery"),"8");
+      await click(action("save-scoped"));
+      assert.match(await bodyText(),/recovery limit must be lower/i);
+      await noChange(disabled);
+      await fill(field("parameters:recovery"),"2");
+      const choices=at(field("source-choice"));
+      assert.equal(await choices.count(),1);
+      await choices.first().check();
+      await fill(field("parameters:threshold"),"7");
+      await fill(field("parameters:duration_seconds"),"12");
+      await check(field("enabled"),true);
+      await page.screenshot({path:join(artifactDir,"host-health-editor-viewport.png")});
+      await page.screenshot({path:join(artifactDir,"host-health-editor.png"),fullPage:true});
+      await at(field("parameters:threshold")).scrollIntoViewIfNeeded();
+      await page.mouse.move(300,600);await page.mouse.wheel(0,480);
+      await page.evaluate(()=>new Promise(requestAnimationFrame));
+      await page.screenshot({path:join(artifactDir,"host-health-limits-viewport.png")});
+      transport.mode="reject";await click(action("save-scoped"));
+      await at('.config-error').filter({hasText:"Acceptance transport rejected"}).waitFor();
+      assert.equal(await at(field("parameters:threshold")).inputValue(),"7");
+      await noChange(disabled);
+      await save();
+      const saved=(await snapshot()).monitoring_policies.find(p=>p.id===id);
+      assert.equal(saved.parameters.threshold,7);
+      assert.equal(saved.parameters.duration_seconds,720);
+      assert.equal(saved.match.entity.length,1);
+      assert.equal(saved.enabled,true);
+      assert.equal((await snapshot()).notifications,before.notifications);
+      await edit("policies",id);
+      assert.equal(await at(field("parameters:threshold")).inputValue(),"7");
+      assert.equal(await at(field("parameters:duration_seconds")).inputValue(),"12");
+      assert.equal(await choices.first().isChecked(),true);
+      await fill(field("parameters:threshold"),"9");await discard();
+      assert.equal((await snapshot()).monitoring_policies.find(p=>p.id===id).parameters.threshold,7);
+      await menu("policies",id,"delete");await deleteConfirm();
+      for(const type of ["host_storage","host_io","host_cpu"]) {
+        const other=await addPolicy(type,`Acceptance ${type}`);
+        assert.equal(await at(field("source-choice")).count(),1);
+        await check(field("source-choice"),true);await check(field("enabled"),true);await save();
+        const policy=(await snapshot()).monitoring_policies.find(p=>p.id===other);
+        assert.equal(policy.enabled,true);assert.equal(policy.match.entity.length,1);
+        await edit("policies",other);assert.equal(await at(field("source-choice")).first().isChecked(),true);
+        await menu("policies",other,"delete");await deleteConfirm();
+      }
+      await noChange(before);
+      return "Saved a disabled policy without sources; rejected invalid recovery and a failed save; selected each of four sensors, saved, reopened and removed its policy, with retry and discard on memory pressure.";
+    },true);
     for(const type of ["integration","entity","entity_not_provided","battery","vacuum","repair","broken_automation","thermostat","temperature_limit","ups_power","ups_reserve","ups_battery_replacement","ups_fault"]) {
       await run(`live.policies.type.${type}`,async()=>{
         const id=await addPolicy(type,`Acceptance ${type}`);

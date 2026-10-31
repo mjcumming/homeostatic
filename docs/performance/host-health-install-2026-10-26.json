@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-26",
+  "scope": "Maintainer-authorized local Home Assistant installation of the uncommitted host-health trial",
+  "candidate": {
+    "branch": "main",
+    "base_revision": "f78e7511251e187fdfa7e9209b2502ae59d01095",
+    "dirty": true,
+    "component_sha256": "78977496344bf55dd17cc474678ab001ad7be984d9e7995fad42f1ec36b62947",
+    "component_files": 89,
+    "health_tree": "0.11.0",
+    "source": "Working tree custom_components/homeostatic, excluding Python caches"
+  },
+  "validation": {
+    "full_local_check": "Passed script/check.py in a Linux copy with the same component digest: lint, formatting, strict types, 1730 collected Python cases, both coverage floors and 934 frontend tests.",
+    "coverage": {"statements_percent": 96.777, "branches_percent": 93.008},
+    "household_state_rehearsal": "A copy of the actual saved settings and stored state restored in isolated HA 2026.9.3 and 2026.10.0, preserved existing settings, added disabled policies and reloaded twice. Notification sending was mocked.",
+    "installed_files": "All 89 installed component files matched the tested candidate; temporary component staging was removed.",
+    "runtime": "HA Core 2026.10.0 returned RUNNING; Homeostatic was loaded with no Homeostatic errors in the system log.",
+    "preservation": "All 24 existing policies and all other settings, including notification sending, matched the pre-install baseline. Four host policies were added disabled.",
+    "frontend": "Panel v67 and served module v115 assets matched the candidate. The live Policies page showed all four policies off and the low-storage editor showed the missing System Monitor source and candidate limits.",
+    "system_monitor": "Installed on request; the /config disk-free sensor and CPU, memory and I/O pressure 300-second sensors were enabled and reported numeric readings. Each appeared as an eligible source in its corresponding policy editor. Other System Monitor sensors remained disabled.",
+    "live_detection": "Untested: the four host policies remained disabled and no sources were selected. No test notifications were sent."
+  },
+  "remaining": [
+    "Explicitly select the relevant sources and enable policies before evaluating live issue detection.",
+    "Compare candidate thresholds with representative operation before accepting release defaults.",
+    "Run exact-candidate CI and package verification before release."
+  ],
+  "status": {"installed_on_household": true, "committed": false, "released": false}
+}

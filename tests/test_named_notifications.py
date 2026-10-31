@@ -17,6 +17,7 @@ from custom_components.homeostatic import notification_grouping
 from custom_components.homeostatic.attention import build_policy
 from custom_components.homeostatic.config import Settings
 from custom_components.homeostatic.const import DOMAIN
+from custom_components.homeostatic.host_health import TRIAL_DEFAULTS
 from custom_components.homeostatic.policy_defaults import initial_settings
 from tests.policy_helpers import current_config, monitoring_policy
 from tests.test_lifecycle import start_monitor
@@ -76,6 +77,7 @@ def test_supplied_profiles_are_unconfigured_and_sending_stays_off() -> None:
         "default_gas": "immediate",
         "default_carbon_monoxide": "immediate",
         "default_alarm_triggered": "immediate",
+        **{f"default_host_{condition}": "morning" for condition in TRIAL_DEFAULTS},
     }
     assert settings.notification_definitions["profiles"]["weekly"]["timing"] == {
         "mode": "report",

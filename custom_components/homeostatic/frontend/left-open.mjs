@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=114";
+import {escapeHtml as esc} from "./model.mjs?v=115";
 
 const attr=(id,field)=>`data-definition-kind="policies" data-definition-id="${esc(id)}" data-definition-field="parameters:${esc(field)}"`;
 const field=(id,key,label,value,type="text",extra="")=>`<label class="installation-field"><span>${label}</span><input ${attr(id,key)} type="${type}" value="${esc(value??"")}" ${extra}></label>`;

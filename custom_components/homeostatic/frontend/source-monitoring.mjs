@@ -1,6 +1,6 @@
 /** Contextual availability changes use the same saved policy exclusions as Policies. */
-import {saveScopedConfiguration,sameConfiguration as same} from "./scoped-configuration.mjs?v=114";
-import {escapeHtml as esc} from "./model.mjs?v=114";
+import {saveScopedConfiguration,sameConfiguration as same} from "./scoped-configuration.mjs?v=115";
+import {escapeHtml as esc} from "./model.mjs?v=115";
 
 const copy=value=>structuredClone(value);
 const scope={kind:"source-availability"};

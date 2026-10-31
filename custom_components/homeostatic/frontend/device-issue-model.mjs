@@ -1,7 +1,7 @@
-import {REPORTED_CONDITIONS} from "./reported-conditions.mjs?v=114";
-import {inventoryRows,visibleEpisodes} from "./model.mjs?v=114";
+import {REPORTED_CONDITIONS} from "./reported-conditions.mjs?v=115";
+import {inventoryRows,visibleEpisodes} from "./model.mjs?v=115";
 
-const deviceKinds=new Set([...Object.keys(REPORTED_CONDITIONS),"device","entity","battery","vacuum","lock","ups","temperature_limit","thermostat"]);
+const deviceKinds=new Set([...Object.keys(REPORTED_CONDITIONS),"device","entity","battery","vacuum","lock","ups","temperature_limit","thermostat","host_storage","host_memory","host_io","host_cpu"]);
 const canonicalSource=(source,sources)=>source?.monitoring_source?sources.get(source.monitoring_source):source;
 
 function owningDevice(episode,sources) {

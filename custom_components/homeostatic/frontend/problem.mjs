@@ -2,6 +2,14 @@
 const titles = {nuheat: "NuHeat", denonavr: "Denon AVR", music_assistant: "Music Assistant"};
 const timeout = /\b(?:ConnectTimeoutError|ReadTimeoutError|ConnectTimeout|ReadTimeout|TimeoutException|TimeoutError)\b|\b(?:connection|request) timed out\b/i;
 
+/** Explain a selected System Monitor condition without diagnosing its cause. */
+export function hostHealthProblem(source,status) {
+  const details={host_storage:["Storage is low","Review storage, backups and database history."],host_memory:["Memory pressure is high","Review memory use and workloads on this system."],host_io:["Storage I/O pressure is high","Review storage health and workloads on this system."],host_cpu:["CPU pressure is high","Review processor use and workloads on this system."]}[source?.kind];
+  if(!details)return null;
+  const current=status?.current,e=current?.evidence||{},unknown=!current||current.status==="unknown",normal=current?.status==="pass",recovering=e.recovery_waiting===true;
+  return {headline:unknown?"Host reading unavailable":normal?"Within configured limits":recovering?"Confirming recovery":details[0],summary:current?.message||"Waiting for a current reading.",nextStep:unknown?"Check the selected System Monitor sensor in Home Assistant.":normal||recovering?"":details[1],tone:unknown?"uncertain":normal?"neutral":"failure",progress:unknown?"Waiting for evidence":normal?"":recovering?"Confirming recovery":"Needs attention",currentReason:current?.reason||"host_evidence_missing",detail:e.value!=null?`${e.value} ${e.unit||""} · limit ${e.threshold} ${e.unit||""}`:""};
+}
+
 export function integrationProblem(source, findings, localize = () => null, evidence = null, openProblem = true, nodes = new Map()) {
   if (source?.kind !== "integration") return null;
   const finding = findings.find((item) => item.node_id === source.node_id || !item.node_id);

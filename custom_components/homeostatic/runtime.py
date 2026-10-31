@@ -98,10 +98,12 @@ from .facts import (
 )
 from .function_model import compose, describe, preview
 from .history import ResolvedHistory
+from .host_health import HOST_CHECKS
 from .monitoring import TEMPERATURE_CHECKS
 from .monitoring_runtime import (
     assignments,
     enrollment_rules,
+    host_health_sources,
     left_open_sources,
     ordinary_sources,
     original_identity,
@@ -741,6 +743,11 @@ class Runtime:
         sources.update(self.producers.broken.sources())
         sources.update(
             temperature_sources(
+                self.hass, self.settings.monitoring_policies, candidates
+            )
+        )
+        sources.update(
+            host_health_sources(
                 self.hass, self.settings.monitoring_policies, candidates
             )
         )
@@ -1911,6 +1918,7 @@ class Runtime:
                 "entity_not_provided",
                 "ups",
                 *TEMPERATURE_CHECKS,
+                *HOST_CHECKS,
             }:
                 self.evidence.observe(observation, source.name)
 
@@ -2602,6 +2610,9 @@ class Runtime:
             temperature_sources(self.hass, settings.monitoring_policies, candidates)
         )
         sources.update(
+            host_health_sources(self.hass, settings.monitoring_policies, candidates)
+        )
+        sources.update(
             left_open_sources(self.hass, settings.monitoring_policies, candidates)
         )
         sources.update(not_provided_sources(settings.monitoring_policies, candidates))
@@ -2804,6 +2815,7 @@ class Runtime:
                     "ups",
                     "entity_not_provided",
                     *TEMPERATURE_CHECKS,
+                    *HOST_CHECKS,
                 }
             },
             "resolved_history": self.history.view(dt_util.utcnow()),

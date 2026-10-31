@@ -1,11 +1,11 @@
-import {REPORTED_CONDITIONS} from "./reported-conditions.mjs?v=114";
-import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=114";
-import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=114";
-import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=114";
-import {entitySelection,entityScopeSummary,entitySelected,editEntitySelection} from "./entity-selection.mjs?v=114";
-import {leftOpenFields,leftOpenValidation,leftOpenSummary,leftOpenEndText} from "./left-open.mjs?v=114";
+import {REPORTED_CONDITIONS} from "./reported-conditions.mjs?v=115";
+import {escapeHtml as esc, inventoryRows} from "./model.mjs?v=115";
+import {destinationChoices,editDestinationPicker,focusDestinationPicker} from "./delivery-picker.mjs?v=115";
+import {initializeScopedConfiguration,scopedDirty,saveScopedConfiguration,discardScopedConfiguration} from "./scoped-configuration.mjs?v=115";
+import {entitySelection,entityScopeSummary,entitySelected,editEntitySelection} from "./entity-selection.mjs?v=115";
+import {leftOpenFields,leftOpenValidation,leftOpenSummary,leftOpenEndText} from "./left-open.mjs?v=115";
 
-import {SOURCE_CATEGORIES,sourceCategory,sourceNoun,sourceScopeSummary,flatSourceSelection,editSourceSelection} from "./source-selection.mjs?v=114";
+import {SOURCE_CATEGORIES,sourceCategory,sourceNoun,sourceScopeSummary,flatSourceSelection,editSourceSelection} from "./source-selection.mjs?v=115";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -108,6 +108,7 @@ export const MONITORING_TYPES = {
   integration: "Integration availability", entity: "Unavailable entities",
   battery: "Low battery", vacuum: "Vacuum error", lock_jam: "Jammed lock", repair: "Repairs", broken_automation: "Broken automations",
   thermostat: "Thermostat progress", temperature_limit: "Temperature limits", entity_not_provided: "Missing entities", left_open:"Left open",
+  host_storage:"Low storage", host_memory:"Memory pressure", host_io:"Storage I/O pressure", host_cpu:"CPU pressure",
   ups_power: "UPS backup power", ups_reserve: "UPS low reserve", ups_battery_replacement: "UPS battery replacement", ups_fault: "UPS faults",
 };
 export function policyType(policy) {
@@ -117,13 +118,13 @@ export function newMonitoringPolicy(existing,type="entity",profiles=null,categor
   if(type==="availability")type="entity";
   const check=["integration","entity"].includes(type)?"availability":type;
   const parameters = check === "thermostat" ? {unit:"°F",margin:2,progress:2,worsening:2,progress_seconds:3600}
-    : check === "left_open" ? {unit:"°F",duration_seconds:null,use_temperature:false} : check === "temperature_limit" ? {unit:"°F",duration_seconds:0} : check === "battery" ? {threshold:20} : check === "entity_not_provided" ? {duration_seconds:86400} : {};
-  const kind = check==="lock_jam"?"lock":check.startsWith("ups_")?"ups":["thermostat","temperature_limit","entity_not_provided","left_open"].includes(check)?"entity":type;
+    : check === "left_open" ? {unit:"°F",duration_seconds:null,use_temperature:false} : check === "temperature_limit" ? {unit:"°F",duration_seconds:0} : check === "battery" ? {threshold:20} : check === "entity_not_provided" ? {duration_seconds:86400} : ({host_storage:{threshold:5,recovery:6,duration_seconds:1800,recovery_seconds:1800},host_memory:{threshold:5,recovery:2,duration_seconds:600,recovery_seconds:600},host_io:{threshold:5,recovery:2,duration_seconds:900,recovery_seconds:600},host_cpu:{threshold:20,recovery:10,duration_seconds:900,recovery_seconds:600}}[check]||{});
+  const kind = check==="lock_jam"?"lock":check.startsWith("ups_")?"ups":check.startsWith("host_")||["thermostat","temperature_limit","entity_not_provided","left_open"].includes(check)?"entity":type;
   const reported=REPORTED_CONDITIONS[check];
   const choices=reported?[[reported.profile||"immediate"]]:check==="ups_reserve"?[["morning","mains"],["acknowledge","backup"]]:[[{thermostat:"urgent",temperature_limit:"acknowledge",left_open:"acknowledge",vacuum:"evening",lock_jam:"immediate",ups_power:"urgent",ups_fault:"urgent"}[check]||"morning"]];
   const notifications=choices.filter(([profile])=>profiles?.[profile]).map(([profile,when],index)=>({id:`notification-${index+1}`,profile,...(when?{when}:{})}));
   const sourceCategory=type==="entity"?SOURCE_CATEGORIES[category]||SOURCE_CATEGORIES.any:SOURCE_CATEGORIES.any;
-  return {id:nextDefinitionId(existing,"policy"),name:sourceCategory.match?sourceCategory.name:MONITORING_TYPES[type],check,match:{kind:[kind],...(sourceCategory.match?structuredClone(sourceCategory.match):{}),...(["entity","left_open"].includes(type)||reported&&!reported.all?{entity:[]}: {})},parameters,enabled:false,notifications};
+  return {id:nextDefinitionId(existing,"policy"),name:sourceCategory.match?sourceCategory.name:MONITORING_TYPES[type],check,match:{kind:[kind],...(sourceCategory.match?structuredClone(sourceCategory.match):{}),...(["entity","left_open"].includes(type)||check.startsWith("host_")||reported&&!reported.all?{entity:[]}: {})},parameters,enabled:false,notifications};
 }
 
 export function emptyNotificationDefinitions(timezone="UTC") {
@@ -231,6 +232,13 @@ function temperatureValidation(policy) {
   if(p.minimum!=null&&p.maximum!=null&&p.minimum>p.maximum)return {field:"minimum",message:"Below must be less than or equal to Above."};
   return durationValidation(p.duration_seconds);
 }
+function hostValidation(policy) {
+  const p=policy.parameters||{},storage=policy.check==="host_storage";
+  for(const field of ["threshold","recovery"])if(!Number.isFinite(p[field])||p[field]<0||!storage&&p[field]>100)return {field,message:storage?"Enter a nonnegative storage limit.":"Enter a pressure limit from 0 to 100%."};
+  if(storage?p.recovery<=p.threshold:p.recovery>=p.threshold)return {field:"recovery",message:storage?"The recovery limit must be higher than the problem limit.":"The recovery limit must be lower than the problem limit."};
+  for(const field of ["duration_seconds","recovery_seconds"])if(!Number.isInteger(p[field])||p[field]<0||p[field]>31536000)return {field,message:"Enter a duration from 0 to 365 days in whole seconds."};
+  return null;
+}
 function policyFieldError(card,id,field) {
   return card.editors.policyValidation?.id===id&&card.editors.policyValidation.field===field?`aria-invalid="true" aria-describedby="policy-error-${esc(id)}"`:"";
 }
@@ -239,10 +247,10 @@ function temperatureRule(policy) {
   const bounds=[p.minimum!=null?`below ${p.minimum}${p.unit}`:"",p.maximum!=null?`above ${p.maximum}${p.unit}`:""].filter(Boolean).join(" or ");
   return temperatureValidation(policy)?"Enter a lower limit, an upper limit, or both, and a valid duration.":`${policy.enabled?"Open an issue":"When enabled, open an issue"} when the temperature ${p.duration_seconds?"stays":"is"} ${bounds}${p.duration_seconds?` for ${formatPolicyDuration(p.duration_seconds)}`:", without waiting"}.`;
 }
-function durationField(card,policy,label,seconds) {
-  const {id}=policy,key=`${id}:duration_seconds`;
+function durationField(card,policy,label,seconds,field="duration_seconds") {
+  const {id}=policy,key=`${id}:${field}`;
   const unit=card.editors.policyDurationUnits?.[key]||(seconds==null||seconds%60===0?"minutes":"seconds"),duration=seconds==null?"":seconds/DURATION_UNITS[unit];
-  return `<div class="policy-duration">${input("policies",id,"parameters:duration_seconds",label,duration,"number",`data-duration-unit="${unit}" min="0" max="${31536000/DURATION_UNITS[unit]}" step="any" required ${policyFieldError(card,id,"duration_seconds")}`)}${select("policies",id,"duration-unit:duration_seconds","Duration unit",unit,{minutes:"Minutes",hours:"Hours",seconds:"Seconds"})}</div>`;
+  return `<div class="policy-duration">${input("policies",id,`parameters:${field}`,label,duration,"number",`data-duration-unit="${unit}" min="0" max="${31536000/DURATION_UNITS[unit]}" step="any" required ${policyFieldError(card,id,field)}`)}${select("policies",id,`duration-unit:${field}`,"Duration unit",unit,{minutes:"Minutes",hours:"Hours",seconds:"Seconds"})}</div>`;
 }
 function policyValidationMessage(card,id) {
   return card.editors.policyValidation?.id===id?`<p class="config-error" role="alert" id="policy-error-${esc(id)}">${esc(card.editors.policyValidation.message)}</p>`:"";
@@ -279,6 +287,10 @@ function policyFields(card,policy) {
   }
   if(check==="entity_not_provided")parameterFields=input("policies",id,"parameters:duration_seconds","For at least (hours)",(parameters.duration_seconds??86400)/3600,"number",'data-duration-unit="hours" min="0" max="8760" step="any" required')+'<p class="small policy-help">The owning integration must be loaded. Startup and reload gaps restart the wait. Open the entity in Home Assistant to inspect it. Use 0 for no waiting period.</p>';
   if(check==="temperature_limit")parameterFields=temperatureFields(card,policy);
+  if(check.startsWith("host_")) {
+    const unit=check==="host_storage"?"GiB":"%",direction=check==="host_storage"?"Below":"Above",clear=check==="host_storage"?"Above":"Below";
+    parameterFields=`<div class="policy-limits">${input("policies",id,"parameters:threshold",`${direction} (${unit})`,parameters.threshold,"number",`min="0" step="any" required ${policyFieldError(card,id,"threshold")}`)}${input("policies",id,"parameters:recovery",`Clear ${clear.toLowerCase()} (${unit})`,parameters.recovery,"number",`min="0" step="any" required ${policyFieldError(card,id,"recovery")}`)}</div>${durationField(card,policy,"Problem wait",parameters.duration_seconds)}${durationField(card,policy,"Recovery wait",parameters.recovery_seconds,"recovery_seconds")}${policyValidationMessage(card,id)}<p class="small policy-help">${check==="host_storage"?"Choose limits that leave enough room for this installation.":"The five-minute average shows time spent waiting for this resource."} Missing reports do not clear an issue.</p>`;
+  }
   if(check==="left_open")parameterFields=durationField(card,policy,"Open for at least",parameters.duration_seconds)+leftOpenFields(card,policy)+policyValidationMessage(card,id)+`<div class="policy-rule" role="status"><p>${esc(leftOpenSummary(policy))}</p><p>${esc(leftOpenEndText(policy))}</p></div>`;
   if(check==="thermostat") {
     parameterFields=select("policies",id,"parameters:unit","Temperature unit",parameters.unit,{"°F":"°F","°C":"°C",K:"K"});
@@ -508,7 +520,7 @@ export function editReusable(card,event) {
       if(card.editors.scopedBusy)return true;
       if(action==="save-scoped") {
         const policy=scope.kind==="policy"?policies.find(item=>item.id===id):null;
-        const validation=policy?.check==="left_open"?leftOpenValidation(policy):policy?.check==="temperature_limit"?temperatureValidation(policy):policy&&hasAvailabilityWait(policy)?durationValidation(availabilityDuration(policy)):null;
+        const validation=policy?.check==="left_open"?leftOpenValidation(policy):policy?.check==="temperature_limit"?temperatureValidation(policy):policy?.check?.startsWith("host_")?hostValidation(policy):policy&&hasAvailabilityWait(policy)?durationValidation(availabilityDuration(policy)):null;
         if(validation) {
           card.editors.policyValidation={id,...validation};card.editors.scopedStatusScope=`policy:${id}`;card.editors.scopedError=validation.message;card.editors.scopedNotice=null;card.render();
           card.main.querySelector?.(`[data-definition-field="parameters:${validation.field}"]`)?.focus?.();return true;
@@ -517,7 +529,7 @@ export function editReusable(card,event) {
         if(policy&&["area","label"].some(field=>Array.isArray(policy.match?.[field])&&!policy.match[field].length)) {
           card.editors.scopedStatusScope=`policy:${id}`;card.editors.scopedError="Choose at least one area or label, or change Future sources.";card.editors.scopedNotice=null;card.render();return true;
         }
-        if(policy&&(policy.enabled||!REPORTED_CONDITIONS[policy.check])&&!["entity","entity_not_provided"].includes(policyType(policy))&&Object.values(policy.match||{}).some(values=>Array.isArray(values)&&!values.length)) {
+        if(policy&&(policy.enabled||!REPORTED_CONDITIONS[policy.check]&&!policy.check.startsWith("host_"))&&!["entity","entity_not_provided"].includes(policyType(policy))&&Object.values(policy.match||{}).some(values=>Array.isArray(values)&&!values.length)) {
           card.editors.scopedStatusScope=`policy:${id}`;card.editors.scopedError="Choose at least one source, or change Future sources.";card.editors.scopedNotice=null;card.render();return true;
         }
         void saveEditor(card,scope);
@@ -666,9 +678,10 @@ export function editReusable(card,event) {
           item.person_destinations??={};
           if(element.checked)item.person_destinations[value]??=[];else delete item.person_destinations[value];
         }
-      }else if(kind==="policies"&&field==="duration-unit:duration_seconds") {
+      }else if(kind==="policies"&&field.startsWith("duration-unit:")) {
+        const durationKey=field.slice("duration-unit:".length);
         if(Object.hasOwn(DURATION_UNITS,element.value)) {
-          card.editors.policyDurationUnits??={};card.editors.policyDurationUnits[`${id}:duration_seconds`]=element.value;
+          card.editors.policyDurationUnits??={};card.editors.policyDurationUnits[`${id}:${durationKey}`]=element.value;
           renderAfterEdit(card,element);
         }
         return true;
@@ -688,15 +701,15 @@ export function editReusable(card,event) {
             item.parameters[threshold]=to==="°F"?celsius*9/5+(difference?0:32):to==="K"&&!difference?celsius+273.15:celsius;
           }
         }
-        if(key==="duration_seconds"&&Object.hasOwn(DURATION_UNITS,d.durationUnit)) {
-          card.editors.policyDurationUnits??={};card.editors.policyDurationUnits[`${id}:duration_seconds`]=d.durationUnit;
+        if(["duration_seconds","recovery_seconds"].includes(key)&&Object.hasOwn(DURATION_UNITS,d.durationUnit)) {
+          card.editors.policyDurationUnits??={};card.editors.policyDurationUnits[`${id}:${key}`]=d.durationUnit;
         }
         if(element.type==="checkbox")item.parameters[key]=element.checked;
         else if(element.value==="") {
           if(key==="duration_seconds"&&hasAvailabilityWait(item))item.parameters[key]=null;
           else delete item.parameters[key];
         }
-        else if(key==="duration_seconds"&&Object.hasOwn(DURATION_UNITS,d.durationUnit)) {
+        else if(["duration_seconds","recovery_seconds"].includes(key)&&Object.hasOwn(DURATION_UNITS,d.durationUnit)) {
           const seconds=Number(element.value)*DURATION_UNITS[d.durationUnit],nearest=Math.round(seconds);
           const exact=d.durationUnit!=="seconds"&&seconds>=0&&seconds<=31536000&&nearest>0&&Math.abs(seconds-nearest)<=Number.EPSILON*Math.max(1,Math.abs(seconds))*4;
           item.parameters[key]=exact?nearest:seconds;
@@ -717,7 +730,7 @@ export function editReusable(card,event) {
     }else return false;
   }
   invalidate(card);
-  const editingDetection=event.type!=="click"&&kind==="policies"&&element.type==="number"&&policies.find(item=>item.id===id&&(["temperature_limit","left_open"].includes(item.check)||hasAvailabilityWait(item)&&d.definitionField==="parameters:duration_seconds"));
+  const editingDetection=event.type!=="click"&&kind==="policies"&&element.type==="number"&&policies.find(item=>item.id===id&&(["temperature_limit","left_open"].includes(item.check)||item.check.startsWith("host_")||hasAvailabilityWait(item)&&d.definitionField==="parameters:duration_seconds"));
   const editingCollection=event.type!=="click"&&kind==="profiles"&&d.definitionField==="timing:collection_delay_seconds";
   if(editingDetection||editingCollection) {
     // Keep native intermediate input such as a leading minus or trailing decimal.

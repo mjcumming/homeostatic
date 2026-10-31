@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-26",
+  "scope": "Isolated host-health trial with explicitly selected System Monitor sensors",
+  "candidate": {
+    "branch": "main",
+    "base_revision": "f78e7511251e187fdfa7e9209b2502ae59d01095",
+    "uncommitted": true,
+    "component_sha256": "78977496344bf55dd17cc474678ab001ad7be984d9e7995fad42f1ec36b62947",
+    "health_tree": "0.11.0"
+  },
+  "checks": {
+    "quick": "pass: Ruff and 934 frontend tests using Linux Node 22",
+    "strict_types": "pass: mypy on 47 source files",
+    "host_health": "pass: 23 detector, lifecycle, notification, ordered-capture and outbox replay scenarios",
+    "policy_and_notification": "pass: 69 supplied-policy, notification and System Monitor contract tests; backend unchanged after the run",
+    "existing_monitoring_regression": "pass: 306 notification-definition, temperature and reported-condition tests",
+    "dashboard_and_producers": "pass: 55 focused tests, including host-health scenarios, on an earlier local trial before the final presentation refinements",
+    "full_local_check": "pass: full script/check.py in a Linux copy of the exact component, including 1730 collected Python cases, both coverage floors and 934 frontend tests; exact-candidate CI remains unverified"
+  },
+  "rendered_review": {
+    "owner": "Policies owns source selection and detection; existing Notifications owns delivery.",
+    "purpose": "Choose a relevant source, set the problem and recovery limits, and save through the existing policy editor. Four focused source lists avoid a separate setup page.",
+    "desktop": "policies.host-health passed at 1440x1000 light against isolated Home Assistant",
+    "phone": "policies.host-health passed at 390x844 dark against isolated Home Assistant",
+    "review": "Inspected desktop and phone editor screenshots. Removed search and Monitored only from these small focused lists; selected sources and existing Save and Discard remain visible.",
+    "covered": "Disabled save without sources; invalid recovery blocks submission; simulated failed save preserves the draft; retry; all four matching sensor selections, enable, save, reopen and delete; memory-policy edit and discard.",
+    "uncovered": "Other inventory paths and physical devices were not tested in these scoped runs.",
+    "runner_limit": "The scoped browser cases passed, but both runner processes exited 1 after recording unsupported topomation/locations/list websocket requests in the disposable lab. Earlier launch failed for missing libasound; the prepared library path allowed the retries. The complete browser sweep did not pass."
+  },
+  "remaining": [
+    "Compare thresholds and source scopes with representative normal operation, backups, contention and recovery before accepting release defaults.",
+    "Run exact-candidate CI and package validation before release.",
+    "Keep the selected trial policies disabled on existing installations until explicitly configured."
+  ],
+  "status": {
+    "committed": false,
+    "released": false,
+    "installed_on_household": true,
+    "household_test_notifications": 0
+  }
+}

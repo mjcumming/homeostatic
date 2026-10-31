@@ -18,6 +18,7 @@ from custom_components.homeostatic.dashboard import (
     _editable_settings,
     _settings_candidate,
 )
+from custom_components.homeostatic.host_health import TRIAL_DEFAULTS
 from custom_components.homeostatic.policy_defaults import (
     CATEGORY_POLICY_INTRODUCTIONS,
     LEGACY_POLICY_INTRODUCTIONS,
@@ -45,6 +46,7 @@ def previous_settings() -> dict[str, Any]:
             "default_jammed_locks",
             "default_left_open",
             *(f"default_{check}" for check in CONDITIONS),
+            *(f"default_host_{condition}" for condition in TRIAL_DEFAULTS),
         }
     ]
     general = data["monitoring_policies"][1]
@@ -95,6 +97,7 @@ async def test_categories_are_disabled_additions_and_never_recreated(
             "default_jammed_locks",
             "default_left_open",
             *(f"default_{check}" for check in CONDITIONS),
+            *(f"default_host_{condition}" for condition in TRIAL_DEFAULTS),
         ]
         assert all(row["enabled"] is False for row in added)
         assert upgraded["supplied_policy_introductions"] == list(
@@ -119,7 +122,12 @@ async def test_categories_are_disabled_additions_and_never_recreated(
         draft["monitoring_policies"] = [
             row
             for row in draft["monitoring_policies"]
-            if row["id"] not in {"default_cameras", "default_important_equipment"}
+            if row["id"]
+            not in {
+                "default_cameras",
+                "default_important_equipment",
+                "default_host_cpu",
+            }
         ]
         locks = next(
             row for row in draft["monitoring_policies"] if row["id"] == "default_locks"
@@ -127,6 +135,12 @@ async def test_categories_are_disabled_additions_and_never_recreated(
         locks.update(
             name="Back door locks", enabled=True, parameters={"duration_seconds": 47}
         )
+        memory = next(
+            row
+            for row in draft["monitoring_policies"]
+            if row["id"] == "default_host_memory"
+        )
+        memory["parameters"]["threshold"] = 7.5
         saved = await _settings_candidate(hass, upgraded, draft)
         hass.config_entries.async_update_entry(entry, options=saved)
         for _ in range(2):
@@ -135,6 +149,18 @@ async def test_categories_are_disabled_additions_and_never_recreated(
             assert entry.runtime_data.available
             assert dict(entry.options) == saved
             assert dict(entry.data) == upgraded
+            assert not any(
+                row["id"] == "default_host_cpu"
+                for row in entry.options["monitoring_policies"]
+            )
+            assert (
+                next(
+                    row
+                    for row in entry.options["monitoring_policies"]
+                    if row["id"] == "default_host_memory"
+                )["parameters"]["threshold"]
+                == 7.5
+            )
             assert (
                 entry.runtime_data.settings.supplied_policy_introductions
                 == SUPPLIED_POLICY_INTRODUCTIONS
@@ -169,6 +195,7 @@ def test_existing_identity_and_deleted_notification_take_precedence() -> None:
         "default_jammed_locks",
         "default_left_open",
         *(f"default_{check}" for check in CONDITIONS),
+        *(f"default_host_{condition}" for condition in TRIAL_DEFAULTS),
     ]
     assert all(not row["enabled"] for row in added)
     assert all(
@@ -177,7 +204,7 @@ def test_existing_identity_and_deleted_notification_take_precedence() -> None:
             [{"id": "default", "profile": "acknowledge"}]
             if row["id"] == "default_left_open"
             else [{"id": "default", "profile": "morning"}]
-            if row["id"] == "default_problem"
+            if row["id"] == "default_problem" or row["id"].startswith("default_host_")
             else []
         )
         for row in added
@@ -200,6 +227,7 @@ def test_skipped_retired_introductions_are_recorded_without_restoration() -> Non
         "default_jammed_locks",
         "default_left_open",
         *(f"default_{check}" for check in CONDITIONS),
+        *(f"default_host_{condition}" for condition in TRIAL_DEFAULTS),
     }
     assert all(not row["enabled"] for row in candidate["monitoring_policies"])
     assert set(candidate["supplied_policy_introductions"]) == {

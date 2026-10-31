@@ -3,6 +3,7 @@
 from typing import Any
 
 from .const import DEFAULTS
+from .host_health import TRIAL_DEFAULTS
 from .notification_definitions import defaults
 from .reported_conditions import CONDITIONS
 
@@ -30,6 +31,7 @@ SUPPLIED_POLICY_INTRODUCTIONS = (
     "default_jammed_locks",
     "default_left_open",
     *(f"default_{check}" for check in CONDITIONS),
+    *(f"default_host_{condition}" for condition in TRIAL_DEFAULTS),
 )
 
 
@@ -170,6 +172,33 @@ def policy_templates() -> list[dict[str, Any]]:
             "notifications": [{"id": "default", "profile": "acknowledge"}],
         }
     )
+    for condition, (
+        threshold,
+        recovery,
+        duration,
+        recovery_duration,
+    ) in TRIAL_DEFAULTS.items():
+        policies.append(
+            {
+                "id": f"default_host_{condition}",
+                "name": {
+                    "storage": "Low storage",
+                    "memory": "Memory pressure",
+                    "io": "Storage I/O pressure",
+                    "cpu": "CPU pressure",
+                }[condition],
+                "check": f"host_{condition}",
+                "match": {"kind": ["entity"], "entity": []},
+                "parameters": {
+                    "threshold": threshold,
+                    "recovery": recovery,
+                    "duration_seconds": duration,
+                    "recovery_seconds": recovery_duration,
+                },
+                "enabled": False,
+                "notifications": [{"id": "default", "profile": "morning"}],
+            }
+        )
     return policies
 
 

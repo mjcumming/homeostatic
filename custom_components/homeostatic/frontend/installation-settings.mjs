@@ -1,5 +1,5 @@
-import {escapeHtml as esc} from "./model.mjs?v=114";
-import {editReusable, namedNotifications, scopedEditorFooter} from "./reusable-editors.mjs?v=114";
+import {escapeHtml as esc} from "./model.mjs?v=115";
+import {editReusable, namedNotifications, scopedEditorFooter} from "./reusable-editors.mjs?v=115";
 
 
 export const TIMINGS = [

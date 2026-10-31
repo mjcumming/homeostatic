@@ -32,6 +32,8 @@ The named notifications below initially have no delivery methods, and global sen
 | Gas detected | Selected enabled gas-class binary sensors. | Disabled; select sources. | Immediate |
 | Carbon monoxide detected | Selected enabled carbon-monoxide-class binary sensors. | Disabled; select sources. | Immediate |
 | Triggered alarm | Selected enabled alarm panels. | Disabled; select sources. | Immediate |
+| Low storage | Selected System Monitor disk-free sensor for the relevant mount. | Disabled; select a sensor and review the limits and waits. | Morning summary |
+| Memory pressure, Storage I/O pressure, CPU pressure | Selected System Monitor 300-second pressure averages for the corresponding resource. | Disabled; select a sensor and review the limits and waits. | Morning summary |
 | Temperature limits | Temperature sensors with a usable numeric value and °C, °F or K unit. | Add a policy; starts disabled, with °F and duration 0. Select sources, enter at least one bound and choose the duration deliberately. | Immediate with acknowledgment |
 | Thermostat progress | Thermostats with current temperature and valid targets in heat, cool or heat_cool mode. | Add a policy and select sources. Starts disabled, with 2 °F deviation, progress and worsening values and a 3600-second progress window. | Urgent |
 | UPS backup power | A recognized NUT or APC UPS Daemon UPS with status and charge or runtime evidence. | Add and configure a policy; starts disabled. | Urgent |
@@ -73,6 +75,8 @@ A current **unknown** value, **off** or **idle** still establishes HA availabili
 | Gas detected | A selected gas sensor reports gas. | The same sensor reports clear. | None. |
 | Carbon monoxide detected | A selected CO sensor reports carbon monoxide. | The same sensor reports clear. | None. |
 | Triggered alarm | A selected alarm panel reports triggered. | A current recognized arming, armed, pending or disarmed state. | None. |
+| Low storage | Free space remains below the selected limit for the problem wait. | Free space stays above the recovery limit for the recovery wait. | Problem and recovery limits in GiB; waits. |
+| Memory pressure, Storage I/O pressure, CPU pressure | The selected pressure average stays above the limit for the problem wait. | The reading stays below the recovery limit for the recovery wait. | Problem and recovery limits in percent; waits. |
 | Temperature limits | The reading remains below or above a configured bound for the selected duration. | A usable reading within the configured range, including either boundary. | Unit; optional lower/upper bounds; duration from 0 to 365 days. |
 | Thermostat progress | Temperature outside the permitted margin stalls for the progress window or worsens by the configured amount. | Temperature enters the permitted margin, including when a changed target is already satisfied. | Unit; deviation, progress and worsening differences; positive progress window. |
 | UPS backup power | Explicit backup operation. | Explicit mains operation and the recovery wait. | None. |

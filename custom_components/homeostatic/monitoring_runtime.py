@@ -6,9 +6,11 @@ from dataclasses import replace
 from typing import Any
 
 from homeassistant.core import HomeAssistant, State
+from homeassistant.helpers import entity_registry as er
 
 from .catalog import Source
 from .config import resolve_entity
+from .host_health import HOST_CHECKS, supports_source
 from .left_open import CONTACT_CLASSES
 from .monitoring import TEMPERATURE_CHECKS, MonitoringPolicy
 from .reported_conditions import CONDITIONS
@@ -31,7 +33,10 @@ def enrollment_rules(policies: tuple[MonitoringPolicy, ...]) -> tuple[CatalogRul
         )
         for policy in policies
         if policy.check
-        not in TEMPERATURE_CHECKS | UPS_CHECKS | {"entity_not_provided", "left_open"}
+        not in TEMPERATURE_CHECKS
+        | UPS_CHECKS
+        | HOST_CHECKS.keys()
+        | {"entity_not_provided", "left_open"}
     )
 
 
@@ -265,6 +270,43 @@ def temperature_sources(
                 requirements=(),
                 attached_by=(policy.id,),
                 monitoring_policy=policy.id,
+            )
+    return result
+
+
+def host_health_sources(
+    hass: HomeAssistant,
+    policies: tuple[MonitoringPolicy, ...],
+    candidates: dict[str, Source],
+) -> dict[str, Source]:
+    """Bind selected System Monitor signals using their registered type."""
+    result: dict[str, Source] = {}
+    registry = er.async_get(hass)
+    for policy in policies:
+        if policy.check not in HOST_CHECKS or not policy.enabled:
+            continue
+        for source in candidates.values():
+            if source.kind != "entity" or source.disabled or not source.entity_id:
+                continue
+            entry = registry.async_get(source.entity_id)
+            if (
+                entry is None
+                or not supports_source(entry, HOST_CHECKS[policy.check])
+                or not policy.matches(source.attributes, source_id=source.node_id)
+            ):
+                continue
+            identity = f"monitoring:{policy.id}:{policy.detection_key()}:{source.attributes['entity'][0]}"
+            result[identity] = replace(
+                source,
+                node_id=identity,
+                name=f"{source.name} · {policy.name}",
+                kind=policy.check,
+                check_id=policy.check,
+                watched=True,
+                requirements=(),
+                attached_by=(policy.id,),
+                monitoring_policy=policy.id,
+                monitoring_source=source.node_id,
             )
     return result
 

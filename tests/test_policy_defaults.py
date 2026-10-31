@@ -12,6 +12,7 @@ from custom_components.homeostatic.dashboard import (
     _editable_settings,
     _settings_candidate,
 )
+from custom_components.homeostatic.host_health import TRIAL_DEFAULTS
 from custom_components.homeostatic.policy_defaults import (
     SUPPLIED_POLICY_INTRODUCTIONS,
     initial_settings,
@@ -47,6 +48,7 @@ def test_defaults_are_independent_and_dashboard_only(hass: HomeAssistant) -> Non
         "default_jammed_locks": False,
         "default_left_open": False,
         **{f"default_{check}": False for check in CONDITIONS},
+        **{f"default_host_{condition}": False for condition in TRIAL_DEFAULTS},
         "default_entities_not_provided": True,
     }
     assert {

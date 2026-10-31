@@ -18,6 +18,12 @@ The saved policy controls monitoring. An enabled switch in an unsaved draft has 
 
 To find the policies watching an entity, select it in **Monitoring**, then open **Monitoring policies**. Each policy explains what it checks, including its availability and other condition checks. Use **Edit policy** to change one, or close the dialog to return to the entity. The labeled device and integration names open their Home Assistant pages.
 
+## Watch Home Assistant host health
+
+Add System Monitor in Home Assistant and enable the relevant diagnostic sensors. In **Policies**, open **Low storage**, **Memory pressure**, **Storage I/O pressure** or **CPU pressure**. Select the corresponding sensor and review its problem and recovery limits and waits. For storage, select the mount that holds Home Assistant data. Select notifications, enable the policy and save it. A missing sensor leaves that condition unmonitored.
+
+The suggested limits and waits are starting points. Adjust them for the storage capacity and workload of the selected system. A pressure reading reports time spent waiting for a resource and does not identify the cause. The selected reading may describe a container or virtual machine rather than the physical host.
+
 ## Watch a door or window left open
 
 Choose **Left open**, or edit the supplied **Doors and windows left open** policy. Select the contact sensors to watch and set **Open for at least** with its duration unit. Use zero to report immediately. Newly added openings require selection.

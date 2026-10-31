@@ -13,6 +13,8 @@ The payloads call an issue an *episode*: one occurrence of a problem, from the m
 
 An entity availability policy's **Report unavailable after** wait qualifies a new issue before its opening event or notification request. Returning availability before that wait ends cancels qualification. A shared integration issue may open sooner through its own policy; a delayed entity policy contributes notification requests only after its own unavailability qualifies.
 
+Host-health findings use `host_storage`, `host_memory`, `host_io` or `host_cpu` as their source kind and check ID. The reason is `host_problem` for a qualified condition, `host_qualifying` while a pending wait runs, `host_normal` after recovery, or `host_evidence_missing` when a usable reading is unavailable. Missing evidence does not establish recovery. The event envelope is unchanged.
+
 ## Detected facts for owner automations
 
 `homeostatic_episode` and `homeostatic_control` report what Homeostatic detected and what people did about it. They fire whether notifications are on or off, and whatever the reporting choices, quiet hours, summaries, Pause notifications or Acknowledge say. Those appear as fields in the payload and never stop an event. What your automation does with an event is up to you, including things Homeostatic's own notifications wouldn't do.
@@ -36,12 +38,12 @@ The `change` field says what happened:
 | `form` | `root` for an issue about one source. `group` for a retained older sibling group awaiting separation; new failures under healthy integrations stay independent. |
 | `anchor` | Homeostatic's ID for the source the issue is about, such as `entry:<config entry id>` for an integration or `device:<device id>` for a device. Treat it as opaque. |
 | `anchor_name` | The source's current display name |
-| `anchor_kind` | `integration`, `device`, `entity`, `battery`, `vacuum`, `lock`, `left_open`, `problem`, `lawn_mower`, `tamper`, `safety`, `moisture`, `smoke`, `gas`, `carbon_monoxide`, `alarm_triggered`, `ups`, `thermostat`, `temperature_limit`, `situation` (an alert), `repair` (a Home Assistant Repair), or `broken_automation` (an automation that names a missing entity). `null` when the source no longer exists. |
+| `anchor_kind` | `integration`, `device`, `entity`, `battery`, `vacuum`, `lock`, `left_open`, `problem`, `lawn_mower`, `tamper`, `safety`, `moisture`, `smoke`, `gas`, `carbon_monoxide`, `alarm_triggered`, `ups`, `thermostat`, `temperature_limit`, `host_storage`, `host_memory`, `host_io`, `host_cpu`, `situation` (an alert), `repair` (a Home Assistant Repair), or `broken_automation` (an automation that names a missing entity). `null` when the source no longer exists. |
 | `entity_ids` | The source's entity, or a device's watched entities. Empty for an integration or an alert from an automation. |
 | `device_id`, `area_id`, `floor_id` | The source's Home Assistant device, area and floor IDs, or `null` |
 | `status` | `warn`, `fail` or `unknown` |
 | `importance` | `low`, `normal`, `high` or `critical`. |
-| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `entity_not_provided`, `battery`, `vacuum`, `lock_jam`, `left_open`, `problem`, `lawn_mower`, `tamper`, `safety`, `moisture`, `smoke`, `gas`, `carbon_monoxide`, `alarm_triggered`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
+| `reasons` | The findings behind the issue. Each has `node_id` (the source with the finding), `check_id` (`availability`, `entity_not_provided`, `battery`, `vacuum`, `lock_jam`, `left_open`, `problem`, `lawn_mower`, `tamper`, `safety`, `moisture`, `smoke`, `gas`, `carbon_monoxide`, `alarm_triggered`, `ups_power`, `ups_reserve`, `ups_battery_replacement`, `ups_fault`, `thermostat`, `temperature_limit`, `host_storage`, `host_memory`, `host_io`, `host_cpu`, `condition`, `repair`, `broken_automation`, or `null` on a finding about grouped sources), `status`, `reason` (a short code such as `unavailable`, `active`, `stale` or `dependents_failing`) and `message` (readable text, or `null`). |
 | `opened_at` | When the issue opened, as an ISO 8601 timestamp |
 | `shelved` | Whether Pause notifications was on for the issue |
 | `maintenance` | Whether the source was covered by an equipment maintenance window |

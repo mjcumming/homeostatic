@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-31",
+  "scope": "Host-health configurable starting settings and preserving upgrade",
+  "candidate": {
+    "branch": "main",
+    "base_revision": "f78e7511251e187fdfa7e9209b2502ae59d01095",
+    "uncommitted": true,
+    "component_sha256": "78977496344bf55dd17cc474678ab001ad7be984d9e7995fad42f1ec36b62947",
+    "health_tree": "0.11.0"
+  },
+  "checks": {
+    "quick": "Passed script/check.py --quick in WSL: Ruff, formatting and 934 frontend tests.",
+    "focused": "Passed 92 host-health, System Monitor, supplied-policy upgrade, policy-default and named-notification tests. After adding explicit host-policy edit and deletion assertions, all 22 supplied-policy introduction tests passed again.",
+    "upgrade": "The introduction scenarios cover settings in data and options, sending on and off, a disabled new policy, preservation of edited limits and a deleted host policy over two reloads, failed migration, and pending delivery identity. Notifications were mocked."
+  },
+  "rendered_review": {
+    "owner_and_benefit": "Policies owns source selection and the detection settings. The focused source list lets the owner choose matching System Monitor sensors and edit limits and waits in the existing policy and notification workflow.",
+    "desktop_report": "../../build/ui-acceptance/host-health-20261031-desktop/report.md",
+    "phone_report": "../../build/ui-acceptance/host-health-20261031-phone-scroll/report.md",
+    "result": "The bounded policies.host-health case passed against isolated Home Assistant 2026.9.3 in Chromium at 1440x1000 light and 390x844 dark. It saved a disabled policy with no sources, rejected invalid limits and a simulated failed save, retried, saved and reopened each of the four selected sources, discarded an edit, and deleted the test policies. Other inventory paths remain untested in these runs.",
+    "visual_inspection": "Inspected the desktop editor and the phone viewport before and after scrolling. The selected source, adjustable limits and waits, and Save and Discard are readable. The sticky save bar overlaps content in a stitched full-page screenshot; the actual scrolled phone viewport shows both limit fields.",
+    "diagnostics": "The reports record unknown_command for topomation/locations/list because the isolated lab has no Topomation integration. Homeostatic catches that optional request failure; no unhandled rejections, browser errors or run diagnostics were recorded. The scoped commands returned nonzero and leave the unrelated inventory untested; these results are not a complete browser sweep."
+  },
+  "remaining": [
+    "Exact-candidate CI, release archive verification and publication remain outstanding.",
+    "The household trial was last checked with all four policies disabled; live detection and recovery remain untested."
+  ]
+}

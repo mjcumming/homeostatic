@@ -13,6 +13,7 @@ from .battery import candidates as battery_candidates
 from .catalog import Source
 from .config import Settings, resolve_entity
 from .const import DOMAIN
+from .host_health import source_condition
 from .lock import candidates as lock_candidates
 from .reported_conditions import CONDITIONS
 from .reported_conditions import candidates as condition_candidates
@@ -197,6 +198,7 @@ def inventory(
             name=state.name if state else entity_id or node_id,
             entity_id=entity_id,
             owner_id=owner_id,
+            host_condition=source_condition(registered) if registered else None,
             disabled=bool(
                 (registered and registered.disabled_by)
                 or (device and device.disabled_by)

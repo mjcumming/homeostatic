@@ -1,4 +1,4 @@
-import {escapeHtml as esc} from "./model.mjs?v=114";
+import {escapeHtml as esc} from "./model.mjs?v=115";
 
 const identity=source=>source.monitoring_source||source.node_id;
 const matches=(match,metadata)=>Object.entries(match||{}).every(([field,values])=>values.some(value=>(metadata[field]||[]).includes(value)));

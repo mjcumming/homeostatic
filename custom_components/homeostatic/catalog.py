@@ -10,6 +10,7 @@ from homeassistant.core import State
 
 from .config import Settings
 from .entity_not_provided import node as not_provided_node
+from .host_health import HOST_CHECKS
 from .reported_conditions import CONDITIONS
 from .rules import Attributes
 
@@ -47,12 +48,19 @@ class Source:
     ups_disabled_entities: tuple[str, ...] = ()
     ups_name: str | None = None
     left_open_temperature_entity: str | None = None
+    host_condition: str | None = None
 
     def node(self, settings: Settings) -> Node:
         """Declare a check for the observed HA control-path capability."""
         if self.kind == "entity_not_provided":
             return not_provided_node(self, settings)
-        if self.kind in {"thermostat", "temperature_limit", "ups", "left_open"}:
+        if self.kind in {
+            "thermostat",
+            "temperature_limit",
+            "ups",
+            "left_open",
+            *HOST_CHECKS,
+        }:
             return Node(
                 node_id=self.node_id,
                 kind=self.kind,
@@ -75,6 +83,8 @@ class Source:
                             if self.kind == "ups"
                             else "opening"
                             if self.kind == "left_open"
+                            else "host_health"
+                            if self.kind in HOST_CHECKS
                             else "temperature"
                         },
                     ),

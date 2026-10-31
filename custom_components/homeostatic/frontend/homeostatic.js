@@ -1,29 +1,29 @@
-import {reportedConditionProblem} from "./reported-conditions.mjs?v=114";
-import {notProvidedProblem} from "./entity-not-provided.mjs?v=114";
-import {retainedProblem, sharedDeviceCondition} from "./check-presentation.mjs?v=114";
-import {editReusable,trackEditorSelectInput, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=114";
-import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=114";
-import {upsProblem} from "./ups.mjs?v=114";
-import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=114";
-import {affectedFunctions, dashboardStore, editorEvidenceOnly, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=114";
-import {deviceEntityName,entityReadingsStamp} from "./device-entities.mjs?v=114";
-import {batteryProblem, brokenAutomationProblem, entityProblem, integrationProblem, lockProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=114";
-import {DashboardTools} from "./history-controls.mjs?v=114";
-import {diagnosticOverview} from "./evidence.mjs?v=114";
-import {styles} from "./styles.mjs?v=114";
+import {reportedConditionProblem} from "./reported-conditions.mjs?v=115";
+import {notProvidedProblem} from "./entity-not-provided.mjs?v=115";
+import {retainedProblem, sharedDeviceCondition} from "./check-presentation.mjs?v=115";
+import {editReusable,trackEditorSelectInput, namedPolicies, restoreMethodDialogs, scopedEditorFooter} from "./reusable-editors.mjs?v=115";
+import {isTemperatureCheck, temperatureProblem} from "./source-temperature.mjs?v=115";
+import {upsProblem} from "./ups.mjs?v=115";
+import {issueConfiguration, issuePolicyChoices} from "./issue-configuration.mjs?v=115";
+import {affectedFunctions, dashboardStore, editorEvidenceOnly, escapeHtml as esc, inventoryRows, sourceMap} from "./model.mjs?v=115";
+import {deviceEntityName,entityReadingsStamp} from "./device-entities.mjs?v=115";
+import {batteryProblem, brokenAutomationProblem, entityProblem, hostHealthProblem, integrationProblem, lockProblem, repairProblem, vacuumProblem} from "./problem.mjs?v=115";
+import {DashboardTools} from "./history-controls.mjs?v=115";
+import {diagnosticOverview} from "./evidence.mjs?v=115";
+import {styles} from "./styles.mjs?v=115";
 
-import {sourcesBrowser, sourcesTree, sourcePaths, sourceForSelection, topomationTree, canonicalSourceSelection, editSourceAvailability, editSourcePolicies, restoreSourceFilters, restoreSourcePolicies} from "./sources-workspace.mjs?v=114";
+import {sourcesBrowser, sourcesTree, sourcePaths, sourceForSelection, topomationTree, canonicalSourceSelection, editSourceAvailability, editSourcePolicies, restoreSourceFilters, restoreSourcePolicies} from "./sources-workspace.mjs?v=115";
 
-import {installationSettings, editInstallation} from "./installation-settings.mjs?v=114";
+import {installationSettings, editInstallation} from "./installation-settings.mjs?v=115";
 
-import {cardView} from "./notification-navigation.mjs?v=114";
-import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=114";
-import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=114";
-import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=114";
-import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=114";
-import {editIssueAvailability,issueAvailabilityAction,issueAvailabilityNeedsCatalog,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=114";
-import {editDeviceIssues,readDeviceIssues} from "./device-issues.mjs?v=114";
-import {issueDeviceId} from "./device-issue-model.mjs?v=114";
+import {cardView} from "./notification-navigation.mjs?v=115";
+import {WorkspaceNavigation, workspacePage} from "./workspace-navigation.mjs?v=115";
+import {initializeScopedConfiguration, rebaseScopedConfiguration, saveScopedConfiguration} from "./scoped-configuration.mjs?v=115";
+import {connectPanelDrafts, disconnectPanelDrafts, renderPanelDrafts, resetCardDrafts} from "./panel-drafts.mjs?v=115";
+import {issuesWorkspace, recordedIssueSources, relatedEvidenceDetails, relatedEvidenceMonitoring} from "./issues-workspace.mjs?v=115";
+import {editIssueAvailability,issueAvailabilityAction,issueAvailabilityNeedsCatalog,renderIssueAvailability,resetIssueAvailability} from "./issue-monitoring.mjs?v=115";
+import {editDeviceIssues,readDeviceIssues} from "./device-issues.mjs?v=115";
+import {issueDeviceId} from "./device-issue-model.mjs?v=115";
 
 const VIEWS = ["sources", "problems", "history", "notifications", "policies", "configuration"];
 const date = (value) => value ? new Date(value).toLocaleString() : "No completed update";
@@ -681,7 +681,7 @@ class HomeostaticCard extends HTMLElement {
   issueRow(data, episode, nodes, deviceGroup = null, {interactive = true} = {}) {
     const source = nodes.get(episode.anchor);
     const situation = source?.kind === "situation";
-    const currentProblem = notProvidedProblem(source,data.inventory.entity_status?.[episode.anchor]) ?? temperatureProblem(source,data.inventory.entity_status?.[episode.anchor]) ?? upsProblem(source,data.inventory.ups_status?.[episode.anchor]) ?? repairProblem(source, episode.reasons) ?? brokenAutomationProblem(source, episode.reasons) ?? reportedConditionProblem(source, data.inventory.entity_status?.[episode.anchor]) ?? lockProblem(source, data.inventory.entity_status?.[episode.anchor]) ?? vacuumProblem(source, data.inventory.entity_status?.[episode.anchor], data.areas) ?? batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
+    const currentProblem = hostHealthProblem(source,data.inventory.entity_status?.[episode.anchor]) ?? notProvidedProblem(source,data.inventory.entity_status?.[episode.anchor]) ?? temperatureProblem(source,data.inventory.entity_status?.[episode.anchor]) ?? upsProblem(source,data.inventory.ups_status?.[episode.anchor]) ?? repairProblem(source, episode.reasons) ?? brokenAutomationProblem(source, episode.reasons) ?? reportedConditionProblem(source, data.inventory.entity_status?.[episode.anchor]) ?? lockProblem(source, data.inventory.entity_status?.[episode.anchor]) ?? vacuumProblem(source, data.inventory.entity_status?.[episode.anchor], data.areas) ?? batteryProblem(source, data.inventory.entity_status?.[episode.anchor]) ??
       integrationProblem(source, episode.reasons, (key) => this._hass.localize?.(key), data.inventory.integration_evidence?.[episode.anchor], true, nodes) ??
       entityProblem(source, data.inventory.entity_status?.[episode.anchor], nodes.get(`entry:${source?.owner_id}`), data.areas, (key) => this._hass.localize?.(key));
     const problem = retainedProblem(currentProblem,data.inventory.entity_status?.[episode.anchor],episode.reasons);
@@ -944,7 +944,7 @@ class HomeostaticCard extends HTMLElement {
       const diagnostic = episode ? null : diagnosticOverview(source, result, currentFunctions);
       const findings = result.explanation.findings;
       const temperature = temperatureProblem(source,result.entity_status,result.temperature_status,Boolean(episode));
-      const currentProblem = notProvidedProblem(source,result.entity_status,Boolean(episode)) ?? temperature ?? upsProblem(source,result.entity_status,Boolean(episode)) ?? repairProblem(source, findings) ?? brokenAutomationProblem(source, findings) ?? reportedConditionProblem(source,result.entity_status) ?? lockProblem(source,result.entity_status) ?? vacuumProblem(source, result.entity_status, data.areas, Boolean(episode)) ?? batteryProblem(source, result.entity_status, Boolean(episode)) ??
+      const currentProblem = hostHealthProblem(source,result.entity_status) ?? notProvidedProblem(source,result.entity_status,Boolean(episode)) ?? temperature ?? upsProblem(source,result.entity_status,Boolean(episode)) ?? repairProblem(source, findings) ?? brokenAutomationProblem(source, findings) ?? reportedConditionProblem(source,result.entity_status) ?? lockProblem(source,result.entity_status) ?? vacuumProblem(source, result.entity_status, data.areas, Boolean(episode)) ?? batteryProblem(source, result.entity_status, Boolean(episode)) ??
         integrationProblem(source, episode?.reasons ?? findings, (key) => this._hass.localize?.(key), result.integration_evidence, Boolean(episode), nodes) ??
         entityProblem(source, result.entity_status, nodes.get(`entry:${source.owner_id}`), data.areas, (key) => this._hass.localize?.(key), Boolean(episode));
 
@@ -1026,11 +1026,11 @@ class HomeostaticStrategy {
   static getCreateSuggestions() { return {title:"Homeostatic",icon:"mdi:home-heart"}; }
   static async generate() {
     return {title:"Homeostatic",views:[
-      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v62",view:"issues",navigation:false}]},
-      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v62",view:"sources",navigation:false}]},
-      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v62",view:"policies",navigation:false}]},
-      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v62",view:"notifications",navigation:false}]},
-      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v62",view:"history",navigation:false}]},
+      {title:"Open issues",path:"issues",type:"panel",cards:[{type:"custom:homeostatic-card-v63",view:"issues",navigation:false}]},
+      {title:"Monitoring",path:"sources",type:"panel",cards:[{type:"custom:homeostatic-card-v63",view:"sources",navigation:false}]},
+      {title:"Policies",path:"policies",type:"panel",cards:[{type:"custom:homeostatic-card-v63",view:"policies",navigation:false}]},
+      {title:"Notifications",path:"notifications",type:"panel",cards:[{type:"custom:homeostatic-card-v63",view:"notifications",navigation:false}]},
+      {title:"History",path:"history",type:"panel",cards:[{type:"custom:homeostatic-card-v63",view:"history",navigation:false}]},
     ]};
   }
 }
@@ -1129,8 +1129,10 @@ if (!customElements.get("homeostatic-panel-v63")) customElements.define("homeost
 if (!customElements.get("homeostatic-card-v60")) customElements.define("homeostatic-card-v60", class extends HomeostaticCard {});
 if (!customElements.get("homeostatic-panel-v64")) customElements.define("homeostatic-panel-v64", class extends HomeostaticPanel {});
 
-if (!customElements.get("homeostatic-card-v62")) customElements.define("homeostatic-card-v62", HomeostaticCard);
-if (!customElements.get("homeostatic-panel-v66")) customElements.define("homeostatic-panel-v66", HomeostaticPanel);
+if (!customElements.get("homeostatic-card-v63")) customElements.define("homeostatic-card-v63", HomeostaticCard);
+if (!customElements.get("homeostatic-panel-v67")) customElements.define("homeostatic-panel-v67", HomeostaticPanel);
+if (!customElements.get("homeostatic-card-v62")) customElements.define("homeostatic-card-v62", class extends HomeostaticCard {});
+if (!customElements.get("homeostatic-panel-v66")) customElements.define("homeostatic-panel-v66", class extends HomeostaticPanel {});
 
 if (!customElements.get("homeostatic-panel-v65")) customElements.define("homeostatic-panel-v65", class extends HomeostaticPanel {});
 if (!customElements.get("homeostatic-card-v61")) customElements.define("homeostatic-card-v61", class extends HomeostaticCard {});

@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-10-31
+
+### Added
+
+- Add disabled policies for low storage and sustained CPU, memory and storage I/O pressure using explicitly selected System Monitor sensors. Limits and waits are configurable starting points; missing readings do not clear an issue.
+
+### Upgrade
+
+- Introduce the four host-health policies once, disabled, while preserving existing policies, edits, deletions, notification choices and pending delivery identities.
+
 ## [1.13.0] - 2026-10-25
 
 ### Fixed

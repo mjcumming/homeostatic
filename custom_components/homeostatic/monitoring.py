@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from .entity_not_provided import parameters as not_provided_parameters
+from .host_health import HOST_CHECKS, HostHealthParameters
 from .left_open import LeftOpenParameters
 from .reported_conditions import CONDITIONS
 from .rules import Attributes, CatalogRule, alternatives, attributes
@@ -28,6 +29,7 @@ CHECKS = frozenset(
         "broken_automation",
         "thermostat",
         "temperature_limit",
+        *HOST_CHECKS,
         *UPS_CHECKS,
     }
 )
@@ -180,6 +182,16 @@ def parse_policies(value: Any) -> tuple[MonitoringPolicy, ...]:
                     parameters, complete=row.get("enabled") is True
                 )
             )
+        elif check in HOST_CHECKS:
+            if match.get("kind") != ("entity",) or "entity" not in match:
+                raise ValueError("Host-health policies require selected sensors")
+            if row.get("enabled") and not match["entity"]:
+                raise ValueError("Select at least one host-health sensor")
+            parsed = asdict(
+                HostHealthParameters.from_data(HOST_CHECKS[check], parameters)
+            )
+            parsed.pop("condition")
+            parameters = parsed
         elif check == "entity_not_provided":
             if match.get("kind") != ("entity",):
                 raise ValueError("Entities not provided policies select entities")

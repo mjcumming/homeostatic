@@ -22,7 +22,9 @@ Battery checks cannot identify a replacement battery or tell you which battery t
 
 Jammed-lock checks need the integration to report a jam. A later movement or position report ends the jam issue without proving that the movement completed or the door is secured.
 
-Home Assistant automations can report [custom continuing problems](../automation-situations.md). Their authors supply the detection and recovery evidence. Routine activity and completion announcements are outside Homeostatic's scope. Backup failures, general host-health checks and other proposed monitoring remain on the [roadmap](../roadmap.md).
+Host-health checks require selected System Monitor readings. They report the scope of those readings, which may not cover the physical host, and pressure does not identify its cause. A missing source is not evidence that the system is healthy.
+
+Home Assistant automations can report [custom continuing problems](../automation-situations.md). Their authors supply the detection and recovery evidence. Routine activity and completion announcements are outside Homeostatic's scope. Backup failures and other proposed monitoring remain on the [roadmap](../roadmap.md).
 
 ## Notifications and access
 

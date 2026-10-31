@@ -424,7 +424,10 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
         rules.append(
             {
                 "route": identity,
-                "match": {"category": ["temperature"], "status": ["unknown"]},
+                "match": {
+                    "category": ["temperature", "host_health"],
+                    "status": ["unknown"],
+                },
                 "loudness": "record",
             }
         )

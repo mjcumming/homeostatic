@@ -4,6 +4,7 @@ The [integration specification](../spec.md) says what Homeostatic does. These re
 
 | ADR | Decision | Status |
 | --- | --- | --- |
+| [0113](0113-monitor-home-assistant-host-health.md) | Report actionable Home Assistant host-health problems | Accepted |
 | [0112](0112-monitor-left-open-doors-and-windows.md) | Monitor selected doors and windows left open, with monitoring hours and optional outdoor temperature | Accepted |
 | [0111](0111-separate-notifications-from-runtime.md) | Separate notification handling while runtime owns ordering and verified saves | Accepted; extends 0110 and preserves delivery and storage contracts |
 | [0110](0110-separate-producers-from-runtime.md) | Give producer state and dispatch one owner while runtime coordinates ordered work | Accepted; extends 0092 and preserves storage and delivery contracts |

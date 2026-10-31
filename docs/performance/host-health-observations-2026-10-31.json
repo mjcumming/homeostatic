@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-31",
+  "source": "Read-only Home Assistant Recorder five-minute statistics for the four enabled System Monitor sensors",
+  "period": {
+    "first_bucket_local": "2026-10-26 16:55 America/Chicago",
+    "last_bucket_local": "2026-10-31 15:50 America/Chicago",
+    "buckets_per_sensor": 1428,
+    "gaps_over_ten_minutes": 0
+  },
+  "extremes": {
+    "config_disk_free_min_gib": 18.9,
+    "memory_pressure_full_300s_max_percent": 0.23,
+    "io_pressure_full_300s_max_percent": 0.77,
+    "cpu_pressure_some_300s_max_percent": 1.22
+  },
+  "interpretation": "The recorded extrema remained on the normal side of the proposed limits on this installation. These aggregates support a quiet observed baseline; they do not establish detection sensitivity or limits for other systems.",
+  "limitations": [
+    "The four host policies were disabled at the last recorded installation check; this does not test live issue detection or recovery.",
+    "Raw state rows for the pressure sensors were not returned by the query; five-minute statistical extrema do not establish finer-grained transitions or full physical freshness.",
+    "The cause of the recurring early-morning storage dips was not established."
+  ]
+}

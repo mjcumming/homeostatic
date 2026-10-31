@@ -258,6 +258,7 @@ class Lab:
             device: str | None = None,
             platform: str = DOMAIN,
             unique_id: str | None = None,
+            translation_key: str | None = None,
             features: int = 0,
             attributes: dict[str, Any] | None = None,
         ) -> None:
@@ -269,6 +270,7 @@ class Lab:
                 config_entry=owner,
                 device_id=self.devices.get(device or ""),
                 original_name=name,
+                translation_key=translation_key,
                 original_device_class=attributes.get("device_class"),
                 suggested_object_id=f"ui_lab_{key}",
                 supported_features=features,
@@ -285,6 +287,21 @@ class Lab:
             device="offline",
             attributes={"unit_of_measurement": "W"},
         )
+        for condition, key, value, unit in (
+            ("storage", "disk_free", "12", "GiB"),
+            ("memory", "memory_pressure_full_avg300", "0", "%"),
+            ("io", "io_pressure_full_avg300", "0", "%"),
+            ("cpu", "cpu_pressure_some_avg300", "0", "%"),
+        ):
+            entity(
+                f"host_{condition}",
+                "sensor",
+                f"Lab host {condition}",
+                value,
+                platform="systemmonitor",
+                translation_key=key,
+                attributes={"unit_of_measurement": unit},
+            )
         entity(
             "offline_second",
             "sensor",
@@ -485,6 +502,7 @@ class Lab:
 
     def settings(self) -> dict[str, Any]:
         """Build current-schema policies against actual registry identities."""
+        from custom_components.homeostatic.host_health import HOST_CHECKS
         from custom_components.homeostatic.policy_defaults import initial_settings
         from custom_components.homeostatic.reported_conditions import CONDITIONS
 
@@ -502,6 +520,7 @@ class Lab:
                 "lock_jam",
                 "left_open",
                 *CONDITIONS,
+                *HOST_CHECKS,
             }
             if policy["check"] in {
                 "availability",

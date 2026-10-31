@@ -1,16 +1,16 @@
-import {sourceReporting} from "./reporting.mjs?v=114";
-import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=114";
-import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=114";
-import {monitoringTree} from "./configuration.mjs?v=114";
-import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=114";
+import {sourceReporting} from "./reporting.mjs?v=115";
+import {sourceHistory as renderSourceHistory} from "./source-history.mjs?v=115";
+import {escapeHtml as esc, inventoryRows, locationTree, sortedEpisodes} from "./model.mjs?v=115";
+import {monitoringTree} from "./configuration.mjs?v=115";
+import {batteryProblem, integrationProblem, vacuumProblem} from "./problem.mjs?v=115";
 
-import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=114";
-import {relatedDeviceIssues} from "./device-issue-model.mjs?v=114";
-import {upsSourceSummary} from "./ups.mjs?v=114";
-import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=114";
-import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=114";
-import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=114";
-import {sourceOpenings} from "./left-open.mjs?v=114";
+import {deviceEntitySummary, deviceEntityName} from "./device-entities.mjs?v=115";
+import {relatedDeviceIssues} from "./device-issue-model.mjs?v=115";
+import {upsSourceSummary} from "./ups.mjs?v=115";
+import {availabilityMonitoring, availabilityConfirmation, prepareAvailabilityChange, applyAvailabilityChange} from "./source-monitoring.mjs?v=115";
+import {sourceCoverageIndex, sourceCoverage} from "./source-coverage.mjs?v=115";
+import {isTemperatureCheck, sourceTemperature} from "./source-temperature.mjs?v=115";
+import {sourceOpenings} from "./left-open.mjs?v=115";
 
 const key = (...parts) => JSON.stringify(parts);
 const byName = (a,b) => a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
