@@ -1,0 +1,40 @@
+{
+  "recorded_at_utc": "2026-10-31T21:31:53Z",
+  "version": "1.14.0",
+  "commit": "7c7cfb3725e590cfc03081aa4ec321fdba99ab68",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.14.0",
+  "published_at": "2026-10-31T21:30:12Z",
+  "change": "Add configurable low-storage and sustained CPU, memory and storage-I/O pressure policies, disabled until the owner selects sources and enables them.",
+  "candidate": {
+    "branch": "main",
+    "dirty": false,
+    "requirements": ["health-tree==0.11.0"],
+    "archive_sha256": "5d68e9957845618d08d4ce5976e19fb06819d7da52db1f19640bc0f8e7ad0449",
+    "packaged_files_verified": 492,
+    "component_files_verified": 89,
+    "sources_match_commit": true,
+    "published_download_matches_ci": true,
+    "published_sidecar_matches_ci": true,
+    "tag_points_to_candidate": true,
+    "configuration_change": "Four new supplied policies introduced once, disabled, under ADR 0107; existing choices and pending delivery identities preserved."
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/41243554509",
+    "run_id": 41243554509,
+    "head_sha": "7c7cfb3725e590cfc03081aa4ec321fdba99ab68",
+    "result": "success",
+    "python_tests_passed": 1715,
+    "python_tests_skipped": 15,
+    "frontend_tests_passed": 934,
+    "hacs": "pass",
+    "hassfest": "pass",
+    "archive_verification": "pass",
+    "clean_package_install_and_upgrade": "pass"
+  },
+  "validation": {
+    "local_acceptance": "host-health-acceptance-2026-10-31.json",
+    "household_observations": "host-health-observations-2026-10-31.json",
+    "limitations": "The scoped browser runs leave other inventory paths untested; the prior household trial had all four policies disabled and did not test live detection or recovery."
+  },
+  "installation": "The released archive was not installed on the household Home Assistant."
+}
