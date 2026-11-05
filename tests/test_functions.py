@@ -35,8 +35,9 @@ def activate_function_model_for_internal_tests(monkeypatch: pytest.MonkeyPatch) 
         data: Mapping[str, Any],
         *,
         functions_enabled: bool = True,
+        **kwargs: Any,
     ) -> Settings:
-        return original(data, functions_enabled=True)
+        return original(data, functions_enabled=True, **kwargs)
 
     monkeypatch.setattr(Settings, "from_data", classmethod(enabled))
 

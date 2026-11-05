@@ -7,6 +7,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
@@ -91,10 +92,13 @@ async def test_old_settings_are_converted_once_without_replacing_choices(
             "kind": ["entity"],
             "device": ["missing"] if customized else [],
         }
-        expected = introduce_supplied_policies(expected)
+        zone = ZoneInfo(expected["notification_definitions"]["timezone"])
+        expected = introduce_supplied_policies(expected, zone)
         assert dict(entry.data) == expected
         assert not entry.options
-        assert runtime.settings == Settings.from_data(expected, functions_enabled=False)
+        assert runtime.settings == Settings.from_data(
+            expected, functions_enabled=False, zone=zone
+        )
         assert legacy_settings == old
         assert runtime.available
         assert runtime.settings.notifications is old["notifications"]
