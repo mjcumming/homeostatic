@@ -1,0 +1,39 @@
+{
+  "recorded_at_utc": "2026-11-05T21:35:40Z",
+  "version": "1.14.1",
+  "commit": "1d65e14b25555d161abdd54f2683ae7725e4c4aa",
+  "release": "https://github.com/mjcumming/homeostatic/releases/tag/v1.14.1",
+  "published_at": "2026-11-05T21:33:59Z",
+  "change": "Resolve notification time zones off the Home Assistant event loop, and use Home Assistant's loaded time zone for left-open monitoring.",
+  "candidate": {
+    "branch": "main",
+    "dirty": false,
+    "requirements": ["health-tree==0.11.0"],
+    "archive_sha256": "9ddc70b4485d0a40fe9b06fd86fbc991e5b181e0105eb9d8ab7369ed65a39488",
+    "packaged_files_verified": 494,
+    "component_files_verified": 90,
+    "sources_match_commit": true,
+    "published_download_matches_ci": true,
+    "published_sidecar_matches_ci": true,
+    "tag_points_to_candidate": true,
+    "configuration_change": "No stored-data migration. Notification schedules keep their saved time zone. Left-open hours follow Home Assistant's current time zone."
+  },
+  "ci": {
+    "url": "https://github.com/mjcumming/homeostatic/actions/runs/42112987611",
+    "run_id": 42112987611,
+    "head_sha": "1d65e14b25555d161abdd54f2683ae7725e4c4aa",
+    "result": "success",
+    "python_tests_passed": 1721,
+    "python_tests_skipped": 15,
+    "frontend_tests_passed": 934,
+    "hacs": "pass",
+    "hassfest": "pass",
+    "archive_verification": "pass",
+    "clean_package_install_and_upgrade": "pass"
+  },
+  "validation": {
+    "local_acceptance": "Focused time-zone, left-open, settings, and function tests passed before the candidate was pushed. CI then passed the full suite and coverage floor.",
+    "limitations": "The release archive was not installed on the household Home Assistant."
+  },
+  "installation": "The released archive was not installed on the household Home Assistant."
+}
