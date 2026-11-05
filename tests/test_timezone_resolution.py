@@ -14,7 +14,7 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.typing import WebSocketGenerator
 
-from custom_components.homeostatic.config import Settings
+from custom_components.homeostatic.config import Settings, migrate_notification_settings
 from custom_components.homeostatic.const import DOMAIN
 from custom_components.homeostatic.dashboard import (
     _editable_settings,
@@ -173,3 +173,15 @@ async def test_preview_rejects_configuration_changed_during_timezone_resolution(
         assert response["error"]["code"] == "stale_configuration"
     assert await hass.config_entries.async_unload(entry.entry_id)
     await client.close()
+
+
+async def test_settings_resolution_rejects_incomplete_definitions() -> None:
+    """Zone lookup does not start when notification definitions are absent."""
+    with pytest.raises(ValueError, match="complete notification definitions"):
+        await Settings.async_from_data({})
+
+
+def test_notification_migration_leaves_settings_without_definitions() -> None:
+    """Older stored settings with no notification definitions stay unchanged."""
+    data = {"timings": {}}
+    assert migrate_notification_settings(data) is data
