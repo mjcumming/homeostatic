@@ -1,6 +1,7 @@
 """Convert published device policies to entity coverage at the setup boundary."""
 
 from copy import deepcopy
+from datetime import UTC, tzinfo
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -15,9 +16,11 @@ from .policy_defaults import (
 from .rules import CatalogRule, attributes
 
 
-def introduce_supplied_policies(data: dict[str, Any]) -> dict[str, Any]:
+def introduce_supplied_policies(
+    data: dict[str, Any], zone: tzinfo = UTC
+) -> dict[str, Any]:
     """Add newly offered policies disabled without restoring past deletions."""
-    settings = Settings.from_data(data, functions_enabled=False)
+    settings = Settings.from_data(data, functions_enabled=False, zone=zone)
     offered = list(settings.supplied_policy_introductions)
     for identity in LEGACY_POLICY_INTRODUCTIONS:
         if identity not in offered:
@@ -46,12 +49,12 @@ def introduce_supplied_policies(data: dict[str, Any]) -> dict[str, Any]:
         *additions,
     ]
     candidate["supplied_policy_introductions"] = offered
-    Settings.from_data(candidate, functions_enabled=False)
+    Settings.from_data(candidate, functions_enabled=False, zone=zone)
     return candidate
 
 
 def migrate_device_policies(
-    hass: HomeAssistant, data: dict[str, Any]
+    hass: HomeAssistant, data: dict[str, Any], zone: tzinfo = UTC
 ) -> dict[str, Any]:
     """Preserve saved choices and validate before writing converted settings."""
     candidate = deepcopy(data)
@@ -67,7 +70,7 @@ def migrate_device_policies(
     scopes = {row["id"]: deepcopy(row["match"]) for row in retired}
     for row in retired:
         row["match"]["kind"] = ["entity"]
-    settings = Settings.from_data(candidate, functions_enabled=False)
+    settings = Settings.from_data(candidate, functions_enabled=False, zone=zone)
     devices = [
         source
         for source in inventory(hass, settings, {}).values()
@@ -88,5 +91,5 @@ def migrate_device_policies(
                     }
                 ),
             }
-    Settings.from_data(candidate, functions_enabled=False)
+    Settings.from_data(candidate, functions_enabled=False, zone=zone)
     return candidate

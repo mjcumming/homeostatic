@@ -258,7 +258,9 @@ async def test_profile_fast_path_rejects_other_installation_changes(
             "timings": {**named_config["timings"], "batch": 30},
         },
     }
-    assert not runtime.can_apply_settings(Settings.from_data(changed[field]))
+    assert not runtime.can_apply_settings(
+        await Settings.async_from_data(changed[field])
+    )
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

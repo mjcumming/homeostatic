@@ -3,6 +3,7 @@
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 import voluptuous as vol
@@ -151,9 +152,9 @@ def test_all_match_fields_and_detached_settings() -> None:
         "age": "1d2h3m4s",
         "due_within": 60,
     }
-    saved = policy_data(data)
+    saved = policy_data(data, ZoneInfo("America/Chicago"))
     data["rules"].clear()
-    config = build_policy(saved, timedelta(seconds=5))
+    config = build_policy(saved, timedelta(seconds=5), ZoneInfo("America/Chicago"))
     assert config.rules[0].match.age == timedelta(days=1, hours=2, minutes=3, seconds=4)
     assert config.rules[0].match.due_within == timedelta(minutes=1)
     assert config.rules[0].match.reason == frozenset({"unavailable"})

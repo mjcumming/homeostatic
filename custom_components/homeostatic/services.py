@@ -12,6 +12,7 @@ from homeassistant.helpers.service import async_register_admin_service
 from .automation_alerts import REPORT_FIELDS
 from .const import DOMAIN
 from .runtime import Runtime
+from .timezone import async_resolve_timezone
 
 MUTATIONS = (
     "shelve",
@@ -49,6 +50,10 @@ def async_register_services(hass: HomeAssistant, runtime: Runtime) -> None:
                 return await runtime.async_control(
                     call.service, dict(call.data), call.context.user_id, call.context
                 )
+            if call.service == "preview_policy":
+                policy = call.data["policy"]
+                zone = await async_resolve_timezone(policy.get("timezone"))
+                return runtime.preview_policy(policy, zone=zone)
             return runtime.query(call.service, dict(call.data))
         except (ValueError, vol.Invalid) as err:
             raise ServiceValidationError(str(err)) from err

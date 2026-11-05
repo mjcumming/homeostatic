@@ -5,6 +5,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock
+from zoneinfo import ZoneInfo
 
 import pytest
 from health_tree.policy import Policy
@@ -40,7 +41,7 @@ def named() -> dict[str, Any]:
 def test_supplied_profiles_are_unconfigured_and_sending_stays_off() -> None:
     """Fresh defaults select useful timing without inventing a delivery destination."""
     data = initial_settings("America/Chicago")
-    settings = Settings.from_data(data)
+    settings = Settings.from_data(data, zone=ZoneInfo("America/Chicago"))
     assert settings.notifications is False
     assert settings.notification_definitions["methods"] == {}
     assert set(settings.notification_definitions["profiles"]) == {
@@ -101,7 +102,8 @@ def test_unconfigured_profile_never_sends(profile: str) -> None:
 
 def build(data: dict[str, Any]) -> PolicyConfig:
     """Compile with the installation's ordinary thirty-second batch."""
-    return build_policy(definitions.generate(data), timedelta(seconds=30))
+    zone = ZoneInfo(data["timezone"])
+    return build_policy(definitions.generate(data, zone), timedelta(seconds=30), zone)
 
 
 @pytest.mark.parametrize(
@@ -273,14 +275,14 @@ def test_invalid_named_notifications_are_rejected(
     """Incomplete shared instructions cannot become saved delivery behavior."""
     named["profiles"]["urgent"].update(edit)
     with pytest.raises(ValueError):
-        definitions.validate(named)
+        definitions.validate(named, ZoneInfo("America/Chicago"))
 
 
 def test_deleting_a_referenced_profile_is_rejected(named: dict[str, Any]) -> None:
     """A policy reference must be replaced before its shared definition is removed."""
     del named["profiles"]["urgent"]
     with pytest.raises(ValueError, match="missing named notification"):
-        definitions.validate(named)
+        definitions.validate(named, ZoneInfo("America/Chicago"))
 
 
 def test_named_reference_preserves_inline_compilation_and_pending_report(
@@ -297,8 +299,11 @@ def test_named_reference_preserves_inline_compilation_and_pending_report(
         }
     ]
     named["default"] = [{"id": "existing", "profile": "morning"}]
-    assert definitions.validate(legacy)["default"] == legacy["default"]
-    assert definitions.validate(legacy)["profiles"] == {}
+    assert (
+        definitions.validate(legacy, ZoneInfo("America/Chicago"))["default"]
+        == legacy["default"]
+    )
+    assert definitions.validate(legacy, ZoneInfo("America/Chicago"))["profiles"] == {}
     assert build(legacy) == build(named)
     now = datetime(2026, 10, 15, 12, tzinfo=UTC)
     policy = Policy(build(legacy))
@@ -324,7 +329,8 @@ def test_named_identity_stays_out_of_legacy_instruction_grouping(
         ),
     ]
     settings = Settings.from_data(
-        current_config(policies, notification_definitions=named)
+        current_config(policies, notification_definitions=named),
+        zone=ZoneInfo("America/Chicago"),
     )
     result = notification_grouping.compatible_intents(settings)
     assert set(result) == {"policy_inline_row", "policy_inline_copy_row"}
@@ -349,16 +355,26 @@ async def test_profile_edits_track_effective_window_and_current_phone_permission
     before = runtime._route_signatures()
     renamed = deepcopy(config_data)
     renamed["notification_definitions"]["profiles"]["urgent"]["name"] = "Daytime"
-    assert runtime._route_signatures(Settings.from_data(renamed)) == before
+    assert (
+        runtime._route_signatures(
+            Settings.from_data(renamed, zone=runtime.settings.timezone)
+        )
+        == before
+    )
     previous_settings = runtime.settings
     previous_policy_settings = runtime._policy_settings()
-    runtime.settings = Settings.from_data(renamed)
+    runtime.settings = Settings.from_data(renamed, zone=runtime.settings.timezone)
     assert runtime._policy_settings() == previous_policy_settings
     runtime.settings = previous_settings
     renamed["notification_definitions"]["profiles"]["urgent"]["timing"]["start"] = (
         "09:00"
     )
-    assert runtime._route_signatures(Settings.from_data(renamed)) != before
+    assert (
+        runtime._route_signatures(
+            Settings.from_data(renamed, zone=runtime.settings.timezone)
+        )
+        != before
+    )
     runtime.settings = replace(runtime.settings, notifications=True)
     [episode] = runtime.episodes
     recipient = next(

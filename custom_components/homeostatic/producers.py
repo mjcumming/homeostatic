@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 
 from .battery import observe as battery_observation
 from .broken_automations import BrokenAutomations
@@ -665,7 +666,7 @@ class Producers:
         if row is not None and row.disabled:
             temperature = None
         result = monitor.evaluate(
-            contact, temperature, now, timezone=self.hass.config.time_zone
+            contact, temperature, now, timezone=dt_util.get_default_time_zone()
         )
         self._left_open_deadlines.pop(source.node_id, None)
         if result.next_deadline is not None:

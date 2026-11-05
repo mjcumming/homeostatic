@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any
 
 import voluptuous as vol
@@ -33,6 +33,7 @@ from .notification_definitions import defaults as notification_defaults
 from .notification_definitions import generate as notification_policy
 from .notification_definitions import validate as validate_notification_definitions
 from .policy_defaults import LEGACY_POLICY_INTRODUCTIONS
+from .timezone import async_resolve_timezone
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -40,6 +41,8 @@ class Settings:
     """Validated adapter settings stored by setup or the dashboard."""
 
     policy: dict[str, Any]
+    # The saved IANA name is the setting; this is its resolved runtime value.
+    timezone: tzinfo = dataclass_field(default=UTC, compare=False)
     notifications: bool
     timings: Mapping[str, int]
     functions: tuple[Function, ...] = ()
@@ -54,8 +57,23 @@ class Settings:
     )
 
     @classmethod
-    def from_data(
+    async def async_from_data(
         cls, data: Mapping[str, Any], *, functions_enabled: bool = True
+    ) -> Settings:
+        """Resolve the stored zone before validating a settings proposal."""
+        definitions = data.get("notification_definitions")
+        if not isinstance(definitions, dict):
+            raise ValueError("Provide the complete notification definitions")
+        zone = await async_resolve_timezone(definitions.get("timezone"))
+        return cls.from_data(data, functions_enabled=functions_enabled, zone=zone)
+
+    @classmethod
+    def from_data(
+        cls,
+        data: Mapping[str, Any],
+        *,
+        functions_enabled: bool = True,
+        zone: tzinfo = UTC,
     ) -> Settings:
         """Validate stored data, optionally leaving dormant functions inactive."""
         timings = {**DEFAULTS, **data.get("timings", {})}
@@ -81,7 +99,7 @@ class Settings:
                 "Unsupported monitoring policy version; configure the unified policy model"
             )
         notification_definitions = validate_notification_definitions(
-            data["notification_definitions"]
+            data["notification_definitions"], zone
         )
         introductions = data.get(
             "supplied_policy_introductions", list(LEGACY_POLICY_INTRODUCTIONS)
@@ -97,7 +115,8 @@ class Settings:
             raise ValueError("Invalid supplied policy introductions")
         settings = cls(
             monitoring_policy_version=version,
-            policy=notification_policy(notification_definitions),
+            policy=notification_policy(notification_definitions, zone),
+            timezone=zone,
             notifications=enabled,
             timings=timings,
             functions=functions,
@@ -120,7 +139,8 @@ class Settings:
                     "broken_automations": [],
                     "assignments": {},
                     "automation_profiles": {},
-                }
+                },
+                zone,
             )
         validation["assignments"] = {
             **validation["assignments"],
@@ -135,7 +155,7 @@ class Settings:
                 for item in settings.monitoring_policies
             },
         }
-        validate_notification_definitions(validation)
+        validate_notification_definitions(validation, zone)
         nodes = []
         for function in functions:
             try:
@@ -167,7 +187,7 @@ class Settings:
 
     def policy_config(self) -> PolicyConfig:
         """Translate owner settings into the library's attention contract."""
-        return build_policy(self.policy, self.duration("batch"))
+        return build_policy(self.policy, self.duration("batch"), self.timezone)
 
     def duration(self, key: str) -> timedelta:
         """Return a configured duration in seconds."""

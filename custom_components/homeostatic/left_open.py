@@ -3,9 +3,8 @@
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from health_tree.types import JSONValue, Observation, Status
 from homeassistant.core import State
@@ -108,7 +107,7 @@ class LeftOpenParameters:
         )
 
 
-def _boundary(day: date, clock: str, zone: ZoneInfo) -> datetime | None:
+def _boundary(day: date, clock: str, zone: tzinfo) -> datetime | None:
     """Use a real local boundary once, choosing its first occurrence on a repeated hour."""
     local = datetime.combine(day, time.fromisoformat(clock), zone)
     utc = local.astimezone(UTC)
@@ -118,12 +117,12 @@ def _boundary(day: date, clock: str, zone: ZoneInfo) -> datetime | None:
 
 
 def monitoring_window(
-    parameters: LeftOpenParameters, now: datetime, timezone: str
+    parameters: LeftOpenParameters, now: datetime, timezone: tzinfo
 ) -> tuple[datetime | None, datetime | None, datetime | None]:
     """Return current UTC bounds and the next boundary without inventing local times."""
     if parameters.start is None or parameters.end is None:
         return None, None, None
-    zone = ZoneInfo(timezone)
+    zone = timezone
     today = now.astimezone(zone).date()
     upcoming = []
     for offset in range(-1, 4):
@@ -240,7 +239,7 @@ class LeftOpenMonitor:
         temperature: State | None,
         now: datetime,
         *,
-        timezone: str,
+        timezone: tzinfo,
     ) -> LeftOpenResult:
         """Evaluate a coherent captured input before advancing the library lifecycle."""
         if now.utcoffset() != timedelta(0):

@@ -2,9 +2,8 @@
 
 import re
 from copy import deepcopy
-from datetime import time, timedelta
+from datetime import UTC, time, timedelta, tzinfo
 from typing import Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import voluptuous as vol
 from health_tree.policy import Policy
@@ -19,6 +18,8 @@ from health_tree.types import (
     Rule,
     Status,
 )
+
+from .timezone import require_timezone
 
 _ID = vol.Match(r"^[a-z][a-z0-9_:-]*$")
 _TEXT = vol.All(str, vol.Length(min=1))
@@ -107,20 +108,17 @@ _SCHEMA = vol.Schema(
 )
 
 
-def policy_data(value: dict[str, Any]) -> dict[str, Any]:
+def policy_data(value: dict[str, Any], zone: tzinfo = UTC) -> dict[str, Any]:
     """Copy configuration after validating it, retaining its editable YAML shape."""
     data = deepcopy(value)
-    build_policy(data, timedelta(0))
+    build_policy(data, timedelta(0), zone)
     return data
 
 
-def build_policy(value: Any, batch: timedelta) -> PolicyConfig:
+def build_policy(value: Any, batch: timedelta, zone: tzinfo = UTC) -> PolicyConfig:
     """Translate only supported owner fields; matching and timing stay in HealthTree."""
     data = _SCHEMA(value)
-    try:
-        zone = ZoneInfo(data["timezone"])
-    except ZoneInfoNotFoundError as err:
-        raise vol.Invalid("Choose an IANA timezone such as America/Chicago") from err
+    require_timezone(data["timezone"], zone)
     return PolicyConfig(
         batch=batch,
         timezone=zone,

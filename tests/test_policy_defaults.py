@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -25,7 +26,7 @@ def test_defaults_are_independent_and_dashboard_only(hass: HomeAssistant) -> Non
     """Supplied records are editable copies and leave delivery unconfigured."""
     data = initial_settings("America/Chicago")
     assert not {"rules", "entities", "config_entries", "policy"} & data.keys()
-    settings = Settings.from_data(data)
+    settings = Settings.from_data(data, zone=ZoneInfo("America/Chicago"))
     assert settings.monitoring_policy_version == 1
     assert not settings.notifications
     assert settings.notification_definitions["methods"] == {}

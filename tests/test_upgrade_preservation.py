@@ -194,7 +194,7 @@ async def test_new_defaults_preserve_battery_and_vacuum_choices(
         options=data if location == "options" else {},
     )
     before = deepcopy((dict(entry.data), dict(entry.options)))
-    expected = Settings.from_data(data, functions_enabled=False)
+    expected = await Settings.async_from_data(data, functions_enabled=False)
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     with patch(
         "custom_components.homeostatic.notifications.async_send", new=AsyncMock()
@@ -278,7 +278,7 @@ async def test_current_setup_and_reload_preserve_every_saved_choice(
     hass.states.async_set("sensor.observed", "42")
     events = async_capture_events(hass, EVENT_NOTIFICATION)
     runtime = await start_monitor(hass, entry)
-    expected = Settings.from_data(data, functions_enabled=False)
+    expected = await Settings.async_from_data(data, functions_enabled=False)
     assert runtime.settings == expected
     assert (dict(entry.data), dict(entry.options)) == saved
     assert data == before_data

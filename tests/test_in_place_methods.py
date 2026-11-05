@@ -354,7 +354,9 @@ async def test_method_changes_cannot_bypass_other_reload_boundaries(
         },
         "activation": {**changed, "notifications": True},
     }
-    assert not runtime.can_apply_settings(Settings.from_data(variants[change]))
+    assert not runtime.can_apply_settings(
+        await Settings.async_from_data(variants[change])
+    )
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

@@ -1207,12 +1207,9 @@ async def _settings_candidate(
                     for value in ([values] if isinstance(values, str) else values)
                 ]
             candidate["monitoring_policies"].append({**item, "match": match})
-    if proposed.get("notification_definitions") is not None:
-        candidate["notification_definitions"] = notification_definitions.validate(
-            proposed["notification_definitions"]
-        )
-    settings = Settings.from_data(candidate)
-    previous = Settings.from_data(current)
+    settings = await Settings.async_from_data(candidate)
+    candidate["notification_definitions"] = settings.notification_definitions
+    previous = await Settings.async_from_data(current)
     existing = {item.id: item for item in previous.monitoring_policies}
     for item in settings.monitoring_policies:
         old = existing.get(item.id)
@@ -1270,7 +1267,16 @@ async def _async_preview_settings(
         return
     try:
         candidate = await _settings_candidate(hass, current, msg["settings"])
-        settings = Settings.from_data(candidate)
+        settings = await Settings.async_from_data(candidate)
+        previous = await Settings.async_from_data(current)
+        if (
+            hass.data[DATA_DASHBOARD].runtime is not runtime
+            or _configuration(runtime)[1] != revision
+        ):
+            connection.send_error(
+                msg["id"], "stale_configuration", "Settings changed; reload this page"
+            )
+            return
         proposed_sources = runtime.preview_sources(settings)
         policy = runtime.preview_policy(
             settings.policy, settings=settings, sources=proposed_sources
@@ -1315,11 +1321,10 @@ async def _async_preview_settings(
         msg["id"],
         {
             "preview_token": _settings_review_token(runtime, revision, msg["settings"]),
-            "before": _editable_settings(Settings.from_data(current)),
+            "before": _editable_settings(previous),
             "after": msg["settings"],
             **({"monitoring": monitoring} if monitoring is not None else {}),
-            "activating": settings.notifications
-            and not Settings.from_data(current).notifications,
+            "activating": settings.notifications and not previous.notifications,
             "requests_now": len(cast(list[JSONValue], policy["deliveries"])),
             "reports": policy["reports"],
             "open_problems": len(runtime.episodes),
@@ -1354,7 +1359,15 @@ async def _async_apply_monitoring(
     candidate: dict[str, Any],
 ) -> bool:
     """Keep monitoring and named notification drafts in the registered runtime."""
-    settings = Settings.from_data(candidate, functions_enabled=False)
+    settings = await Settings.async_from_data(candidate, functions_enabled=False)
+    if (
+        hass.data[DATA_DASHBOARD].runtime is not runtime
+        or _configuration(runtime)[1] != msg["revision"]
+    ):
+        connection.send_error(
+            msg["id"], "stale_configuration", "Settings changed; reload this page"
+        )
+        return True
     if not runtime.can_apply_settings(settings):
         return False
     previous_options = dict(runtime.entry.options)

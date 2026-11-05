@@ -18,6 +18,7 @@ from .dashboard import async_register_dashboard, async_remove_dashboard
 from .policy_migration import introduce_supplied_policies, migrate_device_policies
 from .runtime import Runtime
 from .services import async_register_services, async_remove_services
+from .timezone import async_resolve_timezone
 
 type HomeostaticConfigEntry = ConfigEntry[Runtime]
 
@@ -29,13 +30,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeostaticConfigEntry) 
     """Load presentation now and start monitoring after Home Assistant starts."""
     try:
         data = dict(entry.options or entry.data)
+        definitions = data.get("notification_definitions")
+        if not isinstance(definitions, dict):
+            raise ValueError("Provide the complete notification definitions")
+        zone = await async_resolve_timezone(definitions.get("timezone"))
         converted = introduce_supplied_policies(
-            migrate_device_policies(hass, migrate_notification_settings(data))
+            migrate_device_policies(hass, migrate_notification_settings(data), zone),
+            zone,
         )
         runtime = Runtime(
             hass,
             entry,
-            Settings.from_data(converted, functions_enabled=False),
+            Settings.from_data(converted, functions_enabled=False, zone=zone),
             settings_conversion=converted if converted != data else None,
         )
         # A reload while HA is running needs no startup hold.

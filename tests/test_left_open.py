@@ -3,6 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock
+from zoneinfo import ZoneInfo
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
@@ -89,7 +90,7 @@ def test_continuity_temperature_and_recovery() -> None:
             contact(state),
             temperature(outdoor),
             NOW + timedelta(seconds=seconds),
-            timezone="UTC",
+            timezone=UTC,
         )
 
     assert evaluate(0).observation.reason == "left_open_waiting"
@@ -129,7 +130,7 @@ def test_temperature_bounds_are_strict(
         temperature_source="entity_id:sensor.outdoor",
         **bounds,
     )
-    result = detector.evaluate(contact(), temperature(str(value)), NOW, timezone="UTC")
+    result = detector.evaluate(contact(), temperature(str(value)), NOW, timezone=UTC)
     assert (result.observation.status is Status.FAIL) is qualifies
 
 
@@ -146,22 +147,22 @@ def test_temperature_bounds_are_strict(
 def test_contact_gap_restarts_pending_interval(state: State | None) -> None:
     """A gap cannot qualify or resolve an opening and resets unfinished credit."""
     detector = monitor()
-    detector.evaluate(contact(), None, NOW, timezone="UTC")
+    detector.evaluate(contact(), None, NOW, timezone=UTC)
     assert (
         detector.evaluate(
-            state, None, NOW + timedelta(seconds=200), timezone="UTC"
+            state, None, NOW + timedelta(seconds=200), timezone=UTC
         ).observation.status
         is Status.UNKNOWN
     )
     assert (
         detector.evaluate(
-            contact(), None, NOW + timedelta(seconds=400), timezone="UTC"
+            contact(), None, NOW + timedelta(seconds=400), timezone=UTC
         ).observation.reason
         == "left_open_waiting"
     )
     assert (
         detector.evaluate(
-            contact(), None, NOW + timedelta(seconds=700), timezone="UTC"
+            contact(), None, NOW + timedelta(seconds=700), timezone=UTC
         ).observation.status
         is Status.FAIL
     )
@@ -172,22 +173,22 @@ def test_window_start_end_and_restore() -> None:
     detector = monitor(start="22:00", end="23:00")
     assert (
         detector.evaluate(
-            contact(), None, NOW - timedelta(seconds=1), timezone="UTC"
+            contact(), None, NOW - timedelta(seconds=1), timezone=UTC
         ).observation.reason
         == "left_open_outside_hours"
     )
     assert detector.evaluate(
-        contact(), None, NOW, timezone="UTC"
+        contact(), None, NOW, timezone=UTC
     ).next_deadline == NOW + timedelta(seconds=300)
     snapshot = detector.snapshot()
     pending = monitor(start="22:00", end="23:00")
     pending.restore(snapshot)
     assert pending.evaluate(
-        contact(), None, NOW + timedelta(seconds=299), timezone="UTC"
+        contact(), None, NOW + timedelta(seconds=299), timezone=UTC
     ).next_deadline == NOW + timedelta(seconds=599)
     assert (
         detector.evaluate(
-            contact(), None, NOW + timedelta(seconds=300), timezone="UTC"
+            contact(), None, NOW + timedelta(seconds=300), timezone=UTC
         ).observation.status
         is Status.FAIL
     )
@@ -195,16 +196,14 @@ def test_window_start_end_and_restore() -> None:
     restored.restore(detector.snapshot())
     assert (
         restored.evaluate(
-            contact(), None, NOW + timedelta(seconds=301), timezone="UTC"
+            contact(), None, NOW + timedelta(seconds=301), timezone=UTC
         ).observation.status
         is Status.FAIL
     )
-    expired = restored.evaluate(
-        contact(), None, NOW + timedelta(hours=1), timezone="UTC"
-    )
+    expired = restored.evaluate(contact(), None, NOW + timedelta(hours=1), timezone=UTC)
     assert expired.removed and expired.observation.reason == "left_open_outside_hours"
     next_window = restored.evaluate(
-        contact(), None, NOW + timedelta(days=1), timezone="UTC"
+        contact(), None, NOW + timedelta(days=1), timezone=UTC
     )
     assert next_window.observation.reason == "left_open_waiting"
     assert next_window.next_deadline == NOW + timedelta(days=1, seconds=300)
@@ -213,10 +212,8 @@ def test_window_start_end_and_restore() -> None:
 def test_window_end_takes_precedence_over_qualification() -> None:
     """An exact deadline at the excluded end cannot open an issue."""
     detector = monitor(duration_seconds=3600, start="22:00", end="23:00")
-    detector.evaluate(contact(), None, NOW, timezone="UTC")
-    result = detector.evaluate(
-        contact(), None, NOW + timedelta(hours=1), timezone="UTC"
-    )
+    detector.evaluate(contact(), None, NOW, timezone=UTC)
+    result = detector.evaluate(contact(), None, NOW + timedelta(hours=1), timezone=UTC)
     assert result.removed and not detector.qualified
     assert result.observation.status is Status.PASS
 
@@ -228,7 +225,7 @@ def test_daylight_saving_boundaries() -> None:
     )
     assert (
         monitoring_window(
-            params, datetime(2026, 3, 8, 8, 45, tzinfo=UTC), "America/Chicago"
+            params, datetime(2026, 3, 8, 8, 45, tzinfo=UTC), ZoneInfo("America/Chicago")
         )[0]
         is None
     )
@@ -237,13 +234,17 @@ def test_daylight_saving_boundaries() -> None:
     )
     assert (
         monitoring_window(
-            params, datetime(2026, 11, 1, 6, 20, tzinfo=UTC), "America/Chicago"
+            params,
+            datetime(2026, 11, 1, 6, 20, tzinfo=UTC),
+            ZoneInfo("America/Chicago"),
         )[0]
         is not None
     )
     assert (
         monitoring_window(
-            params, datetime(2026, 11, 1, 7, 20, tzinfo=UTC), "America/Chicago"
+            params,
+            datetime(2026, 11, 1, 7, 20, tzinfo=UTC),
+            ZoneInfo("America/Chicago"),
         )[0]
         is None
     )

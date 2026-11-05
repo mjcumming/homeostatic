@@ -4,15 +4,15 @@ import hashlib
 import json
 import re
 from copy import deepcopy
-from datetime import time
+from datetime import UTC, time, tzinfo
 from itertools import groupby
 from typing import Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from homeassistant.core import HomeAssistant
 from voluptuous import Invalid
 
 from .attention import duration, policy_data
+from .timezone import require_timezone
 
 _ID = re.compile(r"^[a-z][a-z0-9_:-]*$")
 _CHANNEL = re.compile(
@@ -190,7 +190,7 @@ def _timing(value: object, *, named: bool = False) -> None:
             raise ValueError("Choose weekdays once, from Monday through Sunday")
 
 
-def validate(value: object) -> dict[str, Any]:
+def validate(value: object, zone: tzinfo = UTC) -> dict[str, Any]:
     """Copy a complete definition set and reject dangling or ambiguous references."""
     if not isinstance(value, dict) or set(value) - {
         "automation_profiles",
@@ -207,10 +207,7 @@ def validate(value: object) -> dict[str, Any]:
     data = deepcopy(value)
     data.setdefault("automation_profiles", {})
     data.setdefault("profiles", {})
-    try:
-        ZoneInfo(data["timezone"])
-    except (ZoneInfoNotFoundError, TypeError, ValueError) as err:
-        raise ValueError("Choose an IANA timezone") from err
+    require_timezone(data["timezone"], zone)
     if any(
         not isinstance(data[key], dict)
         for key in ("methods", "profiles", "assignments")
@@ -353,9 +350,9 @@ def choices(policy: dict[str, Any]) -> dict[str, Any] | None:
     return deepcopy(value) if isinstance(value, dict) else None
 
 
-def generate(value: dict[str, Any]) -> dict[str, Any]:
+def generate(value: dict[str, Any], zone: tzinfo = UTC) -> dict[str, Any]:
     """Compile explicit pairings into independently evaluated generic routes."""
-    data = validate(value)
+    data = validate(value, zone)
     scopes: list[tuple[dict[str, Any], list[dict[str, Any]]]] = [
         (
             {
@@ -534,7 +531,7 @@ def generate(value: dict[str, Any]) -> dict[str, Any]:
         "digests": digests,
         "rules": rules or [{"match": {}, "loudness": "record"}],
     }
-    policy_data(policy)
+    policy_data(policy, zone)
     policy["generated"] = {
         "version": "notifications-v3",
         "choices": data,

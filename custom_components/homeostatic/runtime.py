@@ -8,7 +8,7 @@ from collections import Counter, deque
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 from functools import partial
 from operator import ne
 from time import perf_counter
@@ -850,7 +850,9 @@ class Runtime:
                 self.settings,
                 monitoring_policies=settings.monitoring_policies,
                 notification_definitions=definitions,
-                policy=notification_definitions.generate(definitions),
+                policy=notification_definitions.generate(
+                    definitions, self.settings.timezone
+                ),
             )
             == settings
         )
@@ -1545,7 +1547,9 @@ class Runtime:
             },
         )
         config = build_policy(
-            notification_definitions.generate(definitions), settings.duration("batch")
+            notification_definitions.generate(definitions, settings.timezone),
+            settings.duration("batch"),
+            settings.timezone,
         )
         delayed_policies = {
             item.id
@@ -2628,6 +2632,7 @@ class Runtime:
         *,
         settings: Settings | None = None,
         sources: dict[str, Source] | None = None,
+        zone: tzinfo | None = None,
     ) -> dict[str, JSONValue]:
         """Simulate activation in an isolated policy using its opaque public snapshot."""
         assert self.policy is not None
@@ -2635,7 +2640,7 @@ class Runtime:
         settings = settings or self.settings
         sources = self.preview_sources(settings) if sources is None else sources
         candidate = Policy(
-            build_policy(data, settings.duration("batch"))
+            build_policy(data, settings.duration("batch"), zone or settings.timezone)
             if explicit_policy
             else self._policy_config(settings, sources=sources)
         )
@@ -2725,7 +2730,7 @@ class Runtime:
         if action == "preview_functions":
             proposed = {**(self.entry.options or self.entry.data), **data}
             proposed.update(normalize_definitions(self.hass, proposed))
-            settings = Settings.from_data(proposed)
+            settings = Settings.from_data(proposed, zone=self.settings.timezone)
             return preview(self.hass, settings, self.enrolled, self.settings.functions)
         if action == "inventory":
             return {**deepcopy(self.inventory_static), **self.inventory_updates()}

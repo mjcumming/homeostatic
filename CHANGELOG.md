@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-11-05
+
+### Fixed
+
+- Avoid blocking Home Assistant while loading time zones for notification schedules and left-open monitoring.
+
 ### Changed
 
 - Add a direct HACS repository button and a GitHub star link to the README.
